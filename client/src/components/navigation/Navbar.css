@@ -1,0 +1,32 @@
+.nav-menu {
+    width: 100%;
+    height: 60px;
+    padding-left: 1em !important;
+    background-color: #FFFFFF !important;
+    -webkit-box-shadow: 2px 5px 4px 0px #999999 !important;
+    box-shadow: 2px 5px 4px 0px #999999 !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    margin: 0 !important;
+    z-index: 100;
+}
+
+.nav-logo-item {
+    width: 200px !important;
+    padding: 0 !important;
+    padding-right: 1em !important;
+}
+
+.nav-logo-item:hover {
+    background: transparent !important;
+}
+
+.nav-logo {
+    width: 75%;
+}
+
+.nav-title {
+    font-size: 1.5rem;
+    margin-left: 2%;
+}

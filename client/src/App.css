@@ -1,0 +1,64 @@
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: #F2F2F2 !important;
+}
+
+.App {
+    min-height: 100%;
+    width: 100%;
+}
+
+.component-container {
+    margin: calc(60px + 2%) 2% 0 2% !important;
+    width: calc(100% - 4%) !important;
+    z-index: 50;
+}
+
+.component-header {
+    font-size: 2.5em !important;
+}
+
+.component-innercontainer {
+    padding: 0 1% 0 1% !important;
+}
+
+.fullheight-menu {
+    height: 100% !important;
+}
+
+.button-float-right {
+    display: inherit !important;
+    margin-left: auto !important;
+}
+
+.container-hidden {
+    display: none !important;
+}
+
+.gray-span {
+    color: gray;
+    font-size: 75%;
+}
+
+.formheader {
+    margin: 2% 0 2% 0 !important;
+}
+
+.resource-id-span {
+    color: gray;
+    float: right;
+}
+
+.clear-grid {
+    clear: both !important;
+}
+
+.multiline-display {
+    white-space: pre-line !important;
+}
+
+.pane-segment {
+    padding: 0 !important;
+}

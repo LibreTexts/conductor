@@ -1,0 +1,36 @@
+{
+  "name": "libretexts-pts",
+  "version": "1.0.0",
+  "description": "The LibreTexts PTS concept server.",
+  "main": "server.js",
+  "dependencies": {
+    "async": "^3.2.0",
+    "base62-random": "^0.3.5",
+    "bcryptjs": "^2.4.3",
+    "bluebird": "^3.7.2",
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "helmet": "^4.1.1",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^5.10.10",
+    "path": "^0.12.7",
+    "uuid": "^8.3.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethanaturner/libretexts-pts.git"
+  },
+  "author": "Ethan Turner <ethanaturner13@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ethanaturner/libretexts-pts/issues"
+  },
+  "homepage": "https://github.com/ethanaturner/libretexts-pts#readme"
+}

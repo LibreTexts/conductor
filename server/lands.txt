@@ -1,0 +1,159 @@
+Libraries and Shelves
+
+    Biology
+Introductory and General Biology
+Cell and Molecular Biology
+Biochemistry
+Botany
+Ecology
+Evolutionary Developmental Biology
+Genetics
+Human Biology
+Microbiology
+Biotechnology
+Computational Biotechnology
+Ancillary Materials
+
+    Business
+Accounting
+Business
+Finance
+Management
+Marketing
+Law
+
+    Chemistry
+Introductory, Conceptual, and GOB Biochemistry
+General Chemistry
+Organic Chemistry
+Inorganic Chemistry
+Analytical Chemistry
+Physical & Theoretical Chemistry
+Biological Chemistry
+Environmental Chemistry
+Ancillary Materials
+
+    Engineering
+Chemical Engineering
+Civil Engineering
+Computer Science
+Electrical Engineering
+Environmental Engineering (Sustainability and Conservation)
+Industrial and Systems Engineering
+Materials Science
+Mechanical Engineering
+
+    Español
+Biología
+Ciencias Sociales
+Estadística
+Física
+Geociencias
+Humanidades
+Ingenieria
+Matemáticas
+Medicina
+Negocio
+Química
+Vocacional
+
+    Geosciences
+Geography (Physical)
+Geology
+Meteorology
+Oceanography
+Sedimentology
+Seismology
+Ancillary Materials
+
+    Humanities
+Art
+Composition
+Gender Studies
+Religious Studies
+History
+Languages
+Literature & Literacy
+Music
+Philosophy
+Research and Information Literacy
+Theater & Film
+Visualizations and Simulations
+
+    Mathematics
+Arithmetic & Basic Math
+Pre-Algebra
+Algebra
+Geometry
+Precalculus & Trigonometry
+Calculus
+Differential Equations
+Analysis
+Linear Algebra
+Abstract and Geometric Algebra
+Combinatorics and Discrete Mathematics
+Mathematical Logic and Proofs
+Applied Mathematics
+Scientific Computing, Simulations, and Modeling
+Visualizations and Simulations
+
+    Medicine
+Allied Health
+Anatomy and Physiology
+Health
+Medicine
+Nutrition
+Nursing
+Pharmacology and Neuroscience
+Veterinary Medicine
+Ancillary Materials
+
+    Physics
+Conceptual Physics
+College Physics
+University Physics
+Classical Mechanics
+Thermodynamics and Statistical Mechanics
+Quantum Mechanics
+Relativity
+Astronomy & Cosmology
+Electricity and Magnetism
+Optics
+Acoustics
+Modern Physics
+Nuclear and Particle Physics
+Math Methods and Pedagogy
+Ancillary Materials
+
+    Social Science
+Anthropology
+Communication Studies
+Counseling & Guidance
+Economics
+Early Childhood Education
+Education and Professional Development
+Geography (Human)
+Human Development
+Political Science and Civics
+Psychology
+Social Work
+Sociology
+Ancillary Materials
+
+    Statistics
+Introductory Statistics
+Probability Theory
+Computing and Modeling
+Applied Statistics
+Ancillary Materials
+
+    Workforce
+Allied Health
+Arts, Audio/Visual Technology, and Communications
+Construction
+Electronics Technology
+Hospitality
+HVAC and Power Plant Operations
+Information Technology
+Manufacturing
+Water Systems Technology
