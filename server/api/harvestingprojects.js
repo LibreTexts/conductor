@@ -8,7 +8,6 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const b62 = require('base62-random');
-const keys = require('../../config/keys.js');
 
 const calcProgress = (current, chapters) => {
     return Number.parseFloat(Math.floor((current / chapters)*100)).toFixed(0);

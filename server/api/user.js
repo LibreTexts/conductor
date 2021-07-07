@@ -4,7 +4,6 @@ const User = require('../models/user.js');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const keys = require('../../config/keys.js');
 
 const createUserBasic = (req, res, next) => {
     var response = {};

@@ -5,7 +5,6 @@ const async = require('async');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const keys = require('../../config/keys.js');
 
 const postAnnouncement = (req, res, next) => {
     var response = {};

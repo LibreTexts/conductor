@@ -6,7 +6,6 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const b62 = require('base62-random');
-const keys = require('../../config/keys.js');
 
 const addTarget = (req, res, next) => {
     var response = {};
