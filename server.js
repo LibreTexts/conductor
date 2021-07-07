@@ -7,6 +7,8 @@ const cookieParser = require('cookie-parser');
 const bluebird = require('bluebird');
 const helmet = require('helmet');
 
+const api = require('./server/api.js');
+
 const app = express();
 const port = process.env.PORT || 5000;
 dotenv.config();
@@ -47,18 +49,16 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
-const api = require('./server/api.js');
-const client = require('./server/client-router.js');
+
 
 app.use('/api', api);
+
 app.use(express.static(path.join(__dirname, 'client/build')));
 var cliRouter = express.Router();
 cliRouter.route('*').get((req, res) => {
     res.sendFile(path.resolve('./client/build/index.html'));
 });
 app.use('/', cliRouter);
-
-//app.use('/', client);
 
 app.listen(port, (err) => {
     if (err) {
