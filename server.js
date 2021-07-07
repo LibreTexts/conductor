@@ -1,3 +1,7 @@
+//
+// LibreTexts PTS
+// server.js
+//
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -17,6 +21,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(helmet());
 
+/*
 app.use((req, res, next) => {
     var allowedOrigins = ['http://localhost:3000'];
     var origin = req.headers.origin;
@@ -27,14 +32,16 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Authorization, X-Requested-With');
     return next();
 });
+*/
 
 mongoose.Promise = bluebird;
-mongoose.set('debug', true);
+if (process.env.NODE_ENV === 'development') {
+    mongoose.set('debug', true);
+}
 mongoose.connect(process.env.MONGOOSEURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
-    }
-).then(() => {
+}).then(() => {
     console.log('[DB]: Connected to MongoDB Atlas.');
 }).catch((err) => {
     console.error('[DB]: ' + err);
@@ -48,8 +55,6 @@ if (process.env.NODE_ENV === 'production') {
         next();
     });
 }
-
-
 
 app.use('/api', api);
 
