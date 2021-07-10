@@ -17,24 +17,6 @@ const app = express();
 const port = process.env.PORT || 5000;
 dotenv.config();
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(helmet());
-
-/*
-app.use((req, res, next) => {
-    var allowedOrigins = ['http://localhost:3000'];
-    var origin = req.headers.origin;
-    if (allowedOrigins.indexOf(origin) > -1) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Authorization, X-Requested-With');
-    return next();
-});
-*/
-
 mongoose.Promise = bluebird;
 if (process.env.NODE_ENV === 'development') {
     mongoose.set('debug', true);
@@ -48,7 +30,11 @@ mongoose.connect(process.env.MONGOOSEURI, {
     console.error('[DB]: ' + err);
 });
 
-/*
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(helmet());
+
 if (process.env.NODE_ENV === 'production') {
     app.use((req, res, next) => {
         if (!req.secure && req.get('x-forwarded-proto') !== 'https' && process.env.NODE_ENV !== 'development') {
@@ -57,7 +43,6 @@ if (process.env.NODE_ENV === 'production') {
         next();
     });
 }
-*/
 
 app.use('/api', api);
 

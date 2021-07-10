@@ -19,6 +19,35 @@ const harvestingProjectsInterface = require('./api/harvestingprojects.js');
 
 var router = express.Router();
 
+router.use((req, res, next) => {
+    var allowedOrigins = [];
+    var origin = req.headers.origin;
+    if (process.env.NODE_ENV === 'production') {
+        allowedOrigins = [process.env.PRODUCTIONURL];
+    } else if (process.env.NODE_ENV === 'development') {
+        console.log('[SERVER]: METHOD: ', req.method);
+        allowedOrigins = ['http://localhost:7000'];
+    }
+    if (allowedOrigins.indexOf(origin) > -1) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    if (req.method !== 'OPTIONS') {
+        if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
+            return res.status(403).send({
+                err: true,
+                errMsg: "Invalid request."
+            });
+        }
+        if (req.cookies.access_token !== undefined && req.cookies.signed_token !== undefined) {
+            req.headers.authorization = req.cookies.access_token + '.' + req.cookies.signed_token;
+        }
+    }
+    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
+    res.header('Access-Control-Allow-Credentials', true);
+    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Authorization, Access-Control-Allow-Credentials, X-Requested-With');
+    return next();
+});
+
 /* Auth */
 router.route('/v1/auth/login').post(authInterface.login);
 

@@ -43,11 +43,7 @@ import Search from './components/search/Search.js';
 import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js';
 
 function App() {
-    if (process.env.NODE_ENV === 'production') {
-        axios.defaults.baseURL = '/api/v1';
-    } else {
-        axios.defaults.baseURL = 'http://localhost:5000/api/v1';
-    }
+    axios.defaults.baseURL = '/api/v1';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     axios.interceptors.request.use((config) => {
         if (!config.headers.Authorization) {
