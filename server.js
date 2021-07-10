@@ -48,6 +48,7 @@ mongoose.connect(process.env.MONGOOSEURI, {
     console.error('[DB]: ' + err);
 });
 
+/*
 if (process.env.NODE_ENV === 'production') {
     app.use((req, res, next) => {
         if (!req.secure && req.get('x-forwarded-proto') !== 'https' && process.env.NODE_ENV !== 'development') {
@@ -56,6 +57,7 @@ if (process.env.NODE_ENV === 'production') {
         next();
     });
 }
+*/
 
 app.use('/api', api);
 
