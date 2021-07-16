@@ -3,42 +3,28 @@ import './Login.css';
 import { Grid, Segment, Button, Form, Input, Image, Modal, Message } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 import queryString from 'query-string';
 
 import { useUserState } from '../../providers.js';
 
 const Login = (props) => {
-    const [{ isAuthenticated }, dispatch] = useUserState();
+    const [, dispatch] = useUserState();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showErrModal, setErrModal] = useState(false);
     const [errMsg, setErrMsg] = useState('');
     const [showExpiredAuth, setExpiredAuth] = useState(false);
-    const [showDisclaimer, setShowDisclaimer] = useState(false);
 
     useEffect(() => {
-        if (localStorage.getItem('lbrtxts-pts-showndisc') != null) {
-            setShowDisclaimer(false);
-        } else {
-            setShowDisclaimer(true);
-        }
-    }, []);
-
-    useEffect(() => {
+        document.title = "LibreTexts PTS | Login";
         const queryValues = queryString.parse(props.location.search);
         const src = decodeURIComponent(queryValues.src);
         if (src === "expired") {
             setExpiredAuth(true);
         }
     }, [props.location.search]);
-
-    useEffect(() => {
-        document.title = "LibreTexts PTS | Login";
-        if (isAuthenticated && (localStorage.getItem('lbrtxts-pts-auth') != null)) {
-            props.history.push('/');
-        }
-    }, [isAuthenticated, props.history]);
 
     const onChange = (e) => {
         if (e.target.id === 'email') {
@@ -69,15 +55,14 @@ const Login = (props) => {
             }
         }).then((res) => {
             if (!res.data.err) {
-                dispatch({
-                    type: 'SET_LOCAL_TOKEN',
-                    token: res.data.token
-                });
-                dispatch({
-                    type: 'SET_AUTH_TRUE',
-                    isAuthenticated: true
-                });
-                props.history.push('/');
+                if (Cookies.get('access_token') !== undefined) {
+                    dispatch({
+                        type: 'SET_AUTH'
+                    });
+                    props.history.push('/');
+                } else {
+                    alert("Oops, we're having trouble completing your login.");
+                }
             } else {
                 setErrMsg(res.data.errMsg);
                 setErrModal(true);
@@ -92,11 +77,6 @@ const Login = (props) => {
         setErrMsg('');
         setErrModal(false);
     };
-
-    const closeDisclaimer = () => {
-        localStorage.setItem('lbrtxts-pts-showndisc', "true");
-        setShowDisclaimer(false);
-    }
 
     return(
         <Grid centered={true} verticalAlign='middle' className="login-grid">
@@ -142,21 +122,6 @@ const Login = (props) => {
                 </Modal.Content>
                 <Modal.Actions>
                     <Button color="black" onClick={modalClosed}>Okay</Button>
-                </Modal.Actions>
-            </Modal>
-            <Modal
-                onClose={closeDisclaimer}
-                open={showDisclaimer}
-            >
-                <Modal.Header>NOTICE</Modal.Header>
-                <Modal.Content>
-                    <Modal.Description>
-                        <p>LibreTexts PTS is <strong>NOT</strong> an official component of the LibreTexts Project. This system is for demonstration purposes only. The LibreTexts name and all relevant branding is the property of LibreTexts, a 501(c)(3) non-profit organization.</p>
-                        <p><em>NOTE: </em>This system is not yet optimized for mobile and tablet screen sizes. <strong>Please view this site on a standard desktop-size screen.</strong></p>
-                    </Modal.Description>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button color="black" onClick={closeDisclaimer}>Okay</Button>
                 </Modal.Actions>
             </Modal>
         </Grid>

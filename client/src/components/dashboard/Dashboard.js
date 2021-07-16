@@ -1,6 +1,6 @@
 import './Dashboard.css';
 
-import { Grid, Header, Menu, List, Image, Segment, Divider, Message, Icon, Button, Modal, Form } from 'semantic-ui-react';
+import { Grid, Header, Menu, List, Image, Segment, Divider, Message, Icon, Button, Modal, Form, Feed } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
 import axios from 'axios';
@@ -209,10 +209,9 @@ class Dashboard extends Component {
 
     parseDateAndTime(dateInput) {
         const dateInstance = new Date(dateInput);
-        const timeString = date.format(dateInstance, 'h:mm A');
         return {
-            date: dateInstance.toDateString(),
-            time: timeString
+            date: date.format(dateInstance, 'ddd, MMM DDD, YYYY'),
+            time: date.format(dateInstance, 'h:mm A')
         }
     }
 
@@ -365,6 +364,15 @@ class Dashboard extends Component {
         }
     }
 
+    truncateString(str, len) {
+        if (str.length > len) {
+            let subString = str.substring(0, len);
+            return subString + "...";
+        } else {
+            return str;
+        }
+    }
+
     render() {
         const View = (props) => {
             switch (this.state.currentView) {
@@ -379,28 +387,27 @@ class Dashboard extends Component {
                                 </Button>
                             }
                             <Divider />
-                            <List
-                                relaxed
-                                divided
-                            >
+                            <Feed className='announcement-feed'>
                             {this.state.allAnnouncements.map((item, index) => {
                                 return (
-                                    <List.Item key={index} onClick={() => { this.openAnnouncementViewModal(index)}} className='dashboard-list-item'>
-                                        <Image avatar src={`${item.author.avatar}`} />
-                                        <List.Content>
-                                            <List.Header className='recent-announcement-title'>{item.title}</List.Header>
-                                            <List.Description>
-                                                {item.message}<br />
-                                                <span className='author-info-span gray-span'>by {item.author.firstName} {item.author.lastName} on {item.date} at {item.time}</span>
-                                            </List.Description>
-                                        </List.Content>
-                                    </List.Item>
+                                    <Feed.Event key={index} onClick={() => { this.openAnnouncementViewModal(index)}} className='announcement'>
+                                        <Feed.Label image={`${item.author.avatar}`} />
+                                        <Feed.Content>
+                                            <Feed.Summary>
+                                                {item.author.firstName} {item.author.lastName}
+                                                <Feed.Date>on {item.date} at {item.time} </Feed.Date>
+                                            </Feed.Summary>
+                                            <Feed.Extra text>
+                                                {this.truncateString(item.message, 280)}
+                                            </Feed.Extra>
+                                        </Feed.Content>
+                                    </Feed.Event>
                                 );
                             })}
+                            </Feed>
                             {this.state.allAnnouncements.length === 0 &&
                                 <p>No recent announcements.</p>
                             }
-                            </List>
                         </Segment>
                     );
                 case 'projects':
@@ -471,16 +478,6 @@ class Dashboard extends Component {
                         <Segment>
                             <Header as='h2'>Home</Header>
                             <Divider />
-                            <Message
-                                size='large'
-                                positive
-                                icon>
-                                <Icon name='check circle' />
-                                <Message.Content>
-                                    <Message.Header>All services operational.</Message.Header>
-                                    All LibreTexts services are up and running.
-                                </Message.Content>
-                            </Message>
                             <Segment>
                                 <Header size='medium' onClick={(e) => {this.setView(e, { name: 'announcements' })}} className='dashboard-header-link'>Announcements <span className='gray-span'>(most recent)</span></Header>
                                 {this.state.recentAnnouncement ?

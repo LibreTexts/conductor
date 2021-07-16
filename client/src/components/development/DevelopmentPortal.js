@@ -33,13 +33,11 @@ class DevelopmentPortal extends Component {
             rawProjects: [],
             sortedProjects: [],
             flaggedProjects: [],
-            completedProjects: [],
             currentSortString: '',
             showProjectDeleteSuccess: false,
             showTextPlacedBack: false,
             loadedCurrentProjects: false,
-            loadedFlaggedProjects: false,
-            loadedCompletedProjects: false
+            loadedFlaggedProjects: false
         };
     }
 
@@ -95,31 +93,12 @@ class DevelopmentPortal extends Component {
                 alert("Oops! We encountered an error.");
                 console.log(res.data.errMsg);
             }
-            this.getRecentlyCompletedProjects();
         }).catch((err) => {
             alert("Oops! We encountered an error.");
             console.log(err);
         });
     }
 
-    getRecentlyCompletedProjects() {
-        axios.get('/development/projects/recentlycompleted').then((res) => {
-            if (!res.data.err) {
-                if (res.data.projects != null) {
-                    this.setState({
-                        completedProjects: res.data.projects,
-                        loadedCompletedProjects: true
-                    });
-                }
-            } else {
-                alert("Oops! We encountered an error.");
-                console.log(res.data.errMsg);
-            }
-        }).catch((err) => {
-            alert("Oops! We encountered an error.");
-            console.log(err);
-        });
-    }
 
     setSortString(e) {
         const rawProjects = this.state.rawProjects;
@@ -147,7 +126,6 @@ class DevelopmentPortal extends Component {
                             <Table.Row>
                                 <Table.HeaderCell width={4}><Header sub>Title</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={2}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={2}><Header sub>Status</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={3}><Header sub>Last Updated At</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={1}></Table.HeaderCell>
                             </Table.Row>
@@ -169,9 +147,6 @@ class DevelopmentPortal extends Component {
                                         </Table.Cell>
                                         <Table.Cell>
                                             <p>{item.currentProgress}%</p>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <p>{item.status}</p>
                                         </Table.Cell>
                                         <Table.Cell>
                                             <p>{item.updatedDate} at {item.updatedTime}</p>
@@ -198,7 +173,6 @@ class DevelopmentPortal extends Component {
             CurrentDisplay = <Loader active inline='centered' />
         }
         let FlaggedDisplay;
-        let CompletedDisplay;
         if (this.state.loadedFlaggedProjects === true) {
             if (this.state.flaggedProjects.length > 0) {
                 FlaggedDisplay = (
@@ -248,51 +222,6 @@ class DevelopmentPortal extends Component {
         } else {
             FlaggedDisplay = <Loader active inline='centered' />
         }
-        if (this.state.loadedCompletedProjects === true) {
-            if (this.state.completedProjects.length > 0) {
-                CompletedDisplay = (
-                    <Table celled>
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.HeaderCell width={10}><Header sub>Title</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={4}><Header sub>Last Updated At</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={1}></Table.HeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {this.state.completedProjects.map((item, index) => {
-                                const itemDate = new Date(item.lastUpdate.createdAt);
-                                item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                                item.updatedTime = date.format(itemDate, 'h:mm A');
-                                return (
-                                    <Table.Row key={index}>
-                                        <Table.Cell>
-                                            <p><strong><Link to={`/development/projects/${item.projectID}`} className='dproject-table-link'>{item.title}</Link></strong></p>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <p>{item.updatedDate} at {item.updatedTime}</p>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Link to={`/development/projects/${item.projectID}`}>
-                                                <Button color='blue' fluid>
-                                                    <Button.Content>
-                                                        <Icon name='folder open outline' />
-                                                    </Button.Content>
-                                                </Button>
-                                            </Link>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                )
-                            })}
-                        </Table.Body>
-                    </Table>
-                )
-            } else {
-                CompletedDisplay = <Message><p>You have no completed projects right now.</p></Message>
-            }
-        } else {
-            CompletedDisplay = <Loader active inline='centered' />
-        }
         return(
             <Grid className='component-container' divided='vertically'>
                 <Grid.Row>
@@ -304,7 +233,7 @@ class DevelopmentPortal extends Component {
                     <Grid.Column width={16}>
                         <Menu widths={3}>
                             <Menu.Item as={Link} to='/development/taskqueue' name='taskqueue' icon='tasks' content={<p>Task Queue</p>} />
-                            <Menu.Item as={Link} to='/development/projects/completed' name='completed' icon='check' content={<p>View All Completed Projects</p>} />
+                            <Menu.Item as={Link} to='/development/projects/completed' name='completed' icon='check' content={<p>View Completed Projects</p>} />
                             <Menu.Item as={Link} to='/development/aiofeed' name='aio' icon='feed' content={<p>AIO Feed</p>} />
                         </Menu>
                         <Segment>
@@ -352,11 +281,6 @@ class DevelopmentPortal extends Component {
                             <Header as='h3'>Flagged Development Projects</Header>
                             <Divider />
                             {FlaggedDisplay}
-                        </Segment>
-                        <Segment>
-                            <Header as='h3'>Recently Completed Development Projects</Header>
-                            <Divider />
-                            {CompletedDisplay}
                         </Segment>
                     </Grid.Column>
                 </Grid.Row>

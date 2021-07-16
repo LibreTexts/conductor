@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, Image, Dropdown, Icon } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 import { useUserState } from '../../providers.js';
 
@@ -11,14 +12,14 @@ const Navbar = (props) => {
 
     const location = useLocation();
 
-    const [{firstName, lastName, isAuthenticated, roles}, dispatch] = useUserState();
+    const [{firstName, lastName, avatar, roles, isAuthenticated}, dispatch] = useUserState();
 
     const [activeItem, setActiveItem] = useState('');
     //const [searchInput, setSearchInput] = useState('');
 
     useEffect(() => {
         dispatch({
-            type: 'CHECK_LOCAL_TOKEN'
+            type: 'CHECK_AUTH'
         });
     }, [dispatch]);
 
@@ -41,14 +42,8 @@ const Navbar = (props) => {
                     console.log(res.data.errMsg);
                 }
             }).catch((err) => {
-                if (err.response.data.tokenIsExp) {
-                    dispatch({
-                        type: 'CLEAR_USER_INFO'
-                    });
-                    dispatch({
-                        type: 'CLEAR_LOCAL_DATA'
-                    });
-                    window.location.assign('/login?src=expired');
+                if (err.response.data.tokenExpired !== true) {
+                    alert("Oops, we encountered an error.");
                 }
             });
         }
@@ -73,9 +68,11 @@ const Navbar = (props) => {
         dispatch({
             type: 'CLEAR_USER_INFO'
         });
-        dispatch({
-            type: 'CLEAR_LOCAL_DATA'
-        });
+        var domains = String(process.env.PRODUCTIONURLS).split(',');
+        Cookies.remove('access_token', { path: '/', domain: '.' + domains[0] });
+        if (process.env.NODE_ENV === 'development') {
+            Cookies.remove('access_token', { path: '/', domain: 'localhost' });
+        }
         window.location.assign('/login');
     };
 
@@ -170,13 +167,14 @@ const Navbar = (props) => {
                         </Dropdown>
                     </Menu.Item>
                     <Menu.Item>
-                        <Icon name='user' />
+                        <Image src={`${avatar}`} avatar />
                         <Dropdown inline text={firstName + ' ' + lastName}>
                             <Dropdown.Menu>
                                 {isAdmin &&
                                     <Dropdown.Item as={Link} to='/supervisors' ><Icon name='sitemap' />Supervisor Dashboard</Dropdown.Item>
                                 }
-                                <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Account Settings</Dropdown.Item>
+                                <Dropdown.Divider />
+                                <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Settings</Dropdown.Item>
                                 <Dropdown.Item onClick={logOut}><Icon name='log out' />Log out</Dropdown.Item>
                             </Dropdown.Menu>
                         </Dropdown>

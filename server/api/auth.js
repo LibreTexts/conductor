@@ -20,7 +20,6 @@ const login = (req, res, next) => {
             throw("Couldn't find an account with that email.");
         }
     }).then(([isMatch, user]) => {
-        console.log(user);
         const payload = {
             uuid: user.uuid
         };
@@ -29,12 +28,22 @@ const login = (req, res, next) => {
                 expiresIn: 86400
             },(err, token) => {
                 if (!err && token !== null) {
-                    response.err = false;
-                    response.token = token;
+                    const splitToken = token.split('.');
+                    var accessCookie = 'access_token=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
+                    var sigCookie = 'signed_token=' + splitToken[2] + '; Path=/; HttpOnly;';
+                    if (process.env.NODE_ENV === 'production') {
+                        const domains = String(process.env.PRODUCTIONURLS).split(',');
+                        accessCookie += " Domain=" + domains[0] + ';';
+                        sigCookie += " Domain=" + domains[0] + '; Secure;';
+                    }
+                    const cookiesToSet = [accessCookie, sigCookie];
+                    res.setHeader('Set-Cookie', cookiesToSet);
+                    return res.send({
+                        err: false
+                    });
                 } else {
                     throw(err);
                 }
-                return res.send(response);
             });
         } else {
             throw("Incorrect password.");
@@ -59,7 +68,7 @@ const verifyRequest = (req, res, next) => {
             errMsg: "Invalid token. Try signing out and in again."
         };
         if (err.name === 'TokenExpiredError') {
-            response.tokenIsExp = true;
+            response.tokenExpired = true;
         }
         return res.status(401).send(response);
     }

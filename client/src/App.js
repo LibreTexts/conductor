@@ -45,16 +45,16 @@ import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js'
 function App() {
     axios.defaults.baseURL = '/api/v1';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-    axios.interceptors.request.use((config) => {
-        if (!config.headers.Authorization) {
-            const token = localStorage.getItem('lbrtxts-pts-auth');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
+    axios.defaults.headers.withCredentials = true;
+    axios.interceptors.response.use((res) => {
+        return res;
+    }, (err) => {
+        if (err.response !== undefined) {
+            if (err.response.status === 401 && err.response.data.tokenExpired === true) {
+                window.location.assign('/login?src=tokenexp')
             }
         }
-        return config;
-    }, (err) => {
-        console.log(err);
+        return Promise.reject(err);
     });
 
     return (

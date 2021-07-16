@@ -632,8 +632,7 @@ class SupervisorDashboard extends Component {
                                     <Grid.Column width={4}>
                                         <strong>SIGNED IN AS: </strong>{this.state.lastName}, {this.state.firstName} ({this.state.roles.map((item) => { return item })})
                                     </Grid.Column>
-                                    <Grid.Column width={8} textAlign='center'>
-                                        <strong>LIBRETEXTS STATUS: </strong>All services operational
+                                    <Grid.Column width={8}>
                                     </Grid.Column>
                                     <Grid.Column width={4} textAlign='right'>
                                         <strong>DATE: </strong>{this.state.date}

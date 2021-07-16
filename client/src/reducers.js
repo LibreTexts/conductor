@@ -1,20 +1,23 @@
+import Cookies from 'js-cookie';
+
 /* User */
 export const userInitialState = {
     firstName: '',
     lastName: '',
-    avatar: '',
+    avatar: '/favicon-96x96.png',
     roles: [],
     isAuthenticated: false
 };
 
 export function userReducer(state, action) {
     switch(action.type) {
-        case 'SET_LOCAL_TOKEN':
-            localStorage.setItem('lbrtxts-pts-auth', action.token);
-            return state;
-        case 'CHECK_LOCAL_TOKEN':
-            const token = localStorage.getItem('lbrtxts-pts-auth');
-            if (token) {
+        case 'SET_AUTH':
+            return {
+                ...state,
+                isAuthenticated: true
+            }
+        case 'CHECK_AUTH':
+            if (Cookies.get('access_token') !== undefined) {
                 return {
                     ...state,
                     isAuthenticated: true
@@ -22,15 +25,7 @@ export function userReducer(state, action) {
             } else {
                 return state;
             }
-        case 'CLEAR_LOCAL_DATA':
-            localStorage.clear();
-            return state;
-        case 'SET_AUTH_TRUE':
-            return {
-                ...state,
-                isAuthenticated: true
-            }
-        case 'SET_AUTH_FALSE':
+        case 'CLEAR_AUTH':
             return {
                 ...state,
                 isAuthenticated: false

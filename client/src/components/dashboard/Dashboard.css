@@ -24,3 +24,17 @@
 .dashboard-list-item {
     cursor: pointer !important;
 }
+
+.announcement-feed {
+    margin-left: 1em !important;
+    margin-right: 1em !important;
+}
+
+.announcement {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+    padding: 1% 0 1% 0 !important;
+}
+
+.announcement:hover {
+    cursor: pointer !important;
+}

@@ -1,7 +1,9 @@
+import Cookies from 'js-cookie';
+
 const AuthHelper = {
     isAuthenticated: function() {
-        if (localStorage.getItem('lbrtxts-pts-auth') != null) {
-            return true;
+        if (Cookies.get('access_token') !== undefined ){
+          return true;
         }
         return false;
     }

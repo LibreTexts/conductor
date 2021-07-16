@@ -1,20 +1,20 @@
 'use strict';
 const express = require('express');
 // Interfaces
-const authInterface = require('./api/auth.js');
-const userInterface = require('./api/user.js');
-const searchInterface = require('./api/search.js');
-const announcementInterface = require('./api/announcement.js');
-const sharedProjectsInterface = require('./api/projects.js');
+const authAPI = require('./api/auth.js');
+const userAPI = require('./api/user.js');
+const searchAPI = require('./api/search.js');
+const announcementAPI = require('./api/announcement.js');
+const sharedProjectsAPI = require('./api/projects.js');
 
-const adminTasksInterface = require('./api/admintasks.js');
-const adminProjectsInterface = require('./api/adminprojects.js');
+const adminTasksAPI = require('./api/admintasks.js');
+const adminProjectsAPI = require('./api/adminprojects.js');
 
-const devTasksInterface = require('./api/devtasks.js');
-const developmentProjectsInterface = require('./api/developmentprojects.js');
+const devTasksAPI = require('./api/devtasks.js');
+const developmentProjectsAPI = require('./api/developmentprojects.js');
 
-const harvestingTargetsInterface = require('./api/harvestingtargets.js');
-const harvestingProjectsInterface = require('./api/harvestingprojects.js');
+const harvestingTargetsAPI = require('./api/harvestingtargets.js');
+const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
 
 var router = express.Router();
@@ -23,7 +23,7 @@ router.use((req, res, next) => {
     var allowedOrigins = [];
     var origin = req.headers.origin;
     if (process.env.NODE_ENV === 'production') {
-        allowedOrigins = [process.env.PRODUCTIONURL];
+        allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
     } else if (process.env.NODE_ENV === 'development') {
         console.log('[SERVER]: METHOD: ', req.method);
         allowedOrigins = ['http://localhost:7000'];
@@ -49,104 +49,104 @@ router.use((req, res, next) => {
 });
 
 /* Auth */
-router.route('/v1/auth/login').post(authInterface.login);
+router.route('/v1/auth/login').post(authAPI.login);
 
 /* Search */
-//router.route('/v1/search').get(authInterface.verifyRequest, searchInterface.performSearch);
+//router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);
 
 /* Users */
-//router.route('/v1/user/createuserbasic').post(userInterface.createUserBasic);
-router.route('/v1/user/basicinfo').get(authInterface.verifyRequest, userInterface.basicUserInfo);
-router.route('/v1/user/accountinfo').get(authInterface.verifyRequest, userInterface.basicAccountInfo);
-router.route('/v1/user/getadmins').get(authInterface.verifyRequest, userInterface.getAdmins);
-router.route('/v1/user/getdevelopers').get(authInterface.verifyRequest, userInterface.getDevelopers);
-router.route('/v1/user/getharvesters').get(authInterface.verifyRequest, userInterface.getHarvesters);
+//router.route('/v1/user/createuserbasic').post(userAPI.createUserBasic);
+router.route('/v1/user/basicinfo').get(authAPI.verifyRequest, userAPI.basicUserInfo);
+router.route('/v1/user/accountinfo').get(authAPI.verifyRequest, userAPI.basicAccountInfo);
+router.route('/v1/user/getadmins').get(authAPI.verifyRequest, userAPI.getAdmins);
+router.route('/v1/user/getdevelopers').get(authAPI.verifyRequest, userAPI.getDevelopers);
+router.route('/v1/user/getharvesters').get(authAPI.verifyRequest, userAPI.getHarvesters);
 
 /* Announcements */
-router.route('/v1/announcements/create').post(authInterface.verifyRequest, announcementInterface.postAnnouncement);
-router.route('/v1/announcements/all').get(authInterface.verifyRequest, announcementInterface.getAllAnnouncements);
-router.route('/v1/announcements/recent').get(authInterface.verifyRequest, announcementInterface.getRecentAnnouncement);
+router.route('/v1/announcements/create').post(authAPI.verifyRequest, announcementAPI.postAnnouncement);
+router.route('/v1/announcements/all').get(authAPI.verifyRequest, announcementAPI.getAllAnnouncements);
+router.route('/v1/announcements/recent').get(authAPI.verifyRequest, announcementAPI.getRecentAnnouncement);
 
 /* Projects (General) */
-router.route('/v1/projects/all').get(authInterface.verifyRequest, sharedProjectsInterface.getAllUserProjects);
-router.route('/v1/projects/recent').get(authInterface.verifyRequest, sharedProjectsInterface.getRecentUserProjects);
+router.route('/v1/projects/all').get(authAPI.verifyRequest, sharedProjectsAPI.getAllUserProjects);
+router.route('/v1/projects/recent').get(authAPI.verifyRequest, sharedProjectsAPI.getRecentUserProjects);
 
 /* Harvesting */
 // Targetlist
-router.route('/v1/harvesting/targetlist/all').get(authInterface.verifyRequest, harvestingTargetsInterface.getAllTargets);
-router.route('/v1/harvesting/targetlist/add').post(authInterface.verifyRequest, harvestingTargetsInterface.addTarget);
-router.route('/v1/harvesting/targetlist/targets/detail').get(authInterface.verifyRequest, harvestingTargetsInterface.getTargetDetail);
-router.route('/v1/harvesting/targetlist/targets/update').post(authInterface.verifyRequest, harvestingTargetsInterface.updateTarget);
-router.route('/v1/harvesting/targetlist/targets/delete').post(authInterface.verifyRequest, harvestingTargetsInterface.deleteTarget);
+router.route('/v1/harvesting/targetlist/all').get(authAPI.verifyRequest, harvestingTargetsAPI.getAllTargets);
+router.route('/v1/harvesting/targetlist/add').post(authAPI.verifyRequest, harvestingTargetsAPI.addTarget);
+router.route('/v1/harvesting/targetlist/targets/detail').get(authAPI.verifyRequest, harvestingTargetsAPI.getTargetDetail);
+router.route('/v1/harvesting/targetlist/targets/update').post(authAPI.verifyRequest, harvestingTargetsAPI.updateTarget);
+router.route('/v1/harvesting/targetlist/targets/delete').post(authAPI.verifyRequest, harvestingTargetsAPI.deleteTarget);
 
 // Projects
-router.route('/v1/harvesting/projects/addexisting').post(authInterface.verifyRequest, harvestingProjectsInterface.addExistingProject);
-router.route('/v1/harvesting/projects/newfromtarget').post(authInterface.verifyRequest, harvestingProjectsInterface.newProjectFromTarget);
-router.route('/v1/harvesting/projects/newforassignee').post(authInterface.verifyRequest, harvestingProjectsInterface.newProjectForAssignee);
-router.route('/v1/harvesting/projects/detail').get(authInterface.verifyRequest, harvestingProjectsInterface.getProjectDetail);
-router.route('/v1/harvesting/projects/update').post(authInterface.verifyRequest, harvestingProjectsInterface.updateProject);
-router.route('/v1/harvesting/projects/flag').post(authInterface.verifyRequest, harvestingProjectsInterface.flagProject);
-router.route('/v1/harvesting/projects/unflag').post(authInterface.verifyRequest, harvestingProjectsInterface.unflagProject);
-router.route('/v1/harvesting/projects/markcompleted').post(authInterface.verifyRequest, harvestingProjectsInterface.markProjectCompleted);
-router.route('/v1/harvesting/projects/delete').post(authInterface.verifyRequest, harvestingProjectsInterface.deleteProject);
-router.route('/v1/harvesting/projects/current').get(authInterface.verifyRequest, harvestingProjectsInterface.getCurrentProjects);
-router.route('/v1/harvesting/projects/flagged').get(authInterface.verifyRequest, harvestingProjectsInterface.getFlaggedProjects);
-router.route('/v1/harvesting/projects/recentlycompleted').get(authInterface.verifyRequest, harvestingProjectsInterface.getRecentlyCompletedProjects);
-router.route('/v1/harvesting/projects/completed').get(authInterface.verifyRequest, harvestingProjectsInterface.getAllCompletedProjects);
-router.route('/v1/harvesting/projects/updates/all').get(authInterface.verifyRequest, harvestingProjectsInterface.getAllProgressUpdates);
-router.route('/v1/harvesting/projects/updates/new').post(authInterface.verifyRequest, harvestingProjectsInterface.addProgressUpdate);
-router.route('/v1/harvesting/projects/updates/delete').post(authInterface.verifyRequest, harvestingProjectsInterface.deleteProgressUpdate);
-router.route('/v1/harvesting/projects/updates/feed').get(authInterface.verifyRequest, harvestingProjectsInterface.getUpdatesFeed);
+router.route('/v1/harvesting/projects/addexisting').post(authAPI.verifyRequest, harvestingProjectsAPI.addExistingProject);
+router.route('/v1/harvesting/projects/newfromtarget').post(authAPI.verifyRequest, harvestingProjectsAPI.newProjectFromTarget);
+router.route('/v1/harvesting/projects/newforassignee').post(authAPI.verifyRequest, harvestingProjectsAPI.newProjectForAssignee);
+router.route('/v1/harvesting/projects/detail').get(authAPI.verifyRequest, harvestingProjectsAPI.getProjectDetail);
+router.route('/v1/harvesting/projects/update').post(authAPI.verifyRequest, harvestingProjectsAPI.updateProject);
+router.route('/v1/harvesting/projects/flag').post(authAPI.verifyRequest, harvestingProjectsAPI.flagProject);
+router.route('/v1/harvesting/projects/unflag').post(authAPI.verifyRequest, harvestingProjectsAPI.unflagProject);
+router.route('/v1/harvesting/projects/markcompleted').post(authAPI.verifyRequest, harvestingProjectsAPI.markProjectCompleted);
+router.route('/v1/harvesting/projects/delete').post(authAPI.verifyRequest, harvestingProjectsAPI.deleteProject);
+router.route('/v1/harvesting/projects/current').get(authAPI.verifyRequest, harvestingProjectsAPI.getCurrentProjects);
+router.route('/v1/harvesting/projects/flagged').get(authAPI.verifyRequest, harvestingProjectsAPI.getFlaggedProjects);
+router.route('/v1/harvesting/projects/recentlycompleted').get(authAPI.verifyRequest, harvestingProjectsAPI.getRecentlyCompletedProjects);
+router.route('/v1/harvesting/projects/completed').get(authAPI.verifyRequest, harvestingProjectsAPI.getAllCompletedProjects);
+router.route('/v1/harvesting/projects/updates/all').get(authAPI.verifyRequest, harvestingProjectsAPI.getAllProgressUpdates);
+router.route('/v1/harvesting/projects/updates/new').post(authAPI.verifyRequest, harvestingProjectsAPI.addProgressUpdate);
+router.route('/v1/harvesting/projects/updates/delete').post(authAPI.verifyRequest, harvestingProjectsAPI.deleteProgressUpdate);
+router.route('/v1/harvesting/projects/updates/feed').get(authAPI.verifyRequest, harvestingProjectsAPI.getUpdatesFeed);
 
 /* Development */
 // Task Queue
-router.route('/v1/development/taskqueue/all').get(authInterface.verifyRequest, devTasksInterface.getAllTasks);
-router.route('/v1/development/taskqueue/add').post(authInterface.verifyRequest, devTasksInterface.addTask);
-router.route('/v1/development/taskqueue/tasks/detail').get(authInterface.verifyRequest, devTasksInterface.getTaskDetail);
-router.route('/v1/development/taskqueue/tasks/update').post(authInterface.verifyRequest, devTasksInterface.updateTask);
-router.route('/v1/development/taskqueue/tasks/delete').post(authInterface.verifyRequest, devTasksInterface.deleteTask);
+router.route('/v1/development/taskqueue/all').get(authAPI.verifyRequest, devTasksAPI.getAllTasks);
+router.route('/v1/development/taskqueue/add').post(authAPI.verifyRequest, devTasksAPI.addTask);
+router.route('/v1/development/taskqueue/tasks/detail').get(authAPI.verifyRequest, devTasksAPI.getTaskDetail);
+router.route('/v1/development/taskqueue/tasks/update').post(authAPI.verifyRequest, devTasksAPI.updateTask);
+router.route('/v1/development/taskqueue/tasks/delete').post(authAPI.verifyRequest, devTasksAPI.deleteTask);
 
 // Projects
-router.route('/v1/development/projects/addexisting').post(authInterface.verifyRequest, developmentProjectsInterface.addExistingProject);
-router.route('/v1/development/projects/newfromtask').post(authInterface.verifyRequest, developmentProjectsInterface.newProjectFromTask);
-router.route('/v1/development/projects/newforassignee').post(authInterface.verifyRequest, developmentProjectsInterface.newProjectForAssignee);
-router.route('/v1/development/projects/detail').get(authInterface.verifyRequest, developmentProjectsInterface.getProjectDetail);
-router.route('/v1/development/projects/update').post(authInterface.verifyRequest, developmentProjectsInterface.updateProject);
-router.route('/v1/development/projects/flag').post(authInterface.verifyRequest, developmentProjectsInterface.flagProject);
-router.route('/v1/development/projects/unflag').post(authInterface.verifyRequest, developmentProjectsInterface.unflagProject);
-router.route('/v1/development/projects/markcompleted').post(authInterface.verifyRequest, developmentProjectsInterface.markProjectCompleted);
-router.route('/v1/development/projects/delete').post(authInterface.verifyRequest, developmentProjectsInterface.deleteProject);
-router.route('/v1/development/projects/current').get(authInterface.verifyRequest, developmentProjectsInterface.getCurrentProjects);
-router.route('/v1/development/projects/flagged').get(authInterface.verifyRequest, developmentProjectsInterface.getFlaggedProjects);
-router.route('/v1/development/projects/recentlycompleted').get(authInterface.verifyRequest, developmentProjectsInterface.getRecentlyCompletedProjects);
-router.route('/v1/development/projects/completed').get(authInterface.verifyRequest, developmentProjectsInterface.getAllCompletedProjects);
-router.route('/v1/development/projects/updates/all').get(authInterface.verifyRequest, developmentProjectsInterface.getAllProgressUpdates);
-router.route('/v1/development/projects/updates/new').post(authInterface.verifyRequest, developmentProjectsInterface.addProgressUpdate);
-router.route('/v1/development/projects/updates/delete').post(authInterface.verifyRequest, developmentProjectsInterface.deleteProgressUpdate);
-router.route('/v1/development/aio/all').get(authInterface.verifyRequest, developmentProjectsInterface.getAIOFeed);
+router.route('/v1/development/projects/addexisting').post(authAPI.verifyRequest, developmentProjectsAPI.addExistingProject);
+router.route('/v1/development/projects/newfromtask').post(authAPI.verifyRequest, developmentProjectsAPI.newProjectFromTask);
+router.route('/v1/development/projects/newforassignee').post(authAPI.verifyRequest, developmentProjectsAPI.newProjectForAssignee);
+router.route('/v1/development/projects/detail').get(authAPI.verifyRequest, developmentProjectsAPI.getProjectDetail);
+router.route('/v1/development/projects/update').post(authAPI.verifyRequest, developmentProjectsAPI.updateProject);
+router.route('/v1/development/projects/flag').post(authAPI.verifyRequest, developmentProjectsAPI.flagProject);
+router.route('/v1/development/projects/unflag').post(authAPI.verifyRequest, developmentProjectsAPI.unflagProject);
+router.route('/v1/development/projects/markcompleted').post(authAPI.verifyRequest, developmentProjectsAPI.markProjectCompleted);
+router.route('/v1/development/projects/delete').post(authAPI.verifyRequest, developmentProjectsAPI.deleteProject);
+router.route('/v1/development/projects/current').get(authAPI.verifyRequest, developmentProjectsAPI.getCurrentProjects);
+router.route('/v1/development/projects/flagged').get(authAPI.verifyRequest, developmentProjectsAPI.getFlaggedProjects);
+router.route('/v1/development/projects/recentlycompleted').get(authAPI.verifyRequest, developmentProjectsAPI.getRecentlyCompletedProjects);
+router.route('/v1/development/projects/completed').get(authAPI.verifyRequest, developmentProjectsAPI.getAllCompletedProjects);
+router.route('/v1/development/projects/updates/all').get(authAPI.verifyRequest, developmentProjectsAPI.getAllProgressUpdates);
+router.route('/v1/development/projects/updates/new').post(authAPI.verifyRequest, developmentProjectsAPI.addProgressUpdate);
+router.route('/v1/development/projects/updates/delete').post(authAPI.verifyRequest, developmentProjectsAPI.deleteProgressUpdate);
+router.route('/v1/development/aio/all').get(authAPI.verifyRequest, developmentProjectsAPI.getAIOFeed);
 
 /* Administration */
 // Task Queue
-router.route('/v1/admin/taskqueue/all').get(authInterface.verifyRequest, adminTasksInterface.getAllTasks);
-router.route('/v1/admin/taskqueue/add').post(authInterface.verifyRequest, adminTasksInterface.addTask);
-router.route('/v1/admin/taskqueue/tasks/detail').get(authInterface.verifyRequest, adminTasksInterface.getTaskDetail);
-router.route('/v1/admin/taskqueue/tasks/update').post(authInterface.verifyRequest, adminTasksInterface.updateTask);
-router.route('/v1/admin/taskqueue/tasks/delete').post(authInterface.verifyRequest, adminTasksInterface.deleteTask);
+router.route('/v1/admin/taskqueue/all').get(authAPI.verifyRequest, adminTasksAPI.getAllTasks);
+router.route('/v1/admin/taskqueue/add').post(authAPI.verifyRequest, adminTasksAPI.addTask);
+router.route('/v1/admin/taskqueue/tasks/detail').get(authAPI.verifyRequest, adminTasksAPI.getTaskDetail);
+router.route('/v1/admin/taskqueue/tasks/update').post(authAPI.verifyRequest, adminTasksAPI.updateTask);
+router.route('/v1/admin/taskqueue/tasks/delete').post(authAPI.verifyRequest, adminTasksAPI.deleteTask);
 
 // Projects
-router.route('/v1/admin/projects/addexisting').post(authInterface.verifyRequest, adminProjectsInterface.addExistingProject);
-router.route('/v1/admin/projects/newfromtask').post(authInterface.verifyRequest, adminProjectsInterface.newProjectFromTask);
-router.route('/v1/admin/projects/detail').get(authInterface.verifyRequest, adminProjectsInterface.getProjectDetail);
-router.route('/v1/admin/projects/update').post(authInterface.verifyRequest, adminProjectsInterface.updateProject);
-router.route('/v1/admin/projects/addassignee').post(authInterface.verifyRequest, adminProjectsInterface.addProjectAssignee);
-router.route('/v1/admin/projects/markcompleted').post(authInterface.verifyRequest, adminProjectsInterface.markProjectCompleted);
-router.route('/v1/admin/projects/delete').post(authInterface.verifyRequest, adminProjectsInterface.deleteProject);
-router.route('/v1/admin/projects/current').get(authInterface.verifyRequest, adminProjectsInterface.getCurrentProjects);
-router.route('/v1/admin/projects/recentlycompleted').get(authInterface.verifyRequest, adminProjectsInterface.getRecentlyCompletedProjects);
-router.route('/v1/admin/projects/completed').get(authInterface.verifyRequest, adminProjectsInterface.getAllCompletedProjects);
-router.route('/v1/admin/projects/updates/all').get(authInterface.verifyRequest, adminProjectsInterface.getAllProgressUpdates);
-router.route('/v1/admin/projects/updates/new').post(authInterface.verifyRequest, adminProjectsInterface.addProgressUpdate);
-router.route('/v1/admin/projects/updates/delete').post(authInterface.verifyRequest, adminProjectsInterface.deleteProgressUpdate);
-router.route('/v1/admin/projects/updates/feed').get(authInterface.verifyRequest, adminProjectsInterface.getUpdatesFeed);
+router.route('/v1/admin/projects/addexisting').post(authAPI.verifyRequest, adminProjectsAPI.addExistingProject);
+router.route('/v1/admin/projects/newfromtask').post(authAPI.verifyRequest, adminProjectsAPI.newProjectFromTask);
+router.route('/v1/admin/projects/detail').get(authAPI.verifyRequest, adminProjectsAPI.getProjectDetail);
+router.route('/v1/admin/projects/update').post(authAPI.verifyRequest, adminProjectsAPI.updateProject);
+router.route('/v1/admin/projects/addassignee').post(authAPI.verifyRequest, adminProjectsAPI.addProjectAssignee);
+router.route('/v1/admin/projects/markcompleted').post(authAPI.verifyRequest, adminProjectsAPI.markProjectCompleted);
+router.route('/v1/admin/projects/delete').post(authAPI.verifyRequest, adminProjectsAPI.deleteProject);
+router.route('/v1/admin/projects/current').get(authAPI.verifyRequest, adminProjectsAPI.getCurrentProjects);
+router.route('/v1/admin/projects/recentlycompleted').get(authAPI.verifyRequest, adminProjectsAPI.getRecentlyCompletedProjects);
+router.route('/v1/admin/projects/completed').get(authAPI.verifyRequest, adminProjectsAPI.getAllCompletedProjects);
+router.route('/v1/admin/projects/updates/all').get(authAPI.verifyRequest, adminProjectsAPI.getAllProgressUpdates);
+router.route('/v1/admin/projects/updates/new').post(authAPI.verifyRequest, adminProjectsAPI.addProgressUpdate);
+router.route('/v1/admin/projects/updates/delete').post(authAPI.verifyRequest, adminProjectsAPI.deleteProgressUpdate);
+router.route('/v1/admin/projects/updates/feed').get(authAPI.verifyRequest, adminProjectsAPI.getUpdatesFeed);
 
 module.exports = router;
