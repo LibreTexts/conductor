@@ -33,7 +33,7 @@ class AdminProjectAddExisting extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Add Existing Project";
+        document.title = "LibreTexts Conductor | Administration | Add Existing Project";
         //const [user] = this.context;
     }
 

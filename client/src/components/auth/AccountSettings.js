@@ -24,7 +24,7 @@ class AccountSettings extends Component {
     }
 
     componentDidMount() {
-        document.title = 'LibreTexts PTS | Account Settings';
+        document.title = 'LibreTexts Conductor | Account Settings';
         if (this.state.accountData.email === '') {
             this.getAccountInfo();
         }

@@ -33,8 +33,26 @@
 .announcement {
     border-bottom: 1px solid rgba(34,36,38,.15);
     padding: 1% 0 1% 0 !important;
+    margin-bottom: 0.5em !important;
 }
 
 .announcement:hover {
     cursor: pointer !important;
+}
+
+.announcement-content {
+    margin-top: 0 !important;
+}
+
+.announcement-text {
+    margin-top: 0.5em;
+}
+
+.announcement-details {
+    display: block !important;
+    margin: 0 !important;
+}
+
+.announcement-view-text {
+    margin: 1em 0 1em 0;
 }

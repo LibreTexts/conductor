@@ -38,7 +38,7 @@ class AdminProjectEdit extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Projects | Edit";
+        document.title = "LibreTexts Conductor | Administration | Projects | Edit";
         //const [user] = this.context;
         this.setState({ id: this.props.match.params.id }, () => {
             this.getProjectInfo();

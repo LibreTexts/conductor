@@ -71,7 +71,7 @@ class HarvestingProjectDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Projects | Detail";
+        document.title = "LibreTexts Conductor | Harvesting | Projects | Detail";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);

@@ -13,9 +13,8 @@
 }
 
 .nav-logo-item {
-    width: 200px !important;
+    width: 150px !important;
     padding: 0 !important;
-    padding-right: 1em !important;
 }
 
 .nav-logo-item:hover {
@@ -23,10 +22,11 @@
 }
 
 .nav-logo {
-    width: 75%;
+    height: 40px;
 }
 
 .nav-title {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     margin-left: 2%;
+    color: rgba(18,123,196,255);
 }

@@ -39,7 +39,7 @@ class AdministrationPortal extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration";
+        document.title = "LibreTexts Conductor | Administration";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const projectDeleteSuccess = decodeURIComponent(queryValues.showProjectDeleteSuccess);
@@ -103,7 +103,6 @@ class AdministrationPortal extends Component {
                                 <Table.HeaderCell width={6}><Header sub>Title</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={2}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={4}><Header sub>Last Updated At</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={2}></Table.HeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
@@ -126,15 +125,6 @@ class AdministrationPortal extends Component {
                                         </Table.Cell>
                                         <Table.Cell>
                                             <p>{item.updatedDate} at {item.updatedTime}</p>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Link to={`/admin/projects/${item.projectID}`}>
-                                                <Button color='blue' fluid>
-                                                    <Button.Content>
-                                                        <Icon name='folder open outline' />
-                                                    </Button.Content>
-                                                </Button>
-                                            </Link>
                                         </Table.Cell>
                                     </Table.Row>
                                 )
@@ -162,8 +152,6 @@ class AdministrationPortal extends Component {
                             <Menu.Item as={Link} to='/admin/projects/completed' name='completed' icon='check' content={<p>View Completed Projects</p>} />
                         </Menu>
                         <Segment>
-                            <h3>Current Administration Projects</h3>
-                            <Divider />
                             <Segment basic className='component-innercontainer'>
                                 {this.state.showProjectDeleteSuccess &&
                                     <Segment basic>

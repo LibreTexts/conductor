@@ -34,7 +34,7 @@ class DevProjectAddExisting extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Add Existing Project";
+        document.title = "LibreTexts Conductor | Development | Add Existing Project";
         //const [user] = this.context;
     }
 

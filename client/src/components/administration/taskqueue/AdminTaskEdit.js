@@ -39,7 +39,7 @@ class AdminTaskEdit extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Task Queue | Edit Task";
+        document.title = "LibreTexts Conductor | Administration | Task Queue | Edit Task";
         //const [user] = this.context;
         this.setState({
             id: this.props.match.params.id

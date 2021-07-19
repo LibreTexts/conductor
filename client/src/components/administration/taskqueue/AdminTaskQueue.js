@@ -34,7 +34,7 @@ class AdminTaskQueue extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Task Queue";
+        document.title = "LibreTexts Conductor | Administration | Task Queue";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const deleteSuccess = decodeURIComponent(queryValues.showDeleteSuccess);
@@ -159,7 +159,6 @@ class AdminTaskQueue extends Component {
                                             <Table.Row>
                                                 <Table.HeaderCell width={10}><Header sub>Title</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={4}><Header sub>Status</Header></Table.HeaderCell>
-                                                <Table.HeaderCell width={2}></Table.HeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
@@ -182,15 +181,6 @@ class AdminTaskQueue extends Component {
                                                                 :
                                                                 <p>{item.status}</p>
                                                             }
-                                                        </Table.Cell>
-                                                        <Table.Cell>
-                                                            <Link to={`/admin/taskqueue/${item.id}`}>
-                                                                <Button color='blue' fluid>
-                                                                    <Button.Content>
-                                                                        <Icon name='folder open outline' />
-                                                                    </Button.Content>
-                                                                </Button>
-                                                            </Link>
                                                         </Table.Cell>
                                                     </Table.Row>
                                                 )

@@ -1,12 +1,6 @@
-@font-face {
-  font-family: KeepCalm;
-  src: url(../../fonts/KeepCalm-Medium.ttf);
-}
-
 .pts-header {
     margin: 0;
     font-size: 2.5rem;
-    font-family: KeepCalm;
     line-height: 25px;
     margin-top: 20px !important;
 }

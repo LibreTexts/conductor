@@ -39,7 +39,7 @@ class DevAIOFeed extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | AIO Feed";
+        document.title = "LibreTexts Conductor | Development | AIO Feed";
         //const [user] = this.context;
         date.plugin(ordinal);
         const today = new Date();

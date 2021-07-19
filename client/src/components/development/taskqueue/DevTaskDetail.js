@@ -47,7 +47,7 @@ class DevTaskDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Task Queue | Detail";
+        document.title = "LibreTexts Conductor | Development | Task Queue | Detail";
         const [user] = this.context;
         var isAdmin = false;
         if (user.roles.includes('admin')) {

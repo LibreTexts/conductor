@@ -64,7 +64,7 @@ class HarvestingTargetDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Targetlist | Detail";
+        document.title = "LibreTexts Conductor | Harvesting | Targetlist | Detail";
         const [user] = this.context;
         var isAdmin = false;
         if (user.roles.includes('admin')) {

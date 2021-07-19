@@ -42,7 +42,7 @@ class DevelopmentPortal extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development";
+        document.title = "LibreTexts Conductor | Development";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const projectDeleteSuccess = decodeURIComponent(queryValues.showProjectDeleteSuccess);
@@ -127,7 +127,6 @@ class DevelopmentPortal extends Component {
                                 <Table.HeaderCell width={4}><Header sub>Title</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={2}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={3}><Header sub>Last Updated At</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={1}></Table.HeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
@@ -151,15 +150,6 @@ class DevelopmentPortal extends Component {
                                         <Table.Cell>
                                             <p>{item.updatedDate} at {item.updatedTime}</p>
                                         </Table.Cell>
-                                        <Table.Cell>
-                                            <Link to={`/development/projects/${item.projectID}`}>
-                                                <Button color='blue' fluid>
-                                                    <Button.Content>
-                                                        <Icon name='folder open outline' />
-                                                    </Button.Content>
-                                                </Button>
-                                            </Link>
-                                        </Table.Cell>
                                     </Table.Row>
                                 )
                             })}
@@ -182,7 +172,6 @@ class DevelopmentPortal extends Component {
                                 <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={4}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
                                 <Table.HeaderCell width={5}><Header sub>Last Updated At</Header></Table.HeaderCell>
-                                <Table.HeaderCell width={1}></Table.HeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
@@ -193,7 +182,7 @@ class DevelopmentPortal extends Component {
                                 return (
                                     <Table.Row key={index}>
                                         <Table.Cell>
-                                            <p><strong><Link to={`/development/projects/${item.projectID}`} className='dproject-table-link'>{item.title}</Link></strong></p>
+                                            <p><strong><Link to={`/development/projects/${item.projectID}`}>{item.title}</Link></strong></p>
                                         </Table.Cell>
                                         <Table.Cell>
                                             <p>{item.currentProgress}%</p>
@@ -201,23 +190,12 @@ class DevelopmentPortal extends Component {
                                         <Table.Cell>
                                             <p>{item.updatedDate} at {item.updatedTime}</p>
                                         </Table.Cell>
-                                        <Table.Cell>
-                                            <Link to={`/development/projects/${item.projectID}`}>
-                                                <Button color='blue' fluid>
-                                                    <Button.Content>
-                                                        <Icon name='folder open outline' />
-                                                    </Button.Content>
-                                                </Button>
-                                            </Link>
-                                        </Table.Cell>
                                     </Table.Row>
                                 )
                             })}
                         </Table.Body>
                     </Table>
                 )
-            } else {
-                FlaggedDisplay = <Message><p>You have no flagged projects right now.</p></Message>
             }
         } else {
             FlaggedDisplay = <Loader active inline='centered' />
@@ -236,9 +214,14 @@ class DevelopmentPortal extends Component {
                             <Menu.Item as={Link} to='/development/projects/completed' name='completed' icon='check' content={<p>View Completed Projects</p>} />
                             <Menu.Item as={Link} to='/development/aiofeed' name='aio' icon='feed' content={<p>AIO Feed</p>} />
                         </Menu>
+                        {((!this.state.loadedFlaggedProjects) || (this.state.flaggedProjects.length > 0)) &&
+                            <Segment>
+                                <Header as='h3'>Flagged Development Projects</Header>
+                                <Divider />
+                                {FlaggedDisplay}
+                            </Segment>
+                        }
                         <Segment>
-                            <h3>Current Development Projects</h3>
-                            <Divider />
                             <Segment basic className='component-innercontainer'>
                                 {this.state.showProjectDeleteSuccess &&
                                     <Segment basic>
@@ -276,11 +259,6 @@ class DevelopmentPortal extends Component {
                                 <Divider />
                                 {CurrentDisplay}
                             </Segment>
-                        </Segment>
-                        <Segment>
-                            <Header as='h3'>Flagged Development Projects</Header>
-                            <Divider />
-                            {FlaggedDisplay}
                         </Segment>
                     </Grid.Column>
                 </Grid.Row>

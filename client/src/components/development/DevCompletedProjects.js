@@ -34,7 +34,7 @@ class DevCompletedProjects extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Completed Projects";
+        document.title = "LibreTexts Conductor | Development | Completed Projects";
         date.plugin(ordinal);
         this.getCompletedProjects();
     }

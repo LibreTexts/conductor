@@ -66,7 +66,7 @@ class DevProjectDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Projects | Detail";
+        document.title = "LibreTexts Conductor | Development | Projects | Detail";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);

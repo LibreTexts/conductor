@@ -43,7 +43,7 @@ class HarvestingProjectAddExisting extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Add Existing Project";
+        document.title = "LibreTexts Conductor | Harvesting | Add Existing Project";
         //const [user] = this.context;
     }
 

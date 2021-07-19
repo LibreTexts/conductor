@@ -40,7 +40,7 @@ class AdminTaskDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Task Queue | Detail";
+        document.title = "LibreTexts Conductor | Administration | Task Queue | Detail";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);

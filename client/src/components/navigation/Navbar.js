@@ -99,8 +99,8 @@ const Navbar = (props) => {
         return (
             <Menu className='nav-menu' secondary >
                 <Menu.Item as={Link} to='/' header className='nav-logo-item' name='dashboard' onClick={handleNavClick}>
-                    <Image src='/libretexts_logo.png' className='nav-logo' />
-                    <span className='nav-title'>PTS</span>
+                    <Image src='/mini_logo.png' className='nav-logo' />
+                    <span className='nav-title'>Conductor</span>
                 </Menu.Item>
                 <Menu.Item name='dashboard' as={Link} to ='/' active={activeItem === 'dashboard'} onClick={handleNavClick} />
                 <Menu.Item name='harvesting' as={(isHarvest || isAdmin) ? Link : ''} to ='/harvesting' active={activeItem === 'harvesting'} onClick={handleNavClick} disabled={!(isHarvest || isAdmin)} />

@@ -55,7 +55,7 @@ class SupervisorDashboard extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Supervisor Dashboard";
+        document.title = "LibreTexts Conductor | Supervisor Dashboard";
         const [user] = this.context;
         date.plugin(ordinal);
         if (user.firstName !== this.state.firstName) {

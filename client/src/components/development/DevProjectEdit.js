@@ -40,7 +40,7 @@ class DevProjectEdit extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Projects | Edit";
+        document.title = "LibreTexts Conductor | Development | Projects | Edit";
         //const [user] = this.context;
         this.setState({ id: this.props.match.params.id }, () => {
             this.getProjectInfo();

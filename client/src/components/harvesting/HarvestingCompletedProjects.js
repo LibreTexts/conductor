@@ -34,7 +34,7 @@ class HarvestingCompletedProjects extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Completed Projects";
+        document.title = "LibreTexts Conductor | Harvesting | Completed Projects";
         date.plugin(ordinal);
         this.getCompletedProjects();
     }

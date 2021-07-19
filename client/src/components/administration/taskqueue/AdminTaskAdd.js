@@ -33,7 +33,7 @@ class AdminTaskAdd extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Task Queue | Add Task";
+        document.title = "LibreTexts Conductor | Administration | Task Queue | Add Task";
         //const [user] = this.context;
     }
 

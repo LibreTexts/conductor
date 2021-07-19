@@ -34,7 +34,7 @@ class AdminCompletedProjects extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Completed Projects";
+        document.title = "LibreTexts Conductor | Administration | Completed Projects";
         date.plugin(ordinal);
         this.getCompletedProjects();
     }

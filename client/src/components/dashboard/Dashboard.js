@@ -51,12 +51,17 @@ class Dashboard extends Component {
             newAnnouncementAdministrators: false,
             announcementViewTitle: '',
             announcementViewMessage: '',
-            announcementViewRecipients: ''
+            announcementViewRecipients: '',
+            announcementViewDate: '',
+            announcementViewTime: '',
+            announcementViewAuthorFirst: '',
+            announcementViewAuthorLast: '',
+            announcementViewAuthorAvatar: ''
         };
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Dashboard";
+        document.title = "LibreTexts Conductor | Dashboard";
         const [user] = this.context;
         date.plugin(ordinal);
         if (user.firstName !== this.state.firstName) {
@@ -276,7 +281,12 @@ class Dashboard extends Component {
             showAnnouncementViewModal: true,
             announcementViewTitle: announcement.title,
             announcementViewMessage: announcement.message,
-            announcementViewRecipients: Array(announcement.recipientGroups).toString()
+            announcementViewRecipients: Array(announcement.recipientGroups).toString(),
+            announcementViewDate: announcement.date,
+            announcementViewTime: announcement.time,
+            announcementViewAuthorFirst: announcement.author.firstName,
+            announcementViewAuthorLast: announcement.author.lastName,
+            announcementViewAuthorAvatar: announcement.author.avatar
         });
     }
 
@@ -285,7 +295,12 @@ class Dashboard extends Component {
             showAnnouncementViewModal: false,
             announcementViewTitle: '',
             announcementViewMessage: '',
-            announcementViewRecipients: ''
+            announcementViewRecipients: '',
+            announcementViewDate: '',
+            announcementViewTime: '',
+            announcementViewAuthorFirst: '',
+            announcementViewAuthorLast: '',
+            announcementViewAuthorAvatar: ''
         });
     }
 
@@ -379,27 +394,34 @@ class Dashboard extends Component {
                 case 'announcements':
                     return (
                         <Segment>
-                            <Header as='h2' className='announcements-header'>Announcements <span className='gray-span'>(50 most recent)</span></Header>
-                            {this.state.roles.includes('admin') &&
-                                <Button color='green' floated='right' onClick={this.openNewAnnouncementModal.bind(this)}>
-                                    <Icon name='add' />
-                                    New
-                                </Button>
-                            }
+                            <Grid verticalAlign='middle'>
+                                <Grid.Row columns={2}>
+                                    <Grid.Column>
+                                        <Header as='h2' className='announcements-header'>Announcements <span className='gray-span'>(50 most recent)</span></Header>
+                                    </Grid.Column>
+                                    <Grid.Column>
+                                        {this.state.roles.includes('admin') &&
+                                            <Button color='green' floated='right' onClick={this.openNewAnnouncementModal.bind(this)}>
+                                                <Icon name='add' />
+                                                New
+                                            </Button>
+                                        }
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
+
                             <Divider />
                             <Feed className='announcement-feed'>
                             {this.state.allAnnouncements.map((item, index) => {
                                 return (
                                     <Feed.Event key={index} onClick={() => { this.openAnnouncementViewModal(index)}} className='announcement'>
                                         <Feed.Label image={`${item.author.avatar}`} />
-                                        <Feed.Content>
+                                        <Feed.Content className='announcement-content'>
                                             <Feed.Summary>
-                                                {item.author.firstName} {item.author.lastName}
-                                                <Feed.Date>on {item.date} at {item.time} </Feed.Date>
+                                                {item.title}
+                                                <Feed.Date className='announcement-details'>by {item.author.firstName} {item.author.lastName} on {item.date} at {item.time} </Feed.Date>
                                             </Feed.Summary>
-                                            <Feed.Extra text>
-                                                {this.truncateString(item.message, 280)}
-                                            </Feed.Extra>
+                                            <p className='announcement-text'>{this.truncateString(item.message, 280)}</p>
                                         </Feed.Content>
                                     </Feed.Event>
                                 );
@@ -478,7 +500,7 @@ class Dashboard extends Component {
                         <Segment>
                             <Header as='h2'>Home</Header>
                             <Divider />
-                            <Segment>
+                            <Segment basic>
                                 <Header size='medium' onClick={(e) => {this.setView(e, { name: 'announcements' })}} className='dashboard-header-link'>Announcements <span className='gray-span'>(most recent)</span></Header>
                                 {this.state.recentAnnouncement ?
                                     <Message icon>
@@ -492,7 +514,8 @@ class Dashboard extends Component {
                                 : <p>No recent announcements.</p>
                                 }
                             </Segment>
-                            <Segment>
+                            <Divider />
+                            <Segment basic>
                                 <Header size='medium' onClick={(e) => {this.setView(e, { name: 'projects' })}} className='dashboard-header-link'>Your Projects <span className='gray-span'>(overview)</span></Header>
                                 <List divided size='large'>
                                     {!this.state.loadedRecentProjects &&
@@ -691,9 +714,20 @@ class Dashboard extends Component {
                     onClose={this.closeAnnouncementViewModal.bind(this)}
                     open={this.state.showAnnouncementViewModal}
                 >
-                    <Modal.Header>{this.state.announcementViewTitle}</Modal.Header>
+                    <Modal.Header>
+                        {this.state.announcementViewTitle}
+                    </Modal.Header>
                     <Modal.Content>
-                        <Modal.Description>{this.state.announcementViewMessage}</Modal.Description>
+                        <Header as='h4'>
+                            <Image avatar src={`${this.state.announcementViewAuthorAvatar}`} />
+                            <Header.Content>
+                                {this.state.announcementViewAuthorFirst} {this.state.announcementViewAuthorLast}
+                                <Header.Subheader>
+                                    {this.state.announcementViewDate} at {this.state.announcementViewTime}
+                                </Header.Subheader>
+                            </Header.Content>
+                        </Header>
+                        <Modal.Description className='announcement-view-text'>{this.state.announcementViewMessage}</Modal.Description>
                         <span className='gray-span'>Sent to: {this.state.announcementViewRecipients}</span>
                     </Modal.Content>
                     <Modal.Actions>

@@ -34,7 +34,7 @@ class DevTaskAdd extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Task Queue | Add Task";
+        document.title = "LibreTexts Conductor | Development | Task Queue | Add Task";
         //const [user] = this.context;
     }
 

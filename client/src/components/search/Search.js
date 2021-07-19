@@ -32,7 +32,7 @@ class Search extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Search Results";
+        document.title = "LibreTexts Conductor | Search Results";
         const queryValues = queryString.parse(this.props.location.search);
         const queryDecoded = decodeURIComponent(queryValues.query);
         this.setState({

@@ -49,7 +49,7 @@ class HarvestingTargetlist extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Textbook Targetlist";
+        document.title = "LibreTexts Conductor | Harvesting | Textbook Targetlist";
         const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const deleteSuccess = decodeURIComponent(queryValues.showDeleteSuccess);
@@ -274,7 +274,6 @@ class HarvestingTargetlist extends Component {
                                                 <Table.HeaderCell width={3}><Header sub>Shelf</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={2}><Header sub>Type</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={3}><Header sub>Status</Header></Table.HeaderCell>
-                                                <Table.HeaderCell width={1}></Table.HeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
@@ -338,15 +337,6 @@ class HarvestingTargetlist extends Component {
                                                                 :
                                                                 <p>{item.status}</p>
                                                             }
-                                                        </Table.Cell>
-                                                        <Table.Cell>
-                                                            <Link to={`/harvesting/targetlist/${item.id}`}>
-                                                                <Button color='blue' fluid>
-                                                                    <Button.Content>
-                                                                        <Icon name='folder open outline' />
-                                                                    </Button.Content>
-                                                                </Button>
-                                                            </Link>
                                                         </Table.Cell>
                                                     </Table.Row>
                                                 )

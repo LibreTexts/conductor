@@ -54,7 +54,7 @@ class HarvestingTargetEdit extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Targetlist | Edit Target";
+        document.title = "LibreTexts Conductor | Harvesting | Targetlist | Edit Target";
         //const [user] = this.context;
         this.setState({
             id: this.props.match.params.id

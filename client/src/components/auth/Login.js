@@ -18,7 +18,7 @@ const Login = (props) => {
     const [showExpiredAuth, setExpiredAuth] = useState(false);
 
     useEffect(() => {
-        document.title = "LibreTexts PTS | Login";
+        document.title = "LibreTexts Conductor | Login";
         const queryValues = queryString.parse(props.location.search);
         const src = decodeURIComponent(queryValues.src);
         if (src === "expired") {
@@ -81,13 +81,9 @@ const Login = (props) => {
     return(
         <Grid centered={true} verticalAlign='middle' className="login-grid">
             <Grid.Column width={6}>
-                <Grid columns={2} divided verticalAlign='middle' centered={true}>
+                <Grid columns={1} verticalAlign='middle' centered={true}>
                         <Grid.Column width={8}>
                             <Image src="/libretexts_logo.png"/>
-                        </Grid.Column>
-                        <Grid.Column width={8}>
-                            <p className='pts-header'>PTS</p>
-                            <span className='pts-subheader'>PROJECT TRACKING SYSTEM</span>
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
@@ -114,7 +110,7 @@ const Login = (props) => {
                 onClose={modalClosed}
                 open={showErrModal}
             >
-                <Modal.Header>LibreTexts PTS: Error</Modal.Header>
+                <Modal.Header>LibreTexts Conductor: Error</Modal.Header>
                 <Modal.Content>
                     <Modal.Description>
                         <p>{errMsg}</p>

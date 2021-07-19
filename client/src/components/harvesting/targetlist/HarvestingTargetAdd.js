@@ -44,7 +44,7 @@ class HarvestingTargetAdd extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Harvesting | Targetlist | Add Target";
+        document.title = "LibreTexts Conductor | Harvesting | Targetlist | Add Target";
         //const [user] = this.context;
     }
 

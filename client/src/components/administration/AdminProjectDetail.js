@@ -59,7 +59,7 @@ class AdminProjectDetail extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Administration | Projects | Detail";
+        document.title = "LibreTexts Conductor | Administration | Projects | Detail";
         //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);

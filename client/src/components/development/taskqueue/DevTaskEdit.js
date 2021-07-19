@@ -41,7 +41,7 @@ class DevTaskEdit extends Component {
     }
 
     componentDidMount() {
-        document.title = "LibreTexts PTS | Development | Task Queue | Edit Task";
+        document.title = "LibreTexts Conductor | Development | Task Queue | Edit Task";
         //const [user] = this.context;
         this.setState({
             id: this.props.match.params.id
