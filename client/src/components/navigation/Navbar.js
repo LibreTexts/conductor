@@ -69,6 +69,7 @@ const Navbar = (props) => {
             type: 'CLEAR_USER_INFO'
         });
         var domains = String(process.env.PRODUCTIONURLS).split(',');
+        console.log(domains);
         Cookies.remove('access_token', { path: '/', domain: '.' + domains[0] });
         if (process.env.NODE_ENV === 'development') {
             Cookies.remove('access_token', { path: '/', domain: 'localhost' });
@@ -162,6 +163,41 @@ const Navbar = (props) => {
                                 <Dropdown.Item as='a' href='https://workforce.libretexts.org/' target='_blank'>
                                     <Icon name='briefcase' />
                                     Workforce
+                                </Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </Menu.Item>
+                    <Menu.Item>
+                        <Icon name='wrench' />
+                        <Dropdown inline text='Tools'>
+                            <Dropdown.Menu>
+                                <Dropdown.Item as='a' href='https://adapt.libretexts.org/' target='_blank'>
+                                    <Icon name='pencil' />
+                                    ADAPT Homework System
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://groups.io/g/Libretexts-ConstructionForum' target='_blank'>
+                                    <Icon name='rss' />
+                                    Construction Forum
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://imathas.libretexts.org/imathas/' target='_blank'>
+                                    <Icon name='percent' />
+                                    IMathAS
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://jupyter.libretexts.org/hub/login' target='_blank'>
+                                    <Icon name='server' />
+                                    JupyterHub
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://libremaps.libretexts.org/' target='_blank'>
+                                    <Icon name='map' />
+                                    LibreMaps
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://studio.libretexts.org/' target='_blank'>
+                                    <Icon name='puzzle' />
+                                    LibreStudio
+                                </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://webwork.libretexts.org/webwork2' target='_blank'>
+                                    <Icon name='laptop' />
+                                    WeBWorK
                                 </Dropdown.Item>
                             </Dropdown.Menu>
                         </Dropdown>

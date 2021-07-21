@@ -1,3 +1,9 @@
+//
+// PrivateRoute
+//  Specifies a route in which a user SHOULD be authenticated
+//  If the user is authenticated, they should be redirected to login
+//
+
 import { Route } from 'react-router-dom';
 import React from 'react';
 

@@ -1,3 +1,26 @@
+const licenseOptions = [
+    { key: 'empty', text: 'Clear...', value: '' },
+    { key: 'arr', text: 'All Rights Reserved', value: 'arr' },
+    { key: 'cc-by', text: 'CC-BY', value: 'cc-by' },
+    { key: 'cc-by-nc', text: 'CC-BY-NC', value: 'cc-by-nc' },
+    { key: 'cc-by-nc-nd', text: 'CC-BY-NC-ND', value: 'cc-by-nc-nd' },
+    { key: 'cc-by-nc-sa', text: 'CC-BY-NC-SA', value: 'cc-by-nc-sa' },
+    { key: 'cc-by-nd', text: 'CC-BY-ND', value: 'cc-by-nd' },
+    { key: 'cc-by-sa', text: 'CC-BY-SA', value: 'cc-by-sa' },
+    { key: 'gnu-dsl', text: 'GNU DSL', value: 'gnu-dsl' },
+    { key: 'gnu-fdl', text: 'GNU FDL', value: 'gnu-fdl' },
+    { key: 'gnu-gpl', text: 'GNU GPL', value: 'gnu-gpl' },
+    { key: 'pd', text: 'Public Domain', value: 'pd' },
+];
+
+const textUseOptions = [
+    { key: 'empty', text: 'Clear...', value: '' },
+    { key: 'primary', text: 'As the primary textbook', value: 'primary' },
+    { key: 'supplement', text: 'As supplementary material', value: 'supplement' },
+    { key: 'remix', text: 'As part of a remix that I am creating for my class', value: 'remix' },
+    { key: 'other', text: 'Other (please explain in comments)', value: 'other' },
+];
+
 const libraryOptions = [
     { key: 'empty', text: 'Clear...', value: "" },
     { key: 'biology', text: 'Biology', value: 'biology' },
@@ -534,6 +557,8 @@ const getShelfOptions = (rawName) => {
 };
 
 module.exports = {
+    licenseOptions,
+    textUseOptions,
     libraryOptions,
     biologyOptions,
     businessOptions,
