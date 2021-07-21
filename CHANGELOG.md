@@ -1,10 +1,18 @@
 # Changelog
 
+## 07-21-2021
+#### :art: UI/UX
+* Completed the OER Integration Request interface
+
+#### :satellite: Server
+* Setup backend logic for OER Integration Requests
+* Added a new validation library and helper functions
+
 ## 07-20-2021
 
 #### :art: UI/UX
 * Started restructuring of the application for new features
-* Started designing the OER Integration Request form.
+* Started designing the OER Integration Request form
 * Added the Tools menu to the Navbar
 * Internal updates to authentication handling and redirection
 
@@ -13,7 +21,7 @@
 #### :art: UI/UX
 * Upgrades to the Announcements UI
 * Removed the Open button on Project listings
-* The Flagged Projects section now only appears above Current Projects when there are unresolved flags.
+* The Flagged Projects section now only appears above Current Projects when there are unresolved flags
 
 ## 07-15-2021
 

@@ -50,6 +50,7 @@ function App() {
     axios.defaults.baseURL = '/api/v1';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     axios.defaults.headers.withCredentials = true;
+    axios.defaults.headers.post['Content-Type'] = 'application/json';
     axios.interceptors.response.use((res) => {
         return res;
     }, (err) => {

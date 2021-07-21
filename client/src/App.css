@@ -77,3 +77,15 @@ body {
 .mb-2p {
     margin-bottom: 2% !important;
 }
+
+.mt-2r {
+    margin-top: 2rem !important;
+}
+
+.mb-2r {
+    margin-bottom: 2rem !important;
+}
+
+.mb-4r {
+    margin-bottom: 4rem !important;
+}

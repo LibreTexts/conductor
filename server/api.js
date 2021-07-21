@@ -1,5 +1,7 @@
 'use strict';
 const express = require('express');
+const conductorErrors = require('./conductor-errors.js');
+
 // Interfaces
 const authAPI = require('./api/auth.js');
 const userAPI = require('./api/user.js');
@@ -16,8 +18,22 @@ const developmentProjectsAPI = require('./api/developmentprojects.js');
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
+const harvestingRequestsAPI = require('./api/harvestingrequests.js');
+
 
 var router = express.Router();
+
+const checkLibreCommons = (_req, res, next) => { // middleware for routes only available to LibreCommons
+    if (process.env.ORG_ID === 'librecommons') {
+            console.log("ALLOW");
+            next();
+    } else {
+        return res.status(403).send({
+            err: true,
+            msg: conductorErrors.err4
+        });
+    }
+};
 
 router.use((req, res, next) => {
     var allowedOrigins = [];
@@ -72,6 +88,10 @@ router.route('/v1/projects/all').get(authAPI.verifyRequest, sharedProjectsAPI.ge
 router.route('/v1/projects/recent').get(authAPI.verifyRequest, sharedProjectsAPI.getRecentUserProjects);
 
 /* Harvesting */
+
+// Requests (LibreCommons) (can be anonymous)
+router.route('/v1/harvesting/request/new').post(checkLibreCommons, harvestingRequestsAPI.validate('addRequest'), harvestingRequestsAPI.addRequest);
+
 // Targetlist
 router.route('/v1/harvesting/targetlist/all').get(authAPI.verifyRequest, harvestingTargetsAPI.getAllTargets);
 router.route('/v1/harvesting/targetlist/add').post(authAPI.verifyRequest, harvestingTargetsAPI.addTarget);
