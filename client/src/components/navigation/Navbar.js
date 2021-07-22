@@ -55,10 +55,6 @@ const Navbar = (props) => {
             setActiveItem('dashboard');
         } else if (currentPath.includes('/harvesting')) {
             setActiveItem('harvesting');
-        } else if (currentPath.includes('/development')) {
-            setActiveItem('development');
-        } else if (currentPath.includes('/admin')) {
-            setActiveItem('administration');
         } else {
             setActiveItem('dashboard');
         }
@@ -105,8 +101,6 @@ const Navbar = (props) => {
                 </Menu.Item>
                 <Menu.Item name='dashboard' as={Link} to ='/' active={activeItem === 'dashboard'} onClick={handleNavClick} />
                 <Menu.Item name='harvesting' as={(isHarvest || isAdmin) ? Link : ''} to ='/harvesting' active={activeItem === 'harvesting'} onClick={handleNavClick} disabled={!(isHarvest || isAdmin)} />
-                <Menu.Item name='development' as={(isDev || isAdmin) ? Link : ''} to ='/development' active={activeItem === 'development'} onClick={handleNavClick} disabled={!(isDev || isAdmin)} />
-                <Menu.Item name='administration' as={isAdmin ? Link : ''} to ='/admin' active={activeItem === 'administration'} onClick={handleNavClick} disabled={!isAdmin}/>
                 <Menu.Menu position='right'>
                     <Menu.Item>
                         <Icon name='bookmark' />

@@ -1,7 +1,8 @@
 //
-// LibreTexts PTS
+// LibreTexts Conductor
 // server.js
 //
+
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -57,5 +58,5 @@ app.listen(port, (err) => {
     if (err) {
         console.log('[SERVER ERROR]: ' + err);
     }
-    console.log(`[SERVER]: PTS listening on ${port}`);
+    console.log(`[SERVER]: Conductor is listening on ${port}`);
 });

@@ -1,7 +1,13 @@
+//
+// LibreTexts Conductor
+// auth.js
+
 'use strict';
 const User = require('../models/user.js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const conductorErrors = require('../conductor-errors.js');
+const { debugError } = require('../debug.js');
 
 const login = (req, res, next) => {
     var response = {};
@@ -57,9 +63,8 @@ const login = (req, res, next) => {
 
 const verifyRequest = (req, res, next) => {
     var token = req.headers.authorization;
-    var rawToken = String(token).replace("Bearer ", "");
     try {
-        const decoded = jwt.verify(rawToken, process.env.SECRETKEY);
+        const decoded = jwt.verify(token, process.env.SECRETKEY);
         req.decoded = decoded;
         return next();
     } catch (err) {
@@ -74,7 +79,50 @@ const verifyRequest = (req, res, next) => {
     }
 };
 
+const checkHasRoles = (roles) => {
+    return (req, res, next) => {
+        if (req.decoded !== undefined) {
+            User.findOne({
+                uuid: req.decoded.uuid
+            }).then((user) => {
+                if (user) {
+                    if (roles.some((role) => { return user.roles.includes(role) })) {
+                        req.roles = user.roles;
+                        next();
+                    } else {
+                        return res.status(401).send({
+                            err: true,
+                            errMsg: conductorErrors.err8
+                        });
+                    }
+                } else {
+                    throw('nouser');
+                }
+            }).catch((err) => {
+                if (err.toString() === 'nouser') {
+                    return res.send(401).send({
+                        err: true,
+                        errMsg: conductorErrors.err7
+                    });
+                } else {
+                    debugError(err);
+                    return res.status(500).send({
+                        err: true,
+                        errMsg: conductorErrors.err6
+                    });
+                }
+            });
+        } else {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err5
+            });
+        }
+    }
+};
+
 module.exports = {
     login,
-    verifyRequest
+    verifyRequest,
+    checkHasRoles
 };

@@ -32,14 +32,8 @@ class Dashboard extends Component {
             },
             loadedRecentProjects: false,
             recentHarvestingProject: {},
-            recentDevelopmentProject: {},
-            recentAdminProject: {},
             hasRecentHarvest: false,
-            hasRecentDev: false,
-            hasRecentAdmin: false,
             userHarvestingProjects: [],
-            userDevelopmentProjects: [],
-            userAdminProjects: [],
             currentView: 'home',
             fetchedAllAnnouncements: false,
             allAnnouncements: [],
@@ -188,20 +182,6 @@ class Dashboard extends Component {
                     res.data.harvesting.updatedTime = date.format(itemDate, 'h:mm A');
                     toSet.recentHarvestingProject = res.data.harvesting;
                     toSet.hasRecentHarvest = true;
-                }
-                if (res.data.development !== undefined) {
-                    const itemDate = new Date(res.data.development.lastUpdate.createdAt);
-                    res.data.development.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                    res.data.development.updatedTime = date.format(itemDate, 'h:mm A');
-                    toSet.recentDevelopmentProject = res.data.development;
-                    toSet.hasRecentDev = true;
-                }
-                if (res.data.admin !== undefined) {
-                    const itemDate = new Date(res.data.admin.lastUpdate.createdAt);
-                    res.data.admin.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                    res.data.admin.updatedTime = date.format(itemDate, 'h:mm A');
-                    toSet.recentAdminProject = res.data.admin;
-                    toSet.hasRecentAdmin = true;
                 }
                 this.setState(toSet);
             } else {
@@ -457,39 +437,7 @@ class Dashboard extends Component {
                                     </List.Item>
                                 );
                             })}
-                            {this.state.userDevelopmentProjects.map((item, index) => {
-                                const itemDate = new Date(item.lastUpdate.createdAt);
-                                item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                                item.updatedTime = date.format(itemDate, 'h:mm A');
-                                return (
-                                    <List.Item key={index} className='dashboard-list-item'>
-                                        <List.Icon name='file code' size='large' verticalAlign='middle' />
-                                        <List.Content>
-                                            <List.Header className='recent-announcement-title' as={Link} to={`/development/projects/${item.projectID}`}>{item.title}</List.Header>
-                                            <List.Description>
-                                                <span className='author-info-span gray-span'>Last updated on {item.updatedDate} at {item.updatedTime}</span>
-                                            </List.Description>
-                                        </List.Content>
-                                    </List.Item>
-                                );
-                            })}
-                            {this.state.userAdminProjects.map((item, index) => {
-                                const itemDate = new Date(item.lastUpdate.createdAt);
-                                item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                                item.updatedTime = date.format(itemDate, 'h:mm A');
-                                return (
-                                    <List.Item key={index} className='dashboard-list-item'>
-                                        <List.Icon name='id badge' size='large' verticalAlign='middle' />
-                                        <List.Content>
-                                            <List.Header className='recent-announcement-title' as={Link} to={`/admin/projects/${item.projectID}`}>{item.title}</List.Header>
-                                            <List.Description>
-                                                <span className='author-info-span gray-span'>Last updated on {item.updatedDate} at {item.updatedTime}</span>
-                                            </List.Description>
-                                        </List.Content>
-                                    </List.Item>
-                                );
-                            })}
-                            {(this.state.userHarvestingProjects.length === 0) && (this.state.userDevelopmentProjects.length === 0) && (this.state.userAdminProjects.length === 0) &&
+                            {(this.state.userHarvestingProjects.length === 0) &&
                                 <p>You don't have any projects right now.</p>
                             }
                             </List>
@@ -530,25 +478,7 @@ class Dashboard extends Component {
                                           </List.Content>
                                         </List.Item>
                                     }
-                                    {this.state.recentDevelopmentProject.title !== undefined &&
-                                        <List.Item>
-                                          <List.Icon name='file code' size='large' verticalAlign='middle' />
-                                          <List.Content>
-                                            <List.Header as={Link} to={`/development/projects/${this.state.recentDevelopmentProject.projectID}`}>{this.state.recentDevelopmentProject.title}</List.Header>
-                                            <List.Description as='a'>Last updated on {this.state.recentDevelopmentProject.updatedDate} at {this.state.recentDevelopmentProject.updatedTime}</List.Description>
-                                          </List.Content>
-                                        </List.Item>
-                                    }
-                                    {this.state.recentAdminProject.title !== undefined &&
-                                        <List.Item>
-                                          <List.Icon name='id badge' size='large' verticalAlign='middle' />
-                                          <List.Content>
-                                            <List.Header as={Link} to={`/admin/projects/${this.state.recentAdminProject.projectID}`}>{this.state.recentAdminProject.title}</List.Header>
-                                            <List.Description as='a'>Last updated on {this.state.recentAdminProject.updatedDate} at {this.state.recentAdminProject.updatedTime}</List.Description>
-                                          </List.Content>
-                                        </List.Item>
-                                    }
-                                    {!this.state.hasRecentHarvest && !this.state.hasRecentDev && !this.state.hasRecentAdmin &&
+                                    {!this.state.hasRecentHarvest &&
                                         <p>You have no recent projects right now.</p>
                                     }
                                 </List>

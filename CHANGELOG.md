@@ -1,5 +1,13 @@
 # Changelog
 
+## 07-22-2021
+#### :satellite: Server
+* Started redesigning Projects:
+  * Defined new Project model
+  * Started writing new backend logic
+* Upgraded middleware functions
+* Started restructuring API functions to avoid code repetition
+
 ## 07-21-2021
 #### :art: UI/UX
 * Completed the OER Integration Request interface

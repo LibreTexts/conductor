@@ -1,22 +1,59 @@
+//
+// LibreTexts Conductor
+// projects.js
+//
+
 'use strict';
 const User = require('../models/user.js');
+
 const HarvestingProject = require('../models/harvestingproject.js');
-const DevelopmentProject = require('../models/developmentproject.js');
-const AdminProject = require('../models/adminproject.js');
+
+const Project = require('../models/project.js');
+const { body, validationResult } = require('express-validator');
 const async = require('async');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const b62 = require('base62-random');
+const conductorErrors = require('../conductor-errors.js');
+const { debugError } = require('../debug.js');
 
+const createProject = (req, res) => {
+    var newProject = new Project({
+        ...req.body,
+        projectID: b62(10),
+        status: 'available',
+        currentProgress: 0,
+        assignees: [],
+        createdBy: req.decoded.uuid,
+    });
+    newProject.save.then((newDoc) => {
+        if (newDoc) {
+            return res.send({
+                err: false,
+                msg: "New project created.",
+                id: newDoc.projectID
+            });
+        } else {
+            return res.send(500).send({
+                err: true,
+                errMsg: conductorErrors.err3
+            });
+        }
+    }).catch((err) => {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
 
+/* TODO: Outmoded */
 const getAllUserProjects = (req, res, next) => {
     var response = {};
     var decoded = req.decoded;
     if (decoded != null) {
-        var harvestingProjects = [];
-        var devProjects = [];
-        var adminProjects = [];
         HarvestingProject.aggregate([
             {
                 $match: {
@@ -78,137 +115,8 @@ const getAllUserProjects = (req, res, next) => {
                     }
                 });
             }
-            harvestingProjects = harvestResults;
-            return DevelopmentProject.aggregate([
-                {
-                    $match: {
-                        assignees: decoded.uuid,
-                        status: {
-                            $in: ['ready', 'ip']
-                        }
-                    }
-                }, {
-                    $project: {
-                        _id: 0,
-                        projectID: 1,
-                        title: 1,
-                        updatedAt: 1
-                    }
-                }, {
-                    $lookup: {
-                        from: 'devprojectupdates',
-                        let: {
-                            pID: '$projectID'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $eq: ['$projectID', '$$pID']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    createdAt: 1
-                                }
-                            }, {
-                                $sort: {
-                                    createdAt: -1
-                                }
-                            }, {
-                                $limit: 1
-                            }
-                        ],
-                        as: 'lastUpdate'
-                    }
-                }, {
-                    $addFields: {
-                        lastUpdate: {
-                            $arrayElemAt: ['$lastUpdate', 0]
-                        }
-                    }
-                }
-            ]);
-        }).then((devResults) => {
-            if (devResults.length > 0) {
-                devResults.forEach((result) => {
-                    if (result.lastUpdate === undefined) {
-                        const lastUpdate = {
-                            createdAt: result.updatedAt
-                        };
-                        result.lastUpdate = lastUpdate;
-                    }
-                });
-            }
-            devProjects = devResults;
-            return AdminProject.aggregate([
-                {
-                    $match: {
-                        assignees: decoded.uuid,
-                        status: {
-                            $in: ['ready', 'ip']
-                        }
-                    }
-                }, {
-                    $project: {
-                        _id: 0,
-                        projectID: 1,
-                        title: 1,
-                        updatedAt: 1
-                    }
-                }, {
-                    $lookup: {
-                        from: 'adminprojectupdates',
-                        let: {
-                            pID: '$projectID'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $eq: ['$projectID', '$$pID']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    createdAt: 1
-                                }
-                            }, {
-                                $sort: {
-                                    createdAt: -1
-                                }
-                            }, {
-                                $limit: 1
-                            }
-                        ],
-                        as: 'lastUpdate'
-                    }
-                }, {
-                    $addFields: {
-                        lastUpdate: {
-                            $arrayElemAt: ['$lastUpdate', 0]
-                        }
-                    }
-                }
-            ]);
-        }).then((adminResults) => {
-            if (adminResults.length > 0) {
-                adminResults.forEach((result) => {
-                    if (result.lastUpdate === undefined) {
-                        const lastUpdate = {
-                            createdAt: result.updatedAt
-                        };
-                        result.lastUpdate = lastUpdate;
-                    }
-                });
-            }
-            adminProjects = adminResults;
             response.err = false;
-            response.harvesting = harvestingProjects;
-            response.development = devProjects;
-            response.admin = adminProjects;
+            response.harvesting = harvestResults;
             return res.send(response);
         }).catch((err) => {
             console.log(err);
@@ -223,13 +131,12 @@ const getAllUserProjects = (req, res, next) => {
     }
 };
 
+/* TODO: Outmoded */
 const getRecentUserProjects = (req, res, next) => {
     var response = {};
     var decoded = req.decoded;
     if (decoded != null) {
         var harvestingProject;
-        var developmentProject;
-        var adminProject;
         HarvestingProject.aggregate([
             {
                 $match: {
@@ -294,145 +201,9 @@ const getRecentUserProjects = (req, res, next) => {
                 }
                 harvestingProject = recentHarvesting;
             }
-            return DevelopmentProject.aggregate([
-                {
-                    $match: {
-                        assignees: decoded.uuid,
-                        status: {
-                            $in: ['ready', 'ip']
-                        }
-                    }
-                }, {
-                    $limit: 1
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        projectID: 1,
-                        title: 1,
-                        updatedAt: 1
-                    }
-                }, {
-                    $lookup: {
-                        from: 'devprojectupdates',
-                        let: {
-                            pID: '$projectID'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $eq: ['$projectID', '$$pID']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    createdAt: 1
-                                }
-                            }, {
-                                $sort: {
-                                    createdAt: -1
-                                }
-                            }, {
-                                $limit: 1
-                            }
-                        ],
-                        as: 'lastUpdate'
-                    }
-                }, {
-                    $addFields: {
-                        lastUpdate: {
-                            $arrayElemAt: ['$lastUpdate', 0]
-                        }
-                    }
-                }
-            ]);
-        }).then((devResults) => {
-            if (devResults.length > 0) {
-                const recentDev = devResults[0];
-                if (recentDev.lastUpdate === undefined) {
-                    const lastUpdate = {
-                        createdAt: recentDev.updatedAt
-                    };
-                    recentDev.lastUpdate = lastUpdate;
-                }
-                developmentProject = recentDev;
-            }
-            return AdminProject.aggregate([
-                {
-                    $match: {
-                        assignees: decoded.uuid,
-                        status: {
-                            $in: ['ready', 'ip']
-                        }
-                    }
-                }, {
-                    $limit: 1
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        projectID: 1,
-                        title: 1,
-                        updatedAt: 1
-                    }
-                }, {
-                    $lookup: {
-                        from: 'adminprojectupdates',
-                        let: {
-                            pID: '$projectID'
-                        },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $eq: ['$projectID', '$$pID']
-                                    }
-                                }
-                            }, {
-                                $project: {
-                                    _id: 0,
-                                    createdAt: 1
-                                }
-                            }, {
-                                $sort: {
-                                    createdAt: -1
-                                }
-                            }, {
-                                $limit: 1
-                            }
-                        ],
-                        as: 'lastUpdate'
-                    }
-                }, {
-                    $addFields: {
-                        lastUpdate: {
-                            $arrayElemAt: ['$lastUpdate', 0]
-                        }
-                    }
-                }
-            ]);
-        }).then((adminResults) => {
-            if (adminResults.length > 0) {
-                const recentAdmin = adminResults[0];
-                if (recentAdmin.lastUpdate === undefined) {
-                    const lastUpdate = {
-                        createdAt: recentAdmin.updatedAt
-                    };
-                    recentAdmin.lastUpdate = lastUpdate;
-                }
-                adminProject = recentAdmin;
-            }
             response.err = false;
             if (harvestingProject !== undefined) {
                 response.harvesting = harvestingProject;
-            }
-            if (developmentProject !== undefined) {
-                response.development = developmentProject;
-            }
-            if (adminProject !== undefined) {
-                response.admin = adminProject;
             }
             return res.send(response);
         }).catch((err) => {
@@ -447,7 +218,19 @@ const getRecentUserProjects = (req, res, next) => {
     }
 };
 
+const validate = (method) => {
+    switch (method) {
+        case 'create':
+            return [
+                body('title', conductorErrors.err1).exists().isLength({ min: 1 }),
+                body('tags').optional({ checkFalsy: true }).isArray()
+            ]
+    }
+};
+
 module.exports = {
+    createProject,
     getAllUserProjects,
-    getRecentUserProjects
+    getRecentUserProjects,
+    validate
 };

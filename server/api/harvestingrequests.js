@@ -1,3 +1,8 @@
+//
+// LibreTexts Conductor
+// harvestingrequests.js
+//
+
 'use strict';
 const HarvestingRequest = require('../models/harvestingrequest.js');
 const { body, validationResult } = require('express-validator');
@@ -6,36 +11,27 @@ const { isEmptyString } = require('../util/Helpers.js');
 const { threePartDateStringValidator } = require('../validators.js');
 
 const addRequest = (req, res) => {
-    const validationErrors = validationResult(req);
-    if (validationErrors.isEmpty()) {
-        if (!isEmptyString(req.body.dateIntegrate)) { // validate
-            const rawDI = String(req.body.dateIntegrate).split('-');
-            const dateIntegrate = new Date(rawDI[2], rawDI[0]-1, rawDI[1], 0, 0, 0);
-            req.body.dateIntegrate = dateIntegrate;
-        }
-        var newRequest = new HarvestingRequest(req.body);
-        newRequest.save().then((newDoc) => {
-            if (newDoc) {
-                return res.send({
-                    err: false,
-                    msg: "Harvesting request succesfully submitted."
-                });
-            } else {
-                throw(conductorErrors.err3);
-            }
-        }).catch((err) => {
-            return res.send({
-                err: true,
-                errMsg: err.toString()
-            });
-        });
-    } else {
-        return res.status(400).send({
-            err: true,
-            errMsg: conductorErrors.err2,
-            errors: validationErrors.array()
-        });
+    if (!isEmptyString(req.body.dateIntegrate)) { // validate and convert to Date object
+        const rawDI = String(req.body.dateIntegrate).split('-');
+        const dateIntegrate = new Date(rawDI[2], rawDI[0]-1, rawDI[1], 0, 0, 0);
+        req.body.dateIntegrate = dateIntegrate;
     }
+    var newRequest = new HarvestingRequest(req.body);
+    newRequest.save().then((newDoc) => {
+        if (newDoc) {
+            return res.send({
+                err: false,
+                msg: "Harvesting request succesfully submitted."
+            });
+        } else {
+            throw(conductorErrors.err3);
+        }
+    }).catch((err) => {
+        return res.send({
+            err: true,
+            errMsg: err.toString()
+        });
+    });
 };
 
 const validate = (method) => {

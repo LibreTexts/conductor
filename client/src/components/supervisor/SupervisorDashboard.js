@@ -37,20 +37,8 @@ class SupervisorDashboard extends Component {
             filtHarvesting: [],
             hUsers: [],
             hUserFilter: '',
-            rawAios:[],
-            filtAios: [],
-            dUsers: [],
-            dUserFilter: '',
-            rawAdmin: [],
-            filtAdmin: [],
-            aUsers: [],
-            aUserFilter: '',
             hFromDate: '',
             hToDate: '',
-            dFromDate: '',
-            dToDate: '',
-            aFromDate: '',
-            aToDate: ''
         };
     }
 
@@ -72,10 +60,6 @@ class SupervisorDashboard extends Component {
         this.setState({
             hFromDate: '01-01-2021',
             hToDate: todayString,
-            dFromDate: '01-01-2021',
-            dToDate: todayString,
-            aFromDate: '01-01-2021',
-            aToDate: todayString,
             date: today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
         }, () => {
             this.getHUpdates();
@@ -101,12 +85,6 @@ class SupervisorDashboard extends Component {
             case 'harvesting':
                 this.getHUpdates();
                 break
-            case 'development':
-                this.getAIOs();
-                break
-            case 'admin':
-                this.getAUpdates();
-                break
             default:
                 break // silence React warning
         }
@@ -125,62 +103,6 @@ class SupervisorDashboard extends Component {
             hToDate: data.value
         }, () => {
             this.getHUpdates();
-        });
-    }
-
-    setDFromDate(e, data) {
-        this.setState({
-            dFromDate: data.value
-        }, () => {
-            this.getAIOs();
-        });
-    }
-
-    setDToDate(e, data) {
-        this.setState({
-            dToDate: data.value
-        }, () => {
-            this.getAIOs();
-        });
-    }
-
-    setAFromDate(e, data) {
-        this.setState({
-            aFromDate: data.value
-        }, () => {
-            this.getAUpdates();
-        });
-    }
-
-    setAToDate(e, data) {
-        this.setState({
-            aToDate: data.value
-        }, () => {
-            this.getAUpdates();
-        });
-    }
-
-    setHUserFilter(e, { value }) {
-        this.setState({
-            hUserFilter: value
-        }, () => {
-            this.filterHUpdates();
-        });
-    }
-
-    setDUserFilter(e, { value }) {
-        this.setState({
-            dUserFilter: value
-        }, () => {
-            this.filterAIOs();
-        });
-    }
-
-    setAUserFilter(e, { value }) {
-        this.setState({
-            aUserFilter: value
-        }, () => {
-            this.filterAUpdates();
         });
     }
 
@@ -233,110 +155,6 @@ class SupervisorDashboard extends Component {
         });
         this.setState({
             filtHarvesting: filtered
-        });
-    }
-
-    getAIOs() {
-        axios.get('/development/aio/all', {
-            params: {
-                fromDate: this.state.dFromDate,
-                toDate: this.state.dToDate,
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.aios != null) {
-                    var dUserResults = {};
-                    var dUserOptions = [{ key: 'empty', text: 'Clear...', value: "" }];
-                    res.data.aios.forEach((aio) => {
-                        dUserResults[aio.author.uuid] = `${aio.author.firstName} ${aio.author.lastName}`;
-                    });
-                    for (const [user, name] of Object.entries(dUserResults)) {
-                        dUserOptions.push({
-                            key: user,
-                            text: name,
-                            value: user
-                        });
-                    }
-                    this.setState({
-                        dUsers: dUserOptions,
-                        rawAios: res.data.aios,
-                        filtAios: res.data.aios
-                    });
-                }
-            } else {
-                alert(`Oops! We encountered an error: ${res.data.errMsg}`);
-                console.log(res.data.errMsg);
-            }
-        }).catch((err) => {
-            alert("Oops! We encountered an error.");
-            console.log(err);
-        });
-    }
-
-    filterAIOs() {
-        const rawAios = this.state.rawAios;
-        let filtered = rawAios.filter((aio) => {
-            if (this.state.dUserFilter === '') {
-                return aio;
-            } else if (this.state.dUserFilter === aio.author.uuid) {
-                return aio;
-            }
-            return false;
-        });
-        this.setState({
-            filtAios: filtered
-        });
-    }
-
-    getAUpdates() {
-        axios.get('admin/projects/updates/feed', {
-            params: {
-                fromDate: this.state.aFromDate,
-                toDate: this.state.aToDate,
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.updates != null) {
-                    var aUserResults = {};
-                    var aUserOptions = [{ key: 'empty', text: 'Clear...', value: "" }];
-                    res.data.updates.forEach((update) => {
-                        aUserResults[update.author.uuid] = `${update.author.firstName} ${update.author.lastName}`;
-                    });
-                    for (const [user, name] of Object.entries(aUserResults)) {
-                        aUserOptions.push({
-                            key: user,
-                            text: name,
-                            value: user
-                        });
-                    }
-                    this.setState({
-                        aUsers: aUserOptions,
-                        rawAdmin: res.data.updates,
-                        filtAdmin: res.data.updates
-                    });
-                }
-            } else {
-                alert(`Oops! We encountered an error: ${res.data.errMsg}`);
-                console.log(res.data.errMsg);
-            }
-        }).catch((err) => {
-            alert("Oops! We encountered an error.");
-            console.log(err);
-        });
-    }
-
-    filterAUpdates() {
-        const rawUpdates = this.state.rawAdmin;
-        let filtered = rawUpdates.filter((update) => {
-            if (this.state.aUserFilter === '') {
-                return update;
-            } else if (this.state.aUserFilter === update.author.uuid) {
-                return update;
-            }
-            return false;
-        });
-        this.setState({
-            filtAdmin: filtered
         });
     }
 
@@ -437,182 +255,6 @@ class SupervisorDashboard extends Component {
                             </Grid>
                         </Segment>
                     );
-                case 'development':
-                    return(
-                        <Segment basic className='pane-segment'>
-                            <h2>Development AIOs</h2>
-                            <Divider />
-                            <Grid>
-                                <Grid.Row columns={3}>
-                                    <Grid.Column>
-                                        <Form>
-                                            <DateInput
-                                                name='fromdate'
-                                                label='From'
-                                                inlineLabel
-                                                placeholder='From ...'
-                                                value={this.state.dFromDate}
-                                                iconPosition='left'
-                                                onChange={this.setDFromDate.bind(this)}
-                                                dateFormat='MM-DD-YYYY'
-                                                popupPosition='bottom center'
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Form>
-                                            <DateInput
-                                                name='todate'
-                                                label='To'
-                                                inlineLabel
-                                                placeholder='To ...'
-                                                value={this.state.dToDate}
-                                                iconPosition='left'
-                                                onChange={this.setDToDate.bind(this)}
-                                                dateFormat='MM-DD-YYYY'
-                                                popupPosition='bottom center'
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Form>
-                                            <Form.Select
-                                                placeholder='Filter by user...'
-                                                label='User'
-                                                inline
-                                                value={this.state.dUserFilter}
-                                                options={this.state.dUsers}
-                                                onChange={this.setDUserFilter.bind(this)}
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row columns={1}>
-                                    <Grid.Column>
-                                        {this.state.filtAios.map((item, index) => {
-                                            const itemDate = new Date(item.createdAt);
-                                            item.date = date.format(itemDate, 'MMMM DDD, YYYY');
-                                            item.time = date.format(itemDate, 'h:mm A')
-                                            return (
-                                                <Card fluid key={index}>
-                                                    <Card.Content>
-                                                        <Image
-                                                            floated='left'
-                                                            size='mini'
-                                                            src={`${item.author.avatar}`}
-                                                            circular
-                                                        />
-                                                        <Card.Header>{item.author.firstName} {item.author.lastName} - <Link to={`/development/projects/${item.project.projectID}`}><em>{item.project.title}</em></Link></Card.Header>
-                                                        <Card.Meta>{item.date} | {item.time} — <em>{item.estimatedProgress}% <span className='gray-span'>(estimated)</span> - {item.estimatedHours} Hours <span className='gray-span'>(estimated)</span></em></Card.Meta>
-                                                    </Card.Content>
-                                                    <Card.Content>
-                                                        <Header size='small'>Accomplishments</Header>
-                                                        <Card.Description>{item.accomplishments}</Card.Description>
-                                                        <Header size='small'>Issues</Header>
-                                                        <Card.Description>{item.issues}</Card.Description>
-                                                        <Header size='small'>Objectives</Header>
-                                                        <Card.Description>{item.objectives}</Card.Description>
-                                                    </Card.Content>
-                                                    <Card.Content>
-                                                        <Header size='small'>Other Notes</Header>
-                                                        <Card.Description>
-                                                            {item.notes}
-                                                            {item.notes === '' &&
-                                                                "N/A"
-                                                            }
-                                                        </Card.Description>
-                                                    </Card.Content>
-                                                </Card>
-                                            )
-                                        })}
-                                        {(this.state.filtAios.length === 0) &&
-                                            <Message><p>No AIOs found for that query.</p></Message>
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Segment>
-                    );
-                case 'admin':
-                    return(
-                        <Segment basic className='pane-segment'>
-                            <h2>Administration Updates</h2>
-                            <Divider />
-                            <Grid>
-                                <Grid.Row columns={3}>
-                                    <Grid.Column>
-                                        <Form>
-                                            <DateInput
-                                                name='fromdate'
-                                                label='From'
-                                                inlineLabel
-                                                placeholder='From ...'
-                                                value={this.state.aFromDate}
-                                                iconPosition='left'
-                                                onChange={this.setAFromDate.bind(this)}
-                                                dateFormat='MM-DD-YYYY'
-                                                popupPosition='bottom center'
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Form>
-                                            <DateInput
-                                                name='todate'
-                                                label='To'
-                                                inlineLabel
-                                                placeholder='To ...'
-                                                value={this.state.aToDate}
-                                                iconPosition='left'
-                                                onChange={this.setAToDate.bind(this)}
-                                                dateFormat='MM-DD-YYYY'
-                                                popupPosition='bottom center'
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        <Form>
-                                            <Form.Select
-                                                placeholder='Filter by user...'
-                                                label='User'
-                                                inline
-                                                value={this.state.aUserFilter}
-                                                options={this.state.aUsers}
-                                                onChange={this.setAUserFilter.bind(this)}
-                                            />
-                                        </Form>
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row columns={1}>
-                                    <Grid.Column>
-                                        {this.state.filtAdmin.map((item, index) => {
-                                            const itemDate = new Date(item.createdAt);
-                                            item.date = date.format(itemDate, 'MMMM DDD, YYYY');
-                                            item.time = date.format(itemDate, 'h:mm A')
-                                            return (
-                                                <Card fluid key={index}>
-                                                    <Card.Content>
-                                                        <Image
-                                                            floated='left'
-                                                            size='mini'
-                                                            src={`${item.author.avatar}`}
-                                                            circular
-                                                        />
-                                                        <Card.Header><Link to={`/admin/projects/${item.project.projectID}`}>{item.project.title}</Link> — <em>{item.estimatedProgress}% <span className='gray-span'>(estimated)</span></em></Card.Header>
-                                                        <Card.Meta>{item.author.firstName} {item.author.lastName} | {item.date} {item.time}</Card.Meta>
-                                                        <Card.Description>{item.message}</Card.Description>
-                                                    </Card.Content>
-                                                </Card>
-                                            )
-                                        })}
-                                        {(this.state.filtAdmin.length === 0) &&
-                                            <Message><p>No progress updates found for that query.</p></Message>
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Segment>
-                    );
                 default:
                     break
             }
@@ -646,16 +288,6 @@ class SupervisorDashboard extends Component {
                                                 active={this.state.activeItem === 'harvesting'}
                                                 onClick={this.handleMenuClick.bind(this)}
                                             >Harvesting Updates</Menu.Item>
-                                            <Menu.Item
-                                                name='development'
-                                                active={this.state.activeItem === 'development'}
-                                                onClick={this.handleMenuClick.bind(this)}
-                                            >Development AIOs</Menu.Item>
-                                            <Menu.Item
-                                                name='admin'
-                                                active={this.state.activeItem === 'admin'}
-                                                onClick={this.handleMenuClick.bind(this)}
-                                            >Administration Updates</Menu.Item>
                                         </Menu>
                                     </Grid.Column>
                                     <Grid.Column stretched width={13}>

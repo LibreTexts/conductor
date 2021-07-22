@@ -1,11 +1,7 @@
 'use strict';
 const mongoose = require('mongoose');
 const User = require('../models/user.js');
-const AdminProject = require('../models/adminproject.js');
-const DevelopmentProject = require('../models/developmentproject.js');
 const HarvestingProject = require('../models/harvestingproject.js');
-const AdminTask = require('../models/admintask.js');
-const DevTask = require('../models/devtask.js');
 const TextbookTarget = require('../models/textbooktarget.js');
 
 const performSearch = (req, res, next) => {
