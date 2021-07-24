@@ -1,3 +1,9 @@
+//
+// LibreTexts Conductor
+// conductor-errors.js
+//
+
+/* The collection of system-wide errors */
 const conductorErrors = {
     'err1': "Required field is missing or malformed.",
     'err2': "Invalid fields supplied.",
@@ -7,6 +13,9 @@ const conductorErrors = {
     'err6': "Oops, we seemed to have encountered an internal error.",
     'err7': "Couldn't find a user with that identifier.",
     'err8': "Sorry, you aren't authorized to perform that action.",
+    'err9': "Unable to verify user attribute(s).",
+    'err10': "Your account does not appear to be associated with any organization.",
+    'err11': "A resource with that identifier was not found."
 };
 
 module.exports = conductorErrors;

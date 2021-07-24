@@ -5,10 +5,11 @@
 
 'use strict';
 const HarvestingRequest = require('../models/harvestingrequest.js');
-const { body, validationResult } = require('express-validator');
+const { body } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString } = require('../util/Helpers.js');
+const { isEmptyString } = require('../util/helpers.js');
 const { threePartDateStringValidator } = require('../validators.js');
+const { debugError } = require('../debug.js');
 
 const addRequest = (req, res) => {
     if (!isEmptyString(req.body.dateIntegrate)) { // validate and convert to Date object
@@ -27,9 +28,10 @@ const addRequest = (req, res) => {
             throw(conductorErrors.err3);
         }
     }).catch((err) => {
-        return res.send({
+        debugError(err);
+        return res.status(500).send({
             err: true,
-            errMsg: err.toString()
+            errMsg: conductorErrors.err6
         });
     });
 };

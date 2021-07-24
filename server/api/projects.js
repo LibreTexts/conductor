@@ -21,11 +21,12 @@ const { debugError } = require('../debug.js');
 const createProject = (req, res) => {
     var newProject = new Project({
         ...req.body,
+        orgID: req.user.org,
         projectID: b62(10),
         status: 'available',
         currentProgress: 0,
         assignees: [],
-        createdBy: req.decoded.uuid,
+        createdBy: req.decoded.uuid
     });
     newProject.save.then((newDoc) => {
         if (newDoc) {

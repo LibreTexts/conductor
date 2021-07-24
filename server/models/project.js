@@ -8,6 +8,10 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const ProjectSchema = new Schema({
+    orgID: {                    // organization identifier string
+        type: String,
+        required: true
+    },
     projectID: {                // b62 10-digit identifier
         type: String,
         required: true

@@ -173,6 +173,10 @@ const Navbar = (props) => {
                                     <Icon name='rss' />
                                     Construction Forum
                                 </Dropdown.Item>
+                                <Dropdown.Item as='a' href='/harvestrequest' target='_blank'>
+                                    <Icon name='plus' />
+                                    Harvesting Request
+                                </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://imathas.libretexts.org/imathas/' target='_blank'>
                                     <Icon name='percent' />
                                     IMathAS

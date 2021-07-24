@@ -1,4 +1,4 @@
-const { isEmptyString } = require('./util/Helpers.js');
+const { isEmptyString } = require('./util/helpers.js');
 
 const threePartDateStringValidator = (value) => {
     if (!isEmptyString(value)) { // validate

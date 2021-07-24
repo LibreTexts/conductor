@@ -1,5 +1,17 @@
 # Changelog
 
+## 07-23-2021
+#### :art: UI/UX
+* Started integrating the updated Projects UI
+* Added 'Harvesting Request' to the Tools menu
+
+#### :satellite: Server
+* Started Organizations paradigm:
+  * Defined new Organization model
+  * Started writing new backend logic
+* Upgraded more authentication logic
+
+
 ## 07-22-2021
 #### :satellite: Server
 * Started redesigning Projects:

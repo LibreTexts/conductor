@@ -21,6 +21,7 @@ const UserSchema = new Schema({
     avatar: String,
     hash: String,
     salt: String,
+    org: String,
     roles: {
         type: [String],
         required: true

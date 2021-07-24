@@ -8,8 +8,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
+const { isEmptyString } = require('../util/helpers.js');
 
-const login = (req, res, next) => {
+
+/**
+ * Handles user login by finding a user account,
+ * verifying the provided password, and issuing
+ * authorization cookies.
+ */
+const login = (req, res, _next) => {
     var response = {};
     const emailReq = req.body.email;
     const passwordReq = req.body.password;
@@ -61,11 +68,18 @@ const login = (req, res, next) => {
     });
 };
 
+/**
+ * Verifies the JWT provided in a request's Authorization
+ * header.
+ */
 const verifyRequest = (req, res, next) => {
     var token = req.headers.authorization;
     try {
         const decoded = jwt.verify(token, process.env.SECRETKEY);
-        req.decoded = decoded;
+        req.user = {
+            decoded: decoded
+        };
+        req.decoded = decoded; // TODO: REMOVE AND UPDATE OTHER LOGIC
         return next();
     } catch (err) {
         var response = {
@@ -79,39 +93,71 @@ const verifyRequest = (req, res, next) => {
     }
 };
 
+/**
+ * Pulls the user record from the database and adds
+ * its attributes (organization identifier and roles) to the
+ * request object.
+ */
+const getUserAttributes = (req, res, next) => {
+    if (req.user.decoded !== undefined) {
+        User.findOne({
+            uuid: req.user.decoded.uuid
+        }).then((user) => {
+            if (user) {
+                if (!(user.org === undefined) && !(isEmptyString(user.org))) {
+                    req.user.org = user.org;
+                    req.user.roles = user.roles;
+                    next();
+                } else {
+                    throw('noorg');
+                }
+            } else {
+                throw('nouser');
+            }
+        }).catch((err) => {
+            if (err === 'nouser') {
+                return res.send(401).send({
+                    err: true,
+                    errMsg: conductorErrors.err7
+                });
+            } else if (err === 'noorg') {
+                return res.send(401).send({
+                    err: true,
+                    errMsg: conductorErrors.err10
+                })
+            } else {
+                debugError(err);
+                return res.status(500).send({
+                    err: true,
+                    errMsg: conductorErrors.err6
+                });
+            }
+        });
+    } else {
+        return res.status(400).send({
+            err: true,
+            errMsg: conductorErrors.err5
+        });
+    }
+};
+
+/**
+ * Checks that the user has at least one of the roles
+ * specified in the @roles array.
+ * Method should only be called AFTER the 'getUserAttributes'
+ * method in a routing chain.
+ */
 const checkHasRoles = (roles) => {
     return (req, res, next) => {
-        if (req.decoded !== undefined) {
-            User.findOne({
-                uuid: req.decoded.uuid
-            }).then((user) => {
-                if (user) {
-                    if (roles.some((role) => { return user.roles.includes(role) })) {
-                        req.roles = user.roles;
-                        next();
-                    } else {
-                        return res.status(401).send({
-                            err: true,
-                            errMsg: conductorErrors.err8
-                        });
-                    }
-                } else {
-                    throw('nouser');
-                }
-            }).catch((err) => {
-                if (err.toString() === 'nouser') {
-                    return res.send(401).send({
-                        err: true,
-                        errMsg: conductorErrors.err7
-                    });
-                } else {
-                    debugError(err);
-                    return res.status(500).send({
-                        err: true,
-                        errMsg: conductorErrors.err6
-                    });
-                }
-            });
+        if (req.user.roles !== undefined) {
+            if (roles.some((role) => { return req.user.roles.includes(role) })) {
+                next();
+            } else {
+                return res.status(401).send({
+                    err: true,
+                    errMsg: conductorErrors.err8
+                });
+            }
         } else {
             return res.status(400).send({
                 err: true,
@@ -124,5 +170,6 @@ const checkHasRoles = (roles) => {
 module.exports = {
     login,
     verifyRequest,
+    getUserAttributes,
     checkHasRoles
 };

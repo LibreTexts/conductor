@@ -8,6 +8,18 @@ import { UserProvider } from './providers.js';
 import { userInitialState, userReducer } from './reducers.js';
 import AccountSettings from './components/auth/AccountSettings.js';
 import Dashboard from './components/dashboard/Dashboard.js';
+import ProjectsPortal from './components/projects/ProjectsPortal.js';
+
+
+import Login from './components/auth/Login.js';
+import Navbar from './components/navigation/Navbar.js';
+import Search from './components/search/Search.js';
+import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js';
+
+import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
+
+
+
 import HarvestingCompletedProjects from './components/harvesting/HarvestingCompletedProjects.js';
 import HarvestingPortal from './components/harvesting/HarvestingPortal.js';
 import HarvestingProjectAddExisting from './components/harvesting/HarvestingProjectAddExisting.js';
@@ -17,12 +29,7 @@ import HarvestingTargetAdd from './components/harvesting/targetlist/HarvestingTa
 import HarvestingTargetDetail from './components/harvesting/targetlist/HarvestingTargetDetail.js';
 import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
-import Login from './components/auth/Login.js';
-import Navbar from './components/navigation/Navbar.js';
-import Search from './components/search/Search.js';
-import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js';
 
-import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 
 import AnonRoute from './components/util/AnonRoute.js';
 import PrivateRoute from './components/util/PrivateRoute.js';
@@ -53,6 +60,8 @@ function App() {
                     <Route exact path = '/harvestrequest' component={HarvestRequest} />
                     <PrivateRoute exact path = '/' component={Dashboard} />
                     <PrivateRoute exact path = '/search' component={Search} />
+                    <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
+
                     <PrivateRoute exact path = '/harvesting' component={HarvestingPortal} />
                         <PrivateRoute exact path = '/harvesting/projects/addexisting' component={HarvestingProjectAddExisting} />
                         <PrivateRoute exact path = '/harvesting/projects/completed' component={HarvestingCompletedProjects} />

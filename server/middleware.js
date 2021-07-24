@@ -26,12 +26,12 @@ const checkValidationErrors = (req, res, next) => {
 };
 
 
-/*
+/**
  * Checks that the route is being run on a LibreCommons server,
  * verified via an environment variable.
  */
 const checkLibreCommons = (_req, res, next) => {
-    if (process.env.ORG_ID === 'librecommons') {
+    if (process.env.ORG_ID === 'libretexts') {
             next();
     } else {
         return res.status(403).send({
@@ -42,7 +42,7 @@ const checkLibreCommons = (_req, res, next) => {
 };
 
 
-/*
+/**
  * Verifies CORS properties (all routes)
  */
 const corsHelper = (req, res, next) => {
@@ -63,7 +63,8 @@ const corsHelper = (req, res, next) => {
 };
 
 
-/* Performs security header checks and reconstructs the
+/**
+ * Performs security header checks and reconstructs the
  * Authorization header from cookies/credentials (all routes).
  */
 const authSanitizer = (req, res, next) => {
