@@ -95,7 +95,7 @@ const CommonsCatalog = (props) => {
                                             <Card.Content>
                                                 <Card.Header>{item.title}</Card.Header>
                                                 <Card.Meta>
-                                                    <Image src='https://libretexts.org/img/LibreTexts/glyphs/chem.png' className='commons-content-glyph' />
+                                                    <Image src='/glyphs/chem.png' className='commons-content-glyph' />
                                                     {String(item.library).charAt(0).toUpperCase() + String(item.library).slice(1)}
                                                 </Card.Meta>
                                                 <Card.Description>

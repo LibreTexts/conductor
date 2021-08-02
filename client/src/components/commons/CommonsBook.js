@@ -56,7 +56,7 @@ const CommonsBook = (props) => {
                                     <Header as='h2'>{book.title}</Header>
                                     <p><Icon name='user'/> {book.author}</p>
                                     <p>
-                                        <Image src='https://libretexts.org/img/LibreTexts/glyphs/chem.png' className='commons-content-glyph' inline/>
+                                        <Image src='/glyphs/chem.png' className='commons-content-glyph' inline/>
                                         {String(book.library).charAt(0).toUpperCase() + String(book.library).slice(1)}
                                     </p>
                                     <p><Icon name='university'/> University of California, Davis</p>
