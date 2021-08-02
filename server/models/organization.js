@@ -16,11 +16,13 @@ const OrganizationSchema = new Schema({
         type: String,
         required: true
     },
+    shortName: String,              // the organization's shortened name
     abbreviation: String,           // the organization's abbreviation
     coverPhoto: String,             // the organization's large "cover photo"
     largeLogo: String,              // the organization's large/main logo
     mediumLogo: String,             // the organization's medium/secondary logo
-    smallLogo: String               // the organization's smallest logo or icon
+    smallLogo: String,              // the organization's smallest logo or icon
+    aboutLink: String               // the organization's "About" page link
 }, {
     timestamps: true
 });

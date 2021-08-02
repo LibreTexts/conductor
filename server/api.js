@@ -12,6 +12,7 @@ const middleware = require('./middleware.js');
 /* Interfaces */
 const authAPI = require('./api/auth.js');
 const userAPI = require('./api/user.js');
+const orgAPI = require('./api/organizations.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcement.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -29,6 +30,10 @@ router.use(middleware.authSanitizer);
 router.route('/v1/auth/login').post(authAPI.login);
 
 
+/* Organizations */
+router.route('/v1/org/info').get(orgAPI.validate('getinfo'), middleware.checkValidationErrors, orgAPI.getOrganizationInfo);
+
+
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);
 
@@ -40,6 +45,7 @@ router.route('/v1/user/accountinfo').get(authAPI.verifyRequest, userAPI.basicAcc
 router.route('/v1/user/getadmins').get(authAPI.verifyRequest, userAPI.getAdmins);
 router.route('/v1/user/getdevelopers').get(authAPI.verifyRequest, userAPI.getDevelopers);
 router.route('/v1/user/getharvesters').get(authAPI.verifyRequest, userAPI.getHarvesters);
+
 
 
 /* Announcements */

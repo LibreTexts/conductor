@@ -1,5 +1,38 @@
 # Changelog
 
+## 08-02-2021
+#### :art: UI/UX
+* More work on the Commons Book UI
+* Preparations for multi-tenancy in Commons
+* Setup Commons demo data
+
+#### :satellite: Server
+* Middleware updates
+* Started defining routes for Organizations API
+
+
+## 07-30-2021
+#### :art: UI/UX
+* Started interactivity in the Commons UI
+* Started designing the Commons Book UI
+* App/Routing reorganization
+* Fixes for application rendering quirks
+
+## 07-29-2021
+#### :art: UI/UX
+* Added Commons Navbar to the Commons UI
+* Added Commons Footer to the Commons UI
+* More client routing work
+
+## 07-28-2021
+#### :art: UI/UX
+* More design work on the Commons UI
+
+## 07-27-2021
+#### :art: UI/UX
+* Started designing the Commons UI
+* Debugged application rendering quirks
+
 ## 07-23-2021
 #### :art: UI/UX
 * Started integrating the updated Projects UI

@@ -1,0 +1,188 @@
+.commons-container {
+    margin: 2% !important;
+    width: calc(100% - 4%);
+}
+
+#commons-nav {
+    z-index: 100; /* Layer over jumbotron */
+    position: relative;
+    width: 100%;
+    height: 60px;
+    margin: 0;
+    padding: 0;
+    background-color: #FFFFFF;
+    -webkit-box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
+    box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
+}
+
+#commons-nav-logo {
+    width: auto;
+    max-height: 50px;
+}
+
+#commons-nav-orglogo {
+    width: auto;
+    max-height: 30px;
+    margin-left: 1rem;
+}
+
+#commons-nav-rightmenu {
+    padding-right: 1rem;
+}
+
+#commons-footer {
+    background-color: #ccecfd;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    -webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+.commons-footer-sponsor {
+    height: 120px;
+    width: auto;
+}
+
+.commons-footer-widesponsor {
+    height: auto;
+    width: 95%;
+}
+
+#commons-sponsor-row {
+    padding-top: 0;
+    padding-left: 3rem;
+    padding-right: 3rem;
+}
+
+.commons-footer-contactlinks {
+    font-size: 1.25rem;
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+
+#commons-book-image {
+    height: auto;
+    width: 100%;
+}
+
+#commons-book-actions {
+    margin-top: 2rem;
+}
+
+#commons-book-preview {
+    width: 100%;
+    height: 500px;
+}
+
+.commons-jumbotron {
+    /* Background image is set dynamically */
+    z-index: 50; /* Appear underneath jumbotron*/
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 30rem;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+.commons-header {
+    font-size: 2.5rem;
+    color: #FFFFFF;
+    text-align: center;
+    padding-top: 1.75rem;
+}
+
+.commons-menu {
+    display: flex;
+    margin: 0;
+    background-color: #0A7CC5;
+    width: 100%;
+    height: 50px;
+    -webkit-box-shadow: 2px 2px 3px 0px #999999;
+    box-shadow: 2px 2px 3px 0px #999999;
+}
+
+.commons-menu-item {
+    color: #FFFFFF !important;
+    height: 100% !important;
+}
+
+.commons-menu-left {
+    display: flex;
+    flex: 1;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.commons-menu-center {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.commons-menu-right {
+    display: flex;
+    flex: 1;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.commons-menu-pointing {
+    height: 50px;
+}
+
+.commons-content {
+    background-color: #F4F4F4 !important;
+}
+
+.commons-content-pagemenu {
+    display: flex;
+    height: 40px;
+}
+
+.commons-content-pagemenu-left {
+    display: flex;
+    flex: 1;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.commons-content-pagemenu-center {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.commons-content-pagemenu-right {
+    display: flex;
+    flex: 1;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.commons-content-pagemenu-dropdown {
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+
+.commons-content-glyph {
+    width: 1.18em;
+    margin-right: 0.5rem !important;
+}
+
+.commons-content-card-img img {
+    height: 200px !important;
+}
+
+/* Override pointing menu colors */
+.ui.secondary.pointing.menu .active.item {
+    border-color: #FFFFFF;
+}
+
+.ui.secondary.pointing.menu .active.item:hover {
+    border-color: #C9C9C9;
+}

@@ -15,12 +15,10 @@ import {
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+//import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
-
-import { UserContext } from '../../providers.js';
 
 const ProjectsPortal = (props) => {
 

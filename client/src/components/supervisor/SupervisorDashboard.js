@@ -158,6 +158,14 @@ class SupervisorDashboard extends Component {
         });
     }
 
+    setHUserFilter(e, { value }) {
+        this.setState({
+            hUserFilter: value
+        }, () => {
+            this.filterHUpdates();
+        });
+    }
+
     parseDateAndTime(dateInput) {
         const dateInstance = new Date(dateInput);
         const timeString = date.format(dateInstance, 'h:mm A');

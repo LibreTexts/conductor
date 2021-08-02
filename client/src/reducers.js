@@ -6,7 +6,18 @@ export const userInitialState = {
     lastName: '',
     avatar: '/favicon-96x96.png',
     roles: [],
-    isAuthenticated: false
+    isAuthenticated: false,
+    org: {
+        orgID: '',
+        name: '',
+        shortName: '',
+        abbreviation: '',
+        coverPhoto: '/coverphoto_default.jpg',
+        largeLogo: '',
+        mediumLogo: '',
+        smallLogo: '',
+        aboutLink: ''
+    }
 };
 
 export function userReducer(state, action) {
@@ -42,6 +53,11 @@ export function userReducer(state, action) {
             return {
                 ...state,
                 userInitialState
+            }
+        case 'SET_ORG_INFO':
+            return {
+                ...state,
+                org: action.org
             }
         default:
             return state;

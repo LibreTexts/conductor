@@ -4,6 +4,7 @@
 //
 
 'use strict';
+const { validationResult } = require('express-validator');
 const conductorErrors = require('./conductor-errors.js');
 
 
@@ -51,7 +52,7 @@ const corsHelper = (req, res, next) => {
     if (process.env.NODE_ENV === 'production') {
         allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
     } else if (process.env.NODE_ENV === 'development') {
-        allowedOrigins = ['http://localhost:7000'];
+        allowedOrigins = ['http://localhost:3000'];
     }
     if (allowedOrigins.indexOf(origin) > -1) {
         res.setHeader('Access-Control-Allow-Origin', origin);

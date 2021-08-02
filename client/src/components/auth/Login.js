@@ -59,7 +59,7 @@ const Login = (props) => {
                     dispatch({
                         type: 'SET_AUTH'
                     });
-                    props.history.push('/');
+                    props.history.push('/dashboard');
                 } else {
                     alert("Oops, we're having trouble completing your login.");
                 }

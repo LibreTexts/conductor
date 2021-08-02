@@ -12,7 +12,7 @@ import AuthHelper from './AuthHelper.js';
 const AnonRoute = ({ component: Component, ...rest }) => (
     <Route {...rest} render={(props) => (
         AuthHelper.isAuthenticated() === true
-        ? window.location.assign('/')
+        ? window.location.assign('/dashboard')
         : <Component {...props} />
     )} />
 );

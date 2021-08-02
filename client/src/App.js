@@ -4,22 +4,26 @@ import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import React from 'react';
 import axios from 'axios';
 
+/* React State */
 import { UserProvider } from './providers.js';
 import { userInitialState, userReducer } from './reducers.js';
+
+/* Utility Routes */
+import AnonRoute from './components/util/AnonRoute.js';
+import PrivateRoute from './components/util/PrivateRoute.js';
+
+/* Commons */
+import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
+import Commons from './components/commons/Commons.js';
+
+/* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
 import Dashboard from './components/dashboard/Dashboard.js';
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
-
-
 import Login from './components/auth/Login.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
 import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js';
-
-import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
-
-
-
 import HarvestingCompletedProjects from './components/harvesting/HarvestingCompletedProjects.js';
 import HarvestingPortal from './components/harvesting/HarvestingPortal.js';
 import HarvestingProjectAddExisting from './components/harvesting/HarvestingProjectAddExisting.js';
@@ -31,13 +35,14 @@ import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingT
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
 
-import AnonRoute from './components/util/AnonRoute.js';
-import PrivateRoute from './components/util/PrivateRoute.js';
-
 function App() {
-    axios.defaults.baseURL = '/api/v1';
+
+    if (process.env.NODE_ENV === 'development') {
+        axios.defaults.baseURL = 'http://localhost:5000/api/v1';
+    } else {
+        axios.defaults.baseURL = '/api/v1';
+    }
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-    axios.defaults.headers.withCredentials = true;
     axios.defaults.headers.post['Content-Type'] = 'application/json';
     axios.interceptors.response.use((res) => {
         return res;
@@ -50,15 +55,13 @@ function App() {
         return Promise.reject(err);
     });
 
-    return (
-        <BrowserRouter>
-          <div className='App'>
-            <UserProvider initialState={userInitialState} reducer={userReducer}>
+    const Conductor = ({ match }) => {
+        return (
+            <div className='conductor'>
                 <Navbar />
                 <Switch>
                     <AnonRoute exact path = '/login' component={Login}/>
-                    <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                    <PrivateRoute exact path = '/' component={Dashboard} />
+                    <PrivateRoute exact path = '/dashboard' component={Dashboard} />
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
 
@@ -73,6 +76,25 @@ function App() {
                         <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
                     <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
                     <PrivateRoute exact path = '/supervisors' component={SupervisorDashboard} />
+                </Switch>
+            </div>
+        )
+    };
+
+    return (
+        <BrowserRouter>
+          <div className='App'>
+            <UserProvider initialState={userInitialState} reducer={userReducer}>
+                <Switch>
+                    {/* Commons Render Tree */}
+                    <Route exact path = '/' component={Commons} />
+                    <Route exact path = '/catalog' component={Commons} />
+                    <Route exact path = '/collections' component={Commons} />
+                    <Route exact path = '/book/:id' component={Commons} />
+                    {/* Standalone */}
+                    <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                    {/* Conductor Render Tree */}
+                    <Route component={Conductor} />
                 </Switch>
             </UserProvider>
           </div>

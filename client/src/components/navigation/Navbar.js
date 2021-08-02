@@ -12,7 +12,7 @@ const Navbar = (props) => {
 
     const location = useLocation();
 
-    const [{firstName, lastName, avatar, roles, isAuthenticated}, dispatch] = useUserState();
+    const [{firstName, lastName, avatar, isAuthenticated}, dispatch] = useUserState();
 
     const [activeItem, setActiveItem] = useState('');
     //const [searchInput, setSearchInput] = useState('');
@@ -50,13 +50,11 @@ const Navbar = (props) => {
     }, [isAuthenticated, dispatch]);
 
     useEffect(() => {
-        const currentPath = window.location.pathname;
+        const currentPath = location.pathname;
         if (currentPath.includes('/dashboard')) {
             setActiveItem('dashboard');
         } else if (currentPath.includes('/harvesting')) {
             setActiveItem('harvesting');
-        } else {
-            setActiveItem('dashboard');
         }
     }, [location]);
 
@@ -70,7 +68,7 @@ const Navbar = (props) => {
         if (process.env.NODE_ENV === 'development') {
             Cookies.remove('access_token', { path: '/', domain: 'localhost' });
         }
-        window.location.assign('/login');
+        window.location.assign('/?src=logout');
     };
 
     const handleNavClick = (e, data) => {
@@ -89,18 +87,16 @@ const Navbar = (props) => {
     };
     */
 
-    var isHarvest = roles.includes('harvest');
-    var isDev = roles.includes('dev');
-    var isAdmin = roles.includes('admin');
+    var isAdmin = true;
     if (isAuthenticated) {
         return (
             <Menu className='nav-menu' secondary >
-                <Menu.Item as={Link} to='/' header className='nav-logo-item' name='dashboard' onClick={handleNavClick}>
+                <Menu.Item as={Link} to='/dashboard' header className='nav-logo-item' name='dashboard' onClick={handleNavClick}>
                     <Image src='/mini_logo.png' className='nav-logo' />
                     <span className='nav-title'>Conductor</span>
                 </Menu.Item>
-                <Menu.Item name='dashboard' as={Link} to ='/' active={activeItem === 'dashboard'} onClick={handleNavClick} />
-                <Menu.Item name='harvesting' as={(isHarvest || isAdmin) ? Link : ''} to ='/harvesting' active={activeItem === 'harvesting'} onClick={handleNavClick} disabled={!(isHarvest || isAdmin)} />
+                <Menu.Item name='dashboard' as={Link} to='/dashboard' active={activeItem === 'dashboard'} onClick={handleNavClick} />
+                <Menu.Item name='harvesting' as={Link} to='/harvesting' active={activeItem === 'harvesting'} onClick={handleNavClick} />
                 <Menu.Menu position='right'>
                     <Menu.Item>
                         <Icon name='bookmark' />
