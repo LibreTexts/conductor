@@ -44,6 +44,7 @@ function App() {
     }
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     axios.defaults.headers.post['Content-Type'] = 'application/json';
+    axios.defaults.withCredentials = true;
     axios.interceptors.response.use((res) => {
         return res;
     }, (err) => {
