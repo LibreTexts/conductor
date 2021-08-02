@@ -45,32 +45,34 @@ const Login = (props) => {
     };
 
     const sendLogin = (props) => {
-        var userData = {
-            email: email,
-            password: password
-        };
-        axios.post('/auth/login', userData, {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (Cookies.get('access_token') !== undefined) {
-                    dispatch({
-                        type: 'SET_AUTH'
-                    });
-                    props.history.push('/dashboard');
-                } else {
-                    alert("Oops, we're having trouble completing your login.");
+        if (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true') {
+            var userData = {
+                email: email,
+                password: password
+            };
+            axios.post('/auth/login', userData, {
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-            } else {
-                setErrMsg(res.data.errMsg);
+            }).then((res) => {
+                if (!res.data.err) {
+                    if (Cookies.get('access_token') !== undefined) {
+                        dispatch({
+                            type: 'SET_AUTH'
+                        });
+                        props.history.push('/dashboard');
+                    } else {
+                        alert("Oops, we're having trouble completing your login.");
+                    }
+                } else {
+                    setErrMsg(res.data.errMsg);
+                    setErrModal(true);
+                }
+            }).catch((e) => {
+                setErrMsg("Encountered an error sending your request.");
                 setErrModal(true);
-            }
-        }).catch((e) => {
-            setErrMsg("Encountered an error sending your request.");
-            setErrModal(true);
-        })
+            });
+        }
     };
 
     const modalClosed = () => {
@@ -93,6 +95,12 @@ const Login = (props) => {
                             <p>Your authentication method appears to have expired. Please login again.</p>
                         </Message>
                     }
+                    {process.env.REACT_APP_DISABLE_CONDUCTOR === 'true' &&
+                        <Message negative>
+                            <Message.Header>Conductor is disabled</Message.Header>
+                            <p>Sorry, access to Conductor is currently disabled.</p>
+                        </Message>
+                    }
                     <Form onSubmit={onSubmit}>
                         <Form.Field>
                             <label htmlFor='email'>Email</label>
@@ -102,7 +110,7 @@ const Login = (props) => {
                             <label htmlFor='password'>Password</label>
                             <Input fluid={true} type='password' id='password' name='password' placeholder='********' required={true} value={password} onChange={onChange} icon='lock' iconPosition='left' />
                         </Form.Field>
-                        <Button type='submit' color='blue' size='large' fluid={true}>Login</Button>
+                        <Button type='submit' color='blue' size='large' fluid={true} disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}>Login</Button>
                     </Form>
                 </Segment>
             </Grid.Column>
