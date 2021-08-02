@@ -27,15 +27,17 @@ const CommonsBook = (props) => {
 
     useEffect(() => {
         document.title = "LibreTexts | " + book.title;
-        var chapters = [];
-        book.contents.forEach((item, idx) => {
-            chapters.push({
-                key: `chapter-${idx}`,
-                title: item.title,
-                content: { content: listFactory(item.pages) }
+        if (book.contents !== undefined) {
+            var chapters = [];
+            book.contents.forEach((item, idx) => {
+                chapters.push({
+                    key: `chapter-${idx}`,
+                    title: item.title,
+                    content: { content: listFactory(item.pages) }
+                });
             });
-        });
-        setTOCCPanels(chapters);
+            setTOCCPanels(chapters);
+        }
     }, [book.title, book.contents]);
 
     const handleAccordionClick = (e, { index }) => {
