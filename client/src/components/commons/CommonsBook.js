@@ -5,11 +5,14 @@ import React, { useEffect, useState } from 'react';
 //import axios from 'axios';
 
 
-import demoBooks from '../util/DemoBooks.js';
+import { getDemoBooks, getInstName } from '../util/DemoBooks.js';
+
+import { getLicenseText, getGlyphAddress, getLibraryName } from '../util/HarvestingMasterOptions.js';
 
 const CommonsBook = (props) => {
 
-    const book = demoBooks[props.match.params.id-1];
+    const orgBooks = getDemoBooks(process.env.REACT_APP_ORG_ID);
+    const book = orgBooks[props.match.params.id-1];
     const [activeAccordion, setActiveAccordion] = useState(-1);
     const [tocChapterPanels, setTOCCPanels] = useState([]);
 
@@ -54,12 +57,17 @@ const CommonsBook = (props) => {
                                 <Grid.Column width={4}>
                                     <Image id='commons-book-image' src={book.thumbnail} />
                                     <Header as='h2'>{book.title}</Header>
-                                    <p><Icon name='user'/> {book.author}</p>
+                                    {(book.author !== '') &&
+                                        <p><Icon name='user'/> {book.author}</p>
+                                    }
                                     <p>
-                                        <Image src='/glyphs/chem.png' className='commons-content-glyph' inline/>
-                                        {String(book.library).charAt(0).toUpperCase() + String(book.library).slice(1)}
+                                        <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
+                                        {getLibraryName(book.library)}
                                     </p>
-                                    <p><Icon name='university'/> University of California, Davis</p>
+                                    {(book.license !== '') &&
+                                        <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                    }
+                                    <p><Icon name='university'/> {book.institution}</p>
                                     <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
                                         <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
                                         <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
@@ -70,10 +78,12 @@ const CommonsBook = (props) => {
                                     </Button.Group>
                                 </Grid.Column>
                                 <Grid.Column width={12}>
-                                    <Segment>
-                                        <Header as='h3' dividing>Summary</Header>
-                                        <p>{book.summary}</p>
-                                    </Segment>
+                                    {(book.summary !== '') &&
+                                        <Segment>
+                                            <Header as='h3' dividing>Summary</Header>
+                                            <p>{book.summary}</p>
+                                        </Segment>
+                                    }
                                     <Accordion styled fluid>
                                         <Accordion.Title
                                             index={0}
@@ -84,7 +94,7 @@ const CommonsBook = (props) => {
                                             Table of Contents
                                         </Accordion.Title>
                                         <Accordion.Content active={activeAccordion === 0}>
-                                            <Accordion.Accordion panels={tocChapterPanels} />
+                                            <p><em>This feature is coming soon!</em></p>
                                         </Accordion.Content>
                                         <Accordion.Title
                                             index={1}
@@ -95,7 +105,10 @@ const CommonsBook = (props) => {
                                             Book Preview
                                         </Accordion.Title>
                                         <Accordion.Content active={activeAccordion === 1}>
-                                            <iframe id='commons-book-preview' src={book.preview} loading='lazy' title="Book Preview Frame" />
+                                            {(book.preview !== '')
+                                                ? <iframe id='commons-book-preview' src={book.preview} loading='lazy' title="Book Preview Frame" />
+                                                : <p>No preview available yet.</p>
+                                            }
                                         </Accordion.Content>
                                     </Accordion>
                                 </Grid.Column>
@@ -112,6 +125,14 @@ export default CommonsBook;
 
 
 /*
+<Accordion.Content active={activeAccordion === 0}>
+    <Accordion.Accordion panels={tocChapterPanels} />
+</Accordion.Content>
+
+
+
+
+
 <List>
     {book.contents.map((item, index) => {
         return (

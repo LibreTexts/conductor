@@ -1,7 +1,7 @@
 import './Commons.css';
 
 import { Link, useLocation, Switch, Route } from 'react-router-dom';
-import { Grid, Menu, Image, Icon } from 'semantic-ui-react';
+import { Grid, Menu, Image, Icon, Modal, Button } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -20,6 +20,13 @@ const Commons = (props) => {
     const [{ org }, dispatch] = useUserState();
 
     const [activeItem, setActiveItem] = useState('');
+    const [showNoOrg, setShowNoOrg] = useState(false);
+
+    useEffect(() => {
+        if (!process.env.REACT_APP_ORG_ID) {
+            setShowNoOrg(true);
+        }
+    }, []);
 
     const getOrgInfo = () => {
         axios.get('org/info', {
@@ -66,10 +73,9 @@ const Commons = (props) => {
         backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(' + org.coverPhoto + ')'
     };
 
-    return (
-        <div className='commons'>
-            <CommonsNavbar />
-            <div className='commons-jumbotron' style={jumbotronStyle}>
+    const Jumbotron = () => {
+        if (process.env.REACT_APP_ORG_ID !== 'libretexts') {
+            return (
                 <Grid>
                     <Grid.Row>
                         <Grid.Column>
@@ -82,6 +88,26 @@ const Commons = (props) => {
                         </Grid.Column>
                     </Grid.Row>
                 </Grid>
+            )
+        } else {
+            return (
+                <Grid>
+                    <Grid.Row>
+                        <Grid.Column>
+                            <h3 className='commons-libresubheader'>WELCOME TO</h3>
+                            <h1 className='commons-libreheader'>LibreCommons</h1>
+                        </Grid.Column>
+                    </Grid.Row>
+                </Grid>
+            )
+        }
+    };
+
+    return (
+        <div className='commons'>
+            <CommonsNavbar />
+            <div className='commons-jumbotron' style={jumbotronStyle}>
+                <Jumbotron />
             </div>
             <div className='commons-menu'>
                 <div className='commons-menu-left'>
@@ -138,6 +164,21 @@ const Commons = (props) => {
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
             <CommonsFooter />
+            <Modal
+                onClose={() => { setShowNoOrg(false) }}
+                open={showNoOrg}
+            >
+                <Modal.Header>LibreTexts Conductor Platform: Error</Modal.Header>
+                <Modal.Content>
+                    <Modal.Description>
+                        <p>It appears you are using a Conductor instance that is missing an Organization identifier.</p>
+                        <p><strong>This may lead to unexpected or faulty behavior.</strong></p>
+                    </Modal.Description>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button negative onClick={() => { setShowNoOrg(false) }}>Bypass</Button>
+                </Modal.Actions>
+            </Modal>
         </div>
     )
 }

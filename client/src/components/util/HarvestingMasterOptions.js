@@ -556,6 +556,67 @@ const getShelfOptions = (rawName) => {
     return [shelfOption, disableShelf];
 };
 
+const getLicenseText = (license) => {
+    if (license !== '') {
+        let foundLicense = licenseOptions.find((item) => {
+            return item.value === license;
+        });
+        return foundLicense.text;
+    } else {
+        return "Not specified";
+    }
+};
+
+const getGlyphAddress = (library) => {
+    switch (library) {
+        case 'chemistry':
+            return '/glyphs/chem.png';
+        case 'engineering':
+            return '/glyphs/eng.png';
+        case 'mathematics':
+            return '/glyphs/math.png';
+        case 'social_science':
+            return '/glyphs/socialsci.png';
+        case 'workforce':
+            return '/glyphs/workforce.png';
+        default:
+            return '/favicon-32x32.png';
+    }
+};
+
+const getLibraryName = (library) => {
+    switch (library) {
+        case 'biology':
+            return "Biology";
+        case 'business':
+            return "Business";
+        case 'chemistry':
+            return "Chemistry";
+        case 'engineering':
+            return "Engineering";
+        case 'espanol':
+            return "Español";
+        case 'geosciences':
+            return "Geosciences";
+        case 'humanities':
+            return "Humanities";
+        case 'mathematics':
+            return "Mathematics";
+        case 'medicine':
+            return "Medicine";
+        case 'physics':
+            return "Physics";
+        case 'social_science':
+            return "Social Science";
+        case 'statistics':
+            return "Statistics";
+        case 'workforce':
+            return "Workforce";
+        default:
+            return "";
+    }
+};
+
 module.exports = {
     licenseOptions,
     textUseOptions,
@@ -577,7 +638,10 @@ module.exports = {
     statusOptions,
     allShelfOptions,
     allShelfMap,
-    getShelfOptions
+    getShelfOptions,
+    getLicenseText,
+    getGlyphAddress,
+    getLibraryName
 }
 
 /*

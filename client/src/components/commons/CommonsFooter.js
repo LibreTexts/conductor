@@ -22,22 +22,22 @@ const CommonsFooter = (_props) => {
             </Grid.Row>
             <Grid.Row centered columns={6} verticalAlign='middle' id='commons-sponsor-row'>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/CSU_ALS.png' className='commons-footer-widesponsor' centered />
+                    <Image src='/sponsors/CSU_ALS.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/DOE.png' className='commons-footer-sponsor' centered />
+                    <Image src='/sponsors/DOE.png' className='commons-footer-sponsor' centered />
                 </Grid.Column>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/UCD.png' className='commons-footer-widesponsor' centered/>
+                    <Image src='/sponsors/UCD.png' className='commons-footer-widesponsor' centered/>
                 </Grid.Column>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/Merlot.png' className='commons-footer-widesponsor' centered />
+                    <Image src='/sponsors/Merlot.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/NSF.png' className='commons-footer-sponsor' centered />
+                    <Image src='/sponsors/NSF.png' className='commons-footer-sponsor' centered />
                 </Grid.Column>
                 <Grid.Column className='commons-footer-column'>
-                    <Image src='https://libretexts.org/img/sponsors/clear/UCD_Library.png' className='commons-footer-widesponsor' centered />
+                    <Image src='/sponsors/UCD_Library.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
             </Grid.Row>
         </Grid>

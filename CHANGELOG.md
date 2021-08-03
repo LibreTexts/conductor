@@ -1,5 +1,12 @@
 # Changelog
 
+## 08-03-2021
+#### :art: UI/UX
+* Implemented the Catalog filters
+* More work on Commons multi-tenancy
+* Finished Commons demo data
+* Started designing Collections
+
 ## 08-02-2021
 #### :art: UI/UX
 * More work on the Commons Book UI
