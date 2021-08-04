@@ -34,7 +34,23 @@ mongoose.connect(process.env.MONGOOSEURI, {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(helmet());
+app.use(helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://*.libretexts.org'],
+      frameSrc: ["'self'", 'https://*.libretexts.org'],
+      childSrc: ["'self'", 'https://*.libretexts.org'],
+      scriptSrc: ["'self'", 'https://*.libretexts.org'],
+      styleSrc: [
+        "'self'",
+        'https://*.libretexts.org',
+        'https://*.libretexts.org',
+      ],
+      fontSrc: ["'self'", 'https://*.libretexts.org'],
+      imgSrc: ["'self'", 'https://*.libretexts.org'],
+      baseUri: ["'self'"],
+    },
+}));
 
 if (process.env.NODE_ENV === 'production') {
     app.use((req, res, next) => {
