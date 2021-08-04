@@ -43,10 +43,10 @@ app.use(helmet.contentSecurityPolicy({
       scriptSrc: ["'self'", 'https://*.libretexts.org'],
       styleSrc: [
         "'self'",
-        'https://*.libretexts.org',
-        'https://*.libretexts.org',
+        '*',
+        'https://*.libretexts.org'
       ],
-      fontSrc: ["'self'", 'https://*.libretexts.org'],
+      fontSrc: ["self'", '*', 'https://*.libretexts.org'],
       imgSrc: ["'self'", 'https://*.libretexts.org'],
       baseUri: ["'self'"],
     },
