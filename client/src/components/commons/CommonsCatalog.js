@@ -14,11 +14,18 @@ import {
 } from '../util/HarvestingMasterOptions.js';
 
 import { getDemoBooks } from '../util/DemoBooks.js';
+import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 
 const CommonsCatalog = (props) => {
 
+    // UI
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [activePage, setActivePage] = useState(1);
+
     const [catalogBooks, setCatalogBooks] = useState([]);
     const [filteredBooks, setFilteredBooks] = useState([]);
+    const [pageBooks, setPageBooks] = useState([]);
 
     const [libraryFilter, setLibraryFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('');
@@ -28,7 +35,6 @@ const CommonsCatalog = (props) => {
     const [authorFilter, setAuthorFilter] = useState('');
     const [authorOptions, setAuthorOptions] = useState([]);
     const [licenseFilter, setLicenseFilter] = useState('');
-
 
     const [sortChoice, setSortChoice] = useState('');
     const [searchString, setSearchString] = useState('');
@@ -55,6 +61,11 @@ const CommonsCatalog = (props) => {
         sortBooks();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortChoice]);
+
+    useEffect(() => {
+        setTotalPages(Math.ceil(filteredBooks.length/itemsPerPage));
+        setPageBooks(filteredBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
+    }, [itemsPerPage, filteredBooks, activePage]);
 
 
     const sortBooks = () => {
@@ -216,27 +227,29 @@ const CommonsCatalog = (props) => {
                                 <div className='commons-content-pagemenu-left'>
                                     <span>Displaying </span>
                                     <Dropdown
-                                        text='10'
                                         className='commons-content-pagemenu-dropdown'
+                                        selection
+                                        options={itemsPerPageOptions}
+                                        onChange={(_e, { value }) => { setItemsPerPage(value) }}
+                                        value={itemsPerPage}
                                     />
                                     <span> items per page of <strong>{filteredBooks.length}</strong> results.</span>
                                 </div>
                                 <div className='commons-content-pagemenu-right'>
                                     <Pagination
-                                        defaultActivePage={1}
-                                        totalPages={1}
-                                        boundaryRange={1}
-                                        siblingRange={1}
+                                        activePage={activePage}
+                                        totalPages={totalPages}
                                         firstItem={null}
                                         lastItem={null}
+                                        onPageChange={(_e, data) => { setActivePage(data.activePage) }}
                                     />
                                 </div>
                             </div>
                         </Segment>
                         <Segment className='commons-content'>
-                            {(filteredBooks.length > 0) &&
+                            {(pageBooks.length > 0) &&
                                 <Card.Group itemsPerRow={5}>
-                                    {filteredBooks.map((item, index) => {
+                                    {pageBooks.map((item, index) => {
                                         return (
                                             <Card
                                                 key={index}
@@ -262,8 +275,8 @@ const CommonsCatalog = (props) => {
                                     })}
                                 </Card.Group>
                             }
-                            {(filteredBooks.length === 0) &&
-                                <p className='text-center'>No results found.</p>
+                            {(pageBooks.length === 0) &&
+                                <p className='text-center'><em>No results found.</em></p>
                             }
                         </Segment>
                     </Segment.Group>

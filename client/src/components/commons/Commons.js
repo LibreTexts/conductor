@@ -11,6 +11,7 @@ import CommonsFooter from './CommonsFooter.js';
 import CommonsCatalog from './CommonsCatalog.js';
 import CommonsCollections from './CommonsCollections.js';
 import CommonsBook from './CommonsBook.js';
+import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
 
 import { useUserState } from '../../providers.js';
 
@@ -64,6 +65,8 @@ const Commons = (props) => {
             setActiveItem('catalog');
         } else if (currentPath.includes('/collections')) {
             setActiveItem('collections');
+        } else if (currentPath.includes('/adapt')) {
+            setActiveItem('adapt');
         } else {
             setActiveItem('catalog');
         }
@@ -143,6 +146,15 @@ const Commons = (props) => {
                         >
                             Collections
                         </Menu.Item>
+                        <Menu.Item
+                            name='adapt'
+                            active={activeItem === 'adapt'}
+                            className='commons-menu-item'
+                            as={Link}
+                            to='/adapt'
+                        >
+                            ADAPT
+                        </Menu.Item>
                     </Menu>
                 </div>
                 <div className='commons-menu-right'>
@@ -161,6 +173,7 @@ const Commons = (props) => {
                 <Route exact path='/' component={CommonsCatalog} />
                 <Route exact path='/catalog' component={CommonsCatalog} />
                 <Route exact path='/collections' component={CommonsCollections} />
+                <Route exact path='/adapt' component={CommonsADAPTCatalog} />
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
             <CommonsFooter />

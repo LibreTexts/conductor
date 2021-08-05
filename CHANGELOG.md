@@ -1,5 +1,11 @@
 # Changelog
 
+## 08-05-2021
+#### :art: UI/UX
+* Introduced the ADAPT Commons Catalog
+* Implemented pagination in the Textbook & ADAPT Catalogs
+* Added a global error handling mechanism
+
 ## 08-03-2021
 #### :art: UI/UX
 * Implemented the Catalog filters

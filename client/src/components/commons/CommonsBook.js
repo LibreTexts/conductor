@@ -96,20 +96,6 @@ const CommonsBook = (props) => {
                                         <Accordion.Content active={activeAccordion === 0}>
                                             <p><em>This feature is coming soon!</em></p>
                                         </Accordion.Content>
-                                        <Accordion.Title
-                                            index={1}
-                                            active={activeAccordion === 1}
-                                            onClick={handleAccordionClick}
-                                        >
-                                            <Icon name='dropdown' />
-                                            Book Preview
-                                        </Accordion.Title>
-                                        <Accordion.Content active={activeAccordion === 1}>
-                                            {(book.preview !== '')
-                                                ? <iframe id='commons-book-preview' src={book.preview} loading='lazy' title="Book Preview Frame" />
-                                                : <p>No preview available yet.</p>
-                                            }
-                                        </Accordion.Content>
                                     </Accordion>
                                 </Grid.Column>
                             </Grid.Row>

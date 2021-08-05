@@ -35,6 +35,10 @@ import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingT
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
 
+/* Global Error Tool */
+import ErrorProvider from './components/error/ErrorProvider.js';
+import ErrorModal from './components/error/ErrorModal.js';
+
 function App() {
 
     if (process.env.NODE_ENV === 'development') {
@@ -86,17 +90,21 @@ function App() {
         <BrowserRouter>
           <div className='App'>
             <UserProvider initialState={userInitialState} reducer={userReducer}>
-                <Switch>
-                    {/* Commons Render Tree */}
-                    <Route exact path = '/' component={Commons} />
-                    <Route exact path = '/catalog' component={Commons} />
-                    <Route exact path = '/collections' component={Commons} />
-                    <Route exact path = '/book/:id' component={Commons} />
-                    {/* Standalone */}
-                    <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                    {/* Conductor Render Tree */}
-                    <Route component={Conductor} />
-                </Switch>
+                <ErrorProvider>
+                    <Switch>
+                        {/* Commons Render Tree */}
+                        <Route exact path = '/' component={Commons} />
+                        <Route exact path = '/catalog' component={Commons} />
+                        <Route exact path = '/collections' component={Commons} />
+                        <Route exact path = '/book/:id' component={Commons} />
+                        <Route exact path = '/adapt' component={Commons} />
+                        {/* Standalone */}
+                        <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                        {/* Conductor Render Tree */}
+                        <Route component={Conductor} />
+                    </Switch>
+                    <ErrorModal />
+                </ErrorProvider>
             </UserProvider>
           </div>
         </BrowserRouter>

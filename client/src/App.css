@@ -102,3 +102,7 @@ body {
 .float-right {
     float: right !important;
 }
+
+.muted-text {
+    color: #6c757d !important;
+}
