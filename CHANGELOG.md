@@ -1,5 +1,15 @@
 # Changelog
 
+## 08-06-2021
+#### :art: UI/UX
+* Designed the Adoption Report form
+* Started Adoption Report data handling
+
+#### :satellite: Server
+* Updated the server Content Security Policy
+* Resolved several security vulnerabilities in the application framework
+* Started integrating a global debugger tool
+
 ## 08-05-2021
 #### :art: UI/UX
 * Introduced the ADAPT Commons Catalog

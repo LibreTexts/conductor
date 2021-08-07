@@ -19,6 +19,7 @@ node_modules/
 
 # Build / Dist
 dist
+build
 
 # macOS Metafiles
 .DS_Store

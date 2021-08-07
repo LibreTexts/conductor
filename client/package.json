@@ -4,22 +4,22 @@
   "description": "The LibreTexts PTS concept web app.",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.11.5",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
-    "axios": "^0.21.0",
+    "@testing-library/jest-dom": "^5.14.1",
+    "@testing-library/react": "^11.2.7",
+    "@testing-library/user-event": "^12.8.3",
+    "axios": "^0.21.1",
     "date-and-time": "^0.14.2",
     "js-cookie": "^2.2.1",
-    "query-string": "^6.13.7",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1",
+    "query-string": "^6.14.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.0",
-    "redux": "^4.0.5",
+    "redux": "^4.1.1",
     "redux-thunk": "^2.3.0",
     "semantic-ui-calendar-react": "^0.15.3",
     "semantic-ui-css": "^2.4.1",
-    "semantic-ui-react": "^2.0.0",
+    "semantic-ui-react": "^2.0.3",
     "style-it": "^2.1.4",
     "web-vitals": "^0.2.4"
   },
@@ -38,14 +38,15 @@
   },
   "browserslist": {
     "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
+        ">0.3%",
+        "not dead",
+        "not op_mini all"
     ],
     "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
+        ">0.3%",
+        "not ie 11",
+        "not dead",
+        "not op_mini all"
     ]
   }
 }

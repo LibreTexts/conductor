@@ -3,20 +3,21 @@
 // server.js
 //
 
+const dotenv = require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bluebird = require('bluebird');
 const helmet = require('helmet');
+const { debugServer, debugDB } = require('./server/debug.js');
 
 const api = require('./server/api.js');
 
 const app = express();
 const port = process.env.PORT || 5000;
-dotenv.config();
+
 
 mongoose.Promise = bluebird;
 if (process.env.NODE_ENV === 'development') {
@@ -26,9 +27,9 @@ mongoose.connect(process.env.MONGOOSEURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
-    console.log('[DB]: Connected to MongoDB Atlas.');
+    debugDB('Connected to MongoDB Atlas.');
 }).catch((err) => {
-    console.error('[DB]: ' + err);
+    debugDB(err);
 });
 
 app.use(bodyParser.json());
@@ -36,21 +37,25 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(helmet.contentSecurityPolicy({
     directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://*.libretexts.org'],
-      frameSrc: ["'self'", 'https://*.libretexts.org'],
-      childSrc: ["'self'", 'https://*.libretexts.org'],
-      scriptSrc: ["'self'", 'https://*.libretexts.org'],
-      styleSrc: [
-        "'self'",
-        '*',
-        'https://*.libretexts.org',
-        'data:'
-      ],
-      fontSrc: ["'self'", '*', 'https://*.libretexts.org', 'data:'],
-      imgSrc: ["'self'", 'https://*.libretexts.org'],
-      baseUri: ["'self'"],
-    },
+        baseUri: ["'self'"],
+        childSrc: ["'self'", 'https://*.libretexts.org'],
+        connectSrc: ["'self'", 'https://*.libretexts.org'],
+        defaultSrc: ["'self'"],
+        fontSrc: ["'self'",
+            'https://*.libretexts.org',
+            'https://fonts.gstatic.com',
+            'data:'
+        ],
+        frameSrc: ["'self'", 'https://*.libretexts.org'],
+        imgSrc: ["'self'", 'https://*.libretexts.org'],
+        objectSrc: ['none'],
+        scriptSrc: ["'self'", 'https://*.libretexts.org'],
+        styleSrc: [
+            "'self'",
+            'https://*.libretexts.org',
+            'https://fonts.googleapis.com'
+        ]
+    }
 }));
 
 if (process.env.NODE_ENV === 'production') {
@@ -73,7 +78,7 @@ app.use('/', cliRouter);
 
 app.listen(port, (err) => {
     if (err) {
-        console.log('[SERVER ERROR]: ' + err);
+        debugServer(err);
     }
-    console.log(`[SERVER]: Conductor is listening on ${port}`);
+    debugServer(`Conductor is listening on ${port}`);
 });
