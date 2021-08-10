@@ -1,20 +1,22 @@
 import './Login.css';
 
-import { Grid, Segment, Button, Form, Input, Image, Modal, Message } from 'semantic-ui-react';
+import { Grid, Segment, Button, Form, Input, Image, Message } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import queryString from 'query-string';
 
 import { useUserState } from '../../providers.js';
+import useGlobalError from '../error/ErrorHooks.js';
 
 const Login = (props) => {
+
+    const { setError } = useGlobalError();
+
     const [, dispatch] = useUserState();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [showErrModal, setErrModal] = useState(false);
-    const [errMsg, setErrMsg] = useState('');
     const [showExpiredAuth, setExpiredAuth] = useState(false);
 
     useEffect(() => {
@@ -37,11 +39,42 @@ const Login = (props) => {
 
     const onSubmit = (e) => {
         e.preventDefault();
-        setErrMsg('');
-        setErrModal(false);
         if (email.trim() !== '' && password.trim() !== '') {
             sendLogin(props);
         }
+    };
+
+    const handleErr = (err) => {
+        var message = "";
+        if (err.response) {
+            if (err.response.data.errMsg !== undefined) {
+                message = err.response.data.errMsg;
+            } else {
+                message = "Error processing request.";
+            }
+            if (err.response.data.errors) {
+                if (err.response.data.errors.length > 0) {
+                    message = message.replace(/\./g, ': ');
+                    err.response.data.errors.forEach((elem, idx) => {
+                        if (elem.param) {
+                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
+                            if ((idx + 1) !== err.response.data.errors.length) {
+                                message += ", ";
+                            } else {
+                                message += ".";
+                            }
+                        }
+                    });
+                }
+            }
+        } else if (err.name && err.message) {
+            message = err.message;
+        } else if (typeof(err) === 'string') {
+            message = err;
+        } else {
+            message = err.toString();
+        }
+        setError(message);
     };
 
     const sendLogin = (props) => {
@@ -62,22 +95,15 @@ const Login = (props) => {
                         });
                         props.history.push('/dashboard');
                     } else {
-                        alert("Oops, we're having trouble completing your login.");
+                        handleErr("Oops, we're having trouble completing your login.");
                     }
                 } else {
-                    setErrMsg(res.data.errMsg);
-                    setErrModal(true);
+                    handleErr(res.data.errMsg)
                 }
             }).catch((e) => {
-                setErrMsg("Encountered an error sending your request.");
-                setErrModal(true);
+                handleErr(e);
             });
         }
-    };
-
-    const modalClosed = () => {
-        setErrMsg('');
-        setErrModal(false);
     };
 
     return(
@@ -114,20 +140,6 @@ const Login = (props) => {
                     </Form>
                 </Segment>
             </Grid.Column>
-            <Modal
-                onClose={modalClosed}
-                open={showErrModal}
-            >
-                <Modal.Header>LibreTexts Conductor: Error</Modal.Header>
-                <Modal.Content>
-                    <Modal.Description>
-                        <p>{errMsg}</p>
-                    </Modal.Description>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button color="black" onClick={modalClosed}>Okay</Button>
-                </Modal.Actions>
-            </Modal>
         </Grid>
     );
 };

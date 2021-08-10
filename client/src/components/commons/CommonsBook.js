@@ -170,6 +170,30 @@ const CommonsBook = (props) => {
         setStudentNavigate(value);
     };
 
+    const ThumbnailAttribution = () => {
+        if (book.thumbnailAttr) {
+            if (book.thumbnailAttr.title && book.thumbnailAttr.link && book.thumbnailAttr.license && book.thumbnailAttr.licLink) {
+                return (
+                    <p><Icon name='file image'/> Thumbnail via <a href={book.thumbnailAttr.link} target='_blank' rel='noopener noreferrer'>{book.thumbnailAttr.title}</a>, licensed under the <a href={book.thumbnailAttr.licLink} target='_blank' rel='noopener noreferrer'>{book.thumbnailAttr.license}</a> license.</p>
+                )
+            } else if (book.thumbnailAttr.title && book.thumbnailAttr.link && book.thumbnailAttr.license) {
+                return (
+                    <p><Icon name='file image'/> Thumbnail via <a href={book.thumbnailAttr.link} target='_blank' rel='noopener noreferrer'>{book.thumbnailAttr.title}</a>, licensed under the {book.thumbnailAttr.license} license.</p>
+                )
+            } else if (book.thumbnailAttr.title && book.thumbnailAttr.link) {
+                return (
+                    <p><Icon name='file image'/> Thumbnail via <a href={book.thumbnailAttr.link} target='_blank' rel='noopener noreferrer'>{book.thumbnailAttr.title}</a>.</p>
+                )
+            } else if (book.thumbnailAttr.title) {
+                return (
+                    <p><Icon name='file image'/> Thumbnail via {book.thumbnailAttr.title}.</p>
+                )
+            }
+        } else {
+            return null;
+        }
+    };
+
     return (
         <Grid className='commons-container'>
             <Grid.Row>
@@ -191,6 +215,7 @@ const CommonsBook = (props) => {
                                             <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
                                         }
                                         <p><Icon name='university'/> {book.institution}</p>
+                                        <ThumbnailAttribution />
                                     </div>
                                     <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowARModal(true) }} />
                                     <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>

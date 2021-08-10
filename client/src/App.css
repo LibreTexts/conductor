@@ -60,21 +60,12 @@ body {
     float: right;
 }
 
-.clear-grid {
-    clear: both !important;
-}
-
-.multiline-display {
-    white-space: pre-line !important;
-}
-
 .pane-segment {
     padding: 0 !important;
 }
 
 
 /* Helper Classes */
-
 .text-center {
     text-align: center;
 }
@@ -105,4 +96,29 @@ body {
 
 .muted-text {
     color: #6c757d !important;
+}
+
+.center-block {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.center-flex {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+.clear-grid {
+    clear: both !important;
+}
+
+.multiline-display {
+    white-space: pre-line !important;
 }

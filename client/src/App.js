@@ -34,6 +34,8 @@ import HarvestingTargetDetail from './components/harvesting/targetlist/Harvestin
 import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
+/* 404 */
+import PageNotFound from './components/util/PageNotFound.js';
 
 /* Global Error Tool */
 import ErrorProvider from './components/error/ErrorProvider.js';
@@ -81,6 +83,8 @@ function App() {
                         <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
                     <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
                     <PrivateRoute exact path = '/supervisors' component={SupervisorDashboard} />
+                    {/* 404 */}
+                    <Route component={PageNotFound} />
                 </Switch>
             </div>
         )
@@ -97,10 +101,14 @@ function App() {
                         <Route exact path = '/catalog' component={Commons} />
                         <Route exact path = '/collections' component={Commons} />
                         <Route exact path = '/book/:id' component={Commons} />
-                        <Route exact path = '/adapt' component={Commons} />
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/adapt' component={Commons} />
+                        }
                         {/* Standalone */}
-                        <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                        {/* Conductor Render Tree */}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                        }
+                        {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />
                     </Switch>
                     <ErrorModal />

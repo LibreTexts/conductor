@@ -1,0 +1,22 @@
+.notfound-grid {
+    height: 100%;
+}
+
+.notfound-header {
+    font-size: 3rem;
+}
+
+.notfound-link {
+    margin-left: 2%;
+    margin-right: 2%;
+
+}
+
+#notfound-links-container {
+    text-align: center;
+}
+
+.notfound-links {
+    text-decoration: none;
+    color: #4183c4;
+}

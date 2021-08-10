@@ -1,8 +1,15 @@
+/**
+ * Commons.css
+ * Styles relevant to the Commons
+ */
+
+/* Containers */
 .commons-container {
     margin: 2% !important;
     width: calc(100% - 4%);
 }
 
+/* Navigation */
 #commons-nav {
     z-index: 100; /* Layer over jumbotron */
     position: relative;
@@ -30,6 +37,59 @@
     padding-right: 1rem;
 }
 
+#commons-mobilenav {
+    z-index: 100; /* Layer over jumbotron */
+    position: relative;
+    width: 100%;
+    height: 100px;
+    margin: 0;
+    padding: 0;
+    background-color: #FFFFFF;
+    -webkit-box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
+    box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
+}
+
+#commons-mobilenav-logo {
+    max-height: 100px;
+    width: auto;
+}
+
+/* Jumbotron */
+#commons-jumbotron {
+    /* Background image is set dynamically */
+    z-index: 50; /* Appear underneath jumbotron*/
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 30rem;
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.commons-header {
+    font-size: 2.5rem;
+    color: #FFFFFF;
+    text-align: center;
+    padding-top: 1.75rem;
+}
+
+.commons-libreheader {
+    font-size: 3.5rem;
+    color: #FFFFFF;
+    text-align: center;
+    margin: 0;
+}
+
+.commons-libresubheader {
+    text-align: center;
+    color: #C5C5C5;
+    margin: 0;
+}
+
+/* Footer */
 #commons-footer {
     background-color: #ccecfd;
     padding: 1rem;
@@ -59,53 +119,7 @@
     margin-right: 1rem;
 }
 
-#commons-book-image {
-    height: auto;
-    width: 100%;
-}
-
-#commons-book-details {
-    margin: 1rem 0 1rem 0;
-}
-
-#commons-book-actions {
-    margin-top: 1rem;
-}
-
-.commons-jumbotron {
-    /* Background image is set dynamically */
-    z-index: 50; /* Appear underneath jumbotron*/
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 30rem;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: center center;
-}
-
-.commons-header {
-    font-size: 2.5rem;
-    color: #FFFFFF;
-    text-align: center;
-    padding-top: 1.75rem;
-}
-
-.commons-libreheader {
-    font-size: 3.5rem;
-    color: #FFFFFF;
-    text-align: center;
-    margin: 0;
-}
-
-.commons-libresubheader {
-    text-align: center;
-    color: #C5C5C5;
-    margin: 0;
-}
-
+/* Commons Menu */
 .commons-menu {
     display: flex;
     margin: 0;
@@ -146,8 +160,18 @@
     height: 50px;
 }
 
-.commons-content {
-    background-color: #F4F4F4 !important;
+/** Override pointing menu colors **/
+.ui.secondary.pointing.menu .active.item {
+    border-color: #FFFFFF;
+}
+
+.ui.secondary.pointing.menu .active.item:hover {
+    border-color: #C9C9C9;
+}
+
+/* Filters and Pagination */
+.commons-filter {
+    margin-top: 0.25rem !important;
 }
 
 .commons-content-pagemenu {
@@ -181,26 +205,70 @@
     margin-right: 1rem;
 }
 
+/* Content */
+#commons-book-image {
+    height: auto;
+    width: 100%;
+}
+
+#commons-book-details {
+    margin: 1rem 0 1rem 0;
+}
+
+#commons-book-actions {
+    margin-top: 1rem;
+}
+
+.commons-content {
+    background-color: #F4F4F4 !important;
+}
+
+.commons-content-itemized {
+    padding: 0 !important;
+}
+
 .commons-content-glyph {
     width: 1.18em;
     margin-right: 0.5rem !important;
+    display: inline-block !important;
 }
 
 .commons-content-card-img img {
     height: 200px !important;
 }
 
-/* Override pointing menu colors */
-.ui.secondary.pointing.menu .active.item {
-    border-color: #FFFFFF;
-}
-
-.ui.secondary.pointing.menu .active.item:hover {
-    border-color: #C9C9C9;
-}
-
 /* Adoption Report */
 .ar-checkbox {
     display: block !important;
     margin-top: .5em !important;
+}
+
+
+
+
+/* Responsive Styles */
+
+/* Extra small devices (phones, 600px and down) */
+@media only screen and (max-width: 600px) {
+
+}
+
+/* Small devices (portrait tablets and large phones, 600px and up) */
+@media only screen and (min-width: 600px) {
+
+}
+
+/* Medium devices (landscape tablets, 768px and up) */
+@media only screen and (min-width: 768px) {
+
+}
+
+/* Large devices (laptops/desktops, 992px and up) */
+@media only screen and (min-width: 992px) {
+
+}
+
+/* Extra large devices (large laptops and desktops, 1200px and up) */
+@media only screen and (min-width: 1200px) {
+
 }

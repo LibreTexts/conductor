@@ -109,7 +109,7 @@ const Commons = (props) => {
     return (
         <div className='commons'>
             <CommonsNavbar />
-            <div className='commons-jumbotron' style={jumbotronStyle}>
+            <div id='commons-jumbotron' style={jumbotronStyle}>
                 <Jumbotron />
             </div>
             <div className='commons-menu'>
@@ -146,15 +146,17 @@ const Commons = (props) => {
                         >
                             Collections
                         </Menu.Item>
-                        <Menu.Item
-                            name='adapt'
-                            active={activeItem === 'adapt'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/adapt'
-                        >
-                            ADAPT
-                        </Menu.Item>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                            <Menu.Item
+                                name='adapt'
+                                active={activeItem === 'adapt'}
+                                className='commons-menu-item'
+                                as={Link}
+                                to='/adapt'
+                            >
+                                ADAPT
+                            </Menu.Item>
+                        }
                     </Menu>
                 </div>
                 <div className='commons-menu-right'>
@@ -173,7 +175,9 @@ const Commons = (props) => {
                 <Route exact path='/' component={CommonsCatalog} />
                 <Route exact path='/catalog' component={CommonsCatalog} />
                 <Route exact path='/collections' component={CommonsCollections} />
-                <Route exact path='/adapt' component={CommonsADAPTCatalog} />
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/adapt' component={CommonsADAPTCatalog} />
+                }
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
             <CommonsFooter />

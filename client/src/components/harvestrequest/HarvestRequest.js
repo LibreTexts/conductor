@@ -3,6 +3,7 @@ import { DateInput } from 'semantic-ui-calendar-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { isEmptyString } from '../util/HelperFunctions.js';
+import useGlobalError from '../error/ErrorHooks.js';
 
 import {
     licenseOptions,
@@ -12,10 +13,10 @@ import {
 
 const HarvestRequest = (props) => {
 
+    const { setError } = useGlobalError();
+
     // UI
     const [showSuccessModal, setSuccessModal] = useState(false);
-    const [showErrModal, setErrModal] = useState(false);
-    const [errMsg, setErrMsg] = useState('');
     const [loadingData, setLoadingData] = useState(false);
 
     // Form Data
@@ -40,19 +41,9 @@ const HarvestRequest = (props) => {
         document.title = "LibreTexts Conductor | Harvest Request";
     }, []);
 
-    const modalClosed = (modalName) => {
-        switch (modalName) {
-            case 'success':
-                setSuccessModal(false);
-                props.history.push('/');
-                break;
-            case 'error':
-                setErrMsg('');
-                setErrModal(false);
-                break;
-            default:
-                break // silence React warning
-        }
+    const successModalClosed = () => {
+        setSuccessModal(false);
+        props.history.push('/');
     };
 
     const onChange = (e) => {
@@ -124,8 +115,7 @@ const HarvestRequest = (props) => {
         setLicErr(false);
     };
 
-
-    const handleErrModal = (err) => {
+    const handleErr = (err) => {
         var message = "";
         if (err.response) {
             if (err.response.data.errMsg !== undefined) {
@@ -148,11 +138,14 @@ const HarvestRequest = (props) => {
                     });
                 }
             }
+        } else if (err.name && err.message) {
+            message = err.message;
+        } else if (typeof(err) === 'string') {
+            message = err;
         } else {
             message = err.toString();
         }
-        setErrMsg(message);
-        setErrModal(true);
+        setError(message);
     };
 
     const onSubmit = () => {
@@ -175,10 +168,10 @@ const HarvestRequest = (props) => {
                 if (!res.data.err) {
                     setSuccessModal(true);
                 } else {
-                    handleErrModal(res.data.errMsg);
+                    handleErr(res.data.errMsg);
                 }
             }).catch((err) => {
-                handleErrModal(err);
+                handleErr(err);
             });
             setLoadingData(false);
         }
@@ -281,7 +274,7 @@ const HarvestRequest = (props) => {
                 </Grid.Column>
             </Grid.Row>
             <Modal
-                onClose={() => { modalClosed('success') }}
+                onClose={successModalClosed}
                 open={showSuccessModal}
             >
                 <Modal.Header>LibreTexts Conductor: Success</Modal.Header>
@@ -291,21 +284,7 @@ const HarvestRequest = (props) => {
                     </Modal.Description>
                 </Modal.Content>
                 <Modal.Actions>
-                    <Button color="blue" onClick={() => { modalClosed('success') }}>Okay</Button>
-                </Modal.Actions>
-            </Modal>
-            <Modal
-                onClose={() => { modalClosed('error') }}
-                open={showErrModal}
-            >
-                <Modal.Header>LibreTexts Conductor: Error</Modal.Header>
-                <Modal.Content>
-                    <Modal.Description>
-                        <p>{errMsg}</p>
-                    </Modal.Description>
-                </Modal.Content>
-                <Modal.Actions>
-                    <Button color="black" onClick={() => { modalClosed('error') }}>Okay</Button>
+                    <Button color="blue" onClick={successModalClosed}>Okay</Button>
                 </Modal.Actions>
             </Modal>
         </Grid>

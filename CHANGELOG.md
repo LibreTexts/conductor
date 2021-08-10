@@ -1,5 +1,16 @@
 # Changelog
 
+## 08-09-2021
+#### :art: UI/UX
+* Integrated Visual & Itemized Modes in the Commons Catalogs, Collections, and ADAPT listings
+* Implemented a 404 Not Found page
+* Started implementing a Commons book thumbnail attribution & license display
+* Reconfigured Login & OER Integration Request to use the global error handling mechanism
+* Started adding responsive behavior(s) to the Commons interface
+
+#### :satellite: Server
+* Updated validation logic for login
+
 ## 08-06-2021
 #### :art: UI/UX
 * Designed the Adoption Report form

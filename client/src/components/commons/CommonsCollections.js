@@ -1,7 +1,16 @@
 import './Commons.css';
 
 import { Link } from 'react-router-dom';
-import { Grid, Segment, Header, Card, Image, Popup } from 'semantic-ui-react';
+import {
+    Grid,
+    Segment,
+    Header,
+    Card,
+    Image,
+    Popup,
+    Dropdown,
+    Table
+} from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 //import axios from 'axios';
 
@@ -9,11 +18,83 @@ import { getDemoCollections } from '../util/DemoBooks.js';
 
 const CommonsCollections = (props) => {
 
+    // UI
+    const [displayChoice, setDisplayChoice] = useState('visual');
+
+    // Data
     const [collections, setCollections] = useState([]);
+
+    const displayOptions = [
+        { key: 'visual', text: 'Visual Mode', value: 'visual' },
+        { key: 'itemized', text: 'Itemized Mode', value: 'itemized' }
+    ];
 
     useEffect(() => {
         setCollections(getDemoCollections(process.env.REACT_APP_ORG_ID));
     }, []);
+
+    const VisualMode = () => {
+        if (collections.length > 0) {
+            return (
+                <Card.Group itemsPerRow={5}>
+                    {collections.map((item, index) => {
+                        return (
+                            <Popup key={index} content='Collections are coming soon!' position='top center' trigger={
+                                <Card
+                                    key={index}
+                                >
+                                    <Image className='commons-content-card-img' src={item.thumbnail} wrapped ui={false} />
+                                    <Card.Content>
+                                        <Card.Header>{item.title}</Card.Header>
+                                        <Card.Meta>
+                                            {item.size}
+                                        </Card.Meta>
+                                    </Card.Content>
+                                </Card>
+                            } />
+                        )
+                    })}
+                </Card.Group>
+            )
+        } else {
+            return (
+                <p className='text-center'><em>No collections available right now.</em></p>
+            )
+        }
+    };
+
+    const ItemizedMode = () => {
+        if (collections.length > 0) {
+            return (
+                <Table celled>
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.HeaderCell width={5}><Header sub>Name</Header></Table.HeaderCell>
+                            <Table.HeaderCell width={11}><Header sub>Resources</Header></Table.HeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {collections.map((item, index) => {
+                            return (
+                                <Table.Row key={index}>
+                                    <Table.Cell>
+                                        <p><strong>{item.title}</strong></p>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <p>{item.size}</p>
+                                    </Table.Cell>
+                                </Table.Row>
+                            )
+                        })}
+                    </Table.Body>
+                </Table>
+            )
+        } else {
+            return (
+                <p className='text-center'><em>No results found.</em></p>
+            )
+        }
+    };
 
     return (
         <Grid className='commons-container'>
@@ -21,34 +102,36 @@ const CommonsCollections = (props) => {
                 <Grid.Column>
                     <Segment.Group raised>
                         <Segment>
-                            <Header as='h2'>Collections</Header>
+                            <div className='commons-content-pagemenu'>
+                                <div className='commons-content-pagemenu-left'>
+                                    <Header as='h2'>Collections</Header>
+                                </div>
+                                <div className='commons-content-pagemenu-right'>
+                                    <Dropdown
+                                        placeholder='Display mode...'
+                                        floating
+                                        selection
+                                        button
+                                        className='float-right'
+                                        options={displayOptions}
+                                        onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                        value={displayChoice}
+                                    />
+                                </div>
+                            </div>
                         </Segment>
-                        <Segment>
-                            {(collections.length > 0) &&
-                                <Card.Group itemsPerRow={5}>
-                                    {collections.map((item, index) => {
-                                        return (
-                                            <Popup key={index} content='Collections are coming soon!' position='top center' trigger={
-                                                <Card
-                                                    key={index}
-                                                >
-                                                    <Image className='commons-content-card-img' src={item.thumbnail} wrapped ui={false} />
-                                                    <Card.Content>
-                                                        <Card.Header>{item.title}</Card.Header>
-                                                        <Card.Meta>
-                                                            {item.size}
-                                                        </Card.Meta>
-                                                    </Card.Content>
-                                                </Card>
-                                            } />
-                                        )
-                                    })}
-                                </Card.Group>
-                            }
-                            {(collections.length === 0) &&
-                                <p className='text-center'><em>No collections available right now.</em></p>
-                            }
-                        </Segment>
+                        {(displayChoice === 'visual')
+                            ? (
+                                <Segment className='commons-content'>
+                                    <VisualMode />
+                                </Segment>
+                            )
+                            : (
+                                <Segment className='commons-content commons-content-itemized'>
+                                    <ItemizedMode />
+                                </Segment>
+                            )
+                        }
                     </Segment.Group>
                 </Grid.Column>
             </Grid.Row>

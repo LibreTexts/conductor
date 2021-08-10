@@ -6,6 +6,7 @@
 const User = require('../models/user.js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { body } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
 const { isEmptyString } = require('../util/helpers.js');
@@ -17,20 +18,12 @@ const { isEmptyString } = require('../util/helpers.js');
  * authorization cookies.
  */
 const login = (req, res, _next) => {
-    var response = {};
-    const emailReq = req.body.email;
-    const passwordReq = req.body.password;
-    if (emailReq === "" || passwordReq === "") {
-        response.err = true;
-        response.errmsg = "Empty fields.";
-        return res.send(response);
-    }
-    const formattedEmail = String(emailReq).toLowerCase();
+    const formattedEmail = String(req.body.email).toLowerCase();
     User.findOne({ email: formattedEmail }).then((user) => {
         if (user) {
-            return Promise.all([bcrypt.compare(passwordReq, user.hash), user]);
+            return Promise.all([bcrypt.compare(req.body.password, user.hash), user]);
         } else {
-            throw("Couldn't find an account with that email.");
+            throw(new Error("Couldn't find an account with that email."));
         }
     }).then(([isMatch, user]) => {
         const payload = {
@@ -59,12 +52,13 @@ const login = (req, res, _next) => {
                 }
             });
         } else {
-            throw("Incorrect password.");
+            throw(new Error("Incorrect password."));
         }
     }).catch((err) => {
-        response.err = true;
-        response.errMsg = err;
-        return res.send(response);
+        return res.send({
+            err: true,
+            errMsg: err.message
+        });
     });
 };
 
@@ -167,9 +161,24 @@ const checkHasRoles = (roles) => {
     }
 };
 
+/**
+ * Middleware(s) to verify requests contain
+ * necessary fields.
+ */
+const validate = (method) => {
+    switch (method) {
+        case 'login':
+            return [
+                body('email', conductorErrors.err1).exists().isEmail(),
+                body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
+            ]
+    }
+}
+
 module.exports = {
     login,
     verifyRequest,
     getUserAttributes,
-    checkHasRoles
+    checkHasRoles,
+    validate
 };

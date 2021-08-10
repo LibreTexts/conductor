@@ -191,6 +191,12 @@ const libreDemoBooks = [
             zip: 'https://batch.libretexts.org/print/Letter/Finished/workforce-14582/Individual.zip',
             files: 'https://batch.libretexts.org/print/Letter/Finished/workforce-14582/Publication.zip',
             lms: 'https://batch.libretexts.org/print/Letter/Finished/workforce-14582/LibreText.imscc'
+        },
+        thumbnailAttr: {
+            title: "Unsplash",
+            link: "https://unsplash.com/photos/kz2Z3maVaLo",
+            license: "Unsplash",
+            licLink: "https://unsplash.com/license"
         }
     },
     {
@@ -233,6 +239,12 @@ const libreDemoBooks = [
             zip: 'https://batch.libretexts.org/print/Letter/Finished/math-33670/Individual.zip',
             files: 'https://batch.libretexts.org/print/Letter/Finished/math-33670/Publication.zip',
             lms: 'https://batch.libretexts.org/print/Letter/Finished/math-33670/LibreText.imscc'
+        },
+        thumbnailAttr: {
+            title: "Oscar Levin's Discrete Mathematics text",
+            link: "https://math.libretexts.org/Bookshelves/Combinatorics_and_Discrete_Mathematics/Book%3A_Discrete_Mathematics_(Levin)",
+            license: "CC-BY-SA",
+            licLink: "https://creativecommons.org/licenses/by-sa/2.0/"
         }
     }
 ];

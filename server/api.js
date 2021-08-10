@@ -27,7 +27,7 @@ router.use(middleware.authSanitizer);
 
 
 /* Auth */
-router.route('/v1/auth/login').post(authAPI.login);
+router.route('/v1/auth/login').post(authAPI.validate('login'), middleware.checkValidationErrors, authAPI.login);
 
 
 /* Organizations */
