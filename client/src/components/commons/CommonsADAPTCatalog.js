@@ -14,6 +14,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 
@@ -106,7 +107,7 @@ const CommonsADAPTCatalog = (_props) => {
     const VisualMode = () => {
         if (pageCourses.length > 0) {
             return (
-                <Card.Group itemsPerRow={5}>
+                <Card.Group itemsPerRow={5} stackable>
                     {pageCourses.map((item, index) => {
                         return (
                             <Popup key={index} content='More ADAPT integration is coming soon!' position='top center' trigger={
@@ -170,56 +171,116 @@ const CommonsADAPTCatalog = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
-                        <Segment>
-                            <Grid>
-                                <Grid.Column width={12} verticalAlign='middle'>
-                                    <p>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
-                                </Grid.Column>
-                                <Grid.Column width={4}>
-                                    <Input
-                                        fluid
-                                        icon='search'
-                                        placeholder='Search courses...'
-                                        onChange={(e) => { setSearchString(e.target.value) }}
-                                        value={searchString}
-                                    />
-                                </Grid.Column>
-                            </Grid>
-                        </Segment>
-                        <Segment>
-                            <div className='commons-content-pagemenu'>
-                                <div className='commons-content-pagemenu-left'>
-                                    <span>Displaying </span>
-                                    <Dropdown
-                                        className='commons-content-pagemenu-dropdown'
-                                        selection
-                                        options={itemsPerPageOptions}
-                                        onChange={(_e, { value }) => { setItemsPerPage(value) }}
-                                        value={itemsPerPage}
-                                    />
-                                    <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
+                        <Breakpoint name='desktop'>
+                            <Segment>
+                                <Grid>
+                                    <Grid.Column width={12} verticalAlign='middle'>
+                                        <p>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
+                                    </Grid.Column>
+                                    <Grid.Column width={4}>
+                                        <Input
+                                            fluid
+                                            icon='search'
+                                            placeholder='Search courses...'
+                                            onChange={(e) => { setSearchString(e.target.value) }}
+                                            value={searchString}
+                                        />
+                                    </Grid.Column>
+                                </Grid>
+                            </Segment>
+                            <Segment>
+                                <div className='commons-content-pagemenu'>
+                                    <div className='commons-content-pagemenu-left'>
+                                        <span>Displaying </span>
+                                        <Dropdown
+                                            className='commons-content-pagemenu-dropdown'
+                                            selection
+                                            options={itemsPerPageOptions}
+                                            onChange={(_e, { value }) => { setItemsPerPage(value) }}
+                                            value={itemsPerPage}
+                                        />
+                                        <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
+                                    </div>
+                                    <div className='commons-content-pagemenu-right'>
+                                        <Dropdown
+                                            placeholder='Display mode...'
+                                            floating
+                                            selection
+                                            button
+                                            className='float-right'
+                                            options={displayOptions}
+                                            onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                            value={displayChoice}
+                                        />
+                                        <Pagination
+                                            activePage={activePage}
+                                            totalPages={totalPages}
+                                            firstItem={null}
+                                            lastItem={null}
+                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className='commons-content-pagemenu-right'>
-                                    <Dropdown
-                                        placeholder='Display mode...'
-                                        floating
-                                        selection
-                                        button
-                                        className='float-right'
-                                        options={displayOptions}
-                                        onChange={(e, { value }) => { setDisplayChoice(value) }}
-                                        value={displayChoice}
-                                    />
-                                    <Pagination
-                                        activePage={activePage}
-                                        totalPages={totalPages}
-                                        firstItem={null}
-                                        lastItem={null}
-                                        onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                    />
-                                </div>
-                            </div>
-                        </Segment>
+                            </Segment>
+                        </Breakpoint>
+                        <Breakpoint name='mobileOrTablet'>
+                            <Segment textAlign='center'>
+                                <p>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
+                            </Segment>
+                            <Segment>
+                                <Input
+                                    fluid
+                                    icon='search'
+                                    placeholder='Search courses...'
+                                    onChange={(e) => { setSearchString(e.target.value) }}
+                                    value={searchString}
+                                />
+                            </Segment>
+                            <Segment>
+                                <Grid>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <div className='center-flex flex-wrap'>
+                                                <span>Displaying </span>
+                                                <Dropdown
+                                                    className='commons-content-pagemenu-dropdown'
+                                                    selection
+                                                    options={itemsPerPageOptions}
+                                                    onChange={(_e, { value }) => { setItemsPerPage(value) }}
+                                                    value={itemsPerPage}
+                                                />
+                                                <span> items per page of <strong>{adaptCourses.length}</strong> results.</span>
+                                            </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={2}>
+                                        <Grid.Column>
+                                            <Dropdown
+                                                placeholder='Display mode...'
+                                                floating
+                                                selection
+                                                button
+                                                className='float-right'
+                                                options={displayOptions}
+                                                onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                                value={displayChoice}
+                                                fluid
+                                            />
+                                        </Grid.Column>
+                                        <Grid.Column>
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                className='float-right'
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Segment>
+                        </Breakpoint>
                         {(displayChoice === 'visual')
                             ? (
                                 <Segment className='commons-content' loading={!loadedCourses}>

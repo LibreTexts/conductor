@@ -5,6 +5,8 @@ import { Grid, Menu, Image, Icon, Modal, Button } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+import Breakpoint from '../util/Breakpoints.js';
+
 import CommonsNavbar from './CommonsNavbar.js';
 import CommonsFooter from './CommonsFooter.js';
 
@@ -16,6 +18,7 @@ import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
 import { useUserState } from '../../providers.js';
 
 const Commons = (props) => {
+
     const location = useLocation();
 
     const [{ org }, dispatch] = useUserState();
@@ -28,6 +31,12 @@ const Commons = (props) => {
             setShowNoOrg(true);
         }
     }, []);
+
+    useEffect(() => {
+        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
+            document.title = org.shortName + " Campus Commons";
+        }
+    }, [org]);
 
     const getOrgInfo = () => {
         axios.get('org/info', {
@@ -79,26 +88,18 @@ const Commons = (props) => {
     const Jumbotron = () => {
         if (process.env.REACT_APP_ORG_ID !== 'libretexts') {
             return (
-                <Grid>
-                    <Grid.Row>
-                        <Grid.Column>
-                            <Image src={org.largeLogo} size='large' centered />
-                        </Grid.Column>
-                    </Grid.Row>
-                    <Grid.Row>
-                        <Grid.Column>
-                            <h1 className='commons-header'>Campus Commons</h1>
-                        </Grid.Column>
-                    </Grid.Row>
-                </Grid>
+                <div id='commons-jumbotron-inner'>
+                    <Image id='commons-jumbotron-logo' src={org.largeLogo} centered />
+                    <h1 id='commons-header'>Campus Commons</h1>
+                </div>
             )
         } else {
             return (
                 <Grid>
                     <Grid.Row>
                         <Grid.Column>
-                            <h3 className='commons-libresubheader'>WELCOME TO</h3>
-                            <h1 className='commons-libreheader'>LibreCommons</h1>
+                            <h3 id='commons-libresubheader'>WELCOME TO</h3>
+                            <h1 id='commons-libreheader'>LibreCommons</h1>
                         </Grid.Column>
                     </Grid.Row>
                 </Grid>
@@ -112,65 +113,118 @@ const Commons = (props) => {
             <div id='commons-jumbotron' style={jumbotronStyle}>
                 <Jumbotron />
             </div>
-            <div className='commons-menu'>
-                <div className='commons-menu-left'>
-                    <Menu secondary className='commons-menu-height'>
-                        <Menu.Item
-                            className='commons-menu-item'
-                            as='a'
-                            href={org.aboutLink}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            About {org.shortName}
-                        </Menu.Item>
-                    </Menu>
-                </div>
-                <div className='commons-menu-center'>
-                    <Menu secondary pointing fluid widths={2} className='commons-menu-pointing'>
-                        <Menu.Item
-                            name='catalog'
-                            active={activeItem === 'catalog'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/catalog'
-                        >
-                            Catalog
-                        </Menu.Item>
-                        <Menu.Item
-                            name='collections'
-                            active={activeItem === 'collections'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/collections'
-                        >
-                            Collections
-                        </Menu.Item>
-                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+            <Breakpoint name='tabletOrDesktop'>
+                <div id='commons-menu'>
+                    <div id='commons-menu-left'>
+                        <Menu secondary className='commons-menu-height'>
                             <Menu.Item
-                                name='adapt'
-                                active={activeItem === 'adapt'}
+                                className='commons-menu-item'
+                                as='a'
+                                href={org.aboutLink}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                            >
+                                About {org.shortName}
+                            </Menu.Item>
+                        </Menu>
+                    </div>
+                    <div id='commons-menu-center'>
+                        <Menu secondary pointing fluid widths={2} id='commons-menu-pointing'>
+                            <Menu.Item
+                                name='catalog'
+                                active={activeItem === 'catalog'}
                                 className='commons-menu-item'
                                 as={Link}
-                                to='/adapt'
+                                to='/catalog'
                             >
-                                ADAPT
+                                Catalog
                             </Menu.Item>
-                        }
-                    </Menu>
+                            <Menu.Item
+                                name='collections'
+                                active={activeItem === 'collections'}
+                                className='commons-menu-item'
+                                as={Link}
+                                to='/collections'
+                            >
+                                Collections
+                            </Menu.Item>
+                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                                <Menu.Item
+                                    name='adapt'
+                                    active={activeItem === 'adapt'}
+                                    className='commons-menu-item'
+                                    as={Link}
+                                    to='/adapt'
+                                >
+                                    ADAPT
+                                </Menu.Item>
+                            }
+                        </Menu>
+                    </div>
+                    <div id='commons-menu-right'>
+                        <Menu secondary className='commons-menu-height'>
+                            <Menu.Item
+                                className='commons-menu-item'
+                                as={Link}
+                                to='/login'
+                            >
+                                Login to Conductor <Icon name='lightning' />
+                            </Menu.Item>
+                        </Menu>
+                    </div>
                 </div>
-                <div className='commons-menu-right'>
-                    <Menu secondary className='commons-menu-height'>
+            </Breakpoint>
+            <Breakpoint name='mobile'>
+                <Menu id='commons-mobilelinks' secondary fluid vertical>
+                    <Menu.Item
+                        className='commons-menu-item commons-mobilelinks-item'
+                        as='a'
+                        href={org.aboutLink}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                    >
+                        About {org.shortName}
+                    </Menu.Item>
+                    <Menu.Item
+                        className='commons-menu-item commons-mobilelinks-item'
+                        as={Link}
+                        to='/login'
+                    >
+                        <span>Login to Conductor <Icon name='lightning' /></span>
+                    </Menu.Item>
+                </Menu>
+                <Menu id='commons-mobilemenu' pointing secondary labeled='icon' fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 3 : 2}>
+                    <Menu.Item
+                        name='catalog'
+                        active={activeItem === 'catalog'}
+                        className='commons-menu-item'
+                        as={Link}
+                        to='/catalog'
+                    >
+                        Catalog
+                    </Menu.Item>
+                    <Menu.Item
+                        name='collections'
+                        active={activeItem === 'collections'}
+                        className='commons-menu-item'
+                        as={Link}
+                        to='/collections'
+                    >
+                        Collections
+                    </Menu.Item>
+                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                         <Menu.Item
+                            name='adapt'
+                            active={activeItem === 'adapt'}
                             className='commons-menu-item'
                             as={Link}
-                            to='/login'
+                            to='/adapt'
                         >
-                            Login to Conductor <Icon name='lightning' />
+                            ADAPT
                         </Menu.Item>
-                    </Menu>
-                </div>
-            </div>
+                    }
+                </Menu>
+            </Breakpoint>
             <Switch>
                 <Route exact path='/' component={CommonsCatalog} />
                 <Route exact path='/catalog' component={CommonsCatalog} />

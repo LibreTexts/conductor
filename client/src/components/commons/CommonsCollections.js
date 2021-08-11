@@ -14,6 +14,8 @@ import {
 import React, { useEffect, useState } from 'react';
 //import axios from 'axios';
 
+import Breakpoint from '../util/Breakpoints.js';
+
 import { getDemoCollections } from '../util/DemoBooks.js';
 
 const CommonsCollections = (props) => {
@@ -36,7 +38,7 @@ const CommonsCollections = (props) => {
     const VisualMode = () => {
         if (collections.length > 0) {
             return (
-                <Card.Group itemsPerRow={5}>
+                <Card.Group itemsPerRow={5} stackable>
                     {collections.map((item, index) => {
                         return (
                             <Popup key={index} content='Collections are coming soon!' position='top center' trigger={
@@ -91,7 +93,7 @@ const CommonsCollections = (props) => {
             )
         } else {
             return (
-                <p className='text-center'><em>No results found.</em></p>
+                <p className='text-center'><em>No collections available right now.</em></p>
             )
         }
     };
@@ -102,23 +104,49 @@ const CommonsCollections = (props) => {
                 <Grid.Column>
                     <Segment.Group raised>
                         <Segment>
-                            <div className='commons-content-pagemenu'>
-                                <div className='commons-content-pagemenu-left'>
-                                    <Header as='h2'>Collections</Header>
+                            <Breakpoint name='tabletOrDesktop'>
+                                <div className='commons-content-pagemenu'>
+                                    <div className='commons-content-pagemenu-left'>
+                                        <Header as='h2'>Collections</Header>
+                                    </div>
+                                    <div className='commons-content-pagemenu-right'>
+                                        <Dropdown
+                                            placeholder='Display mode...'
+                                            floating
+                                            selection
+                                            button
+                                            className='float-right'
+                                            options={displayOptions}
+                                            onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                            value={displayChoice}
+                                        />
+                                    </div>
                                 </div>
-                                <div className='commons-content-pagemenu-right'>
-                                    <Dropdown
-                                        placeholder='Display mode...'
-                                        floating
-                                        selection
-                                        button
-                                        className='float-right'
-                                        options={displayOptions}
-                                        onChange={(e, { value }) => { setDisplayChoice(value) }}
-                                        value={displayChoice}
-                                    />
-                                </div>
-                            </div>
+                            </Breakpoint>
+                            <Breakpoint name='mobile'>
+                                <Grid>
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Header as='h2' textAlign='center'>Collections</Header>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Dropdown
+                                                placeholder='Display mode...'
+                                                floating
+                                                selection
+                                                button
+                                                fluid
+                                                className='float-right'
+                                                options={displayOptions}
+                                                onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                                value={displayChoice}
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
                         </Segment>
                         {(displayChoice === 'visual')
                             ? (

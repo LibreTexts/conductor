@@ -43,11 +43,7 @@ import ErrorModal from './components/error/ErrorModal.js';
 
 function App() {
 
-    if (process.env.NODE_ENV === 'development') {
-        axios.defaults.baseURL = 'http://localhost:5000/api/v1';
-    } else {
-        axios.defaults.baseURL = '/api/v1';
-    }
+    axios.defaults.baseURL = '/api/v1';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     axios.defaults.headers.post['Content-Type'] = 'application/json';
     axios.defaults.withCredentials = true;

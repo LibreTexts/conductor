@@ -20,23 +20,23 @@ const CommonsFooter = (_props) => {
                     <a className='commons-footer-contactlinks' href='https://libretexts.org/legal/index.html' rel='noopener noreferrer'>Legal</a>
                 </Grid.Column>
             </Grid.Row>
-            <Grid.Row centered columns={6} verticalAlign='middle' id='commons-sponsor-row'>
-                <Grid.Column className='commons-footer-column'>
-                    <Image src='/sponsors/CSU_ALS.png' className='commons-footer-widesponsor' centered />
+            <Grid.Row centered verticalAlign='middle' id='commons-sponsor-row' >
+                <Grid.Column className='commons-footer-column' computer={3} tablet={6} as='a' href='https://als.csuprojects.org/' target='_blank' rel='noopener noreferrer'>
+                    <Image src='/sponsors/CSU_ALS.png' className='commons-footer-widesponsor' centered  />
                 </Grid.Column>
-                <Grid.Column className='commons-footer-column'>
-                    <Image src='/sponsors/DOE.png' className='commons-footer-sponsor' centered />
+                <Grid.Column className='commons-footer-column' computer={2} tablet={4} as='a' href='https://www.ed.gov/news/press-releases/us-department-education-awards-49-million-grant-university-california-davis-develop-free-open-textbooks-program' target='_blank' rel='noopener noreferrer'>
+                    <Image src='/sponsors/DOE.png' className='commons-footer-sponsor' centered  />
                 </Grid.Column>
-                <Grid.Column className='commons-footer-column'>
-                    <Image src='/sponsors/UCD.png' className='commons-footer-widesponsor' centered/>
+                <Grid.Column className='commons-footer-column' computer={3} tablet={6} as='a' href='https://www.ucdavis.edu/' target='_blank' rel='noopener noreferrer' >
+                    <Image src='/sponsors/UCD.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
-                <Grid.Column className='commons-footer-column'>
+                <Grid.Column className='commons-footer-column' computer={3} tablet={6} as='a' href='https://www.merlot.org/merlot/index.htm' target='_blank' rel='noopener noreferrer'>
                     <Image src='/sponsors/Merlot.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
-                <Grid.Column className='commons-footer-column'>
+                <Grid.Column className='commons-footer-column' computer={2} tablet={4} as='a' href='https://www.nsf.gov/awardsearch/showAward?AWD_ID=1525057' target='_blank' rel='noopener noreferrer'>
                     <Image src='/sponsors/NSF.png' className='commons-footer-sponsor' centered />
                 </Grid.Column>
-                <Grid.Column className='commons-footer-column'>
+                <Grid.Column className='commons-footer-column' computer={3} tablet={6} as='a' href='https://www.library.ucdavis.edu/' target='_blank' rel='noopener noreferrer'>
                     <Image src='/sponsors/UCD_Library.png' className='commons-footer-widesponsor' centered />
                 </Grid.Column>
             </Grid.Row>

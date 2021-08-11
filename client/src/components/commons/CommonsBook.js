@@ -18,9 +18,9 @@ import {
 import React, { useEffect, useState } from 'react';
 //import axios from 'axios';
 
+import Breakpoint from '../util/Breakpoints.js';
 
 import { getDemoBooks, getInstName } from '../util/DemoBooks.js';
-
 import { getLicenseText, getGlyphAddress, getLibraryName } from '../util/HarvestingMasterOptions.js';
 
 const CommonsBook = (props) => {
@@ -29,6 +29,7 @@ const CommonsBook = (props) => {
     const book = orgBooks[props.match.params.id-1];
     const [activeAccordion, setActiveAccordion] = useState(0);
     const [tocChapterPanels, setTOCCPanels] = useState([]);
+    const [showMobileReadingOpts, setShowMobileReadingOpts] = useState(false);
 
     // Adoption Report
     const [showARModal, setShowARModal] = useState(false);
@@ -45,8 +46,29 @@ const CommonsBook = (props) => {
     const [arInstrReplaceCost, setARInstrReplaceCost] = useState(0);
     const [arInstrPrintcost, setARInstrPrintCost] = useState(0);
 
+    const [arInstrStudentUse, setARInstrStudentUse] = useState(
+        new Array(5).fill(false)
+    );
+
+    const handleARInstrStudentUseChange = (index) => {
+        const updated = arInstrStudentUse.map((item, idx) => {
+            if (index === idx) {
+                return !item;
+            } else {
+                return item;
+            }
+        })
+        setARInstrStudentUse(updated);
+    };
+
     const handleARInputChange = (e) => {
         switch (e.target.id) {
+            case 'ar-email-input':
+                setAREmail(e.target.value);
+                break;
+            case 'ar-name-input':
+                setARName(e.target.value);
+                break;
             case 'ar-not-libre-inst-input':
                 setARInstrInstName(e.target.value);
                 break;
@@ -132,7 +154,7 @@ const CommonsBook = (props) => {
     };
 
     useEffect(() => {
-        document.title = "LibreTexts | " + book.title;
+        document.title = "LibreCommons | " + book.title;
         if (book.contents !== undefined) {
             var chapters = [];
             book.contents.forEach((item, idx) => {
@@ -148,10 +170,6 @@ const CommonsBook = (props) => {
 
     const handleAccordionClick = (e, { index }) => {
         setActiveAccordion(index);
-    };
-
-    const handleIAmChange = (e, { value }) => {
-        setARIAm(value);
     };
 
     const handleARLibreNetInstChange = (e, { value }) => {
@@ -199,58 +217,121 @@ const CommonsBook = (props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment>
-                        <Grid divided>
-                            <Grid.Row>
-                                <Grid.Column width={4}>
-                                    <Image id='commons-book-image' src={book.thumbnail} />
-                                    <div id='commons-book-details'>
-                                        {(book.author !== '') &&
-                                            <p><Icon name='user'/> {book.author}</p>
+                        <Breakpoint name='tabletOrDesktop'>
+                            <Grid divided>
+                                <Grid.Row>
+                                    <Grid.Column width={4}>
+                                        <Image id='commons-book-image' src={book.thumbnail} />
+                                        <div id='commons-book-details'>
+                                            {(book.author !== '') &&
+                                                <p><Icon name='user'/> {book.author}</p>
+                                            }
+                                            <p>
+                                                <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
+                                                {getLibraryName(book.library)}
+                                            </p>
+                                            {(book.license !== '') &&
+                                                <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                            }
+                                            <p><Icon name='university'/> {book.institution}</p>
+                                            <ThumbnailAttribution />
+                                        </div>
+                                        <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowARModal(true) }} />
+                                        <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
+                                            <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
+                                            <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
+                                            <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
+                                            <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
+                                            <Button icon='book' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
+                                            <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
+                                        </Button.Group>
+                                    </Grid.Column>
+                                    <Grid.Column width={12}>
+                                        <Header as='h2'>{book.title}</Header>
+                                        {(book.summary !== '') &&
+                                            <Segment>
+                                                <Header as='h3' dividing>Summary</Header>
+                                                <p>{book.summary}</p>
+                                            </Segment>
                                         }
-                                        <p>
-                                            <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
-                                            {getLibraryName(book.library)}
-                                        </p>
-                                        {(book.license !== '') &&
-                                            <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                        <Accordion styled fluid>
+                                            <Accordion.Title
+                                                index={0}
+                                                active={activeAccordion === 0}
+                                                onClick={handleAccordionClick}
+                                            >
+                                                <Icon name='dropdown' />
+                                                Table of Contents
+                                            </Accordion.Title>
+                                            <Accordion.Content active={activeAccordion === 0}>
+                                                <p><em>This feature is coming soon!</em></p>
+                                            </Accordion.Content>
+                                        </Accordion>
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
+                        </Breakpoint>
+                        <Breakpoint name='mobile'>
+                            <Grid divided='vertically'>
+                                <Grid.Row>
+                                    <Grid.Column>
+                                        <Image id='commons-book-mobile-image' src={book.thumbnail} centered />
+                                        <Header as='h2' textAlign='center'>{book.title}</Header>
+                                        <div id='commons-book-mobiledetails'>
+                                            {(book.author !== '') &&
+                                                <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
+                                            }
+                                            <p className='commons-book-mobile-detail'>
+                                                <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
+                                                {getLibraryName(book.library)}
+                                            </p>
+                                            {(book.license !== '') &&
+                                                <p className='commons-book-mobile-detail'><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                            }
+                                            <p className='commons-book-mobile-detail'><Icon name='university'/> {book.institution}</p>
+                                            <ThumbnailAttribution />
+                                        </div>
+                                    </Grid.Column>
+                                </Grid.Row>
+                                <Grid.Row>
+                                    <Grid.Column>
+                                        <Button.Group fluid vertical>
+                                            <Button icon='hand paper' labelPosition='right' content='Submit an Adoption Report' color='green' onClick={() => { setShowARModal(true) }} />
+                                            <Button icon={(showMobileReadingOpts) ? 'angle up' : 'angle down'} labelPosition='right' content='See Reading Options' color='blue' onClick={() => { setShowMobileReadingOpts(!showMobileReadingOpts) }} />
+                                            {(showMobileReadingOpts) &&
+                                                <div id='commons-book-mobile-readoptions'>
+                                                    <Button icon='linkify' labelPosition='left' color='blue' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
+                                                    <Button icon='file pdf' labelPosition='left' color='blue' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
+                                                    <Button icon='shopping cart' labelPosition='left' color='blue' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
+                                                    <Button icon='zip' labelPosition='left' color='blue' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
+                                                    <Button icon='book' labelPosition='left' color='blue' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
+                                                    <Button icon='graduation cap' labelPosition='left' color='blue' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
+                                                </div>
+                                            }
+                                        </Button.Group>
+                                        {(book.summary !== '') &&
+                                            <Segment>
+                                                <Header as='h3' dividing>Summary</Header>
+                                                <p>{book.summary}</p>
+                                            </Segment>
                                         }
-                                        <p><Icon name='university'/> {book.institution}</p>
-                                        <ThumbnailAttribution />
-                                    </div>
-                                    <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowARModal(true) }} />
-                                    <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
-                                        <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
-                                        <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
-                                        <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
-                                        <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
-                                        <Button icon='book' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
-                                        <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
-                                    </Button.Group>
-                                </Grid.Column>
-                                <Grid.Column width={12}>
-                                    <Header as='h2'>{book.title}</Header>
-                                    {(book.summary !== '') &&
-                                        <Segment>
-                                            <Header as='h3' dividing>Summary</Header>
-                                            <p>{book.summary}</p>
-                                        </Segment>
-                                    }
-                                    <Accordion styled fluid>
-                                        <Accordion.Title
-                                            index={0}
-                                            active={activeAccordion === 0}
-                                            onClick={handleAccordionClick}
-                                        >
-                                            <Icon name='dropdown' />
-                                            Table of Contents
-                                        </Accordion.Title>
-                                        <Accordion.Content active={activeAccordion === 0}>
-                                            <p><em>This feature is coming soon!</em></p>
-                                        </Accordion.Content>
-                                    </Accordion>
-                                </Grid.Column>
-                            </Grid.Row>
-                        </Grid>
+                                        <Accordion styled fluid>
+                                            <Accordion.Title
+                                                index={0}
+                                                active={activeAccordion === 0}
+                                                onClick={handleAccordionClick}
+                                            >
+                                                <Icon name='dropdown' />
+                                                Table of Contents
+                                            </Accordion.Title>
+                                            <Accordion.Content active={activeAccordion === 0}>
+                                                <p><em>This feature is coming soon!</em></p>
+                                            </Accordion.Content>
+                                        </Accordion>
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
+                        </Breakpoint>
                     </Segment>
                     <Modal
                         onClose={closeARModal}
@@ -260,32 +341,55 @@ const CommonsBook = (props) => {
                         <Modal.Header>Adoption Report (UNDER CONSTRUCTION)</Modal.Header>
                         <Modal.Content scrolling>
                             <p>If you are an instructor or student using this LibreText in your class, it would help us greatly if you would fill out this form.</p>
-                            <Form>
+                            <Form noValidate>
                                 <Form.Group widths='equal'>
                                     <Form.Field required>
                                         <label htmlFor='email'>Your Email</label>
-                                        <Input fluid={true} id='ar-email-input' type='email' name='email' placeholder='Email...' required={true} icon='mail' iconPosition='left' />
+                                        <Input
+                                            fluid
+                                            id='ar-email-input'
+                                            type='email'
+                                            name='email'
+                                            placeholder='Email...'
+                                            required
+                                            icon='mail'
+                                            iconPosition='left'
+                                            onChange={handleARInputChange}
+                                            value={arEmail}
+                                        />
                                     </Form.Field>
                                     <Form.Field required>
                                         <label htmlFor='name'>Your Name</label>
-                                        <Input fluid={true} id='ar-name-input' type='text' name='name' placeholder='Name...' required={true} icon='user' iconPosition='left' />
+                                        <Input
+                                            fluid
+                                            id='ar-name-input'
+                                            type='text'
+                                            name='name'
+                                            placeholder='Name...'
+                                            required
+                                            icon='user'
+                                            iconPosition='left'
+                                            onChange={handleARInputChange}
+                                            value={arName}
+                                        />
                                     </Form.Field>
                                 </Form.Group>
                                 <Form.Select
                                     fluid
-                                    label='I am a'
+                                    label='I am a(n)'
                                     options={arIAmOptions}
                                     placeholder='Choose...'
-                                    onChange={handleIAmChange}
+                                    onChange={(e, { value }) => { setARIAm(value) }}
                                     value={arIAm}
+                                    required
                                 />
                                 {(arIAm === 'instructor') &&
                                     <div>
                                         <Divider />
                                         <Header as='h3'>Instructor</Header>
                                         <p>If you are using this LibreText in your class(es), please help us by providing some additional data.</p>
-                                        <Form.Group grouped>
-                                            <label>Is your Institution part of the LibreNet consortium?</label>
+                                        <Form.Group grouped required>
+                                            <label className='form-required'>Is your Institution part of the LibreNet consortium?</label>
                                             <Form.Radio
                                                 label='Yes'
                                                 value='yes'
@@ -311,20 +415,20 @@ const CommonsBook = (props) => {
                                                 label='Institution Name'
                                                 options={libreNetOptions}
                                                 placeholder='Choose...'
-                                                onChange={handleARInputChange}
+                                                onChange={(e, { value }) => { setARInstrInstName(value) }}
                                                 value={arInstrInstName}
+                                                required
                                             />
                                         }
                                         {(arlibreNetInst === 'no') &&
-                                            <Form.Field>
+                                            <Form.Field required>
                                                 <label htmlFor='not-libre-inst'>Institution Name</label>
                                                 <Input
-                                                    fluid={true}
+                                                    fluid
                                                     id='ar-not-libre-inst-input'
                                                     type='text'
                                                     name='not-libre-inst'
                                                     placeholder='Institution...'
-                                                    required={true}
                                                     icon='university'
                                                     iconPosition='left'
                                                     onChange={handleARInputChange}
@@ -332,18 +436,17 @@ const CommonsBook = (props) => {
                                                 />
                                             </Form.Field>
                                         }
-                                        <Form.Field>
+                                        <Form.Field required>
                                             <label htmlFor='instr-class'>Class Name</label>
                                             <Input
-                                                fluid={true}
+                                                fluid
                                                 id='ar-instr-class-input'
                                                 type='text'
                                                 name='instr-class'
                                                 placeholder='Class...'
                                                 icon='calendar alternate outline'
-                                                required={true}
                                                 iconPosition='left'
-                                                onchange={handleARInputChange}
+                                                onChange={handleARInputChange}
                                                 value={arInstrClassName}
                                             />
                                         </Form.Field>
@@ -355,11 +458,12 @@ const CommonsBook = (props) => {
                                             placeholder='Choose...'
                                             onChange={(e, { value }) => { setARInstrTaughtTerm(value) }}
                                             value={arInstrTaughtTerm}
+                                            required
                                         />
-                                        <Form.Field>
+                                        <Form.Field required>
                                             <label htmlFor='instr-num-students'>Number of Students</label>
                                             <Input
-                                                fluid={true}
+                                                fluid
                                                 id='ar-instr-num-students-input'
                                                 type='number'
                                                 name='instr-num-students'
@@ -389,22 +493,32 @@ const CommonsBook = (props) => {
                                             <Checkbox
                                                 label='Online'
                                                 className='ar-checkbox'
+                                                checked={arInstrStudentUse[0]}
+                                                onChange={() => { handleARInstrStudentUseChange(0) }}
                                             />
                                             <Checkbox
                                                 label='Printed Book'
                                                 className='ar-checkbox'
+                                                checked={arInstrStudentUse[1]}
+                                                onChange={() => { handleARInstrStudentUseChange(1) }}
                                             />
                                             <Checkbox
                                                 label='Downloaded PDF'
                                                 className='ar-checkbox'
+                                                checked={arInstrStudentUse[2]}
+                                                onChange={() => { handleARInstrStudentUseChange(2) }}
                                             />
                                             <Checkbox
                                                 label='Via LMS'
                                                 className='ar-checkbox'
+                                                checked={arInstrStudentUse[3]}
+                                                onChange={() => { handleARInstrStudentUseChange(3) }}
                                             />
                                             <Checkbox
                                                 label='LibreTexts in a Box'
                                                 className='ar-checkbox'
+                                                checked={arInstrStudentUse[4]}
+                                                onChange={() => { handleARInstrStudentUseChange(4) }}
                                             />
                                         </Form.Group>
                                         <Form.Field>

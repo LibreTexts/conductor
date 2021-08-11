@@ -66,6 +66,14 @@ body {
 
 
 /* Helper Classes */
+.form-required::after {
+    margin: -.2em 0 0 .2em;
+    content: '*';
+    color: #db2828;
+    display: inline-block;
+    vertical-align: top;
+}
+
 .text-center {
     text-align: center;
 }

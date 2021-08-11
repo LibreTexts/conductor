@@ -1,5 +1,10 @@
 # Changelog
 
+## 08-10-2021
+#### :art: UI/UX
+* Completed implementing responsive behavior(s) in the Commons UI and navbar(s)
+* More work on Adoption Report validation and data handling
+
 ## 08-09-2021
 #### :art: UI/UX
 * Integrated Visual & Itemized Modes in the Commons Catalogs, Collections, and ADAPT listings
