@@ -108,9 +108,9 @@ const Login = (props) => {
 
     return(
         <Grid centered={true} verticalAlign='middle' className="login-grid">
-            <Grid.Column width={6}>
+            <Grid.Column computer={8} tablet={12} mobile={14}>
                 <Grid columns={1} verticalAlign='middle' centered={true}>
-                        <Grid.Column width={8}>
+                        <Grid.Column computer={8} tablet={10}>
                             <Image src="/libretexts_logo.png"/>
                         </Grid.Column>
                 </Grid>

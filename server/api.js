@@ -13,6 +13,7 @@ const middleware = require('./middleware.js');
 const authAPI = require('./api/auth.js');
 const userAPI = require('./api/user.js');
 const orgAPI = require('./api/organizations.js');
+const adoptionReportAPI = require('./api/adoptionreports.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcement.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -33,6 +34,10 @@ router.route('/v1/auth/login').post(authAPI.validate('login'), middleware.checkV
 /* Organizations */
 router.route('/v1/org/info').get(orgAPI.validate('getinfo'), middleware.checkValidationErrors, orgAPI.getOrganizationInfo);
 
+
+/* Adoption Reports */
+router.route('/v1/adoptionreport').post(middleware.checkLibreCommons, adoptionReportAPI.validate('submitReport'),
+    middleware.checkValidationErrors, adoptionReportAPI.submitReport);
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

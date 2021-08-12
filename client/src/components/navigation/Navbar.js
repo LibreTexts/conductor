@@ -201,7 +201,10 @@ const Navbar = (props) => {
                         <Dropdown inline text={firstName + ' ' + lastName}>
                             <Dropdown.Menu>
                                 {isAdmin &&
-                                    <Dropdown.Item as={Link} to='/supervisors' ><Icon name='sitemap' />Supervisor Dashboard</Dropdown.Item>
+                                    <Dropdown.Item as={Link} to='/supervisors'><Icon name='sitemap' />Supervisor Dashboard</Dropdown.Item>
+                                }
+                                {isAdmin &&
+                                    <Dropdown.Item as={Link} to='/adoptionreports'><Icon name='file alternate' />Adoption Reports</Dropdown.Item>
                                 }
                                 <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Settings</Dropdown.Item>

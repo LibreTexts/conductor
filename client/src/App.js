@@ -18,6 +18,7 @@ import Commons from './components/commons/Commons.js';
 
 /* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
+import AdoptionReports from './components/supervisor/AdoptionReports.js';
 import Dashboard from './components/dashboard/Dashboard.js';
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
 import Login from './components/auth/Login.js';
@@ -79,6 +80,7 @@ function App() {
                         <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
                     <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
                     <PrivateRoute exact path = '/supervisors' component={SupervisorDashboard} />
+                    <PrivateRoute exact path = '/adoptionreports' component={AdoptionReports} />
                     {/* 404 */}
                     <Route component={PageNotFound} />
                 </Switch>

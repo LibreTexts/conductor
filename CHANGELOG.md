@@ -1,5 +1,13 @@
 # Changelog
 
+## 08-11-2021
+#### :art: UI/UX
+* Completed Adoption Report validation and data handling
+* Implemented responsive behavior in Conductor Login
+
+#### :satellite: Server
+* Completed backend logic for Adoption Report validation and submission
+
 ## 08-10-2021
 #### :art: UI/UX
 * Completed implementing responsive behavior(s) in the Commons UI and navbar(s)
@@ -118,7 +126,6 @@
 ## 07-15-2021
 
 #### :art: UI/UX
-
 * Removed the redundant 'Status' column in the project portals
 * Removed the "Recently Completed" section in project portals
 * Removed the initial concept disclaimer during Login
@@ -126,9 +133,7 @@
 * Started upgrades to the Announcements features
 
 #### :satellite: Server
-
 * Switched to cookie authentication methods
 
 #### :memo: Documentation
-
 * Created the Changelog

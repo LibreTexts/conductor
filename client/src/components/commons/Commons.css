@@ -299,16 +299,11 @@
     height: 200px !important;
 }
 
-/* Adoption Report */
-.ar-checkbox {
-    display: block !important;
-    margin-top: .5em !important;
-}
 
 /* Footer */
 #commons-footer {
     background-color: #ccecfd;
-    padding: 0;
+    padding: 0 0 1.5em 0;
     margin: 0;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
     -webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
