@@ -54,8 +54,8 @@ const corsHelper = (req, res, next) => {
     } else if (process.env.NODE_ENV === 'development') {
         allowedOrigins = ['http://localhost:3000'];
     }
-    // Check if origin is in the allowedOrigns array OR if the origin is from the libretexts.org domain
-    if ((allowedOrigins.indexOf(origin) > -1) || (origin.toLowerCase().indexOf(".libretexts.org") > -1)) {
+    /* Check if origin is in the allowedOrigns array OR if the origin is from the libretexts.org domain */
+    if ((allowedOrigins.indexOf(origin) > -1) || (origin && (origin.indexOf(".libretexts.org") > -1))) {
         res.setHeader('Access-Control-Allow-Origin', origin);
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
