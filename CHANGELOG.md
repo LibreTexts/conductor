@@ -1,5 +1,9 @@
 # Changelog
 
+## 08-18-2021
+#### :satellite: Server
+* Updated validation and CORS logic for Adoption Reports
+
 ## 08-11-2021
 #### :art: UI/UX
 * Completed Adoption Report validation and data handling

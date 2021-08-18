@@ -527,7 +527,7 @@ const AdoptionReport = (props) => {
                                     type='text'
                                     name='instr-class'
                                     placeholder='Class...'
-                                    icon='calendar alternate outline'
+                                    icon='pencil'
                                     iconPosition='left'
                                     onChange={handleInputChange}
                                     value={instrClassName}
@@ -660,7 +660,7 @@ const AdoptionReport = (props) => {
                                     type='text'
                                     name='student-class'
                                     placeholder='Class...'
-                                    icon='calendar alternate outline'
+                                    icon='pencil'
                                     iconPosition='left'
                                     onChange={handleInputChange}
                                     value={studentClass}

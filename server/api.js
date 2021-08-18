@@ -35,7 +35,7 @@ router.route('/v1/auth/login').post(authAPI.validate('login'), middleware.checkV
 router.route('/v1/org/info').get(orgAPI.validate('getinfo'), middleware.checkValidationErrors, orgAPI.getOrganizationInfo);
 
 
-/* Adoption Reports */
+/* Adoption Reports (can be anonymous) */
 router.route('/v1/adoptionreport').post(middleware.checkLibreCommons, adoptionReportAPI.validate('submitReport'),
     middleware.checkValidationErrors, adoptionReportAPI.submitReport);
 

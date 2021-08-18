@@ -71,7 +71,6 @@ const validateResourceObj = (value) => {
  *  and @instructor.printCost to the expected Number type.
  */
 const validateInstructorObj = (value) => {
-    console.log("VALIDATING");
     if (typeof(value) === 'object') {
         if (value.hasOwnProperty('isLibreNet') && typeof(value.isLibreNet) !== 'string') {
             return false;
@@ -86,27 +85,39 @@ const validateInstructorObj = (value) => {
             return false;
         }
         if (value.hasOwnProperty('students')) {
-            const parsed = parseInt(value.students);
-            if (!isNaN(parsed)) {
-                value.students = parsed;
+            if (!isEmptyString(value.students)) {
+                const parsed = parseInt(value.students);
+                if (!isNaN(parsed)) {
+                    value.students = parsed;
+                } else {
+                    return false;
+                }
             } else {
-                return false;
+                delete value.students;
             }
         }
         if (value.hasOwnProperty('replaceCost')) {
-            const parsed = parseInt(value.replaceCost);
-            if (!isNaN(parsed)) {
-                value.replaceCost = parsed;
+            if (!isEmptyString(value.students)) {
+                const parsed = parseInt(value.replaceCost);
+                if (!isNaN(parsed)) {
+                    value.replaceCost = parsed;
+                } else {
+                    return false;
+                }
             } else {
-                return false;
+                delete value.replaceCost;
             }
         }
         if (value.hasOwnProperty('printCost')) {
-            const parsed = parseInt(value.printCost);
-            if (!isNaN(parsed)) {
-                value.printCost = parsed;
+            if (!isEmptyString(value.students)) {
+                const parsed = parseInt(value.printCost);
+                if (!isNaN(parsed)) {
+                    value.printCost = parsed;
+                } else {
+                    return false;
+                }
             } else {
-                return false;
+                delete value.printCost;
             }
         }
         if (value.hasOwnProperty('access') && !Array.isArray(value.access)) {
