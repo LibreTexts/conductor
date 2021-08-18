@@ -6,6 +6,7 @@ import React, { Component } from 'react';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+import { truncateString } from '../util/HelperFunctions.js';
 
 import { UserContext } from '../../providers.js';
 
@@ -359,15 +360,6 @@ class Dashboard extends Component {
         }
     }
 
-    truncateString(str, len) {
-        if (str.length > len) {
-            let subString = str.substring(0, len);
-            return subString + "...";
-        } else {
-            return str;
-        }
-    }
-
     render() {
         const View = (props) => {
             switch (this.state.currentView) {
@@ -401,7 +393,7 @@ class Dashboard extends Component {
                                                 {item.title}
                                                 <Feed.Date className='announcement-details'>by {item.author.firstName} {item.author.lastName} on {item.date} at {item.time} </Feed.Date>
                                             </Feed.Summary>
-                                            <p className='announcement-text'>{this.truncateString(item.message, 280)}</p>
+                                            <p className='announcement-text'>{truncateString(item.message, 280)}</p>
                                         </Feed.Content>
                                     </Feed.Event>
                                 );

@@ -613,7 +613,7 @@ const getLibraryName = (library) => {
         case 'workforce':
             return "Workforce";
         default:
-            return "";
+            return "Unknown";
     }
 };
 

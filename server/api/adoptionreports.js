@@ -5,10 +5,11 @@
 
 'use strict';
 const AdoptionReport = require('../models/adoptionreport.js');
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString } = require('../util/helpers.js');
 const { debugError } = require('../debug.js');
+const { threePartDateStringValidator } = require('../validators.js');
 
 /**
  * Creates and saves a new AdoptionReport model with
@@ -38,6 +39,69 @@ const submitReport = (req, res) => {
     });
 };
 
+/**
+ * Returns Adoption Reports within a given date range.
+ * VALIDATION: 'getReports'
+ */
+const getReports = (req, res) => {
+    try {
+        var sComp = String(req.query.startDate).split('-');
+        var eComp = String(req.query.endDate).split('-');
+        var sM, sD, sY;
+        var eM, eD, eY;
+        if ((sComp.length == 3) && (eComp.length == 3)) {
+            sM = parseInt(sComp[0]) - 1;
+            sD = parseInt(sComp[1]);
+            sY = parseInt(sComp[2]);
+            eM = parseInt(eComp[0]);
+            eD = parseInt(eComp[1]);
+            eY = parseInt(eComp[2]);
+        }
+        if (!isNaN(sM) && !isNaN(sD) && !isNaN(sY) && !isNaN(eM) && !isNaN(eD) && !isNaN(eY)) {
+            var start = new Date(sY, sM, sD);
+            start.setHours(0,0,0,0);
+            var end = new Date(eY, eM, eD);
+            end.setHours(23,59,59,999);
+            AdoptionReport.aggregate([
+                {
+                    $match: {
+                        createdAt: {
+                            $gte: start,
+                            $lte: end
+                        }
+                    }
+                }, {
+                    $project: {
+                        _id: 0
+                    }
+                }, {
+                    $sort: {
+                        createdAt: 1
+                    }
+                }
+            ]).then((reports) => {
+                return res.status(200).send({
+                    err: false,
+                    reports: reports
+                });
+            }).catch((err) => {
+                debugError(err);
+                return res.status(500).send({
+                    err: true,
+                    errMsg: conductorErrors.err6
+                });
+            });
+        } else {
+            throw('timeparse-err')
+        }
+    } catch (err) {
+        debugError(err);
+        return res.status(400).send({
+            err: true,
+            errMsg: emmErrors.err3
+        });
+    }
+};
 
 /**
  * Confirm the @role parameter is one of 'instructor' or 'student'
@@ -194,10 +258,16 @@ const validate = (method) => {
                 body('instructor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateInstructorObj),
                 body('student', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateStudentObj)
             ]
+        case 'getReports':
+            return [
+                query('startDate', conductorErrors.err1).exists().custom(threePartDateStringValidator),
+                query('endDate', conductorErrors.err1).exists().custom(threePartDateStringValidator)
+            ]
     }
 };
 
 module.exports = {
     submitReport,
+    getReports,
     validate
 };

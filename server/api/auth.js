@@ -115,7 +115,7 @@ const getUserAttributes = (req, res, next) => {
                     errMsg: conductorErrors.err7
                 });
             } else if (err === 'noorg') {
-                return res.send(401).send({
+                return res.status(401).send({
                     err: true,
                     errMsg: conductorErrors.err10
                 })

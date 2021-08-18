@@ -17,6 +17,7 @@ import axios from 'axios';
 import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
+import { truncateString } from '../util/HelperFunctions.js';
 
 const CommonsADAPTCatalog = (_props) => {
 
@@ -94,15 +95,6 @@ const CommonsADAPTCatalog = (_props) => {
             setAdaptCourses(origCourses);
         }
     }, [searchString, origCourses, activePage]);
-
-    const truncateString = (str, len) => {
-        if (str.length > len) {
-            let subString = str.substring(0, len);
-            return subString + "...";
-        } else {
-            return str;
-        }
-    };
 
     const VisualMode = () => {
         if (pageCourses.length > 0) {

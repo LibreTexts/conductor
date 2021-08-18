@@ -6,6 +6,21 @@ const isEmptyString = (str) => {
     }
 };
 
+const truncateString = (str, len) => {
+    if (str.length > len) {
+        let subString = str.substring(0, len);
+        return subString + "...";
+    } else {
+        return str;
+    }
+};
+
+const capitalizeFirstLetter = (str) => {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 module.exports = {
-    isEmptyString
+    isEmptyString,
+    truncateString,
+    capitalizeFirstLetter
 };

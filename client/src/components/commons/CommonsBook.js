@@ -101,7 +101,7 @@ const CommonsBook = (props) => {
                                                 <p><Icon name='user'/> {book.author}</p>
                                             }
                                             <p>
-                                                <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
+                                                <Image src={getGlyphAddress(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
                                             {(book.license !== '') &&
@@ -156,7 +156,7 @@ const CommonsBook = (props) => {
                                                 <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
                                             }
                                             <p className='commons-book-mobile-detail'>
-                                                <Image src={getGlyphAddress(book.library)} className='commons-content-glyph' inline/>
+                                                <Image src={getGlyphAddress(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
                                             {(book.license !== '') &&

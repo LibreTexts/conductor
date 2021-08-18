@@ -33,6 +33,12 @@ body {
     padding: 0 1% 0 1% !important;
 }
 
+.library-glyph {
+    width: 1.18em;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
 .fullheight-menu {
     height: 100% !important;
 }

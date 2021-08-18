@@ -1,7 +1,11 @@
 # Changelog
 
 ## 08-18-2021
+#### :art: UI/UX
+* More work on the Adoption Reports dashboard
+
 #### :satellite: Server
+* More backend logic for Adoption Reports
 * Updated validation and CORS logic for Adoption Reports
 
 ## 08-11-2021

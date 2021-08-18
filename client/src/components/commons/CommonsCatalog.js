@@ -187,7 +187,7 @@ const CommonsCatalog = (props) => {
                                 <Card.Content>
                                     <Card.Header>{item.title}</Card.Header>
                                     <Card.Meta>
-                                        <Image src={getGlyphAddress(item.library)} className='commons-content-glyph' />
+                                        <Image src={getGlyphAddress(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Card.Meta>
                                     <Card.Description>
@@ -234,7 +234,7 @@ const CommonsCatalog = (props) => {
                                         <p>{item.author}</p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Image src={getGlyphAddress(item.library)} className='commons-content-glyph' />
+                                        <Image src={getGlyphAddress(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Table.Cell>
                                     {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
