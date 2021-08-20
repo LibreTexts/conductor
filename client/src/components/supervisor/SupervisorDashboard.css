@@ -24,3 +24,8 @@
 .dashboard-list-item {
     cursor: pointer !important;
 }
+
+#adoptionreports-filteroptions {
+    display: flex;
+    flex-direction: row;
+}

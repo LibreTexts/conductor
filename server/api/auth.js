@@ -132,9 +132,10 @@ const getUserAttributes = (req, res, next) => {
 
 /**
  * Checks that the user has the role
- * specified in the @role parameter.
- * This method should NOT be used as
- * middleware.
+ * specified in the @role parameter for
+ * this organization.
+ * NOTE: This method should NOT be used as
+ *  middleware.
  */
 const checkHasRole = (user, org, role) => {
     if ((user.roles !== undefined) && (Array.isArray(user.roles))) {
@@ -142,8 +143,12 @@ const checkHasRole = (user, org, role) => {
             if (element.org && element.role) {
                 if ((element.org === org) && (element.role === role)) {
                     return element;
+                } else if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
+                    // OVERRIDE: SuperAdmins always have permission
+                    return element;
                 }
             }
+            return null;
         });
         if (foundRole !== undefined) {
             return true;

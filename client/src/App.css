@@ -92,6 +92,10 @@ body {
     text-align: center;
 }
 
+.pointer-hover:hover {
+    cursor: pointer;
+}
+
 .mt-1p {
     margin-top: 1% !important;
 }
@@ -118,6 +122,14 @@ body {
 
 .mb-4r {
     margin-bottom: 4rem !important;
+}
+
+.ml-2p {
+    margin-left: 2% !important;
+}
+
+.mr-2p {
+    margin-right: 2% !important;
 }
 
 .float-right {

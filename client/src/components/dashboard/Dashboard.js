@@ -1,109 +1,217 @@
 import './Dashboard.css';
 
-import { Grid, Header, Menu, List, Image, Segment, Divider, Message, Icon, Button, Modal, Form, Feed } from 'semantic-ui-react';
+import {
+    Grid,
+    Header,
+    Menu,
+    List,
+    Image,
+    Segment,
+    Divider,
+    Message,
+    Icon,
+    Button,
+    Modal,
+    Form,
+    Feed
+} from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
-import React, { Component } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-import { truncateString, capitalizeFirstLetter } from '../util/HelperFunctions.js';
+import { truncateString, capitalizeFirstLetter, isEmptyString } from '../util/HelperFunctions.js';
 
-import { UserContext } from '../../providers.js';
+import { useUserState } from '../../providers.js';
+import useGlobalError from '../error/ErrorHooks.js';
 
-class Dashboard extends Component {
+const Dashboard = (props) => {
 
-    static contextType = UserContext;
+    const { setError } = useGlobalError();
+    const [{
+        firstName,
+        avatar,
+        isCampusAdmin,
+        isSuperAdmin,
+        org
+    }, dispatch] = useUserState();
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            firstName: '',
-            avatar: '/steve.jpg',
-            roles: [],
-            recentAnnouncement: false,
-            announcementData: {
-                title: '',
-                message: '',
-                author: {
-                    firstName: '',
-                    lastName: ''
-                },
-                date: '',
-                time: ''
-            },
-            loadedRecentProjects: false,
-            recentHarvestingProject: {},
-            hasRecentHarvest: false,
-            userHarvestingProjects: [],
-            currentView: 'home',
-            fetchedAllAnnouncements: false,
-            allAnnouncements: [],
-            showNewAnnouncementModal: false,
-            newAnnouncementTitle: '',
-            newAnnouncementMessage: '',
-            newAnnouncementHarvesters: false,
-            newAnnouncementDevelopers: false,
-            newAnnouncementAdministrators: false,
-            announcementViewTitle: '',
-            announcementViewMessage: '',
-            announcementViewOrg: '',
-            announcementViewDate: '',
-            announcementViewTime: '',
-            announcementViewAuthorFirst: '',
-            announcementViewAuthorLast: '',
-            announcementViewAuthorAvatar: ''
-        };
-    }
+    const emptyAnnouncement = {
+        title: "",
+        message: "",
+        org: "",
+        author: {
+            firstName: "",
+            lastName: "",
+            avatar: "",
+            uuid: ""
+        }
+    };
 
-    componentDidMount() {
+    /* Data */
+    const [announcements, setAnnouncements] = useState([]);
+    const [recentAnnouncement, setRecentAnnouncement] = useState(emptyAnnouncement);
+    const [projects, setProjects] = useState([]);
+    const [recentProjects, setRecentProjects] = useState([]);
+
+    /* UI */
+    const [currentView, setCurrentView] = useState('home');
+    const [loadedAllAnnouncements, setLoadedAllAnnouncements] = useState(false);
+    const [loadedRecentAnnouncement, setLoadedRecentAnnouncement] = useState(false);
+    const [loadedAllProjects, setLoadedAllProjects] = useState(false);
+    const [loadedRecentProjects, setLoadedRecentProjects] = useState(false);
+    const [hasRecentAnnouncement, setHasRecentAnnouncement] = useState(false);
+    const [hasRecentProjects, setHasRecentProjects] = useState(false);
+    const [showNASuccess, setShowNASuccess] = useState(false);
+
+    // New Announcement Modal
+    const [showNAModal, setShowNAModal] = useState(false);
+    const [naTitle, setNATitle] = useState('');
+    const [naMessage, setNAMessage] = useState('');
+    const [naGlobal, setNAGlobal] = useState(false);
+    const [naTitleError, setNATitleError] = useState(false);
+    const [naMessageError, setNAMessageError] = useState(false);
+
+    // Announcement View Modal
+    const [showAVModal, setShowAVModal] = useState(false);
+    const [avAnnouncement, setAVAnnouncement] = useState(emptyAnnouncement);
+
+    /**
+     * Setup page & title on load and
+     * load recent data.
+     */
+    useEffect(() => {
         document.title = "LibreTexts Conductor | Dashboard";
-        const [user] = this.context;
         date.plugin(ordinal);
-        if (user.firstName !== this.state.firstName) {
-            this.setState({ firstName: user.firstName });
-        }
-        if (user.avatar !== this.state.avatar) {
-            this.setState({ avatar: user.avatar });
-        }
-        if (this.state.roles.length === 0 && user.roles.length !== 0) {
-            this.setState({ roles: user.roles });
-        }
-        this.getRecentAnnouncement();
-        this.getRecentProjects();
-    }
+        getRecentAnnouncement();
+        getRecentProjects();
+    }, []);
 
-    componentDidUpdate() {
-        const [user] = this.context;
-        if (user.firstName !== this.state.firstName) {
-            this.setState({ firstName: user.firstName });
+    /**
+     * Change the current Dashboard View
+     */
+    useEffect(() => {
+        switch(currentView) {
+            case 'announcements':
+                getAnnouncements();
+                break;
+            case 'projects':
+                getProjects();
+                break;
+            default:
+                break; // silence React warning
         }
-        if (user.avatar !== this.state.avatar) {
-            this.setState({ avatar: user.avatar });
-        }
-        if (this.state.roles.length === 0 && user.roles.length !== 0) {
-            this.setState({ roles: user.roles });
-        }
-    }
+    }, [currentView]);
 
-    getAllAnnouncements() {
+    /**
+     * Process a REST-returned error object and activate
+     * the global error modal
+     */
+    const handleErr = (err) => {
+        var message = "";
+        if (err.response) {
+            if (err.response.data.errMsg !== undefined) {
+                message = err.response.data.errMsg;
+            } else {
+                message = "Error processing request.";
+            }
+            if (err.response.data.errors) {
+                if (err.response.data.errors.length > 0) {
+                    message = message.replace(/\./g, ': ');
+                    err.response.data.errors.forEach((elem, idx) => {
+                        if (elem.param) {
+                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
+                            if ((idx + 1) !== err.response.data.errors.length) {
+                                message += ", ";
+                            } else {
+                                message += ".";
+                            }
+                        }
+                    });
+                }
+            }
+        } else if (err.name && err.message) {
+            message = err.message;
+        } else if (typeof(err) === 'string') {
+            message = err;
+        } else {
+            message = err.toString();
+        }
+        setError(message);
+    };
+
+    /**
+     * Accepts a standard ISO 8601 @dateInput
+     * and parses the date and time to
+     * human-readable format.
+     */
+    const parseDateAndTime = (dateInput) => {
+        const dateInstance = new Date(dateInput);
+        return {
+            date: date.format(dateInstance, 'ddd, MMM DDD, YYYY'),
+            time: date.format(dateInstance, 'h:mm A')
+        }
+    };
+
+    /**
+     * Load the most recent announcement via GET
+     * request and update the UI accordingly.
+     */
+    const getRecentAnnouncement = () => {
+        axios.get('/announcements/recent').then((res) => {
+            if (!res.data.err) {
+                if (res.data.announcement !== null) {
+                    const { date, time } = parseDateAndTime(res.data.announcement.createdAt);
+                    setRecentAnnouncement({
+                        ...res.data.announcement,
+                        date: date,
+                        time: time
+                    });
+                    setHasRecentAnnouncement(true);
+                } else {
+                    setHasRecentAnnouncement(false);
+                }
+            } else {
+                console.log(res.data.errMsg);
+            }
+            setLoadedRecentAnnouncement(true);
+        }).catch((err) => {
+            handleErr(err);
+        });
+    };
+
+    /**
+     * Load the most recent project via GET
+     * request and update the UI accordingly.
+     */
+    const getRecentProjects = () => { // TODO: update to new Projects paradigm
+        axios.get('/projects/recent').then((res) => {
+            if (!res.data.err) {
+            } else {
+                console.log(res.data.errMsg);
+            }
+            setLoadedRecentProjects(true);
+        }).catch((err) => {
+            handleErr(err);
+        });
+    };
+
+    /**
+     * Load the 50 most recent announcements via GET
+     * request and update the UI accordingly.
+     */
+    const getAnnouncements = () => {
         axios.get('/announcements/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.announcements !== null) {
                     var announcementsForState = [];
-                    res.data.announcements.forEach((announcement) => {
-                        const { date, time } = this.parseDateAndTime(announcement.createdAt);
+                    res.data.announcements.forEach((item) => {
+                        const { date, time } = parseDateAndTime(item.createdAt);
                         const newAnnouncement = {
-                            title: announcement.title,
-                            message: announcement.message,
-                            author: {
-                                firstName: announcement.author.firstName,
-                                lastName: announcement.author.lastName,
-                                avatar: announcement.author.avatar
-                            },
+                            ...item,
                             date: date,
                             time: time,
-                            org: announcement.org,
-                            rawDate: announcement.createdAt
+                            rawDate: item.createdAt
                         };
                         announcementsForState.push(newAnnouncement);
                     });
@@ -112,281 +220,163 @@ class Dashboard extends Component {
                         const date2 = new Date(b.rawDate);
                         return date2 - date1;
                     });
-                    this.setState({
-                        fetchedAllAnnouncements: true,
-                        allAnnouncements: announcementsForState
-                    });
-                } else {
-                    this.setState({ fetchedAllAnnouncements: true });
+                    setAnnouncements(announcementsForState);
                 }
             } else {
                 console.log(res.data.err);
             }
+            setLoadedAllAnnouncements(true);
         }).catch((err) => {
-            console.log(err);
+            handleErr(err);
         });
-    }
+    };
 
-    getRecentAnnouncement() {
-        axios.get('/announcements/recent').then((res) => {
-            if (!res.data.err) {
-                if (res.data.announcement !== null) {
-                    const { date, time } = this.parseDateAndTime(res.data.announcement.createdAt);
-                    this.setState({
-                        recentAnnouncement: true,
-                        announcementData: {
-                            title: res.data.announcement.title,
-                            message: res.data.announcement.message,
-                            author: {
-                                firstName: res.data.announcement.author.firstName,
-                                lastName: res.data.announcement.author.lastName,
-                                avatar: res.data.announcement.author.avatar
-                            },
-                            date: date,
-                            time: time
-                        }
-                    });
-                }
-            } else {
-                console.log(res.data.errMsg);
-            }
-        }).catch((err) => {
-            console.log(err);
-        });
-    }
-
-    getAllProjects() {
+    /**
+     * Load the user's active projects via GET
+     * request and update the UI accordingly.
+     */
+    const getProjects = () => { // TODO: update to new Projects paradigm
         axios.get('/projects/all').then((res) => {
             if (!res.data.err) {
-                this.setState({
-                    userHarvestingProjects: res.data.harvesting,
-                    userDevelopmentProjects: res.data.development,
-                    userAdminProjects: res.data.admin
-                });
             } else {
                 console.log(res.data.errMsg);
             }
+            setLoadedAllProjects(true);
         }).catch((err) => {
-            console.log(err);
+            handleErr(err);
         });
-    }
+    };
 
-    getRecentProjects() {
-        axios.get('/projects/recent').then((res) => {
-            if (!res.data.err) {
-                var toSet = {
-                    loadedRecentProjects: true
-                };
-                if (res.data.harvesting !== undefined) {
-                    const itemDate = new Date(res.data.harvesting.lastUpdate.createdAt);
-                    res.data.harvesting.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                    res.data.harvesting.updatedTime = date.format(itemDate, 'h:mm A');
-                    toSet.recentHarvestingProject = res.data.harvesting;
-                    toSet.hasRecentHarvest = true;
-                }
-                this.setState(toSet);
-            } else {
-                console.log(res.data.errMsg);
-            }
-        }).catch((err) => {
-            console.log(err);
-        });
-    }
+    /**
+     * Close the New Announcement modal and
+     * reset the form.
+     */
+    const closeNAModal = () => {
+        setShowNAModal(false);
+        resetNAForm();
+        setNATitle('');
+        setNAMessage('');
+        setNAGlobal(false);
+    };
 
-    parseDateAndTime(dateInput) {
-        const dateInstance = new Date(dateInput);
-        return {
-            date: date.format(dateInstance, 'ddd, MMM DDD, YYYY'),
-            time: date.format(dateInstance, 'h:mm A')
+    /**
+     * Reset all New Announcement form
+     * error states
+     */
+    const resetNAForm = () => {
+        setNATitleError(false);
+        setNAMessageError(false);
+    };
+
+    /**
+     * Validate the New Announcement form data,
+     * return 'false' if validation errors
+     * exists, 'true' otherwise
+     */
+    const validateNAForm = () => {
+        var validForm = true;
+        if (isEmptyString(naTitle)) {
+            validForm = false;
+            setNATitleError(true);
         }
-    }
+        if (isEmptyString(naMessage)) {
+            validForm = false;
+            setNAMessageError(true);
+        }
+        return validForm;
+    };
 
-    setView(e, data) {
-        switch(data.name) {
+    /**
+     * Submit data via POST to the server, then
+     * call closeNAModal() on success
+     * and reload announcements.
+     */
+    const postNewAnnouncement = () => {
+        resetNAForm();
+        if (validateNAForm()) {
+            axios.post('/announcements/create', {
+                title: naTitle,
+                message: naMessage,
+                global: naGlobal
+            }).then((res) => {
+                if (!res.data.err) {
+                    setShowNASuccess(true);
+                    closeNAModal();
+                    getRecentAnnouncement();
+                    getAnnouncements();
+                } else {
+                    throw(res.data.errMsg);
+                }
+            }).catch((err) => {
+                handleErr(err);
+            });
+        }
+    };
+
+    /**
+     * Open the Announcement View modal
+     * and bring the request announcement
+     * into state.
+     */
+    const openAVModal = (idx) => {
+        if (announcements[idx] !== undefined) {
+            setShowAVModal(true);
+            setAVAnnouncement(announcements[idx]);
+        }
+    };
+
+    /**
+     * Close the Announcement View modal
+     * and reset state to the empty announcement.
+     */
+    const closeAVModal = () => {
+        setShowAVModal(false);
+        setAVAnnouncement(emptyAnnouncement);
+    };
+
+    /**
+     * Render the appropriate Dashboard View
+     * according to the current selected view
+     * in state.
+     */
+    const View = (props) => {
+        switch(currentView) {
             case 'announcements':
-            this.getAllAnnouncements();
-                break;
-            case 'projects':
-                this.getAllProjects();
-                break
-            default:
-                break // silence React warning
-        }
-        this.setState({ currentView: data.name });
-    }
-
-    setNATitle(e) {
-        this.setState({ newAnnouncementTitle: e.target.value });
-    }
-
-    setNAMessage(e) {
-        this.setState({ newAnnouncementMessage: e.target.value });
-    }
-
-    setNAHarvesters() {
-        this.setState((prevState) => ({
-            newAnnouncementHarvesters: !prevState.newAnnouncementHarvesters
-        }));
-    }
-
-    setNADevelopers() {
-        this.setState((prevState) => ({
-            newAnnouncementDevelopers: !prevState.newAnnouncementDevelopers
-        }));
-    }
-
-    setNAAdministrators() {
-        this.setState((prevState) => ({
-            newAnnouncementAdministrators: !prevState.newAnnouncementAdministrators
-        }));
-    }
-
-    openNewAnnouncementModal() {
-        this.setState({ showNewAnnouncementModal: true });
-    }
-
-    closeNewAnnouncementModal() {
-        this.setState({
-            newAnnouncementTitle: '',
-            newAnnouncementMessage: '',
-            showNewAnnouncementModal: false,
-            newAnnouncementHarvesters: false,
-            newAnnouncementDevelopers: false,
-            newAnnouncementAdministrators: false
-        });
-    }
-
-    openAnnouncementViewModal(index) {
-        const announcement = this.state.allAnnouncements[index];
-        this.setState({
-            showAnnouncementViewModal: true,
-            announcementViewTitle: announcement.title,
-            announcementViewMessage: announcement.message,
-            announcementViewOrg: announcement.org,
-            announcementViewDate: announcement.date,
-            announcementViewTime: announcement.time,
-            announcementViewAuthorFirst: announcement.author.firstName,
-            announcementViewAuthorLast: announcement.author.lastName,
-            announcementViewAuthorAvatar: announcement.author.avatar
-        });
-    }
-
-    closeAnnouncementViewModal() {
-        this.setState({
-            showAnnouncementViewModal: false,
-            announcementViewTitle: '',
-            announcementViewMessage: '',
-            announcementViewOrg: '',
-            announcementViewDate: '',
-            announcementViewTime: '',
-            announcementViewAuthorFirst: '',
-            announcementViewAuthorLast: '',
-            announcementViewAuthorAvatar: ''
-        });
-    }
-
-    postNewAnnouncement() {
-        if (this.state.newAnnouncementTitle !== '') {
-            if (this.state.newAnnouncementMessage !== '') {
-                var recipientGroups = [];
-                var groupCount = 0;
-                if (this.state.newAnnouncementHarvesters && this.state.newAnnouncementDevelopers && this.state.newAnnouncementAdministrators) {
-                    recipientGroups.push('all');
-                    groupCount++;
-                } else {
-                    if (this.state.newAnnouncementHarvesters) {
-                        recipientGroups.push('harvest');
-                        groupCount++;
-                    }
-                    if (this.state.newAnnouncementDevelopers) {
-                        recipientGroups.push('develop');
-                        groupCount++;
-                    }
-                    if (this.state.newAnnouncementAdministrators) {
-                        recipientGroups.push('admin');
-                        groupCount++;
-                    }
-                }
-                if (groupCount !== 0) {
-                    var newAnnouncement = {
-                        title: this.state.newAnnouncementTitle,
-                        message: this.state.newAnnouncementMessage,
-                        recipientGroups: recipientGroups
-                    };
-                    axios.post('/announcements/create', newAnnouncement, {
-                        headers: {
-                            'Content-Type': 'application/json'
+                return (
+                    <Segment>
+                        <Grid verticalAlign='middle'>
+                            <Grid.Row columns={2}>
+                                <Grid.Column>
+                                    <Header as='h2' className='announcements-header'>Announcements <span className='gray-span'>(50 most recent)</span></Header>
+                                </Grid.Column>
+                                <Grid.Column>
+                                    {(isCampusAdmin || isSuperAdmin) &&
+                                        <Button color='green' floated='right' onClick={() => { setShowNAModal(true) }}>
+                                            <Icon name='add' />
+                                            New
+                                        </Button>
+                                    }
+                                </Grid.Column>
+                            </Grid.Row>
+                        </Grid>
+                        <Divider />
+                        {showNASuccess &&
+                            <Message
+                                onDismiss={() => { setShowNASuccess(false) }}
+                                header='Announcement Successfully Posted!'
+                                icon='check circle outline'
+                                positive
+                            />
                         }
-                    }).then((res) => {
-                        if (!res.data.err) {
-                            this.setState({
-                                newAnnouncementTitle: '',
-                                newAnnouncementMessage: '',
-                                showNewAnnouncementModal: false,
-                                newAnnouncementHarvesters: false,
-                                newAnnouncementDevelopers: false,
-                                newAnnouncementAdministrators: false,
-                                recentAnnouncement: false,
-                                announcementData: {
-                                    title: '',
-                                    message: '',
-                                    author: {
-                                        firstName: '',
-                                        lastName: ''
-                                    },
-                                    date: '',
-                                    time: ''
-                                },
-                                fetchedAllAnnouncements: false,
-                                allAnnouncements: []
-                            }, () => {
-                                this.getRecentAnnouncement();
-                                this.getAllAnnouncements();
-                            });
-                        } else {
-                            throw(res.data.errMsg);
-                        }
-                    }).catch((err) => {
-                        alert(`Oops! We encountered an error: ${err}`);
-                    });
-                } else {
-                    alert("Please select at least one recipient group.");
-                }
-            } else {
-                alert("Please enter a message for the announcement.");
-            }
-        } else {
-            alert("Please enter a title for the announcement.");
-        }
-    }
-
-    render() {
-        const View = (props) => {
-            switch (this.state.currentView) {
-                case 'announcements':
-                    return (
-                        <Segment>
-                            <Grid verticalAlign='middle'>
-                                <Grid.Row columns={2}>
-                                    <Grid.Column>
-                                        <Header as='h2' className='announcements-header'>Announcements <span className='gray-span'>(50 most recent)</span></Header>
-                                    </Grid.Column>
-                                    <Grid.Column>
-                                        {this.state.roles.includes('admin') &&
-                                            <Button color='green' floated='right' onClick={this.openNewAnnouncementModal.bind(this)}>
-                                                <Icon name='add' />
-                                                New
-                                            </Button>
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-
-                            <Divider />
-                            <Feed className='announcement-feed'>
-                            {this.state.allAnnouncements.map((item, index) => {
+                        <Segment
+                            basic
+                            className='announcements-segment'
+                            loading={!loadedAllAnnouncements}
+                        >
+                            <Feed>
+                            {announcements.map((item, index) => {
                                 return (
-                                    <Feed.Event key={index} onClick={() => { this.openAnnouncementViewModal(index)}} className='announcement'>
+                                    <Feed.Event key={index} onClick={() => { openAVModal(index)}} className='announcement'>
                                         <Feed.Label image={`${item.author.avatar}`} />
                                         <Feed.Content className='announcement-content'>
                                             <Feed.Summary>
@@ -399,21 +389,26 @@ class Dashboard extends Component {
                                 );
                             })}
                             </Feed>
-                            {this.state.allAnnouncements.length === 0 &&
+                            {announcements.length === 0 &&
                                 <p>No recent announcements.</p>
                             }
                         </Segment>
-                    );
-                case 'projects':
-                    return (
-                        <Segment>
-                            <Header as='h2'>Your Projects</Header>
-                            <Divider />
+                    </Segment>
+                );
+            case 'projects':
+                return (
+                    <Segment>
+                        <Header as='h2'>Your Projects</Header>
+                        <Divider />
+                        <Segment
+                            basic
+                            loading={!loadedAllProjects}
+                        >
                             <List
                                 relaxed
                                 divided
                             >
-                            {this.state.userHarvestingProjects.map((item, index) => {
+                            {projects.map((item, index) => {
                                 const itemDate = new Date(item.lastUpdate.createdAt);
                                 item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
                                 item.updatedTime = date.format(itemDate, 'h:mm A');
@@ -429,236 +424,292 @@ class Dashboard extends Component {
                                     </List.Item>
                                 );
                             })}
-                            {(this.state.userHarvestingProjects.length === 0) &&
+                            {(projects.length === 0) &&
                                 <p>You don't have any projects right now.</p>
                             }
                             </List>
                         </Segment>
-                    );
-                default: // Home
-                    return (
-                        <Segment>
-                            <Header as='h2'>Home</Header>
-                            <Divider />
-                            <Segment basic>
-                                <Header size='medium' onClick={(e) => {this.setView(e, { name: 'announcements' })}} className='dashboard-header-link'>Announcements <span className='gray-span'>(most recent)</span></Header>
-                                {this.state.recentAnnouncement ?
-                                    <Message icon>
-                                        <Icon name='announcement' />
-                                        <Message.Content>
-                                            <Message.Header className="recent-announcement-title">{this.state.announcementData.title}</Message.Header>
-                                            {this.state.announcementData.message}<br />
-                                            <span className='author-info-span gray-span'>by {this.state.announcementData.author.firstName} {this.state.announcementData.author.lastName} on {this.state.announcementData.date} at {this.state.announcementData.time}</span>
-                                        </Message.Content>
-                                    </Message>
-                                : <p>No recent announcements.</p>
-                                }
-                            </Segment>
-                            <Divider />
-                            <Segment basic>
-                                <Header size='medium' onClick={(e) => {this.setView(e, { name: 'projects' })}} className='dashboard-header-link'>Your Projects <span className='gray-span'>(overview)</span></Header>
-                                <List divided size='large'>
-                                    {!this.state.loadedRecentProjects &&
-                                        <p>Loading...</p>
-                                    }
-                                    {this.state.recentHarvestingProject.title !== undefined &&
-                                        <List.Item>
-                                          <List.Icon name='book' size='large' verticalAlign='middle' />
-                                          <List.Content>
-                                            <List.Header as={Link} to={`/harvesting/projects/${this.state.recentHarvestingProject.projectID}`}>{this.state.recentHarvestingProject.title}</List.Header>
-                                            <List.Description as='a'>Last updated on {this.state.recentHarvestingProject.updatedDate} at {this.state.recentHarvestingProject.updatedTime}</List.Description>
-                                          </List.Content>
-                                        </List.Item>
-                                    }
-                                    {!this.state.hasRecentHarvest &&
-                                        <p>You have no recent projects right now.</p>
-                                    }
-                                </List>
-                            </Segment>
+                    </Segment>
+                );
+            default: // Home
+                return (
+                    <Segment>
+                        <Header as='h2'>Home</Header>
+                        <Divider />
+                        <Segment basic>
+                            <Header size='medium' onClick={() => { setCurrentView('announcements')}} className='pointer-hover'>Announcements <span className='gray-span'>(most recent)</span></Header>
+                            {!loadedRecentAnnouncement &&
+                                <p><em>Loading...</em></p>
+                            }
+                            {(loadedRecentAnnouncement && hasRecentAnnouncement) &&
+                                <Message icon>
+                                    <Icon name='announcement' />
+                                    <Message.Content>
+                                        <Message.Header className="recent-announcement-title">{recentAnnouncement.title}</Message.Header>
+                                        {recentAnnouncement.message}<br />
+                                        <span className='author-info-span gray-span'>by {recentAnnouncement.author.firstName} {recentAnnouncement.author.lastName} on {recentAnnouncement.date} at {recentAnnouncement.time}</span>
+                                    </Message.Content>
+                                </Message>
+                            }
+                            {(loadedRecentAnnouncement && !hasRecentAnnouncement) &&
+                                <p>There are no recent announcements right now.</p>
+                            }
                         </Segment>
-                    );
-            }
-        };
-        return(
-            <Grid className='component-container' divided='vertically'>
-                <Grid.Row>
-                    <Grid.Column width={16}>
-                        <Header className='component-header'>Dashboard</Header>
-                    </Grid.Column>
-                </Grid.Row>
-                <Grid.Row>
-                    <Grid.Column width={3}>
-                        <Menu vertical fluid>
-                            <Menu.Item>
-                                <Header as='h1'>
-                                    <Image circular src={`${this.state.avatar}`} className='menu-avatar' />
-                                    <br />
-                                    Welcome,<br/>
-                                    {this.state.firstName}
-                                </Header>
-                            </Menu.Item>
-                          <Menu.Item
-                            name='home'
-                            onClick={this.setView.bind(this)}
-                            active={this.state.currentView === 'home'}
-                            color={this.state.currentView === 'home' ? 'blue' : 'black'}
-                          >
-                            Home
+                        <Divider />
+                        <Segment basic>
+                            <Header size='medium' onClick={() => { setCurrentView('projects') }} className='pointer-hover'>Your Projects <span className='gray-span'>(overview)</span></Header>
+                            <List divided size='large'>
+                                {!loadedRecentProjects &&
+                                    <p><em>Loading...</em></p>
+                                }
+                                {(loadedRecentProjects && hasRecentProjects) &&
+                                    projects.map((item, index) => {
+                                        const itemDate = new Date(item.lastUpdate.createdAt);
+                                        item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
+                                        item.updatedTime = date.format(itemDate, 'h:mm A');
+                                        return (
+                                            <List.Item>
+                                              <List.Icon name='book' size='large' verticalAlign='middle' />
+                                              <List.Content>
+                                                <List.Header as={Link} to={`/projects/${item.projectID}`}>{item.title}</List.Header>
+                                                <List.Description as='a'>Last updated on {item.updatedDate} at {item.updatedTime}</List.Description>
+                                              </List.Content>
+                                            </List.Item>
+                                        );
+                                    })
+                                }
+                                {(loadedRecentProjects && !hasRecentProjects) &&
+                                    <p>You have no recent projects right now.</p>
+                                }
+                            </List>
+                        </Segment>
+                    </Segment>
+                );
+        }
+    };
+
+    return (
+        <Grid className='component-container' divided='vertically'>
+            <Grid.Row>
+                <Grid.Column width={16}>
+                    <Header className='component-header'>Dashboard</Header>
+                </Grid.Column>
+            </Grid.Row>
+            <Grid.Row>
+                <Grid.Column width={3}>
+                    <Menu vertical fluid>
+                        <Menu.Item>
+                            <Header as='h1'>
+                                <Image circular src={`${avatar}`} className='menu-avatar' />
+                                <br />
+                                Welcome,<br/>
+                                {firstName}
+                            </Header>
+                        </Menu.Item>
+                      <Menu.Item
+                        name='home'
+                        onClick={() => { setCurrentView('home') }}
+                        active={currentView === 'home'}
+                        color={currentView === 'home' ? 'blue' : 'black'}
+                      >
+                        Home
+                      </Menu.Item>
+                      <Menu.Item
+                        name='announcements'
+                        onClick={() => { setCurrentView('announcements') }}
+                        active={currentView === 'announcements'}
+                        color={currentView === 'announcements' ? 'blue' : 'black'}
+                      >
+                        Announcements
+                      </Menu.Item>
+                      <Menu.Item
+                        name='projects'
+                        onClick={() => { setCurrentView('projects') }}
+                        active={currentView === 'projects'}
+                        color={currentView === 'projects' ? 'blue' : 'black'}
+                        >
+                            Your Projects
+                        </Menu.Item>
+                        <Menu.Item>&nbsp;
+                        </Menu.Item>
+                      <Menu.Item href='https://libretexts.org' target='_blank' rel='noopener noreferrer'>
+                        LibreTexts.org
+                        <Icon name='external' />
+                      </Menu.Item>
+                    </Menu>
+                </Grid.Column>
+                <Grid.Column width={9}>
+                    <View />
+                </Grid.Column>
+                <Grid.Column width={4}>
+                    <Segment>
+                        <Header as='h3'>Libraries</Header>
+                        <Divider />
+                        <Menu vertical fluid secondary size='tiny'>
+                          <Menu.Item href='https://bio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='dna' /></span>
+                            Biology
+                            <Icon name='external' />
                           </Menu.Item>
-                          <Menu.Item
-                            name='announcements'
-                            onClick={this.setView.bind(this)}
-                            active={this.state.currentView === 'announcements'}
-                            color={this.state.currentView === 'announcements' ? 'blue' : 'black'}
-                          >
-                            Announcements
+                          <Menu.Item href='https://biz.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='dollar' /></span>
+                            Business
+                            <Icon name='external' />
                           </Menu.Item>
-                          <Menu.Item
-                            name='projects'
-                            onClick={this.setView.bind(this)}
-                            active={this.state.currentView === 'projects'}
-                            color={this.state.currentView === 'projects' ? 'blue' : 'black'}
-                            >
-                                Your Projects
-                            </Menu.Item>
-                            <Menu.Item>&nbsp;
-                            </Menu.Item>
-                          <Menu.Item href='https://libretexts.org' target='_blank'>
-                            LibreTexts.org
+                          <Menu.Item href='https://chem.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='flask' /></span>
+                            Chemistry
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://eng.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='wrench' /></span>
+                            Engineering
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://espanol.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='language' /></span>
+                            Español
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://geo.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='globe' /></span>
+                            Geosciences
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://human.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='address book' /></span>
+                            Humanities
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://math.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='subscript' /></span>
+                            Mathematics
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://med.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='first aid' /></span>
+                            Medicine
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://phys.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='rocket' /></span>
+                            Physics
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://socialsci.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='users' /></span>
+                            Social Science
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://stats.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='chart pie' /></span>
+                            Statistics
+                            <Icon name='external' />
+                          </Menu.Item>
+                          <Menu.Item href='https://workforce.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                            <span><Icon name='briefcase' /></span>
+                            Workforce
                             <Icon name='external' />
                           </Menu.Item>
                         </Menu>
-                    </Grid.Column>
-                    <Grid.Column width={9}>
-                        <View />
-                    </Grid.Column>
-                    <Grid.Column width={4}>
-                        <Segment>
-                            <Header as='h3'>Libraries</Header>
-                            <Divider />
-                            <Menu vertical fluid secondary size='tiny'>
-                              <Menu.Item href='https://bio.libretexts.org/' target='_blank'>
-                                <span><Icon name='dna' /></span>
-                                Biology
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://biz.libretexts.org/' target='_blank'>
-                                <span><Icon name='dollar' /></span>
-                                Business
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://chem.libretexts.org/' target='_blank'>
-                                <span><Icon name='flask' /></span>
-                                Chemistry
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://eng.libretexts.org/' target='_blank'>
-                                <span><Icon name='wrench' /></span>
-                                Engineering
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://espanol.libretexts.org/' target='_blank'>
-                                <span><Icon name='language' /></span>
-                                Español
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://geo.libretexts.org/' target='_blank'>
-                                <span><Icon name='globe' /></span>
-                                Geosciences
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://human.libretexts.org/' target='_blank'>
-                                <span><Icon name='address book' /></span>
-                                Humanities
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://math.libretexts.org/' target='_blank'>
-                                <span><Icon name='subscript' /></span>
-                                Mathematics
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://med.libretexts.org/' target='_blank'>
-                                <span><Icon name='first aid' /></span>
-                                Medicine
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://phys.libretexts.org/' target='_blank'>
-                                <span><Icon name='rocket' /></span>
-                                Physics
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://socialsci.libretexts.org/' target='_blank'>
-                                <span><Icon name='users' /></span>
-                                Social Science
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://stats.libretexts.org/' target='_blank'>
-                                <span><Icon name='chart pie' /></span>
-                                Statistics
-                                <Icon name='external' />
-                              </Menu.Item>
-                              <Menu.Item href='https://workforce.libretexts.org/' target='_blank'>
-                                <span><Icon name='briefcase' /></span>
-                                Workforce
-                                <Icon name='external' />
-                              </Menu.Item>
-                            </Menu>
-                        </Segment>
-                    </Grid.Column>
-                </Grid.Row>
-                <Modal
-                    onClose={this.closeNewAnnouncementModal.bind(this)}
-                    open={this.state.showNewAnnouncementModal}
-                >
-                    <Modal.Header>New Announcement</Modal.Header>
-                    <Modal.Content>
-                        <Form>
-                            <Form.Input label='Title' type='text' placeholder='Enter title...' required onChange={this.setNATitle.bind(this)} value={this.state.newAnnouncementTitle} />
-                            <Form.TextArea label='Message' placeholder='Enter message...' required onChange={this.setNAMessage.bind(this)} value={this.state.newAnnouncementMessage} />
-                            <Form.Group inline>
-                                <label>Recipient Group</label>
-                                <Form.Checkbox label='Harvesters' checked={this.state.newAnnouncementHarvesters} onChange={this.setNAHarvesters.bind(this)} />
-                                <Form.Checkbox label='Developers' checked={this.state.newAnnouncementDevelopers} onChange={this.setNADevelopers.bind(this)} />
-                                <Form.Checkbox label='Administrators' checked={this.state.newAnnouncementAdministrators} onChange={this.setNAAdministrators.bind(this)} />
-                            </Form.Group>
-                            <span className='gray-span'>At least one group is required.</span>
-                        </Form>
-                    </Modal.Content>
-                    <Modal.Actions>
-                        <Button onClick={this.closeNewAnnouncementModal.bind(this)}>Cancel</Button>
-                        <Button color='green' onClick={this.postNewAnnouncement.bind(this)}>
-                            <Icon name='announcement' />
-                            Post Announcement
-                        </Button>
-                    </Modal.Actions>
-                </Modal>
-                <Modal
-                    onClose={this.closeAnnouncementViewModal.bind(this)}
-                    open={this.state.showAnnouncementViewModal}
-                >
-                    <Modal.Header>
-                        {this.state.announcementViewTitle}
-                    </Modal.Header>
-                    <Modal.Content>
-                        <Header as='h4'>
-                            <Image avatar src={`${this.state.announcementViewAuthorAvatar}`} />
-                            <Header.Content>
-                                {this.state.announcementViewAuthorFirst} {this.state.announcementViewAuthorLast}
-                                <Header.Subheader>
-                                    {this.state.announcementViewDate} at {this.state.announcementViewTime}
-                                </Header.Subheader>
-                            </Header.Content>
-                        </Header>
-                        <Modal.Description className='announcement-view-text'>{this.state.announcementViewMessage}</Modal.Description>
-                        <span className='gray-span'>Sent to: {capitalizeFirstLetter(this.state.announcementViewOrg)}</span>
-                    </Modal.Content>
-                    <Modal.Actions>
-                        <Button onClick={this.closeAnnouncementViewModal.bind(this)} color='blue'>Done</Button>
-                    </Modal.Actions>
-                </Modal>
-            </Grid>
-        );
-    }
-}
+                    </Segment>
+                </Grid.Column>
+            </Grid.Row>
+            <Modal
+                onClose={closeNAModal}
+                open={showNAModal}
+                closeOnDimmerClick={false}
+            >
+                <Modal.Header>New Announcement</Modal.Header>
+                <Modal.Content>
+                    <Form noValidate>
+                        <Form.Field
+                            required
+                            error={naTitleError}
+                        >
+                            <label>Title</label>
+                            <Form.Input
+                                type='text'
+                                placeholder='Enter title...'
+
+                                onChange={(e) => { setNATitle(e.target.value) }}
+                                value={naTitle}
+                            />
+                        </Form.Field>
+                        <Form.Field
+                            required
+                            error={naMessageError}
+                        >
+                            <label>Message</label>
+                            <Form.TextArea
+                                placeholder='Enter message...'
+                                onChange={(e) => { setNAMessage(e.target.value) }}
+                                value={naMessage}
+                            />
+                        </Form.Field>
+                        {isSuperAdmin &&
+                            (
+                                <div className='mb-2p'>
+                                    <p><strong><em>Super Administrator Options</em></strong> <span className='muted-text'>(use caution)</span></p>
+                                    <Form.Field>
+                                        <Form.Checkbox
+                                            onChange={() => { setNAGlobal(!naGlobal) }}
+                                            checked={naGlobal}
+                                            label="Send globally"
+                                        />
+                                    </Form.Field>
+                                </div>
+                            )
+                        }
+                    </Form>
+                    <span>
+                        <em>This announcement will be available to
+                        {naGlobal
+                            ? ' all Conductor users (global).'
+                            : ` all members of ${org.shortName}.`
+                        }
+                        </em>
+                    </span>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button onClick={closeNAModal}>Cancel</Button>
+                    <Button
+                        color='green'
+                        onClick={postNewAnnouncement}
+                        icon
+                        labelPosition='right'
+                    >
+                        Post Announcement
+                        <Icon name='announcement' />
+                    </Button>
+                </Modal.Actions>
+            </Modal>
+            <Modal
+                onClose={closeAVModal}
+                open={showAVModal}
+            >
+                <Modal.Header>
+                    {avAnnouncement.title}
+                </Modal.Header>
+                <Modal.Content>
+                    <Header as='h4'>
+                        <Image avatar src={`${avAnnouncement.author.avatar}`} />
+                        <Header.Content>
+                            {avAnnouncement.author.firstName} {avAnnouncement.author.lastName}
+                            <Header.Subheader>
+                                {avAnnouncement.date} at {avAnnouncement.time}
+                            </Header.Subheader>
+                        </Header.Content>
+                    </Header>
+                    <Modal.Description className='announcement-view-text'>{avAnnouncement.message}</Modal.Description>
+                    <span className='gray-span'>Sent to: {capitalizeFirstLetter(avAnnouncement.org)}</span>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button onClick={closeAVModal} color='blue'>Done</Button>
+                </Modal.Actions>
+            </Modal>
+        </Grid>
+    )
+};
 
 export default Dashboard;

@@ -16,6 +16,7 @@ const { body, query } = require('express-validator');
  * announcement, then creates and saves a new
  * Announcement model with the data in the
  * request body.
+ * VALIDATION: 'postAnnouncement'
  */
 const postAnnouncement = (req, res) => {
     var hasProperRole = false;

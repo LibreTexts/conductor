@@ -7,7 +7,6 @@ import {
     Input,
     Pagination,
     Card,
-    Popup,
     Table,
     Header,
     Button,
@@ -163,27 +162,25 @@ const CommonsADAPTCatalog = (_props) => {
                 <Card.Group itemsPerRow={5} stackable>
                     {pageCourses.map((item, index) => {
                         return (
-                            <Popup key={index} content='More ADAPT integration is coming soon!' position='top center' trigger={
-                                <Card
-                                    key={index}
-                                >
-                                    <Card.Content>
-                                        <Card.Header>{item.name}</Card.Header>
-                                        <Card.Description>
-                                            {truncateString(item.description, 250)}
-                                        </Card.Description>
-                                    </Card.Content>
-                                    <Card.Content extra>
-                                        <Button
-                                            color='blue'
-                                            fluid
-                                            onClick={() => { openCourseViewModal(item.id) }}
-                                        >
-                                            View Assignments
-                                        </Button>
-                                    </Card.Content>
-                                </Card>
-                            } />
+                            <Card
+                                key={index}
+                            >
+                                <Card.Content>
+                                    <Card.Header>{item.name}</Card.Header>
+                                    <Card.Description>
+                                        {truncateString(item.description, 250)}
+                                    </Card.Description>
+                                </Card.Content>
+                                <Card.Content extra>
+                                    <Button
+                                        color='blue'
+                                        fluid
+                                        onClick={() => { openCourseViewModal(item.id) }}
+                                    >
+                                        View Assignments
+                                    </Button>
+                                </Card.Content>
+                            </Card>
                         )
                     })}
                 </Card.Group>

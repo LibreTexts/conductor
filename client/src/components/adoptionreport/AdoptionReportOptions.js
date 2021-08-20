@@ -9,7 +9,6 @@
     2 = Downloaded PDF          = 'pdf'
     3 = Via LMS                 = 'lms'
     4 = LibreTexts in a Box     = 'librebox'
-
 */
 
 const iAmOptions = [
@@ -57,9 +56,58 @@ const instrTaughtOptions = [
     { key: 'sum21', text: 'Summer 2021', value: 'sum21' }
 ];
 
+const getTermTaught = (term) => {
+    var foundTerm = instrTaughtOptions.find((element) => {
+        if (element.value === term) {
+            return element;
+        }
+        return null;
+    });
+    if (foundTerm !== undefined) {
+        return foundTerm.text;
+    } else {
+        return "Unknown Term";
+    }
+};
+
+const buildAccessMethodsList = (accessOptions) => {
+    var accessString = "";
+    const appendToAccessString = (text, idx) => {
+        if (idx == 0) {
+            accessString = accessString.concat(text);
+        } else {
+            accessString = accessString.concat(", " + text);
+        }
+    };
+    accessOptions.forEach((item, idx) => {
+        switch(item) {
+            case 'online':
+                appendToAccessString("Online", idx);
+                break;
+            case 'print':
+                appendToAccessString("Printed Book", idx);
+                break;
+            case 'pdf':
+                appendToAccessString("Downloaded PDF", idx);
+                break;
+            case 'lms':
+                appendToAccessString("Via LMS", idx);
+                break;
+            case 'librebox':
+                appendToAccessString("LibreTexts in a Box", idx);
+                break;
+            default:
+                break; // Silence React warning
+        }
+    });
+    return accessString;
+}
+
 module.exports = {
     iAmOptions,
     libreNetOptions,
     studentUseOptions,
-    instrTaughtOptions
+    instrTaughtOptions,
+    getTermTaught,
+    buildAccessMethodsList
 }

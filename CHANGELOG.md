@@ -1,5 +1,16 @@
 # Changelog
 
+## 08-20-2021
+#### :art: UI/UX
+* Converted Dashboard to the new functional component design
+* Completed the New Announcement modal following new User role(s) implementation
+* Updates to the Dashboard and Announcements UIs
+* More work on the Adoption Reports dashboard
+* Completed the Adoption Report View modal
+
+#### :satellite: Server
+* Improved new authentication middleware
+
 ## 08-19-2021
 **IMPORTANT: As of 08-19-2021, the Conductor development database has diverged from the original development database
 due to backwards-incompatible/breaking changes. Data will *NOT* be synced between them automatically.**
