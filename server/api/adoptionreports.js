@@ -25,7 +25,7 @@ const submitReport = (req, res) => {
         if (newDoc) {
             return res.send({
                 err: false,
-                msg: "Adoption report succesfully submitted."
+                msg: "Adoption report successfully submitted."
             });
         } else {
             throw(conductorErrors.err3);

@@ -22,10 +22,10 @@ const UserSchema = new Schema({
     hash: String,
     salt: String,
     org: String,
-    roles: {
-        type: [String],
-        required: true
-    }
+    roles: [{
+        org: String,
+        role: String
+    }]
 }, {
     timestamps: true
 });

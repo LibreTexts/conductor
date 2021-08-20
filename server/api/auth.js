@@ -55,9 +55,10 @@ const login = (req, res, _next) => {
             throw(new Error("Incorrect password."));
         }
     }).catch((err) => {
+        debugError(err);
         return res.send({
             err: true,
-            errMsg: err.message
+            errMsg: conductorErrors.err6
         });
     });
 };
@@ -89,8 +90,10 @@ const verifyRequest = (req, res, next) => {
 
 /**
  * Pulls the user record from the database and adds
- * its attributes (organization identifier and roles) to the
+ * its attributes (roles) to the
  * request object.
+ * Method should only be called AFTER the 'verifyRequest'
+ * method in a routing chain.
  */
 const getUserAttributes = (req, res, next) => {
     if (req.user.decoded !== undefined) {
@@ -98,27 +101,19 @@ const getUserAttributes = (req, res, next) => {
             uuid: req.user.decoded.uuid
         }).then((user) => {
             if (user) {
-                if (!(user.org === undefined) && !(isEmptyString(user.org))) {
-                    req.user.org = user.org;
+                if (user.roles !== undefined) {
                     req.user.roles = user.roles;
-                    next();
-                } else {
-                    throw('noorg');
                 }
+                return next();
             } else {
-                throw('nouser');
+                throw(new Error('nouser'));
             }
         }).catch((err) => {
-            if (err === 'nouser') {
+            if (err.message === 'nouser') {
                 return res.send(401).send({
                     err: true,
                     errMsg: conductorErrors.err7
                 });
-            } else if (err === 'noorg') {
-                return res.status(401).send({
-                    err: true,
-                    errMsg: conductorErrors.err10
-                })
             } else {
                 debugError(err);
                 return res.status(500).send({
@@ -136,15 +131,48 @@ const getUserAttributes = (req, res, next) => {
 };
 
 /**
- * Checks that the user has at least one of the roles
- * specified in the @roles array.
+ * Checks that the user has the role
+ * specified in the @role parameter.
+ * This method should NOT be used as
+ * middleware.
+ */
+const checkHasRole = (user, org, role) => {
+    if ((user.roles !== undefined) && (Array.isArray(user.roles))) {
+        var foundRole = user.roles.find((element) => {
+            if (element.org && element.role) {
+                if ((element.org === org) && (element.role === role)) {
+                    return element;
+                }
+            }
+        });
+        if (foundRole !== undefined) {
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        debugError(conductorErrors.err9);
+        return false;
+    }
+};
+
+/**
+ * Checks that the user has the role
+ * specified in the @role parameter.
  * Method should only be called AFTER the 'getUserAttributes'
  * method in a routing chain.
  */
-const checkHasRoles = (roles) => {
+const checkHasRoleMiddleware = (org, role) => {
     return (req, res, next) => {
-        if (req.user.roles !== undefined) {
-            if (roles.some((role) => { return req.user.roles.includes(role) })) {
+        if ((req.user.roles !== undefined) && (Array.isArray(req.user.roles))) {
+            var foundRole = req.user.roles.find((element) => {
+                if (element.org && element.role) {
+                    if ((element.org === org) && (element.role === role)) {
+                        return element;
+                    }
+                }
+            });
+            if (foundRole !== undefined) {
                 next();
             } else {
                 return res.status(401).send({
@@ -155,7 +183,7 @@ const checkHasRoles = (roles) => {
         } else {
             return res.status(400).send({
                 err: true,
-                errMsg: conductorErrors.err5
+                errMsg: conductorErrors.err9
             });
         }
     }
@@ -179,6 +207,7 @@ module.exports = {
     login,
     verifyRequest,
     getUserAttributes,
-    checkHasRoles,
+    checkHasRole,
+    checkHasRoleMiddleware,
     validate
 };

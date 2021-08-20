@@ -1,5 +1,20 @@
 # Changelog
 
+## 08-19-2021
+**IMPORTANT: As of 08-19-2021, the Conductor development database has diverged from the original development database
+due to backwards-incompatible/breaking changes. Data will *NOT* be synced between them automatically.**
+#### :art: UI/UX
+* Added View Assignments & the Course Information modal in the ADAPT Catalog
+* Added new SEO tags (WIP)
+* Updated visual form validation in Login
+* Added new buttons in Login for Registration & SSO Login
+
+#### :satellite: Server
+* Upgraded authentication middleware
+* Updated the Announcement model
+* Added new validation methods for Announcements
+* Upgraded backend logic for Announcements to follow the new modular style and the new User role(s) implementation
+
 ## 08-18-2021
 #### :art: UI/UX
 * More work on the Adoption Reports dashboard

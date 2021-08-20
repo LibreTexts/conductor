@@ -9,7 +9,10 @@ import {
     Card,
     Popup,
     Table,
-    Header
+    Header,
+    Button,
+    Modal,
+    List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -35,6 +38,14 @@ const CommonsADAPTCatalog = (_props) => {
     const [origCourses, setOrigCourses] = useState([]);
     const [adaptCourses, setAdaptCourses] = useState([]);
     const [pageCourses, setPageCourses] = useState([]);
+
+    // Course View Modal
+    const [showCourseModal, setShowCourseModal] = useState(false);
+    const [courseModalTitle, setCourseModalTitle] = useState('');
+    const [courseModalDescrip, setCourseModalDescrip] = useState('');
+    const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
+    const [courseModalLoaded, setCourseModalLoaded] = useState(true);
+
 
     const displayOptions = [
         { key: 'visual', text: 'Visual Mode', value: 'visual' },
@@ -68,6 +79,56 @@ const CommonsADAPTCatalog = (_props) => {
         }).catch((err) => {
             setError(err);
         });
+    };
+
+    const getADAPTCourseAssignments = (courseID) => {
+        setCourseModalLoaded(false);
+        var reqURL = "https://adapt.libretexts.org/api/assignments/commons/" + courseID;
+        axios.get(reqURL, {
+            withCredentials: false
+        }).then((res) => {
+            if (res.data && res.data.type === 'success') {
+                if (res.data.assignments && Array.isArray(res.data.assignments)) {
+                    var assignments = res.data.assignments.map((item) => {
+                        if (item.assignment_id) {
+                            delete item.assignment_id;
+                        }
+                        if (item.description) {
+                            delete item.description;
+                        }
+                        return item;
+                    });
+                    setCourseModalAsgmts(assignments);
+                } else {
+                    throw(new Error("Sorry, we're having trouble displaying this data."))
+                }
+            } else {
+                throw(new Error("Sorry, we're having trouble loading this information."));
+            }
+            setCourseModalLoaded(true);
+        }).catch((err) => {
+            setError(err);
+            setCourseModalLoaded(true);
+        });
+    };
+
+    const openCourseViewModal = (courseID) => {
+        var course = adaptCourses.find((element) => {
+            return element.id === courseID;
+        });
+        if (course !== undefined) {
+            getADAPTCourseAssignments(courseID);
+            setShowCourseModal(true);
+            setCourseModalTitle(course.name);
+            setCourseModalDescrip(course.description);
+        }
+    };
+
+    const closeCourseViewModal = () => {
+        setShowCourseModal(false);
+        setCourseModalTitle('');
+        setCourseModalDescrip('');
+        setCourseModalAsgmts([]);
     };
 
     useEffect(getADAPTCourses, [setError]);
@@ -109,8 +170,17 @@ const CommonsADAPTCatalog = (_props) => {
                                     <Card.Content>
                                         <Card.Header>{item.name}</Card.Header>
                                         <Card.Description>
-                                            {item.description}
+                                            {truncateString(item.description, 250)}
                                         </Card.Description>
+                                    </Card.Content>
+                                    <Card.Content extra>
+                                        <Button
+                                            color='blue'
+                                            fluid
+                                            onClick={() => { openCourseViewModal(item.id) }}
+                                        >
+                                            View Assignments
+                                        </Button>
                                     </Card.Content>
                                 </Card>
                             } />
@@ -140,10 +210,15 @@ const CommonsADAPTCatalog = (_props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
-                                        <p><strong>{item.name}</strong></p>
+                                        <p
+                                            onClick={() => { openCourseViewModal(item.id) }}
+                                            className='text-link'
+                                        >
+                                            <strong>{item.name}</strong>
+                                        </p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <p><em>{truncateString(item.description, 250)}</em></p>
+                                        <p>{truncateString(item.description, 250)}</p>
                                     </Table.Cell>
                                 </Table.Row>
                             )
@@ -286,6 +361,38 @@ const CommonsADAPTCatalog = (_props) => {
                             )
                         }
                     </Segment.Group>
+                    <Modal
+                        open={showCourseModal}
+                        onClose={closeCourseViewModal}
+                    >
+                        <Modal.Header>{courseModalTitle}</Modal.Header>
+                        <Modal.Content scrolling>
+                            <Header size='small' dividing>Description</Header>
+                            <p>{courseModalDescrip}</p>
+                            <Header size='small' dividing>Assignments</Header>
+                            <Segment
+                                basic
+                                loading={!courseModalLoaded}
+                                padded={!courseModalLoaded}
+                            >
+                                {(courseModalLoaded && courseModalAsgmts.length > 0) &&
+                                    <List bulleted>
+                                        {courseModalAsgmts.map((item, idx) => {
+                                            return (
+                                                <List.Item key={idx}>{item.name}</List.Item>
+                                            )
+                                        })}
+                                    </List>
+                                }
+                                {(courseModalLoaded && courseModalAsgmts.length === 0) &&
+                                    <p><em>No assignments found.</em></p>
+                                }
+                            </Segment>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button onClick={closeCourseViewModal}>Close</Button>
+                        </Modal.Actions>
+                    </Modal>
                 </Grid.Column>
             </Grid.Row>
         </Grid>

@@ -1,10 +1,21 @@
 import './Login.css';
 
-import { Grid, Segment, Button, Form, Input, Image, Message } from 'semantic-ui-react';
+import {
+    Grid,
+    Segment,
+    Button,
+    Form,
+    Input,
+    Image,
+    Message,
+    Divider,
+    Icon
+} from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import queryString from 'query-string';
+import { isEmptyString } from '../util/HelperFunctions.js';
 
 import { useUserState } from '../../providers.js';
 import useGlobalError from '../error/ErrorHooks.js';
@@ -15,9 +26,17 @@ const Login = (props) => {
 
     const [, dispatch] = useUserState();
 
+    // UI
+    const [showExpiredAuth, setExpiredAuth] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+
+    // Form Data
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [showExpiredAuth, setExpiredAuth] = useState(false);
+
+    // Form Errors
+    const [emailError, setEmailError] = useState(false);
+    const [passwordError, setPasswordError] = useState(false);
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Login";
@@ -28,6 +47,7 @@ const Login = (props) => {
         }
     }, [props.location.search]);
 
+    /** Form input handlers **/
     const onChange = (e) => {
         if (e.target.id === 'email') {
             setEmail(e.target.value);
@@ -37,13 +57,10 @@ const Login = (props) => {
         }
     };
 
-    const onSubmit = (e) => {
-        e.preventDefault();
-        if (email.trim() !== '' && password.trim() !== '') {
-            sendLogin(props);
-        }
-    };
-
+    /**
+     * Process a REST-returned error object and activate
+     * the global error modal
+     */
     const handleErr = (err) => {
         var message = "";
         if (err.response) {
@@ -77,8 +94,41 @@ const Login = (props) => {
         setError(message);
     };
 
-    const sendLogin = (props) => {
-        if (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true') {
+    /**
+     * Validate the form data, return
+     * 'false' if validation errors exists,
+     * 'true' otherwise
+     */
+    const validateForm = () => {
+        var validForm = true;
+        if (isEmptyString(email)) {
+            validForm = false;
+            setEmailError(true);
+        }
+        if (isEmptyString(password)) {
+            validForm = false;
+            setPasswordError(true);
+        }
+        return validForm;
+    };
+
+    /**
+     * Reset all form error states
+     */
+    const resetFormErrors = () => {
+        setEmailError(false);
+        setPasswordError(false);
+    };
+
+    /**
+     * Submit data via POST to the server, then
+     * check cookie return and redirect
+     * to dashboard.
+     */
+    const submitLogin = () => {
+        setSubmitLoading(true);
+        resetFormErrors();
+        if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true')) {
             var userData = {
                 email: email,
                 password: password
@@ -104,6 +154,7 @@ const Login = (props) => {
                 handleErr(e);
             });
         }
+        setSubmitLoading(false);
     };
 
     return(
@@ -127,16 +178,46 @@ const Login = (props) => {
                             <p>Sorry, access to Conductor is currently disabled.</p>
                         </Message>
                     }
-                    <Form onSubmit={onSubmit}>
-                        <Form.Field>
+                    <Button
+                        disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                        fluid
+                        color='teal'
+                    >
+                        <Icon name='globe'/> Campus Login (SSO)
+                    </Button>
+                    <Button
+                        disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                        fluid
+                        color='green'
+                        className='mt-1p'
+                    >
+                        <Icon name='add user'/> Register
+                    </Button>
+                    <Divider horizontal>Or</Divider>
+                    <Form noValidate>
+                        <Form.Field
+                            error={emailError}
+                        >
                             <label htmlFor='email'>Email</label>
                             <Input fluid={true} id='email' type='email' name='email' placeholder='Email' required={true} value={email} onChange={onChange} icon='user' iconPosition='left' />
                         </Form.Field>
-                        <Form.Field>
+                        <Form.Field
+                            error={passwordError}
+                        >
                             <label htmlFor='password'>Password</label>
                             <Input fluid={true} type='password' id='password' name='password' placeholder='********' required={true} value={password} onChange={onChange} icon='lock' iconPosition='left' />
                         </Form.Field>
-                        <Button type='submit' color='blue' size='large' fluid={true} disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}>Login</Button>
+                        <Button
+                            type='submit'
+                            color='blue'
+                            size='large'
+                            fluid
+                            disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                            loading={submitLoading}
+                            onClick={submitLogin}
+                        >
+                            Login
+                        </Button>
                     </Form>
                 </Segment>
             </Grid.Column>

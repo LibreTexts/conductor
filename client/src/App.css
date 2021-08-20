@@ -70,6 +70,14 @@ body {
     padding: 0 !important;
 }
 
+.text-link {
+    color: #4183c4;
+}
+
+.text-link:hover {
+    cursor: pointer;
+}
+
 
 /* Helper Classes */
 .form-required::after {
@@ -82,6 +90,14 @@ body {
 
 .text-center {
     text-align: center;
+}
+
+.mt-1p {
+    margin-top: 1% !important;
+}
+
+.mb-1p {
+    margin-bottom: 1% !important;
 }
 
 .mt-2p {

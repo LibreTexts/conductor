@@ -6,7 +6,7 @@ import React, { Component } from 'react';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-import { truncateString } from '../util/HelperFunctions.js';
+import { truncateString, capitalizeFirstLetter } from '../util/HelperFunctions.js';
 
 import { UserContext } from '../../providers.js';
 
@@ -46,7 +46,7 @@ class Dashboard extends Component {
             newAnnouncementAdministrators: false,
             announcementViewTitle: '',
             announcementViewMessage: '',
-            announcementViewRecipients: '',
+            announcementViewOrg: '',
             announcementViewDate: '',
             announcementViewTime: '',
             announcementViewAuthorFirst: '',
@@ -102,7 +102,7 @@ class Dashboard extends Component {
                             },
                             date: date,
                             time: time,
-                            recipientGroups: announcement.recipientGroups,
+                            org: announcement.org,
                             rawDate: announcement.createdAt
                         };
                         announcementsForState.push(newAnnouncement);
@@ -262,7 +262,7 @@ class Dashboard extends Component {
             showAnnouncementViewModal: true,
             announcementViewTitle: announcement.title,
             announcementViewMessage: announcement.message,
-            announcementViewRecipients: Array(announcement.recipientGroups).toString(),
+            announcementViewOrg: announcement.org,
             announcementViewDate: announcement.date,
             announcementViewTime: announcement.time,
             announcementViewAuthorFirst: announcement.author.firstName,
@@ -276,7 +276,7 @@ class Dashboard extends Component {
             showAnnouncementViewModal: false,
             announcementViewTitle: '',
             announcementViewMessage: '',
-            announcementViewRecipients: '',
+            announcementViewOrg: '',
             announcementViewDate: '',
             announcementViewTime: '',
             announcementViewAuthorFirst: '',
@@ -650,7 +650,7 @@ class Dashboard extends Component {
                             </Header.Content>
                         </Header>
                         <Modal.Description className='announcement-view-text'>{this.state.announcementViewMessage}</Modal.Description>
-                        <span className='gray-span'>Sent to: {this.state.announcementViewRecipients}</span>
+                        <span className='gray-span'>Sent to: {capitalizeFirstLetter(this.state.announcementViewOrg)}</span>
                     </Modal.Content>
                     <Modal.Actions>
                         <Button onClick={this.closeAnnouncementViewModal.bind(this)} color='blue'>Done</Button>

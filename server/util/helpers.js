@@ -15,6 +15,21 @@ const isEmptyString = (str) => {
     }
 };
 
+/**
+ * Constructs a basic array with OrgIDs given
+ * an array of Role objects.
+ */
+const buildOrgArray = (roles) => {
+    var orgs = [];
+    roles.forEach((item) => {
+        if (item.org) {
+            orgs.push(item.org);
+        }
+    });
+    return orgs;
+}
+
 module.exports = {
-    isEmptyString
+    isEmptyString,
+    buildOrgArray
 };

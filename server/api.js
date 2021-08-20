@@ -15,7 +15,7 @@ const userAPI = require('./api/user.js');
 const orgAPI = require('./api/organizations.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
 //const searchAPI = require('./api/search.js');
-const announcementAPI = require('./api/announcement.js');
+const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
@@ -68,7 +68,8 @@ router.route('/v1/user/getharvesters').get(authAPI.verifyRequest,
 
 /* Announcements */
 router.route('/v1/announcements/create').post(authAPI.verifyRequest,
-    announcementAPI.postAnnouncement);
+    authAPI.getUserAttributes, announcementAPI.validate('postAnnouncement'),
+    middleware.checkValidationErrors, announcementAPI.postAnnouncement);
 router.route('/v1/announcements/all').get(authAPI.verifyRequest,
     announcementAPI.getAllAnnouncements);
 router.route('/v1/announcements/recent').get(authAPI.verifyRequest,

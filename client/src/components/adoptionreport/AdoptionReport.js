@@ -77,6 +77,7 @@ const AdoptionReport = (props) => {
         setShowModal(props.open);
     }, [props.open])
 
+    /** Form input handlers **/
     const handleInputChange = (e) => {
         switch (e.target.id) {
             case 'ar-email-input':
@@ -120,8 +121,6 @@ const AdoptionReport = (props) => {
         }
     };
 
-
-    /** Form input handlers **/
     const handleInstrStudentAccessChange = (index) => {
         const updated = instrStudentAccess.map((item, idx) => {
             if (index === idx) {

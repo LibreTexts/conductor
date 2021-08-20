@@ -1,21 +1,27 @@
+//
+// LibreTexts Conductor
+// announcement.js
+// Mongoose Model
+//
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const AnnouncementSchema = new Schema({
-    author: {
+    author: {                   // announcement author (UUID)
         type: String,
         required: true
     },
-    title: {
+    title: {                    // announcement title
         type: String,
         required: true
     },
-    message: {
+    message: {                  // announcement full message
         type: String,
         required: true
     },
-    recipientGroups: {
-        type: [String],
+    org: {                      // announcement target Organization ('global' or <ORGID>)
+        type: String,
         required: true
     }
 }, {
@@ -25,7 +31,3 @@ const AnnouncementSchema = new Schema({
 const Announcement = mongoose.model('Announcement', AnnouncementSchema);
 
 module.exports = Announcement;
-
-// admin
-// develop
-// harvest
