@@ -22,14 +22,17 @@ import AdoptionReport from '../adoptionreport/AdoptionReport.js';
 
 const CommonsBook = (props) => {
 
+    // Data
     const bookID = props.match.params.id-1;
     const orgBooks = getDemoBooks(process.env.REACT_APP_ORG_ID);
     const book = orgBooks[bookID];
+
+    // UI
     const [activeAccordion, setActiveAccordion] = useState(0);
     const [tocChapterPanels, setTOCCPanels] = useState([]);
     const [showMobileReadingOpts, setShowMobileReadingOpts] = useState(false);
-
     const [showAdoptionReport, setShowAdoptionReport] = useState(false);
+    const [loadedData, setLoadedData] = useState(false);
 
     const listFactory = (pages) => {
         return (
@@ -56,6 +59,7 @@ const CommonsBook = (props) => {
             });
             setTOCCPanels(chapters);
         }
+        setLoadedData(true);
     }, [book.title, book.contents]);
 
     const handleAccordionClick = (e, { index }) => {
@@ -90,7 +94,7 @@ const CommonsBook = (props) => {
         <Grid className='commons-container'>
             <Grid.Row>
                 <Grid.Column>
-                    <Segment>
+                    <Segment loading={!loadedData}>
                         <Breakpoint name='tabletOrDesktop'>
                             <Grid divided>
                                 <Grid.Row>

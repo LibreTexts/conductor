@@ -17,7 +17,6 @@ import React, { Component } from 'react';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import { UserContext } from '../../../providers.js';
 import {
     libraryOptions,
     allShelfMap,
@@ -25,8 +24,6 @@ import {
 } from '../../util/HarvestingMasterOptions.js';
 
 class HarvestingTargetDetail extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -65,14 +62,10 @@ class HarvestingTargetDetail extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Targetlist | Detail";
-        const [user] = this.context;
-        var isAdmin = false;
-        if (user.roles.includes('admin')) {
-            isAdmin = true;
-        }
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);
         const updateSuccess = decodeURIComponent(queryValues.showUpdateSuccess);
+        var isAdmin = false;
         var setCreateSuccess = false;
         var setUpdateSuccess = false;
         if (createSuccess === "true") {

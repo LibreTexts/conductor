@@ -14,15 +14,12 @@ import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
 import axios from 'axios';
 
-import { UserContext } from '../../providers.js';
 import {
     libraryOptions,
     getShelfOptions
 } from '../util/HarvestingMasterOptions.js';
 
 class HarvestingProjectEdit extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -53,7 +50,6 @@ class HarvestingProjectEdit extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Projects | Edit";
-        //const [user] = this.context;
         this.setState({ id: this.props.match.params.id }, () => {
             this.getProjectInfo();
         });

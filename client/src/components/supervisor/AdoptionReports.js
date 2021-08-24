@@ -4,20 +4,14 @@ import { DateInput } from 'semantic-ui-calendar-react';
 import {
   Grid,
   Header,
-  Menu,
   Image,
   Segment,
-  Divider,
-  Message,
-  Icon,
   Form,
-  Card,
   Table,
   Modal,
   Button,
   Dropdown
 } from 'semantic-ui-react';
-import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -38,13 +32,9 @@ import {
 } from '../adoptionreport/AdoptionReportOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
-import { useUserState } from '../../providers.js';
-
 const AdoptionReports = (props) => {
 
-    const { setError } = useGlobalError();
-
-    const [{roles, isAuthenticated}, dispatch] = useUserState();
+    const { handleGlobalError } = useGlobalError();
 
     const emptyReport = {
         email: '',
@@ -106,8 +96,25 @@ const AdoptionReports = (props) => {
         setToDate(todayString);
     }, []);
 
+    // getAdoptionReports()
     useEffect(() => {
-        getAdoptionReports();
+        if (!isEmptyString(fromDate) && !isEmptyString(toDate)) {
+            axios.get('/adoptionreports', {
+                params: {
+                    startDate: fromDate,
+                    endDate: toDate
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    setAdoptionReports(res.data.reports);
+                    setSortedReports(res.data.reports);
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+            });
+        }
     }, [fromDate, toDate])
 
     useEffect(() => {
@@ -189,73 +196,15 @@ const AdoptionReports = (props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortChoice])
 
-    /**
-     * Process a REST-returned error object and activate
-     * the global error modal
-     */
-    const handleErr = (err) => {
-        var message = "";
-        if (err.response) {
-            if (err.response.data.errMsg !== undefined) {
-                message = err.response.data.errMsg;
-            } else {
-                message = "Error processing request.";
-            }
-            if (err.response.data.errors) {
-                if (err.response.data.errors.length > 0) {
-                    message = message.replace(/\./g, ': ');
-                    err.response.data.errors.forEach((elem, idx) => {
-                        if (elem.param) {
-                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
-                            if ((idx + 1) !== err.response.data.errors.length) {
-                                message += ", ";
-                            } else {
-                                message += ".";
-                            }
-                        }
-                    });
-                }
-            }
-        } else if (err.name && err.message) {
-            message = err.message;
-        } else if (typeof(err) === 'string') {
-            message = err;
-        } else {
-            message = err.toString();
-        }
-        setError(message);
-    };
-
     const parseDateAndTime = (dateInput) => {
         const dateInstance = new Date(dateInput);
         const dateString = date.format(dateInstance, 'MM/DD/YYYY h:mm A');
         return dateString;
     };
 
-    const getAdoptionReports = () => {
-        if (!isEmptyString(fromDate) && !isEmptyString(toDate)) {
-            axios.get('/adoptionreports', {
-                params: {
-                    startDate: fromDate,
-                    endDate: toDate
-                }
-            }).then((res) => {
-                if (!res.data.err) {
-                    setAdoptionReports(res.data.reports);
-                    setSortedReports(res.data.reports);
-                } else {
-                    handleErr(res.data.errMsg);
-                }
-            }).catch((err) => {
-                handleErr(err);
-            });
-        }
-    };
-
     const openARVModal = (idx) => {
         if (adoptionReports[idx] !== undefined) {
             setShowARVModal(true);
-            console.log(adoptionReports[idx]);
             setCurrentReport(adoptionReports[idx]);
         }
     };
@@ -391,15 +340,23 @@ const AdoptionReports = (props) => {
                                                             {parseDateAndTime(item.createdAt)}
                                                         </span>
                                                     </Table.Cell>
-                                                    <Table.Cell>{capitalizeFirstLetter(item.role)}</Table.Cell>
-                                                    <Table.Cell>{resourceTitle}</Table.Cell>
+                                                    <Table.Cell>
+                                                        <span>{capitalizeFirstLetter(item.role)}</span>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <span>{resourceTitle}</span></Table.Cell>
                                                     <Table.Cell>
                                                         <Image src={getGlyphAddress(resourceLib)} className='library-glyph' />
-                                                        {getLibraryName(resourceLib)}
+                                                        <span>{getLibraryName(resourceLib)}</span>
                                                     </Table.Cell>
-                                                    <Table.Cell>{institution}</Table.Cell>
-                                                    <Table.Cell><em>{truncateString(item.comments, 200)}</em></Table.Cell>
-                                                    <Table.Cell>{item.name}</Table.Cell>
+                                                    <Table.Cell>
+                                                        <span>{institution}</span></Table.Cell>
+                                                    <Table.Cell>
+                                                        <span><em>{truncateString(item.comments, 200)}</em></span>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <span>{item.name}</span>
+                                                    </Table.Cell>
                                                 </Table.Row>
                                             )
                                         })

@@ -15,15 +15,12 @@ import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
 import axios from 'axios';
 
-import { UserContext } from '../../providers.js';
 import {
     libraryOptions,
     getShelfOptions
 } from '../util/HarvestingMasterOptions.js';
 
 class HarvestingProjectAddExisting extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -44,7 +41,6 @@ class HarvestingProjectAddExisting extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Add Existing Project";
-        //const [user] = this.context;
     }
 
     setTitle(e) {

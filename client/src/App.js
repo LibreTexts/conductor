@@ -4,9 +4,9 @@ import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import React from 'react';
 import axios from 'axios';
 
-/* React State */
-import { UserProvider } from './providers.js';
-import { userInitialState, userReducer } from './reducers.js';
+/* React-Redux State */
+import { Provider } from 'react-redux';
+import store from './store.js';
 
 /* Utility Routes */
 import AnonRoute from './components/util/AnonRoute.js';
@@ -30,6 +30,7 @@ import HarvestingPortal from './components/harvesting/HarvestingPortal.js';
 import HarvestingProjectAddExisting from './components/harvesting/HarvestingProjectAddExisting.js';
 import HarvestingProjectDetail from './components/harvesting/HarvestingProjectDetail.js';
 import HarvestingProjectEdit from './components/harvesting/HarvestingProjectEdit.js';
+import HarvestingRequests from './components/supervisor/HarvestingRequests.js';
 import HarvestingTargetAdd from './components/harvesting/targetlist/HarvestingTargetAdd.js';
 import HarvestingTargetDetail from './components/harvesting/targetlist/HarvestingTargetDetail.js';
 import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
@@ -81,6 +82,7 @@ function App() {
                     <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
                     <PrivateRoute exact path = '/supervisors' component={SupervisorDashboard} />
                     <PrivateRoute exact path = '/adoptionreports' component={AdoptionReports} />
+                    <PrivateRoute exact path = '/harvestingrequests' component={HarvestingRequests} />
                     {/* 404 */}
                     <Route component={PageNotFound} />
                 </Switch>
@@ -90,29 +92,29 @@ function App() {
 
     return (
         <BrowserRouter>
-          <div className='App'>
-            <UserProvider initialState={userInitialState} reducer={userReducer}>
-                <ErrorProvider>
-                    <Switch>
-                        {/* Commons Render Tree */}
-                        <Route exact path = '/' component={Commons} />
-                        <Route exact path = '/catalog' component={Commons} />
-                        <Route exact path = '/collections' component={Commons} />
-                        <Route exact path = '/book/:id' component={Commons} />
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+            <Provider store={store}>
+                <div className='App'>
+                    <ErrorProvider>
+                        <Switch>
+                            {/* Commons Render Tree */}
+                            <Route exact path = '/' component={Commons} />
+                            <Route exact path = '/catalog' component={Commons} />
+                            <Route exact path = '/collections' component={Commons} />
+                            <Route exact path = '/book/:id' component={Commons} />
+                            {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/adapt' component={Commons} />
-                        }
-                        {/* Standalone */}
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            }
+                            {/* Standalone */}
+                            {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                        }
-                        {/* Conductor and Rest of Render Tree */}
-                        <Route component={Conductor} />
-                    </Switch>
-                    <ErrorModal />
-                </ErrorProvider>
-            </UserProvider>
-          </div>
+                            }
+                            {/* Conductor and Rest of Render Tree */}
+                            <Route component={Conductor} />
+                        </Switch>
+                        <ErrorModal />
+                    </ErrorProvider>
+                </div>
+            </Provider>
         </BrowserRouter>
     );
 };

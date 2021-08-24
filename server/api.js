@@ -43,9 +43,21 @@ router.route('/v1/adoptionreport').post(middleware.checkLibreCommons,
     adoptionReportAPI.validate('submitReport'),
     middleware.checkValidationErrors, adoptionReportAPI.submitReport);
 router.route('/v1/adoptionreports').get(middleware.checkLibreCommons,
-    authAPI.verifyRequest,
+    authAPI.verifyRequest, authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     adoptionReportAPI.validate('getReports'), middleware.checkValidationErrors,
-    adoptionReportAPI.getReports); // TODO: Restrict route access
+    adoptionReportAPI.getReports);
+
+/* OER/Harvesting Requests */
+// (submission route can be anonymous)
+router.route('/v1/harvestingrequest').post(middleware.checkLibreCommons,
+    harvestingRequestsAPI.validate('addRequest'),
+    middleware.checkValidationErrors, harvestingRequestsAPI.addRequest);
+router.route('/v1/harvestingrequests').get(middleware.checkLibreCommons,
+    authAPI.verifyRequest, authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    harvestingRequestsAPI.validate('getRequests'),
+    middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);
@@ -84,11 +96,6 @@ router.route('/v1/projects/recent').get(authAPI.verifyRequest,
 
 
 /* Harvesting */
-
-// Requests (LibreCommons) (can be anonymous)
-router.route('/v1/harvesting/request/new').post(middleware.checkLibreCommons,
-    harvestingRequestsAPI.validate('addRequest'),
-    middleware.checkValidationErrors, harvestingRequestsAPI.addRequest);
 
 // Targetlist
 router.route('/v1/harvesting/targetlist/all').get(authAPI.verifyRequest,

@@ -24,6 +24,10 @@ const ProjectSchema = new Schema({
         type: String,
         default: 'available'
     },
+    visibility: {
+        type: String,           // project privacy, one of: 'public', 'private'
+        default: 'private'
+    },
     currentProgress: {          // estimated project progress (%)
         type: Number,
         default: 0
@@ -32,7 +36,7 @@ const ProjectSchema = new Schema({
     license: String,            // resource license (if applicable)
     resourceURL: String,        // resource original URL (if applicable)
     projectURL: String,         // the URL where the project exists (if applicable)
-    assignees: [String],        // all users assigned to the project (UUIDs)
+    collaborators: [String],    // all users with access to the project (UUIDs)
     tags: [String],             // project tags
     notes: String,              // project notes/description
     createdBy: String,          // the user who created the project (UUID)

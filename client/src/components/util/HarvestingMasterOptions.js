@@ -617,6 +617,17 @@ const getLibraryName = (library) => {
     }
 };
 
+const getTextUse = (use) => {
+    if (use !== '') {
+        let foundUse = textUseOptions.find((item) => {
+            return item.value === use;
+        });
+        return foundUse.text;
+    } else {
+        return '';
+    }
+};
+
 module.exports = {
     licenseOptions,
     textUseOptions,
@@ -641,7 +652,8 @@ module.exports = {
     getShelfOptions,
     getLicenseText,
     getGlyphAddress,
-    getLibraryName
+    getLibraryName,
+    getTextUse
 }
 
 /*

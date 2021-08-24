@@ -3,6 +3,7 @@ import './Commons.css';
 import { Link, useLocation, Switch, Route } from 'react-router-dom';
 import { Grid, Menu, Image, Icon, Modal, Button } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
 import Breakpoint from '../util/Breakpoints.js';
@@ -15,13 +16,12 @@ import CommonsCollections from './CommonsCollections.js';
 import CommonsBook from './CommonsBook.js';
 import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
 
-import { useUserState } from '../../providers.js';
-
 const Commons = (props) => {
 
     const location = useLocation();
+    const dispatch = useDispatch();
 
-    const [{ org }, dispatch] = useUserState();
+    const org = useSelector((state) => state.org);
 
     const [activeItem, setActiveItem] = useState('');
     const [showNoOrg, setShowNoOrg] = useState(false);
@@ -33,6 +33,9 @@ const Commons = (props) => {
     }, []);
 
     useEffect(() => {
+        if (org.orgID === '') {
+            getOrgInfo();
+        }
         if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
             document.title = org.shortName + " Campus Commons";
         }
@@ -49,7 +52,7 @@ const Commons = (props) => {
                 delete orgData.err;
                 dispatch({
                     type: 'SET_ORG_INFO',
-                    org: orgData
+                    payload: orgData
                 });
             } else {
                 console.log(res.data.errMsg);
@@ -58,13 +61,6 @@ const Commons = (props) => {
             console.log(err);
         });
     };
-
-    useEffect(() => {
-        if (org.orgID === '') {
-            getOrgInfo();
-        }
-    });
-
 
     useEffect(() => {
         const currentPath = location.pathname;

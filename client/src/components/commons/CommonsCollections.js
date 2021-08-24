@@ -22,6 +22,7 @@ const CommonsCollections = (props) => {
 
     // UI
     const [displayChoice, setDisplayChoice] = useState('visual');
+    const [loadedData, setLoadedData] = useState(false);
 
     // Data
     const [collections, setCollections] = useState([]);
@@ -33,6 +34,7 @@ const CommonsCollections = (props) => {
 
     useEffect(() => {
         setCollections(getDemoCollections(process.env.REACT_APP_ORG_ID));
+        setLoadedData(true);
     }, []);
 
     const VisualMode = () => {
@@ -150,12 +152,12 @@ const CommonsCollections = (props) => {
                         </Segment>
                         {(displayChoice === 'visual')
                             ? (
-                                <Segment className='commons-content'>
+                                <Segment className='commons-content' loading={!loadedData}>
                                     <VisualMode />
                                 </Segment>
                             )
                             : (
-                                <Segment className='commons-content commons-content-itemized'>
+                                <Segment className='commons-content commons-content-itemized' loading={!loadedData}>
                                     <ItemizedMode />
                                 </Segment>
                             )

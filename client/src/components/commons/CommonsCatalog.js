@@ -15,6 +15,7 @@ import {
     Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Breakpoint from '../util/Breakpoints.js';
 //import axios from 'axios';
 
@@ -31,15 +32,19 @@ import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 
 const CommonsCatalog = (props) => {
 
+    const dispatch = useDispatch();
+
+    // Data
+    const [catalogBooks, setCatalogBooks] = useState([]);
+    const [filteredBooks, setFilteredBooks] = useState([]);
+    const [pageBooks, setPageBooks] = useState([]);
+
     // UI
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [activePage, setActivePage] = useState(1);
+    const [loadedData, setLoadedData] = useState(false);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-    const [catalogBooks, setCatalogBooks] = useState([]);
-    const [filteredBooks, setFilteredBooks] = useState([]);
-    const [pageBooks, setPageBooks] = useState([]);
 
     const [libraryFilter, setLibraryFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('');
@@ -52,7 +57,7 @@ const CommonsCatalog = (props) => {
 
     const [sortChoice, setSortChoice] = useState('');
     const [searchString, setSearchString] = useState('');
-    const [displayChoice, setDisplayChoice] = useState('visual');
+    const displayChoice = useSelector((state) => state.filters.commonsCatalog.mode);
 
     const sortOptions = [
         { key: 'empty', text: 'Sort by...', value: '' },
@@ -69,6 +74,7 @@ const CommonsCatalog = (props) => {
         const demoBooks = getDemoBooks(process.env.REACT_APP_ORG_ID);
         setCatalogBooks(demoBooks);
         setFilteredBooks(demoBooks);
+        setLoadedData(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -430,7 +436,12 @@ const CommonsCatalog = (props) => {
                                             button
                                             className='float-right'
                                             options={displayOptions}
-                                            onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                            onChange={(_e, { value }) => {
+                                                dispatch({
+                                                    type: 'SET_CATALOG_MODE',
+                                                    payload: value
+                                                });
+                                            }}
                                             value={displayChoice}
                                         />
                                         <Pagination
@@ -469,7 +480,12 @@ const CommonsCatalog = (props) => {
                                                 button
                                                 className='float-right'
                                                 options={displayOptions}
-                                                onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                                onChange={(_e, { value }) => {
+                                                    dispatch({
+                                                        type: 'SET_CATALOG_MODE',
+                                                        payload: value
+                                                    });
+                                                }}
                                                 value={displayChoice}
                                                 fluid
                                             />
@@ -490,12 +506,12 @@ const CommonsCatalog = (props) => {
                         </Segment>
                         {displayChoice === 'visual'
                             ? (
-                                <Segment className='commons-content'>
+                                <Segment className='commons-content' loading={!loadedData}>
                                     <VisualMode />
                                 </Segment>
                             )
                             : (
-                                <Segment className='commons-content commons-content-itemized'>
+                                <Segment className='commons-content commons-content-itemized' loading={!loadedData}>
                                     <ItemizedMode />
                                 </Segment>
                             )

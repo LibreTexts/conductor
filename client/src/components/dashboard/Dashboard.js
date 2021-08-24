@@ -17,24 +17,20 @@ import {
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import { truncateString, capitalizeFirstLetter, isEmptyString } from '../util/HelperFunctions.js';
 
-import { useUserState } from '../../providers.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const Dashboard = (props) => {
 
-    const { setError } = useGlobalError();
-    const [{
-        firstName,
-        avatar,
-        isCampusAdmin,
-        isSuperAdmin,
-        org
-    }, dispatch] = useUserState();
+    const dispatch = useDispatch();
+    const { handleGlobalError } = useGlobalError();
+    const user = useSelector((state) => state.user);
+    const org = useSelector((state) => state.org);
 
     const emptyAnnouncement = {
         title: "",
@@ -104,43 +100,6 @@ const Dashboard = (props) => {
     }, [currentView]);
 
     /**
-     * Process a REST-returned error object and activate
-     * the global error modal
-     */
-    const handleErr = (err) => {
-        var message = "";
-        if (err.response) {
-            if (err.response.data.errMsg !== undefined) {
-                message = err.response.data.errMsg;
-            } else {
-                message = "Error processing request.";
-            }
-            if (err.response.data.errors) {
-                if (err.response.data.errors.length > 0) {
-                    message = message.replace(/\./g, ': ');
-                    err.response.data.errors.forEach((elem, idx) => {
-                        if (elem.param) {
-                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
-                            if ((idx + 1) !== err.response.data.errors.length) {
-                                message += ", ";
-                            } else {
-                                message += ".";
-                            }
-                        }
-                    });
-                }
-            }
-        } else if (err.name && err.message) {
-            message = err.message;
-        } else if (typeof(err) === 'string') {
-            message = err;
-        } else {
-            message = err.toString();
-        }
-        setError(message);
-    };
-
-    /**
      * Accepts a standard ISO 8601 @dateInput
      * and parses the date and time to
      * human-readable format.
@@ -176,7 +135,7 @@ const Dashboard = (props) => {
             }
             setLoadedRecentAnnouncement(true);
         }).catch((err) => {
-            handleErr(err);
+            handleGlobalError(err);
         });
     };
 
@@ -192,7 +151,7 @@ const Dashboard = (props) => {
             }
             setLoadedRecentProjects(true);
         }).catch((err) => {
-            handleErr(err);
+            handleGlobalError(err);
         });
     };
 
@@ -227,7 +186,7 @@ const Dashboard = (props) => {
             }
             setLoadedAllAnnouncements(true);
         }).catch((err) => {
-            handleErr(err);
+            handleGlobalError(err);
         });
     };
 
@@ -243,7 +202,7 @@ const Dashboard = (props) => {
             }
             setLoadedAllProjects(true);
         }).catch((err) => {
-            handleErr(err);
+            handleGlobalError(err);
         });
     };
 
@@ -308,7 +267,7 @@ const Dashboard = (props) => {
                     throw(res.data.errMsg);
                 }
             }).catch((err) => {
-                handleErr(err);
+                handleGlobalError(err);
             });
         }
     };
@@ -350,7 +309,7 @@ const Dashboard = (props) => {
                                     <Header as='h2' className='announcements-header'>Announcements <span className='gray-span'>(50 most recent)</span></Header>
                                 </Grid.Column>
                                 <Grid.Column>
-                                    {(isCampusAdmin || isSuperAdmin) &&
+                                    {(user.isCampusAdmin || user.isSuperAdmin) &&
                                         <Button color='green' floated='right' onClick={() => { setShowNAModal(true) }}>
                                             <Icon name='add' />
                                             New
@@ -500,10 +459,10 @@ const Dashboard = (props) => {
                     <Menu vertical fluid>
                         <Menu.Item>
                             <Header as='h1'>
-                                <Image circular src={`${avatar}`} className='menu-avatar' />
+                                <Image circular src={`${user.avatar}`} className='menu-avatar' />
                                 <br />
                                 Welcome,<br/>
-                                {firstName}
+                                {user.firstName}
                             </Header>
                         </Menu.Item>
                       <Menu.Item
@@ -647,7 +606,7 @@ const Dashboard = (props) => {
                                 value={naMessage}
                             />
                         </Form.Field>
-                        {isSuperAdmin &&
+                        {user.isSuperAdmin &&
                             (
                                 <div className='mb-2p'>
                                     <p><strong><em>Super Administrator Options</em></strong> <span className='muted-text'>(use caution)</span></p>

@@ -52,14 +52,21 @@ const login = (req, res, _next) => {
                 }
             });
         } else {
-            throw(new Error("Incorrect password."));
+            throw(new Error('password'));
         }
     }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+        if (err.message === 'password') {
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err12
+            });
+        } else {
+            debugError(err);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
     });
 };
 
@@ -174,8 +181,12 @@ const checkHasRoleMiddleware = (org, role) => {
                 if (element.org && element.role) {
                     if ((element.org === org) && (element.role === role)) {
                         return element;
+                    } else if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
+                        // OVERRIDE: SuperAdmins always have permission
+                        return element;
                     }
                 }
+                return null;
             });
             if (foundRole !== undefined) {
                 next();
@@ -186,6 +197,7 @@ const checkHasRoleMiddleware = (org, role) => {
                 });
             }
         } else {
+            debugError(conductorErrors.err9);
             return res.status(400).send({
                 err: true,
                 errMsg: conductorErrors.err9

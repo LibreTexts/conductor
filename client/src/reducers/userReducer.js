@@ -1,26 +1,21 @@
+//
+// LibreTexts Conductor
+// userReducer.js
+//
+
+/* Utils */
 import Cookies from 'js-cookie';
-import { isEmptyString } from './components/util/HelperFunctions.js';
+import { isEmptyString } from '../components/util/HelperFunctions.js';
 
 /* User */
-export const userInitialState = {
+const userInitialState = {
     firstName: '',
     lastName: '',
     avatar: '/favicon-96x96.png',
     roles: [],
     isAuthenticated: false,
     isCampusAdmin: false,
-    isSuperAdmin: false,
-    org: {
-        orgID: '',
-        name: '',
-        shortName: '',
-        abbreviation: '',
-        coverPhoto: '/coverphoto_default.jpg',
-        largeLogo: '',
-        mediumLogo: '',
-        smallLogo: '',
-        aboutLink: ''
-    }
+    isSuperAdmin: false
 };
 
 /**
@@ -73,10 +68,7 @@ const checkSuperAdmin = (roles) => {
     }
 };
 
-/**
- * Dispatch User Reducer
- */
-export function userReducer(state, action) {
+export default function userReducer(state = userInitialState, action) {
     switch(action.type) {
         case 'SET_AUTH':
             return {
@@ -100,23 +92,15 @@ export function userReducer(state, action) {
         case 'SET_USER_INFO':
             return {
                 ...state,
-                firstName: action.firstName,
-                lastName: action.lastName,
-                roles: action.roles,
-                avatar: action.avatar,
-                isCampusAdmin: checkCampusAdmin(action.roles),
-                isSuperAdmin: checkSuperAdmin(action.roles)
+                firstName: action.payload.firstName,
+                lastName: action.payload.lastName,
+                roles: action.payload.roles,
+                avatar: action.payload.avatar,
+                isCampusAdmin: checkCampusAdmin(action.payload.roles),
+                isSuperAdmin: checkSuperAdmin(action.payload.roles)
             }
         case 'CLEAR_USER_INFO':
-            return {
-                ...state,
-                userInitialState
-            }
-        case 'SET_ORG_INFO':
-            return {
-                ...state,
-                org: action.org
-            }
+            return userInitialState;
         default:
             return state;
     }

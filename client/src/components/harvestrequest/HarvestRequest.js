@@ -13,7 +13,7 @@ import {
 
 const HarvestRequest = (props) => {
 
-    const { setError } = useGlobalError();
+    const { handleGlobalError } = useGlobalError();
 
     // UI
     const [showSuccessModal, setSuccessModal] = useState(false);
@@ -115,39 +115,6 @@ const HarvestRequest = (props) => {
         setLicErr(false);
     };
 
-    const handleErr = (err) => {
-        var message = "";
-        if (err.response) {
-            if (err.response.data.errMsg !== undefined) {
-                message = err.response.data.errMsg;
-            } else {
-                message = "Error processing request.";
-            }
-            if (err.response.data.errors) {
-                if (err.response.data.errors.length > 0) {
-                    message = message.replace(/\./g, ': ');
-                    err.response.data.errors.forEach((elem, idx) => {
-                        if (elem.param) {
-                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
-                            if ((idx + 1) !== err.response.data.errors.length) {
-                                message += ", ";
-                            } else {
-                                message += ".";
-                            }
-                        }
-                    });
-                }
-            }
-        } else if (err.name && err.message) {
-            message = err.message;
-        } else if (typeof(err) === 'string') {
-            message = err;
-        } else {
-            message = err.toString();
-        }
-        setError(message);
-    };
-
     const onSubmit = () => {
         resetForm();
         if (validateForm()) {
@@ -164,14 +131,14 @@ const HarvestRequest = (props) => {
                 dateIntegrate: dateIntegrate,
                 comments: comments
             };
-            axios.post('/harvesting/request/new', requestData).then((res) => {
+            axios.post('/harvestingrequest', requestData).then((res) => {
                 if (!res.data.err) {
                     setSuccessModal(true);
                 } else {
-                    handleErr(res.data.errMsg);
+                    handleGlobalError(res.data.errMsg);
                 }
             }).catch((err) => {
-                handleErr(err);
+                handleGlobalError(err);
             });
             setLoadingData(false);
         }

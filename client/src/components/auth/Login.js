@@ -12,19 +12,18 @@ import {
     Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import queryString from 'query-string';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-import { useUserState } from '../../providers.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const Login = (props) => {
 
-    const { setError } = useGlobalError();
-
-    const [, dispatch] = useUserState();
+    const dispatch = useDispatch();
+    const { handleGlobalError } = useGlobalError();
 
     // UI
     const [showExpiredAuth, setExpiredAuth] = useState(false);
@@ -55,43 +54,6 @@ const Login = (props) => {
         if (e.target.id === 'password') {
             setPassword(e.target.value);
         }
-    };
-
-    /**
-     * Process a REST-returned error object and activate
-     * the global error modal
-     */
-    const handleErr = (err) => {
-        var message = "";
-        if (err.response) {
-            if (err.response.data.errMsg !== undefined) {
-                message = err.response.data.errMsg;
-            } else {
-                message = "Error processing request.";
-            }
-            if (err.response.data.errors) {
-                if (err.response.data.errors.length > 0) {
-                    message = message.replace(/\./g, ': ');
-                    err.response.data.errors.forEach((elem, idx) => {
-                        if (elem.param) {
-                            message += (String(elem.param).charAt(0).toUpperCase() + String(elem.param).slice(1));
-                            if ((idx + 1) !== err.response.data.errors.length) {
-                                message += ", ";
-                            } else {
-                                message += ".";
-                            }
-                        }
-                    });
-                }
-            }
-        } else if (err.name && err.message) {
-            message = err.message;
-        } else if (typeof(err) === 'string') {
-            message = err;
-        } else {
-            message = err.toString();
-        }
-        setError(message);
     };
 
     /**
@@ -145,13 +107,13 @@ const Login = (props) => {
                         });
                         props.history.push('/dashboard');
                     } else {
-                        handleErr("Oops, we're having trouble completing your login.");
+                        handleGlobalError("Oops, we're having trouble completing your login.");
                     }
                 } else {
-                    handleErr(res.data.errMsg)
+                    handleGlobalError(res.data.errMsg)
                 }
             }).catch((e) => {
-                handleErr(e);
+                handleGlobalError(e);
             });
         }
         setSubmitLoading(false);

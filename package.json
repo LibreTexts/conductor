@@ -1,7 +1,7 @@
 {
-  "name": "libretexts-pts",
+  "name": "libretexts-conductor",
   "version": "1.0.0",
-  "description": "The LibreTexts PTS concept server.",
+  "description": "The LibreTexts Conductor platform server.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,2 +1,2 @@
-# LibreTexts Project Tracking System
-This repository houses the codebase for the prototype LibreTexts Project Tracking Sytem.
+# LibreTexts Conductor Platform
+This repository houses the codebase for the prototype LibreTexts Conductor Platform.

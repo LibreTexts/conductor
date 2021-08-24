@@ -2,11 +2,7 @@ import { Grid, Header, Menu, Image, Segment, Divider, Message, Form, Button } fr
 import React, { Component } from 'react';
 import axios from 'axios';
 
-import { UserContext } from '../../providers.js';
-
 class AccountSettings extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);

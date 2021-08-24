@@ -2,17 +2,19 @@ import './Navbar.css';
 
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, Image, Dropdown, Icon } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-
-import { useUserState } from '../../providers.js';
 
 const Navbar = (props) => {
 
     const location = useLocation();
+    const dispatch = useDispatch();
 
-    const [{firstName, lastName, avatar, isAuthenticated}, dispatch] = useUserState();
+    const user = useSelector((state) => state.user);
+
+    const loadedUser = useRef(false);
 
     const [activeItem, setActiveItem] = useState('');
     //const [searchInput, setSearchInput] = useState('');
@@ -24,17 +26,20 @@ const Navbar = (props) => {
     }, [dispatch]);
 
     useEffect(() => {
-        if (isAuthenticated) {
+        if (user.isAuthenticated && !loadedUser.current) {
             axios.get('/user/basicinfo').then((res) => {
                 if (!res.data.err) {
                     if (res.data.user != null) {
                         dispatch({
                             type: 'SET_USER_INFO',
-                            firstName: res.data.user.firstName,
-                            lastName: res.data.user.lastName,
-                            avatar: res.data.user.avatar,
-                            roles: res.data.user.roles
+                            payload: {
+                                firstName: res.data.user.firstName,
+                                lastName: res.data.user.lastName,
+                                avatar: res.data.user.avatar,
+                                roles: res.data.user.roles
+                            }
                         });
+                        loadedUser.current = true;
                     } else {
                         console.log(res.data.errMsg);
                     }
@@ -47,7 +52,7 @@ const Navbar = (props) => {
                 }
             });
         }
-    }, [isAuthenticated, dispatch]);
+    }, [user.isAuthenticated, dispatch]);
 
     useEffect(() => {
         const currentPath = location.pathname;
@@ -55,6 +60,8 @@ const Navbar = (props) => {
             setActiveItem('dashboard');
         } else if (currentPath.includes('/harvesting')) {
             setActiveItem('harvesting');
+        } else if (currentPath.includes('/projects')) {
+            setActiveItem('projects');
         }
     }, [location]);
 
@@ -88,7 +95,7 @@ const Navbar = (props) => {
     */
 
     var isAdmin = true;
-    if (isAuthenticated) {
+    if (user.isAuthenticated) {
         return (
             <Menu className='nav-menu' secondary >
                 <Menu.Item as={Link} to='/dashboard' header className='nav-logo-item' name='dashboard' onClick={handleNavClick}>
@@ -97,6 +104,7 @@ const Navbar = (props) => {
                 </Menu.Item>
                 <Menu.Item name='dashboard' as={Link} to='/dashboard' active={activeItem === 'dashboard'} onClick={handleNavClick} />
                 <Menu.Item name='harvesting' as={Link} to='/harvesting' active={activeItem === 'harvesting'} onClick={handleNavClick} />
+                <Menu.Item name='projects' as={Link} to='/projects' active={activeItem === 'projects'} onClick={handleNavClick} />
                 <Menu.Menu position='right'>
                     <Menu.Item>
                         <Icon name='bookmark' />
@@ -169,7 +177,7 @@ const Navbar = (props) => {
                                     <Icon name='rss' />
                                     Construction Forum
                                 </Dropdown.Item>
-                                <Dropdown.Item as='a' href='/harvestrequest' target='_blank'>
+                                <Dropdown.Item as='a' href='https://commons.libretexts.org/harvestrequest' target='_blank'>
                                     <Icon name='plus' />
                                     Harvesting Request
                                 </Dropdown.Item>
@@ -197,14 +205,17 @@ const Navbar = (props) => {
                         </Dropdown>
                     </Menu.Item>
                     <Menu.Item>
-                        <Image src={`${avatar}`} avatar />
-                        <Dropdown inline text={firstName + ' ' + lastName}>
+                        <Image src={`${user.avatar}`} avatar />
+                        <Dropdown inline text={user.firstName + ' ' + user.lastName}>
                             <Dropdown.Menu>
                                 {isAdmin &&
                                     <Dropdown.Item as={Link} to='/supervisors'><Icon name='sitemap' />Supervisor Dashboard</Dropdown.Item>
                                 }
-                                {isAdmin &&
-                                    <Dropdown.Item as={Link} to='/adoptionreports'><Icon name='file alternate' />Adoption Reports</Dropdown.Item>
+                                {(isAdmin && process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                                    <div>
+                                        <Dropdown.Item as={Link} to='/adoptionreports'><Icon name='file alternate' />Adoption Reports</Dropdown.Item>
+                                        <Dropdown.Item as={Link} to='/harvestingrequests'><Icon name='file alternate' />Harvesting Requests</Dropdown.Item>
+                                    </div>
                                 }
                                 <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Settings</Dropdown.Item>

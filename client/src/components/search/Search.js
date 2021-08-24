@@ -13,11 +13,7 @@ import React, { Component } from 'react';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import { UserContext } from '../../providers.js';
-
 class Search extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);

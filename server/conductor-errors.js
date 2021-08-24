@@ -15,7 +15,8 @@ const conductorErrors = {
     'err8': "Sorry, you aren't authorized to perform that action.",
     'err9': "Unable to verify user attribute(s).",
     'err10': "Your account does not appear to be associated with any organization.",
-    'err11': "A resource with that identifier was not found."
+    'err11': "A resource with that identifier was not found.",
+    'err12': "Incorrect username or password."
 };
 
 module.exports = conductorErrors;

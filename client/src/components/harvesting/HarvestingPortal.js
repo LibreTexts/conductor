@@ -20,12 +20,8 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
 
-import { UserContext } from '../../providers.js';
-
 
 class HarvestingPortal extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -43,7 +39,6 @@ class HarvestingPortal extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting";
-        //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const projectDeleteSuccess = decodeURIComponent(queryValues.showProjectDeleteSuccess);
         var setProjectDeleteSuccess = false;

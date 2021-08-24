@@ -14,6 +14,7 @@ import {
     List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
 import Breakpoint from '../util/Breakpoints.js';
@@ -23,7 +24,8 @@ import { truncateString } from '../util/HelperFunctions.js';
 
 const CommonsADAPTCatalog = (_props) => {
 
-    const { setError } = useGlobalError();
+    const dispatch = useDispatch();
+    const { handleGlobalError } = useGlobalError();
 
     // UI
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -31,7 +33,7 @@ const CommonsADAPTCatalog = (_props) => {
     const [activePage, setActivePage] = useState(1);
     const [loadedCourses, setLoadedCourses] = useState(false);
     const [searchString, setSearchString] = useState('');
-    const [displayChoice, setDisplayChoice] = useState('visual');
+    const displayChoice = useSelector((state) => state.filters.adaptCatalog.mode);
 
     // Data
     const [origCourses, setOrigCourses] = useState([]);
@@ -44,7 +46,6 @@ const CommonsADAPTCatalog = (_props) => {
     const [courseModalDescrip, setCourseModalDescrip] = useState('');
     const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
     const [courseModalLoaded, setCourseModalLoaded] = useState(true);
-
 
     const displayOptions = [
         { key: 'visual', text: 'Visual Mode', value: 'visual' },
@@ -76,7 +77,7 @@ const CommonsADAPTCatalog = (_props) => {
             }
             setLoadedCourses(true);
         }).catch((err) => {
-            setError(err);
+            handleGlobalError(err);
         });
     };
 
@@ -106,7 +107,7 @@ const CommonsADAPTCatalog = (_props) => {
             }
             setCourseModalLoaded(true);
         }).catch((err) => {
-            setError(err);
+            handleGlobalError(err);
             setCourseModalLoaded(true);
         });
     };
@@ -130,7 +131,7 @@ const CommonsADAPTCatalog = (_props) => {
         setCourseModalAsgmts([]);
     };
 
-    useEffect(getADAPTCourses, [setError]);
+    useEffect(getADAPTCourses, []);
 
     useEffect(() => {
         setTotalPages(Math.ceil(adaptCourses.length/itemsPerPage));
@@ -273,7 +274,12 @@ const CommonsADAPTCatalog = (_props) => {
                                             button
                                             className='float-right'
                                             options={displayOptions}
-                                            onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                            onChange={(_e, { value }) => {
+                                                dispatch({
+                                                    type: 'SET_ADAPT_MODE',
+                                                    payload: value
+                                                });
+                                            }}
                                             value={displayChoice}
                                         />
                                         <Pagination
@@ -326,7 +332,12 @@ const CommonsADAPTCatalog = (_props) => {
                                                 button
                                                 className='float-right'
                                                 options={displayOptions}
-                                                onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                                onChange={(_e, { value }) => {
+                                                    dispatch({
+                                                        type: 'SET_ADAPT_MODE',
+                                                        payload: value
+                                                    });
+                                                }}
                                                 value={displayChoice}
                                                 fluid
                                             />

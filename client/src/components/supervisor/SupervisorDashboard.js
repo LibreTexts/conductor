@@ -15,15 +15,12 @@ import {
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
-import { UserContext } from '../../providers.js';
-
 class SupervisorDashboard extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -44,7 +41,7 @@ class SupervisorDashboard extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Supervisor Dashboard";
-        const [user] = this.context;
+        const user = this.props.user;
         date.plugin(ordinal);
         if (user.firstName !== this.state.firstName) {
             this.setState({ firstName: user.firstName });
@@ -67,7 +64,7 @@ class SupervisorDashboard extends Component {
     }
 
     componentDidUpdate() {
-        const [user] = this.context;
+        const user = this.context;
         if (user.firstName !== this.state.firstName) {
             this.setState({ firstName: user.firstName });
         }
@@ -280,7 +277,7 @@ class SupervisorDashboard extends Component {
                             <Grid>
                                 <Grid.Row>
                                     <Grid.Column width={4}>
-                                        <strong>SIGNED IN AS: </strong>{this.state.lastName}, {this.state.firstName} ({this.state.roles.map((item) => { return item })})
+                                        <strong>SIGNED IN AS: </strong>{this.state.lastName}, {this.state.firstName}
                                     </Grid.Column>
                                     <Grid.Column width={8}>
                                     </Grid.Column>
@@ -311,4 +308,10 @@ class SupervisorDashboard extends Component {
     }
 }
 
-export default SupervisorDashboard;
+const mapStateToProps = function(state) {
+  return {
+    user: state.user
+  }
+}
+
+export default connect(mapStateToProps)(SupervisorDashboard);

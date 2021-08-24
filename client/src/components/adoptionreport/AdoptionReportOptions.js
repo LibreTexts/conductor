@@ -73,7 +73,7 @@ const getTermTaught = (term) => {
 const buildAccessMethodsList = (accessOptions) => {
     var accessString = "";
     const appendToAccessString = (text, idx) => {
-        if (idx == 0) {
+        if (idx === 0) {
             accessString = accessString.concat(text);
         } else {
             accessString = accessString.concat(", " + text);

@@ -17,12 +17,8 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
-import { UserContext } from '../../providers.js';
-
 
 class HarvestingCompletedProjects extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);

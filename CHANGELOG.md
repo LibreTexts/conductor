@@ -1,5 +1,24 @@
 # Changelog
 
+## 08-23-2021
+#### :art: UI/UX
+* Improved the global error handling mechanism to avoid duplicate code
+* Introduced the Harvesting Requests dashboard & Harvesting Request View modal
+* Updated the React application to use a standard React-Redux setup
+    * Introduced split reducers for different state sections
+* Added more loading indicators in the Commons UI
+* Started integrating filters with Redux store for inter-page persistence
+
+#### :satellite: Server
+* Fixed an issue with handling incorrect Login details
+* Restricted viewing of Adoption Reports to SuperAdmins
+* New backend logic to retrieve submitted OER/Harvesting Requests
+* New fields in the Project model for the new upcoming design
+
+#### :memo: Documentation
+* Updated platform name in README.md & package.json(s)
+* **Renamed the Github repository**
+
 ## 08-20-2021
 #### :art: UI/UX
 * Converted Dashboard to the new functional component design

@@ -22,15 +22,12 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
 
-import { UserContext } from '../../providers.js';
 import {
     libraryOptions,
     allShelfMap
 } from '../util/HarvestingMasterOptions.js';
 
 class HarvestingProjectDetail extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -72,7 +69,6 @@ class HarvestingProjectDetail extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Projects | Detail";
-        //const [user] = this.context;
         const queryValues = queryString.parse(this.props.location.search);
         const createSuccess = decodeURIComponent(queryValues.showCreateSuccess);
         const createFASuccess = decodeURIComponent(queryValues.showCreateFASuccess);

@@ -16,10 +16,10 @@ import {
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import { UserContext } from '../../../providers.js';
 import {
     libraryOptions,
     allShelfMap,
@@ -27,8 +27,6 @@ import {
 } from '../../util/HarvestingMasterOptions.js';
 
 class HarvestingTargetlist extends Component {
-
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -50,7 +48,7 @@ class HarvestingTargetlist extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Textbook Targetlist";
-        const [user] = this.context;
+        const user = this.props.user;
         const queryValues = queryString.parse(this.props.location.search);
         const deleteSuccess = decodeURIComponent(queryValues.showDeleteSuccess);
         const newProjectFlow = decodeURIComponent(queryValues.showNewProjectFlow);
@@ -357,4 +355,10 @@ class HarvestingTargetlist extends Component {
     }
 }
 
-export default HarvestingTargetlist;
+const mapStateToProps = function(state) {
+  return {
+    user: state.user
+  }
+}
+
+export default connect(mapStateToProps)(HarvestingTargetlist);

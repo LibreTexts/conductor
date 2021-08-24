@@ -14,7 +14,6 @@ import { Link } from 'react-router-dom';
 import React, { Component } from 'react';
 import axios from 'axios';
 
-import { UserContext } from '../../../providers.js';
 import {
     libraryOptions,
     typeOptions,
@@ -24,7 +23,6 @@ import {
 
 class HarvestingTargetEdit extends Component {
 
-    static contextType = UserContext;
 
     constructor(props) {
         super(props);
@@ -55,7 +53,6 @@ class HarvestingTargetEdit extends Component {
 
     componentDidMount() {
         document.title = "LibreTexts Conductor | Harvesting | Targetlist | Edit Target";
-        //const [user] = this.context;
         this.setState({
             id: this.props.match.params.id
         }, () => {
