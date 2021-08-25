@@ -1,8 +1,53 @@
-import { useContext } from 'react';
-import { ErrorContext } from './ErrorProvider.js';
+import { useDispatch, useSelector } from 'react-redux';
 
 function useGlobalError() {
-    const { error, setError, clearError } = useContext(ErrorContext);
+    const dispatch = useDispatch();
+    const error = useSelector((state) => state.error);
+
+    /**
+     * Set the global error. Accepts
+     * an @errObj, and sets the object's
+     * message or converts it to a string.
+     * The @statusCode argument is optional.
+     */
+    const setError = (errObj, statusCode) => {
+        if (errObj && errObj.name && errObj.message) {
+            dispatch({
+                type: 'SET_ERROR',
+                payload: {
+                    message: errObj.message,
+                    status: statusCode
+                }
+            });
+        } else if (typeof(errObj) === 'string') {
+            dispatch({
+                type: 'SET_ERROR',
+                payload: {
+                    message: errObj,
+                    status: statusCode
+                }
+            });
+        } else {
+            dispatch({
+                type: 'SET_ERROR',
+                payload: {
+                    message: errObj.toString(),
+                    status: statusCode
+                }
+            });
+        }
+    };
+
+    /**
+     * Clear the global error
+     * (resets to initial global
+     * error state)
+     */
+    const clearError = () => {
+        dispatch({
+            type: 'CLEAR_ERROR'
+        });
+    };
 
     /**
      * Process a REST-returned error object and activate

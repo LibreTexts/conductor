@@ -20,6 +20,7 @@ links: {
 }
 */
 
+/*
 const addtlDemoBooks = [
     {
         id: '1',
@@ -127,7 +128,7 @@ const addtlDemoBooks = [
         }
     }
 ];
-
+*/
 
 const libreDemoBooks = [
     {

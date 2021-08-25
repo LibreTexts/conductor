@@ -20,7 +20,7 @@ const ProjectSchema = new Schema({
         type: String,
         required: true
     },
-    status: {                   // project status, one of: 'available', 'ip', 'completed', 'flagged'
+    status: {                   // project status, one of: 'available', 'open', 'completed', 'flagged'
         type: String,
         default: 'available'
     },

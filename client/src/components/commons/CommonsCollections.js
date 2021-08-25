@@ -1,6 +1,6 @@
 import './Commons.css';
 
-import { Link } from 'react-router-dom';
+//import { Link } from 'react-router-dom';
 import {
     Grid,
     Segment,
@@ -12,30 +12,68 @@ import {
     Table
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useLocation, useHistory } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 //import axios from 'axios';
+import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
-
 import { getDemoCollections } from '../util/DemoBooks.js';
+import { catalogDisplayOptions } from '../util/CatalogOptions.js';
+import { updateParams } from '../util/HelperFunctions.js';
 
-const CommonsCollections = (props) => {
+const CommonsCollections = (_props) => {
+
+    // Global State and Location/History
+    const dispatch = useDispatch();
+    const location = useLocation();
+    const history = useHistory();
+    const org = useSelector((state) => state.org);
 
     // UI
-    const [displayChoice, setDisplayChoice] = useState('visual');
+    const displayChoice = useSelector((state) => state.filters.collections.mode);
     const [loadedData, setLoadedData] = useState(false);
 
     // Data
     const [collections, setCollections] = useState([]);
 
-    const displayOptions = [
-        { key: 'visual', text: 'Visual Mode', value: 'visual' },
-        { key: 'itemized', text: 'Itemized Mode', value: 'itemized' }
-    ];
-
+    /**
+     * Set collections from the demo data
+     * and set loading flag.
+     */
     useEffect(() => {
         setCollections(getDemoCollections(process.env.REACT_APP_ORG_ID));
         setLoadedData(true);
     }, []);
+
+    /**
+     * Update the page title based on
+     * Organization information.
+     */
+    useEffect(() => {
+        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
+            document.title = org.shortName + " Commons | Collections";
+        } else {
+            document.title = "LibreCommons | Collections";
+        }
+    }, [org]);
+
+    /**
+     * Subscribe to changes in the URL search string
+     * and update state accordingly.
+     */
+    useEffect(() => {
+        var params = queryString.parse(location.search);
+        if (params.mode && params.mode !== displayChoice) {
+            if ((params.mode === 'visual') || (params.mode === 'itemized')) {
+                dispatch({
+                    type: 'SET_COLLECTIONS_MODE',
+                    payload: params.mode
+                });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
 
     const VisualMode = () => {
         if (collections.length > 0) {
@@ -68,17 +106,17 @@ const CommonsCollections = (props) => {
     };
 
     const ItemizedMode = () => {
-        if (collections.length > 0) {
-            return (
-                <Table celled>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.HeaderCell width={5}><Header sub>Name</Header></Table.HeaderCell>
-                            <Table.HeaderCell width={11}><Header sub>Resources</Header></Table.HeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {collections.map((item, index) => {
+        return (
+            <Table celled>
+                <Table.Header>
+                    <Table.Row>
+                        <Table.HeaderCell width={5}><Header sub>Name</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={11}><Header sub>Resources</Header></Table.HeaderCell>
+                    </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                    {(collections.length > 0) &&
+                        collections.map((item, index) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
@@ -89,15 +127,18 @@ const CommonsCollections = (props) => {
                                     </Table.Cell>
                                 </Table.Row>
                             )
-                        })}
-                    </Table.Body>
-                </Table>
-            )
-        } else {
-            return (
-                <p className='text-center'><em>No collections available right now.</em></p>
-            )
-        }
+                        })
+                    }
+                    {(collections.length === 0) &&
+                        <Table.Row>
+                            <Table.Cell colSpan='2'>
+                                <p className='text-center'><em>No results found.</em></p>
+                            </Table.Cell>
+                        </Table.Row>
+                    }
+                </Table.Body>
+            </Table>
+        )
     };
 
     return (
@@ -118,8 +159,13 @@ const CommonsCollections = (props) => {
                                             selection
                                             button
                                             className='float-right'
-                                            options={displayOptions}
-                                            onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                            options={catalogDisplayOptions}
+                                            onChange={(_e, { value }) => {
+                                                history.push({
+                                                    pathname: location.pathname,
+                                                    search: updateParams(location.search, 'mode', value)
+                                                });
+                                            }}
                                             value={displayChoice}
                                         />
                                     </div>
@@ -141,8 +187,13 @@ const CommonsCollections = (props) => {
                                                 button
                                                 fluid
                                                 className='float-right'
-                                                options={displayOptions}
-                                                onChange={(e, { value }) => { setDisplayChoice(value) }}
+                                                options={catalogDisplayOptions}
+                                                onChange={(_e, { value }) => {
+                                                    history.push({
+                                                        pathname: location.pathname,
+                                                        search: updateParams(location.search, 'mode', value)
+                                                    });
+                                                }}
                                                 value={displayChoice}
                                             />
                                         </Grid.Column>

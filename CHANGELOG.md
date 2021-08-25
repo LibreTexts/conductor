@@ -1,5 +1,13 @@
 # Changelog
 
+## 08-24-2021
+#### :art: UI/UX
+* Implemented filters in URL parameters and Redux store to improve inter-page persistence and link shareability
+* Connected the global error handling mechanism to the global store and removed the extra ErrorProvider
+* General component cleanup and documentation
+* Small UI improvements in Commons
+* Started implementing the new Create Project form
+
 ## 08-23-2021
 #### :art: UI/UX
 * Improved the global error handling mechanism to avoid duplicate code

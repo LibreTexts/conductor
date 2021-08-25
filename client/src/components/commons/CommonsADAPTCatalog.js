@@ -14,26 +14,35 @@ import {
     List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useLocation, useHistory } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
+import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
+import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
-import { truncateString } from '../util/HelperFunctions.js';
+import {
+    truncateString,
+    updateParams
+} from '../util/HelperFunctions.js';
 
 const CommonsADAPTCatalog = (_props) => {
 
+    // Global State and Location/History
     const dispatch = useDispatch();
+    const location = useLocation();
+    const history = useHistory();
     const { handleGlobalError } = useGlobalError();
 
     // UI
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const itemsPerPage = useSelector((state) => state.filters.adaptCatalog.itemsPerPage);
+    const activePage = useSelector((state) => state.filters.adaptCatalog.activePage);
+    const displayChoice = useSelector((state) => state.filters.adaptCatalog.mode);
     const [totalPages, setTotalPages] = useState(1);
-    const [activePage, setActivePage] = useState(1);
     const [loadedCourses, setLoadedCourses] = useState(false);
     const [searchString, setSearchString] = useState('');
-    const displayChoice = useSelector((state) => state.filters.adaptCatalog.mode);
 
     // Data
     const [origCourses, setOrigCourses] = useState([]);
@@ -47,11 +56,10 @@ const CommonsADAPTCatalog = (_props) => {
     const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
     const [courseModalLoaded, setCourseModalLoaded] = useState(true);
 
-    const displayOptions = [
-        { key: 'visual', text: 'Visual Mode', value: 'visual' },
-        { key: 'itemized', text: 'Itemized Mode', value: 'itemized' }
-    ];
-
+    /**
+     * Retrieve Commons courses from the ADAPT server
+     * via GET request.
+     */
     const getADAPTCourses = () => {
         axios.get('https://adapt.libretexts.org/api/courses/commons', {
             withCredentials: false
@@ -81,6 +89,10 @@ const CommonsADAPTCatalog = (_props) => {
         });
     };
 
+    /**
+     * Retrieve assignments for a specific @courseID from the
+     * ADAPT server via GET request.
+     */
     const getADAPTCourseAssignments = (courseID) => {
         setCourseModalLoaded(false);
         var reqURL = "https://adapt.libretexts.org/api/assignments/commons/" + courseID;
@@ -112,6 +124,10 @@ const CommonsADAPTCatalog = (_props) => {
         });
     };
 
+    /**
+     * Open the Course View modal and populate
+     * information for the given @courseID
+     */
     const openCourseViewModal = (courseID) => {
         var course = adaptCourses.find((element) => {
             return element.id === courseID;
@@ -124,6 +140,10 @@ const CommonsADAPTCatalog = (_props) => {
         }
     };
 
+    /**
+     * Close the Course View modal and
+     * clear the information.
+     */
     const closeCourseViewModal = () => {
         setShowCourseModal(false);
         setCourseModalTitle('');
@@ -131,13 +151,61 @@ const CommonsADAPTCatalog = (_props) => {
         setCourseModalAsgmts([]);
     };
 
-    useEffect(getADAPTCourses, []);
+    /**
+     * Run getADAPTCourses() on page load.
+     */
+    useEffect(() => {
+        document.title = "LibreCommons | ADAPT Courses"
+        getADAPTCourses();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
+    /**
+     * Subscribe to changes in the URL search string
+     * and update state accordingly.
+     */
+    useEffect(() => {
+        var params = queryString.parse(location.search);
+        if (params.mode && params.mode !== displayChoice) {
+            if ((params.mode === 'visual') || (params.mode === 'itemized')) {
+                dispatch({
+                    type: 'SET_ADAPT_MODE',
+                    payload: params.mode
+                });
+            }
+        }
+        if (params.items && params.items !== itemsPerPage) {
+            if (!isNaN(parseInt(params.items))) {
+                dispatch({
+                    type: 'SET_ADAPT_ITEMS',
+                    payload: parseInt(params.items)
+                });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
+
+    /**
+     * Track changes to the number of courses loaded
+     * and the selected itemsPerPage and update the
+     * set of courses to display.
+     */
     useEffect(() => {
         setTotalPages(Math.ceil(adaptCourses.length/itemsPerPage));
         setPageCourses(adaptCourses.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
+        if (itemsPerPage > adaptCourses.length) {
+            dispatch({
+                type: 'SET_ADAPT_PAGE',
+                payload: 1
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [itemsPerPage, adaptCourses, activePage]);
 
+    /**
+     * Track changes to the UI searchString
+     * and update the UI with relevant results.
+     */
     useEffect(() => {
         if (searchString !== '') {
             let filtered = origCourses.filter((course) => {
@@ -150,11 +218,15 @@ const CommonsADAPTCatalog = (_props) => {
             });
             setAdaptCourses(filtered);
             if (activePage !== 1) {
-                setActivePage(1);
+                dispatch({
+                    type: 'SET_ADAPT_PAGE',
+                    payload: 1
+                });
             }
         } else {
             setAdaptCourses(origCourses);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchString, origCourses, activePage]);
 
     const VisualMode = () => {
@@ -194,17 +266,17 @@ const CommonsADAPTCatalog = (_props) => {
     };
 
     const ItemizedMode = () => {
-        if (pageCourses.length > 0) {
-            return (
-                <Table celled>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.HeaderCell width={6}><Header sub>Name</Header></Table.HeaderCell>
-                            <Table.HeaderCell width={10}><Header sub>Description</Header></Table.HeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {pageCourses.map((item, index) => {
+        return (
+            <Table celled>
+                <Table.Header>
+                    <Table.Row>
+                        <Table.HeaderCell width={6}><Header sub>Name</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={10}><Header sub>Description</Header></Table.HeaderCell>
+                    </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                    {(pageCourses.length > 0) &&
+                        pageCourses.map((item, index) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
@@ -220,15 +292,18 @@ const CommonsADAPTCatalog = (_props) => {
                                     </Table.Cell>
                                 </Table.Row>
                             )
-                        })}
-                    </Table.Body>
-                </Table>
-            )
-        } else {
-            return (
-                <p className='text-center'><em>No results found.</em></p>
-            )
-        }
+                        })
+                    }
+                    {(pageCourses.length === 0) &&
+                        <Table.Row>
+                            <Table.Cell colSpan='2'>
+                                <p className='text-center'><em>No results found.</em></p>
+                            </Table.Cell>
+                        </Table.Row>
+                    }
+                </Table.Body>
+            </Table>
+        )
     };
 
     return (
@@ -261,7 +336,12 @@ const CommonsADAPTCatalog = (_props) => {
                                             className='commons-content-pagemenu-dropdown'
                                             selection
                                             options={itemsPerPageOptions}
-                                            onChange={(_e, { value }) => { setItemsPerPage(value) }}
+                                            onChange={(_e, { value }) => {
+                                                history.push({
+                                                    pathname: location.pathname,
+                                                    search: updateParams(location.search, 'items', value)
+                                                });
+                                            }}
                                             value={itemsPerPage}
                                         />
                                         <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
@@ -273,11 +353,11 @@ const CommonsADAPTCatalog = (_props) => {
                                             selection
                                             button
                                             className='float-right'
-                                            options={displayOptions}
+                                            options={catalogDisplayOptions}
                                             onChange={(_e, { value }) => {
-                                                dispatch({
-                                                    type: 'SET_ADAPT_MODE',
-                                                    payload: value
+                                                history.push({
+                                                    pathname: location.pathname,
+                                                    search: updateParams(location.search, 'mode', value)
                                                 });
                                             }}
                                             value={displayChoice}
@@ -287,7 +367,12 @@ const CommonsADAPTCatalog = (_props) => {
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            onPageChange={(_e, data) => {
+                                                dispatch({
+                                                    type: 'SET_ADAPT_PAGE',
+                                                    payload: data.activePage
+                                                });
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -316,7 +401,12 @@ const CommonsADAPTCatalog = (_props) => {
                                                     className='commons-content-pagemenu-dropdown'
                                                     selection
                                                     options={itemsPerPageOptions}
-                                                    onChange={(_e, { value }) => { setItemsPerPage(value) }}
+                                                    onChange={(_e, { value }) => {
+                                                        history.push({
+                                                            pathname: location.pathname,
+                                                            search: updateParams(location.search, 'items', value)
+                                                        });
+                                                    }}
                                                     value={itemsPerPage}
                                                 />
                                                 <span> items per page of <strong>{adaptCourses.length}</strong> results.</span>
@@ -331,11 +421,11 @@ const CommonsADAPTCatalog = (_props) => {
                                                 selection
                                                 button
                                                 className='float-right'
-                                                options={displayOptions}
+                                                options={catalogDisplayOptions}
                                                 onChange={(_e, { value }) => {
-                                                    dispatch({
-                                                        type: 'SET_ADAPT_MODE',
-                                                        payload: value
+                                                    history.push({
+                                                        pathname: location.pathname,
+                                                        search: updateParams(location.search, 'mode', value)
                                                     });
                                                 }}
                                                 value={displayChoice}
@@ -348,7 +438,12 @@ const CommonsADAPTCatalog = (_props) => {
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                onPageChange={(_e, data) => {
+                                                    dispatch({
+                                                        type: 'SET_ADAPT_PAGE',
+                                                        payload: data.activePage
+                                                    });
+                                                }}
                                                 className='float-right'
                                             />
                                         </Grid.Column>
@@ -398,7 +493,7 @@ const CommonsADAPTCatalog = (_props) => {
                             </Segment>
                         </Modal.Content>
                         <Modal.Actions>
-                            <Button onClick={closeCourseViewModal}>Close</Button>
+                            <Button color='blue' onClick={closeCourseViewModal}>Done</Button>
                         </Modal.Actions>
                     </Modal>
                 </Grid.Column>

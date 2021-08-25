@@ -1,9 +1,10 @@
-import useGlobalError from './ErrorHooks.js';
 import { Modal, Button } from 'semantic-ui-react';
+
+import useGlobalError from './ErrorHooks.js';
+import { isEmptyString } from '../util/HelperFunctions.js';
 
 function ErrorModal() {
     const { error, clearError } = useGlobalError();
-
 
     const handleClose = () => {
         clearError();
@@ -11,7 +12,7 @@ function ErrorModal() {
 
     return (
         <Modal
-            open={!!error}
+            open={!isEmptyString(error.message)}
             onClose={handleClose}
         >
             <Modal.Header>

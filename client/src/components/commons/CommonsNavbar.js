@@ -8,9 +8,14 @@ import Breakpoint from '../util/Breakpoints.js';
 
 const CommonsNavbar = (_props) => {
 
+    // UI
     const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
     const [showMobileLibs, setShowMobileLibs] = useState(false);
 
+    /**
+     * Close the Mobile Menu and
+     * Mobile Libraries dropdown.
+     */
     const closeMobileMenu = () => {
         if (!displayMobileMenu === false) {
             setShowMobileLibs(false);

@@ -162,22 +162,17 @@ const ProjectsPortal = (props) => {
                                 onChange={(e) => { setSearchString(e.target.value) }}
                                 value={searchString}
                             />
-                            <Link to='/harvesting/targetlist?showNewProjectFlow=true'>
-                                <Button floated='right' color='green'>
-                                    <Button.Content>
-                                        <Icon name='crosshairs' />
-                                        New Project
-                                    </Button.Content>
-                                </Button>
-                            </Link>
-                            <Link to='/projects/addexisting'>
-                                <Button floated='right' color='green' basic>
-                                    <Button.Content>
-                                        <Icon name='add' />
-                                        Add Existing Project
-                                    </Button.Content>
-                                </Button>
-                            </Link>
+                            <Button
+                                as={Link}
+                                to='/projects/create'
+                                floated='right'
+                                color='green'
+                            >
+                                <Button.Content>
+                                    <Icon name='add' />
+                                    Create a New Project
+                                </Button.Content>
+                            </Button>
                             <Divider />
                             {CurrentDisplay}
                         </Segment>

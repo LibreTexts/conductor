@@ -6,9 +6,21 @@
 /* Filters */
 const filtersInitialState = {
     adaptCatalog: {
-        mode: 'visual'
+        mode: 'visual',
+        itemsPerPage: 10,
+        activePage: 1 // not used as URL param
     },
     commonsCatalog: {
+        mode: 'visual',
+        itemsPerPage: 10,
+        activePage: 1, // not used as URL param
+        sort: '',
+        library: '',
+        subject: '',
+        author: '',
+        license: ''
+    },
+    collections: {
         mode: 'visual'
     }
 };
@@ -23,12 +35,92 @@ export default function filterReducer(state = filtersInitialState, action) {
                     mode: action.payload
                 }
             }
+        case 'SET_ADAPT_ITEMS':
+            return {
+                ...state,
+                adaptCatalog: {
+                    ...state.adaptCatalog,
+                    itemsPerPage: action.payload
+                }
+            }
+        case 'SET_ADAPT_PAGE':
+            return {
+                ...state,
+                adaptCatalog: {
+                    ...state.adaptCatalog,
+                    activePage: action.payload
+                }
+            }
+        case 'SET_COLLECTIONS_MODE':
+            return {
+                ...state,
+                collections: {
+                    ...state.collections,
+                    mode: action.payload
+                }
+            }
         case 'SET_CATALOG_MODE':
             return {
                 ...state,
                 commonsCatalog: {
                     ...state.commonsCatalog,
                     mode: action.payload
+                }
+            }
+        case 'SET_CATALOG_ITEMS':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    itemsPerPage: action.payload
+                }
+            }
+        case 'SET_CATALOG_PAGE':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    activePage: action.payload
+                }
+            }
+        case 'SET_CATALOG_SORT':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    sort: action.payload
+                }
+            }
+        case 'SET_CATALOG_LIBRARY':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    library: action.payload
+                }
+            }
+        case 'SET_CATALOG_SUBJECT':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    subject: action.payload
+                }
+            }
+        case 'SET_CATALOG_AUTHOR':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    author: action.payload
+                }
+            }
+        case 'SET_CATALOG_LICENSE':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    license: action.payload
                 }
             }
         default:

@@ -13,14 +13,13 @@ import AnonRoute from './components/util/AnonRoute.js';
 import PrivateRoute from './components/util/PrivateRoute.js';
 
 /* Commons */
-import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 import Commons from './components/commons/Commons.js';
+import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 
 /* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
 import AdoptionReports from './components/supervisor/AdoptionReports.js';
 import Dashboard from './components/dashboard/Dashboard.js';
-import ProjectsPortal from './components/projects/ProjectsPortal.js';
 import Login from './components/auth/Login.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
@@ -36,11 +35,13 @@ import HarvestingTargetDetail from './components/harvesting/targetlist/Harvestin
 import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
+import ProjectsPortal from './components/projects/ProjectsPortal.js';
+import ProjectsCreate from './components/projects/ProjectsCreate.js';
+
 /* 404 */
 import PageNotFound from './components/util/PageNotFound.js';
 
 /* Global Error Tool */
-import ErrorProvider from './components/error/ErrorProvider.js';
 import ErrorModal from './components/error/ErrorModal.js';
 
 function App() {
@@ -69,6 +70,7 @@ function App() {
                     <PrivateRoute exact path = '/dashboard' component={Dashboard} />
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
+                        <PrivateRoute exact path = '/projects/create' component={ProjectsCreate} />
 
                     <PrivateRoute exact path = '/harvesting' component={HarvestingPortal} />
                         <PrivateRoute exact path = '/harvesting/projects/addexisting' component={HarvestingProjectAddExisting} />
@@ -94,25 +96,23 @@ function App() {
         <BrowserRouter>
             <Provider store={store}>
                 <div className='App'>
-                    <ErrorProvider>
-                        <Switch>
-                            {/* Commons Render Tree */}
-                            <Route exact path = '/' component={Commons} />
-                            <Route exact path = '/catalog' component={Commons} />
-                            <Route exact path = '/collections' component={Commons} />
-                            <Route exact path = '/book/:id' component={Commons} />
-                            {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/adapt' component={Commons} />
-                            }
-                            {/* Standalone */}
-                            {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                            }
-                            {/* Conductor and Rest of Render Tree */}
-                            <Route component={Conductor} />
-                        </Switch>
-                        <ErrorModal />
-                    </ErrorProvider>
+                    <Switch>
+                        {/* Commons Render Tree */}
+                        <Route exact path = '/' component={Commons} />
+                        <Route exact path = '/catalog' component={Commons} />
+                        <Route exact path = '/collections' component={Commons} />
+                        <Route exact path = '/book/:id' component={Commons} />
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                        <Route exact path = '/adapt' component={Commons} />
+                        }
+                        {/* Standalone */}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                        <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                        }
+                        {/* Conductor and Rest of Render Tree */}
+                        <Route component={Conductor} />
+                    </Switch>
+                    <ErrorModal />
                 </div>
             </Provider>
         </BrowserRouter>

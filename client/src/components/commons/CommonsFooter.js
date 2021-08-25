@@ -1,6 +1,6 @@
 import './Commons.css';
 
-import { Grid, Image, Icon } from 'semantic-ui-react';
+import { Grid, Icon } from 'semantic-ui-react';
 import React from 'react';
 
 const CommonsFooter = (_props) => {

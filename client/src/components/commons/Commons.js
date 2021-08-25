@@ -16,31 +16,48 @@ import CommonsCollections from './CommonsCollections.js';
 import CommonsBook from './CommonsBook.js';
 import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
 
-const Commons = (props) => {
+const Commons = (_props) => {
 
+    // Global State and Location
     const location = useLocation();
     const dispatch = useDispatch();
-
     const org = useSelector((state) => state.org);
 
+    // UI
     const [activeItem, setActiveItem] = useState('');
     const [showNoOrg, setShowNoOrg] = useState(false);
 
+    /**
+     * Verify the application has an ORG_ID
+     * environment variable, show a
+     * warning message otherwise.
+     */
     useEffect(() => {
         if (!process.env.REACT_APP_ORG_ID) {
             setShowNoOrg(true);
         }
     }, []);
 
+    /**
+     * Run getOrgInfo() if information is missing,
+     * then update the page title.
+     */
     useEffect(() => {
         if (org.orgID === '') {
             getOrgInfo();
         }
         if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
             document.title = org.shortName + " Campus Commons";
+        } else {
+            document.title = "LibreCommons";
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [org]);
 
+    /**
+     * Retrieve information about the environment
+     * Organization via GET request.
+     */
     const getOrgInfo = () => {
         axios.get('org/info', {
             params: {
@@ -62,6 +79,11 @@ const Commons = (props) => {
         });
     };
 
+    /**
+     * Subscribe to changes to location
+     * and update the Menu with the
+     * active page.
+     */
     useEffect(() => {
         const currentPath = location.pathname;
         if (currentPath === '/') {
@@ -75,7 +97,7 @@ const Commons = (props) => {
         } else {
             setActiveItem('catalog');
         }
-    }, [location]);
+    }, [location.pathname]);
 
     const jumbotronStyle = {
         backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(' + org.coverPhoto + ')'

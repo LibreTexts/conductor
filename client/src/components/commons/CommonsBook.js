@@ -46,6 +46,10 @@ const CommonsBook = (props) => {
         )
     };
 
+    /**
+     * Update page title and book contents
+     * when book data is loaded.
+     */
     useEffect(() => {
         document.title = "LibreCommons | " + book.title;
         if (book.contents !== undefined) {
@@ -61,10 +65,6 @@ const CommonsBook = (props) => {
         }
         setLoadedData(true);
     }, [book.title, book.contents]);
-
-    const handleAccordionClick = (e, { index }) => {
-        setActiveAccordion(index);
-    };
 
     const ThumbnailAttribution = () => {
         if (book.thumbnailAttr) {
@@ -136,7 +136,9 @@ const CommonsBook = (props) => {
                                             <Accordion.Title
                                                 index={0}
                                                 active={activeAccordion === 0}
-                                                onClick={handleAccordionClick}
+                                                onClick={(_e, { index }) => {
+                                                    setActiveAccordion(index)
+                                                }}
                                             >
                                                 <Icon name='dropdown' />
                                                 Table of Contents
@@ -197,7 +199,9 @@ const CommonsBook = (props) => {
                                             <Accordion.Title
                                                 index={0}
                                                 active={activeAccordion === 0}
-                                                onClick={handleAccordionClick}
+                                                onClick={(_e, { index }) => {
+                                                    setActiveAccordion(index)
+                                                }}
                                             >
                                                 <Icon name='dropdown' />
                                                 Table of Contents
