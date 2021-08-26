@@ -14,12 +14,15 @@ const authAPI = require('./api/auth.js');
 const userAPI = require('./api/user.js');
 const orgAPI = require('./api/organizations.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
+const harvestingRequestsAPI = require('./api/harvestingrequests.js');
+const collectionsAPI = require('./api/collections.js');
+const booksAPI = require('./api/books.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
-const harvestingRequestsAPI = require('./api/harvestingrequests.js');
+
 
 
 var router = express.Router();
@@ -30,6 +33,9 @@ router.use(middleware.authSanitizer);
 /* Auth */
 router.route('/v1/auth/login').post(authAPI.validate('login'),
     middleware.checkValidationErrors, authAPI.login);
+
+// SSO/OAuth©
+router.route('/v1/oauth/libretexts').get(authAPI.oauthCallback);
 
 
 /* Organizations */
@@ -47,6 +53,11 @@ router.route('/v1/adoptionreports').get(middleware.checkLibreCommons,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     adoptionReportAPI.validate('getReports'), middleware.checkValidationErrors,
     adoptionReportAPI.getReports);
+router.route('/v1/adoptionreport/delete').delete(middleware.checkLibreCommons,
+    authAPI.verifyRequest, authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    adoptionReportAPI.validate('deleteReport'), middleware.checkValidationErrors,
+    adoptionReportAPI.deleteReport);
 
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)
@@ -58,6 +69,25 @@ router.route('/v1/harvestingrequests').get(middleware.checkLibreCommons,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     harvestingRequestsAPI.validate('getRequests'),
     middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
+
+/* Commons Collections */
+router.route('/v1/collection/create').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('createCollection'),
+    middleware.checkValidationErrors, collectionsAPI.createCollection);
+router.route('/v1/collection/delete').delete(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('deleteCollection'),
+    middleware.checkValidationErrors, collectionsAPI.deleteCollection);
+
+
+/* Commons Management */
+router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'campusadmin'),
+    booksAPI.syncWithLibraries);
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

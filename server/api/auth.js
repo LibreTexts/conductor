@@ -11,6 +11,14 @@ const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
 const { isEmptyString } = require('../util/helpers.js');
 
+const axios = require('axios');
+
+const oauthCallback = (req, res, next) => {
+    console.log(req);
+    console.log("CALLBACK");
+    res.sendStatus(200);
+}
+
 
 /**
  * Handles user login by finding a user account,
@@ -226,5 +234,6 @@ module.exports = {
     getUserAttributes,
     checkHasRole,
     checkHasRoleMiddleware,
-    validate
+    validate,
+    oauthCallback
 };

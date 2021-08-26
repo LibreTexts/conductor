@@ -267,6 +267,9 @@ const Navbar = (_props) => {
                                         <Dropdown.Item as={Link} to='/harvestingrequests'><Icon name='file alternate' />Harvesting Requests</Dropdown.Item>
                                     </div>
                                 }
+                                {isAdmin &&
+                                    <Dropdown.Item as={Link} to='/controlpanel/booksmanager'><Icon name='book' />Books Manager</Dropdown.Item>
+                                }
                                 <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Settings</Dropdown.Item>
                                 <Dropdown.Item onClick={logOut}><Icon name='log out' />Log out</Dropdown.Item>

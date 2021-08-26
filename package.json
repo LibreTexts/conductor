@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "async": "^3.2.0",
+    "axios": "^0.21.1",
     "base62-random": "^0.3.5",
     "bcryptjs": "^2.4.3",
     "bluebird": "^3.7.2",

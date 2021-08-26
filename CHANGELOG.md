@@ -1,5 +1,18 @@
 # Changelog
 
+## 08-25-2021
+#### :art: UI/UX
+* Preliminary work for dynamic Commons catalog
+* Introduced the Books Manager
+
+#### :satellite: Server
+* Preliminary work for SSO authentication
+* Created the Collection model
+* Introduced backend logic and validation for Collections actions
+* Created the Book model
+* Started designing backend logic for dynamic Commons books
+* Added Delete Adoption Report API call
+
 ## 08-24-2021
 #### :art: UI/UX
 * Implemented filters in URL parameters and Redux store to improve inter-page persistence and link shareability

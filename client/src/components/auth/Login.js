@@ -119,6 +119,11 @@ const Login = (props) => {
         setSubmitLoading(false);
     };
 
+
+    const initSSOLogin = () => {
+        window.location = "https://github.com/login/oauth/authorize?client_id=386d7b666a18e89e09fa";
+    };
+
     return(
         <Grid centered={true} verticalAlign='middle' className="login-grid">
             <Grid.Column computer={8} tablet={12} mobile={14}>
@@ -144,6 +149,7 @@ const Login = (props) => {
                         disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
                         fluid
                         color='teal'
+                        onClick={initSSOLogin}
                     >
                         <Icon name='globe'/> Campus Login (SSO)
                     </Button>

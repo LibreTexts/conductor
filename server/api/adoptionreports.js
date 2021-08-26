@@ -12,7 +12,7 @@ const { debugError } = require('../debug.js');
 const { threePartDateStringValidator } = require('../validators.js');
 
 /**
- * Creates and saves a new AdoptionReport model with
+ * Creates and saves a new AdoptionReport with
  * the data in the request body.
  * NOTE: This function should only be called AFTER
  *  the validation chain. This method is only available on
@@ -40,7 +40,7 @@ const submitReport = (req, res) => {
 };
 
 /**
- * Returns Adoption Reports within a given date range.
+ * Returns AdoptionReports within a given date range.
  * VALIDATION: 'getReports'
  */
 const getReports = (req, res) => {
@@ -101,6 +101,32 @@ const getReports = (req, res) => {
             errMsg: emmErrors.err3
         });
     }
+};
+
+/**
+ * Deletes the AdoptionReport identified by
+ * the reportID in the request body.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'deleteReport'
+ */
+const deleteReport = (req, res) => {
+    AdoptionReport.deleteOne({ _id: req.body.reportID }).then((deleteRes) => {
+        if (deleteRes.deletedCount === 1) {
+            return res.send({
+                err: false,
+                msg: "Adoption Report successfully deleted.",
+            });
+        } else {
+            throw(conductorErrors.err3);
+        }
+    }).catch((err) => {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    })
 };
 
 /**
@@ -263,11 +289,16 @@ const validate = (method) => {
                 query('startDate', conductorErrors.err1).exists().custom(threePartDateStringValidator),
                 query('endDate', conductorErrors.err1).exists().custom(threePartDateStringValidator)
             ]
+        case 'deleteReport':
+            return [
+                body('reportID', conductorErrors.err1).exists().isMongoId()
+            ]
     }
 };
 
 module.exports = {
     submitReport,
     getReports,
+    deleteReport,
     validate
 };

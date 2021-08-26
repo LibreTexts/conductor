@@ -12,7 +12,7 @@ const ProjectSchema = new Schema({
         type: String,
         required: true
     },
-    projectID: {                // b62 10-digit identifier
+    projectID: {                // base62 10-digit identifier
         type: String,
         required: true
     },

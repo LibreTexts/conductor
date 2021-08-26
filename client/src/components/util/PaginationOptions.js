@@ -1,3 +1,8 @@
+//
+// LibreTexts Conductor
+// PaginationOptions.js
+//
+
 const itemsPerPageOptions = [
     { key: '10', text: '10', value: 10 },
     { key: '25', text: '25', value: 25 },
