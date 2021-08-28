@@ -11,21 +11,42 @@ import {
     List,
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
-//import axios from 'axios';
+import axios from 'axios';
 
 import Breakpoint from '../util/Breakpoints.js';
-
-import { getDemoBooks, getInstName } from '../util/DemoBooks.js';
-import { getLicenseText, getGlyphAddress, getLibraryName } from '../util/HarvestingMasterOptions.js';
+import useGlobalError from '../error/ErrorHooks.js';
+import {
+    getLibGlyphURL,
+    getLibraryName
+} from '../util/LibraryOptions.js';
+import { getLicenseText } from '../util/LicenseOptions.js';
+import { isEmptyString } from '../util/HelperFunctions.js';
 
 import AdoptionReport from '../adoptionreport/AdoptionReport.js';
 
 const CommonsBook = (props) => {
 
+    const { handleGlobalError } = useGlobalError();
+
     // Data
-    const bookID = props.match.params.id-1;
-    const orgBooks = getDemoBooks(process.env.REACT_APP_ORG_ID);
-    const book = orgBooks[bookID];
+    const [book, setBook] = useState({
+        bookID: '',
+        title: '',
+        author: '',
+        library: '',
+        shelf: '',
+        license: '',
+        thumbnail: '',
+        links: {
+            online: '',
+            pdf: '',
+            buy: '',
+            zip: '',
+            files: '',
+            lms: '',
+        },
+        institution: ''
+    });
 
     // UI
     const [activeAccordion, setActiveAccordion] = useState(0);
@@ -63,8 +84,26 @@ const CommonsBook = (props) => {
             });
             setTOCCPanels(chapters);
         }
-        setLoadedData(true);
+        getBookInfo();
     }, [book.title, book.contents]);
+
+    const getBookInfo = () => {
+        axios.get('/commons/book', {
+            params: {
+                bookID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                setBook(res.data.book);
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedData(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedData(true);
+        });
+    };
 
     const ThumbnailAttribution = () => {
         if (book.thumbnailAttr) {
@@ -101,17 +140,19 @@ const CommonsBook = (props) => {
                                     <Grid.Column width={4}>
                                         <Image id='commons-book-image' src={book.thumbnail} />
                                         <div id='commons-book-details'>
-                                            {(book.author !== '') &&
+                                            {(!isEmptyString(book.author)) &&
                                                 <p><Icon name='user'/> {book.author}</p>
                                             }
                                             <p>
-                                                <Image src={getGlyphAddress(book.library)} className='library-glyph' inline/>
+                                                <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
-                                            {(book.license !== '') &&
+                                            {(!isEmptyString(book.license)) &&
                                                 <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
                                             }
-                                            <p><Icon name='university'/> {book.institution}</p>
+                                            {(!isEmptyString(book.institution)) &&
+                                                <p><Icon name='university'/> {book.institution}</p>
+                                            }
                                             <ThumbnailAttribution />
                                         </div>
                                         <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
@@ -129,7 +170,7 @@ const CommonsBook = (props) => {
                                         {(book.summary !== '') &&
                                             <Segment>
                                                 <Header as='h3' dividing>Summary</Header>
-                                                <p>{book.summary}</p>
+                                                <p><em>This feature is coming soon!</em></p>
                                             </Segment>
                                         }
                                         <Accordion styled fluid>
@@ -158,17 +199,19 @@ const CommonsBook = (props) => {
                                         <Image id='commons-book-mobile-image' src={book.thumbnail} centered />
                                         <Header as='h2' textAlign='center'>{book.title}</Header>
                                         <div id='commons-book-mobiledetails'>
-                                            {(book.author !== '') &&
+                                            {(!isEmptyString(book.author)) &&
                                                 <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
                                             }
                                             <p className='commons-book-mobile-detail'>
-                                                <Image src={getGlyphAddress(book.library)} className='library-glyph' inline/>
+                                                <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
-                                            {(book.license !== '') &&
+                                            {(!isEmptyString(book.license)) &&
                                                 <p className='commons-book-mobile-detail'><Icon name='shield'/> {getLicenseText(book.license)}</p>
                                             }
-                                            <p className='commons-book-mobile-detail'><Icon name='university'/> {book.institution}</p>
+                                            {(!isEmptyString(book.institution)) &&
+                                                <p className='commons-book-mobile-detail'><Icon name='university'/> {book.institution}</p>
+                                            }
                                             <ThumbnailAttribution />
                                         </div>
                                     </Grid.Column>
@@ -192,7 +235,7 @@ const CommonsBook = (props) => {
                                         {(book.summary !== '') &&
                                             <Segment>
                                                 <Header as='h3' dividing>Summary</Header>
-                                                <p>{book.summary}</p>
+                                                <p><em>This feature is coming soon!</em></p>
                                             </Segment>
                                         }
                                         <Accordion styled fluid>
@@ -218,7 +261,7 @@ const CommonsBook = (props) => {
                     <AdoptionReport
                         open={showAdoptionReport}
                         onClose={() => { setShowAdoptionReport(false) }}
-                        resourceID={bookID}
+                        resourceID={book.bookID}
                         resourceTitle={book.title}
                         resourceLibrary={book.library}
                     />

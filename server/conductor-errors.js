@@ -16,7 +16,8 @@ const conductorErrors = {
     'err9': "Unable to verify user attribute(s).",
     'err10': "Your account does not appear to be associated with any organization.",
     'err11': "A resource with that identifier was not found.",
-    'err12': "Incorrect username or password."
+    'err12': "Incorrect username or password.",
+    'err13': "Commons-Libraries sync appears to have failed. Check server logs."
 };
 
 module.exports = conductorErrors;

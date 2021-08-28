@@ -89,6 +89,12 @@ router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
     authAPI.checkHasRoleMiddleware('libretexts', 'campusadmin'),
     booksAPI.syncWithLibraries);
 
+/* Commons Books/Catalogs */
+router.route('/v1/commons/catalog').get(middleware.checkLibreCommons,
+    booksAPI.getCommonsBooks);
+router.route('/v1/commons/book').get(booksAPI.validate('getBookDetail'),
+    middleware.checkValidationErrors, booksAPI.getBookDetail);
+
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);
 

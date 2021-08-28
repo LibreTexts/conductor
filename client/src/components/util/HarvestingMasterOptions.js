@@ -1,3 +1,5 @@
+// DEPRECATED — PHASING OUT (08/27/2021)
+
 const licenseOptions = [
     { key: 'empty', text: 'Clear...', value: '' },
     { key: 'arr', text: 'All Rights Reserved', value: 'arr' },
@@ -561,9 +563,14 @@ const getLicenseText = (license) => {
         let foundLicense = licenseOptions.find((item) => {
             return item.value === license;
         });
-        return foundLicense.text;
+        if (foundLicense !== undefined) {
+            return foundLicense.text;
+        } else {
+            return 'Unknown license';
+        }
+
     } else {
-        return "Not specified";
+        return 'Not specified';
     }
 };
 

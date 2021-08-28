@@ -25,7 +25,7 @@ import queryString from 'query-string';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
 import { visibilityOptions } from '../util/ProjectOptions.js';
-import { licenseOptions } from '../util/HarvestingMasterOptions.js';
+import { licenseOptions } from '../util/LicenseOptions.js';
 
 const ProjectsCreate = (props) => {
 

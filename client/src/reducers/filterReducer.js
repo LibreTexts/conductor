@@ -14,7 +14,7 @@ const filtersInitialState = {
         mode: 'visual',
         itemsPerPage: 10,
         activePage: 1, // not used as URL param
-        sort: '',
+        sort: 'title',
         library: '',
         subject: '',
         author: '',

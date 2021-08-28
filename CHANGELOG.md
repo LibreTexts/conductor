@@ -1,5 +1,20 @@
 # Changelog
 
+## 08-27-2021
+#### :art: UI/UX
+* Implemented dynamic Commons Catalog
+* Updates to the filter and sort process in Catalog
+* Added manual sync tool in Books Manager
+* Small UI improvements in Commons Catalog
+* Several updates to helper functions
+* Started implementing functionality in Books Manager
+
+#### :satellite: Server
+* Updates to the Book model
+* Created backend logic to sync Commons with Libraries
+* Backend logic to retrieve the main Commons catalog
+* Backend logic to retrieve book details
+
 ## 08-25-2021
 #### :art: UI/UX
 * Preliminary work for dynamic Commons catalog

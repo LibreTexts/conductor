@@ -18,22 +18,27 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
-//import axios from 'axios';
+import axios from 'axios';
 import queryString from 'query-string';
 
 import {
-    libraryOptions,
     getShelfOptions,
-    licenseOptions,
-    getGlyphAddress,
-    getLibraryName
+
 } from '../util/HarvestingMasterOptions.js';
-import { getDemoBooks } from '../util/DemoBooks.js';
+import {
+    libraryOptions,
+    getLibGlyphURL,
+    getLibraryName
+} from '../util/LibraryOptions.js';
+import { licenseOptions } from '../util/LicenseOptions.js';
+import useGlobalError from '../error/ErrorHooks.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
-import { updateParams } from '../util/HelperFunctions.js';
+import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
 const CommonsCatalog = (_props) => {
+
+    const { handleGlobalError } = useGlobalError();
 
     // Global State and Location/History
     const dispatch = useDispatch();
@@ -43,7 +48,7 @@ const CommonsCatalog = (_props) => {
 
     // Data
     const [catalogBooks, setCatalogBooks] = useState([]);
-    const [filteredBooks, setFilteredBooks] = useState([]);
+    const [displayBooks, setDisplayBooks] = useState([]);
     const [pageBooks, setPageBooks] = useState([]);
 
     /** UI **/
@@ -60,7 +65,7 @@ const CommonsCatalog = (_props) => {
     const licenseFilter = useSelector((state) => state.filters.commonsCatalog.license);
 
     const [subjectOptions, setSubjectOptions] = useState([]);
-    const [disableSubjectFilter, setDisableSubjectFilter] = useState(true);
+    const [disableSubjectFilter, setDisableSubjectFilter] = useState(false);
     const [authorOptions, setAuthorOptions] = useState([]);
 
     // Sort and Search Filters
@@ -69,20 +74,15 @@ const CommonsCatalog = (_props) => {
     const displayChoice = useSelector((state) => state.filters.commonsCatalog.mode);
 
     const sortOptions = [
-        { key: 'empty', text: 'Sort by...', value: '' },
         { key: 'title', text: 'Sort by Title', value: 'title' },
         { key: 'author', text: 'Sort by Author', value: 'author' }
     ];
 
     /**
-     * Load demo books
-     * and set the loaded flag.
+     * Load books from server
      */
     useEffect(() => {
-        const demoBooks = getDemoBooks(process.env.REACT_APP_ORG_ID);
-        setCatalogBooks(demoBooks);
-        setFilteredBooks(demoBooks);
-        setLoadedData(true);
+        getCommonsCatalog();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -99,22 +99,34 @@ const CommonsCatalog = (_props) => {
     }, [org]);
 
     /**
+     * Perform GET request for books
+     * and update catalogBooks.
+     */
+    const getCommonsCatalog = () => {
+        axios.get('/commons/catalog').then((res) => {
+            if (!res.data.err) {
+                if (res.data.books && Array.isArray(res.data.books) && res.data.books.length > 0) {
+                    setCatalogBooks(res.data.books);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedData(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedData(true);
+        });
+    };
+
+    /**
      * Regenerate the authors list
      * when the filtered books pool changes.
      */
     useEffect(() => {
         generateAuthorList();
+        generateSubjectList();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filteredBooks]);
-
-    /**
-     * Resort the current books
-     * when the sortChoice changes.
-     */
-    useEffect(() => {
-        sortBooks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sortChoice]);
+    }, [catalogBooks]);
 
     /**
      * Track changes to the number of books loaded
@@ -122,9 +134,9 @@ const CommonsCatalog = (_props) => {
      * set of books to display.
      */
     useEffect(() => {
-        setTotalPages(Math.ceil(filteredBooks.length/itemsPerPage));
-        setPageBooks(filteredBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
-    }, [itemsPerPage, filteredBooks, activePage]);
+        setTotalPages(Math.ceil(displayBooks.length/itemsPerPage));
+        setPageBooks(displayBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
+    }, [itemsPerPage, displayBooks, activePage]);
 
     /**
      * Subscribe to changes in the URL search string
@@ -159,9 +171,11 @@ const CommonsCatalog = (_props) => {
                 type: 'SET_CATALOG_LIBRARY',
                 payload: params.library
             });
+            /*
             const newShelfOptions = getShelfOptions(params.library);
             setSubjectOptions(newShelfOptions[0]);
             setDisableSubjectFilter(newShelfOptions[1]);
+            */
         }
         if ((params.subject !== undefined) && (params.subject !== subjectFilter)) {
             dispatch({
@@ -185,46 +199,15 @@ const CommonsCatalog = (_props) => {
     }, [location.search]);
 
     /**
-     * Sort the books according to
-     * the current sortChoice and update
-     * filteredBooks.
-     */
-    const sortBooks = () => {
-        if (sortChoice === 'title') {
-            const sorted = [...filteredBooks].sort((a, b) => {
-                if (a.title < b.title) {
-                    return -1;
-                }
-                if (a.title > b.title) {
-                    return 1;
-                }
-                return 0;
-            });
-            setFilteredBooks(sorted);
-        } else if (sortChoice === 'author') {
-            const sorted = [...filteredBooks].sort((a, b) => {
-                if (a.author < b.author) {
-                    return -1;
-                }
-                if (a.author > b.author) {
-                    return 1;
-                }
-                return 0;
-            });
-            setFilteredBooks(sorted);
-        }
-    };
-
-    /**
      * Set the chosen Library filter and
      * update the corresponding shelves list.
      */
     const setLibrary = (_e, { value }) => {
         var newLib = updateParams(location.search, 'library', value);
-        var newSearch = updateParams(newLib, 'subject', '');
+        //var newSearch = updateParams(newLib, 'subject', '');
         history.push({
             pathname: location.pathname,
-            search: newSearch
+            search: newLib
         });
     };
 
@@ -233,29 +216,83 @@ const CommonsCatalog = (_props) => {
      * authors from the pool of filtered books.
      */
     const generateAuthorList = () => {
-        var newAuthorList = [];
-        var newAuthorOptions = [
-            { key: 'empty', text: 'Clear...', value: '' }
-        ];
-        filteredBooks.forEach((item) => {
-            if ((newAuthorList.includes(item.author) === false) && (item.author !== '')) {
-                newAuthorList.push(item.author);
-                newAuthorOptions.push({
-                    key: String(item.author).toLowerCase().replace(/\s/g, ""),
-                    text: item.author,
-                    value: item.author
-                });
+        var authors = [];
+        var newAuthorOptions = [];
+        catalogBooks.forEach((item) => {
+            if (item.author && !isEmptyString(item.author)) {
+                var normalizedAuthor = String(item.author).toLowerCase().replace(/\W/g, "");
+                if (!authors.includes(normalizedAuthor)) {
+                    authors.push(normalizedAuthor);
+                    newAuthorOptions.push({
+                        key: normalizedAuthor,
+                        text: item.author,
+                        value: item.author
+                    });
+                }
             }
         });
-        setAuthorOptions(newAuthorOptions);
+        var sortedAuthorOptions = [...newAuthorOptions].sort((a, b) => {
+            if (a.key < b.key) {
+                return -1;
+            }
+            if (a.key > b.key) {
+                return 1;
+            }
+            return 0;
+        });
+        sortedAuthorOptions.unshift({ key: 'empty', text: 'Clear...', value: '' });
+        setAuthorOptions(sortedAuthorOptions);
     };
 
     /**
-     * Filter books according to user's
-     * choices, then update the list and
-     * regenerate the author list.
+     * Generate a list of (unique, non-repeating)
+     * authors from the pool of filtered books.
+     */
+    const generateSubjectList = () => {
+        var subjects = [];
+        var newSubjectOptions = [];
+        catalogBooks.forEach((item) => {
+            if (item.subject && !isEmptyString(item.subject)) {
+                var normalizedSubject = String(item.subject).toLowerCase().replace(/\W/g, "");
+                if (!subjects.includes(normalizedSubject)) {
+                    subjects.push(normalizedSubject);
+                    newSubjectOptions.push({
+                        key: normalizedSubject,
+                        text: item.subject,
+                        value: item.subject
+                    });
+                }
+            }
+        });
+        var sortedSubjectOptions = [...newSubjectOptions].sort((a, b) => {
+            if (a.key < b.key) {
+                return -1;
+            }
+            if (a.key > b.key) {
+                return 1;
+            }
+            return 0;
+        });
+        sortedSubjectOptions.unshift({ key: 'empty', text: 'Clear...', value: '' });
+        setSubjectOptions(sortedSubjectOptions);
+    };
+
+    /**
+     * Filter and sort books according to
+     * user's choices, then update the list.
      */
     useEffect(() => {
+        filterAndSortBooks();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [catalogBooks, libraryFilter, subjectFilter, authorFilter, licenseFilter, searchString, sortChoice]);
+
+    /**
+     * Filter and sort books according
+     * to current filters and sort
+     * choice.
+     */
+    const filterAndSortBooks = () => {
+        setLoadedData(false);
         let filtered = catalogBooks.filter((book) => {
             var include = true;
             var descripString = String(book.title).toLowerCase() + String(book.author).toLowerCase() +
@@ -282,10 +319,35 @@ const CommonsCatalog = (_props) => {
                 return false;
             }
         });
-        setFilteredBooks(filtered);
-        generateAuthorList();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [catalogBooks, libraryFilter, subjectFilter, authorFilter, licenseFilter, searchString]);
+        if (sortChoice === 'title') {
+            const sorted = [...filtered].sort((a, b) => {
+                var normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                if (normalA < normalB) {
+                    return -1;
+                }
+                if (normalA > normalB) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        } else if (sortChoice === 'author') {
+            const sorted = [...filtered].sort((a, b) => {
+                var normalA = String(a.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                if (normalA < normalB) {
+                    return -1;
+                }
+                if (normalA > normalB) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        }
+        setLoadedData(true);
+    }
 
     const VisualMode = () => {
         if (pageBooks.length > 0) {
@@ -296,13 +358,18 @@ const CommonsCatalog = (_props) => {
                             <Card
                                 key={index}
                                 as={Link}
-                                to={`/book/${item.id}`}
+                                to={`/book/${item.bookID}`}
                             >
-                                <Image className='commons-content-card-img' src={item.thumbnail} wrapped ui={false} />
+                                <Image
+                                    className='commons-content-card-img'
+                                    src={item.thumbnail}
+                                    wrapped
+                                    ui={false}
+                                />
                                 <Card.Content>
                                     <Card.Header>{item.title}</Card.Header>
                                     <Card.Meta>
-                                        <Image src={getGlyphAddress(item.library)} className='library-glyph' />
+                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Card.Meta>
                                     <Card.Description>
@@ -343,13 +410,13 @@ const CommonsCatalog = (_props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
-                                        <p><strong><Link to={`/book/${item.id}`}>{item.title}</Link></strong></p>
+                                        <p><strong><Link to={`/book/${item.bookID}`}>{item.title}</Link></strong></p>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <p>{item.author}</p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Image src={getGlyphAddress(item.library)} className='library-glyph' />
+                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Table.Cell>
                                     {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
@@ -583,7 +650,7 @@ const CommonsCatalog = (_props) => {
                                             }}
                                             value={itemsPerPage}
                                         />
-                                        <span> items per page of <strong>{filteredBooks.length}</strong> results.</span>
+                                        <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <Dropdown
@@ -629,11 +696,11 @@ const CommonsCatalog = (_props) => {
                                                     }}
                                                     value={itemsPerPage}
                                                 />
-                                                <span> items per page of <strong>{filteredBooks.length}</strong> results.</span>
+                                                <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>
-                                    <Grid.Row columns={2}>
+                                    <Grid.Row columns={1}>
                                         <Grid.Column>
                                             <Dropdown
                                                 placeholder='Display mode...'
@@ -652,32 +719,27 @@ const CommonsCatalog = (_props) => {
                                                 fluid
                                             />
                                         </Grid.Column>
-                                        <Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column id='commons-pagination-mobile-container'>
                                             <Pagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                                className='float-right'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>
                             </Breakpoint>
                         </Segment>
-                        {displayChoice === 'visual'
-                            ? (
-                                <Segment className='commons-content' loading={!loadedData}>
-                                    <VisualMode />
-                                </Segment>
-                            )
-                            : (
-                                <Segment className='commons-content commons-content-itemized' loading={!loadedData}>
-                                    <ItemizedMode />
-                                </Segment>
-                            )
-                        }
+                        <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
+                            {displayChoice === 'visual'
+                                ? (<VisualMode />)
+                                : (<ItemizedMode />)
+                            }
+                        </Segment>
                     </Segment.Group>
                 </Grid.Column>
             </Grid.Row>

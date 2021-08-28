@@ -244,6 +244,11 @@
     margin-right: 1rem;
 }
 
+#commons-pagination-mobile-container {
+    display: flex;
+    justify-content: center;
+}
+
 /* Content */
 #commons-book-image {
     height: auto;

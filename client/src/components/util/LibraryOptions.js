@@ -25,7 +25,58 @@ const libraryOptions = [
     ...libraries
 ];
 
+const getLibGlyphURL = (library) => {
+    switch (library) {
+        case 'bio':
+            return '/glyphs/bio.png';
+        case 'biz':
+            return '/glyphs/biz.png';
+        case 'chem':
+            return '/glyphs/chem.png';
+        case 'eng':
+            return '/glyphs/eng.png';
+        case 'espanol':
+            return '/glyphs/espanol.png';
+        case 'geo':
+            return '/glyphs/geo.png';
+        case 'human':
+            return '/glyphs/human.png';
+        case 'k12':
+            return '/glyphs/k12.png';
+        case 'math':
+            return '/glyphs/math.png';
+        case 'med':
+            return '/glyphs/med.png';
+        case 'phys':
+            return '/glyphs/phys.png';
+        case 'socialsci':
+            return '/glyphs/socialsci.png';
+        case 'stats':
+            return '/glyphs/stats.png';
+        case 'workforce':
+            return '/glyphs/workforce.png';
+        default:
+            return '/favicon-32x32.png';
+    }
+};
+
+const getLibraryName = (lib) => {
+    const foundLib = libraries.find((libEntry) => {
+        if ((libEntry.key === lib) || (libEntry.value === lib)) {
+            return libEntry;
+        }
+        return null;
+    });
+    if (foundLib !== undefined) {
+        return foundLib.text;
+    } else {
+        return 'Unknown';
+    }
+}
+
 module.exports = {
     libraries,
-    libraryOptions
+    libraryOptions,
+    getLibGlyphURL,
+    getLibraryName
 }

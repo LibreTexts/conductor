@@ -21,9 +21,11 @@ import {
     isEmptyString,
 } from '../util/HelperFunctions.js';
 import {
-    getGlyphAddress,
-    getLibraryName,
-    getLicenseText,
+    getLibGlyphURL,
+    getLibraryName
+} from '../util/LibraryOptions.js';
+import { getLicenseText } from '../util/LicenseOptions.js';
+import {
     getTextUse
 } from '../util/HarvestingMasterOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
@@ -322,7 +324,7 @@ const HarvestingRequests = (props) => {
                                                         <span>{item.title}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Image src={getGlyphAddress(item.library)} className='library-glyph' />
+                                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                                         <span>{getLibraryName(item.library)}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
@@ -367,7 +369,7 @@ const HarvestingRequests = (props) => {
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Resource Library</Header>
-                                        <Image src={getGlyphAddress(currentRequest.library)} className='library-glyph' />
+                                        <Image src={getLibGlyphURL(currentRequest.library)} className='library-glyph' />
                                         <span>{getLibraryName(currentRequest.library)}</span>
                                     </Grid.Column>
                                 </Grid.Row>

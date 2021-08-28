@@ -124,8 +124,24 @@ body {
     margin-bottom: 4rem !important;
 }
 
+.ml-1p {
+    margin-left: 1% !important;
+}
+
+.ml-1p {
+    margin-left: 1rem !important;
+}
+
 .ml-2p {
     margin-left: 2% !important;
+}
+
+.mr-1p {
+    margin-right: 1% !important;
+}
+
+.mr-1p {
+    margin-right: 1rem !important;
 }
 
 .mr-2p {

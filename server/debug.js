@@ -20,8 +20,17 @@ const debugError = (err) => {
     debug('[ORGID=%s]: %s', process.env.ORG_ID, err.toString());
 };
 
+const debugCommonsSync = (msg) => {
+    if (typeof(msg) === 'string') {
+        debug('[COMMONS SYNC]: %s', msg);
+    } else {
+        debug('[COMMONS SYNC]: %s', msg.toString());
+    }
+}
+
 module.exports = {
     debugServer,
     debugDB,
-    debugError
+    debugError,
+    debugCommonsSync
 }

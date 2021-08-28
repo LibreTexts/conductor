@@ -23,9 +23,9 @@ import {
     capitalizeFirstLetter
 } from '../util/HelperFunctions.js';
 import {
-    getGlyphAddress,
+    getLibGlyphURL,
     getLibraryName
-} from '../util/HarvestingMasterOptions.js';
+} from '../util/LibraryOptions.js';
 import {
     getTermTaught,
     buildAccessMethodsList
@@ -346,7 +346,7 @@ const AdoptionReports = (props) => {
                                                     <Table.Cell>
                                                         <span>{resourceTitle}</span></Table.Cell>
                                                     <Table.Cell>
-                                                        <Image src={getGlyphAddress(resourceLib)} className='library-glyph' />
+                                                        <Image src={getLibGlyphURL(resourceLib)} className='library-glyph' />
                                                         <span>{getLibraryName(resourceLib)}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
@@ -400,7 +400,7 @@ const AdoptionReports = (props) => {
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Resource Library</Header>
-                                        <Image src={getGlyphAddress(currentReport.resource.library)} className='library-glyph' />
+                                        <Image src={getLibGlyphURL(currentReport.resource.library)} className='library-glyph' />
                                         <span>{getLibraryName(currentReport.resource.library)}</span>
                                     </Grid.Column>
                                     <Grid.Column>
