@@ -1,5 +1,18 @@
 # Changelog
 
+## 08-30-2021
+#### :art: UI/UX
+* Increased the number of Commons items per row to 6
+* More work on Books Manager
+* Added the Collections Manager
+* Started implementing Collection View in Commons
+
+#### :satellite: Server
+* Updated the Book ID regex to fix K12 library bug
+* Prevent startup if necessary settings are missing
+* Updates to the Collection model
+* Added more backend logic for Collections management & access
+
 ## 08-27-2021
 #### :art: UI/UX
 * Implemented dynamic Commons Catalog

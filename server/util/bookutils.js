@@ -23,7 +23,7 @@ const libraries = [
 
 const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
-        const match = bookID.match(/[a-z]{3,9}[-][0-9]{2,10}/g);
+        const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/g);
         if (match.length === 1) {
             if (match[0] == bookID) {
                 return true;

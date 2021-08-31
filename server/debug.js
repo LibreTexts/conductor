@@ -29,6 +29,7 @@ const debugCommonsSync = (msg) => {
 }
 
 module.exports = {
+    debug,
     debugServer,
     debugDB,
     debugError,

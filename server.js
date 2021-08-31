@@ -11,7 +11,14 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bluebird = require('bluebird');
 const helmet = require('helmet');
-const { debugServer, debugDB } = require('./server/debug.js');
+const { exit } = require('process');
+const { debug, debugServer, debugDB } = require('./server/debug.js');
+
+// Prevent startup without ORG_ID env variable
+if (!process.env.ORG_ID || process.env.ORG_ID === '') {
+    debug('[FATAL ERROR]: The ORG_ID environment variable is missing.');
+    exit(1);
+}
 
 const api = require('./server/api.js');
 
@@ -25,7 +32,9 @@ if (process.env.NODE_ENV === 'development') {
 }
 mongoose.connect(process.env.MONGOOSEURI, {
     useNewUrlParser: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+    useFindAndModify: false
 }).then(() => {
     debugDB('Connected to MongoDB Atlas.');
 }).catch((err) => {
@@ -71,7 +80,7 @@ app.use('/api', api);
 
 app.use(express.static(path.join(__dirname, 'client/build')));
 var cliRouter = express.Router();
-cliRouter.route('*').get((req, res) => {
+cliRouter.route('*').get((_req, res) => {
     res.sendFile(path.resolve('./client/build/index.html'));
 });
 app.use('/', cliRouter);

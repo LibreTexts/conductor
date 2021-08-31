@@ -14,15 +14,18 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useLocation, useHistory } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-//import axios from 'axios';
+import axios from 'axios';
 import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
+import useGlobalError from '../error/ErrorHooks.js';
 import { getDemoCollections } from '../util/DemoBooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { updateParams } from '../util/HelperFunctions.js';
 
 const CommonsCollections = (_props) => {
+
+    const { handleGlobalError } = useGlobalError();
 
     // Global State and Location/History
     const dispatch = useDispatch();
@@ -38,12 +41,10 @@ const CommonsCollections = (_props) => {
     const [collections, setCollections] = useState([]);
 
     /**
-     * Set collections from the demo data
-     * and set loading flag.
+     * Load collections from server.
      */
     useEffect(() => {
-        setCollections(getDemoCollections(process.env.REACT_APP_ORG_ID));
-        setLoadedData(true);
+        getCollections();
     }, []);
 
     /**
@@ -75,21 +76,43 @@ const CommonsCollections = (_props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.search]);
 
+    const getCollections = () => {
+        axios.get('/commons/collections').then((res) => {
+            if (!res.data.err) {
+                if (res.data.colls && Array.isArray(res.data.colls) && res.data.colls.length > 0) {
+                    setCollections(res.data.colls);
+                    console.log(res.data.colls);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedData(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedData(true);
+        });
+    };
+
     const VisualMode = () => {
         if (collections.length > 0) {
             return (
-                <Card.Group itemsPerRow={5} stackable>
+                <Card.Group itemsPerRow={6} stackable>
                     {collections.map((item, index) => {
                         return (
                             <Popup key={index} content='Collections are coming soon!' position='top center' trigger={
                                 <Card
                                     key={index}
                                 >
-                                    <Image className='commons-content-card-img' src={item.thumbnail} wrapped ui={false} />
+                                    <Image
+                                        className='commons-content-card-img'
+                                        src={(item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto}
+                                        wrapped
+                                        ui={false}
+                                    />
                                     <Card.Content>
                                         <Card.Header>{item.title}</Card.Header>
                                         <Card.Meta>
-                                            {item.size}
+                                            {item.resources} resources
                                         </Card.Meta>
                                     </Card.Content>
                                 </Card>
@@ -123,7 +146,7 @@ const CommonsCollections = (_props) => {
                                         <p><strong>{item.title}</strong></p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <p>{item.size}</p>
+                                        <p>{item.resources} resources</p>
                                     </Table.Cell>
                                 </Table.Row>
                             )
@@ -201,18 +224,12 @@ const CommonsCollections = (_props) => {
                                 </Grid>
                             </Breakpoint>
                         </Segment>
-                        {(displayChoice === 'visual')
-                            ? (
-                                <Segment className='commons-content' loading={!loadedData}>
-                                    <VisualMode />
-                                </Segment>
-                            )
-                            : (
-                                <Segment className='commons-content commons-content-itemized' loading={!loadedData}>
-                                    <ItemizedMode />
-                                </Segment>
-                            )
-                        }
+                        <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
+                            {(displayChoice === 'visual')
+                                ? (<VisualMode />)
+                                : (<ItemizedMode />)
+                            }
+                        </Segment>
                     </Segment.Group>
                 </Grid.Column>
             </Grid.Row>

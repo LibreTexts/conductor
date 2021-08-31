@@ -36,6 +36,7 @@ import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingT
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
 import BooksManager from './components/supervisor/BooksManager.js';
+import CollectionsManager from './components/supervisor/CollectionsManager.js';
 
 
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
@@ -89,6 +90,7 @@ function App() {
                     <PrivateRoute exact path = '/adoptionreports' component={AdoptionReports} />
                     <PrivateRoute exact path = '/harvestingrequests' component={HarvestingRequests} />
                     <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
+                    <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
                     {/* 404 */}
                     <Route component={PageNotFound} />
                 </Switch>
@@ -105,6 +107,7 @@ function App() {
                         <Route exact path = '/' component={Commons} />
                         <Route exact path = '/catalog' component={Commons} />
                         <Route exact path = '/collections' component={Commons} />
+                        <Route exact path = '/collection/:id' component={Commons} />
                         <Route exact path = '/book/:id' component={Commons} />
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/adapt' component={Commons} />

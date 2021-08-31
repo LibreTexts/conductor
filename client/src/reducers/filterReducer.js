@@ -22,6 +22,16 @@ const filtersInitialState = {
     },
     collections: {
         mode: 'visual'
+    },
+    collectionView: {
+        mode: 'visual',
+        itemsPerPage: 10,
+        activePage: 1, // not used as URL param
+        sort: 'title',
+        library: '',
+        subject: '',
+        author: '',
+        license: ''
     }
 };
 
@@ -120,6 +130,70 @@ export default function filterReducer(state = filtersInitialState, action) {
                 ...state,
                 commonsCatalog: {
                     ...state.commonsCatalog,
+                    license: action.payload
+                }
+            }
+        case 'SET_COLLECT_MODE':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    mode: action.payload
+                }
+            }
+        case 'SET_COLLECT_ITEMS':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    itemsPerPage: action.payload
+                }
+            }
+        case 'SET_COLLECT_PAGE':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    activePage: action.payload
+                }
+            }
+        case 'SET_COLLECT_SORT':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    sort: action.payload
+                }
+            }
+        case 'SET_COLLECT_LIBRARY':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    library: action.payload
+                }
+            }
+        case 'SET_COLLECT_SUBJECT':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    subject: action.payload
+                }
+            }
+        case 'SET_COLLECT_AUTHOR':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
+                    author: action.payload
+                }
+            }
+        case 'SET_COLLECT_LICENSE':
+            return {
+                ...state,
+                collectionView: {
+                    ...state.collectionView,
                     license: action.payload
                 }
             }

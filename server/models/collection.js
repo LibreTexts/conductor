@@ -12,7 +12,7 @@ const CollectionSchema = new Schema({
         type: String,
         required: true
     },
-    colID: {                        // base62 8-digit identifier
+    collID: {                        // base62 8-digit identifier
         type: String,
         required: true
     },
@@ -20,7 +20,11 @@ const CollectionSchema = new Schema({
         type: String,
         required: true
     },
-    coverPhoto: String,             // the collection's "cover photo"/thumbnail
+    coverPhoto: {                   // the collection's "cover photo"/thumbnail
+        type: String,
+        default: ''
+    },
+    enabled: Boolean,               // the collection status (enabled/disabled)
     resources: [String]             // the array of resource IDs included in the collection
 }, {
     timestamps: true

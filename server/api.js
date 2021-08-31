@@ -71,17 +71,30 @@ router.route('/v1/harvestingrequests').get(middleware.checkLibreCommons,
     middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
 
 /* Commons Collections */
-router.route('/v1/collection/create').post(authAPI.verifyRequest,
+router.route('/v1/commons/collections').get(collectionsAPI.getCollections);
+router.route('/v1/commons/collection').get(
+    collectionsAPI.validate('getCollection'), middleware.checkValidationErrors,
+    collectionsAPI.getCollection);
+router.route('/v1/commons/collection/create').post(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('createCollection'),
     middleware.checkValidationErrors, collectionsAPI.createCollection);
-router.route('/v1/collection/delete').delete(authAPI.verifyRequest,
+router.route('/v1/commons/collection/edit').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('editCollection'),
+    middleware.checkValidationErrors, collectionsAPI.editCollection);
+router.route('/v1/commons/collection/delete').delete(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('deleteCollection'),
     middleware.checkValidationErrors, collectionsAPI.deleteCollection);
-
+router.route('/v1/commons/collection/togglestatus').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('toggleCollectionStatus'),
+    middleware.checkValidationErrors, collectionsAPI.toggleCollectionStatus);
 
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,

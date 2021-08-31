@@ -13,6 +13,7 @@ import CommonsFooter from './CommonsFooter.js';
 
 import CommonsCatalog from './CommonsCatalog.js';
 import CommonsCollections from './CommonsCollections.js';
+import CommonsCollectionView from './CommonsCollectionView.js';
 import CommonsBook from './CommonsBook.js';
 import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
 
@@ -250,6 +251,7 @@ const Commons = (_props) => {
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                     <Route exact path='/adapt' component={CommonsADAPTCatalog} />
                 }
+                <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
             <CommonsFooter />

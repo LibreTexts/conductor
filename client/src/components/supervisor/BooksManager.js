@@ -47,6 +47,7 @@ const BooksManager = (props) => {
     // Data
     const [syncResponse, setSyncResponse] = useState('');
     const [catalogBooks, setCatalogBooks] = useState([]);
+    const [displayBooks, setDisplayBooks] = useState([]);
     const [pageBooks, setPageBooks] = useState([]);
 
     // UI
@@ -58,27 +59,36 @@ const BooksManager = (props) => {
     const [showSyncModal, setShowSyncModal] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
     const [syncFinished, setSyncFinished] = useState(false);
-    const [sortChoice, setSortChoice] = useState('');
+    const [sortChoice, setSortChoice] = useState('title');
 
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Book Manager";
+        document.title = "LibreTexts Conductor | Books Manager";
         date.plugin(ordinal);
         getBooks();
     }, []);
 
     const sortOptions = [
-        { key: 'lib', text: 'Library', value: 'lib' },
-        { key: 'title', text: 'Title', value: 'title' },
-        { key: 'author', text: 'Author', value: 'author' },
-        { key: 'license', text: 'License', value: 'license' },
-        { key: 'institution', text: 'Institution', value: 'institution' },
-        { key: 'commons', text: 'Enabled on Commons', value: 'commons'}
+        { key: 'title', text: 'Sort by Title', value: 'title' },
+        { key: 'lib', text: 'Sort by Library', value: 'lib' },
+        { key: 'author', text: 'Sort by Author', value: 'author' },
+        { key: 'license', text: 'Sort by License', value: 'license' },
+        { key: 'institution', text: 'Sort by Institution', value: 'institution' },
+        { key: 'commons', text: 'Sort by Commons Status', value: 'commons'}
     ];
 
     useEffect(() => {
-        setTotalPages(Math.ceil(catalogBooks.length/itemsPerPage));
-        setPageBooks(catalogBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
-    }, [itemsPerPage, catalogBooks, activePage]);
+        setTotalPages(Math.ceil(displayBooks.length/itemsPerPage));
+        setPageBooks(displayBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
+    }, [itemsPerPage, displayBooks, activePage]);
+
+    /**
+     * Filter and sort books according to
+     * user's choices, then update the list.
+     */
+    useEffect(() => {
+        filterAndSortBooks();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [catalogBooks, searchString, sortChoice]);
 
     const getBooks = () => {
         axios.get('/commons/catalog').then((res) => {
@@ -94,6 +104,106 @@ const BooksManager = (props) => {
             handleGlobalError(err);
             setLoadedData(true);
         });
+    };
+
+    /**
+     * Filter and sort books according
+     * to current filters and sort
+     * choice.
+     */
+    const filterAndSortBooks = () => {
+        setLoadedData(false);
+        let filtered = catalogBooks.filter((book) => {
+            var include = true;
+            var descripString = String(book.title).toLowerCase() + String(book.author).toLowerCase() +
+                String(book.library).toLowerCase() + String(book.subject).toLowerCase() +
+                String(book.license).toLowerCase();
+            /*
+            if (libraryFilter !== '' && book.library !== libraryFilter) {
+                include = false;
+            }
+            if (subjectFilter !== '' && book.subject !== subjectFilter) {
+                include = false;
+            }
+            if (authorFilter !== '' && book.author !== authorFilter) {
+                include = false;
+            }
+            if (licenseFilter !== '' && book.license !== licenseFilter) {
+                include = false;
+            }
+            */
+            if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
+                include = false;
+            }
+            if (include) {
+                return book;
+            } else {
+                return false;
+            }
+        });
+        if (sortChoice === 'title') {
+            const sorted = [...filtered].sort((a, b) => {
+                var normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                if (normalA < normalB) {
+                    return -1;
+                }
+                if (normalA > normalB) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        } else if (sortChoice === 'author') {
+            const sorted = [...filtered].sort((a, b) => {
+                var normalA = String(a.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                if (normalA < normalB) {
+                    return -1;
+                }
+                if (normalA > normalB) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        } else if (sortChoice === 'lib') {
+            const sorted = [...filtered].sort((a, b) => {
+                if (a.library < b.library) {
+                    return -1;
+                }
+                if (a.library > b.library) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        } else if (sortChoice === 'license') {
+            const sorted = [...filtered].sort((a, b) => {
+                if (a.license < b.license) {
+                    return -1;
+                }
+                if (a.license > b.license) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        } else if (sortChoice === 'institution') {
+            const sorted = [...filtered].sort((a, b) => {
+                var normalA = String(a.institution).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.institution).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                if (normalA < normalB) {
+                    return -1;
+                }
+                if (normalA > normalB) {
+                    return 1;
+                }
+                return 0;
+            });
+            setDisplayBooks(sorted);
+        }
+        setLoadedData(true);
     }
 
     const syncWithLibs = () => {
@@ -138,12 +248,12 @@ const BooksManager = (props) => {
                 <Grid.Column width={16}>
                     <Segment.Group>
                         <Segment>
-                            <div className='booksmanager-options'>
-                                <div className='booksmanager-options-left'>
+                            <div className='flex-row-div'>
+                                <div className='left-flex'>
                                     <span className='mr-1p'><strong>Last Sync:</strong> Today</span>
                                     <span className='ml-1p'><strong>Next Sync:</strong> Today</span>
                                 </div>
-                                <div className='booksmanager-options-right'>
+                                <div className='right-flex'>
                                     {isSuperAdmin &&
                                         <Button
                                             color='blue'
@@ -157,37 +267,34 @@ const BooksManager = (props) => {
                             </div>
                         </Segment>
                         <Segment>
-                            <div className='booksmanager-options'>
-                                <div className='booksmanager-options-left'>
-                                    <Form>
-                                        <Form.Field inline>
-                                            <label>Sort by</label>
-                                            <Dropdown
-                                                placeholder='Sort by...'
-                                                floating
-                                                selection
-                                                button
-                                                options={sortOptions}
-                                                onChange={(_e, { value }) => { setSortChoice(value) }}
-                                                value={sortChoice}
-                                            />
-                                        </Form.Field>
-                                    </Form>
-                                </div>
-                                <div className='booksmanager-options-right'>
-                                    <Input
-                                        icon='search'
-                                        placeholder='Search...'
-                                        onChange={(e) => { setSearchString(e.target.value) }}
-                                        value={searchString}
-                                        fluid
-                                    />
-                                </div>
-                            </div>
+                            <Grid>
+                                <Grid.Row>
+                                    <Grid.Column width={11}>
+                                        <Dropdown
+                                            placeholder='Sort by...'
+                                            floating
+                                            selection
+                                            button
+                                            options={sortOptions}
+                                            onChange={(_e, { value }) => { setSortChoice(value) }}
+                                            value={sortChoice}
+                                        />
+                                    </Grid.Column>
+                                    <Grid.Column width={5}>
+                                        <Input
+                                            icon='search'
+                                            placeholder='Search...'
+                                            onChange={(e) => { setSearchString(e.target.value) }}
+                                            value={searchString}
+                                            fluid
+                                        />
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
                         </Segment>
                         <Segment>
-                            <div className='booksmanager-options'>
-                                <div className='booksmanager-options-left'>
+                            <div className='flex-row-div'>
+                                <div className='left-flex'>
                                     <span>Displaying </span>
                                     <Dropdown
                                         className='commons-content-pagemenu-dropdown'
@@ -200,7 +307,7 @@ const BooksManager = (props) => {
                                     />
                                     <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                 </div>
-                                <div className='booksmanager-options-right'>
+                                <div className='right-flex'>
                                     <Pagination
                                         activePage={activePage}
                                         totalPages={totalPages}
@@ -218,15 +325,15 @@ const BooksManager = (props) => {
                                 <Table.Header>
                                     <Table.Row>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'lib')
-                                                ? <span><em>Library</em></span>
-                                                : <span>Library</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
                                             {(sortChoice === 'title')
                                                 ? <span><em>Book Title</em></span>
                                                 : <span>Book Title</span>
+                                            }
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell>
+                                            {(sortChoice === 'lib')
+                                                ? <span><em>Library</em></span>
+                                                : <span>Library</span>
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
@@ -250,7 +357,7 @@ const BooksManager = (props) => {
                                         <Table.HeaderCell>
                                             {(sortChoice === 'commons')
                                                 ? <span><em>Enabled on Commons</em></span>
-                                                : <span>Enabled on Commons</span>
+                                                : <span>Actions</span>
                                             }
                                         </Table.HeaderCell>
                                     </Table.Row>
@@ -261,11 +368,11 @@ const BooksManager = (props) => {
                                             return (
                                                 <Table.Row key={index}>
                                                     <Table.Cell>
-                                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
-                                                        {getLibraryName(item.library)}
+                                                        <p><strong>{item.title}</strong></p>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <p><strong>{item.title}</strong></p>
+                                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
+                                                        {getLibraryName(item.library)}
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{item.author}</p>
@@ -277,9 +384,30 @@ const BooksManager = (props) => {
                                                         <p>{item.institution}</p>
                                                     </Table.Cell>
                                                     <Table.Cell textAlign='center'>
-                                                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                                            <Icon name='checkmark' color='green' size='large' />
-                                                        }
+                                                        <Button.Group vertical fluid>
+                                                            <Button color='green'>
+                                                                <Icon name='eye' />
+                                                                Enable on Commons
+                                                            </Button>
+                                                            <Button color='teal'>
+                                                                <Icon name='add' />
+                                                                Add to a Collection
+                                                            </Button>
+                                                            {(item.links && item.links.online)
+                                                                ? (
+                                                                    <Button color='blue' as='a' href={item.links.online} target='_blank' rel='noopener noreferrer'>
+                                                                        <Icon name='external' />
+                                                                        View on LibreTexts
+                                                                    </Button>
+                                                                )
+                                                                : (
+                                                                    <Button color='blue' disabled>
+                                                                        <Icon name='external' />
+                                                                        View on LibreTexts
+                                                                    </Button>
+                                                                )
+                                                            }
+                                                        </Button.Group>
                                                     </Table.Cell>
                                                 </Table.Row>
                                             )

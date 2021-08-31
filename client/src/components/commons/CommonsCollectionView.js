@@ -36,7 +36,7 @@ import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
-const CommonsCatalog = (_props) => {
+const CommonsCollectionView = (props) => {
 
     const { handleGlobalError } = useGlobalError();
 
@@ -47,7 +47,7 @@ const CommonsCatalog = (_props) => {
     const org = useSelector((state) => state.org);
 
     // Data
-    const [catalogBooks, setCatalogBooks] = useState([]);
+    const [collBooks, setCollBooks] = useState([]);
     const [displayBooks, setDisplayBooks] = useState([]);
     const [pageBooks, setPageBooks] = useState([]);
 
@@ -82,7 +82,7 @@ const CommonsCatalog = (_props) => {
      * Load books from server
      */
     useEffect(() => {
-        getCommonsCatalog();
+        getCollectionBooks();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -92,21 +92,25 @@ const CommonsCatalog = (_props) => {
      */
     useEffect(() => {
         if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Commons | Catalog";
+            document.title = org.shortName + " Commons | Collection";
         } else {
-            document.title = "LibreCommons | Catalog";
+            document.title = "LibreCommons | Collection";
         }
     }, [org]);
 
     /**
      * Perform GET request for books
-     * and update catalogBooks.
+     * and update collBooks.
      */
-    const getCommonsCatalog = () => {
-        axios.get('/commons/catalog').then((res) => {
+    const getCollectionBooks = () => {
+        axios.get('/commons/collection', {
+            params: {
+                collID: props.match.params.id
+            }
+        }).then((res) => {
             if (!res.data.err) {
                 if (res.data.books && Array.isArray(res.data.books) && res.data.books.length > 0) {
-                    setCatalogBooks(res.data.books);
+                    setCollBooks(res.data.books);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -126,7 +130,7 @@ const CommonsCatalog = (_props) => {
         generateAuthorList();
         generateSubjectList();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [catalogBooks]);
+    }, [collBooks]);
 
     /**
      * Track changes to the number of books loaded
@@ -147,7 +151,7 @@ const CommonsCatalog = (_props) => {
         if (params.mode && params.mode !== displayChoice) {
             if ((params.mode === 'visual') || (params.mode === 'itemized')) {
                 dispatch({
-                    type: 'SET_CATALOG_MODE',
+                    type: 'SET_COLLECT_MODE',
                     payload: params.mode
                 });
             }
@@ -155,20 +159,20 @@ const CommonsCatalog = (_props) => {
         if (params.items && params.items !== itemsPerPage) {
             if (!isNaN(parseInt(params.items))) {
                 dispatch({
-                    type: 'SET_CATALOG_ITEMS',
+                    type: 'SET_COLLECT_ITEMS',
                     payload: parseInt(params.items)
                 });
             }
         }
         if ((params.sort !== undefined) && (params.sort !== sortChoice)) {
             dispatch({
-                type: 'SET_CATALOG_SORT',
+                type: 'SET_COLLECT_SORT',
                 payload: params.sort
             });
         }
         if ((params.library !== undefined) && (params.library !== libraryFilter)) {
             dispatch({
-                type: 'SET_CATALOG_LIBRARY',
+                type: 'SET_COLLECT_LIBRARY',
                 payload: params.library
             });
             /*
@@ -179,19 +183,19 @@ const CommonsCatalog = (_props) => {
         }
         if ((params.subject !== undefined) && (params.subject !== subjectFilter)) {
             dispatch({
-                type: 'SET_CATALOG_SUBJECT',
+                type: 'SET_COLLECT_SUBJECT',
                 payload: params.subject
             });
         }
         if ((params.license !== undefined) && (params.license !== licenseFilter)) {
             dispatch({
-                type: 'SET_CATALOG_LICENSE',
+                type: 'SET_COLLECT_LICENSE',
                 payload: params.license
             });
         }
         if ((params.author !== undefined) && (params.author !== authorFilter)) {
             dispatch({
-                type: 'SET_CATALOG_AUTHOR',
+                type: 'SET_COLLECT_AUTHOR',
                 payload: params.author
             });
         }
@@ -218,7 +222,7 @@ const CommonsCatalog = (_props) => {
     const generateAuthorList = () => {
         var authors = [];
         var newAuthorOptions = [];
-        catalogBooks.forEach((item) => {
+        collBooks.forEach((item) => {
             if (item.author && !isEmptyString(item.author)) {
                 var normalizedAuthor = String(item.author).toLowerCase().replace(/\W/g, "");
                 if (!authors.includes(normalizedAuthor)) {
@@ -251,7 +255,7 @@ const CommonsCatalog = (_props) => {
     const generateSubjectList = () => {
         var subjects = [];
         var newSubjectOptions = [];
-        catalogBooks.forEach((item) => {
+        collBooks.forEach((item) => {
             if (item.subject && !isEmptyString(item.subject)) {
                 var normalizedSubject = String(item.subject).toLowerCase().replace(/\W/g, "");
                 if (!subjects.includes(normalizedSubject)) {
@@ -284,7 +288,7 @@ const CommonsCatalog = (_props) => {
     useEffect(() => {
         filterAndSortBooks();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [catalogBooks, libraryFilter, subjectFilter, authorFilter, licenseFilter, searchString, sortChoice]);
+    }, [collBooks, libraryFilter, subjectFilter, authorFilter, licenseFilter, searchString, sortChoice]);
 
     /**
      * Filter and sort books according
@@ -293,7 +297,7 @@ const CommonsCatalog = (_props) => {
      */
     const filterAndSortBooks = () => {
         setLoadedData(false);
-        let filtered = catalogBooks.filter((book) => {
+        let filtered = collBooks.filter((book) => {
             var include = true;
             var descripString = String(book.title).toLowerCase() + String(book.author).toLowerCase() +
                 String(book.library).toLowerCase() + String(book.subject).toLowerCase() +
@@ -747,4 +751,4 @@ const CommonsCatalog = (_props) => {
     )
 }
 
-export default CommonsCatalog;
+export default CommonsCollectionView;
