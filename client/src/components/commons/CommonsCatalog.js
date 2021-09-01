@@ -12,9 +12,10 @@ import {
     Table,
     Header,
     Accordion,
-    Icon
+    Icon,
+    Button
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
@@ -32,7 +33,7 @@ import {
 } from '../util/LibraryOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
-import { itemsPerPageOptions } from '../util/PaginationOptions.js';
+import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
@@ -51,30 +52,33 @@ const CommonsCatalog = (_props) => {
     const [pageBooks, setPageBooks] = useState([]);
 
     /** UI **/
-    const itemsPerPage = useSelector((state) => state.filters.commonsCatalog.itemsPerPage);
+    const [itemsPerPage, setItemsPerPage] = useState(6);
     const [totalPages, setTotalPages] = useState(1);
     const [activePage, setActivePage] = useState(1);
     const [loadedData, setLoadedData] = useState(false);
     const [loadedFilters, setLoadedFilters] = useState(false);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-    // Library, Subject, Author, and License Filters
-    const libraryFilter = useSelector((state) => state.filters.commonsCatalog.library);
-    const subjectFilter = useSelector((state) => state.filters.commonsCatalog.subject);
-    const authorFilter = useSelector((state) => state.filters.commonsCatalog.author);
-    const licenseFilter = useSelector((state) => state.filters.commonsCatalog.license);
-    const instFilter = useSelector((state) => state.filters.commonsCatalog.institution);
-    const courseFilter = useSelector((state) => state.filters.commonsCatalog.course);
+    const initialSearch = useRef(false);
+    const checkedParams = useRef(false);
+
+    // Content Filters
+    const [searchString, setSearchString] = useState('');
+    const [libraryFilter, setLibraryFilter] = useState('');
+    const [subjectFilter, setSubjectFilter] = useState('');
+    const [authorFilter, setAuthorFilter] = useState('');
+    const [licenseFilter, setLicenseFilter] = useState('');
+    const [affilFilter, setAffilFilter] = useState('');
+    const [courseFilter, setCourseFilter] = useState('');
 
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [authorOptions, setAuthorOptions] = useState([]);
-    const [instOptions, setInstOptions] = useState([]);
+    const [affOptions, setAffOptions] = useState([]);
     const [courseOptions, setCourseOptions] = useState([]);
 
     // Sort and Search Filters
-    const sortChoice = useSelector((state) => state.filters.commonsCatalog.sort);
-    const [searchString, setSearchString] = useState('');
-    const displayChoice = useSelector((state) => state.filters.commonsCatalog.mode);
+    const [sortChoice, setSortChoice] = useState('title');
+    const [displayChoice, setDisplayChoice] = useState('visual');
 
     const sortOptions = [
         { key: 'title', text: 'Sort by Title', value: 'title' },
@@ -82,14 +86,14 @@ const CommonsCatalog = (_props) => {
     ];
 
     /**
-     * Load books from server
+     * Get filter options from server
      * on initial load.
      */
     useEffect(() => {
-        getCommonsCatalog();
         getFilterOptions();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
 
     /**
      * Update the page title based on
@@ -104,20 +108,34 @@ const CommonsCatalog = (_props) => {
     }, [org]);
 
     /**
-     * Send a new query to the server when filters,
-     * the sort option, or the search
-     * string change.
+     * Build the new search URL and
+     * push it onto the history stack.
+     * Change to location triggers the
+     * network request to fetch results.
      */
-    useEffect(() => {
-        getCommonsCatalog();
-    }, [libraryFilter, subjectFilter, authorFilter, licenseFilter,
-        instFilter, courseFilter, searchString, sortChoice]);
+    const performSearch = () => {
+        if (!initialSearch.current) {
+            initialSearch.current = true;
+        }
+        var searchURL = location.search;
+        searchURL = updateParams(searchURL, 'search', searchString);
+        searchURL = updateParams(searchURL, 'library', libraryFilter);
+        searchURL = updateParams(searchURL, 'subject', subjectFilter)
+        searchURL = updateParams(searchURL, 'author', authorFilter);
+        searchURL = updateParams(searchURL, 'license', licenseFilter);
+        searchURL = updateParams(searchURL, 'affiliation', affilFilter);
+        searchURL = updateParams(searchURL, 'course', courseFilter);
+        history.push({
+            pathname: location.pathname,
+            search: searchURL
+        });
+    };
 
     /**
      * Perform GET request for books
      * and update catalogBooks.
      */
-    const getCommonsCatalog = () => {
+    const searchCommonsCatalog = () => {
         setLoadedData(false);
         var paramsObj = {
             sort: sortChoice
@@ -134,8 +152,8 @@ const CommonsCatalog = (_props) => {
         if (!isEmptyString(licenseFilter)) {
             paramsObj.license = licenseFilter;
         }
-        if (!isEmptyString(instFilter)) {
-            paramsObj.institution = instFilter;
+        if (!isEmptyString(affilFilter)) {
+            paramsObj.affiliation = affilFilter;
         }
         if (!isEmptyString(courseFilter)) {
             paramsObj.course = courseFilter;
@@ -193,18 +211,18 @@ const CommonsCatalog = (_props) => {
                     })
                     setSubjectOptions(subjectOptions);
                 }
-                if (res.data.institutions && Array.isArray(res.data.institutions)) {
-                    var instOptions = [
+                if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
+                    var affOptions = [
                         { key: 'empty', text: 'Clear...', value: '' }
                     ];
-                    res.data.institutions.forEach((institution) => {
-                        instOptions.push({
-                            key: institution,
-                            text: institution,
-                            value: institution
+                    res.data.affiliations.forEach((affiliation) => {
+                        affOptions.push({
+                            key: affiliation,
+                            text: affiliation,
+                            value: affiliation
                         });
                     });
-                    setInstOptions(instOptions);
+                    setAffOptions(affOptions);
                 }
                 if (res.data.courses && Array.isArray(res.data.courses)) {
                     var courseOptions = [
@@ -230,6 +248,48 @@ const CommonsCatalog = (_props) => {
     };
 
     /**
+     * Perform the Catalog search based on
+     * URL query change after ensuring the
+     * initial URL params sync has been
+     * performed.
+     */
+    useEffect(() => {
+        if (checkedParams.current && initialSearch.current) {
+            searchCommonsCatalog();
+        }
+    }, [checkedParams.current, initialSearch.current, location.search]);
+
+    /**
+     * Update the URL query with the sort choice
+     * AFTER a search has been performed and a
+     * change has been made.
+     */
+    useEffect(() => {
+        if (initialSearch.current) {
+            var searchURL = updateParams(location.search, 'sort', sortChoice);
+            history.push({
+                pathname: location.pathname,
+                search: searchURL
+            });
+        }
+    }, [sortChoice]);
+
+    /**
+     * Update the URL query with the display mode
+     * AFTER a search has been performed and a
+     * change has been made.
+     */
+    useEffect(() => {
+        if (initialSearch.current) {
+            var searchURL = updateParams(location.search, 'mode', displayChoice);
+            history.push({
+                pathname: location.pathname,
+                search: searchURL
+            });
+        }
+    }, [displayChoice]);
+
+    /**
      * Track changes to the number of books loaded
      * and the selected itemsPerPage and update the
      * set of books to display.
@@ -245,84 +305,49 @@ const CommonsCatalog = (_props) => {
      */
     useEffect(() => {
         var params = queryString.parse(location.search);
+        if ((Object.keys(params).length > 0) && (!initialSearch.current)) {
+            // enable results for those entering a direct search URL
+            initialSearch.current = true;
+        }
         if (params.mode && params.mode !== displayChoice) {
             if ((params.mode === 'visual') || (params.mode === 'itemized')) {
-                dispatch({
-                    type: 'SET_CATALOG_MODE',
-                    payload: params.mode
-                });
+                setDisplayChoice(params.mode);
             }
         }
         if (params.items && params.items !== itemsPerPage) {
             if (!isNaN(parseInt(params.items))) {
-                dispatch({
-                    type: 'SET_CATALOG_ITEMS',
-                    payload: parseInt(params.items)
-                });
+                setItemsPerPage(params.items);
             }
         }
+        if ((params.search !== undefined) && (params.search !== searchString)) {
+            setSearchString(params.search);
+        }
         if ((params.sort !== undefined) && (params.sort !== sortChoice)) {
-            dispatch({
-                type: 'SET_CATALOG_SORT',
-                payload: params.sort
-            });
+            setSortChoice(params.sort);
         }
         if ((params.library !== undefined) && (params.library !== libraryFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_LIBRARY',
-                payload: params.library
-            });
-            /*
-            const newShelfOptions = getShelfOptions(params.library);
-            setSubjectOptions(newShelfOptions[0]);
-            setDisableSubjectFilter(newShelfOptions[1]);
-            */
+            setLibraryFilter(params.library);
         }
         if ((params.subject !== undefined) && (params.subject !== subjectFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_SUBJECT',
-                payload: params.subject
-            });
+            setSubjectFilter(params.subject);
         }
         if ((params.license !== undefined) && (params.license !== licenseFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_LICENSE',
-                payload: params.license
-            });
+            setLicenseFilter(params.license);
         }
         if ((params.author !== undefined) && (params.author !== authorFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_AUTHOR',
-                payload: params.author
-            });
+            setAuthorFilter(params.author);
         }
-        if ((params.institution !== undefined) && (params.institution !== instFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_INST',
-                payload: params.institution
-            });
+        if ((params.affiliation !== undefined) && (params.affiliation !== affilFilter)) {
+            setAffilFilter(params.affiliation);
         }
         if ((params.course !== undefined) && (params.course !== courseFilter)) {
-            dispatch({
-                type: 'SET_CATALOG_COURSE',
-                payload: params.course
-            });
+            setCourseFilter(params.course);
+        }
+        if (!checkedParams.current) { // set the initial URL params sync to complete
+            checkedParams.current = true;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.search]);
-
-    /**
-     * Set the chosen Library filter and
-     * update the corresponding shelves list.
-     */
-    const setLibrary = (_e, { value }) => {
-        var newLib = updateParams(location.search, 'library', value);
-        //var newSearch = updateParams(newLib, 'subject', '');
-        history.push({
-            pathname: location.pathname,
-            search: newLib
-        });
-    };
 
     const VisualMode = () => {
         if (pageBooks.length > 0) {
@@ -340,6 +365,7 @@ const CommonsCatalog = (_props) => {
                                     src={item.thumbnail}
                                     wrapped
                                     ui={false}
+                                    loading='lazy'
                                 />
                                 <Card.Content>
                                     <Card.Header>{item.title}</Card.Header>
@@ -349,8 +375,8 @@ const CommonsCatalog = (_props) => {
                                     </Card.Meta>
                                     <Card.Description>
                                         <p>{item.author}</p>
-                                        {((process.env.REACT_APP_ORG_ID === 'libretexts') && (item.institution !== '')) &&
-                                            <p><em>{item.institution}</em></p>
+                                        {((process.env.REACT_APP_ORG_ID === 'libretexts') && (item.affiliation !== '')) &&
+                                            <p><em>{item.affiliation}</em></p>
                                         }
                                     </Card.Description>
                                 </Card.Content>
@@ -396,7 +422,7 @@ const CommonsCatalog = (_props) => {
                                     </Table.Cell>
                                     {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                                         <Table.Cell>
-                                            <p><em>{item.institution}</em></p>
+                                            <p><em>{item.affiliation}</em></p>
                                         </Table.Cell>
                                     }
                                 </Table.Row>
@@ -421,37 +447,127 @@ const CommonsCatalog = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
+                        <Segment padded>
+                            <Breakpoint name='desktop'>
+                                <Header id='commons-librecommons-intro-header'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
+                                <p id='commons-librecommons-intro'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
+                                <Header id='commons-librecommons-intro-header' textAlign='center'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
+                                <p id='commons-librecommons-intro' className='text-center'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                            </Breakpoint>
+                        </Segment>
                         <Segment>
                             <Breakpoint name='desktop'>
-                                <Grid>
-                                    <Grid.Row>
-                                        <Grid.Column width={6}>
+                                <Grid className={initialSearch.current ? '' : 'mt-1r mb-1r'}>
+                                    <Grid.Row centered>
+                                        <Grid.Column width={14}>
                                             <Input
                                                 icon='search'
                                                 placeholder='Search...'
-                                                className='commons-filter'
+                                                className='commons-filter commons-search-input'
                                                 iconPosition='left'
-                                                onChange={(e) => { setSearchString(e.target.value) }}
+                                                onChange={(e) => {
+                                                    setSearchString(e.target.value);
+                                                }}
                                                 value={searchString}
                                                 fluid
                                             />
                                         </Grid.Column>
-                                        <Grid.Column width={10}>
+                                    </Grid.Row>
+                                    <Grid.Row centered>
+                                        <Grid.Column width={14} id='commons-filters-desktop'>
                                             <Dropdown
-                                                placeholder='Sort by...'
+                                                placeholder='Library'
                                                 floating
                                                 selection
                                                 button
-                                                className='float-right commons-filter'
-                                                options={sortOptions}
+                                                options={libraryOptions}
                                                 onChange={(_e, { value }) => {
-                                                    history.push({
-                                                        pathname: location.pathname,
-                                                        search: updateParams(location.search, 'sort', value)
-                                                    });
+                                                    setLibraryFilter(value);
                                                 }}
-                                                value={sortChoice}
+                                                value={libraryFilter}
+                                                className='commons-filter'
                                             />
+                                            <Dropdown
+                                                placeholder='Subject'
+                                                floating
+                                                search
+                                                selection
+                                                button
+                                                options={subjectOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setSubjectFilter(value);
+                                                }}
+                                                value={subjectFilter}
+                                                loading={!loadedFilters}
+                                                className='commons-filter'
+                                            />
+                                            <Dropdown
+                                                placeholder='Author'
+                                                floating
+                                                search
+                                                selection
+                                                button
+                                                options={authorOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setAuthorFilter(value);
+                                                }}
+                                                value={authorFilter}
+                                                loading={!loadedFilters}
+                                                className='commons-filter'
+                                            />
+                                            <Dropdown
+                                                placeholder='License'
+                                                floating
+                                                selection
+                                                button
+                                                options={licenseOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setLicenseFilter(value);
+                                                }}
+                                                value={licenseFilter}
+                                                className='commons-filter'
+                                            />
+                                            <Dropdown
+                                                placeholder='Affiliation'
+                                                floating
+                                                search
+                                                selection
+                                                button
+                                                options={affOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setAffilFilter(value);
+                                                }}
+                                                value={affilFilter}
+                                                loading={!loadedFilters}
+                                                className='commons-filter'
+                                            />
+                                            <Dropdown
+                                                placeholder='Campus or Course'
+                                                floating
+                                                search
+                                                selection
+                                                button
+                                                options={courseOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setCourseFilter(value);
+                                                }}
+                                                value={courseFilter}
+                                                loading={!loadedFilters}
+                                                className='commons-filter'
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row centered>
+                                        <Grid.Column width={5}>
+                                            <Button
+                                                fluid
+                                                className='commons-search-button'
+                                                onClick={performSearch}
+                                            >
+                                                SEARCH
+                                            </Button>
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>
@@ -460,22 +576,24 @@ const CommonsCatalog = (_props) => {
                                 <Input
                                     icon='search'
                                     placeholder='Search...'
-                                    className='commons-filter'
+                                    className='commons-filter commons-search-input'
                                     iconPosition='left'
-                                    onChange={(e) => { setSearchString(e.target.value) }}
+                                    onChange={(e) => {
+                                        setSearchString(e.target.value)
+                                    }}
                                     value={searchString}
                                     fluid
                                 />
                                 <Accordion
                                     fluid
-                                    className='mt-1p'
+                                    className='mt-1r'
                                 >
                                     <Accordion.Title
                                         active={showMobileFilters}
                                         onClick={() => { setShowMobileFilters(!showMobileFilters) }}
                                     >
                                         <Icon name='dropdown' />
-                                        <strong>Filter and Sort</strong>
+                                        <strong>Filters</strong>
                                     </Accordion.Title>
                                     <Accordion.Content active={showMobileFilters}>
                                         <Dropdown
@@ -484,7 +602,9 @@ const CommonsCatalog = (_props) => {
                                             selection
                                             button
                                             options={libraryOptions}
-                                            onChange={setLibrary}
+                                            onChange={(_e, { value }) => {
+                                                setLibraryFilter(value);
+                                            }}
                                             value={libraryFilter}
                                             fluid
                                             className='commons-filter'
@@ -497,10 +617,7 @@ const CommonsCatalog = (_props) => {
                                             button
                                             options={subjectOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'subject', value)
-                                                });
+                                                setSubjectFilter(value);
                                             }}
                                             value={subjectFilter}
                                             loading={!loadedFilters}
@@ -515,10 +632,7 @@ const CommonsCatalog = (_props) => {
                                             button
                                             options={authorOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'author', value)
-                                                });
+                                                setAuthorFilter(value);
                                             }}
                                             value={authorFilter}
                                             loading={!loadedFilters}
@@ -532,29 +646,23 @@ const CommonsCatalog = (_props) => {
                                             button
                                             options={licenseOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'license', value)
-                                                });
+                                                setLicenseFilter(value);
                                             }}
                                             value={licenseFilter}
                                             fluid
                                             className='commons-filter'
                                         />
                                         <Dropdown
-                                            placeholder='Institution'
+                                            placeholder='Affiliation'
                                             floating
                                             search
                                             selection
                                             button
-                                            options={instOptions}
+                                            options={affOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'institution', value)
-                                                });
+                                                setAffilFilter(value);
                                             }}
-                                            value={instFilter}
+                                            value={affilFilter}
                                             loading={!loadedFilters}
                                             fluid
                                             className='commons-filter'
@@ -567,241 +675,152 @@ const CommonsCatalog = (_props) => {
                                             button
                                             options={courseOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'course', value)
-                                                });
+                                                setCourseFilter(value);
                                             }}
                                             value={courseFilter}
                                             loading={!loadedFilters}
                                             fluid
                                             className='commons-filter'
                                         />
-                                        <Dropdown
-                                            placeholder='Sort by...'
-                                            floating
-                                            selection
-                                            button
-                                            options={sortOptions}
-                                            onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'sort', value)
-                                                });
-                                            }}
-                                            value={sortChoice}
-                                            fluid
-                                            className='commons-filter'
-                                        />
                                     </Accordion.Content>
                                 </Accordion>
-                            </Breakpoint>
-                        </Segment>
-                        <Breakpoint name='desktop'>
-                            <Segment>
-                                <Dropdown
-                                    placeholder='Library'
-                                    floating
-                                    selection
-                                    button
-                                    options={libraryOptions}
-                                    onChange={setLibrary}
-                                    value={libraryFilter}
-                                    className='commons-filter'
-                                />
-                                <Dropdown
-                                    placeholder='Subject'
-                                    floating
-                                    search
-                                    selection
-                                    button
-                                    options={subjectOptions}
-                                    onChange={(_e, { value }) => {
-                                        history.push({
-                                            pathname: location.pathname,
-                                            search: updateParams(location.search, 'subject', value)
-                                        });
-                                    }}
-                                    value={subjectFilter}
-                                    loading={!loadedFilters}
-                                    className='commons-filter'
-                                />
-                                <Dropdown
-                                    placeholder='Author'
-                                    floating
-                                    search
-                                    selection
-                                    button
-                                    options={authorOptions}
-                                    onChange={(_e, { value }) => {
-                                        history.push({
-                                            pathname: location.pathname,
-                                            search: updateParams(location.search, 'author', value)
-                                        });
-                                    }}
-                                    value={authorFilter}
-                                    loading={!loadedFilters}
-                                    className='commons-filter'
-                                />
-                                <Dropdown
-                                    placeholder='License'
-                                    floating
-                                    selection
-                                    button
-                                    options={licenseOptions}
-                                    onChange={(_e, { value }) => {
-                                        history.push({
-                                            pathname: location.pathname,
-                                            search: updateParams(location.search, 'license', value)
-                                        });
-                                    }}
-                                    value={licenseFilter}
-                                    className='commons-filter'
-                                />
-                                <Dropdown
-                                    placeholder='Institution'
-                                    floating
-                                    search
-                                    selection
-                                    button
-                                    options={instOptions}
-                                    onChange={(_e, { value }) => {
-                                        history.push({
-                                            pathname: location.pathname,
-                                            search: updateParams(location.search, 'institution', value)
-                                        });
-                                    }}
-                                    value={instFilter}
-                                    loading={!loadedFilters}
-                                    className='commons-filter'
-                                />
-                                <Dropdown
-                                    placeholder='Campus or Course'
-                                    floating
-                                    search
-                                    selection
-                                    button
-                                    options={courseOptions}
-                                    onChange={(_e, { value }) => {
-                                        history.push({
-                                            pathname: location.pathname,
-                                            search: updateParams(location.search, 'course', value)
-                                        });
-                                    }}
-                                    value={courseFilter}
-                                    loading={!loadedFilters}
-                                    className='commons-filter'
-                                />
-                            </Segment>
-                        </Breakpoint>
-                        <Segment>
-                            <Breakpoint name='desktop'>
-                                <div className='commons-content-pagemenu'>
-                                    <div className='commons-content-pagemenu-left'>
-                                        <span>Displaying </span>
-                                        <Dropdown
-                                            className='commons-content-pagemenu-dropdown'
-                                            selection
-                                            options={itemsPerPageOptions}
-                                            onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'items', value)
-                                                });
-                                            }}
-                                            value={itemsPerPage}
-                                        />
-                                        <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                    </div>
-                                    <div className='commons-content-pagemenu-right'>
-                                        <Dropdown
-                                            placeholder='Display mode...'
-                                            floating
-                                            selection
-                                            button
-                                            className='float-right'
-                                            options={catalogDisplayOptions}
-                                            onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'mode', value)
-                                                });
-                                            }}
-                                            value={displayChoice}
-                                        />
-                                        <Pagination
-                                            activePage={activePage}
-                                            totalPages={totalPages}
-                                            firstItem={null}
-                                            lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                        />
-                                    </div>
-                                </div>
-                            </Breakpoint>
-                            <Breakpoint name='mobileOrTablet'>
                                 <Grid>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column>
-                                            <div className='center-flex flex-wrap'>
-                                                <span>Displaying </span>
-                                                <Dropdown
-                                                    className='commons-content-pagemenu-dropdown'
-                                                    selection
-                                                    options={itemsPerPageOptions}
-                                                    onChange={(_e, { value }) => {
-                                                        history.push({
-                                                            pathname: location.pathname,
-                                                            search: updateParams(location.search, 'items', value)
-                                                        });
-                                                    }}
-                                                    value={itemsPerPage}
-                                                />
-                                                <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                            </div>
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column>
-                                            <Dropdown
-                                                placeholder='Display mode...'
-                                                floating
-                                                selection
-                                                button
-                                                className='float-right'
-                                                options={catalogDisplayOptions}
-                                                onChange={(_e, { value }) => {
-                                                    history.push({
-                                                        pathname: location.pathname,
-                                                        search: updateParams(location.search, 'mode', value)
-                                                    });
-                                                }}
-                                                value={displayChoice}
+                                    <Grid.Row centered>
+                                        <Grid.Column width={8}>
+                                            <Button
                                                 fluid
-                                            />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row columns={1}>
-                                        <Grid.Column id='commons-pagination-mobile-container'>
-                                            <Pagination
-                                                activePage={activePage}
-                                                totalPages={totalPages}
-                                                siblingRange={1}
-                                                firstItem={null}
-                                                lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                            />
+                                                className='commons-search-button mt-2r mb-1r'
+                                                onClick={performSearch}
+                                            >
+                                                SEARCH
+                                            </Button>
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>
                             </Breakpoint>
                         </Segment>
-                        <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
-                            {displayChoice === 'visual'
-                                ? (<VisualMode />)
-                                : (<ItemizedMode />)
-                            }
-                        </Segment>
+                        {(initialSearch.current) &&
+                            <Segment>
+                                <Breakpoint name='desktop'>
+                                    <div className='commons-content-pagemenu'>
+                                        <div className='commons-content-pagemenu-left'>
+                                            <span>Displaying </span>
+                                            <Dropdown
+                                                className='commons-content-pagemenu-dropdown'
+                                                selection
+                                                options={catalogItemsPerPageOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setItemsPerPage(value);
+                                                }}
+                                                value={itemsPerPage}
+                                            />
+                                            <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                        </div>
+                                        <div className='commons-content-pagemenu-right'>
+                                            <Dropdown
+                                                placeholder='Sort by...'
+                                                floating
+                                                selection
+                                                button
+                                                options={sortOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setSortChoice(value);
+                                                }}
+                                                value={sortChoice}
+                                            />
+                                            <Dropdown
+                                                placeholder='Display mode...'
+                                                floating
+                                                selection
+                                                button
+                                                options={catalogDisplayOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setDisplayChoice(value);
+                                                }}
+                                                value={displayChoice}
+                                            />
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            />
+                                        </div>
+                                    </div>
+                                </Breakpoint>
+                                <Breakpoint name='mobileOrTablet'>
+                                    <Grid>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column>
+                                                <div className='center-flex flex-wrap'>
+                                                    <span>Displaying </span>
+                                                    <Dropdown
+                                                        className='commons-content-pagemenu-dropdown'
+                                                        selection
+                                                        options={catalogItemsPerPageOptions}
+                                                        onChange={(_e, { value }) => {
+                                                            setItemsPerPage(value);
+                                                        }}
+                                                        value={itemsPerPage}
+                                                    />
+                                                    <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                                </div>
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column>
+                                                <Dropdown
+                                                    placeholder='Display mode...'
+                                                    floating
+                                                    selection
+                                                    button
+                                                    options={catalogDisplayOptions}
+                                                    onChange={(_e, { value }) => {
+                                                        setDisplayChoice(value);
+                                                    }}
+                                                    value={displayChoice}
+                                                    fluid
+                                                />
+                                                <Dropdown
+                                                    placeholder='Sort by...'
+                                                    floating
+                                                    selection
+                                                    button
+                                                    options={sortOptions}
+                                                    onChange={(_e, { value }) => {
+                                                        setSortChoice(value);
+                                                    }}
+                                                    value={sortChoice}
+                                                    fluid
+                                                    className='commons-filter'
+                                                />
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column id='commons-pagination-mobile-container'>
+                                                <Pagination
+                                                    activePage={activePage}
+                                                    totalPages={totalPages}
+                                                    siblingRange={1}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                />
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                    </Grid>
+                                </Breakpoint>
+                            </Segment>
+                        }
+                        {(initialSearch.current) &&
+                            <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
+                                {displayChoice === 'visual'
+                                    ? (<VisualMode />)
+                                    : (<ItemizedMode />)
+                                }
+                            </Segment>
+                        }
                     </Segment.Group>
                 </Grid.Column>
             </Grid.Row>

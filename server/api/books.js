@@ -107,7 +107,7 @@ const checkValidImport = (book) => {
     }
     if (book.id === undefined || book.id === null || isEmptyString(book.id)) {
         isValidImport = false;
-        validationFails.push('ID');
+        validationFails.push('coverPageID');
     }
     if (!isValidImport && validationFails.length > 0) {
         var debugString = "Not importing 1 book — missing fields: " + validationFails.join(',');
@@ -145,7 +145,7 @@ const syncWithLibraries = (_req, res) => {
             if (checkValidImport(book)) {
                 var link = ''
                 var author = '';
-                var institution = '';
+                var affiliation = '';
                 var license = '';
                 var subject = '';
                 var course = '';
@@ -171,7 +171,7 @@ const syncWithLibraries = (_req, res) => {
                     }
                 }
                 if (book.author) author = book.author;
-                if (book.institution) institution = book.institution;
+                if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
                 if (book.tags && Array.isArray(book.tags)) {
                     var foundLic = book.tags.find((tag) => {
                         if (tag.includes('license:')) {
@@ -199,7 +199,7 @@ const syncWithLibraries = (_req, res) => {
                         files: genPubFilesLink(book.zipFilename),
                         lms: genLMSFileLink(book.zipFilename)
                     },
-                    institution: institution
+                    affiliation: affiliation
                 };
                 commonsBooks.push(newCommonsBook);
             }
@@ -280,8 +280,8 @@ const getCommonsCatalog = (req, res) => {
         matchObj.license = req.query.license;
         hasSearchParams = true;
     }
-    if (req.query.institution && !isEmptyString(req.query.institution)) {
-        matchObj.institution = req.query.institution;
+    if (req.query.affiliation && !isEmptyString(req.query.affiliation)) {
+        matchObj.affiliation = req.query.affiliation;
         hasSearchParams = true;
     }
     if (req.query.sort && !isEmptyString(req.query.sort)) {
@@ -379,7 +379,7 @@ const getMasterCatalog = (req, res) => {
 const getCatalogFilterOptions = (_req, res) => {
     var authors = [];
     var subjects = [];
-    var institutions = [];
+    var affiliations = [];
     var courses = [];
     Book.aggregate([
         {
@@ -389,7 +389,7 @@ const getCatalogFilterOptions = (_req, res) => {
                 _id: 0,
                 author: 1,
                 subject: 1,
-                institution: 1,
+                affiliation: 1,
                 course: 1
             }
         }
@@ -405,9 +405,9 @@ const getCatalogFilterOptions = (_req, res) => {
                     subjects.push(book.subject);
                 }
             }
-            if (book.institution && !isEmptyString(book.institution)) {
-                if (!institutions.includes(book.institution)) {
-                    institutions.push(book.institution);
+            if (book.affiliation && !isEmptyString(book.affiliation)) {
+                if (!affiliations.includes(book.affiliation)) {
+                    affiliations.push(book.affiliation);
                 }
             }
             if (book.course && !isEmptyString(book.course)) {
@@ -438,7 +438,7 @@ const getCatalogFilterOptions = (_req, res) => {
             }
             return 0;
         });
-        institutions.sort((a, b) => {
+        affiliations.sort((a, b) => {
             var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
             var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
             if (normalizedA < normalizedB) {
@@ -464,7 +464,7 @@ const getCatalogFilterOptions = (_req, res) => {
             err: false,
             authors: authors,
             subjects: subjects,
-            institutions: institutions,
+            affiliations: affiliations,
             courses: courses
         });
     }).catch((err) => {
@@ -529,7 +529,7 @@ const validate = (method) => {
                 query('subject', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1}),
                 query('author', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
-                query('institution', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+                query('affiliation', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('course', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
             ]

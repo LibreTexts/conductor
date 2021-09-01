@@ -22,7 +22,7 @@ import queryString from 'query-string';
 import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
-import { itemsPerPageOptions } from '../util/PaginationOptions.js';
+import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
     truncateString,
     updateParams
@@ -232,7 +232,7 @@ const CommonsADAPTCatalog = (_props) => {
     const VisualMode = () => {
         if (pageCourses.length > 0) {
             return (
-                <Card.Group itemsPerRow={5} stackable>
+                <Card.Group itemsPerRow={6} stackable>
                     {pageCourses.map((item, index) => {
                         return (
                             <Card
@@ -335,7 +335,7 @@ const CommonsADAPTCatalog = (_props) => {
                                         <Dropdown
                                             className='commons-content-pagemenu-dropdown'
                                             selection
-                                            options={itemsPerPageOptions}
+                                            options={catalogItemsPerPageOptions}
                                             onChange={(_e, { value }) => {
                                                 history.push({
                                                     pathname: location.pathname,
@@ -400,7 +400,7 @@ const CommonsADAPTCatalog = (_props) => {
                                                 <Dropdown
                                                     className='commons-content-pagemenu-dropdown'
                                                     selection
-                                                    options={itemsPerPageOptions}
+                                                    options={catalogItemsPerPageOptions}
                                                     onChange={(_e, { value }) => {
                                                         history.push({
                                                             pathname: location.pathname,

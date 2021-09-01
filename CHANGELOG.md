@@ -1,5 +1,17 @@
 # Changelog
 
+## 09-01-2021
+#### :art: UI/UX
+* Book "Institution" is now referred to as "Affiliation"
+* UI updates in Control Panel
+* UI updates in Commons Catalog
+* Commons Catalog results now appear only after a search has been performed
+* Commons Catalog no longer updates immediately on filter change
+* Switched to local store in Catalog to improve performance & reduce complexity
+
+#### :satellite: Server
+* Book "Institution" is now referred to as "Affiliation"
+
 ## 08-31-2021
 #### :art: UI/UX
 * Changed Filters layout in the Commons Catalog to support new filters

@@ -7,27 +7,28 @@
 const filtersInitialState = {
     adaptCatalog: {
         mode: 'visual',
-        itemsPerPage: 10,
+        itemsPerPage: 6,
         activePage: 1 // not used as URL param
     },
     commonsCatalog: {
         mode: 'visual',
-        itemsPerPage: 10,
-        activePage: 1, // not used as URL param
+        itemsPerPage: 6,
+        activePage: 1, // not used as URL param,
+        search: '',
         sort: 'title',
         library: '',
         subject: '',
         author: '',
         license: '',
-        institution: '',
-        course: ''
+        affiliation: '',
+        course: '',
     },
     collections: {
         mode: 'visual'
     },
     collectionView: {
         mode: 'visual',
-        itemsPerPage: 10,
+        itemsPerPage: 6,
         activePage: 1, // not used as URL param
         sort: 'title',
         library: '',
@@ -95,6 +96,14 @@ export default function filterReducer(state = filtersInitialState, action) {
                     activePage: action.payload
                 }
             }
+        case 'SET_CATALOG_SEARCH':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    search: action.payload
+                }
+            }
         case 'SET_CATALOG_SORT':
             return {
                 ...state,
@@ -135,12 +144,12 @@ export default function filterReducer(state = filtersInitialState, action) {
                     license: action.payload
                 }
             }
-        case 'SET_CATALOG_INST':
+        case 'SET_CATALOG_AFFIL':
             return {
                 ...state,
                 commonsCatalog: {
                     ...state.commonsCatalog,
-                    institution: action.payload
+                    affiliation: action.payload
                 }
             }
         case 'SET_CATALOG_COURSE':

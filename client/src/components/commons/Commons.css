@@ -180,15 +180,6 @@
     height: 50px;
 }
 
-/** Override pointing menu colors **/
-.ui.secondary.pointing.menu .active.item {
-    border-color: #FFFFFF;
-}
-
-.ui.secondary.pointing.menu .active.item:hover {
-    border-color: #C9C9C9;
-}
-
 #commons-mobilelinks {
     margin: 0;
     padding: 0;
@@ -208,7 +199,49 @@
     color: #FFFFFF;
 }
 
+/** Override pointing menu colors **/
+.ui.secondary.pointing.menu .active.item {
+    border-color: #FFFFFF;
+}
+
+.ui.secondary.pointing.menu .active.item:hover {
+    border-color: #C9C9C9;
+}
+
+
 /* Filters and Pagination */
+.commons-search-input {
+    color: #0A7CC5 !important;
+    box-shadow: 0px 0px 1px 0px #c2c2c2 !important;
+    -webkit-box-shadow: 0px 0px 1px 0px #c2c2c2 !important;
+}
+
+.commons-search-button {
+    background-color: #0A7CC5 !important;
+    color: #FFFFFF !important;
+    height: 40px !important;
+}
+
+#commons-librecommons-intro-header {
+    font-size: 1.5em;
+}
+
+#commons-librecommons-intro {
+    font-size: 1.1em;
+}
+
+.commons-search-intro {
+    font-size: 1.2em;
+}
+
+#commons-filters-desktop {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 .commons-filter {
     margin-top: 0.25rem !important;
 }
@@ -242,6 +275,7 @@
 .commons-content-pagemenu-dropdown {
     margin-left: 1rem;
     margin-right: 1rem;
+    min-width: 5em !important;
 }
 
 #commons-pagination-mobile-container {

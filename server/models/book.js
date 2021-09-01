@@ -34,7 +34,7 @@ const BookSchema = new Schema({
         files: String,          //      download publication/print files
         lms: String             //      download the LMS import file
     },
-    institution: String        // the ORIGIN institution (via Libraries import)
+    affiliation: String        // the book's institutional affiliation
 }, {
     timestamps: true
 });
@@ -46,7 +46,7 @@ BookSchema.index({
     subject: 'text',
     course: 'text',
     license: 'text',
-    institution: 'text'
+    affiliation: 'text'
 });
 
 const Book = mongoose.model('Book', BookSchema);

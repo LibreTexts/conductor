@@ -403,9 +403,9 @@ const BooksManager = (props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'institution')
-                                                ? <span><em>Institution</em></span>
-                                                : <span>Institution</span>
+                                            {(sortChoice === 'affiliation')
+                                                ? <span><em>Affiliation</em></span>
+                                                : <span>Affiliation</span>
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
@@ -441,7 +441,7 @@ const BooksManager = (props) => {
                                                         <p>{getLicenseText(item.license)}</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <p>{item.institution}</p>
+                                                        <p>{item.affiliation}</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{item.course}</p>

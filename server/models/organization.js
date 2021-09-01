@@ -18,6 +18,7 @@ const OrganizationSchema = new Schema({
     },
     shortName: String,              // the organization's shortened name
     abbreviation: String,           // the organization's abbreviation
+    aliases: [String],              // other names the organization may be referred to by (internal use)
     coverPhoto: String,             // the organization's large "cover photo"
     largeLogo: String,              // the organization's large/main logo
     mediumLogo: String,             // the organization's medium/secondary logo
