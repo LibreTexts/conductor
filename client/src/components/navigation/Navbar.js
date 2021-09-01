@@ -111,7 +111,6 @@ const Navbar = (_props) => {
     };
     */
 
-    var isAdmin = true;
     if (user.isAuthenticated) {
         return (
             <Menu className='nav-menu' secondary >
@@ -258,24 +257,26 @@ const Navbar = (_props) => {
                         <Image src={`${user.avatar}`} avatar />
                         <Dropdown inline text={user.firstName + ' ' + user.lastName}>
                             <Dropdown.Menu>
-                                {isAdmin &&
-                                    <Dropdown.Item as={Link} to='/supervisors'><Icon name='sitemap' />Supervisor Dashboard</Dropdown.Item>
-                                }
-                                {(isAdmin && process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                    <div>
-                                        <Dropdown.Item as={Link} to='/adoptionreports'><Icon name='file alternate' />Adoption Reports</Dropdown.Item>
-                                        <Dropdown.Item as={Link} to='/harvestingrequests'><Icon name='file alternate' />Harvesting Requests</Dropdown.Item>
-                                    </div>
-                                }
-                                {isAdmin &&
-                                    <Dropdown.Item as={Link} to='/controlpanel/booksmanager'><Icon name='book' />Books Manager</Dropdown.Item>
-                                }
-                                {isAdmin &&
-                                    <Dropdown.Item as={Link} to='/controlpanel/collectionsmanager'><Icon name='book' />Collections Manager</Dropdown.Item>
+                                {(user.isCampusAdmin || user.isSuperAdmin) &&
+                                    <Dropdown.Item as={Link} to='/controlpanel'>
+                                        <Icon name='dashboard' />
+                                        Control Panel
+                                    </Dropdown.Item>
                                 }
                                 <Dropdown.Divider />
-                                <Dropdown.Item as={Link} to='/account/settings/' ><Icon name='settings' />Settings</Dropdown.Item>
-                                <Dropdown.Item onClick={logOut}><Icon name='log out' />Log out</Dropdown.Item>
+                                <Dropdown.Item as={Link} to='/' >
+                                    <Icon name='handshake' />
+                                    Commons
+                                </Dropdown.Item>
+                                <Dropdown.Divider />
+                                <Dropdown.Item as={Link} to='/account/settings/' >
+                                    <Icon name='settings' />
+                                    Settings
+                                </Dropdown.Item>
+                                <Dropdown.Item onClick={logOut}>
+                                    <Icon name='log out' />
+                                    Log out
+                                </Dropdown.Item>
                             </Dropdown.Menu>
                         </Dropdown>
                     </Menu.Item>

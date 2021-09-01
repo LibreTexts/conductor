@@ -1,0 +1,152 @@
+import './ControlPanel.css';
+
+import { DateInput } from 'semantic-ui-calendar-react';
+import {
+  Grid,
+  Header,
+  Segment,
+  Icon,
+  List,
+} from 'semantic-ui-react';
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import axios from 'axios';
+import date from 'date-and-time';
+import ordinal from 'date-and-time/plugin/ordinal';
+
+import useGlobalError from '../error/ErrorHooks.js';
+
+const ControlPanel = (props) => {
+
+    // Global State
+    const { handleGlobalError } = useGlobalError();
+    const isCampusAdmin = useSelector((state) => state.user.isCampusAdmin);
+    const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
+
+    /**
+     * Set page title on initial load.
+     */
+    useEffect(() => {
+        document.title = "LibreTexts Conductor | Control Panel";
+        date.plugin(ordinal);
+    }, []);
+
+    return (
+        <Grid className='controlpanel-container' divided='vertically'>
+            <Grid.Row>
+                <Grid.Column width={16}>
+                    <Header className='component-header'>Control Panel</Header>
+                </Grid.Column>
+            </Grid.Row>
+            <Grid.Row>
+                <Grid.Column width={16}>
+                    <Segment.Group>
+                        <Segment className='bkgrd-gray'>
+                            <p className='mt-1p mb-1p'>
+                                Welcome to Control Panel. Here, you will find several tools to manage your Campus Conductor instance.
+                            </p>
+                            <Grid>
+                                <Grid.Row centered columns={1}>
+                                    <Grid.Column width={10}>
+                                        <Segment>
+                                            {(isSuperAdmin) &&
+                                                <div className='mb-2r'>
+                                                    <Header as='h5' dividing>LIBRETEXTS MASTER TOOLS</Header>
+                                                    <List relaxed='very' divided>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/adoptionreports'
+                                                        >
+                                                            <Icon name='chart line' />
+                                                            <List.Content>
+                                                                <List.Header>Adoption Reports</List.Header>
+                                                                <List.Description>
+                                                                    View Adoption Reports submitted to the Conductor platform
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/harvestingrequests'
+                                                        >
+                                                            <Icon name='clipboard' />
+                                                            <List.Content>
+                                                                <List.Header>Harvesting Requests</List.Header>
+                                                                <List.Description>
+                                                                    View and manage OER Integration Requests submitted to the Conductor platform
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/orgsmanager'
+                                                        >
+                                                            <Icon name='building' />
+                                                            <List.Content>
+                                                                <List.Header>Organizations Manager</List.Header>
+                                                                <List.Description>
+                                                                    View and manage Organizations on the Conductor platform
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                    </List>
+                                                </div>
+                                            }
+                                            {(isCampusAdmin || isSuperAdmin) &&
+                                                <div className='mb-2r'>
+                                                    <Header as='h5' dividing>CAMPUS ADMIN TOOLS</Header>
+                                                    <List relaxed='very' divided>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/booksmanager'
+                                                        >
+                                                            <Icon name='book' />
+                                                            <List.Content>
+                                                                <List.Header>Books Manager</List.Header>
+                                                                <List.Description>
+                                                                    See the master Commons Catalog and manage which texts appear on your Campus Commons
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/collectionsmanager'
+                                                        >
+                                                            <Icon name='folder open' />
+                                                            <List.Content>
+                                                                <List.Header>Collections Manager</List.Header>
+                                                                <List.Description>
+                                                                    Create new Collections for your Campus Commons and manage existing Collections
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                        <List.Item
+                                                            as={Link}
+                                                            to='/controlpanel/usersmanager'
+                                                        >
+                                                            <Icon name='users' />
+                                                            <List.Content>
+                                                                <List.Header>Users Manager</List.Header>
+                                                                <List.Description>
+                                                                    See which Conductor users have access to your Campus Commons and manage their permissions
+                                                                </List.Description>
+                                                            </List.Content>
+                                                        </List.Item>
+                                                    </List>
+                                                </div>
+                                            }
+                                        </Segment>
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
+                        </Segment>
+                    </Segment.Group>
+                </Grid.Column>
+            </Grid.Row>
+        </Grid>
+    )
+
+}
+
+export default ControlPanel;

@@ -10,6 +10,9 @@ const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString } = require('../util/helpers.js');
 const { debugError } = require('../debug.js');
 const b62 = require('base62-random');
+const {
+    checkBookIDFormat
+} = require('../util/bookutils.js');
 
 /**
  * Creates and saves a new Collection with
@@ -156,7 +159,7 @@ const toggleCollectionStatus = (req, res) => {
  * Requests are safe to be anonymous/
  * public.
  */
-const getCollections = (_req, res) => {
+const getCommonsCollections = (_req, res) => {
     Collection.aggregate([
         {
             $match: {
@@ -183,6 +186,46 @@ const getCollections = (_req, res) => {
                 resources: {
                     $size: "$resources"
                 }
+            }
+        }
+    ]).then((colls) => {
+        return res.send({
+            err: false,
+            colls: colls
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+/**
+ * Returns all collections for the
+ * organization handled by the
+ * current server instance, including
+ * the full stored array of resources.
+ * Requests are safe to be anonymous/
+ * public.
+ */
+const getCollectionsDetailed = (_req, res) => {
+    Collection.aggregate([
+        {
+            $match: {
+                orgID: process.env.ORG_ID
+            }
+        }, {
+            $sort: {
+                title: -1
+            }
+        }, {
+            $project: {
+                _id: 0,
+                __v: 0,
+                createdAt: 0,
+                updatedAt: 0
             }
         }
     ]).then((colls) => {
@@ -241,32 +284,127 @@ const getCollection = (req, res) => {
 };
 
 /**
+ * Adds the Book identified by the
+ * body's @bookID to the Collection
+ * identified by the body's @colID.
+ * If the Book is already in the Collection,
+ * no change is made (unique entries).
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'addCollResource'
+ */
+const addResourceToCollection = (req, res) => {
+    Collection.updateOne({ collID: req.body.collID }, {
+        $addToSet: {
+            resources: req.body.bookID
+        }
+    }).then((updateRes) => {
+        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+            return res.send({
+                err: false,
+                msg: "Resource successfully added to Collection."
+            });
+        } else if (updateRes.n === 0) {
+            throw(new Error('notfound'));
+        } else {
+            throw(new Error('updatefailed'));
+        }
+    }).catch((err) => {
+        if (err.message === 'notfound') {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err11
+            });
+        } else {
+            debugError(err);
+            return res.status(500).send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+/**
+ * Removes the Book identified by the
+ * body's @bookID to the Collection identified
+ * by the body's @colID. If the Book is not
+ * in the Collection, no change is made. All
+ * instances of the @bookID are removed from
+ * the Collection to combat duplicate entries.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'remCollResource'
+ */
+const removeResourceFromCollection = (req, res) => {
+    Collection.updateOne({ collID: req.body.collID }, {
+        $pullAll: {
+            resources: [req.body.bookID]
+        }
+    }).then((updateRes) => {
+        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+            return res.send({
+                err: false,
+                msg: "Resource successfully removed from Collection."
+            });
+        } else if (updateRes.n === 0) {
+            throw(new Error('notfound'));
+        } else {
+            throw(new Error('updatefailed'));
+        }
+    }).catch((err) => {
+        if (err.message === 'notfound') {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err11
+            });
+        } else {
+            debugError(err);
+            return res.status(500).send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+/**
  * Sets up the validation chain(s) for methods in this file.
  */
 const validate = (method) => {
     switch (method) {
         case 'createCollection':
             return [
-                body('title', conductorErrors.err1).exists().isLength({ min: 3 }),
+                body('title', conductorErrors.err1).exists().isString().isLength({ min: 3 }),
                 body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isURL()
             ]
         case 'editCollection':
             return [
-                body('collID', conductorErrors.err1).exists().isLength({ min: 8, max: 8 }),
-                body('title', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 3 }),
+                body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8 }),
+                body('title', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 3 }),
                 body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isURL()
             ]
         case 'deleteCollection':
             return [
-                body('collID', conductorErrors.err1).exists().isLength({ min: 8, max: 8})
+                body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8})
             ]
         case 'toggleCollectionStatus':
             return [
-                body('collID', conductorErrors.err1).exists().isLength({ min: 8, max: 8})
+                body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8})
             ]
         case 'getCollection':
             return [
-                query('collID', conductorErrors.err1).exists().isLength({ min: 8, max: 8})
+                query('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8})
+            ]
+        case 'addCollResource':
+            return [
+                body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8 }),
+                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
+        case 'remCollResource':
+            return [
+                body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8 }),
+                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
     }
 };
@@ -276,7 +414,10 @@ module.exports = {
     editCollection,
     deleteCollection,
     toggleCollectionStatus,
-    getCollections,
+    getCommonsCollections,
+    getCollectionsDetailed,
     getCollection,
+    addResourceToCollection,
+    removeResourceFromCollection,
     validate
 };

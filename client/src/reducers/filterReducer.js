@@ -18,7 +18,9 @@ const filtersInitialState = {
         library: '',
         subject: '',
         author: '',
-        license: ''
+        license: '',
+        institution: '',
+        course: ''
     },
     collections: {
         mode: 'visual'
@@ -131,6 +133,22 @@ export default function filterReducer(state = filtersInitialState, action) {
                 commonsCatalog: {
                     ...state.commonsCatalog,
                     license: action.payload
+                }
+            }
+        case 'SET_CATALOG_INST':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    institution: action.payload
+                }
+            }
+        case 'SET_CATALOG_COURSE':
+            return {
+                ...state,
+                commonsCatalog: {
+                    ...state.commonsCatalog,
+                    course: action.payload
                 }
             }
         case 'SET_COLLECT_MODE':

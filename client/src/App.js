@@ -18,25 +18,27 @@ import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 
 /* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
-import AdoptionReports from './components/supervisor/AdoptionReports.js';
+
 import Dashboard from './components/dashboard/Dashboard.js';
 import Login from './components/auth/Login.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
-import SupervisorDashboard from './components/supervisor/SupervisorDashboard.js';
 import HarvestingCompletedProjects from './components/harvesting/HarvestingCompletedProjects.js';
 import HarvestingPortal from './components/harvesting/HarvestingPortal.js';
 import HarvestingProjectAddExisting from './components/harvesting/HarvestingProjectAddExisting.js';
 import HarvestingProjectDetail from './components/harvesting/HarvestingProjectDetail.js';
 import HarvestingProjectEdit from './components/harvesting/HarvestingProjectEdit.js';
-import HarvestingRequests from './components/supervisor/HarvestingRequests.js';
+
 import HarvestingTargetAdd from './components/harvesting/targetlist/HarvestingTargetAdd.js';
 import HarvestingTargetDetail from './components/harvesting/targetlist/HarvestingTargetDetail.js';
 import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
 import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
-import BooksManager from './components/supervisor/BooksManager.js';
-import CollectionsManager from './components/supervisor/CollectionsManager.js';
+import ControlPanel from './components/controlpanel/ControlPanel.js';
+import AdoptionReports from './components/controlpanel/AdoptionReports.js';
+import BooksManager from './components/controlpanel/BooksManager.js';
+import CollectionsManager from './components/controlpanel/CollectionsManager.js';
+import HarvestingRequests from './components/controlpanel/HarvestingRequests.js';
 
 
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
@@ -85,12 +87,15 @@ function App() {
                         <PrivateRoute exact path = '/harvesting/targetlist/add' component={HarvestingTargetAdd} />
                         <PrivateRoute exact path = '/harvesting/targetlist/:id/edit' component={HarvestingTargetEdit} />
                         <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
+
                     <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
-                    <PrivateRoute exact path = '/supervisors' component={SupervisorDashboard} />
-                    <PrivateRoute exact path = '/adoptionreports' component={AdoptionReports} />
-                    <PrivateRoute exact path = '/harvestingrequests' component={HarvestingRequests} />
-                    <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
-                    <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
+
+                    <PrivateRoute exact path = '/controlpanel' component={ControlPanel} />
+                        <PrivateRoute exact path = '/controlpanel/adoptionreports' component={AdoptionReports} />
+                        <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
+                        <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
+                        <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
+
                     {/* 404 */}
                     <Route component={PageNotFound} />
                 </Switch>

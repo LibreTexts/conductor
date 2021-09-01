@@ -23,6 +23,7 @@ const BookSchema = new Schema({
         required: true
     },
     subject: String,            // the book's shelf/subject
+    course: String,             // the course the book belongs to
     license: String,            // the book license
     thumbnail: String,          // the URL of the book's thumbnail
     links: {                    // links to access the book in different formats
@@ -36,6 +37,16 @@ const BookSchema = new Schema({
     institution: String        // the ORIGIN institution (via Libraries import)
 }, {
     timestamps: true
+});
+
+BookSchema.index({
+    title: 'text',
+    author: 'text',
+    library: 'text',
+    subject: 'text',
+    course: 'text',
+    license: 'text',
+    institution: 'text'
 });
 
 const Book = mongoose.model('Book', BookSchema);

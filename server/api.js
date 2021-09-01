@@ -71,7 +71,10 @@ router.route('/v1/harvestingrequests').get(middleware.checkLibreCommons,
     middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
 
 /* Commons Collections */
-router.route('/v1/commons/collections').get(collectionsAPI.getCollections);
+router.route('/v1/commons/collections').get(
+    collectionsAPI.getCommonsCollections);
+router.route('/v1/commons/collectionsdetailed').get(
+    collectionsAPI.getCollectionsDetailed);
 router.route('/v1/commons/collection').get(
     collectionsAPI.validate('getCollection'), middleware.checkValidationErrors,
     collectionsAPI.getCollection);
@@ -95,6 +98,17 @@ router.route('/v1/commons/collection/togglestatus').put(authAPI.verifyRequest,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('toggleCollectionStatus'),
     middleware.checkValidationErrors, collectionsAPI.toggleCollectionStatus);
+router.route('/v1/commons/collection/addresource').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('addCollResource'),
+    middleware.checkValidationErrors, collectionsAPI.addResourceToCollection);
+router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.validate('remCollResource'),
+    middleware.checkValidationErrors,
+    collectionsAPI.removeResourceFromCollection);
 
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
@@ -104,9 +118,15 @@ router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
 
 /* Commons Books/Catalogs */
 router.route('/v1/commons/catalog').get(middleware.checkLibreCommons,
-    booksAPI.getCommonsBooks);
+    booksAPI.validate('getCommonsCatalog'), middleware.checkValidationErrors,
+    booksAPI.getCommonsCatalog);
+router.route('/v1/commons/mastercatalog').get(middleware.checkLibreCommons,
+    booksAPI.validate('getMasterCatalog'), middleware.checkLibreCommons,
+    booksAPI.getMasterCatalog);
 router.route('/v1/commons/book').get(booksAPI.validate('getBookDetail'),
     middleware.checkValidationErrors, booksAPI.getBookDetail);
+router.route('/v1/commons/filters').get(middleware.checkLibreCommons,
+    booksAPI.getCatalogFilterOptions);
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

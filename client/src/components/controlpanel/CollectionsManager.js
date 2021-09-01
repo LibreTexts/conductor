@@ -1,4 +1,4 @@
-import './SupervisorDashboard.css';
+import './ControlPanel.css';
 
 import { DateInput } from 'semantic-ui-calendar-react';
 import {
@@ -13,9 +13,11 @@ import {
   Dropdown,
   Icon,
   Pagination,
-  Input
+  Input,
+  Breadcrumb
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -269,7 +271,7 @@ const CollectionsManager = (props) => {
     };
 
     return (
-        <Grid className='component-container' divided='vertically'>
+        <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Header className='component-header'>Collections Manager</Header>
@@ -278,6 +280,17 @@ const CollectionsManager = (props) => {
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Segment.Group>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                    Control Panel
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    Collections Manager
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
                         <Segment>
                             <div className='flex-row-div'>
                                 <div className='left-flex'>

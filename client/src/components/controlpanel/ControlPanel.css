@@ -1,0 +1,37 @@
+.controlpanel-container {
+    margin: calc(60px + 2%) 1% 0 1% !important;
+    width: calc(100% - 2%) !important;
+    z-index: 50;
+}
+
+.menu-avatar {
+    margin-bottom: 2%;
+    height: 4em !important;
+    width: 4em !important;
+}
+
+.recent-announcement-title {
+    margin-bottom: 1% !important;
+}
+
+.author-info-span {
+    display: block;
+    margin-top: 1%;
+}
+
+.dashboard-header-link:hover {
+    cursor: pointer !important;
+}
+
+.announcements-header {
+    display: inline-block !important;
+}
+
+.dashboard-list-item {
+    cursor: pointer !important;
+}
+
+#adoptionreports-filteroptions {
+    display: flex;
+    flex-direction: row;
+}

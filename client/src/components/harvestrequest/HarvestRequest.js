@@ -6,9 +6,12 @@ import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 import {
-    licenseOptions,
-    textUseOptions,
-    libraryOptions
+    libraryOptions,
+} from '../util/LibraryOptions.js';
+import { licenseOptions } from '../util/LicenseOptions.js';
+
+import {
+    textUseOptions
 } from '../util/HarvestingMasterOptions.js';
 
 const HarvestRequest = (props) => {

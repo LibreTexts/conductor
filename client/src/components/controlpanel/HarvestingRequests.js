@@ -1,4 +1,4 @@
-import './SupervisorDashboard.css';
+import './ControlPanel.css';
 
 import { DateInput } from 'semantic-ui-calendar-react';
 import {
@@ -10,9 +10,11 @@ import {
   Table,
   Modal,
   Button,
-  Dropdown
+  Dropdown,
+  Breadcrumb
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -209,7 +211,7 @@ const HarvestingRequests = (props) => {
     };
 
     return (
-        <Grid className='component-container' divided='vertically'>
+        <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Header className='component-header'>Harvesting Requests</Header>
@@ -218,6 +220,17 @@ const HarvestingRequests = (props) => {
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Segment.Group>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                    Control Panel
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    Harvesting Requests
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
                                 <Form className='mr-2p'>

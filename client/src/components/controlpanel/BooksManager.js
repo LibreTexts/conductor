@@ -1,4 +1,4 @@
-import './SupervisorDashboard.css';
+import './ControlPanel.css';
 
 import { DateInput } from 'semantic-ui-calendar-react';
 import {
@@ -13,9 +13,11 @@ import {
   Dropdown,
   Icon,
   Pagination,
-  Input
+  Input,
+  Breadcrumb
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -47,7 +49,6 @@ const BooksManager = (props) => {
     // Data
     const [syncResponse, setSyncResponse] = useState('');
     const [catalogBooks, setCatalogBooks] = useState([]);
-    const [displayBooks, setDisplayBooks] = useState([]);
     const [pageBooks, setPageBooks] = useState([]);
 
     // UI
@@ -55,45 +56,85 @@ const BooksManager = (props) => {
     const [totalPages, setTotalPages] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [loadedData, setLoadedData] = useState(false);
+
     const [searchString, setSearchString] = useState('');
+    const [sortChoice, setSortChoice] = useState('title');
+
+    // Sync Modal
     const [showSyncModal, setShowSyncModal] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
     const [syncFinished, setSyncFinished] = useState(false);
-    const [sortChoice, setSortChoice] = useState('title');
 
+    // Add to Collection Modal
+    const [showATCModal, setShowATCModal] = useState(false);
+    const [atcBookID, setATCBookID] = useState('');
+    const [atcBookTitle, setATCBookTitle] = useState('');
+    const [atcCollections, setATCCollections] = useState([]);
+    const [atcCollectionID, setATCCollectionID] = useState('');
+    const [atcCollectionErr, setATCCollectionErr] = useState(false);
+    const [atcLoadedColls, setATCLoadedColls] = useState(false);
+    const [atcFinishedAdd, setATCFinishedAdd] = useState(true);
+
+    const sortOptions = [
+        { key: 'title', text: 'Sort by Title', value: 'title' },
+        { key: 'author', text: 'Sort by Author', value: 'author' },
+    ];
+
+    /*
+    { key: 'lib', text: 'Sort by Library', value: 'lib' },
+    { key: 'license', text: 'Sort by License', value: 'license' },
+    { key: 'institution', text: 'Sort by Institution', value: 'institution' },
+    { key: 'course', text: 'Sort by Campus or Course', value: 'course' },
+    { key: 'commons', text: 'Sort by Commons Status', value: 'commons'}
+    */
+
+    /**
+     * Set page title and retrieve
+     * books on initial load.
+     */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Books Manager";
         date.plugin(ordinal);
         getBooks();
     }, []);
 
-    const sortOptions = [
-        { key: 'title', text: 'Sort by Title', value: 'title' },
-        { key: 'lib', text: 'Sort by Library', value: 'lib' },
-        { key: 'author', text: 'Sort by Author', value: 'author' },
-        { key: 'license', text: 'Sort by License', value: 'license' },
-        { key: 'institution', text: 'Sort by Institution', value: 'institution' },
-        { key: 'commons', text: 'Sort by Commons Status', value: 'commons'}
-    ];
-
-    useEffect(() => {
-        setTotalPages(Math.ceil(displayBooks.length/itemsPerPage));
-        setPageBooks(displayBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
-    }, [itemsPerPage, displayBooks, activePage]);
-
     /**
-     * Filter and sort books according to
-     * user's choices, then update the list.
+     * Track changes to the number of books loaded
+     * and the selected itemsPerPage and update the
+     * set of books to display.
      */
     useEffect(() => {
-        filterAndSortBooks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [catalogBooks, searchString, sortChoice]);
+        setTotalPages(Math.ceil(catalogBooks.length/itemsPerPage));
+        setPageBooks(catalogBooks.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
+    }, [itemsPerPage, catalogBooks, activePage]);
 
+    /**
+     * Send a new query to the server when the sort
+     * option or the search string change.
+     */
+    useEffect(() => {
+        getBooks();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchString, sortChoice]);
+
+    /**
+     * Retrieve the master Catalog from
+     * the server.
+     */
     const getBooks = () => {
-        axios.get('/commons/catalog').then((res) => {
+        setLoadedData(false);
+        var paramsObj = {};
+        if (!isEmptyString(sortChoice)) {
+            paramsObj.sort = sortChoice;
+        }
+        if (!isEmptyString(searchString)) {
+            paramsObj.search = searchString;
+        }
+        axios.get('/commons/mastercatalog', {
+            params: paramsObj
+        }).then((res) => {
             if (!res.data.err) {
-                if (res.data.books && Array.isArray(res.data.books) && res.data.books.length > 0) {
+                if (res.data.books && Array.isArray(res.data.books)) {
                     setCatalogBooks(res.data.books);
                 }
             } else {
@@ -107,105 +148,11 @@ const BooksManager = (props) => {
     };
 
     /**
-     * Filter and sort books according
-     * to current filters and sort
-     * choice.
+     * Set Sync loading indicators and
+     * send a request to the server to
+     * sync the Commons Catalog with
+     * the live libraries.
      */
-    const filterAndSortBooks = () => {
-        setLoadedData(false);
-        let filtered = catalogBooks.filter((book) => {
-            var include = true;
-            var descripString = String(book.title).toLowerCase() + String(book.author).toLowerCase() +
-                String(book.library).toLowerCase() + String(book.subject).toLowerCase() +
-                String(book.license).toLowerCase();
-            /*
-            if (libraryFilter !== '' && book.library !== libraryFilter) {
-                include = false;
-            }
-            if (subjectFilter !== '' && book.subject !== subjectFilter) {
-                include = false;
-            }
-            if (authorFilter !== '' && book.author !== authorFilter) {
-                include = false;
-            }
-            if (licenseFilter !== '' && book.license !== licenseFilter) {
-                include = false;
-            }
-            */
-            if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
-                include = false;
-            }
-            if (include) {
-                return book;
-            } else {
-                return false;
-            }
-        });
-        if (sortChoice === 'title') {
-            const sorted = [...filtered].sort((a, b) => {
-                var normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                var normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                if (normalA < normalB) {
-                    return -1;
-                }
-                if (normalA > normalB) {
-                    return 1;
-                }
-                return 0;
-            });
-            setDisplayBooks(sorted);
-        } else if (sortChoice === 'author') {
-            const sorted = [...filtered].sort((a, b) => {
-                var normalA = String(a.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                var normalB = String(b.author).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                if (normalA < normalB) {
-                    return -1;
-                }
-                if (normalA > normalB) {
-                    return 1;
-                }
-                return 0;
-            });
-            setDisplayBooks(sorted);
-        } else if (sortChoice === 'lib') {
-            const sorted = [...filtered].sort((a, b) => {
-                if (a.library < b.library) {
-                    return -1;
-                }
-                if (a.library > b.library) {
-                    return 1;
-                }
-                return 0;
-            });
-            setDisplayBooks(sorted);
-        } else if (sortChoice === 'license') {
-            const sorted = [...filtered].sort((a, b) => {
-                if (a.license < b.license) {
-                    return -1;
-                }
-                if (a.license > b.license) {
-                    return 1;
-                }
-                return 0;
-            });
-            setDisplayBooks(sorted);
-        } else if (sortChoice === 'institution') {
-            const sorted = [...filtered].sort((a, b) => {
-                var normalA = String(a.institution).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                var normalB = String(b.institution).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                if (normalA < normalB) {
-                    return -1;
-                }
-                if (normalA > normalB) {
-                    return 1;
-                }
-                return 0;
-            });
-            setDisplayBooks(sorted);
-        }
-        setLoadedData(true);
-    }
-
     const syncWithLibs = () => {
         setSyncInProgress(true);
         axios.post('/commons/syncwithlibs').then((res) => {
@@ -223,6 +170,11 @@ const BooksManager = (props) => {
         });
     }
 
+    /**
+     * Open the Sync modal and
+     * ensure it is reset to
+     * initial state.
+     */
     const openSyncModal = () => {
         setShowSyncModal(true);
         setSyncInProgress(false);
@@ -230,6 +182,10 @@ const BooksManager = (props) => {
         setSyncResponse('');
     };
 
+    /**
+     * Close the Sync modal and
+     * reset to initial state.
+     */
     const closeSyncModal = () => {
         setShowSyncModal(false);
         setSyncInProgress(false);
@@ -237,8 +193,95 @@ const BooksManager = (props) => {
         setSyncResponse('');
     };
 
+    const getATCCollections = (bookID) => {
+        setATCLoadedColls(false);
+        axios.get('/commons/collectionsdetailed').then((res) => {
+            if (!res.data.err) {
+                if (res.data.colls && Array.isArray(res.data.colls)) {
+                    var collOptions = [
+                        { key: '', text: 'Clear...', value: '' }
+                    ];
+                    res.data.colls.forEach((coll) => {
+                        if (coll.resources && Array.isArray(coll.resources)) {
+                            if (coll.resources.includes(bookID)) {
+                                collOptions.push({
+                                    key: coll.collID,
+                                    text: `${coll.title} (Book is already in Collection)`,
+                                    value: coll.collID,
+                                    disabled: true
+                                });
+                            } else {
+                                collOptions.push({
+                                    key: coll.collID,
+                                    text: coll.title,
+                                    value: coll.collID
+                                });
+                            }
+                        }
+                    });
+                    setATCCollections(collOptions);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setATCLoadedColls(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setATCLoadedColls(true);
+        });
+    };
+
+    const submitATCForm = () => {
+        setATCCollectionErr(false);
+        if (!isEmptyString(atcCollectionID) && !isEmptyString(atcBookID)) {
+            setATCFinishedAdd(false);
+            var collData = {
+                collID: atcCollectionID,
+                bookID: atcBookID
+            };
+            axios.put('/commons/collection/addresource', collData).then((res) => {
+                if (!res.data.err) {
+                    closeATCModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setATCFinishedAdd(true);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setATCFinishedAdd(true);
+            });
+        } else {
+            setATCCollectionErr(true);
+        }
+    };
+
+    const openATCModal = (bookID, bookTitle) => {
+        if (!isEmptyString(bookID)) {
+            setShowATCModal(true);
+            setATCBookID(bookID);
+            setATCBookTitle(bookTitle);
+            setATCCollections([]);
+            setATCCollectionID('');
+            setATCCollectionErr(false);
+            setATCLoadedColls(false);
+            setATCFinishedAdd(true);
+            getATCCollections(bookID);
+        }
+    };
+
+    const closeATCModal = () => {
+        setShowATCModal(false);
+        setATCBookID('');
+        setATCBookTitle('');
+        setATCCollections([]);
+        setATCCollectionErr(false);
+        setATCLoadedColls(false);
+        setATCFinishedAdd(true);
+        setATCCollectionID('');
+    };
+
     return (
-        <Grid className='component-container' divided='vertically'>
+        <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Header className='component-header'>Books Manager</Header>
@@ -247,6 +290,17 @@ const BooksManager = (props) => {
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Segment.Group>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                    Control Panel
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    Books Manager
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
                         <Segment>
                             <div className='flex-row-div'>
                                 <div className='left-flex'>
@@ -355,6 +409,12 @@ const BooksManager = (props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
+                                            {(sortChoice === 'course')
+                                                ? <span><em>Campus or Course</em></span>
+                                                : <span>Campus or Course</span>
+                                            }
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell>
                                             {(sortChoice === 'commons')
                                                 ? <span><em>Enabled on Commons</em></span>
                                                 : <span>Actions</span>
@@ -383,13 +443,29 @@ const BooksManager = (props) => {
                                                     <Table.Cell>
                                                         <p>{item.institution}</p>
                                                     </Table.Cell>
+                                                    <Table.Cell>
+                                                        <p>{item.course}</p>
+                                                    </Table.Cell>
                                                     <Table.Cell textAlign='center'>
                                                         <Button.Group vertical fluid>
-                                                            <Button color='green'>
-                                                                <Icon name='eye' />
-                                                                Enable on Commons
-                                                            </Button>
-                                                            <Button color='teal'>
+                                                            {(process.env.REACT_APP_ORG_ID === 'libretexts')
+                                                                ? (
+                                                                    <Button color='green' disabled>
+                                                                        <Icon name='eye' />
+                                                                        Enabled by Default
+                                                                    </Button>
+                                                                )
+                                                                : (
+                                                                    <Button color='green'>
+                                                                        <Icon name='eye' />
+                                                                        Enable on Commons
+                                                                    </Button>
+                                                                )
+                                                            }
+                                                            <Button
+                                                                color='teal'
+                                                                onClick={() => { openATCModal(item.bookID, item.title) }}
+                                                            >
                                                                 <Icon name='add' />
                                                                 Add to a Collection
                                                             </Button>
@@ -468,6 +544,43 @@ const BooksManager = (props) => {
                                     Done
                                 </Button>
                             }
+                        </Modal.Actions>
+                    </Modal>
+                    <Modal
+                        open={showATCModal}
+                        closeOnDimmerClick={false}
+                    >
+                        <Modal.Header>Add to Collection</Modal.Header>
+                        <Modal.Content>
+                            <p>Choose a collection to add <em>{atcBookTitle}</em> to:</p>
+                            <Dropdown
+                                placeholder='Choose Collection...'
+                                floating
+                                selection
+                                options={atcCollections}
+                                onChange={(_e, { value }) => {
+                                    setATCCollectionID(value);
+                                }}
+                                value={atcCollectionID}
+                                error={atcCollectionErr}
+                                loading={!atcLoadedColls}
+                                fluid
+                            />
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeATCModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={submitATCForm}
+                                color='green'
+                                loading={!atcFinishedAdd}
+                            >
+                                <Icon name='add' />
+                                Add
+                            </Button>
                         </Modal.Actions>
                     </Modal>
                 </Grid.Column>

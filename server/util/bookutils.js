@@ -21,6 +21,26 @@ const libraries = [
     'workforce'
 ];
 
+const licenses = [
+    'arr',
+    'ccby',
+    'ccbync',
+    'ccbyncnd',
+    'ccbyncsa',
+    'ccbynd',
+    'ccbysa',
+    'gnu',
+    'gnudsl',
+    'gnufdl',
+    'gnugpl',
+    'publicdomain'
+];
+
+const sortChoices = [
+    'title',
+    'author'
+];
+
 const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
         const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/g);
@@ -41,6 +61,48 @@ const extractLibFromID = (resID) => {
         }
     }
     return '';
+};
+
+const isValidLibrary = (lib) => {
+    var foundLib = libraries.find((item) => {
+        if (item === lib) {
+            return item;
+        }
+        return null;
+    });
+    if (foundLib !== undefined) {
+        return true;
+    } else {
+        return false;
+    }
+};
+
+const isValidLicense = (lic) => {
+    var foundLic = licenses.find((item) => {
+        if (item === lic) {
+            return item;
+        }
+        return null;
+    });
+    if (foundLic !== undefined) {
+        return true;
+    } else {
+        return false;
+    }
+};
+
+const isValidSort = (sort) => {
+    var foundSort = sortChoices.find((item) => {
+        if (item === sort) {
+            return item;
+        }
+        return null;
+    });
+    if (foundSort !== undefined) {
+        return true;
+    } else {
+        return false;
+    }
 };
 
 
@@ -154,6 +216,9 @@ module.exports = {
     libraries,
     checkBookIDFormat,
     extractLibFromID,
+    isValidLibrary,
+    isValidLicense,
+    isValidSort,
     genThumbnailLink,
     genPDFLink,
     genBookstoreLink,

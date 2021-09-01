@@ -78,6 +78,10 @@ body {
     cursor: pointer;
 }
 
+.bkgrd-gray {
+    background-color: #F9F9F9 !important;
+}
+
 
 /* Helper Classes */
 .form-required::after {
@@ -114,6 +118,18 @@ body {
 
 .mt-2r {
     margin-top: 2rem !important;
+}
+
+.mb-1p {
+    margin-bottom: 1% !important;
+}
+
+.mb-2p {
+    margin-bottom: 2% !important;
+}
+
+.mb-1r {
+    margin-bottom: 1rem !important;
 }
 
 .mb-2r {

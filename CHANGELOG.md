@@ -1,5 +1,25 @@
 # Changelog
 
+## 08-31-2021
+#### :art: UI/UX
+* Changed Filters layout in the Commons Catalog to support new filters
+* Enabled text-search through filters with a large amount of options
+* Removed client-side filtering & sorting
+* Implemented retrieval of Catalog filters from the server instead of client-side generation
+* Added ability to add Book to Collection in Books Manager
+* Implemented Control Panel
+    * Updated Navbar
+* Added Commons link to Navbar dropdown
+* Changed Books Manager to use server-side filtering and sorting
+
+#### :satellite: Server
+* Improved algorithms used to extract Book information from the LibreTexts API
+* Added the Course/Campus field in Book information
+* Added text indices on main Book fields for classic text-search
+* Implemented Catalog filtering & sorting on the server-side to improve client performance
+* Implemented Catalog filter generation (author, institution, etc.) on the server-side
+* New backend logic to add or remove resources from Collections
+
 ## 08-30-2021
 #### :art: UI/UX
 * Increased the number of Commons items per row to 6
