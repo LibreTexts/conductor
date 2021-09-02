@@ -25,6 +25,8 @@
 #commons-nav-logo {
     width: auto;
     max-height: 50px;
+    padding-top: 1%;
+    padding-bottom: 1%;
 }
 
 #commons-nav-orglogo {
@@ -332,6 +334,11 @@
     height: 200px !important;
 }
 
+
+/* Powered By (for Campus Commons) */
+#commons-poweredby-tagline {
+    margin: 0;
+}
 
 /* Footer */
 #commons-footer {

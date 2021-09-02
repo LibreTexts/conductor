@@ -375,9 +375,7 @@ const CommonsCatalog = (_props) => {
                                     </Card.Meta>
                                     <Card.Description>
                                         <p>{item.author}</p>
-                                        {((process.env.REACT_APP_ORG_ID === 'libretexts') && (item.affiliation !== '')) &&
-                                            <p><em>{item.affiliation}</em></p>
-                                        }
+                                        <p><em>{item.affiliation}</em></p>
                                     </Card.Description>
                                 </Card.Content>
                             </Card>
@@ -400,9 +398,7 @@ const CommonsCatalog = (_props) => {
                         <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
                         <Table.HeaderCell width={2}><Header sub>Author</Header></Table.HeaderCell>
                         <Table.HeaderCell width={2}><Header sub>Library</Header></Table.HeaderCell>
-                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                            <Table.HeaderCell width={3}><Header sub>Institution</Header></Table.HeaderCell>
-                        }
+                        <Table.HeaderCell width={3}><Header sub>Affiliation</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -420,18 +416,16 @@ const CommonsCatalog = (_props) => {
                                         <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Table.Cell>
-                                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                        <Table.Cell>
-                                            <p><em>{item.affiliation}</em></p>
-                                        </Table.Cell>
-                                    }
+                                    <Table.Cell>
+                                        <p><em>{item.affiliation}</em></p>
+                                    </Table.Cell>
                                 </Table.Row>
                             )
                         })
                     }
                     {(pageBooks.length === 0) &&
                         <Table.Row>
-                            <Table.Cell colSpan={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 3}>
+                            <Table.Cell colSpan={4}>
                                 <p className='text-center'><em>No results found.</em></p>
                             </Table.Cell>
                         </Table.Row>

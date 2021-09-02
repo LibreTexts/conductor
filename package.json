@@ -23,6 +23,7 @@
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.13.3",
     "path": "^0.12.7",
+    "util": "^0.12.4",
     "uuid": "^8.3.1"
   },
   "author": "Ethan Turner <ethanaturner13@gmail.com>"

@@ -34,7 +34,8 @@ const CommonsBook = (props) => {
         title: '',
         author: '',
         library: '',
-        shelf: '',
+        subject: '',
+        course: '',
         license: '',
         thumbnail: '',
         links: {
@@ -45,7 +46,7 @@ const CommonsBook = (props) => {
             files: '',
             lms: '',
         },
-        institution: ''
+        affiliation: ''
     });
 
     // UI
@@ -140,18 +141,21 @@ const CommonsBook = (props) => {
                                     <Grid.Column width={4}>
                                         <Image id='commons-book-image' src={book.thumbnail} />
                                         <div id='commons-book-details'>
-                                            {(!isEmptyString(book.author)) &&
+                                            {(book.author && !isEmptyString(book.author)) &&
                                                 <p><Icon name='user'/> {book.author}</p>
                                             }
                                             <p>
                                                 <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
-                                            {(!isEmptyString(book.license)) &&
-                                                <p><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                            {(book.license && !isEmptyString(book.license)) &&
+                                                <p><Icon name='shield' /> {getLicenseText(book.license)}</p>
                                             }
-                                            {(!isEmptyString(book.institution)) &&
-                                                <p><Icon name='university'/> {book.institution}</p>
+                                            {(book.affiliation && !isEmptyString(book.affiliation)) &&
+                                                <p><Icon name='university' /> {book.affiliation}</p>
+                                            }
+                                            {(book.course && !isEmptyString(book.course)) &&
+                                                <p><Icon name='sitemap' /> {book.course}</p>
                                             }
                                             <ThumbnailAttribution />
                                         </div>

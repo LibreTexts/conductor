@@ -12,21 +12,30 @@
     z-index: 100;
 }
 
-.nav-logo-item {
-    width: 150px !important;
-    padding: 0 !important;
-}
-
 .nav-logo-item:hover {
     background: transparent !important;
 }
 
-.nav-logo {
+#nav-logo-item {
+    padding: 0;
+    max-width: 350px;
+    height: 100%;
+}
+
+#nav-logo {
     height: 40px;
 }
 
 .nav-title {
     font-size: 1.6rem;
-    margin-left: 2%;
+    margin-left: 1%;
     color: rgba(18,123,196,255);
+}
+
+#nav-org-logo {
+    width: auto;
+    max-height: 40px;
+    margin-left: 2%;
+    padding-top: 1%;
+    padding-bottom: 1%;
 }

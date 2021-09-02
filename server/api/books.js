@@ -5,10 +5,11 @@
 
 'use strict';
 const Book = require('../models/book.js');
+const Organization = require('../models/organization.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString } = require('../util/helpers.js');
-const { debugError, debugCommonsSync } = require('../debug.js');
+const { debugError, debugCommonsSync, debugObject } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
 const {
@@ -253,6 +254,45 @@ const syncWithLibraries = (_req, res) => {
     });
 };
 
+
+const buildOrganizationNamesList = (orgData) => {
+    if (orgData) {
+        var campusNames = []; // stores all variations of the organization name
+        var normNames = []; // temporarily stores the normalized variations
+        if (orgData.name && !isEmptyString(orgData.name)) {
+            if (!campusNames.includes(orgData.name)) {
+                campusNames.push(orgData.name);
+            }
+        }
+        if (orgData.shortName && !isEmptyString(orgData.shortName)) {
+            if (!campusNames.includes(orgData.shortName)) {
+                campusNames.push(orgData.shortName);
+            }
+        }
+        if (orgData.abbreviation && !isEmptyString(orgData.abbreviation)) {
+            if (!campusNames.includes(orgData.abbreviation)) {
+                campusNames.push(orgData.abbreviation);
+            }
+        }
+        if (orgData.aliases && Array.isArray(orgData.aliases) && orgData.aliases.length > 0) {
+            campusNames = campusNames.concat(orgData.aliases);
+        }
+        // Normalize the names to remove common punctuation, then add to campusNames list
+        campusNames.forEach((name) => {
+            var normed = String(name).replaceAll(',', '').replaceAll('-', '').replaceAll(':', '');
+            if (!normNames.includes(normed) && !campusNames.includes(normed)) {
+                normNames.push(normed);
+            }
+        });
+        if (normNames.length > 0) {
+            campusNames = campusNames.concat(normNames);
+        }
+        return campusNames;
+    } else {
+        return [];
+    }
+}
+
 /**
  * Returns the Commons Catalog results according
  * to the requested filters and sort option.
@@ -264,62 +304,112 @@ const getCommonsCatalog = (req, res) => {
     var sortChoice = 'title'; // default to Sort by Title
     const matchObj = {};
     var hasSearchParams = false;
-    if (req.query.library && !isEmptyString(req.query.library)) {
-        matchObj.library = req.query.library;
-        hasSearchParams = true;
-    }
-    if (req.query.subject && !isEmptyString(req.query.subject)) {
-        matchObj.subject = req.query.subject;
-        hasSearchParams = true;
-    }
-    if (req.query.author && !isEmptyString(req.query.author)) {
-        matchObj.author = req.query.author;
-        hasSearchParams = true;
-    }
-    if (req.query.license && !isEmptyString(req.query.license)) {
-        matchObj.license = req.query.license;
-        hasSearchParams = true;
-    }
-    if (req.query.affiliation && !isEmptyString(req.query.affiliation)) {
-        matchObj.affiliation = req.query.affiliation;
-        hasSearchParams = true;
-    }
-    if (req.query.sort && !isEmptyString(req.query.sort)) {
-        sortChoice = req.query.sort;
-    }
-    if (req.query.search && !isEmptyString(req.query.search)) {
-        matchObj['$text'] = {
-            $search: req.query.search
-        }
-        hasSearchParams = true;
-    }
-    if (req.query.course && !isEmptyString(req.query.course)) {
-        matchObj.course = req.query.course;
-        hasSearchParams = true;
-    }
-    if (!hasSearchParams) { // Remove Campus/Course texts on default search
-        matchObj.course = {
-            $in: ['', null, false]
-        };
-    }
-    Book.aggregate([
-        {
-            $match: matchObj
-        }, {
-            $project: {
+    new Promise((resolve, _reject) => {
+        if (process.env.ORG_ID === 'libretexts') {
+            // LibreCommons — no need to lookup Organization info
+            resolve({});
+        } else {
+            // Campus Commons — need Organization info
+            resolve(Organization.findOne({
+                orgID: process.env.ORG_ID
+            }, {
                 _id: 0,
-                __v: 0,
-                createdAt: 0,
-                updatedAt: 0
-            }
+                orgID: 1,
+                name: 1,
+                shortName: 1,
+                abbreviation: 1,
+                aliases: 1
+            }));
         }
-    ]).then((books) => {
+    }).then((orgData) => {
+        console.log(orgData);
+        if (req.query.library && !isEmptyString(req.query.library)) {
+            matchObj.library = req.query.library;
+            hasSearchParams = true;
+        }
+        if (req.query.subject && !isEmptyString(req.query.subject)) {
+            matchObj.subject = req.query.subject;
+            hasSearchParams = true;
+        }
+        if (req.query.author && !isEmptyString(req.query.author)) {
+            matchObj.author = req.query.author;
+            hasSearchParams = true;
+        }
+        if (req.query.license && !isEmptyString(req.query.license)) {
+            matchObj.license = req.query.license;
+            hasSearchParams = true;
+        }
+        if (req.query.affiliation && !isEmptyString(req.query.affiliation)) {
+            matchObj.affiliation = req.query.affiliation;
+            hasSearchParams = true;
+        }
+        if (req.query.sort && !isEmptyString(req.query.sort)) {
+            sortChoice = req.query.sort;
+        }
+        if (req.query.search && !isEmptyString(req.query.search)) {
+            matchObj['$text'] = {
+                $search: req.query.search
+            }
+            hasSearchParams = true;
+        }
+        if (req.query.course && !isEmptyString(req.query.course)) {
+            matchObj.course = req.query.course;
+            hasSearchParams = true;
+        }
+        if ((process.env.ORG_ID === 'libretexts') && (!hasSearchParams)) { // Remove Campus/Course texts on default search
+            matchObj.course = {
+                $in: ['', null, false]
+            };
+        } else if (process.env.ORG_ID !== 'libretexts') { // Filter to Campus-specific
+            var campusNames = buildOrganizationNamesList(orgData);
+            if (matchObj.affiliation && !isEmptyString(matchObj.affiliation)) {
+                matchObj.affiliation = {
+                    $in: [matchObj.affiliation, ...campusNames]
+                };
+            } else {
+                matchObj.affiliation = {
+                    $in: [campusNames]
+                };
+            }
+            if (matchObj.course && !isEmptyString(matchObj.course)) {
+                matchObj.course = {
+                    $in: [matchObj.course, ...campusNames]
+                };
+            } else {
+                matchObj.course = {
+                    $in: campusNames
+                };
+            }
+            // "Fuzzy match" affiliation or course
+            matchObj['$or'] = [{
+                affiliation: matchObj.affiliation
+            }, {
+                course: matchObj.course
+            }];
+            delete matchObj.affiliation; // prune affiliation after updating to use $in operator
+            delete matchObj.course; // prune course after updating to use $in operator
+        }
+        debugObject(matchObj);
+        return Book.aggregate([
+            {
+                $match: matchObj
+            }, {
+                $project: {
+                    _id: 0,
+                    __v: 0,
+                    createdAt: 0,
+                    updatedAt: 0
+                }
+            }
+        ]);
+    }).then((books) => {
         const sortedBooks = sortBooks(books, sortChoice);
         return res.send({
             err: false,
             books: sortedBooks
         });
     }).catch((err) => {
+        console.log(err);
         debugError(err);
         return res.send({
             err: true,

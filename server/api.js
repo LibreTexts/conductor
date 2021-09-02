@@ -24,7 +24,6 @@ const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
 
-
 var router = express.Router();
 router.use(middleware.corsHelper);
 router.use(middleware.authSanitizer);
@@ -117,11 +116,11 @@ router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
     booksAPI.syncWithLibraries);
 
 /* Commons Books/Catalogs */
-router.route('/v1/commons/catalog').get(middleware.checkLibreCommons,
+router.route('/v1/commons/catalog').get(
     booksAPI.validate('getCommonsCatalog'), middleware.checkValidationErrors,
     booksAPI.getCommonsCatalog);
-router.route('/v1/commons/mastercatalog').get(middleware.checkLibreCommons,
-    booksAPI.validate('getMasterCatalog'), middleware.checkLibreCommons,
+router.route('/v1/commons/mastercatalog').get(
+    booksAPI.validate('getMasterCatalog'), middleware.checkValidationErrors,
     booksAPI.getMasterCatalog);
 router.route('/v1/commons/book').get(booksAPI.validate('getBookDetail'),
     middleware.checkValidationErrors, booksAPI.getBookDetail);
@@ -138,13 +137,6 @@ router.route('/v1/user/basicinfo').get(authAPI.verifyRequest,
     userAPI.basicUserInfo);
 router.route('/v1/user/accountinfo').get(authAPI.verifyRequest,
     userAPI.basicAccountInfo);
-router.route('/v1/user/getadmins').get(authAPI.verifyRequest,
-    userAPI.getAdmins);
-router.route('/v1/user/getdevelopers').get(authAPI.verifyRequest,
-    userAPI.getDevelopers);
-router.route('/v1/user/getharvesters').get(authAPI.verifyRequest,
-    userAPI.getHarvesters);
-
 
 
 /* Announcements */

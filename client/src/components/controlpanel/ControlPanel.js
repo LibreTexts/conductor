@@ -56,7 +56,7 @@ const ControlPanel = (props) => {
                                 Welcome to Control Panel. Here, you will find several tools to manage your Campus Conductor instance.
                             </p>
                             <Segment basic>
-                                {(isSuperAdmin) &&
+                                {(isSuperAdmin && (process.env.REACT_APP_ORG_ID === 'libretexts')) &&
                                     <div className='mb-2r'>
                                         <Header as='h5' dividing>LIBRETEXTS MASTER TOOLS</Header>
                                         <List relaxed='very' divided selection>

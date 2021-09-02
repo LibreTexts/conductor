@@ -1,4 +1,5 @@
 const debug = require('debug')('conductor');
+const util = require('util');
 
 const debugServer = (msg) => {
     if (typeof(msg) === 'string') {
@@ -28,10 +29,15 @@ const debugCommonsSync = (msg) => {
     }
 }
 
+const debugObject = (obj) => {
+    console.log(util.inspect(obj, { showHidden: false, depth: null }));
+}
+
 module.exports = {
     debug,
     debugServer,
     debugDB,
     debugError,
-    debugCommonsSync
+    debugCommonsSync,
+    debugObject
 }

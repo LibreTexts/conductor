@@ -8,9 +8,12 @@
 * Commons Catalog results now appear only after a search has been performed
 * Commons Catalog no longer updates immediately on filter change
 * Switched to local store in Catalog to improve performance & reduce complexity
+* Started improving Campus Commons branding
 
 #### :satellite: Server
 * Book "Institution" is now referred to as "Affiliation"
+* Added an early version of Campus Commons catalog(s)
+* Removed some deprecated User functions and API endpoints
 
 ## 08-31-2021
 #### :art: UI/UX

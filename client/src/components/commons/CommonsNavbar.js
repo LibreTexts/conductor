@@ -3,10 +3,14 @@ import './Commons.css';
 import { Link } from 'react-router-dom';
 import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
 import Breakpoint from '../util/Breakpoints.js';
 
 const CommonsNavbar = (_props) => {
+
+    // Global State
+    const org = useSelector((state) => state.org);
 
     // UI
     const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
@@ -28,13 +32,13 @@ const CommonsNavbar = (_props) => {
             <Breakpoint name='tabletOrDesktop'>
                 <Menu id='commons-nav' secondary>
                     <Menu.Item as={Link} to='/'>
-                        <Image src='/transparent_logo.png' id='commons-nav-logo' />
+                        <Image src={org.mediumLogo} id='commons-nav-logo' />
                     </Menu.Item>
                     <Menu.Menu position='right' id='commons-nav-rightmenu'>
                         <Menu.Item as='a' href='https://www.libretexts.org' target='_blank' rel='noopener noreferrer'>
                             LibreTexts.org
                         </Menu.Item>
-                        <Dropdown item text='Explore the Libraries'>
+                        <Dropdown item text={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 'Explore the Libraries' : 'Explore LibreTexts'}>
                             <Dropdown.Menu>
                                 <Dropdown.Item as='a' href='https://bio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
                                     <Icon name='dna' />
@@ -96,7 +100,7 @@ const CommonsNavbar = (_props) => {
             <Breakpoint name='mobile'>
                 <div id='commons-mobilenav'>
                     <div id='commons-mobilenav-left'>
-                        <Image src='/transparent_logo.png' id='commons-mobilenav-logo' />
+                        <Image src={org.mediumLogo} id='commons-mobilenav-logo' />
                     </div>
                     <div id='commons-mobilenav-right'>
                         <Button basic circular icon='bars' onClick={closeMobileMenu} />
@@ -110,7 +114,10 @@ const CommonsNavbar = (_props) => {
                                 <Icon name='external' className='float-right' />
                             </Menu.Item>
                             <Menu.Item onClick={() => { setShowMobileLibs(!showMobileLibs) }}>
-                                Explore the Libraries
+                                {(process.env.REACT_APP_ORG_ID === 'libretexts')
+                                    ? 'Explore the Libraries'
+                                    : 'Explore LibreTexts'
+                                }
                                 {showMobileLibs
                                     ? (
                                         <Icon name='angle up' className='float-right' />

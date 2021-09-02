@@ -254,6 +254,12 @@ const Commons = (_props) => {
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
+            {(process.env.REACT_APP_ORG_ID !== 'libretexts') &&
+                <div className='mt-3r mb-3r'>
+                    <p id='commons-poweredby-tagline' className='text-center'><em>powered by</em></p>
+                    <Image src='/transparent_logo.png' size='medium' centered/>
+                </div>
+            }
             <CommonsFooter />
             <Modal
                 onClose={() => { setShowNoOrg(false) }}

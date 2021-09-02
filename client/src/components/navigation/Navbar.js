@@ -1,7 +1,14 @@
 import './Navbar.css';
 
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Image, Dropdown, Icon } from 'semantic-ui-react';
+import {
+    Menu,
+    Image,
+    Dropdown,
+    Icon,
+    Button,
+    Input
+} from 'semantic-ui-react';
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -13,6 +20,7 @@ const Navbar = (_props) => {
     const location = useLocation();
     const dispatch = useDispatch();
     const user = useSelector((state) => state.user);
+    const org = useSelector((state) => state.org);
 
     // Data fetch flags
     const loadedUser = useRef(false);
@@ -78,6 +86,8 @@ const Navbar = (_props) => {
             setActiveItem('harvesting');
         } else if (currentPath.includes('/projects')) {
             setActiveItem('projects');
+        } else {
+            setActiveItem('');
         }
     }, [location.pathname]);
 
@@ -118,29 +128,21 @@ const Navbar = (_props) => {
                     as={Link}
                     to='/dashboard'
                     header
-                    className='nav-logo-item'
                     name='dashboard'
+                    id='nav-logo-item'
                     onClick={(_e, data) => {
                         setActiveItem(data.name);
                     }}
                 >
-                    <Image src='/mini_logo.png' className='nav-logo' />
+                    <Image src='/mini_logo.png' id='nav-logo' />
                     <span className='nav-title'>Conductor</span>
+                    <Image src={org.mediumLogo} id='nav-org-logo' />
                 </Menu.Item>
                 <Menu.Item
                     name='dashboard'
                     as={Link}
                     to='/dashboard'
                     active={activeItem === 'dashboard'}
-                    onClick={(_e, data) => {
-                        setActiveItem(data.name);
-                    }}
-                />
-                <Menu.Item
-                    name='harvesting'
-                    as={Link}
-                    to='/harvesting'
-                    active={activeItem === 'harvesting'}
                     onClick={(_e, data) => {
                         setActiveItem(data.name);
                     }}
@@ -155,6 +157,16 @@ const Navbar = (_props) => {
                     }}
                 />
                 <Menu.Menu position='right'>
+                    <Menu.Item>
+                        <Input
+                            disabled // TODO: implement search
+                            type='text'
+                            placeholder='Search...'
+                            action={
+                                <Button basic icon='search' />
+                            }
+                        />
+                    </Menu.Item>
                     <Menu.Item>
                         <Icon name='bookmark' />
                         <Dropdown inline text='Libraries'>
@@ -266,7 +278,10 @@ const Navbar = (_props) => {
                                 <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/' >
                                     <Icon name='handshake' />
-                                    Commons
+                                    {(process.env.REACT_APP_ORG_ID === 'libretexts')
+                                        ? 'LibreCommons'
+                                        : 'Campus Commons'
+                                    }
                                 </Dropdown.Item>
                                 <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/account/settings/' >
@@ -289,16 +304,7 @@ const Navbar = (_props) => {
 }
 
 /*
-<Menu.Item>
-    <Input
-        type='text'
-        placeholder='Search...'
-        action={
-            <Button basic onClick={handleSearchClick} icon='search' />
-        }
-        onChange={handleSearchInputChange}
-    />
-</Menu.Item>
+
 */
 
 export default Navbar;
