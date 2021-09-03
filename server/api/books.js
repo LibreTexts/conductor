@@ -5,6 +5,7 @@
 
 'use strict';
 const Book = require('../models/book.js');
+const Collection = require('../models/collection.js');
 const Organization = require('../models/organization.js');
 const CustomCatalog = require('../models/customcatalog.js');
 const { body, query } = require('express-validator');
@@ -130,6 +131,61 @@ const checkValidImport = (book) => {
     return isValidImport;
 };
 
+
+const autoGenerateCollections = (res, programListings, programDetails, nInserted) => {
+    return new Promise((resolve, _reject) => {
+        var collOps = [];
+        if (Object.keys(programListings).length > 0) {
+            Object.entries(programListings).forEach(([progName, progList]) => {
+                collOps.push({
+                    updateOne: {
+                        filter: {
+                            orgID: 'libretexts',
+                            program: progName
+                        },
+                        update: {
+                            $setOnInsert: {
+                                orgID: 'libretexts',
+                                collID: b62(8),
+                                title: programDetails[progName],
+                                program: progName,
+                                privacy: 'public'
+                            },
+                            $addToSet: {
+                                resources: {
+                                    $each: progList
+                                }
+                            }
+                        },
+                        upsert: true
+                    }
+                });
+            });
+            debugObject(collOps);
+            resolve(Collection.bulkWrite(collOps, {
+                ordered: false
+            }));
+        } else {
+            resolve({});
+        }
+    }).then((collsRes) => {
+        var msg = `Imported ${nInserted} books from the Libraries.`;
+        if (collsRes.modifiedCount) {
+            msg += ` ${collsRes.modifiedCount} auto-generated collections updated.`;
+        }
+        return res.send({
+            err: false,
+            msg: msg
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
 /**
  * Retrieve prepared books from the
  * LibreTexts API and process &
@@ -142,6 +198,21 @@ const syncWithLibraries = (_req, res) => {
     var allRequests = [];
     var allBooks = [];
     var commonsBooks = [];
+    var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny'];
+    var programDetails = {
+        openrn: 'OpenRN',
+        openstax: 'OpenStax',
+        mitocw: 'MIT OpenCourseWare',
+        opensuny: 'OpenSUNY'
+    };
+    var programListings = {};
+    if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
+        approvedPrograms.forEach((program) => {
+            if (!Object.keys(programListings).includes(program)) {
+                programListings[program] = [];
+            }
+        });
+    }
     // Build list(s) of HTTP requests to be performed
     libraries.forEach((lib) => {
         shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
@@ -190,14 +261,21 @@ const syncWithLibraries = (_req, res) => {
                 if (book.author) author = book.author;
                 if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
                 if (book.tags && Array.isArray(book.tags)) {
-                    var foundLic = book.tags.find((tag) => {
+                    book.tags.forEach((tag) => {
                         if (tag.includes('license:')) {
-                            return tag;
+                            license = tag.replace('license:', '');
+                        }
+                        if (tag.includes('program:')) {
+                            var progName = tag.replace('program:', '');
+                            if (approvedPrograms.length > 0 && approvedPrograms.includes(progName)) {
+                                if (Object.keys(programListings).includes(progName)) {
+                                    if (!programListings[progName].includes(book.zipFilename)) {
+                                        programListings[progName].push(book.zipFilename);
+                                    }
+                                }
+                            }
                         }
                     });
-                    if (foundLic !== undefined) {
-                        license = foundLic.replace('license:', '');
-                    }
                 }
                 var newCommonsBook = {
                     bookID: book.zipFilename,
@@ -228,33 +306,21 @@ const syncWithLibraries = (_req, res) => {
         if (deleteRes.ok === 1) {
             // Import books, ignore failures
             return Book.insertMany(commonsBooks, {
-                ordered: false
+                ordered: false,
+                rawResult: true
             });
         } else {
             throw(new Error('delete'));
         }
     }).then((insertedDocs) => {
-        // All imports succeeded
-        if (insertedDocs.length === commonsBooks.length) {
-            return res.send({
-                err: false,
-                msg: "Succesfully synced Commons with Libraries."
-            });
-        } else { // Some imports failed (silent)
-            debugCommonsSync(`Inserted only ${insertedDocs.length} books when ${commonsBooks.length} books were expected.`);
-            return res.send({
-                err: false,
-                msg: `Imported ${insertedDocs.length} books from the Libraries.`
-            });
-        }
+        // All imports succeeded, continue to auto-generate Program Collections
+        return autoGenerateCollections(res, programListings, programDetails, insertedDocs.nInserted);
     }).catch((err) => {
         if (err.result) { // insertMany error(s)
             if (err.result.nInserted > 0) { // Some imports failed (silent)
                 debugCommonsSync(`Inserted only ${err.result.nInserted} books when ${commonsBooks.length} books were expected.`);
-                return res.send({
-                    err: false,
-                    msg: `Imported ${err.result.nInserted} books from the Libraries.`
-                });
+                // Continue to auto-generate Program Collections
+                return autoGenerateCollections(res, programListings, programDetails, err.result.nInserted);
             } else { // All imports failed
                 return res.send({
                     err: true,

@@ -91,7 +91,7 @@ const Commons = (_props) => {
             setActiveItem('catalog');
         } else if (currentPath.includes('/catalog')) {
             setActiveItem('catalog');
-        } else if (currentPath.includes('/collections')) {
+        } else if (currentPath.includes('/collection')) {
             setActiveItem('collections');
         } else if (currentPath.includes('/homework')) {
             setActiveItem('homework');

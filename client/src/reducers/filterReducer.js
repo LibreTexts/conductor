@@ -7,12 +7,12 @@
 const filtersInitialState = {
     adaptCatalog: {
         mode: 'visual',
-        itemsPerPage: 6,
+        itemsPerPage: 12,
         activePage: 1 // not used as URL param
     },
     commonsCatalog: {
         mode: 'visual',
-        itemsPerPage: 6,
+        itemsPerPage: 12,
         activePage: 1, // not used as URL param,
         search: '',
         sort: 'title',
@@ -28,7 +28,7 @@ const filtersInitialState = {
     },
     collectionView: {
         mode: 'visual',
-        itemsPerPage: 6,
+        itemsPerPage: 12,
         activePage: 1, // not used as URL param
         sort: 'title',
         library: '',

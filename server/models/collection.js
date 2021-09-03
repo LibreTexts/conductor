@@ -24,8 +24,15 @@ const CollectionSchema = new Schema({
         type: String,
         default: ''
     },
-    privacy: String,                // the collection privacy setting (one of: 'public', 'private', 'campus')
-    resources: [String]             // the array of resource IDs included in the collection
+    privacy: {                      // the collection privacy setting (one of: 'public', 'private', 'campus')
+        type: String,
+        default: 'public'
+    },
+    resources: [String],            // the array of resource IDs included in the collection,
+    program: {                      // the OER program the collection is AUTO-GENERATED for
+        type: String,
+        default: ''
+    }
 }, {
     timestamps: true
 });

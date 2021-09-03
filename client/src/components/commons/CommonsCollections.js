@@ -12,6 +12,7 @@ import {
     Table
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLocation, useHistory } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -81,7 +82,6 @@ const CommonsCollections = (_props) => {
             if (!res.data.err) {
                 if (res.data.colls && Array.isArray(res.data.colls) && res.data.colls.length > 0) {
                     setCollections(res.data.colls);
-                    console.log(res.data.colls);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -99,24 +99,24 @@ const CommonsCollections = (_props) => {
                 <Card.Group itemsPerRow={6} stackable>
                     {collections.map((item, index) => {
                         return (
-                            <Popup key={index} content='Collections are coming soon!' position='top center' trigger={
-                                <Card
-                                    key={index}
-                                >
-                                    <Image
-                                        className='commons-content-card-img'
-                                        src={(item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto}
-                                        wrapped
-                                        ui={false}
-                                    />
-                                    <Card.Content>
-                                        <Card.Header>{item.title}</Card.Header>
-                                        <Card.Meta>
-                                            {item.resources} resources
-                                        </Card.Meta>
-                                    </Card.Content>
-                                </Card>
-                            } />
+                            <Card
+                                key={index}
+                                as={Link}
+                                to={`/collection/${item.collID}`}
+                            >
+                                <Image
+                                    className='commons-content-card-img'
+                                    src={(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto}
+                                    wrapped
+                                    ui={false}
+                                />
+                                <Card.Content>
+                                    <Card.Header>{item.title}</Card.Header>
+                                    <Card.Meta>
+                                        {item.resources} resources
+                                    </Card.Meta>
+                                </Card.Content>
+                            </Card>
                         )
                     })}
                 </Card.Group>

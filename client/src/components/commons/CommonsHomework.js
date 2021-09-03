@@ -311,8 +311,8 @@ const CommonsHomework = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
-                        <Breakpoint name='desktop'>
-                            <Segment>
+                        <Segment>
+                            <Breakpoint name='desktop'>
                                 <Grid>
                                     <Grid.Column width={12} verticalAlign='middle'>
                                         <p>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
@@ -327,8 +327,156 @@ const CommonsHomework = (_props) => {
                                         />
                                     </Grid.Column>
                                 </Grid>
-                            </Segment>
-                            <Segment>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
+                                <Grid>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <p className='text-center'>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Input
+                                                fluid
+                                                icon='search'
+                                                placeholder='Search courses...'
+                                                onChange={(e) => { setSearchString(e.target.value) }}
+                                                value={searchString}
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                        </Segment>
+                        <Segment>
+                            <Breakpoint name='desktop'>
+                                <div className='commons-content-pagemenu'>
+                                    <div className='commons-content-pagemenu-left'>
+                                        <span>Displaying </span>
+                                        <Dropdown
+                                            className='commons-content-pagemenu-dropdown'
+                                            selection
+                                            options={catalogItemsPerPageOptions}
+                                            onChange={(_e, { value }) => {
+                                                history.push({
+                                                    pathname: location.pathname,
+                                                    search: updateParams(location.search, 'items', value)
+                                                });
+                                            }}
+                                            value={itemsPerPage}
+                                        />
+                                        <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
+                                    </div>
+                                    <div className='commons-content-pagemenu-center'>
+                                        <Pagination
+                                            activePage={activePage}
+                                            totalPages={totalPages}
+                                            firstItem={null}
+                                            lastItem={null}
+                                            onPageChange={(_e, data) => {
+                                                dispatch({
+                                                    type: 'SET_ADAPT_PAGE',
+                                                    payload: data.activePage
+                                                });
+                                            }}
+                                        />
+                                    </div>
+                                    <div className='commons-content-pagemenu-right'>
+                                        <Dropdown
+                                            placeholder='Display mode...'
+                                            floating
+                                            selection
+                                            button
+                                            className='float-right'
+                                            options={catalogDisplayOptions}
+                                            onChange={(_e, { value }) => {
+                                                history.push({
+                                                    pathname: location.pathname,
+                                                    search: updateParams(location.search, 'mode', value)
+                                                });
+                                            }}
+                                            value={displayChoice}
+                                        />
+
+                                    </div>
+                                </div>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
+                                <Grid>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Dropdown
+                                                placeholder='Display mode...'
+                                                floating
+                                                selection
+                                                button
+                                                className='float-right'
+                                                options={catalogDisplayOptions}
+                                                onChange={(_e, { value }) => {
+                                                    history.push({
+                                                        pathname: location.pathname,
+                                                        search: updateParams(location.search, 'mode', value)
+                                                    });
+                                                }}
+                                                value={displayChoice}
+                                                fluid
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <div className='center-flex flex-wrap'>
+                                                <span>Displaying </span>
+                                                <Dropdown
+                                                    className='commons-content-pagemenu-dropdown'
+                                                    selection
+                                                    options={catalogItemsPerPageOptions}
+                                                    onChange={(_e, { value }) => {
+                                                        history.push({
+                                                            pathname: location.pathname,
+                                                            search: updateParams(location.search, 'items', value)
+                                                        });
+                                                    }}
+                                                    value={itemsPerPage}
+                                                />
+                                                <span> items per page of <strong>{adaptCourses.length}</strong> results.</span>
+                                            </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column className='commons-pagination-mobile-container'>
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => {
+                                                    dispatch({
+                                                        type: 'SET_ADAPT_PAGE',
+                                                        payload: data.activePage
+                                                    });
+                                                }}
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                        </Segment>
+                        {(displayChoice === 'visual')
+                            ? (
+                                <Segment className='commons-content' loading={!loadedCourses}>
+                                    <VisualMode />
+                                </Segment>
+                            )
+                            : (
+                                <Segment className='commons-content commons-content-itemized' loading={!loadedCourses}>
+                                    <ItemizedMode />
+                                </Segment>
+                            )
+                        }
+                        <Segment>
+                            <Breakpoint name='desktop'>
                                 <div className='commons-content-pagemenu'>
                                     <div className='commons-content-pagemenu-left'>
                                         <span>Displaying </span>
@@ -347,21 +495,6 @@ const CommonsHomework = (_props) => {
                                         <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
-                                        <Dropdown
-                                            placeholder='Display mode...'
-                                            floating
-                                            selection
-                                            button
-                                            className='float-right'
-                                            options={catalogDisplayOptions}
-                                            onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'mode', value)
-                                                });
-                                            }}
-                                            value={displayChoice}
-                                        />
                                         <Pagination
                                             activePage={activePage}
                                             totalPages={totalPages}
@@ -376,22 +509,8 @@ const CommonsHomework = (_props) => {
                                         />
                                     </div>
                                 </div>
-                            </Segment>
-                        </Breakpoint>
-                        <Breakpoint name='mobileOrTablet'>
-                            <Segment textAlign='center'>
-                                <p>Courses listed here are part of the LibreTexts Adaptive Learning Assessment System, <a href='https://adapt.libretexts.org' target='_blank' rel='noopener noreferrer'>ADAPT</a>.</p>
-                            </Segment>
-                            <Segment>
-                                <Input
-                                    fluid
-                                    icon='search'
-                                    placeholder='Search courses...'
-                                    onChange={(e) => { setSearchString(e.target.value) }}
-                                    value={searchString}
-                                />
-                            </Segment>
-                            <Segment>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
                                 <Grid>
                                     <Grid.Row columns={1}>
                                         <Grid.Column>
@@ -413,26 +532,8 @@ const CommonsHomework = (_props) => {
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>
-                                    <Grid.Row columns={2}>
-                                        <Grid.Column>
-                                            <Dropdown
-                                                placeholder='Display mode...'
-                                                floating
-                                                selection
-                                                button
-                                                className='float-right'
-                                                options={catalogDisplayOptions}
-                                                onChange={(_e, { value }) => {
-                                                    history.push({
-                                                        pathname: location.pathname,
-                                                        search: updateParams(location.search, 'mode', value)
-                                                    });
-                                                }}
-                                                value={displayChoice}
-                                                fluid
-                                            />
-                                        </Grid.Column>
-                                        <Grid.Column>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column className='commons-pagination-mobile-container'>
                                             <Pagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
@@ -444,25 +545,12 @@ const CommonsHomework = (_props) => {
                                                         payload: data.activePage
                                                     });
                                                 }}
-                                                className='float-right'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>
-                            </Segment>
-                        </Breakpoint>
-                        {(displayChoice === 'visual')
-                            ? (
-                                <Segment className='commons-content' loading={!loadedCourses}>
-                                    <VisualMode />
-                                </Segment>
-                            )
-                            : (
-                                <Segment className='commons-content commons-content-itemized' loading={!loadedCourses}>
-                                    <ItemizedMode />
-                                </Segment>
-                            )
-                        }
+                            </Breakpoint>
+                        </Segment>
                     </Segment.Group>
                     <Modal
                         open={showCourseModal}

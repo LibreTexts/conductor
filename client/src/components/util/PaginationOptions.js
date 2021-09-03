@@ -11,7 +11,6 @@ const itemsPerPageOptions = [
 ];
 
 const catalogItemsPerPageOptions = [
-    { key: '6',     text: '6',      value: 6  },
     { key: '12',    text: '12',     value: 12 },
     { key: '24',    text: '24',     value: 24 },
     { key: '48',    text: '48',     value: 48 },

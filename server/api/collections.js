@@ -395,14 +395,14 @@ const validate = (method) => {
         case 'createCollection':
             return [
                 body('title', conductorErrors.err1).exists().isString().isLength({ min: 3 }),
-                body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
+                body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 2 }),
                 body('privacy', conductorErrors.err1).optional({ checkFalsy: true}).isString().custom(checkValidPrivacy)
             ]
         case 'editCollection':
             return [
                 body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8 }),
                 body('title', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 3 }),
-                body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
+                body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 2 }),
                 body('privacy', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(checkValidPrivacy)
             ]
         case 'deleteCollection':

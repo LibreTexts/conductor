@@ -57,7 +57,7 @@ app.use(helmet.contentSecurityPolicy({
             'data:'
         ],
         frameSrc: ["'self'", 'https://*.libretexts.org'],
-        imgSrc: ["'self'", 'https://*.libretexts.org', 'https://*.mtstatic.com'],
+        imgSrc: ["'self'", 'https:', 'data:'],
         objectSrc: ['none'],
         scriptSrc: ["'self'", 'https://*.libretexts.org'],
         styleSrc: [

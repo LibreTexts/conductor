@@ -55,7 +55,7 @@ const CommonsCatalog = (_props) => {
     const [pageBooks, setPageBooks] = useState([]);
 
     /** UI **/
-    const [itemsPerPage, setItemsPerPage] = useState(6);
+    const [itemsPerPage, setItemsPerPage] = useState(12);
     const [totalPages, setTotalPages] = useState(1);
     const [activePage, setActivePage] = useState(1);
     const [loadedData, setLoadedData] = useState(false);
@@ -660,6 +660,15 @@ const CommonsCatalog = (_props) => {
                                             />
                                             <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                         </div>
+                                        <div className='commons-content-pagemenu-center'>
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            />
+                                        </div>
                                         <div className='commons-content-pagemenu-right'>
                                             <Dropdown
                                                 placeholder='Sort by...'
@@ -683,13 +692,7 @@ const CommonsCatalog = (_props) => {
                                                 }}
                                                 value={displayChoice}
                                             />
-                                            <Pagination
-                                                activePage={activePage}
-                                                totalPages={totalPages}
-                                                firstItem={null}
-                                                lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                            />
+
                                         </div>
                                     </div>
                                 </Breakpoint>
@@ -742,7 +745,7 @@ const CommonsCatalog = (_props) => {
                                             </Grid.Column>
                                         </Grid.Row>
                                         <Grid.Row columns={1}>
-                                            <Grid.Column id='commons-pagination-mobile-container'>
+                                            <Grid.Column className='commons-pagination-mobile-container'>
                                                 <Pagination
                                                     activePage={activePage}
                                                     totalPages={totalPages}
@@ -763,6 +766,69 @@ const CommonsCatalog = (_props) => {
                                     ? (<VisualMode />)
                                     : (<ItemizedMode />)
                                 }
+                            </Segment>
+                        }
+                        {(initialSearch.current) &&
+                            <Segment>
+                                <Breakpoint name='desktop'>
+                                    <div className='commons-content-pagemenu'>
+                                        <div className='commons-content-pagemenu-left'>
+                                            <span>Displaying </span>
+                                            <Dropdown
+                                                className='commons-content-pagemenu-dropdown'
+                                                selection
+                                                options={catalogItemsPerPageOptions}
+                                                onChange={(_e, { value }) => {
+                                                    setItemsPerPage(value);
+                                                }}
+                                                value={itemsPerPage}
+                                            />
+                                            <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                        </div>
+                                        <div className='commons-content-pagemenu-right'>
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            />
+                                        </div>
+                                    </div>
+                                </Breakpoint>
+                                <Breakpoint name='mobileOrTablet'>
+                                    <Grid>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column>
+                                                <div className='center-flex flex-wrap'>
+                                                    <span>Displaying </span>
+                                                    <Dropdown
+                                                        className='commons-content-pagemenu-dropdown'
+                                                        selection
+                                                        options={catalogItemsPerPageOptions}
+                                                        onChange={(_e, { value }) => {
+                                                            setItemsPerPage(value);
+                                                        }}
+                                                        value={itemsPerPage}
+                                                    />
+                                                    <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                                </div>
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                        <Grid.Row columns={1}>
+                                            <Grid.Column className='commons-pagination-mobile-container'>
+                                                <Pagination
+                                                    activePage={activePage}
+                                                    totalPages={totalPages}
+                                                    siblingRange={1}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                />
+                                            </Grid.Column>
+                                        </Grid.Row>
+                                    </Grid>
+                                </Breakpoint>
                             </Segment>
                         }
                     </Segment.Group>

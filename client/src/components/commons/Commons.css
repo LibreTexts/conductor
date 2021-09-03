@@ -342,9 +342,9 @@
     min-width: 5em !important;
 }
 
-#commons-pagination-mobile-container {
-    display: flex;
-    justify-content: center;
+.commons-pagination-mobile-container {
+    display: flex !important;
+    justify-content: center !important;
 }
 
 /* Content */
