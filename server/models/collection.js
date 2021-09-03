@@ -12,7 +12,7 @@ const CollectionSchema = new Schema({
         type: String,
         required: true
     },
-    collID: {                        // base62 8-digit identifier
+    collID: {                       // base62 8-digit identifier
         type: String,
         required: true
     },

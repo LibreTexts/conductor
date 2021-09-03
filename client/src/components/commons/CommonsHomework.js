@@ -65,6 +65,7 @@ const CommonsHomework = (_props) => {
             withCredentials: false
         }).then((res) => {
             if (res.data && res.data.type === 'success') {
+                console.log(res.data);
                 if (res.data.commons_courses && Array.isArray(res.data.commons_courses)) {
                     let sorted = [...res.data.commons_courses].sort((a, b) => {
                         if (a.name < b.name) {
@@ -99,6 +100,8 @@ const CommonsHomework = (_props) => {
         axios.get(reqURL, {
             withCredentials: false
         }).then((res) => {
+            console.log(res.request.responseURL);
+            console.log(res.data);
             if (res.data && res.data.type === 'success') {
                 if (res.data.assignments && Array.isArray(res.data.assignments)) {
                     var assignments = res.data.assignments.map((item) => {
@@ -155,7 +158,7 @@ const CommonsHomework = (_props) => {
      * Run getADAPTCourses() on page load.
      */
     useEffect(() => {
-        document.title = "LibreCommons | ADAPT Courses"
+        document.title = "LibreCommons | Homework Resources"
         getADAPTCourses();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

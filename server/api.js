@@ -17,6 +17,7 @@ const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
 const booksAPI = require('./api/books.js');
+const homeworksAPI = require('./api/homeworks.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -154,6 +155,9 @@ router.route('/v1/commons/catalogs/removeresource').put(authAPI.verifyRequest,
     middleware.checkValidationErrors,
     booksAPI.removeBookFromCustomCatalog);
 
+
+/* Homework */
+//router.route('/v1/commons/homework/syncadapt').post(homeworksAPI.syncADAPTCommons);
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

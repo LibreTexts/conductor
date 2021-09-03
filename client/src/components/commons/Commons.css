@@ -3,6 +3,11 @@
  * Styles relevant to the Commons
  */
 
+
+.commons-itemized-glyph {
+    width: 1.18em;
+}
+
 /* Containers */
 .commons-container {
     margin: 1% !important;

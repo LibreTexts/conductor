@@ -161,7 +161,6 @@ const autoGenerateCollections = (res, programListings, programDetails, nInserted
                     }
                 });
             });
-            debugObject(collOps);
             resolve(Collection.bulkWrite(collOps, {
                 ordered: false
             }));
@@ -198,12 +197,13 @@ const syncWithLibraries = (_req, res) => {
     var allRequests = [];
     var allBooks = [];
     var commonsBooks = [];
-    var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny'];
+    var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
     var programDetails = {
         openrn: 'OpenRN',
         openstax: 'OpenStax',
         mitocw: 'MIT OpenCourseWare',
-        opensuny: 'OpenSUNY'
+        opensuny: 'OpenSUNY',
+        oeri: 'ASCCC OERI'
     };
     var programListings = {};
     if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
@@ -235,6 +235,7 @@ const syncWithLibraries = (_req, res) => {
                 var subject = '';
                 var course = '';
                 var location = '';
+                var program = '';
                 if (book.link) {
                     link = book.link;
                     if (String(book.link).includes('/Bookshelves/')) {
@@ -266,11 +267,11 @@ const syncWithLibraries = (_req, res) => {
                             license = tag.replace('license:', '');
                         }
                         if (tag.includes('program:')) {
-                            var progName = tag.replace('program:', '');
-                            if (approvedPrograms.length > 0 && approvedPrograms.includes(progName)) {
-                                if (Object.keys(programListings).includes(progName)) {
-                                    if (!programListings[progName].includes(book.zipFilename)) {
-                                        programListings[progName].push(book.zipFilename);
+                            program = tag.replace('program:', '');
+                            if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
+                                if (Object.keys(programListings).includes(program)) {
+                                    if (!programListings[program].includes(book.zipFilename)) {
+                                        programListings[program].push(book.zipFilename);
                                     }
                                 }
                             }
@@ -286,6 +287,7 @@ const syncWithLibraries = (_req, res) => {
                     subject: subject, // TODO: Improve algorithm
                     location: location,
                     course: course, // TODO: Improve algorithm
+                    program: program,
                     license: license,
                     thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
                     links: {

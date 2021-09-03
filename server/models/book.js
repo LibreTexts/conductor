@@ -26,6 +26,7 @@ const BookSchema = new Schema({
     subject: String,            // the book's shelf/subject
     location: String,           // the book's location in LibreTexts (i.e. Central Bookshelves, Campus Bookshelves, or Learning Objects)
     course: String,             // the course or campus the book belongs to
+    program: String,            // the OER program the book is part of
     license: String,            // the book license
     thumbnail: String,          // the URL of the book's thumbnail
     links: {                    // links to access the book in different formats

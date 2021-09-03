@@ -429,10 +429,13 @@ const CommonsCatalog = (_props) => {
             <Table celled>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={2}><Header sub>Author</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={2}><Header sub>Library</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={3}><Header sub>Affiliation</Header></Table.HeaderCell>
+                        <Table.HeaderCell>
+                            <Image centered src={getLibGlyphURL('')} className='commons-itemized-glyph' />
+                        </Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Subject</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Author</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Affiliation</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -441,14 +444,16 @@ const CommonsCatalog = (_props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
+                                        <Image centered src={getLibGlyphURL(item.library)} className='commons-itemized-glyph' />
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <p><strong><Link to={`/book/${item.bookID}`}>{item.title}</Link></strong></p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <p>{item.author}</p>
+                                        <p>{item.subject}</p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
-                                        {getLibraryName(item.library)}
+                                        <p>{item.author}</p>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <p><em>{item.affiliation}</em></p>
@@ -459,7 +464,7 @@ const CommonsCatalog = (_props) => {
                     }
                     {(pageBooks.length === 0) &&
                         <Table.Row>
-                            <Table.Cell colSpan={4}>
+                            <Table.Cell colSpan={5}>
                                 <p className='text-center'><em>No results found.</em></p>
                             </Table.Cell>
                         </Table.Row>
@@ -475,16 +480,18 @@ const CommonsCatalog = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
-                        <Segment padded>
-                            <Breakpoint name='desktop'>
-                                <Header id='commons-librecommons-intro-header'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
-                                <p id='commons-librecommons-intro'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
-                            </Breakpoint>
-                            <Breakpoint name='mobileOrTablet'>
-                                <Header id='commons-librecommons-intro-header' textAlign='center'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
-                                <p id='commons-librecommons-intro' className='text-center'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
-                            </Breakpoint>
-                        </Segment>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                            <Segment padded>
+                                <Breakpoint name='desktop'>
+                                    <Header id='commons-librecommons-intro-header'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
+                                    <p id='commons-librecommons-intro'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                                </Breakpoint>
+                                <Breakpoint name='mobileOrTablet'>
+                                    <Header id='commons-librecommons-intro-header' textAlign='center'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
+                                    <p id='commons-librecommons-intro' className='text-center'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                                </Breakpoint>
+                            </Segment>
+                        }
                         <Segment>
                             <div id='commons-searchbar-container'>
                                 <Input

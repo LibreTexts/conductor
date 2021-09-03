@@ -17,7 +17,9 @@ const conductorErrors = {
     'err10': "Your account does not appear to be associated with any organization.",
     'err11': "A resource with that identifier was not found.",
     'err12': "Incorrect username or password.",
-    'err13': "Commons-Libraries sync appears to have failed. Check server logs."
+    'err13': "Commons-Libraries sync appears to have failed. Check server logs.",
+    'err14': "Sorry, we're having trouble connecting to ADAPT Commons.",
+    'err15': "Syncing with ADAPT appears to have failed. Check server logs."
 };
 
 module.exports = conductorErrors;

@@ -17,6 +17,10 @@ const debugDB = (msg) => {
     }
 };
 
+const debugObject = (obj) => {
+    console.log(util.inspect(obj, { showHidden: false, depth: null }));
+};
+
 const debugError = (err) => {
     debug('[ORGID - %s]: %s', process.env.ORG_ID, err.toString());
 };
@@ -27,17 +31,23 @@ const debugCommonsSync = (msg) => {
     } else {
         debug('[COMMONS SYNC]: %s', msg.toString());
     }
-}
+};
 
-const debugObject = (obj) => {
-    console.log(util.inspect(obj, { showHidden: false, depth: null }));
-}
+const debugADAPTSync = (msg) => {
+    if (typeof(msg) === 'string') {
+        debug('[COMMONS SYNC]: %s', msg);
+    } else {
+        debug('[COMMONS SYNC]: %s', msg.toString());
+    }
+};
+
 
 module.exports = {
     debug,
     debugServer,
     debugDB,
+    debugObject,
     debugError,
     debugCommonsSync,
-    debugObject
+    debugADAPTSync
 }
