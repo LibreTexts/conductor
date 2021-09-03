@@ -24,7 +24,7 @@ const CollectionSchema = new Schema({
         type: String,
         default: ''
     },
-    enabled: Boolean,               // the collection status (enabled/disabled)
+    privacy: String,                // the collection privacy setting (one of: 'public', 'private', 'campus')
     resources: [String]             // the array of resource IDs included in the collection
 }, {
     timestamps: true

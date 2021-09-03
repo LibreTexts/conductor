@@ -9,7 +9,7 @@ const orgInitialState = {
     name: '',
     shortName: '',
     abbreviation: '',
-    coverPhoto: '/coverphoto_default.jpg',
+    coverPhoto: '',
     largeLogo: '',
     mediumLogo: '',
     smallLogo: '',

@@ -103,14 +103,14 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    height: 30rem;
+    height: 21rem;
     background-position: center center;
     background-size: cover;
     background-repeat: no-repeat;
 }
 
 #commons-jumbotron-logo {
-    max-width: 550px;
+    max-width: 425px;
     height: auto;
 }
 
@@ -210,20 +210,7 @@
     border-color: #C9C9C9;
 }
 
-
-/* Filters and Pagination */
-.commons-search-input {
-    color: #0A7CC5 !important;
-    box-shadow: 0px 0px 1px 0px #c2c2c2 !important;
-    -webkit-box-shadow: 0px 0px 1px 0px #c2c2c2 !important;
-}
-
-.commons-search-button {
-    background-color: #0A7CC5 !important;
-    color: #FFFFFF !important;
-    height: 40px !important;
-}
-
+/* Catalog Branding */
 #commons-librecommons-intro-header {
     font-size: 1.5em;
 }
@@ -232,8 +219,82 @@
     font-size: 1.1em;
 }
 
-.commons-search-intro {
-    font-size: 1.2em;
+
+/* Search and Filters */
+#commons-searchbar-container {
+    margin-top: 1rem;
+    width: 100%;
+    padding-left: 15%;
+    padding-right: 15%;
+}
+
+#commons-search-input {
+    box-shadow: 0px 0px 1px 0px #c2c2c2;
+    -webkit-box-shadow: 0px 0px 1px 0px #c2c2c2;
+}
+
+#commons-searchbtns-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 1rem;
+    width: 100%;
+    padding-left: 25%;
+    padding-right: 25%;
+}
+
+#commons-search-button {
+    background-color: #0A7CC5 !important;
+    color: #FFFFFF !important;
+    height: 40px !important;
+}
+
+#commons-reset-button {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    height: 40px;
+}
+
+#commons-advancedsrch-button {
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+#commons-advancedsrch-button i {
+    margin: 0;
+}
+
+#commons-advancedsrch-button span {
+    padding-left: 1%;
+    padding-right: 1%;
+}
+
+#commons-advancedsrch-container {
+    display: none;
+}
+
+.commons-advancedsrch-row {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    margin-top: 0.25em;
+    justify-content: center;
+    align-items: center;
+}
+
+.commons-advancedsrch-show {
+    display: block !important;
+}
+
+.commons-advancedsrch-hide {
+    display: none !important;
 }
 
 #commons-filters-desktop {
@@ -248,6 +309,7 @@
     margin-top: 0.25rem !important;
 }
 
+/* Pagination */
 .commons-content-pagemenu {
     display: flex;
     height: 40px;
@@ -378,7 +440,24 @@
 /* Small to medium devices (under 768px) */
 @media only screen and (max-width: 768px) {
     #commons-jumbotron-logo {
-        max-width: 75%;
+        max-width: 70%;
         height: auto;
+    }
+
+    #commons-searchbar-container {
+        padding-left: 2%;
+        padding-right: 2%;
+    }
+
+    #commons-searchbtns-container {
+        padding-left: 10%;
+        padding-right: 10%;
+    }
+    .commons-filter {
+        display: block;
+        width: 100%;
+    }
+    .commons-advancedsrch-row {
+        margin-top: 1em;
     }
 }

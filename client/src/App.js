@@ -115,7 +115,7 @@ function App() {
                         <Route exact path = '/collection/:id' component={Commons} />
                         <Route exact path = '/book/:id' component={Commons} />
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/adapt' component={Commons} />
+                            <Route exact path = '/homework' component={Commons} />
                         }
                         {/* Standalone */}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&

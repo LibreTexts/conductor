@@ -18,7 +18,7 @@ const debugDB = (msg) => {
 };
 
 const debugError = (err) => {
-    debug('[ORGID=%s]: %s', process.env.ORG_ID, err.toString());
+    debug('[ORGID - %s]: %s', process.env.ORG_ID, err.toString());
 };
 
 const debugCommonsSync = (msg) => {

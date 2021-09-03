@@ -145,8 +145,14 @@ const Login = (props) => {
                             <p>Sorry, access to Conductor is currently disabled.</p>
                         </Message>
                     }
+                    {process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true' &&
+                        <Message warning>
+                            <Message.Header>Conductor is restricted.</Message.Header>
+                            <p>Access to Conductor is currently restricted. Only pre-registered users may log in.</p>
+                        </Message>
+                    }
                     <Button
-                        disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                        disabled={(process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true') || (process.env.REACT_APP_DISABLE_CONDUCTOR === 'true')}
                         fluid
                         color='teal'
                         onClick={initSSOLogin}
@@ -154,7 +160,7 @@ const Login = (props) => {
                         <Icon name='globe'/> Campus Login (SSO)
                     </Button>
                     <Button
-                        disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                        disabled={(process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true') || (process.env.REACT_APP_DISABLE_CONDUCTOR === 'true')}
                         fluid
                         color='green'
                         className='mt-1p'

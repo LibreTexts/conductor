@@ -14,7 +14,8 @@ import {
   Icon,
   Pagination,
   Input,
-  Breadcrumb
+  Breadcrumb,
+  List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -54,16 +55,19 @@ const CollectionsManager = (props) => {
     const [editCollID, setEditCollID] = useState('');
     const [editCollTitle, setEditCollTitle] = useState('');
     const [editCollPhoto, setEditCollPhoto] = useState('');
+    const [editCollPriv, setEditCollPriv] = useState('public');
     const [editCollOrigTitle, setEditCollOrigTitle] = useState('');
     const [editCollOrigPhoto, setEditCollOrigPhoto] = useState('');
+    const [editCollOrigPriv, setEditCollOrigPriv] = useState('');
     const [editCollTitleErr, setEditCollTitleErr] = useState(false);
     const [editCollLoading, setEditCollLoading] = useState(false);
 
-    // Toggle Collection Status Modal
-    const [showCollStatusModal, setShowCollStatusModal] = useState(false);
-    const [collStatusID, setCollStatusID] = useState('');
-    const [collStatusCurrent, setCollStatusCurrent] = useState(false);
-    const [collStatusLoading, setCollStatusLoading] = useState(false);
+    // Manage Resources Modal
+    const [showManageResModal, setManageResModal] = useState(false);
+    const [manageResID, setManageResID] = useState('');
+    const [manageResTitle, setManageResTitle] = useState('');
+    const [manageResItems, setManageResItems] = useState([]);
+    const [manageResWorking, setManageResWorking] = useState(false);
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Collections Manager";
@@ -74,6 +78,12 @@ const CollectionsManager = (props) => {
     const sortOptions = [
         { key: 'title', text: 'Sort by Title', value: 'title' },
         { key: 'resources', text: 'Sort by Number of Resources', value: 'resources' }
+    ];
+
+    const privacyOptions = [
+        { key: 'public', text: 'Public', value: 'public' },
+        { key: 'private', text: 'Private', value: 'private'},
+        { key: 'campus', text: 'Campus', value: 'campus'}
     ];
 
 
@@ -92,7 +102,7 @@ const CollectionsManager = (props) => {
     }, [collections, searchString, sortChoice]);
 
     const getCollections = () => {
-        axios.get('/commons/collections').then((res) => {
+        axios.get('/commons/collections/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.colls && Array.isArray(res.data.colls) && res.data.colls.length > 0) {
                     setCollections(res.data.colls);
@@ -178,6 +188,9 @@ const CollectionsManager = (props) => {
                 if (!isEmptyString(editCollPhoto)) {
                     collData.coverPhoto = editCollPhoto;
                 }
+                if (!isEmptyString(editCollPriv)) {
+                    collData.privacy = editCollPriv;
+                }
                 axiosReq = axios.post('/commons/collection/create', collData);
             } else {
                 collData.collID = editCollID;
@@ -186,6 +199,9 @@ const CollectionsManager = (props) => {
                 }
                 if (editCollPhoto !== editCollOrigPhoto) {
                     collData.coverPhoto = editCollPhoto;
+                }
+                if (editCollPriv !== editCollOrigPriv) {
+                    collData.privacy = editCollPriv;
                 }
                 axiosReq = axios.put('/commons/collection/edit', collData);
             }
@@ -211,17 +227,21 @@ const CollectionsManager = (props) => {
         setEditCollOrigTitle('');
         setEditCollPhoto('');
         setEditCollOrigPhoto('');
+        setEditCollPriv('public');
+        setEditCollOrigPriv('');
         resetEditCollForm();
     };
 
-    const openEditCollModal = (collID, collTitle, collPhoto) => {
+    const openEditCollModal = (coll) => {
         setShowEditCollModal(true);
         setEditCollCreate(false);
-        setEditCollID(collID)
-        setEditCollTitle(collTitle);
-        setEditCollOrigTitle(collTitle);
-        setEditCollPhoto(collPhoto);
-        setEditCollOrigPhoto(collPhoto);
+        setEditCollID(coll.collID)
+        setEditCollTitle(coll.title);
+        setEditCollOrigTitle(coll.title);
+        setEditCollPhoto(coll.coverPhoto);
+        setEditCollOrigPhoto(coll.coverPhoto);
+        setEditCollPriv(coll.privacy);
+        setEditCollOrigPriv(coll.privacy)
         resetEditCollForm();
     };
 
@@ -233,41 +253,80 @@ const CollectionsManager = (props) => {
         setEditCollOrigTitle('');
         setEditCollPhoto('');
         setEditCollOrigPhoto('');
+        setEditCollPriv('public');
+        setEditCollOrigPriv('');
         resetEditCollForm();
     };
 
-    const toggleCollectionStatus = () => {
-        if (collStatusID !== '') {
-            setCollStatusLoading(true);
-            axios.put('/commons/collection/togglestatus', {
-                collID: collStatusID
+    const getCollectionResources = (collID) => {
+        if (collID && !isEmptyString(collID)) {
+            setManageResWorking(true);
+            axios.get('/commons/collection', {
+                params: {
+                    collID: collID
+                }
             }).then((res) => {
                 if (!res.data.err) {
-                    closeCollStatusModal();
-                    getCollections();
+                    if (res.data.coll) {
+                        if (res.data.coll.resources && Array.isArray(res.data.coll.resources)) {
+                            var resources = [];
+                            res.data.coll.resources.forEach((item) => {
+                                resources.push({
+                                    bookID: item.bookID,
+                                    title: item.title,
+                                    author: item.author
+                                });
+                            });
+                            setManageResItems(resources);
+                        }
+                    }
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
-                setCollStatusLoading(false);
+                setManageResWorking(false);
             }).catch((err) => {
                 handleGlobalError(err);
-                setCollStatusLoading(false);
+                setManageResWorking(false);
+            })
+        }
+    };
+
+    const removeCollectionResource = (bookID) => {
+        if (bookID && !isEmptyString(bookID)) {
+            setManageResWorking(true);
+            var collData = {
+                collID: manageResID,
+                bookID: bookID
+            };
+            axios.put('/commons/collection/removeresource', collData).then((res) => {
+                if (!res.data.err) {
+                    setManageResWorking(false);
+                    getCollectionResources(manageResID);
+                } else {
+                    setManageResWorking(false);
+                    handleGlobalError(res.data.errMsg);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setManageResWorking(false);
             });
         }
     };
 
-    const openCollStatusModal = (collID, collStatus) => {
-        if ((collID !== undefined) && (collID !== null) && (collID !== undefined) && (collID !== null)) {
-            setShowCollStatusModal(true);
-            setCollStatusID(collID);
-            setCollStatusCurrent(collStatus);
-        }
+    const openManageResModal = (collID, collTitle) => {
+        setManageResModal(true);
+        setManageResID(collID);
+        setManageResTitle(collTitle);
+        setManageResItems([]);
+        getCollectionResources(collID);
     };
 
-    const closeCollStatusModal = () => {
-        setShowCollStatusModal(false);
-        setCollStatusID('');
-        setCollStatusCurrent(false);
+    const closeManageResModal = () => {
+        setManageResModal(false);
+        setManageResTitle('');
+        setManageResID('');
+        setManageResItems([]);
+        getCollections();
     };
 
     return (
@@ -305,7 +364,7 @@ const CollectionsManager = (props) => {
                                     />
                                     <Input
                                         icon='search'
-                                        placeholder='Search...'
+                                        placeholder='Search results...'
                                         onChange={(e) => { setSearchString(e.target.value) }}
                                         value={searchString}
                                     />
@@ -386,35 +445,18 @@ const CollectionsManager = (props) => {
                                                         <Button.Group vertical fluid>
                                                             <Button
                                                                 color='blue'
-                                                                onClick={() => { openEditCollModal(item.collID, item.title, item.coverPhoto) }}
+                                                                onClick={() => { openEditCollModal(item) }}
                                                             >
                                                                 <Icon name='edit' />
                                                                 Edit Collection Details
                                                             </Button>
-                                                            <Button color='teal'>
+                                                            <Button
+                                                                color='teal'
+                                                                onClick={() => { openManageResModal(item.collID, item.title) }}
+                                                            >
                                                                 <Icon name='list alternate outline' />
                                                                 Manage Resources
                                                             </Button>
-                                                            {(item.enabled)
-                                                                ? (
-                                                                    <Button
-                                                                        color='red'
-                                                                        onClick={() => { openCollStatusModal(item.collID, item.enabled) }}
-                                                                    >
-                                                                        <Icon name='eye slash' />
-                                                                        Disable Collection
-                                                                    </Button>
-                                                                )
-                                                                : (
-                                                                    <Button
-                                                                        color='green'
-                                                                        onClick={() => { openCollStatusModal(item.collID, item.enabled )}}
-                                                                    >
-                                                                        <Icon name='eye' />
-                                                                        Enable Collection
-                                                                    </Button>
-                                                                )
-                                                            }
                                                         </Button.Group>
                                                     </Table.Cell>
                                                 </Table.Row>
@@ -440,7 +482,7 @@ const CollectionsManager = (props) => {
                         <Modal.Header>{editCollCreate ? 'Create' : 'Edit'} Collection</Modal.Header>
                         <Modal.Content>
                             {(editCollCreate) &&
-                                <p><em>This collection will be created inside of <strong>{org.shortName}</strong>. It will automatically be enabled upon creation.</em></p>
+                                <p><em>This collection will be created inside of <strong>{org.shortName}</strong>.</em></p>
                             }
                             <Form noValidate>
                                 <Form.Field
@@ -467,6 +509,14 @@ const CollectionsManager = (props) => {
                                         value={editCollPhoto}
                                     />
                                 </Form.Field>
+                                <Form.Select
+                                    fluid
+                                    label={<label>Collection Privacy <span className='muted-text'>(defaults to Public)</span></label>}
+                                    placeholder='Collection Privacy...'
+                                    options={privacyOptions}
+                                    onChange={(_e, { value }) => { setEditCollPriv(value) }}
+                                    value={editCollPriv}
+                                />
                             </Form>
                         </Modal.Content>
                         <Modal.Actions>
@@ -481,35 +531,67 @@ const CollectionsManager = (props) => {
                                 loading={editCollLoading}
                             >
                                 <Icon name={editCollCreate ? 'add' : 'edit'} />
-                                Create
+                                {editCollCreate ? 'Create' : 'Edit'}
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Toggle Collection Status Modal */}
+                    {/* Manage Resources Modal */}
                     <Modal
-                        open={showCollStatusModal}
+                        open={showManageResModal}
                         closeOnDimmerClick={false}
                     >
-                        <Modal.Header>Change Collection Status</Modal.Header>
-                        <Modal.Content>
-                            {collStatusCurrent
-                                ? <p>Are you sure you want to <strong>disable</strong> this collection? It will be hidden from Commons immediately.</p>
-                                : <p>Are you sure you want to <strong>enable</strong> this collection? It will be available on Commons immediately.</p>
+                        <Modal.Header>Manage Collection Resources</Modal.Header>
+                        <Modal.Content scrolling>
+                            <p><strong>Collection Title: </strong>{manageResTitle}</p>
+                            <p><strong>Resources: </strong></p>
+                            {(manageResItems.length > 0) &&
+                                <List
+                                    celled
+                                    verticalAlign='middle'
+                                    relaxed
+                                >
+                                    {manageResItems.map((item, idx) => {
+                                        return (
+                                            <List.Item key={idx}>
+                                                <List.Content floated='right'>
+                                                    <Button
+                                                        color='blue'
+                                                        compact
+                                                        as='a'
+                                                        href={`/book/${item.bookID}`}
+                                                        target='_blank'
+                                                        rel='noopener noreferrer'
+                                                    >
+                                                        <Icon name='external square' />
+                                                        Open
+                                                    </Button>
+                                                    <Button
+                                                        color='red'
+                                                        compact
+                                                        onClick={() => { removeCollectionResource(item.bookID) }}
+                                                    >
+                                                        <Icon name='remove circle' />
+                                                        Remove
+                                                    </Button>
+                                                </List.Content>
+                                                <List.Header>{item.title}</List.Header>
+                                                <List.Content><em>{item.author}</em></List.Content>
+                                            </List.Item>
+                                        )
+                                    })}
+                                </List>
+                            }
+                            {(manageResItems.length === 0) &&
+                                <p className='text-center'><em>This Collection doesn't have any resources.</em></p>
                             }
                         </Modal.Content>
                         <Modal.Actions>
                             <Button
-                                onClick={closeCollStatusModal}
+                                color='blue'
+                                loading={manageResWorking}
+                                onClick={closeManageResModal}
                             >
-                                Cancel
-                            </Button>
-                            <Button
-                                color={collStatusCurrent ? 'red' : 'green'}
-                                onClick={toggleCollectionStatus}
-                                loading={collStatusLoading}
-                            >
-                                <Icon name={collStatusCurrent ? 'eye slash' : 'eye'} />
-                                {collStatusCurrent ? 'Disable Collection' : 'Enable Collection'}
+                                Done
                             </Button>
                         </Modal.Actions>
                     </Modal>

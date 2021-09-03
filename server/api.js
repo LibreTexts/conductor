@@ -33,7 +33,7 @@ router.use(middleware.authSanitizer);
 router.route('/v1/auth/login').post(authAPI.validate('login'),
     middleware.checkValidationErrors, authAPI.login);
 
-// SSO/OAuth©
+// SSO/OAuth
 router.route('/v1/oauth/libretexts').get(authAPI.oauthCallback);
 
 
@@ -47,61 +47,70 @@ router.route('/v1/org/info').get(orgAPI.validate('getinfo'),
 router.route('/v1/adoptionreport').post(middleware.checkLibreCommons,
     adoptionReportAPI.validate('submitReport'),
     middleware.checkValidationErrors, adoptionReportAPI.submitReport);
+
 router.route('/v1/adoptionreports').get(middleware.checkLibreCommons,
     authAPI.verifyRequest, authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     adoptionReportAPI.validate('getReports'), middleware.checkValidationErrors,
     adoptionReportAPI.getReports);
+
 router.route('/v1/adoptionreport/delete').delete(middleware.checkLibreCommons,
     authAPI.verifyRequest, authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     adoptionReportAPI.validate('deleteReport'), middleware.checkValidationErrors,
     adoptionReportAPI.deleteReport);
 
+
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)
 router.route('/v1/harvestingrequest').post(middleware.checkLibreCommons,
     harvestingRequestsAPI.validate('addRequest'),
     middleware.checkValidationErrors, harvestingRequestsAPI.addRequest);
+
 router.route('/v1/harvestingrequests').get(middleware.checkLibreCommons,
     authAPI.verifyRequest, authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     harvestingRequestsAPI.validate('getRequests'),
     middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
 
+
 /* Commons Collections */
 router.route('/v1/commons/collections').get(
     collectionsAPI.getCommonsCollections);
-router.route('/v1/commons/collectionsdetailed').get(
-    collectionsAPI.getCollectionsDetailed);
+
+router.route('/v1/commons/collections/all').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    collectionsAPI.getAllCollections);
+
 router.route('/v1/commons/collection').get(
     collectionsAPI.validate('getCollection'), middleware.checkValidationErrors,
     collectionsAPI.getCollection);
+
 router.route('/v1/commons/collection/create').post(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('createCollection'),
     middleware.checkValidationErrors, collectionsAPI.createCollection);
+
 router.route('/v1/commons/collection/edit').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('editCollection'),
     middleware.checkValidationErrors, collectionsAPI.editCollection);
+
 router.route('/v1/commons/collection/delete').delete(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('deleteCollection'),
     middleware.checkValidationErrors, collectionsAPI.deleteCollection);
-router.route('/v1/commons/collection/togglestatus').put(authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-    collectionsAPI.validate('toggleCollectionStatus'),
-    middleware.checkValidationErrors, collectionsAPI.toggleCollectionStatus);
+
 router.route('/v1/commons/collection/addresource').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('addCollResource'),
     middleware.checkValidationErrors, collectionsAPI.addResourceToCollection);
+
 router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
@@ -109,23 +118,42 @@ router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
     middleware.checkValidationErrors,
     collectionsAPI.removeResourceFromCollection);
 
+
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'campusadmin'),
     booksAPI.syncWithLibraries);
 
+
 /* Commons Books/Catalogs */
 router.route('/v1/commons/catalog').get(
     booksAPI.validate('getCommonsCatalog'), middleware.checkValidationErrors,
     booksAPI.getCommonsCatalog);
+
 router.route('/v1/commons/mastercatalog').get(
     booksAPI.validate('getMasterCatalog'), middleware.checkValidationErrors,
     booksAPI.getMasterCatalog);
+
 router.route('/v1/commons/book').get(booksAPI.validate('getBookDetail'),
     middleware.checkValidationErrors, booksAPI.getBookDetail);
-router.route('/v1/commons/filters').get(middleware.checkLibreCommons,
-    booksAPI.getCatalogFilterOptions);
+
+router.route('/v1/commons/filters').get(booksAPI.getCatalogFilterOptions);
+
+router.route('/v1/commons/catalogs/addresource').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    booksAPI.validate('addBookToCustomCatalog'),
+    middleware.checkValidationErrors,
+    booksAPI.addBookToCustomCatalog);
+
+router.route('/v1/commons/catalogs/removeresource').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    booksAPI.validate('removeBookFromCustomCatalog'),
+    middleware.checkValidationErrors,
+    booksAPI.removeBookFromCustomCatalog);
+
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

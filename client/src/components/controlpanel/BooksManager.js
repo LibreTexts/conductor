@@ -75,6 +75,13 @@ const BooksManager = (props) => {
     const [atcLoadedColls, setATCLoadedColls] = useState(false);
     const [atcFinishedAdd, setATCFinishedAdd] = useState(true);
 
+    // Enable/Disable on Commons Modal
+    const [showEOCModal, setShowEOCModal] = useState(false);
+    const [eocEnableMode, setEOCEnableMode] = useState(true);
+    const [eocBookID, setEOCBookID] = useState('');
+    const [eocBookTitle, setEOCBookTitle] = useState('');
+    const [eocWorking, setEOCWorking] = useState(false);
+
     const sortOptions = [
         { key: 'title', text: 'Sort by Title', value: 'title' },
         { key: 'author', text: 'Sort by Author', value: 'author' },
@@ -158,6 +165,7 @@ const BooksManager = (props) => {
         axios.post('/commons/syncwithlibs').then((res) => {
             if (!res.data.err) {
                 setSyncResponse(res.data.msg);
+                getBooks();
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -195,7 +203,11 @@ const BooksManager = (props) => {
 
     const getATCCollections = (bookID) => {
         setATCLoadedColls(false);
-        axios.get('/commons/collectionsdetailed').then((res) => {
+        axios.get('/commons/collections/all', {
+            params: {
+                detailed: "true"
+            }
+        }).then((res) => {
             if (!res.data.err) {
                 if (res.data.colls && Array.isArray(res.data.colls)) {
                     var collOptions = [
@@ -219,6 +231,7 @@ const BooksManager = (props) => {
                             }
                         }
                     });
+                    console.log(collOptions);
                     setATCCollections(collOptions);
                 }
             } else {
@@ -257,7 +270,6 @@ const BooksManager = (props) => {
 
     const openATCModal = (bookID, bookTitle) => {
         if (!isEmptyString(bookID)) {
-            setShowATCModal(true);
             setATCBookID(bookID);
             setATCBookTitle(bookTitle);
             setATCCollections([]);
@@ -265,6 +277,7 @@ const BooksManager = (props) => {
             setATCCollectionErr(false);
             setATCLoadedColls(false);
             setATCFinishedAdd(true);
+            setShowATCModal(true);
             getATCCollections(bookID);
         }
     };
@@ -278,6 +291,50 @@ const BooksManager = (props) => {
         setATCLoadedColls(false);
         setATCFinishedAdd(true);
         setATCCollectionID('');
+    };
+
+    const submitEOCForm = () => {
+        setEOCWorking(true);
+        var url = '';
+        if (eocEnableMode) {
+            url = '/commons/catalogs/addresource';
+        } else {
+            url = '/commons/catalogs/removeresource';
+        }
+        axios.put(url, {
+            bookID: eocBookID
+        }).then((res) => {
+            if (!res.data.error) {
+                closeEOCModal();
+                getBooks();
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setEOCWorking(false);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setEOCWorking(false);
+        });
+    };
+
+    const openEOCModal = (mode, bookID, bookTitle) => {
+        if (mode === 'enable') {
+            setEOCEnableMode(true);
+        } else if (mode === 'disable') {
+            setEOCEnableMode(false);
+        }
+        setEOCBookID(bookID);
+        setEOCBookTitle(bookTitle);
+        setEOCWorking(false);
+        setShowEOCModal(true);
+    };
+
+    const closeEOCModal = () => {
+        setShowEOCModal(false);
+        setEOCBookID('');
+        setEOCBookTitle('');
+        setEOCWorking(false);
+        setEOCEnableMode(true);
     };
 
     return (
@@ -448,19 +505,32 @@ const BooksManager = (props) => {
                                                     </Table.Cell>
                                                     <Table.Cell textAlign='center'>
                                                         <Button.Group vertical fluid>
-                                                            {(process.env.REACT_APP_ORG_ID === 'libretexts')
+                                                            {((process.env.REACT_APP_ORG_ID === 'libretexts') || (item.isCampusBook))
                                                                 ? (
                                                                     <Button color='green' disabled>
                                                                         <Icon name='eye' />
                                                                         Enabled by Default
                                                                     </Button>
                                                                 )
-                                                                : (
-                                                                    <Button color='green'>
-                                                                        <Icon name='eye' />
-                                                                        Enable on Commons
-                                                                    </Button>
-                                                                )
+                                                                : ((!item.isCustomEnabled)
+                                                                    ? (
+                                                                        <Button
+                                                                            color='green'
+                                                                            onClick={() => { openEOCModal('enable', item.bookID, item.title) }}
+                                                                        >
+                                                                            <Icon name='eye' />
+                                                                            Enable on Commons
+                                                                        </Button>
+                                                                    )
+                                                                    : (
+                                                                        <Button
+                                                                            color='red'
+                                                                            onClick={() => { openEOCModal('disable', item.bookID, item.title) }}
+                                                                        >
+                                                                            <Icon name='eye slash' />
+                                                                            Disable on Commons
+                                                                        </Button>
+                                                                    ))
                                                             }
                                                             <Button
                                                                 color='teal'
@@ -500,6 +570,7 @@ const BooksManager = (props) => {
                             </Table>
                         </Segment>
                     </Segment.Group>
+                    {/* Commons Sync Modal */}
                     <Modal
                         open={showSyncModal}
                         closeOnDimmerClick={false}
@@ -546,6 +617,7 @@ const BooksManager = (props) => {
                             }
                         </Modal.Actions>
                     </Modal>
+                    {/* Add to Collection Modal */}
                     <Modal
                         open={showATCModal}
                         closeOnDimmerClick={false}
@@ -580,6 +652,36 @@ const BooksManager = (props) => {
                             >
                                 <Icon name='add' />
                                 Add
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Enable/Disable on Commons Modal */}
+                    <Modal
+                        open={showEOCModal}
+                        closeOnDimmerClick={false}
+                    >
+                        <Modal.Header>
+                            {(eocEnableMode) ? 'Enable on Commons' : 'Disable on Commons'}
+                        </Modal.Header>
+                        <Modal.Content>
+                            {(eocEnableMode)
+                                ? (<p>Are you sure you want to enable <em>{eocBookTitle}</em> on your Campus Commons? It will appear in search results immediately.</p>)
+                                : (<p>Are you sure you want to disable <em>{eocBookTitle}</em> on your Campus Commons? It will be removed search results immediately.</p>)
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeEOCModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color={eocEnableMode ? 'green' : 'red'}
+                                loading={eocWorking}
+                                onClick={submitEOCForm}
+                            >
+                                <Icon name={eocEnableMode ? 'eye' : 'eye slash'} />
+                                {eocEnableMode ? 'Enable' : 'Disable'}
                             </Button>
                         </Modal.Actions>
                     </Modal>

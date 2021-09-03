@@ -74,6 +74,34 @@ const Navbar = (_props) => {
     }, [user.isAuthenticated, dispatch]);
 
     /**
+     * Check if Organization info is already
+     * in global store, otherwise
+     * retrieve it via GET request.
+     */
+    useEffect(() => {
+        if (org.orgID === '') {
+            axios.get('org/info', {
+                params: {
+                    orgID: process.env.REACT_APP_ORG_ID
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    var orgData = res.data;
+                    delete orgData.err;
+                    dispatch({
+                        type: 'SET_ORG_INFO',
+                        payload: orgData
+                    });
+                } else {
+                    console.log(res.data.errMsg);
+                }
+            }).catch((err) => {
+                console.log(err);
+            });
+        }
+    }, [org, dispatch]);
+
+    /**
      * Subscribe to changes to location
      * and update the Navbar with the
      * active page.
@@ -136,7 +164,9 @@ const Navbar = (_props) => {
                 >
                     <Image src='/mini_logo.png' id='nav-logo' />
                     <span className='nav-title'>Conductor</span>
-                    <Image src={org.mediumLogo} id='nav-org-logo' />
+                    {(process.env.REACT_APP_ORG_ID !== 'libretexts') &&
+                        <Image src={org.mediumLogo} id='nav-org-logo' />
+                    }
                 </Menu.Item>
                 <Menu.Item
                     name='dashboard'

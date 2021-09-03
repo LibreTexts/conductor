@@ -2,6 +2,28 @@
 
 ## 09-01-2021
 #### :art: UI/UX
+* Upgrades to the Commons Catalog UI
+* Folded the desktop and mobile Commons Catalog UI into one to reduce code complexity and duplication
+* "ADAPT" is now "Homework" in preparation for LibreStudio connection
+* Added the Central/Campus Bookshelves or Learning Objects filter
+* Fixed a default Commons jumbotron image issue
+* Reduced Commons jumbotron size and Campus Commons logo size
+* Added the "Clear" search button
+* Added Organization data retrieval in Conductor to prevent missing information
+* Finished integrating Collections Manager
+    * Ability to change Privacy
+    * Ability to remove Books/Resources in a Collection
+* More work on Books Manager
+    * Ability to add/remove non-campus Books to/from Campus Commons
+
+#### :satellite: Server
+* Upgraded backend logic to provide filter lists for Campus Commons
+* Added the location field to Book model to clarify Commons Organization
+* Added backend logic to support Custom Catalog entries for Campus Commons
+* Upgraded backend logic to retrieve Catalog results for Campus Commons (in progress)
+
+## 09-01-2021
+#### :art: UI/UX
 * Book "Institution" is now referred to as "Affiliation"
 * UI updates in Control Panel
 * UI updates in Commons Catalog

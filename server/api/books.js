@@ -6,6 +6,7 @@
 'use strict';
 const Book = require('../models/book.js');
 const Organization = require('../models/organization.js');
+const CustomCatalog = require('../models/customcatalog.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString } = require('../util/helpers.js');
@@ -48,6 +49,18 @@ const generateBookshelvesURL = (lib) => {
  */
 const generateCoursesURL = (lib) => {
     return `https://api.libretexts.org/DownloadsCenter/${lib}/Courses.json`;
+};
+
+const normalizedSort = (a, b) => {
+    var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
+    var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
+    if (normalizedA < normalizedB) {
+        return -1;
+    }
+    if (normalizedA > normalizedB) {
+        return 1;
+    }
+    return 0;
 };
 
 /**
@@ -150,9 +163,11 @@ const syncWithLibraries = (_req, res) => {
                 var license = '';
                 var subject = '';
                 var course = '';
+                var location = '';
                 if (book.link) {
                     link = book.link;
                     if (String(book.link).includes('/Bookshelves/')) {
+                        location = 'central';
                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
                         var isolated = String(book.link).replace(baseURL, '');
                         var splitURL = isolated.split('/');
@@ -162,6 +177,7 @@ const syncWithLibraries = (_req, res) => {
                         }
                     }
                     if (String(book.link).includes('/Courses/')) {
+                        location = 'campus';
                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
                         var isolated = String(book.link).replace(baseURL, '');
                         var splitURL = isolated.split('/');
@@ -187,8 +203,10 @@ const syncWithLibraries = (_req, res) => {
                     bookID: book.zipFilename,
                     title: book.title,
                     author: author,
+                    affiliation: affiliation,
                     library: extractLibFromID(book.zipFilename),
                     subject: subject, // TODO: Improve algorithm
+                    location: location,
                     course: course, // TODO: Improve algorithm
                     license: license,
                     thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
@@ -199,8 +217,7 @@ const syncWithLibraries = (_req, res) => {
                         zip: genZIPLink(book.zipFilename),
                         files: genPubFilesLink(book.zipFilename),
                         lms: genLMSFileLink(book.zipFilename)
-                    },
-                    affiliation: affiliation
+                    }
                 };
                 commonsBooks.push(newCommonsBook);
             }
@@ -301,6 +318,7 @@ const buildOrganizationNamesList = (orgData) => {
  * VALIDATION: 'getCommonsCatalog'
  */
 const getCommonsCatalog = (req, res) => {
+    var orgData = {};
     var sortChoice = 'title'; // default to Sort by Title
     const matchObj = {};
     var hasSearchParams = false;
@@ -321,8 +339,24 @@ const getCommonsCatalog = (req, res) => {
                 aliases: 1
             }));
         }
-    }).then((orgData) => {
-        console.log(orgData);
+    }).then((orgDataRes) => {
+        if (orgDataRes && Object.keys(orgDataRes).length > 0) {
+            orgData = orgDataRes;
+        }
+        if (process.env.ORG_ID === 'libretexts') {
+            return {};
+        } else {
+            return CustomCatalog.findOne({
+                orgID: process.env.ORG_ID
+            }, {
+                _id: 0,
+                orgID: 1,
+                resources: 1
+            });
+        }
+    }).then((customCatalogRes) => {
+        console.log("ORGDATA: ", orgData.toString());
+        var hasCustomEntries = false;
         if (req.query.library && !isEmptyString(req.query.library)) {
             matchObj.library = req.query.library;
             hasSearchParams = true;
@@ -330,6 +364,16 @@ const getCommonsCatalog = (req, res) => {
         if (req.query.subject && !isEmptyString(req.query.subject)) {
             matchObj.subject = req.query.subject;
             hasSearchParams = true;
+        }
+        if (req.query.location && !isEmptyString(req.query.location)) {
+            matchObj.location = req.query.location;
+            hasSearchParams = true;
+        } else {
+            if (process.env.ORG_ID === 'libretexts') {
+                matchObj.location = 'central'; // LibreCommons — default to Central Bookshelves
+            } else {
+                matchObj.location = 'campus'; // Campus Commons — search Campus Bookshelves
+            }
         }
         if (req.query.author && !isEmptyString(req.query.author)) {
             matchObj.author = req.query.author;
@@ -356,38 +400,36 @@ const getCommonsCatalog = (req, res) => {
             matchObj.course = req.query.course;
             hasSearchParams = true;
         }
-        if ((process.env.ORG_ID === 'libretexts') && (!hasSearchParams)) { // Remove Campus/Course texts on default search
-            matchObj.course = {
-                $in: ['', null, false]
-            };
-        } else if (process.env.ORG_ID !== 'libretexts') { // Filter to Campus-specific
+
+        if ((process.env.ORG_ID !== 'libretexts')) {
             var campusNames = buildOrganizationNamesList(orgData);
-            if (matchObj.affiliation && !isEmptyString(matchObj.affiliation)) {
-                matchObj.affiliation = {
-                    $in: [matchObj.affiliation, ...campusNames]
-                };
-            } else {
-                matchObj.affiliation = {
-                    $in: [campusNames]
-                };
+            if (req.query.course && !isEmptyString(req.query.course)) {
+                campusNames.unshift(req.query.course);
             }
-            if (matchObj.course && !isEmptyString(matchObj.course)) {
-                matchObj.course = {
-                    $in: [matchObj.course, ...campusNames]
-                };
+            if (customCatalogRes && Object.keys(customCatalogRes).length > 0) {
+                if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources) &&
+                    customCatalogRes.resources.length > 0) {
+                        hasCustomEntries = true;
+                }
+            }
+            if (hasCustomEntries) {
+                if (matchObj.location) {
+                    delete matchObj.location; // prune matchObj to allow custom entries
+                }
+                matchObj['$or'] = [{
+                    bookID: {
+                        $in: customCatalogRes.resources
+                    }
+                }, {
+                    course: {
+                        $in: campusNames
+                    }
+                }]
             } else {
                 matchObj.course = {
                     $in: campusNames
                 };
             }
-            // "Fuzzy match" affiliation or course
-            matchObj['$or'] = [{
-                affiliation: matchObj.affiliation
-            }, {
-                course: matchObj.course
-            }];
-            delete matchObj.affiliation; // prune affiliation after updating to use $in operator
-            delete matchObj.course; // prune course after updating to use $in operator
         }
         debugObject(matchObj);
         return Book.aggregate([
@@ -426,6 +468,8 @@ const getCommonsCatalog = (req, res) => {
  * VALIDATION: 'getMasterCatalog'
  */
 const getMasterCatalog = (req, res) => {
+    var sortedBooks = [];
+    var orgData = {};
     var sortChoice = 'title'; // default to Sort by Title
     var matchObj = {};
     if (req.query.sort && !isEmptyString(req.query.sort)) {
@@ -448,7 +492,53 @@ const getMasterCatalog = (req, res) => {
             }
         }
     ]).then((books) => {
-        const sortedBooks = sortBooks(books, sortChoice);
+        sortedBooks = sortBooks(books, sortChoice);
+        if (process.env.ORG_ID !== 'libretexts') {
+            return Organization.findOne({
+                orgID: process.env.ORG_ID
+            });
+        } else {
+            return {}; // LibreCommons — don't need to lookup Organization
+        }
+    }).then((orgDataRes) => {
+        if (Object.keys(orgDataRes).length > 0) {
+            orgData = orgDataRes;
+        }
+        if (process.env.ORG_ID !== 'libretexts') {
+            return CustomCatalog.findOne({
+                orgID: process.env.ORG_ID
+            }, {
+                _id: 0,
+                orgID: 1,
+                resources: 1
+            });
+        } else {
+            return {}; // LibreCommons — don't need to lookup Custom Catalog
+        }
+    }).then((customCatalogRes) => {
+        // Check if book has been enabled via Custom Catalog
+        if (Object.keys(customCatalogRes).length > 0) {
+            if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources)) {
+                sortedBooks.forEach((book) => {
+                    if (customCatalogRes.resources.includes(book.bookID)) {
+                        book.isCustomEnabled = true;
+                    }
+                    console.log(book);
+                });
+            }
+        }
+        // Check if book originated from the Organization
+        if (Object.keys(orgData).length > 0) {
+            var campusNames = buildOrganizationNamesList(orgData);
+            sortedBooks.forEach((book) => {
+                if (book.course && !isEmptyString(book.course)) {
+                    var isCampusBook = campusNames.some((item) => {
+                        return (String(book.course).includes(item) || String(book.course) === item);
+                    });
+                    if (isCampusBook) book.isCampusBook = true;
+                }
+            });
+        }
         return res.send({
             err: false,
             books: sortedBooks
@@ -467,23 +557,85 @@ const getMasterCatalog = (req, res) => {
  * filters in Commons Catalog(s).
  */
 const getCatalogFilterOptions = (_req, res) => {
+    var orgData = {};
     var authors = [];
     var subjects = [];
     var affiliations = [];
     var courses = [];
-    Book.aggregate([
-        {
-            $match: {}
-        }, {
-            $project: {
+    var matchObj = {};
+    new Promise((resolve, _reject) => {
+        if (process.env.ORG_ID === 'libretexts') {
+            // LibreCommons — don't need to lookup Organization
+            resolve({});
+        } else {
+            resolve(Organization.findOne({
+                orgID: process.env.ORG_ID
+            }, {
                 _id: 0,
-                author: 1,
-                subject: 1,
-                affiliation: 1,
-                course: 1
+                orgID: 1,
+                name: 1,
+                shortName: 1,
+                abbreviation: 1,
+                aliases: 1
+            }));
+        }
+    }).then((orgDataRes) => {
+        if (orgDataRes && Object.keys(orgDataRes).length > 0) {
+            orgData = orgDataRes;
+        }
+        if (process.env.ORG_ID === 'libretexts') {
+            // LibreCommons — don't need to lookup Custom Catalog
+            return {};
+        } else {
+            return CustomCatalog.findOne({
+                orgID: process.env.ORG_ID
+            }, {
+                _id: 0,
+                orgID: 1,
+                resources: 1
+            });
+        }
+    }).then((customCatalogRes) => {
+        var hasCustomEntries = false;
+        var campusNames = [];
+        if (customCatalogRes && Object.keys(customCatalogRes).length > 0) {
+            if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources) &&
+                customCatalogRes.resources.length > 0) {
+                hasCustomEntries = true;
             }
         }
-    ]).then((books) => {
+        if (process.env.ORG_ID !== 'libretexts') {
+            campusNames = buildOrganizationNamesList(orgData);
+        }
+        if ((process.env.ORG_ID !== 'libretexts') && (hasCustomEntries)) {
+            matchObj['$or'] = [{
+                bookID: {
+                    $in: customCatalogRes.resources
+                }
+            }, {
+                course: {
+                    $in: campusNames
+                }
+            }];
+        } else if (process.env.ORG_ID !== 'libretexts') {
+            matchObj.course = {
+                $in: campusNames
+            }
+        }
+        return Book.aggregate([
+            {
+                $match: matchObj
+            }, {
+                $project: {
+                    _id: 0,
+                    author: 1,
+                    subject: 1,
+                    affiliation: 1,
+                    course: 1
+                }
+            }
+        ]);
+    }).then((books) => {
         books.forEach((book) => {
             if (book.author && !isEmptyString(book.author)) {
                 if (!authors.includes(book.author)) {
@@ -506,50 +658,10 @@ const getCatalogFilterOptions = (_req, res) => {
                 }
             }
         });
-        authors.sort((a, b) => {
-            var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            if (normalizedA < normalizedB) {
-                return -1;
-            }
-            if (normalizedA > normalizedB) {
-                return 1;
-            }
-            return 0;
-        });
-        subjects.sort((a, b) => {
-            var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            if (normalizedA < normalizedB) {
-                return -1;
-            }
-            if (normalizedA > normalizedB) {
-                return 1;
-            }
-            return 0;
-        });
-        affiliations.sort((a, b) => {
-            var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            if (normalizedA < normalizedB) {
-                return -1;
-            }
-            if (normalizedA > normalizedB) {
-                return 1;
-            }
-            return 0;
-        });
-        courses.sort((a, b) => {
-            var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            if (normalizedA < normalizedB) {
-                return -1;
-            }
-            if (normalizedA > normalizedB) {
-                return 1;
-            }
-            return 0;
-        });
+        authors.sort(normalizedSort);
+        subjects.sort(normalizedSort);
+        affiliations.sort(normalizedSort);
+        courses.sort(normalizedSort);
         return res.send({
             err: false,
             authors: authors,
@@ -608,6 +720,98 @@ const getBookDetail = (req, res) => {
 };
 
 /**
+ * Adds the Book specified by @bookID in the request
+ * body to the Custom Catalog for the organization
+ * handled by the current server instance.
+ * If the Book is already in the Custom Catalog,
+ * no change is made (unique entries).
+ * If the Custom Catalog record does not already
+ * exists, it is created.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'addBookToCustomCatalog'
+ */
+const addBookToCustomCatalog = (req, res) => {
+    CustomCatalog.updateOne({ orgID: process.env.ORG_ID }, {
+        $setOnInsert: {
+            orgID: process.env.ORG_ID
+        },
+        $addToSet: {
+            resources: req.body.bookID
+        }
+    }, {
+        upsert: true
+    }).then((catalogRes) => {
+        if ((catalogRes.n === 1) && (catalogRes.ok === 1)) {
+            return res.send({
+                err: false,
+                msg: "Resource successfully added to Catalog."
+            });
+        } else if (catalogRes.n === 0) {
+            throw(new Error('notfound'));
+        } else {
+            throw(new Error('updatefailed'));
+        }
+    }).catch((err) => {
+        if (err.message === 'notfound') {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err11
+            });
+        } else {
+            debugError(err);
+            return res.status(500).send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+/**
+ * Removes the Book specified by @bookID in the request
+ * body from the Custom Catalog for the organization
+ * handled by the current server instance. If the
+ * book is not in the Custom Catalog, no change is
+ * made. All instances of the @bookID are removed from
+ * the Custom Catalog to combat duplicate entries.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'removeBookFromCustomCatalog'
+ */
+const removeBookFromCustomCatalog = (req, res) => {
+    CustomCatalog.updateOne({ orgID: process.env.ORG_ID }, {
+        $pullAll: {
+            resources: [req.body.bookID]
+        }
+    }).then((catalogRes) => {
+        if ((catalogRes.n === 1) && (catalogRes.ok === 1)) {
+            return res.send({
+                err: false,
+                msg: "Resource successfully removed from Catalog."
+            });
+        } else if (catalogRes.n === 0) {
+            throw(new Error('notfound'));
+        } else {
+            throw(new Error('updatefailed'));
+        }
+    }).catch((err) => {
+        if (err.message === 'notfound') {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err11
+            });
+        } else {
+            debugError(err);
+            return res.status(500).send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+/**
  * Sets up the validation chain(s) for methods in this file.
  */
 const validate = (method) => {
@@ -632,6 +836,14 @@ const validate = (method) => {
             return [
                 query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
+        case 'addBookToCustomCatalog':
+            return [
+                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
+        case 'removeBookFromCustomCatalog':
+            return [
+                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
     }
 };
 
@@ -641,5 +853,7 @@ module.exports = {
     getMasterCatalog,
     getBookDetail,
     getCatalogFilterOptions,
+    addBookToCustomCatalog,
+    removeBookFromCustomCatalog,
     validate
 };

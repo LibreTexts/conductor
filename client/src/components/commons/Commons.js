@@ -15,7 +15,7 @@ import CommonsCatalog from './CommonsCatalog.js';
 import CommonsCollections from './CommonsCollections.js';
 import CommonsCollectionView from './CommonsCollectionView.js';
 import CommonsBook from './CommonsBook.js';
-import CommonsADAPTCatalog from './CommonsADAPTCatalog.js';
+import CommonsHomework from './CommonsHomework.js';
 
 const Commons = (_props) => {
 
@@ -93,8 +93,8 @@ const Commons = (_props) => {
             setActiveItem('catalog');
         } else if (currentPath.includes('/collections')) {
             setActiveItem('collections');
-        } else if (currentPath.includes('/adapt')) {
-            setActiveItem('adapt');
+        } else if (currentPath.includes('/homework')) {
+            setActiveItem('homework');
         } else {
             setActiveItem('catalog');
         }
@@ -169,13 +169,13 @@ const Commons = (_props) => {
                             </Menu.Item>
                             {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                                 <Menu.Item
-                                    name='adapt'
-                                    active={activeItem === 'adapt'}
+                                    name='homework'
+                                    active={activeItem === 'homework'}
                                     className='commons-menu-item'
                                     as={Link}
-                                    to='/adapt'
+                                    to='/homework'
                                 >
-                                    ADAPT
+                                    Homework
                                 </Menu.Item>
                             }
                         </Menu>
@@ -249,7 +249,7 @@ const Commons = (_props) => {
                 <Route exact path='/catalog' component={CommonsCatalog} />
                 <Route exact path='/collections' component={CommonsCollections} />
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/adapt' component={CommonsADAPTCatalog} />
+                    <Route exact path='/homework' component={CommonsHomework} />
                 }
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />

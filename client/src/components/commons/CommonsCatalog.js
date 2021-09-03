@@ -34,7 +34,10 @@ import {
 import { licenseOptions } from '../util/LicenseOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
-import { catalogDisplayOptions } from '../util/CatalogOptions.js';
+import {
+    catalogDisplayOptions,
+    catalogLocationOptions
+} from '../util/CatalogOptions.js';
 import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
 const CommonsCatalog = (_props) => {
@@ -56,8 +59,9 @@ const CommonsCatalog = (_props) => {
     const [totalPages, setTotalPages] = useState(1);
     const [activePage, setActivePage] = useState(1);
     const [loadedData, setLoadedData] = useState(false);
+
     const [loadedFilters, setLoadedFilters] = useState(false);
-    const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
 
     const initialSearch = useRef(false);
     const checkedParams = useRef(false);
@@ -65,10 +69,12 @@ const CommonsCatalog = (_props) => {
     // Content Filters
     const [searchString, setSearchString] = useState('');
     const [libraryFilter, setLibraryFilter] = useState('');
+    const [locationFilter, setLocationFilter] = useState((process.env.REACT_APP_ORG_ID === 'libretexts') ? 'central' : 'campus');
     const [subjectFilter, setSubjectFilter] = useState('');
     const [authorFilter, setAuthorFilter] = useState('');
     const [licenseFilter, setLicenseFilter] = useState('');
     const [affilFilter, setAffilFilter] = useState('');
+    const [instrFilter, setInstrFilter] = useState('');
     const [courseFilter, setCourseFilter] = useState('');
 
     const [subjectOptions, setSubjectOptions] = useState([]);
@@ -121,10 +127,35 @@ const CommonsCatalog = (_props) => {
         searchURL = updateParams(searchURL, 'search', searchString);
         searchURL = updateParams(searchURL, 'library', libraryFilter);
         searchURL = updateParams(searchURL, 'subject', subjectFilter)
+        searchURL = updateParams(searchURL, 'location', locationFilter);
         searchURL = updateParams(searchURL, 'author', authorFilter);
         searchURL = updateParams(searchURL, 'license', licenseFilter);
         searchURL = updateParams(searchURL, 'affiliation', affilFilter);
         searchURL = updateParams(searchURL, 'course', courseFilter);
+        history.push({
+            pathname: location.pathname,
+            search: searchURL
+        });
+    };
+
+    const resetSearch = () => {
+        setSearchString('');
+        setLibraryFilter('');
+        setSubjectFilter('');
+        setLocationFilter((process.env.REACT_APP_ORG_ID === 'libretexts') ? 'central' : 'campus');
+        setAuthorFilter('');
+        setLicenseFilter('');
+        setAffilFilter('');
+        setCourseFilter('');
+        var searchURL = location.search;
+        searchURL = updateParams(searchURL, 'search', '');
+        searchURL = updateParams(searchURL, 'library', '');
+        searchURL = updateParams(searchURL, 'subject', '');
+        searchURL = updateParams(searchURL, 'location', '');
+        searchURL = updateParams(searchURL, 'author', '');
+        searchURL = updateParams(searchURL, 'license', '');
+        searchURL = updateParams(searchURL, 'affiliation', '');
+        searchURL = updateParams(searchURL, 'course', '');
         history.push({
             pathname: location.pathname,
             search: searchURL
@@ -140,11 +171,17 @@ const CommonsCatalog = (_props) => {
         var paramsObj = {
             sort: sortChoice
         };
+        if (!isEmptyString(searchString)) {
+            paramsObj.search = searchString;
+        }
         if (!isEmptyString(libraryFilter)) {
             paramsObj.library = libraryFilter;
         }
         if (!isEmptyString(subjectFilter)) {
             paramsObj.subject = subjectFilter;
+        }
+        if (!isEmptyString(locationFilter)) {
+            paramsObj.location = locationFilter;
         }
         if (!isEmptyString(authorFilter)) {
             paramsObj.author = authorFilter;
@@ -157,9 +194,6 @@ const CommonsCatalog = (_props) => {
         }
         if (!isEmptyString(courseFilter)) {
             paramsObj.course = courseFilter;
-        }
-        if (!isEmptyString(searchString)) {
-            paramsObj.search = searchString;
         }
         axios.get('/commons/catalog', {
             params: paramsObj
@@ -452,246 +486,162 @@ const CommonsCatalog = (_props) => {
                             </Breakpoint>
                         </Segment>
                         <Segment>
-                            <Breakpoint name='desktop'>
-                                <Grid className={initialSearch.current ? '' : 'mt-1r mb-1r'}>
-                                    <Grid.Row centered>
-                                        <Grid.Column width={14}>
-                                            <Input
-                                                icon='search'
-                                                placeholder='Search...'
-                                                className='commons-filter commons-search-input'
-                                                iconPosition='left'
-                                                onChange={(e) => {
-                                                    setSearchString(e.target.value);
-                                                }}
-                                                value={searchString}
-                                                fluid
-                                            />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row centered>
-                                        <Grid.Column width={14} id='commons-filters-desktop'>
-                                            <Dropdown
-                                                placeholder='Library'
-                                                floating
-                                                selection
-                                                button
-                                                options={libraryOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setLibraryFilter(value);
-                                                }}
-                                                value={libraryFilter}
-                                                className='commons-filter'
-                                            />
-                                            <Dropdown
-                                                placeholder='Subject'
-                                                floating
-                                                search
-                                                selection
-                                                button
-                                                options={subjectOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setSubjectFilter(value);
-                                                }}
-                                                value={subjectFilter}
-                                                loading={!loadedFilters}
-                                                className='commons-filter'
-                                            />
-                                            <Dropdown
-                                                placeholder='Author'
-                                                floating
-                                                search
-                                                selection
-                                                button
-                                                options={authorOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setAuthorFilter(value);
-                                                }}
-                                                value={authorFilter}
-                                                loading={!loadedFilters}
-                                                className='commons-filter'
-                                            />
-                                            <Dropdown
-                                                placeholder='License'
-                                                floating
-                                                selection
-                                                button
-                                                options={licenseOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setLicenseFilter(value);
-                                                }}
-                                                value={licenseFilter}
-                                                className='commons-filter'
-                                            />
-                                            <Dropdown
-                                                placeholder='Affiliation'
-                                                floating
-                                                search
-                                                selection
-                                                button
-                                                options={affOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setAffilFilter(value);
-                                                }}
-                                                value={affilFilter}
-                                                loading={!loadedFilters}
-                                                className='commons-filter'
-                                            />
-                                            <Dropdown
-                                                placeholder='Campus or Course'
-                                                floating
-                                                search
-                                                selection
-                                                button
-                                                options={courseOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setCourseFilter(value);
-                                                }}
-                                                value={courseFilter}
-                                                loading={!loadedFilters}
-                                                className='commons-filter'
-                                            />
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                    <Grid.Row centered>
-                                        <Grid.Column width={5}>
-                                            <Button
-                                                fluid
-                                                className='commons-search-button'
-                                                onClick={performSearch}
-                                            >
-                                                SEARCH
-                                            </Button>
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                </Grid>
-                            </Breakpoint>
-                            <Breakpoint name='mobileOrTablet'>
+                            <div id='commons-searchbar-container'>
                                 <Input
                                     icon='search'
                                     placeholder='Search...'
-                                    className='commons-filter commons-search-input'
+                                    className='color-libreblue'
+                                    id='commons-search-input'
                                     iconPosition='left'
                                     onChange={(e) => {
-                                        setSearchString(e.target.value)
+                                        setSearchString(e.target.value);
                                     }}
+                                    fluid
                                     value={searchString}
-                                    fluid
                                 />
-                                <Accordion
+                            </div>
+                            <div id='commons-searchbtns-container'>
+                                <Button
                                     fluid
-                                    className='mt-1r'
+                                    id='commons-search-button'
+                                    onClick={performSearch}
                                 >
-                                    <Accordion.Title
-                                        active={showMobileFilters}
-                                        onClick={() => { setShowMobileFilters(!showMobileFilters) }}
+                                    SEARCH
+                                </Button>
+                                {(initialSearch.current) &&
+                                    <Button
+                                        fluid
+                                        id='commons-reset-button'
+                                        onClick={resetSearch}
                                     >
-                                        <Icon name='dropdown' />
-                                        <strong>Filters</strong>
-                                    </Accordion.Title>
-                                    <Accordion.Content active={showMobileFilters}>
-                                        <Dropdown
-                                            placeholder='Library'
-                                            floating
-                                            selection
-                                            button
-                                            options={libraryOptions}
-                                            onChange={(_e, { value }) => {
-                                                setLibraryFilter(value);
-                                            }}
-                                            value={libraryFilter}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                        <Dropdown
-                                            placeholder='Subject'
-                                            floating
-                                            search
-                                            selection
-                                            button
-                                            options={subjectOptions}
-                                            onChange={(_e, { value }) => {
-                                                setSubjectFilter(value);
-                                            }}
-                                            value={subjectFilter}
-                                            loading={!loadedFilters}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                        <Dropdown
-                                            placeholder='Author'
-                                            floating
-                                            search
-                                            selection
-                                            button
-                                            options={authorOptions}
-                                            onChange={(_e, { value }) => {
-                                                setAuthorFilter(value);
-                                            }}
-                                            value={authorFilter}
-                                            loading={!loadedFilters}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                        <Dropdown
-                                            placeholder='License'
-                                            floating
-                                            selection
-                                            button
-                                            options={licenseOptions}
-                                            onChange={(_e, { value }) => {
-                                                setLicenseFilter(value);
-                                            }}
-                                            value={licenseFilter}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                        <Dropdown
-                                            placeholder='Affiliation'
-                                            floating
-                                            search
-                                            selection
-                                            button
-                                            options={affOptions}
-                                            onChange={(_e, { value }) => {
-                                                setAffilFilter(value);
-                                            }}
-                                            value={affilFilter}
-                                            loading={!loadedFilters}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                        <Dropdown
-                                            placeholder='Campus or Course'
-                                            floating
-                                            search
-                                            selection
-                                            button
-                                            options={courseOptions}
-                                            onChange={(_e, { value }) => {
-                                                setCourseFilter(value);
-                                            }}
-                                            value={courseFilter}
-                                            loading={!loadedFilters}
-                                            fluid
-                                            className='commons-filter'
-                                        />
-                                    </Accordion.Content>
-                                </Accordion>
-                                <Grid>
-                                    <Grid.Row centered>
-                                        <Grid.Column width={8}>
-                                            <Button
-                                                fluid
-                                                className='commons-search-button mt-2r mb-1r'
-                                                onClick={performSearch}
-                                            >
-                                                SEARCH
-                                            </Button>
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                </Grid>
-                            </Breakpoint>
+                                        CLEAR
+                                    </Button>
+                                }
+                                <button
+                                    id='commons-advancedsrch-button'
+                                    onClick={() => { setShowFilters(!showFilters) }}
+                                >
+                                    <Icon name={showFilters ? 'caret down' : 'caret right'} />
+                                        <span>Advanced Search</span>
+                                    <Icon name={showFilters ? 'caret down' : 'caret left'} />
+                                </button>
+                            </div>
+                            <div id='commons-advancedsrch-container' className={showFilters ? 'commons-advancedsrch-show' : 'commons-advancedsrch-hide'}>
+                                <div id='commons-advancedsrch-row1' className='commons-advancedsrch-row'>
+                                    <Dropdown
+                                        placeholder='Library'
+                                        floating
+                                        selection
+                                        button
+                                        options={libraryOptions}
+                                        onChange={(_e, { value }) => {
+                                            setLibraryFilter(value);
+                                        }}
+                                        value={libraryFilter}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='Location'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={catalogLocationOptions}
+                                        onChange={(_e, { value }) => {
+                                            setLocationFilter(value);
+                                        }}
+                                        value={locationFilter}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='Subject'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={subjectOptions}
+                                        onChange={(_e, { value }) => {
+                                            setSubjectFilter(value);
+                                        }}
+                                        value={subjectFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                </div>
+                                <div id='commons-advancedsrch-row2' className='commons-advancedsrch-row'>
+                                    <Dropdown
+                                        placeholder='Author'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={authorOptions}
+                                        onChange={(_e, { value }) => {
+                                            setAuthorFilter(value);
+                                        }}
+                                        value={authorFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='Affiliation'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={affOptions}
+                                        onChange={(_e, { value }) => {
+                                            setAffilFilter(value);
+                                        }}
+                                        value={affilFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='License'
+                                        floating
+                                        selection
+                                        button
+                                        options={licenseOptions}
+                                        onChange={(_e, { value }) => {
+                                            setLicenseFilter(value);
+                                        }}
+                                        value={licenseFilter}
+                                        className='commons-filter'
+                                    />
+                                </div>
+                                <div id='commons-advancedsrch-row3' className='commons-advancedsrch-row'>
+                                    <Dropdown
+                                        placeholder='Instructor/Remixer'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={[]}
+                                        onChange={(_e, { value }) => {
+                                            setInstrFilter(value);
+                                        }}
+                                        value={instrFilter}
+                                        disabled
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='Campus or Course'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={courseOptions}
+                                        onChange={(_e, { value }) => {
+                                            setCourseFilter(value);
+                                        }}
+                                        value={courseFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                </div>
+                            </div>
                         </Segment>
                         {(initialSearch.current) &&
                             <Segment>

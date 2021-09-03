@@ -18,12 +18,14 @@ const BookSchema = new Schema({
         required: true
     },
     author: String,             // the book author
+    affiliation: String,        // the book author's affiliation
     library: {                  // the book library (standard LibreTexts shortened format)
         type: String,
         required: true
     },
     subject: String,            // the book's shelf/subject
-    course: String,             // the course the book belongs to
+    location: String,           // the book's location in LibreTexts (i.e. Central Bookshelves, Campus Bookshelves, or Learning Objects)
+    course: String,             // the course or campus the book belongs to
     license: String,            // the book license
     thumbnail: String,          // the URL of the book's thumbnail
     links: {                    // links to access the book in different formats
@@ -33,8 +35,7 @@ const BookSchema = new Schema({
         zip: String,            //      download ZIP of book pages/files
         files: String,          //      download publication/print files
         lms: String             //      download the LMS import file
-    },
-    affiliation: String        // the book's institutional affiliation
+    }
 }, {
     timestamps: true
 });

@@ -82,6 +82,10 @@ body {
     background-color: #F9F9F9 !important;
 }
 
+.color-libreblue {
+    color: #0A7CC5 !important;
+}
+
 
 /* Helper Classes */
 .form-required::after {

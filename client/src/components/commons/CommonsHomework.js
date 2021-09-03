@@ -28,7 +28,7 @@ import {
     updateParams
 } from '../util/HelperFunctions.js';
 
-const CommonsADAPTCatalog = (_props) => {
+const CommonsHomework = (_props) => {
 
     // Global State and Location/History
     const dispatch = useDispatch();
@@ -502,4 +502,4 @@ const CommonsADAPTCatalog = (_props) => {
     )
 }
 
-export default CommonsADAPTCatalog;
+export default CommonsHomework;
