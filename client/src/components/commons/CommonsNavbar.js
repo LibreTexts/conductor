@@ -3,7 +3,7 @@ import './Commons.css';
 import { Link } from 'react-router-dom';
 import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 
 import Breakpoint from '../util/Breakpoints.js';
 

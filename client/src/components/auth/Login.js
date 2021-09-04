@@ -101,7 +101,7 @@ const Login = (props) => {
                 }
             }).then((res) => {
                 if (!res.data.err) {
-                    if (Cookies.get('access_token') !== undefined) {
+                    if (Cookies.get('conductor_access') !== undefined) {
                         dispatch({
                             type: 'SET_AUTH'
                         });

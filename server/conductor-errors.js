@@ -19,7 +19,8 @@ const conductorErrors = {
     'err12': "Incorrect username or password.",
     'err13': "Commons-Libraries sync appears to have failed. Check server logs.",
     'err14': "Sorry, we're having trouble connecting to ADAPT Commons.",
-    'err15': "Syncing with ADAPT appears to have failed. Check server logs."
+    'err15': "Syncing with ADAPT appears to have failed. Check server logs.",
+    'err16': "Oops, it looks like the LibreTexts API is temporarily unavailable. Refresh and try again in a moment."
 };
 
 module.exports = conductorErrors;

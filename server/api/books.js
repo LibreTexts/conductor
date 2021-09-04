@@ -197,6 +197,7 @@ const syncWithLibraries = (_req, res) => {
     var allRequests = [];
     var allBooks = [];
     var commonsBooks = [];
+    var bookIDs = [];
     var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
     var programDetails = {
         openrn: 'OpenRN',
@@ -227,7 +228,8 @@ const syncWithLibraries = (_req, res) => {
         });
         // Process books and prepare for DB save
         allBooks.forEach((book) => {
-            if (checkValidImport(book)) {
+            if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
+                bookIDs.push(book.zipFilename); // duplicate mitigation
                 var link = ''
                 var author = '';
                 var affiliation = '';
@@ -270,8 +272,10 @@ const syncWithLibraries = (_req, res) => {
                             program = tag.replace('program:', '');
                             if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
                                 if (Object.keys(programListings).includes(program)) {
-                                    if (!programListings[program].includes(book.zipFilename)) {
-                                        programListings[program].push(book.zipFilename);
+                                    if (location === 'central') { // don't add from both locations — duplicates
+                                        if (!programListings[program].includes(book.zipFilename)) {
+                                            programListings[program].push(book.zipFilename);
+                                        }
                                     }
                                 }
                             }
@@ -316,8 +320,9 @@ const syncWithLibraries = (_req, res) => {
         }
     }).then((insertedDocs) => {
         // All imports succeeded, continue to auto-generate Program Collections
-        return autoGenerateCollections(res, programListings, programDetails, insertedDocs.nInserted);
+        return autoGenerateCollections(res, programListings, programDetails, insertedDocs.result.n);
     }).catch((err) => {
+        debugError(err);
         if (err.result) { // insertMany error(s)
             if (err.result.nInserted > 0) { // Some imports failed (silent)
                 debugCommonsSync(`Inserted only ${err.result.nInserted} books when ${commonsBooks.length} books were expected.`);
@@ -329,6 +334,11 @@ const syncWithLibraries = (_req, res) => {
                     msg: conductorErrors.err13
                 });
             }
+        } else if (err.code && err.code === 'ENOTFOUND') { // issues connecting to LT API
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err16
+            });
         } else { // other errors
             debugError(err);
             return res.send({

@@ -54,76 +54,25 @@ const CommonsHomework = (_props) => {
     const [courseModalTitle, setCourseModalTitle] = useState('');
     const [courseModalDescrip, setCourseModalDescrip] = useState('');
     const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
-    const [courseModalLoaded, setCourseModalLoaded] = useState(true);
 
     /**
-     * Retrieve Commons courses from the ADAPT server
+     * Retrieve ADAPT Commons courses from the server
      * via GET request.
      */
     const getADAPTCourses = () => {
-        axios.get('https://adapt.libretexts.org/api/courses/commons', {
-            withCredentials: false
-        }).then((res) => {
-            if (res.data && res.data.type === 'success') {
-                console.log(res.data);
-                if (res.data.commons_courses && Array.isArray(res.data.commons_courses)) {
-                    let sorted = [...res.data.commons_courses].sort((a, b) => {
-                        if (a.name < b.name) {
-                            return -1;
-                        }
-                        if (a.name > b.name) {
-                            return 1;
-                        }
-                        return 0;
-                    });
-                    setAdaptCourses(sorted);
-                    setOrigCourses(sorted);
-                } else {
-                    throw(new Error("Sorry, we're having trouble displaying this data."))
+        setLoadedCourses(false);
+        axios.get('/commons/homework/adapt').then((res) => {
+            if (!res.data.err) {
+                if (res.data.courses && Array.isArray(res.data.courses)) {
+                    setAdaptCourses(res.data.courses);
+                    setOrigCourses(res.data.courses);
                 }
             } else {
-                throw(new Error("Sorry, we're having trouble loading this information."));
+                handleGlobalError(res.data.errMsg);
             }
             setLoadedCourses(true);
         }).catch((err) => {
             handleGlobalError(err);
-        });
-    };
-
-    /**
-     * Retrieve assignments for a specific @courseID from the
-     * ADAPT server via GET request.
-     */
-    const getADAPTCourseAssignments = (courseID) => {
-        setCourseModalLoaded(false);
-        var reqURL = "https://adapt.libretexts.org/api/assignments/commons/" + courseID;
-        axios.get(reqURL, {
-            withCredentials: false
-        }).then((res) => {
-            console.log(res.request.responseURL);
-            console.log(res.data);
-            if (res.data && res.data.type === 'success') {
-                if (res.data.assignments && Array.isArray(res.data.assignments)) {
-                    var assignments = res.data.assignments.map((item) => {
-                        if (item.assignment_id) {
-                            delete item.assignment_id;
-                        }
-                        if (item.description) {
-                            delete item.description;
-                        }
-                        return item;
-                    });
-                    setCourseModalAsgmts(assignments);
-                } else {
-                    throw(new Error("Sorry, we're having trouble displaying this data."))
-                }
-            } else {
-                throw(new Error("Sorry, we're having trouble loading this information."));
-            }
-            setCourseModalLoaded(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setCourseModalLoaded(true);
         });
     };
 
@@ -133,13 +82,13 @@ const CommonsHomework = (_props) => {
      */
     const openCourseViewModal = (courseID) => {
         var course = adaptCourses.find((element) => {
-            return element.id === courseID;
+            return element.hwID === courseID;
         });
         if (course !== undefined) {
-            getADAPTCourseAssignments(courseID);
-            setShowCourseModal(true);
-            setCourseModalTitle(course.name);
+            setCourseModalTitle(course.title);
             setCourseModalDescrip(course.description);
+            setCourseModalAsgmts(course.adaptAssignments);
+            setShowCourseModal(true);
         }
     };
 
@@ -212,7 +161,7 @@ const CommonsHomework = (_props) => {
     useEffect(() => {
         if (searchString !== '') {
             let filtered = origCourses.filter((course) => {
-                const descripString = String(course.name + " " + course.description).toLowerCase();
+                const descripString = String(course.title + " " + course.description).toLowerCase();
                 if (descripString.indexOf(String(searchString).toLowerCase()) > -1) {
                     return course;
                 } else {
@@ -242,7 +191,7 @@ const CommonsHomework = (_props) => {
                                 key={index}
                             >
                                 <Card.Content>
-                                    <Card.Header>{item.name}</Card.Header>
+                                    <Card.Header>{item.title}</Card.Header>
                                     <Card.Description>
                                         {truncateString(item.description, 250)}
                                     </Card.Description>
@@ -251,7 +200,7 @@ const CommonsHomework = (_props) => {
                                     <Button
                                         color='blue'
                                         fluid
-                                        onClick={() => { openCourseViewModal(item.id) }}
+                                        onClick={() => { openCourseViewModal(item.hwID) }}
                                     >
                                         View Assignments
                                     </Button>
@@ -284,10 +233,10 @@ const CommonsHomework = (_props) => {
                                 <Table.Row key={index}>
                                     <Table.Cell>
                                         <p
-                                            onClick={() => { openCourseViewModal(item.id) }}
+                                            onClick={() => { openCourseViewModal(item.hwID) }}
                                             className='text-link'
                                         >
-                                            <strong>{item.name}</strong>
+                                            <strong>{item.title}</strong>
                                         </p>
                                     </Table.Cell>
                                     <Table.Cell>
@@ -566,19 +515,17 @@ const CommonsHomework = (_props) => {
                             <Header size='small' dividing>Assignments</Header>
                             <Segment
                                 basic
-                                loading={!courseModalLoaded}
-                                padded={!courseModalLoaded}
                             >
-                                {(courseModalLoaded && courseModalAsgmts.length > 0) &&
+                                {(courseModalAsgmts.length > 0) &&
                                     <List bulleted>
                                         {courseModalAsgmts.map((item, idx) => {
                                             return (
-                                                <List.Item key={idx}>{item.name}</List.Item>
+                                                <List.Item key={idx}>{item.title}</List.Item>
                                             )
                                         })}
                                     </List>
                                 }
-                                {(courseModalLoaded && courseModalAsgmts.length === 0) &&
+                                {(courseModalAsgmts.length === 0) &&
                                     <p><em>No assignments found.</em></p>
                                 }
                             </Segment>

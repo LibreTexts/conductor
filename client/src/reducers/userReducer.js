@@ -76,7 +76,7 @@ export default function userReducer(state = userInitialState, action) {
                 isAuthenticated: true
             }
         case 'CHECK_AUTH':
-            if (Cookies.get('access_token') !== undefined) {
+            if (Cookies.get('conductor_access') !== undefined) {
                 return {
                     ...state,
                     isAuthenticated: true

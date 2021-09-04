@@ -1,6 +1,5 @@
 import './ControlPanel.css';
 
-import { DateInput } from 'semantic-ui-calendar-react';
 import {
   Grid,
   Header,
@@ -20,8 +19,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
 
 import {
     isEmptyString,
@@ -34,10 +31,6 @@ import {
 } from '../util/LibraryOptions.js';
 import { getLicenseText } from '../util/LicenseOptions.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
-import {
-    getTermTaught,
-    buildAccessMethodsList
-} from '../adoptionreport/AdoptionReportOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const BooksManager = (props) => {
@@ -101,7 +94,6 @@ const BooksManager = (props) => {
      */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Books Manager";
-        date.plugin(ordinal);
         getBooks();
     }, []);
 

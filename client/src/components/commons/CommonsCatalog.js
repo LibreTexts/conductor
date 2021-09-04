@@ -11,7 +11,6 @@ import {
     Card,
     Table,
     Header,
-    Accordion,
     Icon,
     Button
 } from 'semantic-ui-react';

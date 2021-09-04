@@ -12,7 +12,83 @@ const { debugError, debugObject, debugADAPTSync } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
 
-const syncADAPTCommons = (req, res) => {
+/**
+ * Get all Homework resources.
+ */
+const getAllHomework = (_req, res) => {
+    Homework.aggregate([
+        {
+            $match: {}
+        }, {
+            $sort: {
+                title: 1
+            }
+        }, {
+            $project: {
+                __id: 0,
+                __v: 0,
+                createdAt: 0,
+                updatedAt: 0
+            }
+        }
+    ]).then((homeworkRes) => {
+        return res.send({
+            err: false,
+            homework: homeworkRes
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+/**
+ * Get Homework resources originating
+ * from the ADAPT servers.
+ */
+const getADAPTCatalog = (_req, res) => {
+    Homework.aggregate([
+        {
+            $match: {
+                kind: 'adapt'
+            }
+        }, {
+            $sort: {
+                title: 1
+            }
+        }, {
+            $project: {
+                __id: 0,
+                __v: 0,
+                createdAt: 0,
+                updatedAt: 0
+            }
+        }
+    ]).then((adaptCourses) => {
+        return res.send({
+            err: false,
+            courses: adaptCourses
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+
+/**
+ * Queries the ADAPT server for ADAPT
+ * Commons courses and their assignments,
+ * then upserts them into the Homework
+ * collection (as kind: 'adapt').
+ */
+const syncADAPTCommons = (_req, res) => {
     var assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/commons/';
     var adaptCourses = [];
     var assgnRequests = [];
@@ -45,20 +121,25 @@ const syncADAPTCommons = (req, res) => {
         var adaptOps = [];
         assgnRes.forEach((axiosRes) => {
             if (axiosRes.data && axiosRes.data.type === 'success') {
-                var courseID = String(axiosRes.request.responseURL).replace(assgnBaseURL, '');
+                var courseID = String(axiosRes.config.url).replace(assgnBaseURL, '');
                 if (axiosRes.data.assignments && Array.isArray(axiosRes.data.assignments)) {
-                    adaptCourses.forEach((course) => {
+                    adaptCourses.forEach((course, idx, origArray) => {
                         if (course.externalID === courseID) {
+                            var adaptAssgns = [];
                             axiosRes.data.assignments.forEach((assgn) => {
                                 var descrip = '';
                                 if (assgn.description && !isEmptyString(assgn.description)) {
                                     descrip = assgn.description;
                                 }
-                                course.adaptAssignments.push({
+                                adaptAssgns.push({
                                     title: assgn.name,
                                     description: descrip
                                 });
                             });
+                            origArray[idx] = {
+                                ...course,
+                                adaptAssignments: adaptAssgns
+                            };
                         }
                     });
                 }
@@ -87,7 +168,7 @@ const syncADAPTCommons = (req, res) => {
                 }
             });
         });
-        if (adaptCourses.length > 0) {
+        if (adaptOps.length > 0) {
             return Homework.bulkWrite(adaptOps, {
                 ordered: false
             });
@@ -95,14 +176,9 @@ const syncADAPTCommons = (req, res) => {
             return {};
         }
     }).then((adaptRes) => {
-        var msg = '';
-        if (Object.keys(adaptRes).length === 0) { // bulkWrite response
-            msg = 'Succesfully synced ADAPT courses & assignments.';
-            if (adaptRes.modifiedCount) {
-                msg += ` ${adaptRes.modifiedCount} courses updated.`
-            }
-        } else { // skipped bulkWrite
-            msg = 'No changes to sync.';
+        var msg = 'Succesfully synced ADAPT courses & assignments.';
+        if (adaptRes.modifiedCount) {
+            msg += ` ${adaptRes.modifiedCount} courses updated.`
         }
         return res.send({
             err: false,
@@ -138,5 +214,7 @@ const syncADAPTCommons = (req, res) => {
 };
 
 module.exports = {
+    getAllHomework,
+    getADAPTCatalog,
     syncADAPTCommons
 }

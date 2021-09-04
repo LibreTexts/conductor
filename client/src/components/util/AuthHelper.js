@@ -2,7 +2,7 @@ import Cookies from 'js-cookie';
 
 const AuthHelper = {
     isAuthenticated: function() {
-        if (Cookies.get('access_token') !== undefined ){
+        if (Cookies.get('conductor_access') !== undefined ){
           return true;
         }
         return false;

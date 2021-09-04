@@ -12,6 +12,10 @@ import store from './store.js';
 import AnonRoute from './components/util/AnonRoute.js';
 import PrivateRoute from './components/util/PrivateRoute.js';
 
+/* Authentication */
+import Login from './components/auth/Login.js';
+import Register from './components/auth/Register.js';
+
 /* Commons */
 import Commons from './components/commons/Commons.js';
 import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
@@ -20,7 +24,6 @@ import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 import AccountSettings from './components/auth/AccountSettings.js';
 
 import Dashboard from './components/dashboard/Dashboard.js';
-import Login from './components/auth/Login.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
 import HarvestingCompletedProjects from './components/harvesting/HarvestingCompletedProjects.js';
@@ -39,6 +42,7 @@ import AdoptionReports from './components/controlpanel/AdoptionReports.js';
 import BooksManager from './components/controlpanel/BooksManager.js';
 import CollectionsManager from './components/controlpanel/CollectionsManager.js';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests.js';
+import HomeworkManager from './components/controlpanel/HomeworkManager.js';
 
 
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
@@ -51,6 +55,7 @@ import PageNotFound from './components/util/PageNotFound.js';
 import ErrorModal from './components/error/ErrorModal.js';
 
 function App() {
+
 
     axios.defaults.baseURL = '/api/v1';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -72,7 +77,8 @@ function App() {
             <div className='conductor'>
                 <Navbar />
                 <Switch>
-                    <AnonRoute exact path = '/login' component={Login}/>
+                    <AnonRoute exact path = '/login' component={Login} />
+                    <AnonRoute exact path = '/register' component={Register} />
                     <PrivateRoute exact path = '/dashboard' component={Dashboard} />
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
@@ -95,6 +101,7 @@ function App() {
                         <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
                         <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
                         <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
+                        <PrivateRoute exact path = '/controlpanel/homeworkmanager' component={HomeworkManager} />
 
                     {/* 404 */}
                     <Route component={PageNotFound} />

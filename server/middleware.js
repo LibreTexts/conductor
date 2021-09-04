@@ -77,8 +77,8 @@ const authSanitizer = (req, res, next) => {
                 errMsg: "Invalid request."
             });
         }
-        if (req.cookies.access_token !== undefined && req.cookies.signed_token !== undefined) {
-            req.headers.authorization = req.cookies.access_token + '.' + req.cookies.signed_token;
+        if (req.cookies.conductor_access !== undefined && req.cookies.conductor_signed !== undefined) {
+            req.headers.authorization = req.cookies.conductor_access + '.' + req.cookies.conductor_signed;
         }
     }
     return next();

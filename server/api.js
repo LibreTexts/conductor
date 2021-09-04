@@ -17,7 +17,7 @@ const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
 const booksAPI = require('./api/books.js');
-const homeworksAPI = require('./api/homeworks.js');
+const homeworkAPI = require('./api/homework.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -123,7 +123,7 @@ router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware('libretexts', 'campusadmin'),
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     booksAPI.syncWithLibraries);
 
 
@@ -157,7 +157,16 @@ router.route('/v1/commons/catalogs/removeresource').put(authAPI.verifyRequest,
 
 
 /* Homework */
-//router.route('/v1/commons/homework/syncadapt').post(homeworksAPI.syncADAPTCommons);
+router.route('/v1/commons/homework/all').get(homeworkAPI.getAllHomework);
+
+router.route('/v1/commons/homework/adapt').get(homeworkAPI.getADAPTCatalog);
+
+
+router.route('/v1/commons/homework/syncadapt').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    homeworkAPI.syncADAPTCommons);
+
 
 /* Search */
 //router.route('/v1/search').get(authAPI.verifyRequest, searchAPI.performSearch);

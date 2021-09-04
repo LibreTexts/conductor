@@ -233,13 +233,13 @@ const Commons = (_props) => {
                     </Menu.Item>
                     {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                         <Menu.Item
-                            name='adapt'
-                            active={activeItem === 'adapt'}
+                            name='homework'
+                            active={activeItem === 'homework'}
                             className='commons-menu-item'
                             as={Link}
-                            to='/adapt'
+                            to='/homework'
                         >
-                            ADAPT
+                            Homework
                         </Menu.Item>
                     }
                 </Menu>

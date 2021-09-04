@@ -1,10 +1,8 @@
 import './ControlPanel.css';
 
-import { DateInput } from 'semantic-ui-calendar-react';
 import {
   Grid,
   Header,
-  Image,
   Segment,
   Form,
   Table,
@@ -21,8 +19,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
 
 import {
     isEmptyString,
@@ -71,7 +67,6 @@ const CollectionsManager = (props) => {
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Collections Manager";
-        date.plugin(ordinal);
         getCollections();
     }, []);
 

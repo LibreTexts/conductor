@@ -1,6 +1,23 @@
 # Changelog
 
-## 09-01-2021
+## 09-03-2021
+#### :art: UI/UX
+* Upgrades to Commons Pagination UI
+* Upgrades to the Commons Catalog Itemized Mode
+* Implemented Collection View in Commons
+* Modified Homework to retrieve results from the Conductor database
+* Added Homework Manager and sync abilities in Conductor
+* Started work on User Registration
+* Added Google Analytics (may need further review)
+
+#### :satellite: Server
+* Improved Books import algorithm
+* Added the Homework model
+* Added backend logic to sync ADAPT Commons with Conductor
+* Introduced auto-generated Collections
+* Renamed authentication cookies to prevent conflicts with other LibreTexts cookies
+
+## 09-02-2021
 #### :art: UI/UX
 * Upgrades to the Commons Catalog UI
 * Folded the desktop and mobile Commons Catalog UI into one to reduce code complexity and duplication

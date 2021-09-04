@@ -7,7 +7,6 @@ import {
     Header,
     Card,
     Image,
-    Popup,
     Dropdown,
     Table
 } from 'semantic-ui-react';
@@ -20,7 +19,6 @@ import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
-import { getDemoCollections } from '../util/DemoBooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { updateParams } from '../util/HelperFunctions.js';
 

@@ -10,16 +10,14 @@ import {
     Pagination,
     Card,
     Table,
-    Header,
-    Accordion,
-    Icon
+    Header
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
 import axios from 'axios';
-import queryString from 'query-string';
+//import queryString from 'query-string';
 
 import {
     getShelfOptions,

@@ -43,8 +43,8 @@ const login = (req, res, _next) => {
             },(err, token) => {
                 if (!err && token !== null) {
                     const splitToken = token.split('.');
-                    var accessCookie = 'access_token=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
-                    var sigCookie = 'signed_token=' + splitToken[2] + '; Path=/; HttpOnly;';
+                    var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
+                    var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
                     if (process.env.NODE_ENV === 'production') {
                         const domains = String(process.env.PRODUCTIONURLS).split(',');
                         accessCookie += " Domain=" + domains[0] + ';';

@@ -130,11 +130,11 @@ const Navbar = (_props) => {
             type: 'CLEAR_USER_INFO'
         });
         var domains = String(process.env.PRODUCTIONURLS).split(',');
-        Cookies.remove('access_token', { path: '/', domain: '.' + domains[0] });
+        Cookies.remove('conductor_access', { path: '/', domain: '.' + domains[0] });
         if (process.env.NODE_ENV === 'development') {
-            Cookies.remove('access_token', { path: '/', domain: 'localhost' });
+            Cookies.remove('conductor_access', { path: '/', domain: 'localhost' });
         }
-        window.location.assign('/?src=logout');
+        window.location.assign('/');
     };
 
     /*

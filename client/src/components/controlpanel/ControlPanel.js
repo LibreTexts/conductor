@@ -1,6 +1,5 @@
 import './ControlPanel.css';
 
-import { DateInput } from 'semantic-ui-calendar-react';
 import {
   Grid,
   Header,
@@ -12,9 +11,6 @@ import {
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -30,7 +26,6 @@ const ControlPanel = (props) => {
      */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Control Panel";
-        date.plugin(ordinal);
     }, []);
 
     return (
@@ -87,12 +82,25 @@ const ControlPanel = (props) => {
                                             <List.Item
                                                 as={Link}
                                                 to='/controlpanel/orgsmanager'
+                                                disabled
                                             >
                                                 <Icon name='building' />
                                                 <List.Content>
                                                     <List.Header>Organizations Manager</List.Header>
                                                     <List.Description>
                                                         View and manage Organizations on the Conductor platform
+                                                    </List.Description>
+                                                </List.Content>
+                                            </List.Item>
+                                            <List.Item
+                                                as={Link}
+                                                to='/controlpanel/homeworkmanager'
+                                            >
+                                                <Icon name='tasks' />
+                                                <List.Content>
+                                                    <List.Header>Homework Manager</List.Header>
+                                                    <List.Description>
+                                                        View and manage Homework resources listed on the LibreCommons
                                                     </List.Description>
                                                 </List.Content>
                                             </List.Item>
@@ -130,6 +138,7 @@ const ControlPanel = (props) => {
                                             <List.Item
                                                 as={Link}
                                                 to='/controlpanel/usersmanager'
+                                                disabled
                                             >
                                                 <Icon name='users' />
                                                 <List.Content>
