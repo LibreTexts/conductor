@@ -62,13 +62,17 @@ app.use(helmet.contentSecurityPolicy({
         scriptSrc: [
             "'self'",
             'https://*.libretexts.org',
-            'https://www.googletagmanager.com', // gtag.js
-            "https://www.ssa.gov/accessibility/andi/andi.js" // ANDI
+            "'sha256-vr8P/3UUYbbQp32B/lr8C9cGDdP0LmPEdMLlces6xMk='", // gtag.js inline
+            '*.googletagmanager.com', // gtag.js,
+            '*.ssa.gov', // ANDI,
+            'https://ajax.googleapis.com' // Google CDN (jQuery for ANDI)
         ],
         styleSrc: [
             "'self'",
             'https://*.libretexts.org',
-            'https://fonts.googleapis.com'
+            'https://fonts.googleapis.com',
+            '*.ssa.gov',
+            "'unsafe-inline'" // TODO: Review
         ]
     }
 }));
