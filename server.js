@@ -59,7 +59,12 @@ app.use(helmet.contentSecurityPolicy({
         frameSrc: ["'self'", 'https://*.libretexts.org'],
         imgSrc: ["'self'", 'https:', 'data:'],
         objectSrc: ['none'],
-        scriptSrc: ["'self'", 'https://*.libretexts.org'],
+        scriptSrc: [
+            "'self'",
+            'https://*.libretexts.org',
+            'https://www.googletagmanager.com', // gtag.js
+            "https://www.ssa.gov/accessibility/andi/andi.js" // ANDI
+        ],
         styleSrc: [
             "'self'",
             'https://*.libretexts.org',
