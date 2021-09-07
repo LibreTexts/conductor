@@ -6,13 +6,13 @@ import {
     Image,
     Dropdown,
     Segment,
-    Input,
     Pagination,
     Card,
     Table,
     Header,
     Icon,
-    Button
+    Button,
+    Form
 } from 'semantic-ui-react';
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -493,18 +493,20 @@ const CommonsCatalog = (_props) => {
                         }
                         <Segment>
                             <div id='commons-searchbar-container'>
-                                <Input
-                                    icon='search'
-                                    placeholder='Search...'
-                                    className='color-libreblue'
-                                    id='commons-search-input'
-                                    iconPosition='left'
-                                    onChange={(e) => {
-                                        setSearchString(e.target.value);
-                                    }}
-                                    fluid
-                                    value={searchString}
-                                />
+                                <Form onSubmit={performSearch}>
+                                    <Form.Input
+                                        icon='search'
+                                        placeholder='Search...'
+                                        className='color-libreblue'
+                                        id='commons-search-input'
+                                        iconPosition='left'
+                                        onChange={(e) => {
+                                            setSearchString(e.target.value);
+                                        }}
+                                        fluid
+                                        value={searchString}
+                                    />
+                                </Form>
                             </div>
                             <div id='commons-searchbtns-container'>
                                 <Button
@@ -512,7 +514,7 @@ const CommonsCatalog = (_props) => {
                                     id='commons-search-button'
                                     onClick={performSearch}
                                 >
-                                    SEARCH
+                                    SEARCH CATALOG
                                 </Button>
                                 {(initialSearch.current) &&
                                     <Button

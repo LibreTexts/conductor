@@ -16,6 +16,8 @@ import CommonsCollections from './CommonsCollections.js';
 import CommonsCollectionView from './CommonsCollectionView.js';
 import CommonsBook from './CommonsBook.js';
 import CommonsHomework from './CommonsHomework.js';
+import CommonsDirectory from './CommonsDirectory.js';
+import CommonsDirectoryEntry from './CommonsDirectoryEntry.js';
 
 const Commons = (_props) => {
 
@@ -95,6 +97,8 @@ const Commons = (_props) => {
             setActiveItem('collections');
         } else if (currentPath.includes('/homework')) {
             setActiveItem('homework');
+        } else if (currentPath.includes('/directory')) {
+            setActiveItem('directory');
         } else {
             setActiveItem('catalog');
         }
@@ -134,21 +138,8 @@ const Commons = (_props) => {
             </div>
             <Breakpoint name='tabletOrDesktop'>
                 <div id='commons-menu'>
-                    <div id='commons-menu-left'>
-                        <Menu secondary className='commons-menu-height'>
-                            <Menu.Item
-                                className='commons-menu-item'
-                                as='a'
-                                href={org.aboutLink}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                            >
-                                About {org.shortName}
-                            </Menu.Item>
-                        </Menu>
-                    </div>
                     <div id='commons-menu-center'>
-                        <Menu secondary pointing fluid widths={2} id='commons-menu-pointing'>
+                        <Menu secondary pointing fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 2} id='commons-menu-pointing'>
                             <Menu.Item
                                 name='catalog'
                                 active={activeItem === 'catalog'}
@@ -178,41 +169,23 @@ const Commons = (_props) => {
                                     Homework
                                 </Menu.Item>
                             }
-                        </Menu>
-                    </div>
-                    <div id='commons-menu-right'>
-                        <Menu secondary className='commons-menu-height'>
-                            <Menu.Item
-                                className='commons-menu-item'
-                                as={Link}
-                                to='/login'
-                            >
-                                Login to Conductor <Icon name='lightning' />
-                            </Menu.Item>
+                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                                <Menu.Item
+                                    name='directory'
+                                    active={activeItem === 'directory'}
+                                    className='commons-menu-item'
+                                    as={Link}
+                                    to='/directory'
+                                >
+                                    Directory
+                                </Menu.Item>
+                            }
                         </Menu>
                     </div>
                 </div>
             </Breakpoint>
             <Breakpoint name='mobile'>
-                <Menu id='commons-mobilelinks' secondary fluid vertical>
-                    <Menu.Item
-                        className='commons-menu-item commons-mobilelinks-item'
-                        as='a'
-                        href={org.aboutLink}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                    >
-                        About {org.shortName}
-                    </Menu.Item>
-                    <Menu.Item
-                        className='commons-menu-item commons-mobilelinks-item'
-                        as={Link}
-                        to='/login'
-                    >
-                        <span>Login to Conductor <Icon name='lightning' /></span>
-                    </Menu.Item>
-                </Menu>
-                <Menu id='commons-mobilemenu' pointing secondary labeled='icon' fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 3 : 2}>
+                <Menu id='commons-mobilemenu' pointing secondary labeled='icon' fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 2}>
                     <Menu.Item
                         name='catalog'
                         active={activeItem === 'catalog'}
@@ -242,6 +215,17 @@ const Commons = (_props) => {
                             Homework
                         </Menu.Item>
                     }
+                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                        <Menu.Item
+                            name='directory'
+                            active={activeItem === 'directory'}
+                            className='commons-menu-item'
+                            as={Link}
+                            to='/directory'
+                        >
+                            Directory
+                        </Menu.Item>
+                    }
                 </Menu>
             </Breakpoint>
             <Switch>
@@ -250,6 +234,12 @@ const Commons = (_props) => {
                 <Route exact path='/collections' component={CommonsCollections} />
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                     <Route exact path='/homework' component={CommonsHomework} />
+                }
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/directory' component={CommonsDirectory} />
+                }
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/directory/:lib' component={CommonsDirectoryEntry} />
                 }
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />

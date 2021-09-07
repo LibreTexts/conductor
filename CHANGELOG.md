@@ -1,5 +1,9 @@
 # Changelog
 
+## 09-06-2021
+#### :satellite: Server
+* Updated the CSP to allow gtag.js and the ANDI tool
+
 ## 09-03-2021
 #### :art: UI/UX
 * Upgrades to Commons Pagination UI

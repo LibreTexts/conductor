@@ -18,6 +18,7 @@ const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
 const booksAPI = require('./api/books.js');
 const homeworkAPI = require('./api/homework.js');
+const directoryAPI = require('./api/directory.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -119,6 +120,17 @@ router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
     middleware.checkValidationErrors,
     collectionsAPI.removeResourceFromCollection);
 
+
+/* Directory */
+router.route('/v1/commons/directory').get(directoryAPI.getDirectory);
+
+router.route('/v1/commons/directory/libraries').get(
+    directoryAPI.getMainLibraries);
+
+router.route('/v1/commons/directory/shelves').get(
+    directoryAPI.validate('getLibraryShelves'),
+    middleware.checkValidationErrors,
+    directoryAPI.getLibraryShelves);
 
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,

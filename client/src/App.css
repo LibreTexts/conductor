@@ -86,6 +86,10 @@ body {
     color: #0A7CC5 !important;
 }
 
+.no-margin {
+    margin: 0 !important;
+}
+
 
 /* Helper Classes */
 .form-required::after {

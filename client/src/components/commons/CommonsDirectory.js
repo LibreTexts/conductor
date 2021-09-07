@@ -8,7 +8,8 @@ import {
     Card,
     Image,
     Dropdown,
-    Table
+    Table,
+    Breadcrumb
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -22,69 +23,35 @@ import useGlobalError from '../error/ErrorHooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { updateParams } from '../util/HelperFunctions.js';
 
-const CommonsCollections = (_props) => {
+const CommonsDirectory = (_props) => {
 
     const { handleGlobalError } = useGlobalError();
 
-    // Global State and Location/History
-    const dispatch = useDispatch();
-    const location = useLocation();
-    const history = useHistory();
-    const org = useSelector((state) => state.org);
-
     // UI
-    const displayChoice = useSelector((state) => state.filters.collections.mode);
     const [loadedData, setLoadedData] = useState(false);
+    const [displayChoice, setDisplayChoice] = useState('visual');
 
     // Data
-    const [collections, setCollections] = useState([]);
+    const [directory, setDirectory] = useState([]);
 
     /**
-     * Load collections from server.
+     * Load directory from server.
      */
     useEffect(() => {
-        getCollections();
+        document.title = "LibreCommons | Directory";
+        getDirectory();
     }, []);
 
-    /**
-     * Update the page title based on
-     * Organization information.
-     */
-    useEffect(() => {
-        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Commons | Collections";
-        } else {
-            document.title = "LibreCommons | Collections";
-        }
-    }, [org]);
-
-    /**
-     * Subscribe to changes in the URL search string
-     * and update state accordingly.
-     */
-    useEffect(() => {
-        var params = queryString.parse(location.search);
-        if (params.mode && params.mode !== displayChoice) {
-            if ((params.mode === 'visual') || (params.mode === 'itemized')) {
-                dispatch({
-                    type: 'SET_COLLECTIONS_MODE',
-                    payload: params.mode
-                });
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location.search]);
-
-    const getCollections = () => {
-        axios.get('/commons/collections').then((res) => {
+    const getDirectory = () => {
+        axios.get('/commons/directory').then((res) => {
             if (!res.data.err) {
-                if (res.data.colls && Array.isArray(res.data.colls) && res.data.colls.length > 0) {
-                    setCollections(res.data.colls);
+                if (res.data.directory && Array.isArray(res.data.directory)) {
+                    setDirectory(res.data.directory);
                 }
+                setLoadedData(true);
             } else {
                 handleGlobalError(res.data.errMsg);
             }
-            setLoadedData(true);
         }).catch((err) => {
             handleGlobalError(err);
             setLoadedData(true);
@@ -92,27 +59,24 @@ const CommonsCollections = (_props) => {
     };
 
     const VisualMode = () => {
-        if (collections.length > 0) {
+        if (directory.length > 0) {
             return (
                 <Card.Group itemsPerRow={6} stackable>
-                    {collections.map((item, index) => {
+                    {directory.map((item, index) => {
                         return (
                             <Card
                                 key={index}
                                 as={Link}
-                                to={`/collection/${item.collID}`}
+                                to={`/directory/${item.key}`}
                             >
                                 <Image
                                     className='commons-content-card-img'
-                                    src={(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto}
+                                    src={(!item.thumbnail || item.thumbnail === '') ? '/mini_logo.png' : item.thumbnail}
                                     wrapped
                                     ui={false}
                                 />
                                 <Card.Content>
-                                    <Card.Header>{item.title}</Card.Header>
-                                    <Card.Meta>
-                                        {item.resources} resources
-                                    </Card.Meta>
+                                    <Card.Header>{item.name}</Card.Header>
                                 </Card.Content>
                             </Card>
                         )
@@ -121,7 +85,7 @@ const CommonsCollections = (_props) => {
             )
         } else {
             return (
-                <p className='text-center'><em>No collections available right now.</em></p>
+                <p className='text-center'><em>No directory results are available right now.</em></p>
             )
         }
     };
@@ -131,33 +95,31 @@ const CommonsCollections = (_props) => {
             <Table celled>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell width={5}><Header sub>Name</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={11}><Header sub>Resources</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Name</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                    {(collections.length > 0) &&
-                        collections.map((item, index) => {
+                    {(directory.length > 0) &&
+                        directory.map((item, index) => {
                             return (
-                                <Table.Row key={index}>
+                                <Table.Row
+                                    key={index}
+                                >
                                     <Table.Cell>
                                         <p>
-                                            <Link to={`/collection/${item.collID}`}>
-                                                <strong>{item.title}</strong>
+                                            <Link to={`/directory/${item.key}`}>
+                                                <strong>{item.name}</strong>
                                             </Link>
                                         </p>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <p>{item.resources} resources</p>
                                     </Table.Cell>
                                 </Table.Row>
                             )
                         })
                     }
-                    {(collections.length === 0) &&
+                    {(directory.length === 0) &&
                         <Table.Row>
-                            <Table.Cell colSpan='2'>
-                                <p className='text-center'><em>No results found.</em></p>
+                            <Table.Cell colSpan={1}>
+                                <p className='text-center'><em>No directory results are available right now.</em></p>
                             </Table.Cell>
                         </Table.Row>
                     }
@@ -172,10 +134,18 @@ const CommonsCollections = (_props) => {
                 <Grid.Column>
                     <Segment.Group raised>
                         <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section active>
+                                    Directory
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                            </Breadcrumb>
+                        </Segment>
+                        <Segment>
                             <Breakpoint name='tabletOrDesktop'>
                                 <div className='commons-content-pagemenu'>
                                     <div className='commons-content-pagemenu-left'>
-                                        <Header as='h2'>Collections</Header>
+                                        <Header as='h2'>Directory</Header>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <Dropdown
@@ -186,10 +156,7 @@ const CommonsCollections = (_props) => {
                                             className='float-right'
                                             options={catalogDisplayOptions}
                                             onChange={(_e, { value }) => {
-                                                history.push({
-                                                    pathname: location.pathname,
-                                                    search: updateParams(location.search, 'mode', value)
-                                                });
+                                                setDisplayChoice(value);
                                             }}
                                             value={displayChoice}
                                         />
@@ -200,7 +167,7 @@ const CommonsCollections = (_props) => {
                                 <Grid>
                                     <Grid.Row>
                                         <Grid.Column>
-                                            <Header as='h2' textAlign='center'>Collections</Header>
+                                            <Header as='h2' textAlign='center'>Directory</Header>
                                         </Grid.Column>
                                     </Grid.Row>
                                     <Grid.Row>
@@ -214,10 +181,7 @@ const CommonsCollections = (_props) => {
                                                 className='float-right'
                                                 options={catalogDisplayOptions}
                                                 onChange={(_e, { value }) => {
-                                                    history.push({
-                                                        pathname: location.pathname,
-                                                        search: updateParams(location.search, 'mode', value)
-                                                    });
+                                                    setDisplayChoice(value);
                                                 }}
                                                 value={displayChoice}
                                             />
@@ -239,9 +203,4 @@ const CommonsCollections = (_props) => {
     )
 }
 
-export default CommonsCollections;
-
-/*
-as={Link}
-to={`/collections/${item.id}`}
-*/
+export default CommonsDirectory;

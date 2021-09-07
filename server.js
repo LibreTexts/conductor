@@ -49,7 +49,11 @@ app.use(helmet.contentSecurityPolicy({
     directives: {
         baseUri: ["'self'"],
         childSrc: ["'self'", 'https://*.libretexts.org'],
-        connectSrc: ["'self'", 'https://*.libretexts.org'],
+        connectSrc: [
+            "'self'",
+            'https://*.libretexts.org',
+            '*.google-analytics.com' // gtag.js
+        ],
         defaultSrc: ["'self'"],
         fontSrc: ["'self'",
             'https://*.libretexts.org',

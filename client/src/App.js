@@ -124,6 +124,12 @@ function App() {
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/homework' component={Commons} />
                         }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/directory' component={Commons} />
+                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/directory/:lib' component={Commons} />
+                        }
                         {/* Standalone */}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/harvestrequest' component={HarvestRequest} />
