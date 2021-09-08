@@ -7,7 +7,7 @@ const libraries = [
     {
         key: 'bio',
         name: 'Biology',
-        thumbnail: '',
+        thumbnail: '/libthumbnails/bio.png',
         shelves: [
             {
             	name: 'Biotechnology',
@@ -179,7 +179,7 @@ const libraries = [
     {
         key: 'espanol',
         name: 'Español',
-        thumbnail: '',
+        thumbnail: '/libthumbnails/espanol.png',
         shelves: [
             {
                 name: 'Ciencias Sociales',
@@ -257,7 +257,7 @@ const libraries = [
     {
         key: 'human',
         name: 'Humanities',
-        thumbnail: '',
+        thumbnail: '/libthumbnails/human.png',
         shelves: [
             {
             	name: 'Art',
@@ -306,6 +306,65 @@ const libraries = [
             {
             	name: 'Theater & Film',
             	link: 'https://human.libretexts.org/Bookshelves/Theater_and_Film'
+            }
+        ]
+    },
+    {
+        key: 'k12',
+        name: 'K12 Education',
+        thumbnail: '/libthumbnails/k12.png',
+        shelves: [
+            {
+            	name: 'Composition',
+            	link: 'https://k12.libretexts.org/Bookshelves/Commonsense_Composition'
+            },
+            {
+            	name: 'Economics',
+            	link: 'https://k12.libretexts.org/Bookshelves/Economics'
+            },
+            {
+            	name: 'Geography',
+            	link: 'https://k12.libretexts.org/Bookshelves/Geography'
+            },
+            {
+            	name: 'Health',
+            	link: 'https://k12.libretexts.org/Bookshelves/Health_-_Skills_For_A_Healthy_Me'
+            },
+            {
+            	name: 'Human Biology',
+            	link: 'https://k12.libretexts.org/Bookshelves/Human_Biology_-_Digestion_and_Nutrition'
+            },
+            {
+            	name: 'Journalism',
+            	link: 'https://k12.libretexts.org/Bookshelves/Journalism_101'
+            },
+            {
+            	name: 'Mathematics',
+            	link: 'https://k12.libretexts.org/Bookshelves/Mathematics'
+            },
+            {
+            	name: 'Philosophy',
+            	link: 'https://k12.libretexts.org/Bookshelves/Philosophy'
+            },
+            {
+            	name: 'Photography',
+            	link: 'https://k12.libretexts.org/Bookshelves/Photography'
+            },
+            {
+            	name: 'Science and Technology',
+            	link: 'https://k12.libretexts.org/Bookshelves/Science_and_Technology'
+            },
+            {
+            	name: 'Sociology',
+            	link: 'https://k12.libretexts.org/Bookshelves/Sociology'
+            },
+            {
+            	name: 'Spelling',
+            	link: 'https://k12.libretexts.org/Bookshelves/Spelling'
+            },
+            {
+            	name: 'United States Government',
+            	link: 'https://k12.libretexts.org/Bookshelves/United_States_Government'
             }
         ]
     },
@@ -414,7 +473,7 @@ const libraries = [
     {
         key: 'phys',
         name: 'Physics',
-        thumbnail: '',
+        thumbnail: '/libthumbnails/phys.png',
         shelves: [
             {
             	name: 'Astronomy & Cosmoloogy',

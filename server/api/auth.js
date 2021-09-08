@@ -7,17 +7,23 @@ const User = require('../models/user.js');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body } = require('express-validator');
+const { v4: uuidv4 } = require('uuid');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
 const { isEmptyString } = require('../util/helpers.js');
 
 const axios = require('axios');
 
+const initSSO = (req, res) => {
+    return res.redirect(308,
+        'http://sso.libretexts.org/cas/oauth2.0/authorize?client_id=' + process.env.OAUTH_CLIENT_ID);
+};
+
 const oauthCallback = (req, res, next) => {
     console.log(req);
     console.log("CALLBACK");
     res.sendStatus(200);
-}
+};
 
 
 /**
@@ -26,6 +32,8 @@ const oauthCallback = (req, res, next) => {
  * authorization cookies.
  */
 const login = (req, res, _next) => {
+    var isNewMember = false;
+    var payload = {};
     const formattedEmail = String(req.body.email).toLowerCase();
     User.findOne({ email: formattedEmail }).then((user) => {
         if (user) {
@@ -34,34 +42,57 @@ const login = (req, res, _next) => {
             throw(new Error("Couldn't find an account with that email."));
         }
     }).then(([isMatch, user]) => {
-        const payload = {
-            uuid: user.uuid
-        };
+        payload.uuid = user.uuid;
         if (isMatch) {
-            jwt.sign(payload, process.env.SECRETKEY, {
-                expiresIn: 86400
-            },(err, token) => {
-                if (!err && token !== null) {
-                    const splitToken = token.split('.');
-                    var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
-                    var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
-                    if (process.env.NODE_ENV === 'production') {
-                        const domains = String(process.env.PRODUCTIONURLS).split(',');
-                        accessCookie += " Domain=" + domains[0] + ';';
-                        sigCookie += " Domain=" + domains[0] + '; Secure;';
+            if (Array.isArray(user.roles)) {
+                var foundRole = user.roles.find((item) => {
+                    if (item.org === process.env.ORG_ID) {
+                        return item;
                     }
-                    const cookiesToSet = [accessCookie, sigCookie];
-                    res.setHeader('Set-Cookie', cookiesToSet);
-                    return res.send({
-                        err: false
-                    });
-                } else {
-                    throw(err);
+                    return null;
+                });
+                if (foundRole === undefined) {
+                    isNewMember = true;
                 }
-            });
+            }
+            if (isNewMember) {
+                return User.updateOne({ uuid: user.uuid }, {
+                    $push: {
+                        roles: {
+                            org: process.env.ORG_ID,
+                            role: 'member'
+                        }
+                    }
+                });
+            } else {
+                return {};
+            }
         } else {
             throw(new Error('password'));
         }
+    }).then((updateRes) => {
+        jwt.sign(payload, process.env.SECRETKEY, {
+            expiresIn: 86400
+        },(err, token) => {
+            if (!err && token !== null) {
+                const splitToken = token.split('.');
+                var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
+                var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
+                if (process.env.NODE_ENV === 'production') {
+                    const domains = String(process.env.PRODUCTIONURLS).split(',');
+                    accessCookie += " Domain=" + domains[0] + ';';
+                    sigCookie += " Domain=" + domains[0] + '; Secure;';
+                }
+                const cookiesToSet = [accessCookie, sigCookie];
+                res.setHeader('Set-Cookie', cookiesToSet);
+                return res.send({
+                    err: false,
+                    isNewMember: isNewMember
+                });
+            } else {
+                throw(err);
+            }
+        });
     }).catch((err) => {
         if (err.message === 'password') {
             return res.send({
@@ -75,6 +106,48 @@ const login = (req, res, _next) => {
                 errMsg: conductorErrors.err6
             });
         }
+    });
+};
+
+/**
+ * Handles user registration by creating a User
+ * model with the information in the request
+ * body and hashing the provided password.
+ */
+const register = (req, res) => {
+    const formattedEmail = String(req.body.email).toLowerCase();
+    var newUser = {
+        uuid: uuidv4(),
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: formattedEmail,
+        avatar: '',
+        hash: '',
+        salt: '',
+        roles: []
+    };
+    bcrypt.genSalt(10).then((salt) => {
+        newUser.salt = salt;
+        return bcrypt.hash(req.body.password, salt);
+    }).then((hash) => {
+        newUser.hash = hash;
+        var readyUser = new User(newUser);
+        return readyUser.save();
+    }).then((doc) => {
+        if (doc) {
+            return res.send({
+                err: false,
+                msg: "Succesfully registered user."
+            });
+        } else {
+            throw(new Error('notcreated'));
+        }
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
     });
 };
 
@@ -214,6 +287,18 @@ const checkHasRoleMiddleware = (org, role) => {
     }
 };
 
+
+const passwordValidator = (password) => {
+    if (typeof(password) === 'string') {
+        if (password.length > 8) { // password should be 8 characters or longer
+            if (/\d/.test(password)) { // password should contain at least one number
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
 /**
  * Middleware(s) to verify requests contain
  * necessary fields.
@@ -225,15 +310,24 @@ const validate = (method) => {
                 body('email', conductorErrors.err1).exists().isEmail(),
                 body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
             ]
+        case 'register':
+            return [
+                body('email', conductorErrors.err1).exists().isEmail(),
+                body('password', conductorErrors.err1).exists().isString().custom(passwordValidator),
+                body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
+                body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100})
+            ]
     }
 }
 
 module.exports = {
     login,
+    register,
     verifyRequest,
     getUserAttributes,
     checkHasRole,
     checkHasRoleMiddleware,
     validate,
-    oauthCallback
+    oauthCallback,
+    initSSO
 };

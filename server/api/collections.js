@@ -240,7 +240,14 @@ const getCollection = (req, res) => {
     Collection.aggregate([
         {
             $match: {
-                collID: req.query.collID
+                $or: [
+                    {
+                        collID: req.query.collID
+                    },
+                    {
+                        title: req.query.collID
+                    }
+                ]
             }
         }, {
             $lookup: {
@@ -411,7 +418,7 @@ const validate = (method) => {
             ]
         case 'getCollection':
             return [
-                query('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8})
+                query('collID', conductorErrors.err1).exists().isString().isLength({ min: 3 })
             ]
         case 'addCollResource':
             return [

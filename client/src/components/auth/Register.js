@@ -8,37 +8,35 @@ import {
     Input,
     Image,
     Message,
-    Divider,
     Icon,
     Header
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
 import axios from 'axios';
-import Cookies from 'js-cookie';
-import queryString from 'query-string';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
 const Register = (props) => {
 
-    const dispatch = useDispatch();
     const { handleGlobalError } = useGlobalError();
 
     // UI
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Form Data
-    const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
 
     // Form Errors
-    const [emailError, setEmailError] = useState(false);
     const [firstNameError, setFirstNameError] = useState(false);
     const [lastNameError, setLastNameError] = useState(false);
+    const [emailError, setEmailError] = useState(false);
+    const [passwordError, setPasswordError] = useState(false);
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Register";
@@ -57,6 +55,18 @@ const Register = (props) => {
         }
     };
 
+    const handlePasswordChange = (e) => {
+        var password = e.target.value;
+        if (password.length > 0) {
+            if ((password.length < 9) || !(/\d/.test(password))) {
+                setPasswordError(true);
+            } else {
+                setPasswordError(false);
+            }
+        }
+        setPassword(password);
+    };
+
     /**
      * Validate the form data, return
      * 'false' if validation errors exists,
@@ -64,9 +74,21 @@ const Register = (props) => {
      */
     const validateForm = () => {
         var validForm = true;
+        if (isEmptyString(firstName)) {
+            validForm = false;
+            setFirstNameError(true);
+        }
+        if (isEmptyString(lastName)) {
+            validForm = false;
+            setLastNameError(true);
+        }
         if (isEmptyString(email)) {
             validForm = false;
             setEmailError(true);
+        }
+        if (isEmptyString(password)) {
+            validForm = false;
+            setPasswordError(true);
         }
         return validForm;
     };
@@ -76,30 +98,28 @@ const Register = (props) => {
      */
     const resetFormErrors = () => {
         setEmailError(false);
+        setFirstNameError(false);
+        setLastNameError(false);
     };
 
     /**
      * Submit data via POST to the server, then
-     * check cookie return and redirect
-     * to dashboard.
+     * check return status and redirect
+     * to login.
      */
     const submitRegister = () => {
         setSubmitLoading(true);
         resetFormErrors();
-        if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true')) {
+        if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true') && (process.env.REACT_APP_RESTRICT_CONDUCTOR !== 'true')) {
             var userData = {
-                email: email
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                password: password
             };
             axios.post('/auth/register', userData).then((res) => {
                 if (!res.data.err) {
-                    if (Cookies.get('conductor_access') !== undefined) {
-                        dispatch({
-                            type: 'SET_AUTH'
-                        });
-                        props.history.push('/dashboard');
-                    } else {
-                        handleGlobalError("Oops, we're having trouble completing your login.");
-                    }
+                    props.history.push('/login?newregister=true');
                 } else {
                     handleGlobalError(res.data.errMsg)
                 }
@@ -119,6 +139,7 @@ const Register = (props) => {
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
+                    <Header size='large'>Register</Header>
                     <Message info icon>
                         <Icon name='info circle' />
                         <Message.Content>
@@ -126,25 +147,7 @@ const Register = (props) => {
                             <p>Remember, Conductor accounts are universal: register one account and use it on any instance. If you already have an account, you can return to <Link to='/login'>Login.</Link></p>
                         </Message.Content>
                     </Message>
-                    <Header size='large'>Register</Header>
                     <Form noValidate>
-                        <Form.Field
-                            error={emailError}
-                        >
-                            <label htmlFor='email'>Email</label>
-                            <Input
-                                fluid={true}
-                                id='email'
-                                type='email'
-                                name='email'
-                                placeholder='Email'
-                                required={true}
-                                value={email}
-                                onChange={onChange}
-                                icon='mail'
-                                iconPosition='left'
-                            />
-                        </Form.Field>
                         <Form.Field
                             error={firstNameError}
                         >
@@ -175,11 +178,58 @@ const Register = (props) => {
                                 required={true}
                                 value={lastName}
                                 onChange={onChange}
-                                icon='user'
+                                icon='users'
                                 iconPosition='left'
                             />
                         </Form.Field>
-                        <p className='text-center'><em>Your password will be auto-generated and sent via email.</em></p>
+                        <Form.Field
+                            error={emailError}
+                        >
+                            <label htmlFor='email'>Email</label>
+                            <Input
+                                fluid={true}
+                                id='email'
+                                type='email'
+                                name='email'
+                                placeholder='Email'
+                                required={true}
+                                value={email}
+                                onChange={onChange}
+                                icon='mail'
+                                iconPosition='left'
+                            />
+                        </Form.Field>
+                        <Form.Field
+                            error={passwordError}
+                        >
+                            <label htmlFor='password'>
+                                Password
+                                <span
+                                    className='text-link float-right'
+                                    onClick={() => {
+                                        setShowPassword(!showPassword)
+                                    }}
+                                >
+                                    {showPassword
+                                        ? 'Hide'
+                                        : 'Show'
+                                    }
+                                </span>
+                            </label>
+                            <Input
+                                fluid={true}
+                                id='password'
+                                type={showPassword ? 'text' : 'password'}
+                                name='password'
+                                placeholder='Password'
+                                required={true}
+                                value={password}
+                                onChange={handlePasswordChange}
+                                icon='lock'
+                                iconPosition='left'
+                            />
+                            <p className='mt-2p mb-4p'><em>Password must be longer than 8 characters and must contain at least one number. Never reuse passwords between sites.</em></p>
+                        </Form.Field>
                         <Button
                             type='submit'
                             color='green'

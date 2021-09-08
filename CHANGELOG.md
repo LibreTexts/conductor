@@ -1,5 +1,19 @@
 # Changelog
 
+## 09-07-2021
+#### :art: UI/UX
+* Introduced Directory to Commons
+* Implemented static URLs for Commons Collections
+* Moved "About LibreTexts" and "Login to Conductor" to Commons Navbar
+* Increased the font-size of Commons Navbar and Menu items
+* Implemented the Registration authentication flow
+
+#### :satellite: Server
+* Introduced backend logic for Directory
+* Implemented static URLs for Commons Collections
+* Implemented backend logic for Registration
+* Started backend work for SSO authentication
+
 ## 09-06-2021
 #### :satellite: Server
 * Updated the CSP to allow gtag.js and the ANDI tool

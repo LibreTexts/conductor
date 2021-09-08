@@ -35,8 +35,12 @@ router.use(middleware.authSanitizer);
 router.route('/v1/auth/login').post(authAPI.validate('login'),
     middleware.checkValidationErrors, authAPI.login);
 
+router.route('/v1/auth/register').post(authAPI.validate('register'),
+    middleware.checkValidationErrors, authAPI.register);
+
 // SSO/OAuth
-router.route('/v1/oauth/libretexts').get(authAPI.oauthCallback);
+router.route('/v1/auth/initsso').post(authAPI.initSSO);
+router.route('/v1/oauth/libretexts').post(authAPI.oauthCallback);
 
 
 /* Organizations */

@@ -305,7 +305,9 @@ const Navbar = (_props) => {
                                         Control Panel
                                     </Dropdown.Item>
                                 }
-                                <Dropdown.Divider />
+                                {(user.isCampusAdmin || user.isSuperAdmin) &&
+                                    <Dropdown.Divider />
+                                }
                                 <Dropdown.Item as={Link} to='/' >
                                     <Icon name='handshake' />
                                     {(process.env.REACT_APP_ORG_ID === 'libretexts')

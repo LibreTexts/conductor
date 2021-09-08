@@ -1,6 +1,5 @@
 import './Commons.css';
 
-//import { Link } from 'react-router-dom';
 import {
     Grid,
     Segment,
@@ -13,17 +12,13 @@ import {
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLocation, useHistory } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
-import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
-import { updateParams } from '../util/HelperFunctions.js';
 
-const CommonsDirectory = (_props) => {
+const CommonsLibraries = (_props) => {
 
     const { handleGlobalError } = useGlobalError();
 
@@ -32,21 +27,21 @@ const CommonsDirectory = (_props) => {
     const [displayChoice, setDisplayChoice] = useState('visual');
 
     // Data
-    const [directory, setDirectory] = useState([]);
+    const [libraries, setLibraries] = useState([]);
 
     /**
      * Load directory from server.
      */
     useEffect(() => {
-        document.title = "LibreCommons | Directory";
-        getDirectory();
+        document.title = "LibreCommons | Libraries";
+        getLibraries();
     }, []);
 
-    const getDirectory = () => {
+    const getLibraries = () => {
         axios.get('/commons/directory').then((res) => {
             if (!res.data.err) {
                 if (res.data.directory && Array.isArray(res.data.directory)) {
-                    setDirectory(res.data.directory);
+                    setLibraries(res.data.directory);
                 }
                 setLoadedData(true);
             } else {
@@ -59,18 +54,18 @@ const CommonsDirectory = (_props) => {
     };
 
     const VisualMode = () => {
-        if (directory.length > 0) {
+        if (libraries.length > 0) {
             return (
-                <Card.Group itemsPerRow={6} stackable>
-                    {directory.map((item, index) => {
+                <Card.Group itemsPerRow={7} stackable>
+                    {libraries.map((item, index) => {
                         return (
                             <Card
                                 key={index}
                                 as={Link}
-                                to={`/directory/${item.key}`}
+                                to={`/libraries/${item.key}`}
                             >
                                 <Image
-                                    className='commons-content-card-img'
+                                    className='commons-library-card-img'
                                     src={(!item.thumbnail || item.thumbnail === '') ? '/mini_logo.png' : item.thumbnail}
                                     wrapped
                                     ui={false}
@@ -85,7 +80,7 @@ const CommonsDirectory = (_props) => {
             )
         } else {
             return (
-                <p className='text-center'><em>No directory results are available right now.</em></p>
+                <p className='text-center'><em>No library results are available right now.</em></p>
             )
         }
     };
@@ -99,15 +94,15 @@ const CommonsDirectory = (_props) => {
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                    {(directory.length > 0) &&
-                        directory.map((item, index) => {
+                    {(libraries.length > 0) &&
+                        libraries.map((item, index) => {
                             return (
                                 <Table.Row
                                     key={index}
                                 >
                                     <Table.Cell>
                                         <p>
-                                            <Link to={`/directory/${item.key}`}>
+                                            <Link to={`/libraries/${item.key}`}>
                                                 <strong>{item.name}</strong>
                                             </Link>
                                         </p>
@@ -116,10 +111,10 @@ const CommonsDirectory = (_props) => {
                             )
                         })
                     }
-                    {(directory.length === 0) &&
+                    {(libraries.length === 0) &&
                         <Table.Row>
                             <Table.Cell colSpan={1}>
-                                <p className='text-center'><em>No directory results are available right now.</em></p>
+                                <p className='text-center'><em>No library results are available right now.</em></p>
                             </Table.Cell>
                         </Table.Row>
                     }
@@ -136,7 +131,7 @@ const CommonsDirectory = (_props) => {
                         <Segment>
                             <Breadcrumb>
                                 <Breadcrumb.Section active>
-                                    Directory
+                                    Libraries
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                             </Breadcrumb>
@@ -145,7 +140,7 @@ const CommonsDirectory = (_props) => {
                             <Breakpoint name='tabletOrDesktop'>
                                 <div className='commons-content-pagemenu'>
                                     <div className='commons-content-pagemenu-left'>
-                                        <Header as='h2'>Directory</Header>
+                                        <Header as='h2'>Libraries</Header>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <Dropdown
@@ -167,7 +162,7 @@ const CommonsDirectory = (_props) => {
                                 <Grid>
                                     <Grid.Row>
                                         <Grid.Column>
-                                            <Header as='h2' textAlign='center'>Directory</Header>
+                                            <Header as='h2' textAlign='center'>Libraries</Header>
                                         </Grid.Column>
                                     </Grid.Row>
                                     <Grid.Row>
@@ -203,4 +198,4 @@ const CommonsDirectory = (_props) => {
     )
 }
 
-export default CommonsDirectory;
+export default CommonsLibraries;

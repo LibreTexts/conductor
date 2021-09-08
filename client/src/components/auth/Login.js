@@ -12,6 +12,7 @@ import {
     Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -26,8 +27,9 @@ const Login = (props) => {
     const { handleGlobalError } = useGlobalError();
 
     // UI
-    const [showExpiredAuth, setExpiredAuth] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [showExpiredAuth, setExpiredAuth] = useState(false);
+    const [showNewRegister, setNewRegister] = useState(false);
 
     // Form Data
     const [email, setEmail] = useState('');
@@ -40,9 +42,11 @@ const Login = (props) => {
     useEffect(() => {
         document.title = "LibreTexts Conductor | Login";
         const queryValues = queryString.parse(props.location.search);
-        const src = decodeURIComponent(queryValues.src);
-        if (src === "expired") {
+        if (queryValues.src === 'expired') {
             setExpiredAuth(true);
+        }
+        if (queryValues.newregister === 'true') {
+            setNewRegister(true);
         }
     }, [props.location.search]);
 
@@ -105,7 +109,11 @@ const Login = (props) => {
                         dispatch({
                             type: 'SET_AUTH'
                         });
-                        props.history.push('/dashboard');
+                        if (res.data.isNewMember) {
+                            props.history.push('/dashboard?newmember=true');
+                        } else {
+                            props.history.push('/dashboard');
+                        }
                     } else {
                         handleGlobalError("Oops, we're having trouble completing your login.");
                     }
@@ -119,9 +127,8 @@ const Login = (props) => {
         setSubmitLoading(false);
     };
 
-
     const initSSOLogin = () => {
-        window.location = "https://github.com/login/oauth/authorize?client_id=386d7b666a18e89e09fa";
+        window.location.assign(`https://sso.libretexts.org/cas/login?service=https%3A%2F%2Fsso.libretexts.org%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3D${process.env.REACT_APP_OAUTH_CLIENT_ID}%26redirect_uri%3Dhttps%3A%2F%2Fcommons.libretexts.org%2Fapi%2Fv1%2Foauth%2Flibretexts%26response_type%3Dcode`);
     };
 
     return(
@@ -133,6 +140,15 @@ const Login = (props) => {
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
+                    {showNewRegister &&
+                        <Message positive icon>
+                            <Icon name='check' />
+                            <Message.Content>
+                                <Message.Header>Registration successful.</Message.Header>
+                                <p>Please login with your email and new password here.</p>
+                            </Message.Content>
+                        </Message>
+                    }
                     {showExpiredAuth &&
                         <Message warning>
                             <Message.Header>Please login again.</Message.Header>
@@ -164,6 +180,8 @@ const Login = (props) => {
                         fluid
                         color='green'
                         className='mt-1p'
+                        as={Link}
+                        to='/register'
                     >
                         <Icon name='add user'/> Register
                     </Button>

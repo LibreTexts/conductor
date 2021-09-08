@@ -100,7 +100,7 @@ const CommonsCollections = (_props) => {
                             <Card
                                 key={index}
                                 as={Link}
-                                to={`/collection/${item.collID}`}
+                                to={`/collection/${encodeURI(item.title)}`}
                             >
                                 <Image
                                     className='commons-content-card-img'
@@ -142,7 +142,7 @@ const CommonsCollections = (_props) => {
                                 <Table.Row key={index}>
                                     <Table.Cell>
                                         <p>
-                                            <Link to={`/collection/${item.collID}`}>
+                                            <Link to={`/collection/${encodeURI(item.title)}`}>
                                                 <strong>{item.title}</strong>
                                             </Link>
                                         </p>

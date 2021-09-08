@@ -16,8 +16,8 @@ import CommonsCollections from './CommonsCollections.js';
 import CommonsCollectionView from './CommonsCollectionView.js';
 import CommonsBook from './CommonsBook.js';
 import CommonsHomework from './CommonsHomework.js';
-import CommonsDirectory from './CommonsDirectory.js';
-import CommonsDirectoryEntry from './CommonsDirectoryEntry.js';
+import CommonsLibraries from './CommonsLibraries.js';
+import CommonsLibraryEntry from './CommonsLibraryEntry.js';
 
 const Commons = (_props) => {
 
@@ -97,8 +97,8 @@ const Commons = (_props) => {
             setActiveItem('collections');
         } else if (currentPath.includes('/homework')) {
             setActiveItem('homework');
-        } else if (currentPath.includes('/directory')) {
-            setActiveItem('directory');
+        } else if (currentPath.includes('/libraries')) {
+            setActiveItem('libraries');
         } else {
             setActiveItem('catalog');
         }
@@ -149,6 +149,17 @@ const Commons = (_props) => {
                             >
                                 Catalog
                             </Menu.Item>
+                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                                <Menu.Item
+                                    name='libraries'
+                                    active={activeItem === 'libraries'}
+                                    className='commons-menu-item'
+                                    as={Link}
+                                    to='/libraries'
+                                >
+                                    Libraries
+                                </Menu.Item>
+                            }
                             <Menu.Item
                                 name='collections'
                                 active={activeItem === 'collections'}
@@ -169,17 +180,6 @@ const Commons = (_props) => {
                                     Homework
                                 </Menu.Item>
                             }
-                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                <Menu.Item
-                                    name='directory'
-                                    active={activeItem === 'directory'}
-                                    className='commons-menu-item'
-                                    as={Link}
-                                    to='/directory'
-                                >
-                                    Directory
-                                </Menu.Item>
-                            }
                         </Menu>
                     </div>
                 </div>
@@ -195,6 +195,17 @@ const Commons = (_props) => {
                     >
                         Catalog
                     </Menu.Item>
+                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                        <Menu.Item
+                            name='libraries'
+                            active={activeItem === 'libraries'}
+                            className='commons-menu-item'
+                            as={Link}
+                            to='/libraries'
+                        >
+                            Libraries
+                        </Menu.Item>
+                    }
                     <Menu.Item
                         name='collections'
                         active={activeItem === 'collections'}
@@ -215,17 +226,6 @@ const Commons = (_props) => {
                             Homework
                         </Menu.Item>
                     }
-                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                        <Menu.Item
-                            name='directory'
-                            active={activeItem === 'directory'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/directory'
-                        >
-                            Directory
-                        </Menu.Item>
-                    }
                 </Menu>
             </Breakpoint>
             <Switch>
@@ -236,10 +236,10 @@ const Commons = (_props) => {
                     <Route exact path='/homework' component={CommonsHomework} />
                 }
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/directory' component={CommonsDirectory} />
+                    <Route exact path='/libraries' component={CommonsLibraries} />
                 }
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/directory/:lib' component={CommonsDirectoryEntry} />
+                    <Route exact path='/libraries/:lib' component={CommonsLibraryEntry} />
                 }
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />

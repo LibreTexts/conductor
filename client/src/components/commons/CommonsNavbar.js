@@ -41,12 +41,14 @@ const CommonsNavbar = (_props) => {
                             href={org.aboutLink}
                             target='_blank'
                             rel='noopener noreferrer'
+                            className='commons-nav-link'
                         >
                             About {org.shortName}
                         </Menu.Item>
                         <Menu.Item
                             as={Link}
                             to='/login'
+                            className='commons-nav-link'
                         >
                             Login to Conductor <Icon name='lightning' className='no-margin' />
                         </Menu.Item>
@@ -69,6 +71,7 @@ const CommonsNavbar = (_props) => {
                             href={org.aboutLink}
                             target='_blank'
                             rel='noopener noreferrer'
+                            className='commons-nav-link'
                         >
                             About {org.shortName}
                             <Icon name='external' className='float-right' />
@@ -76,6 +79,7 @@ const CommonsNavbar = (_props) => {
                         <Menu.Item
                             as={Link}
                             to='/login'
+                            className='commons-nav-link'
                         >
                             Login to Conductor
                             <Icon name='lightning' className='float-right' />

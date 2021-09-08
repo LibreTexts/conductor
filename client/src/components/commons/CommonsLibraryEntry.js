@@ -14,24 +14,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
 import axios from 'axios';
-//import queryString from 'query-string';
 
-import {
-    getShelfOptions,
-
-} from '../util/HarvestingMasterOptions.js';
-import {
-    libraryOptions,
-    getLibGlyphURL,
-    getLibraryName
-} from '../util/LibraryOptions.js';
-import { licenseOptions } from '../util/LicenseOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
-import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
-import { catalogDisplayOptions } from '../util/CatalogOptions.js';
-import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
-const CommonsDirectoryEntry = (props) => {
+const CommonsLibraryEntry = (props) => {
 
     const { handleGlobalError } = useGlobalError();
 
@@ -56,9 +42,9 @@ const CommonsDirectoryEntry = (props) => {
      */
     useEffect(() => {
         if (libName !== '') {
-            document.title = "LibreCommons | Directory " + libName;
+            document.title = "LibreCommons | Libraries " + libName;
         } else {
-            document.title = "LibreCommons | Directory";
+            document.title = "LibreCommons | Libraries";
         }
     }, [libName]);
 
@@ -92,8 +78,8 @@ const CommonsDirectoryEntry = (props) => {
                     <Segment.Group raised>
                         <Segment>
                             <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to='/directory'>
-                                    Directory
+                                <Breadcrumb.Section as={Link} to='/libraries'>
+                                    Libraries
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                                 <Breadcrumb.Section active>
@@ -143,4 +129,4 @@ const CommonsDirectoryEntry = (props) => {
     )
 }
 
-export default CommonsDirectoryEntry;
+export default CommonsLibraryEntry;

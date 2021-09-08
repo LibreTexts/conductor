@@ -21,6 +21,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+import queryString from 'query-string';
 import { truncateString, capitalizeFirstLetter, isEmptyString } from '../util/HelperFunctions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
@@ -71,6 +72,16 @@ const Dashboard = (props) => {
     // Announcement View Modal
     const [showAVModal, setShowAVModal] = useState(false);
     const [avAnnouncement, setAVAnnouncement] = useState(emptyAnnouncement);
+
+    // New Member Modal
+    const [showNMModal, setShowNMModal] = useState(false);
+
+    useEffect(() => {
+        const queryValues = queryString.parse(props.location.search);
+        if (queryValues.newmember === 'true') {
+            setShowNMModal(true);
+        }
+    }, [props.location.search]);
 
     /**
      * Setup page & title on load and
@@ -643,6 +654,7 @@ const Dashboard = (props) => {
                     </Button>
                 </Modal.Actions>
             </Modal>
+            {/* Announcement View Modal */}
             <Modal
                 onClose={closeAVModal}
                 open={showAVModal}
@@ -665,6 +677,31 @@ const Dashboard = (props) => {
                 </Modal.Content>
                 <Modal.Actions>
                     <Button onClick={closeAVModal} color='blue'>Done</Button>
+                </Modal.Actions>
+            </Modal>
+            {/* New Member Modal */}
+            <Modal
+                open={showNMModal}
+                closeOnDimmerClick={false}
+            >
+                <Modal.Header>
+                    Welcome to Conductor
+                </Modal.Header>
+                <Modal.Content>
+                    <p>Welcome to Conductor! You've been added as a new member of <strong>{org.name}</strong>.</p>
+                    <p>
+                        <em>If you need elevated privileges, please contact the member of your organization responsible for communicating with LibreTexts.</em>
+                    </p>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button
+                        onClick={() => {
+                            setShowNMModal(false);
+                        }}
+                        color='blue'
+                    >
+                        Done
+                    </Button>
                 </Modal.Actions>
             </Modal>
         </Grid>
