@@ -579,6 +579,5 @@ module.exports = {
     checkHasRoleMiddleware,
     validate,
     oauthCallback,
-    initSSO,
-    casTokenCallback
+    initSSO
 };
