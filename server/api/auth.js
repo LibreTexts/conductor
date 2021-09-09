@@ -30,10 +30,57 @@ passport.use('libretexts', new OAuth2Strategy({
     callbackURL: 'https://commons.libretexts.org/api/v1/oauth/libretexts'
 }, (accessToken, refreshToken, profile, done) => {
     console.log("PASSPORT");
-    console.log(accessToken);
-    console.log(refreshToken);
-    console.log(profile);
-    done();
+    if (accessToken) {
+        console.log(accessToken);
+        axios.get('https://sso.libretexts.org/cas/oauth2.0/profile', {
+            params: {
+                'access_token': accessToken
+            }
+        }).then((axiosRes) => {
+            if (axiosRes.data) {
+                if (axiosData.attributes) {
+                    const attr = axioData.attributes;
+                    return User.findOneAndUpdate({
+                        $and: [
+                            { email: attr.email },
+                            { authType: 'sso' }
+                        ]
+                    }, {
+                        $setOnInsert: {
+                            uuid: uuidv4(),
+                            firstName: attr.given_name,
+                            lastName: attr.family_name,
+                            email: attr.email,
+                            avatar: attr.picture,
+                            hash: '',
+                            salt: '',
+                            roles: [{
+                                org: process.env.ORG_ID,
+                                role: 'member'
+                            }],
+                            authType: 'sso'
+                        }
+                    }, {
+                        new: true,
+                        upsert: true
+                    });
+                } else {
+                    throw('noattr');
+                }
+            } else {
+                throw('nodata');
+            }
+        }).then((user) => {
+            if (user) {
+                console.log(user);
+                done(null, user);
+            } else {
+                done(null, null);
+            }
+        }).catch((axiosErr) => {
+            done(axiosErr, null);
+        });
+    }
 }));
 
 
@@ -43,12 +90,6 @@ const oauthCallback = passport.authenticate('libretexts', {
     successRedirect: '/login?ssosuccess=true',
     failureRedirect: '/login?ssofail=true'
 });
-
-const casTokenCallback = (req, res) => {
-    console.log(req);
-    return res.send(200);
-};
-
 
 /**
  * Handles user login by finding a user account,
