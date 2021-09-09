@@ -56,15 +56,15 @@ const Register = (props) => {
     };
 
     const handlePasswordChange = (e) => {
-        var password = e.target.value;
-        if (password.length > 0) {
-            if ((password.length < 9) || !(/\d/.test(password))) {
+        var passInput = e.target.value;
+        if (passInput.length > 0) {
+            if ((passInput.length < 9) || !(/\d/.test(passInput))) {
                 setPasswordError(true);
             } else {
                 setPasswordError(false);
             }
         }
-        setPassword(password);
+        setPassword(passInput);
     };
 
     /**
@@ -123,11 +123,12 @@ const Register = (props) => {
                 } else {
                     handleGlobalError(res.data.errMsg)
                 }
+                setSubmitLoading(false);
             }).catch((e) => {
                 handleGlobalError(e);
+                setSubmitLoading(false);
             });
         }
-        setSubmitLoading(false);
     };
 
     return(

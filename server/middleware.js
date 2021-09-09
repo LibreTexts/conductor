@@ -52,7 +52,11 @@ const corsHelper = (req, res, next) => {
     if (process.env.NODE_ENV === 'production') {
         allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
     } else if (process.env.NODE_ENV === 'development') {
-        allowedOrigins = ['http://localhost:3000'];
+        if (process.env.DEVELOPMENTURLS) {
+            allowedOrigins = String(process.env.DEVELOPMENTURLS).split(',');
+        } else {
+            allowedOrigins = ['http://localhost:3000'];
+        }
     }
     /* Check if origin is in the allowedOrigns array OR if the origin is from the libretexts.org domain */
     if ((allowedOrigins.indexOf(origin) > -1) || (origin && (origin.indexOf(".libretexts.org") > -1))) {

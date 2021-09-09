@@ -9,7 +9,8 @@ import {
     Image,
     Message,
     Divider,
-    Icon
+    Icon,
+    Modal
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,8 +29,11 @@ const Login = (props) => {
 
     // UI
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [showResetModal, setShowResetModal] = useState(false);
+    /** URL Params and Messages **/
     const [showExpiredAuth, setExpiredAuth] = useState(false);
     const [showNewRegister, setNewRegister] = useState(false);
+    const [showPassReset, setPassReset] = useState(false);
 
     // Form Data
     const [email, setEmail] = useState('');
@@ -47,6 +51,9 @@ const Login = (props) => {
         }
         if (queryValues.newregister === 'true') {
             setNewRegister(true);
+        }
+        if (queryValues.resetsuccess === 'true') {
+            setPassReset(true);
         }
     }, [props.location.search]);
 
@@ -120,15 +127,34 @@ const Login = (props) => {
                 } else {
                     handleGlobalError(res.data.errMsg)
                 }
-            }).catch((e) => {
-                handleGlobalError(e);
+            }).catch((err) => {
+                handleGlobalError(err);
             });
         }
         setSubmitLoading(false);
     };
 
+    const submitResetPassword = () => {
+        if (!isEmptyString(email)) {
+            setEmailError(false);
+            axios.post('/auth/resetpassword', {
+                email: email
+            }).then((res) => {
+                if (!res.data.err) {
+                    setShowResetModal(true);
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+            })
+        } else {
+            setEmailError(true);
+        }
+    };
+
     const initSSOLogin = () => {
-        window.location.assign(`https://sso.libretexts.org/cas/login?service=https%3A%2F%2Fsso.libretexts.org%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3D${process.env.REACT_APP_OAUTH_CLIENT_ID}%26redirect_uri%3Dhttps%3A%2F%2Fcommons.libretexts.org%2Fapi%2Fv1%2Foauth%2Flibretexts%26response_type%3Dcode`);
+        window.location.assign(`https://sso.libretexts.org/cas/login?service=https%3A%2F%2Fsso.libretexts.org%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3D${process.env.REACT_APP_OAUTH_CLIENT_ID}%26redirect_uri%3Dhttps%253A%252F%252Fcommons.libretexts.org%252Fapi%252Fv1%252Foauth%252Flibretexts%26response_type%3Dcode`);
     };
 
     return(
@@ -136,10 +162,19 @@ const Login = (props) => {
             <Grid.Column computer={8} tablet={12} mobile={14}>
                 <Grid columns={1} verticalAlign='middle' centered={true}>
                         <Grid.Column computer={8} tablet={10}>
-                            <Image src="/libretexts_logo.png"/>
+                            <Image src='/libretexts_logo.png' alt='The main LibreTexts logo.' />
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
+                    {showPassReset &&
+                        <Message positive icon>
+                            <Icon name='check' />
+                            <Message.Content>
+                                <Message.Header>Password reset successful.</Message.Header>
+                                <p>Please login with your email and new password here.</p>
+                            </Message.Content>
+                        </Message>
+                    }
                     {showNewRegister &&
                         <Message positive icon>
                             <Icon name='check' />
@@ -182,6 +217,7 @@ const Login = (props) => {
                         className='mt-1p'
                         as={Link}
                         to='/register'
+                        tabIndex='0'
                     >
                         <Icon name='add user'/> Register
                     </Button>
@@ -211,7 +247,30 @@ const Login = (props) => {
                             Login
                         </Button>
                     </Form>
+                    <Button
+                        onClick={submitResetPassword}
+                        tabIndex='0'
+                        id='commons-login-forgotpassbtn'
+                    >
+                        Forgot your password?
+                    </Button>
                 </Segment>
+                <Modal
+                    open={showResetModal}
+                >
+                    <Modal.Header>Password Reset Sent</Modal.Header>
+                    <Modal.Content>
+                        <p>An email with password reset instructions has been sent. If you're still having issues, please <a href='mailto:info@libretexts.org?subject=Conductor%20Login%20Issue' target='_blank' rel='noopener noreferrer'>contact LibreTexts.</a></p>
+                    </Modal.Content>
+                    <Modal.Actions>
+                        <Button
+                            color='blue'
+                            onClick={() => { setShowResetModal(false) }}
+                        >
+                            Done
+                        </Button>
+                    </Modal.Actions>
+                </Modal>
             </Grid.Column>
         </Grid>
     );

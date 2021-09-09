@@ -38,10 +38,11 @@ const CommonsLibraries = (_props) => {
     }, []);
 
     const getLibraries = () => {
-        axios.get('/commons/directory').then((res) => {
+        axios.get('/commons/libraries/main').then((res) => {
             if (!res.data.err) {
-                if (res.data.directory && Array.isArray(res.data.directory)) {
-                    setLibraries(res.data.directory);
+                console.log(res.data);
+                if (res.data.libs && Array.isArray(res.data.libs)) {
+                    setLibraries(res.data.libs);
                 }
                 setLoadedData(true);
             } else {
@@ -56,13 +57,14 @@ const CommonsLibraries = (_props) => {
     const VisualMode = () => {
         if (libraries.length > 0) {
             return (
-                <Card.Group itemsPerRow={7} stackable>
+                <Card.Group stackable centered>
                     {libraries.map((item, index) => {
                         return (
                             <Card
                                 key={index}
                                 as={Link}
                                 to={`/libraries/${item.key}`}
+                                className='commons-library-card'
                             >
                                 <Image
                                     className='commons-library-card-img'

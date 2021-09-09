@@ -24,7 +24,11 @@ const UserSchema = new Schema({
     roles: [{
         org: String,
         role: String
-    }]
+    }],
+    authType: String,           // the original authentication type, one of ['traditional', 'sso']
+    lastResetAttempt: Date,     // the datetime of the last password reset attempt
+    resetToken: String,         // the cryptographically-generated active reset token
+    tokenExpiry: Date           // the datetime that the @resetToken is no longer valid
 }, {
     timestamps: true
 });

@@ -406,8 +406,12 @@
     height: 200px !important;
 }
 
+.commons-library-card {
+    width: 175px !important;
+}
+
 .commons-library-card-img img {
-    height: 150px !important;
+    height: 175px !important;
     background-color: #FFFFFF;
 }
 
@@ -474,5 +478,8 @@
     }
     .commons-advancedsrch-row {
         margin-top: 1em;
+    }
+    .commons-library-card-img img {
+        height: auto !important;
     }
 }

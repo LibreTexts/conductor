@@ -90,6 +90,13 @@ body {
     margin: 0 !important;
 }
 
+.text-button {
+    background: none !important;
+    border: none;
+    padding: 0 !important;
+    cursor: pointer;
+}
+
 
 /* Helper Classes */
 .form-required::after {

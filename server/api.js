@@ -18,7 +18,8 @@ const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
 const booksAPI = require('./api/books.js');
 const homeworkAPI = require('./api/homework.js');
-const directoryAPI = require('./api/directory.js');
+const librariesAPI = require('./api/libraries.js');
+//const mailAPI = require('./api/mail.js'); // (enable for development only)
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const sharedProjectsAPI = require('./api/projects.js');
@@ -37,6 +38,13 @@ router.route('/v1/auth/login').post(authAPI.validate('login'),
 
 router.route('/v1/auth/register').post(authAPI.validate('register'),
     middleware.checkValidationErrors, authAPI.register);
+
+router.route('/v1/auth/resetpassword').post(authAPI.validate('resetPassword'),
+    middleware.checkValidationErrors, authAPI.resetPassword);
+
+router.route('/v1/auth/resetpassword/complete').post(
+    authAPI.validate('completeResetPassword'), middleware.checkValidationErrors,
+    authAPI.completeResetPassword);
 
 // SSO/OAuth
 router.route('/v1/auth/initsso').post(authAPI.initSSO);
@@ -125,16 +133,16 @@ router.route('/v1/commons/collection/removeresource').put(authAPI.verifyRequest,
     collectionsAPI.removeResourceFromCollection);
 
 
-/* Directory */
-router.route('/v1/commons/directory').get(directoryAPI.getDirectory);
+/* Libraries Directory */
+router.route('/v1/commons/libraries').get(librariesAPI.getLibraries);
 
-router.route('/v1/commons/directory/libraries').get(
-    directoryAPI.getMainLibraries);
+router.route('/v1/commons/libraries/main').get(
+    librariesAPI.getMainLibraries);
 
-router.route('/v1/commons/directory/shelves').get(
-    directoryAPI.validate('getLibraryShelves'),
+router.route('/v1/commons/libraries/shelves').get(
+    librariesAPI.validate('getLibraryShelves'),
     middleware.checkValidationErrors,
-    directoryAPI.getLibraryShelves);
+    librariesAPI.getLibraryShelves);
 
 /* Commons Management */
 router.route('/v1/commons/syncwithlibs').post(authAPI.verifyRequest,

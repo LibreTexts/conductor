@@ -7,7 +7,7 @@ const libraries = [
     {
         key: 'bio',
         name: 'Biology',
-        thumbnail: '/libthumbnails/bio.png',
+        thumbnail: '/libicons/bio.png',
         shelves: [
             {
             	name: 'Biotechnology',
@@ -58,7 +58,7 @@ const libraries = [
     {
         key: 'biz',
         name: 'Business',
-        thumbnail: '/libthumbnails/biz.png',
+        thumbnail: '/libicons/biz.png',
         shelves: [
             {
             	name: 'Accounting',
@@ -89,7 +89,7 @@ const libraries = [
     {
         key: 'chem',
         name: 'Chemistry',
-        thumbnail: '/libthumbnails/chem.png',
+        thumbnail: '/libicons/chem.png',
         shelves: [
             {
             	name: 'Analytical',
@@ -128,7 +128,7 @@ const libraries = [
     {
         key: 'eng',
         name: 'Engineering',
-        thumbnail: '/libthumbnails/eng.png',
+        thumbnail: '/libicons/eng.png',
         shelves: [
             {
             	name: 'Aerospace',
@@ -179,7 +179,7 @@ const libraries = [
     {
         key: 'espanol',
         name: 'Español',
-        thumbnail: '/libthumbnails/espanol.png',
+        thumbnail: '/libicons/espanol.png',
         shelves: [
             {
                 name: 'Ciencias Sociales',
@@ -222,7 +222,7 @@ const libraries = [
     {
         key: 'geo',
         name: 'Geosciences',
-        thumbnail: '/libthumbnails/geo.png',
+        thumbnail: '/libicons/geo.png',
         shelves: [
             {
             	name: 'Geography',
@@ -257,7 +257,7 @@ const libraries = [
     {
         key: 'human',
         name: 'Humanities',
-        thumbnail: '/libthumbnails/human.png',
+        thumbnail: '/libicons/human.png',
         shelves: [
             {
             	name: 'Art',
@@ -312,7 +312,7 @@ const libraries = [
     {
         key: 'k12',
         name: 'K12 Education',
-        thumbnail: '/libthumbnails/k12.png',
+        thumbnail: '/libicons/k12.png',
         shelves: [
             {
             	name: 'Composition',
@@ -371,7 +371,7 @@ const libraries = [
     {
         key: 'math',
         name: 'Mathematics',
-        thumbnail: '/libthumbnails/math.png',
+        thumbnail: '/libicons/math.png',
         shelves: [
             {
             	name: 'Abstract & Geometric Algebra',
@@ -434,7 +434,7 @@ const libraries = [
     {
         key: 'med',
         name: 'Medicine',
-        thumbnail: '/libthumbnails/med.png',
+        thumbnail: '/libicons/med.png',
         shelves: [
             {
             	name: 'Allied Health',
@@ -473,7 +473,7 @@ const libraries = [
     {
         key: 'phys',
         name: 'Physics',
-        thumbnail: '/libthumbnails/phys.png',
+        thumbnail: '/libicons/phys.png',
         shelves: [
             {
             	name: 'Astronomy & Cosmoloogy',
@@ -536,7 +536,7 @@ const libraries = [
     {
         key: 'socialsci',
         name: 'Social Sciences',
-        thumbnail: '/libthumbnails/socialsci.png',
+        thumbnail: '/libicons/socialsci.png',
         shelves: [
             {
             	name: 'Anthropology',
@@ -591,7 +591,7 @@ const libraries = [
     {
         key: 'stats',
         name: 'Statistics',
-        thumbnail: '/libthumbnails/stats.png',
+        thumbnail: '/libicons/stats.png',
         shelves: [
             {
             	name: 'Applied Statistics',
@@ -618,7 +618,7 @@ const libraries = [
     {
         key: 'workforce',
         name: 'Workforce',
-        thumbnail: '/libthumbnails/workforce.png',
+        thumbnail: '/libicons/workforce.png',
         shelves: [
             {
             	name: 'Allied Health',

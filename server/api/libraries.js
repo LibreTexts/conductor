@@ -1,6 +1,6 @@
 //
 // LibreTexts Conductor
-// directory.js
+// libraries.js
 //
 
 'use strict';
@@ -12,10 +12,10 @@ const b62 = require('base62-random');
 
 const LibrariesMap = require('../util/librariesmap.js');
 
-const getDirectory = (_req, res) => {
+const getLibraries = (_req, res) => {
     return res.send({
         err: false,
-        directory: LibrariesMap
+        libraries: LibrariesMap
     });
 };
 
@@ -25,7 +25,8 @@ const getMainLibraries = (_req, res) => {
     LibrariesMap.forEach((item) => {
         libs.push({
             key: item.key,
-            name: item.name
+            name: item.name,
+            thumbnail: item.thumbnail
         });
     });
     return res.send({
@@ -70,7 +71,7 @@ const validate = (method) => {
 };
 
 module.exports = {
-    getDirectory,
+    getLibraries,
     getMainLibraries,
     getLibraryShelves,
     validate

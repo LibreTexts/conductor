@@ -20,7 +20,12 @@ const conductorErrors = {
     'err13': "Commons-Libraries sync appears to have failed. Check server logs.",
     'err14': "Sorry, we're having trouble connecting to ADAPT Commons.",
     'err15': "Syncing with ADAPT appears to have failed. Check server logs.",
-    'err16': "Oops, it looks like the LibreTexts API is temporarily unavailable. Refresh and try again in a moment."
+    'err16': "Oops, it looks like the LibreTexts API is temporarily unavailable. Refresh and try again in a moment.",
+    'err17': "Please wait at least two minutes between password reset attempts.",
+    'err18': "No password reset session was found for this user.",
+    'err19': "Oops, this reset token may be expired. Please try resetting your password again.",
+    'err20': "Your account appears to be provisioned via SSO. Please reset your password using your Central Authentication Provider's methods.",
+    'err21': "Invalid reset token. Please try resetting your password again."
 };
 
 module.exports = conductorErrors;

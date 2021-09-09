@@ -14,3 +14,21 @@
 .login-grid {
     height: 100%;
 }
+
+#commons-login-forgotpassbtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 2%;
+    color: #4183c4;
+    padding-left: 1%;
+    padding-right: 1%;
+}
+
+#commons-login-forgotpassbtn:focus {
+    background-color: rgba(204,204,204,0.5);
+}

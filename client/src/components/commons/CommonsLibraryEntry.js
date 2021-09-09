@@ -49,7 +49,7 @@ const CommonsLibraryEntry = (props) => {
     }, [libName]);
 
     const getLibraryShelves = () => {
-        axios.get('/commons/directory/shelves', {
+        axios.get('/commons/libraries/shelves', {
             params: {
                 libname: props.match.params.lib
             }

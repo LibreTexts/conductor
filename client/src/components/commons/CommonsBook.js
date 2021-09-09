@@ -21,6 +21,7 @@ import {
 } from '../util/LibraryOptions.js';
 import { getLicenseText } from '../util/LicenseOptions.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
+import { libreAPIFetch } from '../util/LibreAPIHelpers.js';
 
 import AdoptionReport from '../adoptionreport/AdoptionReport.js';
 
@@ -89,6 +90,7 @@ const CommonsBook = (props) => {
     }, [book.title, book.contents]);
 
     const getBookInfo = () => {
+        //libreAPIFetch(props.match.params.id);
         axios.get('/commons/book', {
             params: {
                 bookID: props.match.params.id

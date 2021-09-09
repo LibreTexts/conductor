@@ -8,9 +8,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
+const { randomBytes } = require('crypto');
 const conductorErrors = require('../conductor-errors.js');
-const { debugError } = require('../debug.js');
+const { debugError, debugServer, debugObject } = require('../debug.js');
 const { isEmptyString } = require('../util/helpers.js');
+
+const mailAPI = require('./mail.js');
 
 const axios = require('axios');
 
@@ -30,6 +33,9 @@ const oauthCallback = (req, res, next) => {
  * Handles user login by finding a user account,
  * verifying the provided password, and issuing
  * authorization cookies.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'login'
  */
 const login = (req, res, _next) => {
     var isNewMember = false;
@@ -39,7 +45,7 @@ const login = (req, res, _next) => {
         if (user) {
             return Promise.all([bcrypt.compare(req.body.password, user.hash), user]);
         } else {
-            throw(new Error("Couldn't find an account with that email."));
+            throw(new Error('emailorpassword'));
         }
     }).then(([isMatch, user]) => {
         payload.uuid = user.uuid;
@@ -68,7 +74,7 @@ const login = (req, res, _next) => {
                 return {};
             }
         } else {
-            throw(new Error('password'));
+            throw(new Error('emailorpassword'));
         }
     }).then((updateRes) => {
         jwt.sign(payload, process.env.SECRETKEY, {
@@ -94,18 +100,17 @@ const login = (req, res, _next) => {
             }
         });
     }).catch((err) => {
-        if (err.message === 'password') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err12
-            });
+        var errMsg = '';
+        if (err.message === 'emailorpassword') {
+            errMsg = conductorErrors.err12;
         } else {
             debugError(err);
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
+            errMsg = conductorErrors.err6;
         }
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -113,8 +118,12 @@ const login = (req, res, _next) => {
  * Handles user registration by creating a User
  * model with the information in the request
  * body and hashing the provided password.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'register'
  */
 const register = (req, res) => {
+    const successMsg = "Succesfully registered user.";
     const formattedEmail = String(req.body.email).toLowerCase();
     var newUser = {
         uuid: uuidv4(),
@@ -124,7 +133,8 @@ const register = (req, res) => {
         avatar: '',
         hash: '',
         salt: '',
-        roles: []
+        roles: [],
+        authType: 'traditional'
     };
     bcrypt.genSalt(10).then((salt) => {
         newUser.salt = salt;
@@ -135,18 +145,185 @@ const register = (req, res) => {
         return readyUser.save();
     }).then((doc) => {
         if (doc) {
-            return res.send({
-                err: false,
-                msg: "Succesfully registered user."
-            });
+            return mailAPI.sendRegistrationConfirmation(doc.email, doc.firstName);
         } else {
             throw(new Error('notcreated'));
         }
+    }).then(() => {
+        // ignore return value of Mailgun call
+        return res.send({
+            err: false,
+            msg: successMsg
+        });
     }).catch((err) => {
-        debugError(err);
+        if (err.status === 400) { // Mailgun failed, handle silently
+            debugServer('Failed to send user registration welcome email.');
+            return res.send({
+                err: false,
+                msg: successMsg
+            });
+        } else { // generic internal error
+            debugError(err);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+
+/**
+ * Searches for the user identified by the @email
+ * in the request body. If the user is found,
+ * a reset password link is generated and sent using
+ * the mailAPI.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'resetPassword'
+ */
+const resetPassword = (req, res) => {
+    var userEmail = '';
+    var userFirstName = '';
+    var resetToken = '';
+    const formattedEmail = String(req.body.email).toLowerCase();
+    User.findOne({
+        email: formattedEmail
+    }).then((user) => {
+        if (user) {
+            if (user.authType !== 'traditional') { // cannot reset passwords for SSO users
+                throw(new Error('authtype'));
+            }
+            const currentTime = new Date();
+            var allowedAttempt = true;
+            if (user.lastResetAttempt) {
+                const lastResetTime = new Date(user.lastResetAttempt);
+                const minutesSince = (currentTime - lastResetTime) / (1000 * 60);
+                if (minutesSince < 2) {
+                    allowedAttempt = false;
+                }
+            }
+            if (allowedAttempt) {
+                userEmail = user.email,
+                userFirstName = user.firstName;
+                const cryptoBuf = randomBytes(16);
+                resetToken = cryptoBuf.toString('hex');
+                const tokenExpiry = new Date(currentTime.getTime() + (30 * 60000)); // token expires after 30 minutes
+                return User.updateOne({
+                    email: userEmail
+                }, {
+                    lastResetAttempt: currentTime,
+                    resetToken: resetToken,
+                    tokenExpiry: tokenExpiry
+                });
+            } else {
+                throw(new Error('ratelimit'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.ok === 1) {
+            const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}`;
+            return mailAPI.sendPasswordReset(userEmail, userFirstName, resetLink);
+        } else {
+            throw(new Error('updatefailed')); // handle as generic internal error below
+        }
+    }).then((msg) => {
+        if (msg) {
+            return res.send({
+                err: false,
+                msg: "Password reset email has been sent."
+            });
+        } else {
+            throw(new Error('msgfailed'));
+        }
+    }).catch((err) => {
+        var errMsg = '';
+        if (err.message === 'notfound') {
+            errMsg = conductorErrors.err7;
+        } else if (err.message === 'authtype') {
+            errMsg = conductorErrors.err20;
+        } else if (err.message === 'ratelimit') {
+            errMsg = conductorErrors.err17;
+        } else {
+            debugError(err);
+            errMsg = conductorErrors.err6;
+        }
         return res.send({
             err: true,
-            errMsg: conductorErrors.err6
+            errMsg: errMsg
+        });
+    });
+};
+
+/**
+ * Searches for the user identified currently holding
+ * the @token in the request body. If the user is found,
+ * the token expiration date is checked. If the token is
+ * still valid, the new password is hashed and saved
+ * to the database.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'completeResetPassword'
+ */
+const completeResetPassword = (req, res) => {
+    var userUUID = '';
+    var newSalt = '';
+    const currentTime = new Date();
+    User.findOne({
+        resetToken: req.body.token
+    }).then((user) => {
+        if (user) {
+            if (user.tokenExpiry) {
+                const expiryDate = new Date(user.tokenExpiry);
+                if (expiryDate > currentTime) {
+                    userUUID = user.uuid;
+                    return bcrypt.genSalt(10);
+                } else {
+                    throw(new Error('expired'));
+                }
+            } else {
+                throw(new Error('notoken'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((salt) => {
+        newSalt = salt;
+        return bcrypt.hash(req.body.password, salt);
+    }).then((hash) => {
+        return User.updateOne({ uuid: userUUID }, {
+            hash: hash,
+            salt: newSalt,
+            lastResetAttempt: currentTime,
+            resetToken: '',
+            tokenExpiry: currentTime
+        });
+    }).then((updateRes) => {
+        if (updateRes.ok === 1) {
+            return res.send({
+                err: false,
+                msg: "Password updated successfully."
+            });
+        } else {
+            throw(new Error('updatefailed')); // handle as generic internal error below
+        }
+    }).catch((err) => {
+        var errMsg = '';
+        if (err.message === 'notfound') { // couldn't find user via token, likely already used
+            errMsg = conductorErrors.err21;
+        } else if (err.message === 'notoken') {
+            errMsg = conductorErrors.err18;
+        } else if (err.message === 'expired') {
+            errMsg = conductorErrors.err19;
+        } else {
+            debugError(err);
+            errMsg = conductorErrors.err6;
+        }
+        return res.send({
+            err: true,
+            errMsg: errMsg
         });
     });
 };
@@ -317,12 +494,23 @@ const validate = (method) => {
                 body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
                 body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100})
             ]
+        case 'resetPassword':
+            return [
+                body('email', conductorErrors.err1).exists().isEmail()
+            ]
+        case 'completeResetPassword':
+            return [
+                body('token', conductorErrors.err1).exists().isString(),
+                body('password', conductorErrors.err1).exists().isString().custom(passwordValidator)
+            ]
     }
 }
 
 module.exports = {
     login,
     register,
+    resetPassword,
+    completeResetPassword,
     verifyRequest,
     getUserAttributes,
     checkHasRole,

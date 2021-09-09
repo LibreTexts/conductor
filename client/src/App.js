@@ -15,6 +15,7 @@ import PrivateRoute from './components/util/PrivateRoute.js';
 /* Authentication */
 import Login from './components/auth/Login.js';
 import Register from './components/auth/Register.js';
+import ResetPassword from './components/auth/ResetPassword.js';
 
 /* Commons */
 import Commons from './components/commons/Commons.js';
@@ -79,6 +80,7 @@ function App() {
                 <Switch>
                     <AnonRoute exact path = '/login' component={Login} />
                     <AnonRoute exact path = '/register' component={Register} />
+                    <AnonRoute exact path = '/resetpassword' component={ResetPassword} />
                     <PrivateRoute exact path = '/dashboard' component={Dashboard} />
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />

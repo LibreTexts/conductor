@@ -1,5 +1,19 @@
 # Changelog
 
+## 09-08-2021
+#### :art: UI/UX
+* Implemented Reset Password functionality
+* Set Libraries icons to have a fixed aspect ratio
+* Updated all Libraries icons to higher-resolution versions
+* Started work to connect to MindTouch API for Book Summary and TOC
+
+#### :satellite: Server
+* Renamed methods & routes for Libraries (previously Directory)
+* Implemented Reset Password (via email) functionality
+* Connected to the Mailgun API
+* Introduced the Welcome to Conductor email for new users
+* More investigation into SSO auth
+
 ## 09-07-2021
 #### :art: UI/UX
 * Introduced Directory to Commons
