@@ -90,7 +90,7 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
-app.use('/api', api);
+app.use('/api/v1', api);
 
 app.use(express.static(path.join(__dirname, 'client/build')));
 var cliRouter = express.Router();

@@ -23,9 +23,38 @@ const initSSO = (req, res) => {
 };
 
 const oauthCallback = (req, res, next) => {
-    console.log(req);
     console.log("CALLBACK");
-    res.sendStatus(200);
+    if (req.query.code) {
+        axios.post('https://sso.libretexts.org/cas/oauth2.0/accessToken', null, {
+            headers: {
+                'Accept': 'application/json'
+            },
+            params: {
+                'grant_type': 'authorization_code',
+                'client_id': process.env.OAUTH_CLIENT_ID,
+                'client_secret': process.env.OAUTH_CLIENT_SECRET,
+                'code': req.query.code,
+                'redirect_uri': 'http://localhost:5000/api/v1/auth/castoken'
+            }
+        }).then((axiosRes) => {
+            console.log(axiosRes);
+            return res.send({
+                err: false,
+                msg: 'h1'
+            });
+        }).catch((axiosErr) => {
+            console.log(axiosErr);
+            return res.send({
+                err: false,
+                msg: 'h1'
+            });
+        });
+    }
+};
+
+const casTokenCallback = (req, res) => {
+    console.log(req);
+    return res.send(200);
 };
 
 
@@ -517,5 +546,6 @@ module.exports = {
     checkHasRoleMiddleware,
     validate,
     oauthCallback,
-    initSSO
+    initSSO,
+    casTokenCallback
 };

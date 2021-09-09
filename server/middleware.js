@@ -88,9 +88,28 @@ const authSanitizer = (req, res, next) => {
     return next();
 };
 
+
+/**
+ * Checks if a route is a member of an array of @paths
+ * to exclude from the given @middleware. If so,
+ * the route immediately progresses to its respective
+ * middleware chain, otherwise, the @middleware
+ * is activated.
+ */
+const middlewareFilter = (paths, middleware) => {
+    return (req, res, next) => {
+        if (paths.includes(req._parsedUrl.pathname)) {
+            return next();
+        } else {
+            return middleware(req, res, next);
+        }
+    }
+};
+
 module.exports = {
     checkValidationErrors,
     checkLibreCommons,
     corsHelper,
-    authSanitizer
+    authSanitizer,
+    middlewareFilter
 }
