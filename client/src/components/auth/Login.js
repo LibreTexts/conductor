@@ -255,7 +255,7 @@ const Login = (props) => {
                     >
                         Forgot your password?
                     </Button>
-                    <Button onClick={initSSO}>Development Use Only</Button>
+                    <Button onClick={initSSOLogin}>Development Use Only</Button>
                 </Segment>
                 <Modal
                     open={showResetModal}
