@@ -34,7 +34,7 @@ const oauthCallback = (req, res, next) => {
                 'client_id': process.env.OAUTH_CLIENT_ID,
                 'client_secret': process.env.OAUTH_CLIENT_SECRET,
                 'code': req.query.code,
-                'redirect_uri': 'http://localhost:5000/api/v1/auth/castoken'
+                'redirect_uri': 'https://commons.libretexts.org/api/v1/auth/castoken'
             }
         }).then((axiosRes) => {
             console.log(axiosRes);
