@@ -29,7 +29,7 @@ const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
 var router = express.Router();
 
-const ssoRoutes = ['/oauth/libretexts', '/oauth/castoken'];
+const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
 
 router.use(middleware.middlewareFilter(ssoRoutes, middleware.corsHelper));
 router.use(middleware.middlewareFilter(ssoRoutes, middleware.authSanitizer));
@@ -52,7 +52,7 @@ router.route('/auth/resetpassword/complete').post(
 // SSO/OAuth (excluded from CORS/Auth routes)
 router.route('/oauth/libretexts').get(authAPI.oauthCallback);
 
-router.route('/oauth/castoken').get(authAPI.casTokenCallback);
+router.route('/auth/initsso').get(authAPI.initSSO);
 
 
 /* Organizations */

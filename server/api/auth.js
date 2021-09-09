@@ -17,40 +17,32 @@ const mailAPI = require('./mail.js');
 
 const axios = require('axios');
 
-const initSSO = (req, res) => {
-    return res.redirect(308,
-        'http://sso.libretexts.org/cas/oauth2.0/authorize?client_id=' + process.env.OAUTH_CLIENT_ID);
-};
 
-const oauthCallback = (req, res, next) => {
-    console.log("CALLBACK");
-    if (req.query.code) {
-        axios.post('https://sso.libretexts.org/cas/oauth2.0/accessToken', null, {
-            headers: {
-                'Accept': 'application/json'
-            },
-            params: {
-                'grant_type': 'authorization_code',
-                'client_id': process.env.OAUTH_CLIENT_ID,
-                'client_secret': process.env.OAUTH_CLIENT_SECRET,
-                'code': req.query.code,
-                'redirect_uri': 'https://commons.libretexts.org/api/v1/auth/castoken'
-            }
-        }).then((axiosRes) => {
-            console.log(axiosRes);
-            return res.send({
-                err: false,
-                msg: 'h1'
-            });
-        }).catch((axiosErr) => {
-            console.log(axiosErr);
-            return res.send({
-                err: false,
-                msg: 'h1'
-            });
-        });
-    }
-};
+const passport = require('passport');
+const OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
+
+
+passport.use('libretexts', new OAuth2Strategy({
+    authorizationURL: 'https://sso.libretexts.org/cas/oauth2.0/authorize',
+    tokenURL: 'https://sso.libretexts.org/cas/oauth2.0/accessToken',
+    clientID: process.env.OAUTH_CLIENT_ID,
+    clientSecret: process.env.OAUTH_CLIENT_SECRET,
+    callbackURL: 'https://commons.libretexts.org/api/v1/oauth/libretexts'
+}, (accessToken, refreshToken, profile, done) => {
+    console.log("PASSPORT");
+    console.log(accessToken);
+    console.log(refreshToken);
+    console.log(profile);
+    done();
+}));
+
+
+const initSSO = passport.authenticate('libretexts');
+
+const oauthCallback = passport.authenticate('libretexts', {
+    successRedirect: '/login?ssosuccess=true',
+    failureRedirect: '/login?ssofail=true'
+});
 
 const casTokenCallback = (req, res) => {
     console.log(req);

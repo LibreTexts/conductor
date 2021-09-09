@@ -154,7 +154,8 @@ const Login = (props) => {
     };
 
     const initSSOLogin = () => {
-        window.location.assign(`https://sso.libretexts.org/cas/login?service=https%3A%2F%2Fsso.libretexts.org%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3D${process.env.REACT_APP_OAUTH_CLIENT_ID}%26redirect_uri%3Dhttps%253A%252F%252Fcommons.libretexts.org%252Fapi%252Fv1%252Foauth%252Flibretexts%26response_type%3Dcode`);
+        window.location.assign('http://commons.libretexts.org/api/v1/auth/initsso');
+        //window.location.assign(`https://sso.libretexts.org/cas/login?service=https%3A%2F%2Fsso.libretexts.org%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3D${process.env.REACT_APP_OAUTH_CLIENT_ID}%26redirect_uri%3Dhttps%253A%252F%252Fcommons.libretexts.org%252Fapi%252Fv1%252Foauth%252Flibretexts%26response_type%3Dcode`);
     };
 
     return(
@@ -254,6 +255,7 @@ const Login = (props) => {
                     >
                         Forgot your password?
                     </Button>
+                    <Button onClick={initSSO}>Development Use Only</Button>
                 </Segment>
                 <Modal
                     open={showResetModal}
