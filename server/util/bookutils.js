@@ -63,6 +63,16 @@ const extractLibFromID = (resID) => {
     return '';
 };
 
+const getLibraryAndPageFromBookID = (bookID) => {
+    if (bookID) {
+        const splitID = String(bookID).split('-');
+        if (splitID.length > 1) {
+            return [splitID[0], splitID[1]];
+        }
+    }
+    return ['', ''];
+};
+
 const isValidLibrary = (lib) => {
     var foundLib = libraries.find((item) => {
         if (item === lib) {
@@ -216,6 +226,7 @@ module.exports = {
     libraries,
     checkBookIDFormat,
     extractLibFromID,
+    getLibraryAndPageFromBookID,
     isValidLibrary,
     isValidLicense,
     isValidSort,

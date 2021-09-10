@@ -2,6 +2,17 @@
 
 ## 09-08-2021
 #### :art: UI/UX
+* Implemented Summary in Book View
+* Fixed missing information between desktop & mobile Book View
+* Implemented an early version of Table of Contents in Book View
+
+#### :satellite: Server
+* Implemented Book Summary retrieval
+* Early draft of SSO authentication
+* Implemented Book TOC retrieval
+
+## 09-08-2021
+#### :art: UI/UX
 * Implemented Reset Password functionality
 * Set Libraries icons to have a fixed aspect ratio
 * Updated all Libraries icons to higher-resolution versions

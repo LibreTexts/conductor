@@ -167,6 +167,12 @@ router.route('/commons/mastercatalog').get(
 router.route('/commons/book').get(booksAPI.validate('getBookDetail'),
     middleware.checkValidationErrors, booksAPI.getBookDetail);
 
+router.route('/commons/book/summary').get(booksAPI.validate('getBookSummary'),
+    middleware.checkValidationErrors, booksAPI.getBookSummary);
+
+router.route('/commons/book/toc').get(booksAPI.validate('getBookTOC'),
+    middleware.checkValidationErrors, booksAPI.getBookTOC);
+
 router.route('/commons/filters').get(booksAPI.getCatalogFilterOptions);
 
 router.route('/commons/catalogs/addresource').put(authAPI.verifyRequest,

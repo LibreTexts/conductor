@@ -38,7 +38,7 @@ passport.use('libretexts', new OAuth2Strategy({
             }
         }).then((axiosRes) => {
             if (axiosRes.data) {
-                if (axiosData.attributes) {
+                if (axiosRes.data.attributes) {
                     const attr = axioData.attributes;
                     return User.findOneAndUpdate({
                         $and: [

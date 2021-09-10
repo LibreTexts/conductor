@@ -25,7 +25,8 @@ const conductorErrors = {
     'err18': "No password reset session was found for this user.",
     'err19': "Oops, this reset token may be expired. Please try resetting your password again.",
     'err20': "Your account appears to be provisioned via SSO. Please reset your password using your Central Authentication Provider's methods.",
-    'err21': "Invalid reset token. Please try resetting your password again."
+    'err21': "Invalid reset token. Please try resetting your password again.",
+    'err22': "Sorry, we're having trouble retrieving that data."
 };
 
 module.exports = conductorErrors;

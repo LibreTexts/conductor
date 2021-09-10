@@ -18,6 +18,7 @@ const {
     libraries,
     checkBookIDFormat,
     extractLibFromID,
+    getLibraryAndPageFromBookID,
     isValidLibrary,
     isValidLicense,
     isValidSort,
@@ -28,6 +29,7 @@ const {
     genPubFilesLink,
     genLMSFileLink,
 } = require('../util/bookutils.js');
+const { getBrowserKeyForLib } = require('../util/mtkeys.js');
 
 
 /**
@@ -433,7 +435,6 @@ const getCommonsCatalog = (req, res) => {
             });
         }
     }).then((customCatalogRes) => {
-        console.log("ORGDATA: ", orgData.toString());
         var hasCustomEntries = false;
         if (req.query.library && !isEmptyString(req.query.library)) {
             matchObj.library = req.query.library;
@@ -889,6 +890,197 @@ const removeBookFromCustomCatalog = (req, res) => {
     });
 };
 
+
+/**
+ * Makes a request to a Book's respective library
+ * to retrieve the Book summary. If no summary has
+ * been set, an empty string is returned.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'getBookSummary'
+ */
+const getBookSummary = (req, res) => {
+    var summary = '';
+    const [lib, pageID] = getLibraryAndPageFromBookID(req.query.bookID);
+    const browserKey = getBrowserKeyForLib(lib);
+    if ((browserKey !== '') && (browserKey !== 'err')) {
+        axios.get(`https://${lib}.libretexts.org/@api/deki/pages/${pageID}/properties?dream.out.format=json`, {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "x-deki-token": getBrowserKeyForLib(lib)
+            }
+        }).then((axiosRes) => {
+            if (axiosRes.data) {
+                const pageData = axiosRes.data;
+                if (pageData.property && Array.isArray(pageData.property)) {
+                    const overviewData = pageData.property.find((item) => {
+                        if (item['@name'] === 'mindtouch.page#overview') {
+                            return item;
+                        }
+                    });
+                    if ((overviewData !== undefined) && (overviewData.contents)) {
+                        if (overviewData.contents['#text']) {
+                            summary = overviewData.contents['#text'];
+                        }
+                    }
+                }
+            }
+            return res.send({
+                err: false,
+                bookID: req.query.bookID,
+                summary: summary
+            });
+        }).catch((axiosErr) => {
+            debugObject(axiosErr);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        });
+    } else {
+        debugError(new Error('browserkey'));
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    }
+};
+
+const buildSubpageRequestURL = (lib, pageID) => {
+    return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/subpages?dream.out.format=json`;
+};
+
+/**
+ * Makes a request to a Book's respective library
+ * to build a Book's Table of Contents using list(s)
+ * of its subpages.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'getBookTOC'
+ */
+const getBookTOC = (req, res) => {
+    const [lib, pageID] = getLibraryAndPageFromBookID(req.query.bookID);
+    const browserKey = getBrowserKeyForLib(lib);
+    var chapters = [];
+    const subpageRequests = [];
+    if ((browserKey !== '') && (browserKey !== 'err')) {
+        const reqConfig = {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+                "x-deki-token": browserKey
+            }
+        };
+        // Start by retrieving the Book chapters
+        axios.get(buildSubpageRequestURL(lib, pageID), reqConfig).then((axiosRes) => {
+            if (axiosRes.data) {
+                const subpageData = axiosRes.data;
+                if (subpageData['page.subpage']) {
+                    const subpages = subpageData['page.subpage'];
+                    if (Array.isArray(subpages)) {
+                        subpages.forEach((page, idx) => {
+                            var title = '';
+                            var link = '';
+                            var sPageID = '';
+                            if ((page.title) && (typeof(title) === 'string')) {
+                                title = page.title;
+                            }
+                            if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
+                                link = page['uri.ui'];
+                            }
+                            if ((page['@id']) && (typeof(page['@id']) === 'string')) {
+                                sPageID = page['@id'];
+                            }
+                            chapters.push({
+                                idx: idx,
+                                title: title,
+                                link: link,
+                                pageID: sPageID,
+                                pages: []
+                            });
+                            if (sPageID !== '') {
+                                subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
+                            }
+                        });
+                    }
+                }
+                if (subpageRequests.length > 0) {
+                    return Promise.all(subpageRequests);
+                } else {
+                    return [];
+                }
+            } else {
+                return res.send({
+                    err: true,
+                    errMsg: conductorErrors.err22
+                });
+            }
+        }).then((subRes) => {
+            if (subRes.length > 0) {
+                // If subpages were found and retrieved, process them
+                subRes.forEach((sRes) => {
+                    if (sRes.data) {
+                        const subpageData = sRes.data;
+                        // find the associated parent chapter
+                        var chapterIdx = chapters.findIndex((item) => {
+                            if (subpageData['@href'] && item.pageID) {
+                                var hrefString = String(subpageData['@href']);
+                                if (hrefString.includes(item.pageID)) {
+                                    return item;
+                                }
+                            }
+                            return null;
+                        });
+                        if ((chapterIdx !== -1) && (subpageData['page.subpage'])) {
+                            const subpages = subpageData['page.subpage'];
+                            if (Array.isArray(subpages)) {
+                                subpages.forEach((page, idx) => {
+                                    // process each subpage and add it to the chapter's list of pages
+                                    var title = '';
+                                    var link = '';
+                                    var sPageID = '';
+                                    if ((page.title) && (typeof(title) === 'string')) {
+                                        title = page.title;
+                                    }
+                                    if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
+                                        link = page['uri.ui'];
+                                    }
+                                    if ((page['@id']) && (typeof(page['@id']) === 'string')) {
+                                        sPageID = page['@id'];
+                                    }
+                                    chapters[chapterIdx].pages.push({
+                                        idx: idx,
+                                        title: title,
+                                        link: link,
+                                        pageID: sPageID
+                                    });
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+            return res.send({
+                err: false,
+                toc: chapters
+            });
+        }).catch((_axiosErr) => {
+            debugErr(new Error('axiosErr'));
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        });
+    } else {
+        debugError(new Error('browserkey'));
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    }
+};
+
+
+
 /**
  * Sets up the validation chain(s) for methods in this file.
  */
@@ -922,6 +1114,14 @@ const validate = (method) => {
             return [
                 body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
+        case 'getBookSummary':
+            return [
+                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
+        case 'getBookTOC':
+            return [
+                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
     }
 };
 
@@ -933,5 +1133,7 @@ module.exports = {
     getCatalogFilterOptions,
     addBookToCustomCatalog,
     removeBookFromCustomCatalog,
+    getBookSummary,
+    getBookTOC,
     validate
 };

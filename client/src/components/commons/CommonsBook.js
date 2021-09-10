@@ -9,6 +9,8 @@ import {
     Button,
     Accordion,
     List,
+    Dimmer,
+    Loader
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -21,7 +23,6 @@ import {
 } from '../util/LibraryOptions.js';
 import { getLicenseText } from '../util/LicenseOptions.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
-import { libreAPIFetch } from '../util/LibreAPIHelpers.js';
 
 import AdoptionReport from '../adoptionreport/AdoptionReport.js';
 
@@ -49,13 +50,17 @@ const CommonsBook = (props) => {
         },
         affiliation: ''
     });
+    const [bookSummary, setBookSummary] = useState('');
+    const [bookChapters, setBookChapters] = useState([]);
 
     // UI
-    const [activeAccordion, setActiveAccordion] = useState(0);
-    const [tocChapterPanels, setTOCCPanels] = useState([]);
     const [showMobileReadingOpts, setShowMobileReadingOpts] = useState(false);
     const [showAdoptionReport, setShowAdoptionReport] = useState(false);
     const [loadedData, setLoadedData] = useState(false);
+    const [loadedSummary, setLoadedSummary] = useState(false);
+    const [loadedTOC, setLoadedTOC] = useState(false);
+
+    const [tocOpen, setTOCOpen] = useState(false);
 
     const listFactory = (pages) => {
         return (
@@ -70,27 +75,9 @@ const CommonsBook = (props) => {
     };
 
     /**
-     * Update page title and book contents
-     * when book data is loaded.
+     * Retrieve book data from the server.
      */
     useEffect(() => {
-        document.title = "LibreCommons | " + book.title;
-        if (book.contents !== undefined) {
-            var chapters = [];
-            book.contents.forEach((item, idx) => {
-                chapters.push({
-                    key: `chapter-${idx}`,
-                    title: item.title,
-                    content: { content: listFactory(item.pages) }
-                });
-            });
-            setTOCCPanels(chapters);
-        }
-        getBookInfo();
-    }, [book.title, book.contents]);
-
-    const getBookInfo = () => {
-        //libreAPIFetch(props.match.params.id);
         axios.get('/commons/book', {
             params: {
                 bookID: props.match.params.id
@@ -98,6 +85,7 @@ const CommonsBook = (props) => {
         }).then((res) => {
             if (!res.data.err) {
                 setBook(res.data.book);
+                getBookSummary();
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -105,6 +93,120 @@ const CommonsBook = (props) => {
         }).catch((err) => {
             handleGlobalError(err);
             setLoadedData(true);
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+
+    /**
+     * Update page title
+     */
+    useEffect(() => {
+        if (book.title && book.title !== '') {
+            document.title = "LibreCommons | " + book.title;
+        }
+    }, [book]);
+
+    /**
+     * Load the book TOC when the accordion
+     * opens if it has not been retrieved already.
+     */
+    useEffect(() => {
+        if (tocOpen && !loadedTOC) {
+            getBookTOC();
+        }
+    }, [tocOpen]);
+
+    /**
+     * Retrieve the book summary from
+     * the server.
+     */
+    const getBookSummary = () => {
+        axios.get('/commons/book/summary', {
+            params: {
+                bookID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.summary) {
+                    var summary = String(res.data.summary);
+                    if (summary[summary.length - 1] !== '.') {
+                        summary = summary.slice(0, summary.length-1) + "...";
+                    }
+                    setBookSummary(summary);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedSummary(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedSummary(true);
+        });
+    };
+
+    /**
+     * Retrieve the book's Table of Contents
+     * from the server and build the UI list,
+     * then push to state.
+     */
+    const getBookTOC = () => {
+        axios.get('/commons/book/toc', {
+            params: {
+                bookID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.toc && Array.isArray(res.data.toc)) {
+                    var chapterPanels = [];
+                    res.data.toc.forEach((chapter) => {
+                        var chapterPages = null;
+                        if (chapter.pages && Array.isArray(chapter.pages)) {
+                            chapterPages = (
+                                <List bulleted>
+                                    {chapter.pages.map((item, idx) => {
+                                        return (
+                                            <List.Item
+                                                key={idx}
+                                                as='a'
+                                                href={item.link}
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                            >
+                                                {item.title}
+                                            </List.Item>
+                                        )
+                                    })}
+                                </List>
+                            )
+                        }
+                        chapterPanels.push({
+                            key: `panel-c${chapter.idx}`,
+                            title: {
+                                content: (
+                                    <a
+                                        href={chapter.link}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                    >
+                                        {chapter.title}
+                                    </a>
+                                )
+                            },
+                            content: {
+                                content: chapterPages
+                            }
+                        })
+                    });
+                    setBookChapters(chapterPanels);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedTOC(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedTOC(true);
         });
     };
 
@@ -173,25 +275,26 @@ const CommonsBook = (props) => {
                                     </Grid.Column>
                                     <Grid.Column width={12}>
                                         <Header as='h2'>{book.title}</Header>
-                                        {(book.summary !== '') &&
-                                            <Segment>
-                                                <Header as='h3' dividing>Summary</Header>
-                                                <p><em>This feature is coming soon!</em></p>
-                                            </Segment>
-                                        }
+                                        <Segment loading={!loadedSummary}>
+                                            <Header as='h3' dividing>Summary</Header>
+                                            {(bookSummary !== '')
+                                                ? (<p>{bookSummary}</p>)
+                                                : (<p><em>No summary available.</em></p>)
+                                            }
+                                        </Segment>
                                         <Accordion styled fluid>
                                             <Accordion.Title
-                                                index={0}
-                                                active={activeAccordion === 0}
-                                                onClick={(_e, { index }) => {
-                                                    setActiveAccordion(index)
-                                                }}
+                                                active={tocOpen}
+                                                onClick={() => { setTOCOpen(!tocOpen) }}
                                             >
                                                 <Icon name='dropdown' />
                                                 Table of Contents
                                             </Accordion.Title>
-                                            <Accordion.Content active={activeAccordion === 0}>
-                                                <p><em>This feature is coming soon!</em></p>
+                                            <Accordion.Content active={tocOpen}>
+                                                {loadedTOC
+                                                    ? (<Accordion styled fluid panels={bookChapters} />)
+                                                    : (<Loader active inline='centered' />)
+                                                }
                                             </Accordion.Content>
                                         </Accordion>
                                     </Grid.Column>
@@ -205,18 +308,21 @@ const CommonsBook = (props) => {
                                         <Image id='commons-book-mobile-image' src={book.thumbnail} centered />
                                         <Header as='h2' textAlign='center'>{book.title}</Header>
                                         <div id='commons-book-mobiledetails'>
-                                            {(!isEmptyString(book.author)) &&
+                                            {(book.author && !isEmptyString(book.author)) &&
                                                 <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
                                             }
                                             <p className='commons-book-mobile-detail'>
                                                 <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
                                                 {getLibraryName(book.library)}
                                             </p>
-                                            {(!isEmptyString(book.license)) &&
+                                            {(book.license && !isEmptyString(book.license)) &&
                                                 <p className='commons-book-mobile-detail'><Icon name='shield'/> {getLicenseText(book.license)}</p>
                                             }
-                                            {(!isEmptyString(book.institution)) &&
-                                                <p className='commons-book-mobile-detail'><Icon name='university'/> {book.institution}</p>
+                                            {(book.affiliation && !isEmptyString(book.affiliation)) &&
+                                                <p className='commons-book-mobile-detail'><Icon name='university'/> {book.affiliation}</p>
+                                            }
+                                            {(book.course && !isEmptyString(book.course)) &&
+                                                <p className='commons-book-mobile-detail'><Icon name='sitemap'/> {book.course}</p>
                                             }
                                             <ThumbnailAttribution />
                                         </div>
@@ -238,25 +344,26 @@ const CommonsBook = (props) => {
                                                 </div>
                                             }
                                         </Button.Group>
-                                        {(book.summary !== '') &&
-                                            <Segment>
-                                                <Header as='h3' dividing>Summary</Header>
-                                                <p><em>This feature is coming soon!</em></p>
-                                            </Segment>
-                                        }
+                                        <Segment loading={!loadedSummary}>
+                                            <Header as='h3' dividing>Summary</Header>
+                                            {(bookSummary !== '')
+                                                ? (<p>{bookSummary}</p>)
+                                                : (<p><em>No summary available.</em></p>)
+                                            }
+                                        </Segment>
                                         <Accordion styled fluid>
                                             <Accordion.Title
-                                                index={0}
-                                                active={activeAccordion === 0}
-                                                onClick={(_e, { index }) => {
-                                                    setActiveAccordion(index)
-                                                }}
+                                                active={tocOpen}
+                                                onClick={() => { setTOCOpen(!tocOpen) }}
                                             >
                                                 <Icon name='dropdown' />
                                                 Table of Contents
                                             </Accordion.Title>
-                                            <Accordion.Content active={activeAccordion === 0}>
-                                                <p><em>This feature is coming soon!</em></p>
+                                            <Accordion.Content active={tocOpen}>
+                                                {loadedTOC
+                                                    ? (<Accordion styled fluid panels={bookChapters} />)
+                                                    : (<Loader active inline='centered' />)
+                                                }
                                             </Accordion.Content>
                                         </Accordion>
                                     </Grid.Column>
@@ -278,39 +385,3 @@ const CommonsBook = (props) => {
 }
 
 export default CommonsBook;
-
-
-/*
-<Accordion.Content active={activeAccordion === 0}>
-    <Accordion.Accordion panels={tocChapterPanels} />
-</Accordion.Content>
-
-
-
-
-
-<List>
-    {book.contents.map((item, index) => {
-        return (
-            <List.Item key={index}>
-                <List.Icon name='folder open' />
-                <List.Content>
-                    <List.Header>{item.name}</List.Header>
-                    <List.List>
-                    {item.pages.map((page, pageIdx) => {
-                        return (
-                            <List.Item key={pageIdx}>
-                                <List.Icon name='content' />
-                                <List.Content>
-                                    <List.Header>{page}</List.Header>
-                                </List.Content>
-                            </List.Item>
-                        )
-                    })}
-                    </List.List>
-                </List.Content>
-            </List.Item>
-        )
-    })}
-</List>
-*/
