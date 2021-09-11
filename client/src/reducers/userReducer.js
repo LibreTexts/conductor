@@ -89,6 +89,12 @@ export default function userReducer(state = userInitialState, action) {
                 ...state,
                 isAuthenticated: false
             }
+        case 'SET_USER_NAME':
+            return {
+                ...state,
+                firstName: action.payload.firstName,
+                lastName: action.payload.lastName
+            }
         case 'SET_USER_INFO':
             return {
                 ...state,

@@ -394,6 +394,10 @@
     border-top-right-radius: 0;
 }
 
+.commons-toc-pagelist {
+    padding-left: 2% !important;
+}
+
 .commons-content {
     background-color: #F4F4F4 !important;
 }

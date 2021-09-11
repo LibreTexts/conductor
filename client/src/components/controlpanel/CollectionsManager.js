@@ -460,7 +460,7 @@ const CollectionsManager = (props) => {
                                     }
                                     {(pageColls.length === 0) &&
                                         <Table.Row>
-                                            <Table.Cell colSpan='3'>
+                                            <Table.Cell colSpan={3}>
                                                 <p className='text-center'><em>No results found.</em></p>
                                             </Table.Cell>
                                         </Table.Row>

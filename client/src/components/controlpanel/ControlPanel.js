@@ -138,7 +138,6 @@ const ControlPanel = (props) => {
                                             <List.Item
                                                 as={Link}
                                                 to='/controlpanel/usersmanager'
-                                                disabled
                                             >
                                                 <Icon name='users' />
                                                 <List.Content>

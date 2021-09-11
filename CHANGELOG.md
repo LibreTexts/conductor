@@ -1,6 +1,25 @@
 # Changelog
 
-## 09-08-2021
+## 09-10-2021
+#### :art: UI/UX
+* Itemized Mode in Commons Collection View now matches Catalog styling
+* Finished implementing Table of Contents in Book View
+* Fixed a bug in setting the page title in Commons
+* Updated the Account Settings UI (including Roles list)
+* Added the ability to change user's name in Account Settings
+* Added the ability to update user's email in Account Settings
+* Implemented the Password Change flow in Account Settings
+* Updates to the Commons Footer for both Libre- and Campus Commons
+* Started implementing the Users Manager
+
+#### :satellite: Server
+* Implemented backend logic to update non-SSO user name
+* Implemented backend logic to update non-SSO user email
+* Implemented backend logic to update non-SSO user password
+* Added a Password Change Notification email
+* Started implementing backend logic for User management
+
+## 09-09-2021
 #### :art: UI/UX
 * Implemented Summary in Book View
 * Fixed missing information between desktop & mobile Book View

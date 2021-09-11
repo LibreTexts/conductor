@@ -20,6 +20,13 @@ if (!process.env.ORG_ID || process.env.ORG_ID === '') {
     exit(1);
 }
 
+// Prevent startup without Mailgun env variables
+if (!process.env.MAILGUN_API_KEY || process.env.MAILGUN_API_KEY === '' ||
+    !process.env.MAILGUN_DOMAIN || process.env.MAILGUN_DOMAIN === '') {
+    debug('[FATAL ERROR]: The Mailgun environment variables are missing.');
+    exit(1);
+}
+
 const api = require('./server/api.js');
 
 const app = express();
@@ -103,5 +110,8 @@ app.listen(port, (err) => {
     if (err) {
         debugServer(err);
     }
-    debugServer(`Conductor is listening on ${port}`);
+    var startupMsg = '';
+    if (process.env.ORG_ID === 'libretexts') startupMsg = `Conductor is listening on ${port}`;
+    else startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
+    debugServer(startupMsg);
 });

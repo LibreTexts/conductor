@@ -42,17 +42,11 @@ const Commons = (_props) => {
     }, []);
 
     /**
-     * Run getOrgInfo() if information is missing,
-     * then update the page title.
+     * Run getOrgInfo() if information is missing.
      */
     useEffect(() => {
         if (org.orgID === '') {
             getOrgInfo();
-        }
-        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Campus Commons";
-        } else {
-            document.title = "LibreCommons";
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [org]);
@@ -244,12 +238,6 @@ const Commons = (_props) => {
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
-            {(process.env.REACT_APP_ORG_ID !== 'libretexts') &&
-                <div className='mt-3r mb-3r'>
-                    <p id='commons-poweredby-tagline' className='text-center'><em>powered by</em></p>
-                    <Image src='/transparent_logo.png' size='medium' centered/>
-                </div>
-            }
             <CommonsFooter />
             <Modal
                 onClose={() => { setShowNoOrg(false) }}

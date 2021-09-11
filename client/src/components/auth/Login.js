@@ -34,6 +34,7 @@ const Login = (props) => {
     const [showExpiredAuth, setExpiredAuth] = useState(false);
     const [showNewRegister, setNewRegister] = useState(false);
     const [showPassReset, setPassReset] = useState(false);
+    const [showPassChange, setPassChange] = useState(false);
 
     // Form Data
     const [email, setEmail] = useState('');
@@ -54,6 +55,9 @@ const Login = (props) => {
         }
         if (queryValues.resetsuccess === 'true') {
             setPassReset(true);
+        }
+        if (queryValues.passchange === 'true') {
+            setPassChange(true);
         }
     }, [props.location.search]);
 
@@ -167,6 +171,15 @@ const Login = (props) => {
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
+                    {showPassChange &&
+                        <Message positive icon>
+                            <Icon name='check' />
+                            <Message.Content>
+                                <Message.Header>Password change successful.</Message.Header>
+                                <p>Please login with your email and new password here.</p>
+                            </Message.Content>
+                        </Message>
+                    }
                     {showPassReset &&
                         <Message positive icon>
                             <Icon name='check' />

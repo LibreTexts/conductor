@@ -44,6 +44,7 @@ import BooksManager from './components/controlpanel/BooksManager.js';
 import CollectionsManager from './components/controlpanel/CollectionsManager.js';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests.js';
 import HomeworkManager from './components/controlpanel/HomeworkManager.js';
+import UsersManager from './components/controlpanel/UsersManager.js';
 
 
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
@@ -96,7 +97,7 @@ function App() {
                         <PrivateRoute exact path = '/harvesting/targetlist/:id/edit' component={HarvestingTargetEdit} />
                         <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
 
-                    <PrivateRoute exact path = '/account/settings' component={AccountSettings} />
+                    <PrivateRoute exact path = '/account' component={AccountSettings} />
 
                     <PrivateRoute exact path = '/controlpanel' component={ControlPanel} />
                         <PrivateRoute exact path = '/controlpanel/adoptionreports' component={AdoptionReports} />
@@ -104,6 +105,7 @@ function App() {
                         <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
                         <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
                         <PrivateRoute exact path = '/controlpanel/homeworkmanager' component={HomeworkManager} />
+                        <PrivateRoute exact path = '/controlpanel/usersmanager' component={UsersManager} />
 
                     {/* 404 */}
                     <Route component={PageNotFound} />

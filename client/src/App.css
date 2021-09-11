@@ -78,6 +78,10 @@ body {
     cursor: pointer;
 }
 
+.cursor-pointer:hover {
+    cursor: pointer;
+}
+
 .bkgrd-gray {
     background-color: #F9F9F9 !important;
 }

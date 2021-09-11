@@ -133,8 +133,20 @@ const checkValidImport = (book) => {
     return isValidImport;
 };
 
-
-const autoGenerateCollections = (res, programListings, programDetails, nInserted) => {
+/**
+ * Generates Collections for pre-specified
+ * OER programs given an Express response
+ * object (@res), an object contaning each
+ * program's respective Books (@programListings),
+ * an object containing details about each
+ * program (@programDetails), and the number of
+ * Books updated by the previous function,
+ * syncWithLibraries().
+ * METHOD SHOULD ONLY BE CALLED FROM WITHIN
+ * syncWithLibraries(). METHOD FINISHES THE
+ * ROUTE'S API CALL CHAIN.
+ */
+const autoGenerateCollections = (res, programListings, programDetails, nMatched) => {
     return new Promise((resolve, _reject) => {
         var collOps = [];
         if (Object.keys(programListings).length > 0) {
@@ -170,7 +182,7 @@ const autoGenerateCollections = (res, programListings, programDetails, nInserted
             resolve({});
         }
     }).then((collsRes) => {
-        var msg = `Imported ${nInserted} books from the Libraries.`;
+        var msg = `Imported ${nMatched} books from the Libraries.`;
         if (collsRes.modifiedCount) {
             msg += ` ${collsRes.modifiedCount} auto-generated collections updated.`;
         }
@@ -187,171 +199,183 @@ const autoGenerateCollections = (res, programListings, programDetails, nInserted
     });
 };
 
+
 /**
  * Retrieve prepared books from the
  * LibreTexts API and process &
  * import them to the Conductor
  * database for use in Commons.
  */
-const syncWithLibraries = (_req, res) => {
-    var shelvesRequests = [];
-    var coursesRequests = [];
-    var allRequests = [];
-    var allBooks = [];
-    var commonsBooks = [];
-    var bookIDs = [];
-    var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
-    var programDetails = {
-        openrn: 'OpenRN',
-        openstax: 'OpenStax',
-        mitocw: 'MIT OpenCourseWare',
-        opensuny: 'OpenSUNY',
-        oeri: 'ASCCC OERI'
-    };
-    var programListings = {};
-    if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
-        approvedPrograms.forEach((program) => {
-            if (!Object.keys(programListings).includes(program)) {
-                programListings[program] = [];
-            }
-        });
-    }
-    // Build list(s) of HTTP requests to be performed
-    libraries.forEach((lib) => {
-        shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
-        coursesRequests.push(axios.get(generateCoursesURL(lib)));
-    });
-    allRequests = shelvesRequests.concat(coursesRequests);
-    // Execute requests
-    Promise.all(allRequests).then((booksRes) => {
-        // Extract books from responses
-        booksRes.forEach((axiosRes) => {
-            allBooks = allBooks.concat(axiosRes.data.items);
-        });
-        // Process books and prepare for DB save
-        allBooks.forEach((book) => {
-            if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
-                bookIDs.push(book.zipFilename); // duplicate mitigation
-                var link = ''
-                var author = '';
-                var affiliation = '';
-                var license = '';
-                var subject = '';
-                var course = '';
-                var location = '';
-                var program = '';
-                if (book.link) {
-                    link = book.link;
-                    if (String(book.link).includes('/Bookshelves/')) {
-                        location = 'central';
-                        var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
-                        var isolated = String(book.link).replace(baseURL, '');
-                        var splitURL = isolated.split('/');
-                        if (splitURL.length > 0) {
-                            var shelfRaw = splitURL[0];
-                            subject = shelfRaw.replace(/_/g, ' ');
-                        }
-                    }
-                    if (String(book.link).includes('/Courses/')) {
-                        location = 'campus';
-                        var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
-                        var isolated = String(book.link).replace(baseURL, '');
-                        var splitURL = isolated.split('/');
-                        if (splitURL.length > 0) {
-                            var courseRaw = splitURL[0];
-                            course = courseRaw.replace(/_/g, ' ');
-                        }
-                    }
-                }
-                if (book.author) author = book.author;
-                if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
-                if (book.tags && Array.isArray(book.tags)) {
-                    book.tags.forEach((tag) => {
-                        if (tag.includes('license:')) {
-                            license = tag.replace('license:', '');
-                        }
-                        if (tag.includes('program:')) {
-                            program = tag.replace('program:', '');
-                            if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
-                                if (Object.keys(programListings).includes(program)) {
-                                    if (location === 'central') { // don't add from both locations — duplicates
-                                        if (!programListings[program].includes(book.zipFilename)) {
-                                            programListings[program].push(book.zipFilename);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                var newCommonsBook = {
-                    bookID: book.zipFilename,
-                    title: book.title,
-                    author: author,
-                    affiliation: affiliation,
-                    library: extractLibFromID(book.zipFilename),
-                    subject: subject, // TODO: Improve algorithm
-                    location: location,
-                    course: course, // TODO: Improve algorithm
-                    program: program,
-                    license: license,
-                    thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
-                    links: {
-                        online: link,
-                        pdf: genPDFLink(book.zipFilename),
-                        buy: genBookstoreLink(book.zipFilename),
-                        zip: genZIPLink(book.zipFilename),
-                        files: genPubFilesLink(book.zipFilename),
-                        lms: genLMSFileLink(book.zipFilename)
-                    }
-                };
-                commonsBooks.push(newCommonsBook);
-            }
-        });
-        // Clear the current list of Books
-        return Book.deleteMany({});
-    }).then((deleteRes) => {
-        if (deleteRes.ok === 1) {
-            // Import books, ignore failures
-            return Book.insertMany(commonsBooks, {
-                ordered: false,
-                rawResult: true
-            });
-        } else {
-            throw(new Error('delete'));
-        }
-    }).then((insertedDocs) => {
-        // All imports succeeded, continue to auto-generate Program Collections
-        return autoGenerateCollections(res, programListings, programDetails, insertedDocs.result.n);
-    }).catch((err) => {
-        debugError(err);
-        if (err.result) { // insertMany error(s)
-            if (err.result.nInserted > 0) { // Some imports failed (silent)
-                debugCommonsSync(`Inserted only ${err.result.nInserted} books when ${commonsBooks.length} books were expected.`);
-                // Continue to auto-generate Program Collections
-                return autoGenerateCollections(res, programListings, programDetails, err.result.nInserted);
-            } else { // All imports failed
-                return res.send({
-                    err: true,
-                    msg: conductorErrors.err13
-                });
-            }
-        } else if (err.code && err.code === 'ENOTFOUND') { // issues connecting to LT API
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err16
-            });
-        } else { // other errors
-            debugError(err);
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
-        }
-    });
-};
+ const syncWithLibraries = (_req, res) => {
+     var shelvesRequests = [];   // requests from Bookshelves
+     var coursesRequests = [];   // requests from Campus Bookshelves
+     var allRequests = [];       // all requests to be made
+     var allBooks = [];          // all books returned from LT API
+     var bookOps = [];           // update/insert operations to perform with Mongoose
+     var bookIDs = [];           // all (unique) bookIDs
+     var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
+     var programDetails = {
+         openrn: 'OpenRN',
+         openstax: 'OpenStax',
+         mitocw: 'MIT OpenCourseWare',
+         opensuny: 'OpenSUNY',
+         oeri: 'ASCCC OERI'
+     };
+     var programListings = {};
+     if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
+         approvedPrograms.forEach((program) => {
+             if (!Object.keys(programListings).includes(program)) {
+                 programListings[program] = [];
+             }
+         });
+     }
+     // Build list(s) of HTTP requests to be performed
+     libraries.forEach((lib) => {
+         shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
+         coursesRequests.push(axios.get(generateCoursesURL(lib)));
+     });
+     allRequests = shelvesRequests.concat(coursesRequests);
+     // Execute requests
+     Promise.all(allRequests).then((booksRes) => {
+         // Extract books from responses
+         booksRes.forEach((axiosRes) => {
+             allBooks = allBooks.concat(axiosRes.data.items);
+         });
+         // Process books and prepare for DB save
+         allBooks.forEach((book) => {
+             // check if book is valid & unique, otherwise ignore
+             if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
+                 bookIDs.push(book.zipFilename); // duplicate mitigation
+                 var link = ''
+                 var author = '';
+                 var affiliation = '';
+                 var license = '';
+                 var subject = '';
+                 var course = '';
+                 var location = '';
+                 var program = '';
+                 if (book.link) {
+                     link = book.link;
+                     if (String(book.link).includes('/Bookshelves/')) {
+                         location = 'central';
+                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
+                         var isolated = String(book.link).replace(baseURL, '');
+                         var splitURL = isolated.split('/');
+                         if (splitURL.length > 0) {
+                             var shelfRaw = splitURL[0];
+                             subject = shelfRaw.replace(/_/g, ' ');
+                         }
+                     }
+                     if (String(book.link).includes('/Courses/')) {
+                         location = 'campus';
+                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
+                         var isolated = String(book.link).replace(baseURL, '');
+                         var splitURL = isolated.split('/');
+                         if (splitURL.length > 0) {
+                             var courseRaw = splitURL[0];
+                             course = courseRaw.replace(/_/g, ' ');
+                         }
+                     }
+                 }
+                 if (book.author) author = book.author;
+                 if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
+                 if (book.tags && Array.isArray(book.tags)) {
+                     book.tags.forEach((tag) => {
+                         if (tag.includes('license:')) {
+                             license = tag.replace('license:', '');
+                         }
+                         if (tag.includes('program:')) {
+                             program = tag.replace('program:', '');
+                             if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
+                                 if (Object.keys(programListings).includes(program)) {
+                                     if (location === 'central') { // don't add from both locations — duplicates
+                                         if (!programListings[program].includes(book.zipFilename)) {
+                                             programListings[program].push(book.zipFilename);
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     });
+                 }
+                 bookOps.push({
+                     updateOne: {
+                         filter: {
+                             bookID: book.zipFilename
+                         },
+                         update: {
+                             $setOnInsert: {
+                                 bookID: book.zipFilename
+                             },
+                             $set: {
+                                 title: book.title,
+                                 author: author,
+                                 affiliation: affiliation,
+                                 library: extractLibFromID(book.zipFilename),
+                                 subject: subject, // TODO: Improve algorithm
+                                 location: location,
+                                 course: course, // TODO: Improve algorithm
+                                 program: program,
+                                 license: license,
+                                 thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
+                                 links: {
+                                     online: link,
+                                     pdf: genPDFLink(book.zipFilename),
+                                     buy: genBookstoreLink(book.zipFilename),
+                                     zip: genZIPLink(book.zipFilename),
+                                     files: genPubFilesLink(book.zipFilename),
+                                     lms: genLMSFileLink(book.zipFilename)
+                                 }
+                             }
+                         },
+                         upsert: true
+                     }
+                 });
+             }
+         });
+         return Book.bulkWrite(bookOps, {
+             ordered: false
+         });
+     }).then((writeRes) => {
+         // All imports succeeded, continue to auto-generate Program Collections
+         return autoGenerateCollections(res, programListings, programDetails, writeRes.result.nMatched);
+     }).catch((err) => {
+         debugError(err);
+         if (err.result) { // bulkWrite error(s)
+             if (err.result.nMatched > 0) { // Some imports failed (silent)
+                 debugCommonsSync(`Updated only ${err.result.nMatched} books when ${allBooks.length} books were expected.`);
+                 // Continue to auto-generate Program Collections
+                 return autoGenerateCollections(res, programListings, programDetails, err.result.nMatched);
+             } else { // All imports failed
+                 return res.send({
+                     err: true,
+                     msg: conductorErrors.err13
+                 });
+             }
+         } else if (err.code && err.code === 'ENOTFOUND') { // issues connecting to LT API
+             return res.send({
+                 err: true,
+                 errMsg: conductorErrors.err16
+             });
+         } else { // other errors
+             debugError(err);
+             return res.send({
+                 err: true,
+                 errMsg: conductorErrors.err6
+             });
+         }
+     });
+ };
 
 
+/**
+ * Accepts a standard Organization-model object
+ * and generates an array of strings of all
+ * known variations of the Organization's name,
+ * including full, short, abbreviation, and
+ * possible aliases.
+ * INTERNAL USE ONLY.
+ */
 const buildOrganizationNamesList = (orgData) => {
     if (orgData) {
         var campusNames = []; // stores all variations of the organization name
@@ -389,6 +413,7 @@ const buildOrganizationNamesList = (orgData) => {
         return [];
     }
 }
+
 
 /**
  * Returns the Commons Catalog results according
@@ -539,6 +564,7 @@ const getCommonsCatalog = (req, res) => {
     });
 };
 
+
 /**
  * Returns the master list of Commons Catalog
  * items with limited filtering and sorting.
@@ -602,7 +628,6 @@ const getMasterCatalog = (req, res) => {
                     if (customCatalogRes.resources.includes(book.bookID)) {
                         book.isCustomEnabled = true;
                     }
-                    console.log(book);
                 });
             }
         }
@@ -630,6 +655,7 @@ const getMasterCatalog = (req, res) => {
         });
     });
 };
+
 
 /**
  * Returns the current options for dynamic
@@ -757,6 +783,7 @@ const getCatalogFilterOptions = (_req, res) => {
     });
 };
 
+
 /**
  * Returns the Book object given a book ID.
  * NOTE: This function should only be called AFTER
@@ -797,6 +824,7 @@ const getBookDetail = (req, res) => {
         });
     });
 };
+
 
 /**
  * Adds the Book specified by @bookID in the request
@@ -846,6 +874,7 @@ const addBookToCustomCatalog = (req, res) => {
         }
     });
 };
+
 
 /**
  * Removes the Book specified by @bookID in the request
@@ -912,6 +941,7 @@ const getBookSummary = (req, res) => {
         }).then((axiosRes) => {
             if (axiosRes.data) {
                 const pageData = axiosRes.data;
+                // search for Overview in MindTouch page properties
                 if (pageData.property && Array.isArray(pageData.property)) {
                     const overviewData = pageData.property.find((item) => {
                         if (item['@name'] === 'mindtouch.page#overview') {
@@ -930,15 +960,17 @@ const getBookSummary = (req, res) => {
                 bookID: req.query.bookID,
                 summary: summary
             });
-        }).catch((axiosErr) => {
-            debugObject(axiosErr);
+        }).catch((_axiosErr) => {
+            // error requesting data from MindTouch
+            debugError(new Error('Book Summary — axiosErr'))
             return res.send({
                 err: true,
                 errMsg: conductorErrors.err6
             });
         });
     } else {
-        debugError(new Error('browserkey'));
+        // missing browserkey — can't authorize request to MindTouch
+        debugError(new Error('Book Summary — browserkey'));
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -946,9 +978,18 @@ const getBookSummary = (req, res) => {
     }
 };
 
+
+/**
+ * Given a standard shortened LibreTexts Library
+ * identifier, @lib, and a @pageID, returns the
+ * URI to retrieve the page's subpages from the
+ * MindTouch API.
+ * INTERNAL USE ONLY.
+ */
 const buildSubpageRequestURL = (lib, pageID) => {
     return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/subpages?dream.out.format=json`;
 };
+
 
 /**
  * Makes a request to a Book's respective library
@@ -972,47 +1013,42 @@ const getBookTOC = (req, res) => {
         };
         // Start by retrieving the Book chapters
         axios.get(buildSubpageRequestURL(lib, pageID), reqConfig).then((axiosRes) => {
-            if (axiosRes.data) {
-                const subpageData = axiosRes.data;
-                if (subpageData['page.subpage']) {
-                    const subpages = subpageData['page.subpage'];
-                    if (Array.isArray(subpages)) {
-                        subpages.forEach((page, idx) => {
-                            var title = '';
-                            var link = '';
-                            var sPageID = '';
-                            if ((page.title) && (typeof(title) === 'string')) {
-                                title = page.title;
-                            }
-                            if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
-                                link = page['uri.ui'];
-                            }
-                            if ((page['@id']) && (typeof(page['@id']) === 'string')) {
-                                sPageID = page['@id'];
-                            }
-                            chapters.push({
-                                idx: idx,
-                                title: title,
-                                link: link,
-                                pageID: sPageID,
-                                pages: []
-                            });
-                            if (sPageID !== '') {
-                                subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
-                            }
+            const subpageData = axiosRes.data;
+            if (subpageData['page.subpage']) {
+                const subpages = subpageData['page.subpage'];
+                // process chapter pages
+                if (Array.isArray(subpages)) {
+                    subpages.forEach((page, idx) => {
+                        var title = '';
+                        var link = '';
+                        var sPageID = '';
+                        if ((page.title) && (typeof(title) === 'string')) {
+                            title = page.title;
+                        }
+                        if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
+                            link = page['uri.ui'];
+                        }
+                        if ((page['@id']) && (typeof(page['@id']) === 'string')) {
+                            sPageID = page['@id'];
+                        }
+                        chapters.push({
+                            idx: idx,
+                            title: title,
+                            link: link,
+                            pageID: sPageID,
+                            pages: []
                         });
-                    }
+                        if (sPageID !== '') {
+                            // queue request to get chapter's subpages
+                            subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
+                        }
+                    });
                 }
-                if (subpageRequests.length > 0) {
-                    return Promise.all(subpageRequests);
-                } else {
-                    return [];
-                }
+            }
+            if (subpageRequests.length > 0) {
+                return Promise.all(subpageRequests);
             } else {
-                return res.send({
-                    err: true,
-                    errMsg: conductorErrors.err22
-                });
+                return [];
             }
         }).then((subRes) => {
             if (subRes.length > 0) {
@@ -1064,21 +1100,22 @@ const getBookTOC = (req, res) => {
                 toc: chapters
             });
         }).catch((_axiosErr) => {
-            debugErr(new Error('axiosErr'));
+            // error requesting data from MindTouch
+            debugErr(new Error('Book TOC — axiosErr'));
             return res.send({
                 err: true,
                 errMsg: conductorErrors.err6
             });
         });
     } else {
-        debugError(new Error('browserkey'));
+        // missing browserkey — can't authorize request to MindTouch
+        debugError(new Error('Book TOC — browserkey'));
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
         });
     }
 };
-
 
 
 /**

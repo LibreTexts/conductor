@@ -11,7 +11,7 @@ const middleware = require('./middleware.js');
 
 /* Interfaces */
 const authAPI = require('./api/auth.js');
-const userAPI = require('./api/user.js');
+const usersAPI = require('./api/users.js');
 const orgAPI = require('./api/organizations.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
@@ -48,6 +48,11 @@ router.route('/auth/resetpassword').post(authAPI.validate('resetPassword'),
 router.route('/auth/resetpassword/complete').post(
     authAPI.validate('completeResetPassword'), middleware.checkValidationErrors,
     authAPI.completeResetPassword);
+
+router.route('/auth/changepassword').put(authAPI.verifyRequest,
+    authAPI.validate('changePassword'), middleware.checkValidationErrors,
+    authAPI.changePassword);
+
 
 // SSO/OAuth (excluded from CORS/Auth routes)
 router.route('/oauth/libretexts').get(authAPI.oauthCallback);
@@ -207,11 +212,30 @@ router.route('/commons/homework/syncadapt').post(authAPI.verifyRequest,
 
 
 /* Users */
-//router.route('/user/createuserbasic').post(userAPI.createUserBasic);
 router.route('/user/basicinfo').get(authAPI.verifyRequest,
-    userAPI.basicUserInfo);
+    usersAPI.basicUserInfo);
+
 router.route('/user/accountinfo').get(authAPI.verifyRequest,
-    userAPI.basicAccountInfo);
+    usersAPI.basicAccountInfo);
+
+router.route('/user/name').put(authAPI.verifyRequest,
+    usersAPI.validate('editUserName'), middleware.checkValidationErrors,
+    usersAPI.editUserName);
+
+router.route('/user/email').put(authAPI.verifyRequest,
+    usersAPI.validate('updateUserEmail'), middleware.checkValidationErrors,
+    usersAPI.updateUserEmail);
+
+router.route('/users').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    usersAPI.getUsersList);
+
+router.route('/user/delete').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    usersAPI.validate('deleteUser'), middleware.checkValidationErrors,
+    usersAPI.deleteUser);
 
 
 /* Announcements */

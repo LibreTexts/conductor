@@ -14,7 +14,10 @@ import {
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { isEmptyString } from '../util/HelperFunctions.js';
+import {
+    isEmptyString,
+    validatePassword
+} from '../util/HelperFunctions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -55,16 +58,15 @@ const Register = (props) => {
         }
     };
 
+
+
     const handlePasswordChange = (e) => {
-        var passInput = e.target.value;
-        if (passInput.length > 0) {
-            if ((passInput.length < 9) || !(/\d/.test(passInput))) {
-                setPasswordError(true);
-            } else {
-                setPasswordError(false);
-            }
+        if (validatePassword(e.target.value)) {
+            setPasswordError(false);
+        } else {
+            setPasswordError(true);
         }
-        setPassword(passInput);
+        setPassword(e.target.value);
     };
 
     /**
@@ -86,7 +88,7 @@ const Register = (props) => {
             validForm = false;
             setEmailError(true);
         }
-        if (isEmptyString(password)) {
+        if (!validatePassword(password)) {
             validForm = false;
             setPasswordError(true);
         }
@@ -108,9 +110,9 @@ const Register = (props) => {
      * to login.
      */
     const submitRegister = () => {
-        setSubmitLoading(true);
         resetFormErrors();
         if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true') && (process.env.REACT_APP_RESTRICT_CONDUCTOR !== 'true')) {
+            setSubmitLoading(true);
             var userData = {
                 firstName: firstName,
                 lastName: lastName,
@@ -119,11 +121,12 @@ const Register = (props) => {
             };
             axios.post('/auth/register', userData).then((res) => {
                 if (!res.data.err) {
+                    setSubmitLoading(false);
                     props.history.push('/login?newregister=true');
                 } else {
                     handleGlobalError(res.data.errMsg)
+                    setSubmitLoading(false);
                 }
-                setSubmitLoading(false);
             }).catch((e) => {
                 handleGlobalError(e);
                 setSubmitLoading(false);

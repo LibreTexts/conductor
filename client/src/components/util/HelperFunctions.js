@@ -65,9 +65,27 @@ const updateParams = (url, param, value) => {
     return url + hash;
 };
 
+/**
+ * Accepts a password string, @passInput, and
+ * validates it against Conductor password
+ * standards. Returns a boolean:
+ *  TRUE: Password meets standards
+ *  FALSE: Password does not meet standards
+ *         or is not a string
+ */
+const validatePassword = (passInput) => {
+    if (typeof(passInput) === 'string') {
+        if ((passInput.length > 9) && (/\d/.test(passInput))) {
+            return true;
+        }
+    }
+    return false;
+};
+
 module.exports = {
     isEmptyString,
     truncateString,
     capitalizeFirstLetter,
-    updateParams
+    updateParams,
+    validatePassword
 };

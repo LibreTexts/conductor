@@ -64,7 +64,7 @@ const HomeworkManager = (_props) => {
     const sortOptions = [
         { key: 'title', text: 'Sort by Title', value: 'title' },
         { key: 'description', text: 'Sort by Description', value: 'description' },
-        { key: 'kind', text: 'Sort by Kind', value: 'kind' }
+        { key: 'type', text: 'Sort by Type', value: 'type' }
     ];
 
 
@@ -141,7 +141,7 @@ const HomeworkManager = (_props) => {
                 return 0;
             });
             setDisplayHw(sorted);
-        } else if (sortChoice === 'kind') {
+        } else if (sortChoice === 'type') {
             const sorted = [...filtered].sort((a, b) => {
                 if (a.kind < b.kind) {
                     return -1;
@@ -328,7 +328,7 @@ const HomeworkManager = (_props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'kind')
+                                            {(sortChoice === 'type')
                                                 ? <span><em>Resource Type</em></span>
                                                 : <span>Resource Type</span>
                                             }

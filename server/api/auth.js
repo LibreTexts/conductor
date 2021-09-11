@@ -192,7 +192,7 @@ const register = (req, res) => {
         firstName: req.body.firstName,
         lastName: req.body.lastName,
         email: formattedEmail,
-        avatar: '',
+        avatar: '/mini_logo.png',
         hash: '',
         salt: '',
         roles: [],
@@ -320,7 +320,7 @@ const resetPassword = (req, res) => {
 };
 
 /**
- * Searches for the user identified currently holding
+ * Searches for the user currently holding
  * the @token in the request body. If the user is found,
  * the token expiration date is checked. If the token is
  * still valid, the new password is hashed and saved
@@ -390,9 +390,84 @@ const completeResetPassword = (req, res) => {
     });
 };
 
+
 /**
- * Verifies the JWT provided in a request's Authorization
- * header.
+ * Searches for the user identified by the uuid in the request
+ * authorization token, then attempts to match the @currentPassword
+ * in the request body against their currently stored password.
+ * If passwords match, the @newPassword in the request body
+ * is hashed and stored in the User's record.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'changePassword'
+ */
+const changePassword = (req, res) => {
+    var newSalt = '';
+    var userEmail = '';
+    var userFirstName = '';
+    var successMsg = "Password updated successfully.";
+    User.findOne({ uuid: req.decoded.uuid }).then((user) => {
+        if (user) {
+            userEmail = user.email;
+            userFirstName = user.firstName;
+            return bcrypt.compare(req.body.currentPassword, user.hash);
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((isMatch) => {
+        if (isMatch) {
+            return bcrypt.genSalt(10);
+        } else {
+            throw(new Error('currentpass'));
+        }
+    }).then((salt) => {
+        newSalt = salt;
+        return bcrypt.hash(req.body.newPassword, salt);
+    }).then((hash) => {
+        return User.updateOne({ uuid: req.decoded.uuid }, {
+            salt: newSalt,
+            hash: hash
+        });
+    }).then((updateRes) => {
+        if (updateRes.ok === 1) {
+            return mailAPI.sendPasswordChangeNotification(userEmail, userFirstName);
+        } else {
+            throw(new Error('updatefailed')) // handle as generic error below
+        }
+    }).then(() => {
+        // ignore return value of Mailgun call
+        return res.send({
+            err: false,
+            msg: successMsg
+        });
+    }).catch((err) => {
+        if (err.status === 400) { // Mailgun failed, handle silently
+            debugServer('Failed to send password change notification email.');
+            return res.send({
+                err: false,
+                msg: successMsg
+            });
+        } else { // other errors
+            var errMsg = '';
+            if (err.message === 'notfound') {
+                errMsg = conductorErrors.err7;
+            } else if (err.message === 'currentpass') {
+                errMsg = conductorErrors.err23;
+            } else {
+                debugError(err);
+                errMsg = conductorErrors.err6;
+            }
+            return res.send({
+                err: true,
+                errMsg: errMsg
+            });
+        }
+    });
+};
+
+/**
+ * Middleware to verify the JWT provided in a
+ * request's Authorization header.
  */
 const verifyRequest = (req, res, next) => {
     var token = req.headers.authorization;
@@ -406,7 +481,7 @@ const verifyRequest = (req, res, next) => {
     } catch (err) {
         var response = {
             err: true,
-            errMsg: "Invalid token. Try signing out and in again."
+            errMsg: conductorErrors.err5
         };
         if (err.name === 'TokenExpiredError') {
             response.tokenExpired = true;
@@ -527,6 +602,14 @@ const checkHasRoleMiddleware = (org, role) => {
 };
 
 
+/**
+ * Accepts a string, @password, and validates
+ * it against Conductor password standards.
+ * Returns a boolean:
+ *  TRUE: Password meets standards
+ *  FALSE: Password does not meet standards
+ *         or is not a string
+ */
 const passwordValidator = (password) => {
     if (typeof(password) === 'string') {
         if (password.length > 8) { // password should be 8 characters or longer
@@ -565,6 +648,11 @@ const validate = (method) => {
                 body('token', conductorErrors.err1).exists().isString(),
                 body('password', conductorErrors.err1).exists().isString().custom(passwordValidator)
             ]
+        case 'changePassword':
+            return [
+                body('currentPassword', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
+                body('newPassword', conductorErrors.err1).exists().isString().custom(passwordValidator)
+            ]
     }
 }
 
@@ -573,6 +661,7 @@ module.exports = {
     register,
     resetPassword,
     completeResetPassword,
+    changePassword,
     verifyRequest,
     getUserAttributes,
     checkHasRole,

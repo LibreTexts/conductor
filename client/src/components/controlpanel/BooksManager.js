@@ -357,7 +357,7 @@ const BooksManager = (props) => {
                                     <span className='ml-1p'><strong>Next Sync:</strong> Today</span>
                                 </div>
                                 <div className='right-flex'>
-                                    {isSuperAdmin &&
+                                    {(isSuperAdmin && process.env.REACT_APP_ORG_ID === 'libretexts') &&
                                         <Button
                                             color='blue'
                                             onClick={openSyncModal}
@@ -464,10 +464,7 @@ const BooksManager = (props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'commons')
-                                                ? <span><em>Enabled on Commons</em></span>
-                                                : <span>Actions</span>
-                                            }
+                                            <span>Actions</span>
                                         </Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
@@ -553,7 +550,7 @@ const BooksManager = (props) => {
                                     }
                                     {(pageBooks.length === 0) &&
                                         <Table.Row>
-                                            <Table.Cell colSpan={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 3}>
+                                            <Table.Cell colSpan={7}>
                                                 <p className='text-center'><em>No results found.</em></p>
                                             </Table.Cell>
                                         </Table.Row>

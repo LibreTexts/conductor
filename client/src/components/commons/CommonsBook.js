@@ -8,9 +8,7 @@ import {
     Header,
     Button,
     Accordion,
-    List,
-    Dimmer,
-    Loader
+    List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -60,20 +58,6 @@ const CommonsBook = (props) => {
     const [loadedSummary, setLoadedSummary] = useState(false);
     const [loadedTOC, setLoadedTOC] = useState(false);
 
-    const [tocOpen, setTOCOpen] = useState(false);
-
-    const listFactory = (pages) => {
-        return (
-            <List bulleted>
-                {pages.map((page, idx) => {
-                    return (
-                        <List.Item key={idx} header={page} />
-                    )
-                })}
-            </List>
-        )
-    };
-
     /**
      * Retrieve book data from the server.
      */
@@ -86,6 +70,7 @@ const CommonsBook = (props) => {
             if (!res.data.err) {
                 setBook(res.data.book);
                 getBookSummary();
+                getBookTOC();
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -99,23 +84,13 @@ const CommonsBook = (props) => {
 
 
     /**
-     * Update page title
+     * Update page title.
      */
     useEffect(() => {
         if (book.title && book.title !== '') {
             document.title = "LibreCommons | " + book.title;
         }
     }, [book]);
-
-    /**
-     * Load the book TOC when the accordion
-     * opens if it has not been retrieved already.
-     */
-    useEffect(() => {
-        if (tocOpen && !loadedTOC) {
-            getBookTOC();
-        }
-    }, [tocOpen]);
 
     /**
      * Retrieve the book summary from
@@ -136,11 +111,11 @@ const CommonsBook = (props) => {
                     setBookSummary(summary);
                 }
             } else {
-                handleGlobalError(res.data.errMsg);
+                console.log(res.data.errMsg);
             }
             setLoadedSummary(true);
         }).catch((err) => {
-            handleGlobalError(err);
+            console.log(err); // fail silently
             setLoadedSummary(true);
         });
     };
@@ -163,17 +138,24 @@ const CommonsBook = (props) => {
                         var chapterPages = null;
                         if (chapter.pages && Array.isArray(chapter.pages)) {
                             chapterPages = (
-                                <List bulleted>
+                                <List
+                                    selection
+                                    verticalAlign='middle'
+                                    className='commons-toc-pagelist'
+                                >
                                     {chapter.pages.map((item, idx) => {
                                         return (
                                             <List.Item
                                                 key={idx}
-                                                as='a'
-                                                href={item.link}
-                                                target='_blank'
-                                                rel='noopener noreferrer'
                                             >
-                                                {item.title}
+                                                <List.Header
+                                                    as='a'
+                                                    href={item.link}
+                                                    target='_blank'
+                                                    rel='noopener noreferrer'
+                                                >
+                                                    {item.title}
+                                                </List.Header>
                                             </List.Item>
                                         )
                                     })}
@@ -201,11 +183,11 @@ const CommonsBook = (props) => {
                     setBookChapters(chapterPanels);
                 }
             } else {
-                handleGlobalError(res.data.errMsg);
+                console.log(res.data.errMsg);
             }
             setLoadedTOC(true);
         }).catch((err) => {
-            handleGlobalError(err);
+            console.log(err); // fail silently
             setLoadedTOC(true);
         });
     };
@@ -282,21 +264,13 @@ const CommonsBook = (props) => {
                                                 : (<p><em>No summary available.</em></p>)
                                             }
                                         </Segment>
-                                        <Accordion styled fluid>
-                                            <Accordion.Title
-                                                active={tocOpen}
-                                                onClick={() => { setTOCOpen(!tocOpen) }}
-                                            >
-                                                <Icon name='dropdown' />
-                                                Table of Contents
-                                            </Accordion.Title>
-                                            <Accordion.Content active={tocOpen}>
-                                                {loadedTOC
-                                                    ? (<Accordion styled fluid panels={bookChapters} />)
-                                                    : (<Loader active inline='centered' />)
-                                                }
-                                            </Accordion.Content>
-                                        </Accordion>
+                                        <Segment loading={!loadedTOC}>
+                                            <Header as='h3' dividing>Table of Contents</Header>
+                                            {(bookChapters.length > 0)
+                                                ? (<Accordion fluid panels={bookChapters} />)
+                                                : (<p><em>Table of contents unavailable.</em></p>)
+                                            }
+                                        </Segment>
                                     </Grid.Column>
                                 </Grid.Row>
                             </Grid>
@@ -351,21 +325,13 @@ const CommonsBook = (props) => {
                                                 : (<p><em>No summary available.</em></p>)
                                             }
                                         </Segment>
-                                        <Accordion styled fluid>
-                                            <Accordion.Title
-                                                active={tocOpen}
-                                                onClick={() => { setTOCOpen(!tocOpen) }}
-                                            >
-                                                <Icon name='dropdown' />
-                                                Table of Contents
-                                            </Accordion.Title>
-                                            <Accordion.Content active={tocOpen}>
-                                                {loadedTOC
-                                                    ? (<Accordion styled fluid panels={bookChapters} />)
-                                                    : (<Loader active inline='centered' />)
-                                                }
-                                            </Accordion.Content>
-                                        </Accordion>
+                                        <Segment loading={!loadedTOC}>
+                                            <Header as='h3' dividing>Table of Contents</Header>
+                                            {(bookChapters.length > 0)
+                                                ? (<Accordion fluid panels={bookChapters} />)
+                                                : (<p><em>Table of contents unavailable.</em></p>)
+                                            }
+                                        </Segment>
                                     </Grid.Column>
                                 </Grid.Row>
                             </Grid>

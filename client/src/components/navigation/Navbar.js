@@ -316,7 +316,7 @@ const Navbar = (_props) => {
                                     }
                                 </Dropdown.Item>
                                 <Dropdown.Divider />
-                                <Dropdown.Item as={Link} to='/account/settings/' >
+                                <Dropdown.Item as={Link} to='/account' >
                                     <Icon name='settings' />
                                     Settings
                                 </Dropdown.Item>

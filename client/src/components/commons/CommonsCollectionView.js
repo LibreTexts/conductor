@@ -233,10 +233,13 @@ const CommonsCollectionView = (props) => {
             <Table celled>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={2}><Header sub>Author</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={2}><Header sub>Library</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={3}><Header sub>Affiliation</Header></Table.HeaderCell>
+                        <Table.HeaderCell>
+                            <Image centered src={getLibGlyphURL('')} className='commons-itemized-glyph' />
+                        </Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Subject</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Author</Header></Table.HeaderCell>
+                        <Table.HeaderCell><Header sub>Affiliation</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -245,14 +248,16 @@ const CommonsCollectionView = (props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
+                                        <Image centered src={getLibGlyphURL(item.library)} className='commons-itemized-glyph' />
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <p><strong><Link to={`/book/${item.bookID}`}>{item.title}</Link></strong></p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <p>{item.author}</p>
+                                        <p>{item.subject}</p>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
-                                        {getLibraryName(item.library)}
+                                        <p>{item.author}</p>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <p><em>{item.affiliation}</em></p>
