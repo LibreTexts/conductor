@@ -25,6 +25,7 @@ const OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
 const tokenURL = 'https://sso.libretexts.org/cas/oauth2.0/accessToken';
 const callbackURL = 'https://commons.libretexts.org/api/v1/oauth/libretexts';
+const profileURL = 'https://sso.libretexts.org/cas/oauth2.0/profile';
 
 passport.use('libretexts', new OAuth2Strategy({
     authorizationURL: 'https://sso.libretexts.org/cas/oauth2.0/authorize',
@@ -36,38 +37,14 @@ passport.use('libretexts', new OAuth2Strategy({
     console.log("PASSPORT");
     if (accessToken) {
         console.log(accessToken);
-        axios.get('https://sso.libretexts.org/cas/oauth2.0/profile', {
+        axios.get('', {
             params: {
                 'access_token': accessToken
             }
         }).then((axiosRes) => {
             if (axiosRes.data) {
                 if (axiosRes.data.attributes) {
-                    const attr = axioData.attributes;
-                    return User.findOneAndUpdate({
-                        $and: [
-                            { email: attr.email },
-                            { authType: 'sso' }
-                        ]
-                    }, {
-                        $setOnInsert: {
-                            uuid: uuidv4(),
-                            firstName: attr.given_name,
-                            lastName: attr.family_name,
-                            email: attr.email,
-                            avatar: attr.picture,
-                            hash: '',
-                            salt: '',
-                            roles: [{
-                                org: process.env.ORG_ID,
-                                role: 'member'
-                            }],
-                            authType: 'sso'
-                        }
-                    }, {
-                        new: true,
-                        upsert: true
-                    });
+
                 } else {
                     throw('noattr');
                 }
@@ -88,36 +65,131 @@ passport.use('libretexts', new OAuth2Strategy({
 }));
 
 
-const initSSO = (req, res) => {
-    var initURL = authURL + `?response_type=code&client_id=${process.env.OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackURL)}`;
-    console.log(initURL);
-    return res.redirect(initURL);
+const initSSO = (_req, res) => {
+    return res.redirect(
+        authURL + `?response_type=code&client_id=${process.env.OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackURL)}`
+    );
 };
 
 const oauthCallback = (req, res) => {
-    console.log(req.query.code);
-    var params = {
-        'grant_type': 'authorization_code',
-        'client_id': process.env.OAUTH_CLIENT_ID,
-        'client_secret': process.env.OAUTH_CLIENT_SECRET,
-        'code': req.query.code,
-        'redirect_uri': callbackURL
-    };
-    console.log(params);
+    var isNewMember = false;
+    var payload = {};
+    // get token from CAS using auth code
     axios.post(tokenURL, {}, {
-        params: params
+        params: {
+            'grant_type': 'authorization_code',
+            'client_id': process.env.OAUTH_CLIENT_ID,
+            'client_secret': process.env.OAUTH_CLIENT_SECRET,
+            'code': req.query.code,
+            'redirect_uri': callbackURL
+        }
     }).then((axiosRes) => {
-        console.log(axiosRes.data);
-        return res.send({
-            err: false,
-            msg: "hi"
+        if (axiosRes.data.access_token) {
+            // get user profile from CAS using access token
+            return axios.get(profileURL, {
+                params: {
+                    'access_token': axiosRes.data.access_token
+                }
+            });
+        } else {
+            throw(new Error('tokenfail'));
+        }
+    }).then((axiosRes) => {
+        if (axiosRes.data && axiosRes.data.attributes) {
+            const attr = axioData.attributes;
+            // find the user or create them if they do not exist yet
+            return User.findOneAndUpdate({
+                $and: [
+                    { email: attr.email },
+                    { authType: 'sso' }
+                ]
+            }, {
+                $setOnInsert: {
+                    uuid: uuidv4(),
+                    firstName: attr.given_name,
+                    lastName: attr.family_name,
+                    email: attr.email,
+                    avatar: attr.picture,
+                    hash: '',
+                    salt: '',
+                    roles: [{
+                        org: process.env.ORG_ID,
+                        role: 'member'
+                    }],
+                    authType: 'sso'
+                }
+            }, {
+                new: true,
+                upsert: true
+            });
+        } else {
+            throw(new Error('profilefail'));
+        }
+    }).then((user) => {
+        if (user) {
+            payload.uuid = user.uuid;
+            // check if user is new organization member, update roles if so
+            if (Array.isArray(user.roles)) {
+                var foundRole = user.roles.find((item) => {
+                    if (item.org === process.env.ORG_ID) {
+                        return item;
+                    }
+                    return null;
+                });
+                if (foundRole === undefined) {
+                    isNewMember = true;
+                }
+            }
+            if (isNewMember) {
+                return User.updateOne({ uuid: user.uuid }, {
+                    $push: {
+                        roles: {
+                            org: process.env.ORG_ID,
+                            role: 'member'
+                        }
+                    }
+                });
+            } else {
+                return {};
+            }
+        } else {
+            throw(new Error('userretrieve'));
+        }
+    }).then((updateRes) => {
+        // issue auth token and return to login for entry
+        jwt.sign(payload, process.env.SECRETKEY, {
+            expiresIn: 86400
+        },(err, token) => {
+            if (!err && token !== null) {
+                const splitToken = token.split('.');
+                var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
+                var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
+                if (process.env.NODE_ENV === 'production') {
+                    const domains = String(process.env.PRODUCTIONURLS).split(',');
+                    accessCookie += " Domain=" + domains[0] + ';';
+                    sigCookie += " Domain=" + domains[0] + '; Secure;';
+                }
+                const cookiesToSet = [accessCookie, sigCookie];
+                res.setHeader('Set-Cookie', cookiesToSet);
+                var redirectURL = '/dashboard';
+                if (isNewMember) redirectURL = redirectURL + '?newmember=true';
+                return res.redirect(redirectURL);
+            } else {
+                throw(err);
+            }
         });
     }).catch((err) => {
-        console.log(err);
-        return res.send({
-            err: false,
-            msg: "hi"
-        });
+        var ssoDebug = 'SSO authentication failed — ';
+        if (err.message === 'tokenfail' || err.message === 'profilefail' || err.message === 'userretrieve') {
+            debugError(ssoDebug + err.message);
+            return res.redirect('/login?ssofail=true');
+        } else {
+            debugError(err);
+            return res.send({
+                err: false,
+                msg: conductorErrors.err6
+            });
+        }
     });
 };
 
