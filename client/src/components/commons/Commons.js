@@ -1,7 +1,15 @@
 import './Commons.css';
 
 import { Link, useLocation, Switch, Route } from 'react-router-dom';
-import { Grid, Menu, Image, Icon, Modal, Button } from 'semantic-ui-react';
+import {
+    Grid,
+    Menu,
+    Image,
+    Icon,
+    Modal,
+    Button,
+    Message
+} from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -222,6 +230,17 @@ const Commons = (_props) => {
                     }
                 </Menu>
             </Breakpoint>
+            {(process.env.REACT_APP_INT_MAINT === 'true') &&
+                <Message
+                    info
+                    className='mt-2p ml-1p mr-1p'
+                >
+                    <Message.Header>Maintenance in Progress</Message.Header>
+                    <Message.Content>
+                        <span>This site is currently undergoing background maintenance. You may experience intermittent service interruptions. This message will disappear when maintenance is complete.</span>
+                    </Message.Content>
+                </Message>
+            }
             <Switch>
                 <Route exact path='/' component={CommonsCatalog} />
                 <Route exact path='/catalog' component={CommonsCatalog} />

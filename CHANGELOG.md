@@ -1,5 +1,9 @@
 # Changelog
 
+## 09-11-2021
+#### :art: UI/UX
+* Fixed an issue causing infinite loops when the user's authorization token has expired
+
 ## 09-10-2021
 #### :art: UI/UX
 * Itemized Mode in Commons Collection View now matches Catalog styling

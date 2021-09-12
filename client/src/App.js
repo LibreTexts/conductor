@@ -3,6 +3,7 @@ import './App.css';
 import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import React from 'react';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 /* React-Redux State */
 import { Provider } from 'react-redux';
@@ -68,7 +69,12 @@ function App() {
     }, (err) => {
         if (err.response !== undefined) {
             if (err.response.status === 401 && err.response.data.tokenExpired === true) {
-                window.location.assign('/login?src=tokenexp')
+                var domains = String(process.env.PRODUCTIONURLS).split(',');
+                Cookies.remove('conductor_access', { path: '/', domain: domains[0] });
+                if (process.env.NODE_ENV === 'development') {
+                    Cookies.remove('conductor_access', { path: '/', domain: 'localhost' });
+                }
+                window.location.assign('/login?src=authexpired')
             }
         }
         return Promise.reject(err);

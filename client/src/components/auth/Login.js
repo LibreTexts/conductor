@@ -47,7 +47,7 @@ const Login = (props) => {
     useEffect(() => {
         document.title = "LibreTexts Conductor | Login";
         const queryValues = queryString.parse(props.location.search);
-        if (queryValues.src === 'expired') {
+        if (queryValues.src === 'authexpired') {
             setExpiredAuth(true);
         }
         if (queryValues.newregister === 'true') {
