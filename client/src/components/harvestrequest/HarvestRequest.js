@@ -205,7 +205,7 @@ const HarvestRequest = (props) => {
                             />
                             <Divider />
                             <Header as='h3'>Priority Integration</Header>
-                            <p>We try to prioritize integrating OER texts that people are ready to adopt in their classes. If you would like to use this text in your class you can fill out this section for priority consideration (we cannot make promises).</p>
+                            <p>We try to prioritize integrating OER texts that people are ready to adopt in their classes. If you would like to use this text in your class you can fill out this section for priority consideration.</p>
                             <Form.Field>
                                 <label htmlFor='name'>Your Name</label>
                                 <Input fluid={true} id='name' type='text' name='name' placeholder='Name' required={false} value={name} onChange={onChange} icon='user circle' iconPosition='left' />
@@ -225,7 +225,7 @@ const HarvestRequest = (props) => {
                             />
                             <DateInput
                                 name='dateIntegrate'
-                                label='Date integration has to be completed for adoption to be possible:'
+                                label='Date integration has to be completed for adoption to be possible:*'
                                 placeholder='Date...'
                                 value={dateIntegrate}
                                 iconPosition='left'
@@ -233,6 +233,13 @@ const HarvestRequest = (props) => {
                                 dateFormat='MM-DD-YYYY'
                                 popupPosition='bottom center'
                             />
+                            <p>
+                                *
+                                <em>
+                                    We try to integrate projects by the date they are needed but cannot guarantee this. If you have questions, you can always
+                                    <a href='mailto:info@libretexts.org' target='_blank' rel='noopener noreferrer'> get in touch</a> with the LibreTexts team.
+                                </em>
+                            </p>
                             <Divider />
                             <Form.Field>
                                 <label htmlFor='comments'>Comments</label>

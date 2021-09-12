@@ -62,7 +62,7 @@ const HarvestingRequests = (props) => {
 
     const sortOptions = [
         { key: 'date', text: 'Date', value: 'date' },
-        { key: 'intdeadline', text: 'Integration Deadline', value: 'intdeadline' },
+        { key: 'reqdate', text: 'Requested Harvest Date', value: 'reqdate' },
         { key: 'resname', text: 'Resource Title', value: 'resname' },
         { key: 'reslib', text: 'Resource Library', value: 'reslib' },
         { key: 'license', text: 'License', value: 'license' },
@@ -114,7 +114,7 @@ const HarvestingRequests = (props) => {
                     return 0;
                 });
                 break;
-            case 'intdeadline':
+            case 'reqdate':
                 sorted = [...harvestingRequests].sort((a, b) => {
                     if ((a.dateIntegrate !== null) && (b.dateIntegrate !== null)) {
                         if (a.dateIntegrate < b.dateIntegrate) {
@@ -286,9 +286,9 @@ const HarvestingRequests = (props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'intdeadline')
-                                                ? <span><em>Integration Deadline</em></span>
-                                                : <span>Integration Deadline</span>
+                                            {(sortChoice === 'reqdate')
+                                                ? <span><em>Requested Harvest Date</em></span>
+                                                : <span>Requested Harvest Date</span>
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
@@ -427,7 +427,7 @@ const HarvestingRequests = (props) => {
                                                     }
                                                 </Grid.Column>
                                                 <Grid.Column>
-                                                    <Header sub>Integration Deadline</Header>
+                                                    <Header sub>Requested Harvest Date</Header>
                                                     {(currentRequest.dateIntegrate !== null)
                                                         ? <p>{parseDate(currentRequest.dateIntegrate)}</p>
                                                         :<p className='muted-text'><em>N/A</em></p>
