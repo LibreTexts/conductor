@@ -22,6 +22,10 @@ const passport = require('passport');
 const OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 
 
+const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
+const tokenURL = 'https://sso.libretexts.org/cas/oauth2.0/accessToken';
+const callbackURL = 'https://commons.libretexts.org/api/v1/oauth/libretexts';
+
 passport.use('libretexts', new OAuth2Strategy({
     authorizationURL: 'https://sso.libretexts.org/cas/oauth2.0/authorize',
     tokenURL: 'https://sso.libretexts.org/cas/oauth2.0/accessToken',
@@ -84,12 +88,43 @@ passport.use('libretexts', new OAuth2Strategy({
 }));
 
 
-const initSSO = passport.authenticate('libretexts');
+const initSSO = (req, res) => {
+    return res.redirect(authURL);
+};
 
+const oauthCallback = (req, res) => {
+    console.log(req.query.code);
+    var params = {
+        'grant_type': 'authorization_code',
+        'client_id': process.env.OAUTH_CLIENT_ID,
+        'client_secret': process.env.OAUTH_CLIENT_SECRET,
+        'code': req.query.code,
+        'redirect_uri': callbackURL
+    };
+    console.log(params);
+    axios.post(tokenURL, {}, {
+        params: params
+    }).then((res) => {
+        console.log(res.data);
+        return res.send({
+            err: false,
+            msg: "hi"
+        });
+    }).catch((err) => {
+        console.log(err);
+        return res.send({
+            err: false,
+            msg: "hi"
+        });
+    });
+};
+
+/*
 const oauthCallback = passport.authenticate('libretexts', {
     successRedirect: '/login?ssosuccess=true',
     failureRedirect: '/login?ssofail=true'
 });
+*/
 
 /**
  * Handles user login by finding a user account,
