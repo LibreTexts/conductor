@@ -104,8 +104,8 @@ const oauthCallback = (req, res) => {
     console.log(params);
     axios.post(tokenURL, {}, {
         params: params
-    }).then((res) => {
-        console.log(res.data);
+    }).then((axiosRes) => {
+        console.log(axiosRes.data);
         return res.send({
             err: false,
             msg: "hi"
