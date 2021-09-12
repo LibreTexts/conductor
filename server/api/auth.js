@@ -14,12 +14,7 @@ const { debugError, debugServer, debugObject } = require('../debug.js');
 const { isEmptyString } = require('../util/helpers.js');
 
 const mailAPI = require('./mail.js');
-
 const axios = require('axios');
-
-
-const passport = require('passport');
-const OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 
 
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
@@ -27,61 +22,45 @@ const tokenURL = 'https://sso.libretexts.org/cas/oauth2.0/accessToken';
 const callbackURL = 'https://commons.libretexts.org/api/v1/oauth/libretexts';
 const profileURL = 'https://sso.libretexts.org/cas/oauth2.0/profile';
 
-passport.use('libretexts', new OAuth2Strategy({
-    authorizationURL: 'https://sso.libretexts.org/cas/oauth2.0/authorize',
-    tokenURL: 'https://sso.libretexts.org/cas/oauth2.0/accessToken',
-    clientID: process.env.OAUTH_CLIENT_ID,
-    clientSecret: process.env.OAUTH_CLIENT_SECRET,
-    callbackURL: 'https://commons.libretexts.org/api/v1/oauth/libretexts'
-}, (accessToken, refreshToken, profile, done) => {
-    console.log("PASSPORT");
-    if (accessToken) {
-        console.log(accessToken);
-        axios.get('', {
-            params: {
-                'access_token': accessToken
-            }
-        }).then((axiosRes) => {
-            if (axiosRes.data) {
-                if (axiosRes.data.attributes) {
 
-                } else {
-                    throw('noattr');
-                }
-            } else {
-                throw('nodata');
-            }
-        }).then((user) => {
-            if (user) {
-                console.log(user);
-                done(null, user);
-            } else {
-                done(null, null);
-            }
-        }).catch((axiosErr) => {
-            done(axiosErr, null);
-        });
-    }
-}));
-
-
+/**
+ * Redirects the browser to the SSO authorization
+ * flow initialization URI.
+ */
 const initSSO = (_req, res) => {
     return res.redirect(
         authURL + `?response_type=code&client_id=${process.env.OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackURL)}`
     );
 };
 
+
+/**
+ * Accepts an authorization code from the
+ * request's query string and exchanges it
+ * via POST to CAS for an access token. The
+ * access token is then used to retrieve the
+ * the user's IdP profile and then locate or
+ * create the user internally. Finally, a
+ * standard Conductor authorization token
+ * is issued.
+ */
 const oauthCallback = (req, res) => {
     var isNewMember = false;
     var payload = {};
-    // get token from CAS using auth code
-    axios.post(tokenURL, {}, {
-        params: {
-            'grant_type': 'authorization_code',
-            'client_id': process.env.OAUTH_CLIENT_ID,
-            'client_secret': process.env.OAUTH_CLIENT_SECRET,
-            'code': req.query.code,
-            'redirect_uri': callbackURL
+    new Promise((resolve) => {
+        if (req.query.code) {
+            // get token from CAS using auth code
+            resolve(axios.post(tokenURL, {}, {
+                params: {
+                    'grant_type': 'authorization_code',
+                    'client_id': process.env.OAUTH_CLIENT_ID,
+                    'client_secret': process.env.OAUTH_CLIENT_SECRET,
+                    'code': req.query.code,
+                    'redirect_uri': callbackURL
+                }
+            }));
+        } else {
+            throw(new Error('nocode'));
         }
     }).then((axiosRes) => {
         if (axiosRes.data.access_token) {
@@ -96,6 +75,7 @@ const oauthCallback = (req, res) => {
         }
     }).then((axiosRes) => {
         if (axiosRes.data && axiosRes.data.attributes) {
+            console.log(axiosRes.data);
             const attr = axiosRes.data.attributes;
             // find the user or create them if they do not exist yet
             return User.findOneAndUpdate({
@@ -112,10 +92,7 @@ const oauthCallback = (req, res) => {
                     avatar: attr.picture,
                     hash: '',
                     salt: '',
-                    roles: [{
-                        org: process.env.ORG_ID,
-                        role: 'member'
-                    }],
+                    roles: [],
                     authType: 'sso'
                 }
             }, {
@@ -155,7 +132,7 @@ const oauthCallback = (req, res) => {
         } else {
             throw(new Error('userretrieve'));
         }
-    }).then((updateRes) => {
+    }).then((_updateRes) => {
         // issue auth token and return to login for entry
         jwt.sign(payload, process.env.SECRETKEY, {
             expiresIn: 86400
@@ -193,12 +170,6 @@ const oauthCallback = (req, res) => {
     });
 };
 
-/*
-const oauthCallback = passport.authenticate('libretexts', {
-    successRedirect: '/login?ssosuccess=true',
-    failureRedirect: '/login?ssofail=true'
-});
-*/
 
 /**
  * Handles user login by finding a user account,
@@ -247,7 +218,7 @@ const login = (req, res, _next) => {
         } else {
             throw(new Error('emailorpassword'));
         }
-    }).then((updateRes) => {
+    }).then((_updateRes) => {
         jwt.sign(payload, process.env.SECRETKEY, {
             expiresIn: 86400
         },(err, token) => {
@@ -284,6 +255,7 @@ const login = (req, res, _next) => {
         });
     });
 };
+
 
 /**
  * Handles user registration by creating a User
@@ -427,6 +399,7 @@ const resetPassword = (req, res) => {
         });
     });
 };
+
 
 /**
  * Searches for the user currently holding
@@ -574,6 +547,7 @@ const changePassword = (req, res) => {
     });
 };
 
+
 /**
  * Middleware to verify the JWT provided in a
  * request's Authorization header.
@@ -598,6 +572,7 @@ const verifyRequest = (req, res, next) => {
         return res.status(401).send(response);
     }
 };
+
 
 /**
  * Pulls the user record from the database and adds
@@ -641,6 +616,7 @@ const getUserAttributes = (req, res, next) => {
     }
 };
 
+
 /**
  * Checks that the user has the role
  * specified in the @role parameter for
@@ -671,6 +647,7 @@ const checkHasRole = (user, org, role) => {
         return false;
     }
 };
+
 
 /**
  * Checks that the user has the role
@@ -730,6 +707,7 @@ const passwordValidator = (password) => {
     return false;
 };
 
+
 /**
  * Middleware(s) to verify requests contain
  * necessary fields.
@@ -766,6 +744,8 @@ const validate = (method) => {
 }
 
 module.exports = {
+    initSSO,
+    oauthCallback,
     login,
     register,
     resetPassword,
@@ -775,7 +755,5 @@ module.exports = {
     getUserAttributes,
     checkHasRole,
     checkHasRoleMiddleware,
-    validate,
-    oauthCallback,
-    initSSO
+    validate
 };

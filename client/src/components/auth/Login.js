@@ -267,7 +267,6 @@ const Login = (props) => {
                     >
                         Forgot your password?
                     </Button>
-                    <Button onClick={initSSOLogin} color='red'>Development Use Only</Button>
                 </Segment>
                 <Modal
                     open={showResetModal}
