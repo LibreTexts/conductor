@@ -75,7 +75,6 @@ const oauthCallback = (req, res) => {
         }
     }).then((axiosRes) => {
         if (axiosRes.data && axiosRes.data.attributes) {
-            console.log(axiosRes.data);
             const attr = axiosRes.data.attributes;
             // find the user or create them if they do not exist yet
             return User.findOneAndUpdate({
