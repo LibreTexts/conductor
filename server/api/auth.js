@@ -142,7 +142,7 @@ const oauthCallback = (req, res) => {
                 var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + ';';
+                    accessCookie += " Domain=" + domains[0] + '; Secure;';
                     sigCookie += " Domain=" + domains[0] + '; Secure;';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];
@@ -227,7 +227,7 @@ const login = (req, res, _next) => {
                 var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + ';';
+                    accessCookie += " Domain=" + domains[0] + '; Secure;';
                     sigCookie += " Domain=" + domains[0] + '; Secure;';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];

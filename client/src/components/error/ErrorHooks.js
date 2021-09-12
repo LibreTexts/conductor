@@ -54,6 +54,7 @@ function useGlobalError() {
      * the global error modal
      */
     const handleGlobalError = (err) => {
+        console.log(err);
         var message = "";
         if (err.response) {
             if (err.response.data) {

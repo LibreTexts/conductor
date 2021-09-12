@@ -109,9 +109,10 @@ export default function userReducer(state = userInitialState, action) {
             return userInitialState;
         case 'CLEAR_USER_LOGOUT':
             var domains = String(process.env.PRODUCTIONURLS).split(',');
-            Cookies.remove('conductor_access', { path: '/', domain: '.' + domains[0] });
-            if (process.env.NODE_ENV === 'development') {
-                Cookies.remove('conductor_access', { path: '/', domain: 'localhost' });
+            if (process.env.NODE_ENV === 'production') {
+                Cookies.remove('conductor_access', { path: '/', domain: domains[0], secure: true });
+            } else {
+                Cookies.remove('conductor_access', { path: '/', domain: 'localhost', secure: false });
             }
             return userInitialState;
         default:
