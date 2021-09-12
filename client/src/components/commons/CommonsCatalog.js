@@ -479,7 +479,7 @@ const CommonsCatalog = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
-                        {((org.commonsHeader !== '') || (org.commonsMessage !== '')) &&
+                        {((org.commonsHeader && org.commonsHeader !== '') || (org.commonsMessage && org.commonsMessage !== '')) &&
                             <Segment padded>
                                 <Breakpoint name='desktop'>
                                     <Header id='commons-intro-header'>{org.commonsHeader}</Header>

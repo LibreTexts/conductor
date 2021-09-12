@@ -400,7 +400,7 @@ const buildOrganizationNamesList = (orgData) => {
         }
         // Normalize the names to remove common punctuation, then add to campusNames list
         campusNames.forEach((name) => {
-            var normed = String(name).replaceAll(',', '').replaceAll('-', '').replaceAll(':', '');
+            var normed = String(name).replace(/,/g, '').replace(/-/g, '').replace(/:/g, '');
             if (!normNames.includes(normed) && !campusNames.includes(normed)) {
                 normNames.push(normed);
             }
