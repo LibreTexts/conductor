@@ -3,6 +3,12 @@
 ## 09-11-2021
 #### :art: UI/UX
 * Fixed an issue causing infinite loops when the user's authorization token has expired
+* Finished implementing SSO for LibreCommons
+* Implemented campus branding in Commons Catalog
+* Updated language in OER Integration Request & Harvesting Requests dashboard
+
+#### :satellite: Server
+* Finished implementing SSO for LibreCommons
 
 ## 09-10-2021
 #### :art: UI/UX
