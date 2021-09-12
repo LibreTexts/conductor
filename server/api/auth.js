@@ -89,7 +89,9 @@ passport.use('libretexts', new OAuth2Strategy({
 
 
 const initSSO = (req, res) => {
-    return res.redirect(authURL);
+    var initURL = authURL + `?response_type=code&client_id=${process.env.OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(callbackURL)}`;
+    console.log(initURL);
+    return res.redirect(initURL);
 };
 
 const oauthCallback = (req, res) => {
