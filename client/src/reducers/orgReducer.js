@@ -13,7 +13,9 @@ const orgInitialState = {
     largeLogo: '',
     mediumLogo: '',
     smallLogo: '',
-    aboutLink: ''
+    aboutLink: '',
+    commonsHeader: '',
+    commonsMessage: ''
 };
 
 export default function orgReducer(state = orgInitialState, action) {

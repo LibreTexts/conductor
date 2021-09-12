@@ -479,15 +479,15 @@ const CommonsCatalog = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
-                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                        {((org.commonsHeader !== '') || (org.commonsMessage !== '')) &&
                             <Segment padded>
                                 <Breakpoint name='desktop'>
-                                    <Header id='commons-librecommons-intro-header'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
-                                    <p id='commons-librecommons-intro'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                                    <Header id='commons-intro-header'>{org.commonsHeader}</Header>
+                                    <p id='commons-intro-message'>{org.commonsMessage}</p>
                                 </Breakpoint>
                                 <Breakpoint name='mobileOrTablet'>
-                                    <Header id='commons-librecommons-intro-header' textAlign='center'>The World's Most Popular Online Textbook Platform, Centralized.</Header>
-                                    <p id='commons-librecommons-intro' className='text-center'>LibreCommons hosts curated Open Educational Resources from all 14 LibreTexts libraries in one convenient location. LibreCommons, the LibreTexts Libraries, and all of our resources are accessible to everyone via the internet, completely free. We believe everyone should have access to knowledge.</p>
+                                    <Header id='commons-intro-header' textAlign='center'>{org.commonsHeader}</Header>
+                                    <p id='commons-intro-message' className='text-center'>{org.commonsMessage}</p>
                                 </Breakpoint>
                             </Segment>
                         }

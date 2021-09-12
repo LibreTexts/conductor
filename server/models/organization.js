@@ -23,7 +23,9 @@ const OrganizationSchema = new Schema({
     largeLogo: String,              // the organization's large/main logo
     mediumLogo: String,             // the organization's medium/secondary logo
     smallLogo: String,              // the organization's smallest logo or icon
-    aboutLink: String               // the organization's "About" page link
+    aboutLink: String,              // the organization's "About" page link,
+    commonsHeader: String,          // the header text displayed on Campus Commons main page (optional)
+    commonsMessage: String          // the welcome text displayed on Campus Commons main page (optional)
 }, {
     timestamps: true
 });
