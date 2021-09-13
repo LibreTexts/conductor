@@ -19,6 +19,12 @@ body {
     height: 100vh;
 }
 
+.commons {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
 .component-container {
     margin: calc(60px + 2%) 2% 0 2% !important;
     width: calc(100% - 4%) !important;

@@ -400,9 +400,13 @@ const buildOrganizationNamesList = (orgData) => {
         }
         // Normalize the names to remove common punctuation, then add to campusNames list
         campusNames.forEach((name) => {
-            var normed = String(name).replace(/,/g, '').replace(/-/g, '').replace(/:/g, '');
+            var normed = String(name).replace(/,/g, '').replace(/-/g, '').replace(/:/g, '').replace(/'/g, '');
             if (!normNames.includes(normed) && !campusNames.includes(normed)) {
                 normNames.push(normed);
+            }
+            var lowerNormed = String(normed).toLowerCase();
+            if (!normNames.includes(lowerNormed) && !campusNames.includes(lowerNormed)) {
+                normNames.push(lowerNormed);
             }
         });
         if (normNames.length > 0) {
@@ -412,7 +416,7 @@ const buildOrganizationNamesList = (orgData) => {
     } else {
         return [];
     }
-}
+};
 
 
 /**
@@ -449,8 +453,10 @@ const getCommonsCatalog = (req, res) => {
             orgData = orgDataRes;
         }
         if (process.env.ORG_ID === 'libretexts') {
+            // LibreCommons - no need to lookup Custom Catalog
             return {};
         } else {
+            // Campus Commons - look up Custom Catalog
             return CustomCatalog.findOne({
                 orgID: process.env.ORG_ID
             }, {
@@ -496,19 +502,21 @@ const getCommonsCatalog = (req, res) => {
         }
         if (req.query.search && !isEmptyString(req.query.search)) {
             matchObj['$text'] = {
-                $search: req.query.search
-            }
+                $search: `\"${req.query.search}\"`
+            };
             hasSearchParams = true;
         }
         if (req.query.course && !isEmptyString(req.query.course)) {
             matchObj.course = req.query.course;
             hasSearchParams = true;
         }
-
         if ((process.env.ORG_ID !== 'libretexts')) {
             var campusNames = buildOrganizationNamesList(orgData);
             if (req.query.course && !isEmptyString(req.query.course)) {
                 campusNames.unshift(req.query.course);
+            }
+            if (req.query.publisher && !isEmptyString(req.query.publisher)) {
+                campusNames.unshift(req.query.publisher)
             }
             if (customCatalogRes && Object.keys(customCatalogRes).length > 0) {
                 if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources) &&
@@ -528,11 +536,21 @@ const getCommonsCatalog = (req, res) => {
                     course: {
                         $in: campusNames
                     }
+                }, {
+                    program: {
+                        $in: campusNames
+                    }
                 }]
             } else {
-                matchObj.course = {
-                    $in: campusNames
-                };
+                matchObj['$or'] = [{
+                    course: {
+                        $in: campusNames
+                    }
+                }, {
+                    program: {
+                        $in: campusNames
+                    }
+                }];
             }
         }
         debugObject(matchObj);
@@ -667,6 +685,7 @@ const getCatalogFilterOptions = (_req, res) => {
     var subjects = [];
     var affiliations = [];
     var courses = [];
+    var programs = [];
     var matchObj = {};
     new Promise((resolve, _reject) => {
         if (process.env.ORG_ID === 'libretexts') {
@@ -721,11 +740,21 @@ const getCatalogFilterOptions = (_req, res) => {
                 course: {
                     $in: campusNames
                 }
+            }, {
+                program: {
+                    $in: campusNames
+                }
             }];
         } else if (process.env.ORG_ID !== 'libretexts') {
-            matchObj.course = {
-                $in: campusNames
-            }
+            matchObj['$or'] = [{
+                course: {
+                    $in: campusNames
+                }
+            }, {
+                program: {
+                    $in: campusNames
+                }
+            }];
         }
         return Book.aggregate([
             {
@@ -736,7 +765,8 @@ const getCatalogFilterOptions = (_req, res) => {
                     author: 1,
                     subject: 1,
                     affiliation: 1,
-                    course: 1
+                    course: 1,
+                    program: 1
                 }
             }
         ]);
@@ -762,17 +792,24 @@ const getCatalogFilterOptions = (_req, res) => {
                     courses.push(book.course);
                 }
             }
+            if (book.program && !isEmptyString(book.program)) {
+                if (!programs.includes(book.program)) {
+                    programs.push(book.program);
+                }
+            }
         });
         authors.sort(normalizedSort);
         subjects.sort(normalizedSort);
         affiliations.sort(normalizedSort);
         courses.sort(normalizedSort);
+        programs.sort(normalizedSort);
         return res.send({
             err: false,
             authors: authors,
             subjects: subjects,
             affiliations: affiliations,
-            courses: courses
+            courses: courses,
+            publishers: programs // referred to as 'Publishers' on front-end
         });
     }).catch((err) => {
         debugError(err);
@@ -1132,6 +1169,7 @@ const validate = (method) => {
                 query('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
                 query('affiliation', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('course', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+                query('publisher', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
             ]
         case 'getMasterCatalog':

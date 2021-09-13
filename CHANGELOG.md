@@ -1,6 +1,16 @@
 # Changelog
 
-## 09-11-2021
+## 09-13-2021
+#### :art: UI/UX
+* Added the Publisher filter to Commons Catalog
+* Fixed a bug when using URL params to directly view search results
+
+#### :satellite: Server
+* Added the ability to filter by Publisher/Program
+* Improved Catalog search result accuracy for Campus Commons
+
+
+## 09-12-2021
 #### :art: UI/UX
 * Fixed an issue causing infinite loops when the user's authorization token has expired
 * Finished implementing SSO for LibreCommons

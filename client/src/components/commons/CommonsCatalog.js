@@ -75,11 +75,13 @@ const CommonsCatalog = (_props) => {
     const [affilFilter, setAffilFilter] = useState('');
     const [instrFilter, setInstrFilter] = useState('');
     const [courseFilter, setCourseFilter] = useState('');
+    const [pubFilter, setPubFilter] = useState('');
 
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [authorOptions, setAuthorOptions] = useState([]);
     const [affOptions, setAffOptions] = useState([]);
     const [courseOptions, setCourseOptions] = useState([]);
+    const [pubOptions, setPubOptions] = useState([]);
 
     // Sort and Search Filters
     const [sortChoice, setSortChoice] = useState('title');
@@ -131,6 +133,7 @@ const CommonsCatalog = (_props) => {
         searchURL = updateParams(searchURL, 'license', licenseFilter);
         searchURL = updateParams(searchURL, 'affiliation', affilFilter);
         searchURL = updateParams(searchURL, 'course', courseFilter);
+        searchURL = updateParams(searchURL, 'publisher', pubFilter);
         history.push({
             pathname: location.pathname,
             search: searchURL
@@ -146,6 +149,7 @@ const CommonsCatalog = (_props) => {
         setLicenseFilter('');
         setAffilFilter('');
         setCourseFilter('');
+        setPubFilter('');
         var searchURL = location.search;
         searchURL = updateParams(searchURL, 'search', '');
         searchURL = updateParams(searchURL, 'library', '');
@@ -155,6 +159,7 @@ const CommonsCatalog = (_props) => {
         searchURL = updateParams(searchURL, 'license', '');
         searchURL = updateParams(searchURL, 'affiliation', '');
         searchURL = updateParams(searchURL, 'course', '');
+        searchURL = updateParams(searchURL, 'publisher', '');
         history.push({
             pathname: location.pathname,
             search: searchURL
@@ -194,6 +199,9 @@ const CommonsCatalog = (_props) => {
         if (!isEmptyString(courseFilter)) {
             paramsObj.course = courseFilter;
         }
+        if (!isEmptyString(pubFilter)) {
+            paramsObj.publisher = pubFilter;
+        }
         axios.get('/commons/catalog', {
             params: paramsObj
         }).then((res) => {
@@ -218,58 +226,61 @@ const CommonsCatalog = (_props) => {
     const getFilterOptions = () => {
         axios.get('/commons/filters').then((res) => {
             if (!res.data.err) {
+                var newAuthorOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
+                var newSubjectOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
+                var newAffOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
+                var newCourseOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
+                var newPubOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
                 if (res.data.authors && Array.isArray(res.data.authors)) {
-                    var authorOptions = [
-                        { key: 'empty', text: 'Clear...', value: '' }
-                    ];
                     res.data.authors.forEach((author) => {
-                        authorOptions.push({
+                        newAuthorOptions.push({
                             key: author,
                             text: author,
                             value: author
                         });
                     });
-                    setAuthorOptions(authorOptions);
                 }
                 if (res.data.subjects && Array.isArray(res.data.subjects)) {
-                    var subjectOptions = [
-                        { key: 'empty', text: 'Clear...', value: '' }
-                    ];
                     res.data.subjects.forEach((subject) => {
-                        subjectOptions.push({
+                        newSubjectOptions.push({
                             key: subject,
                             text: subject,
                             value: subject
                         });
-                    })
-                    setSubjectOptions(subjectOptions);
+                    });
                 }
                 if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
-                    var affOptions = [
-                        { key: 'empty', text: 'Clear...', value: '' }
-                    ];
                     res.data.affiliations.forEach((affiliation) => {
-                        affOptions.push({
+                        newAffOptions.push({
                             key: affiliation,
                             text: affiliation,
                             value: affiliation
                         });
                     });
-                    setAffOptions(affOptions);
                 }
                 if (res.data.courses && Array.isArray(res.data.courses)) {
-                    var courseOptions = [
-                        { key: 'empty', text: 'Clear...', value: '' }
-                    ];
                     res.data.courses.forEach((course) => {
-                        courseOptions.push({
+                        newCourseOptions.push({
                             key: course,
                             text: course,
                             value: course
                         });
                     });
-                    setCourseOptions(courseOptions);
                 }
+                if (res.data.publishers && Array.isArray(res.data.publishers)) {
+                    res.data.publishers.forEach((publisher) => {
+                        newPubOptions.push({
+                            key: publisher,
+                            text: publisher,
+                            value: publisher
+                        });
+                    });
+                }
+                setAuthorOptions(newAuthorOptions);
+                setSubjectOptions(newSubjectOptions);
+                setAffOptions(newAffOptions);
+                setCourseOptions(newCourseOptions);
+                setPubOptions(newPubOptions);
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -364,6 +375,9 @@ const CommonsCatalog = (_props) => {
         if ((params.subject !== undefined) && (params.subject !== subjectFilter)) {
             setSubjectFilter(params.subject);
         }
+        if ((params.location !== undefined) && (params.location !== locationFilter)) {
+            setLocationFilter(params.location);
+        }
         if ((params.license !== undefined) && (params.license !== licenseFilter)) {
             setLicenseFilter(params.license);
         }
@@ -375,6 +389,9 @@ const CommonsCatalog = (_props) => {
         }
         if ((params.course !== undefined) && (params.course !== courseFilter)) {
             setCourseFilter(params.course);
+        }
+        if ((params.publisher !== undefined) && (params.publisher !== pubFilter)) {
+            setPubFilter(params.publisher);
         }
         if (!checkedParams.current) { // set the initial URL params sync to complete
             checkedParams.current = true;
@@ -645,6 +662,20 @@ const CommonsCatalog = (_props) => {
                                             setCourseFilter(value);
                                         }}
                                         value={courseFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                    <Dropdown
+                                        placeholder='Publisher'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={pubOptions}
+                                        onChange={(_e, { value }) => {
+                                            setPubFilter(value);
+                                        }}
+                                        value={pubFilter}
                                         loading={!loadedFilters}
                                         className='commons-filter'
                                     />
