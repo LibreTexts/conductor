@@ -148,7 +148,7 @@ function App() {
                             <Route exact path = '/harvestrequest' component={HarvestRequest} />
                         }
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/adoptionreport' component={AdoptionReportPage} />
+                            <Route exact path = '/adopt' component={AdoptionReportPage} />
                         }
                         {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />
