@@ -419,6 +419,14 @@
     background-color: #FFFFFF;
 }
 
+.commons-book-summary {
+    font-size: 1.07em;
+}
+
+.commons-book-toc {
+    font-size: 1.07em;
+}
+
 
 /* Powered By (for Campus Commons) */
 #commons-poweredby-tagline {

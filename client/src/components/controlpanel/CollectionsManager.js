@@ -26,7 +26,7 @@ import {
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
-const CollectionsManager = (props) => {
+const CollectionsManager = () => {
 
     // Global State
     const { handleGlobalError } = useGlobalError();
@@ -65,16 +65,16 @@ const CollectionsManager = (props) => {
     const [manageResItems, setManageResItems] = useState([]);
     const [manageResWorking, setManageResWorking] = useState(false);
 
-    useEffect(() => {
-        document.title = "LibreTexts Conductor | Collections Manager";
-        getCollections();
-    }, []);
+    // Delete Collection Modal
+    const [showDelCollModal, setShowDelCollModal] = useState(false);
+    const [delCollID, setDelCollID] = useState('');
+    const [delCollTitle, setDelCollTitle] = useState('');
+    const [delCollLoading, setDelCollLoading] = useState(false);
 
     const sortOptions = [
         { key: 'title', text: 'Sort by Title', value: 'title' },
         { key: 'resources', text: 'Sort by Number of Resources', value: 'resources' }
     ];
-
     const privacyOptions = [
         { key: 'public', text: 'Public', value: 'public' },
         { key: 'private', text: 'Private', value: 'private'},
@@ -82,10 +82,26 @@ const CollectionsManager = (props) => {
     ];
 
 
+    /**
+     * Set page title and retrieve collections
+     * on initial load.
+     */
+    useEffect(() => {
+        document.title = "LibreTexts Conductor | Collections Manager";
+        getCollections();
+    }, []);
+
+
+    /**
+     * Track changes to the number of collections loaded
+     * and the selected itemsPerPage and update the
+     * set of collections to display.
+     */
     useEffect(() => {
         setTotalPages(Math.ceil(displayColls.length/itemsPerPage));
         setPageColls(displayColls.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
     }, [itemsPerPage, displayColls, activePage]);
+
 
     /**
      * Filter and sort collections according to
@@ -96,6 +112,11 @@ const CollectionsManager = (props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [collections, searchString, sortChoice]);
 
+
+    /**
+     * Retrieve all collections via GET request
+     * to the server.
+     */
     const getCollections = () => {
         axios.get('/commons/collections/all').then((res) => {
             if (!res.data.err) {
@@ -111,6 +132,7 @@ const CollectionsManager = (props) => {
             setLoadedData(true);
         });
     };
+
 
     /**
      * Filter and sort collections according
@@ -159,10 +181,20 @@ const CollectionsManager = (props) => {
         setLoadedData(true);
     }
 
+
+    /**
+     * Reset any form errors in the
+     * Edit Collection Modal.
+     */
     const resetEditCollForm = () => {
         setEditCollTitleErr(false);
     };
 
+
+    /**
+     * Validate the Edit Collection
+     * Modal form.
+     */
     const validateEditCollForm = () => {
         var validForm = true;
         if (isEmptyString(editCollTitle) || String(editCollTitle).length < 3) {
@@ -172,6 +204,12 @@ const CollectionsManager = (props) => {
         return validForm;
     };
 
+
+    /**
+     * If the Create/Edit Collection form is valid,
+     * submit the new collection or update(s) to the
+     * server via POST or PUT request.
+     */
     const submitEditCollForm = () => {
         resetEditCollForm();
         if (validateEditCollForm()) {
@@ -215,6 +253,12 @@ const CollectionsManager = (props) => {
         }
     };
 
+
+    /**
+     * Open the Create/Edit Collection Modal
+     * in Create mode and reset all fields
+     * to their defaults.
+     */
     const openCreateCollModal = () => {
         setShowEditCollModal(true);
         setEditCollCreate(true);
@@ -227,6 +271,12 @@ const CollectionsManager = (props) => {
         resetEditCollForm();
     };
 
+
+    /**
+     * Open the Create/Edit Collection Modal
+     * in Edit mode and set all fields
+     * to their existing values.
+     */
     const openEditCollModal = (coll) => {
         setShowEditCollModal(true);
         setEditCollCreate(false);
@@ -240,6 +290,11 @@ const CollectionsManager = (props) => {
         resetEditCollForm();
     };
 
+
+    /**
+     * Close the Create/Edit Collection Modal
+     * and reset all fields to their default values.
+     */
     const closeEditCollModal = () => {
         setShowEditCollModal(false);
         setEditCollCreate(false);
@@ -253,6 +308,11 @@ const CollectionsManager = (props) => {
         resetEditCollForm();
     };
 
+
+    /**
+     * Given a Collection ID, load a list of
+     * its resources via GET request to the server.
+     */
     const getCollectionResources = (collID) => {
         if (collID && !isEmptyString(collID)) {
             setManageResWorking(true);
@@ -286,6 +346,13 @@ const CollectionsManager = (props) => {
         }
     };
 
+
+    /**
+     * Given a Book ID, submit a PUT request
+     * to the server to have it removed from the
+     * Collection being modified in the Manage
+     * Resources Modal (manageResID).
+     */
     const removeCollectionResource = (bookID) => {
         if (bookID && !isEmptyString(bookID)) {
             setManageResWorking(true);
@@ -308,6 +375,12 @@ const CollectionsManager = (props) => {
         }
     };
 
+
+    /**
+     * Open the Manage Resource Modal and
+     * set necessary metadata values, then
+     * load the current Collection's resources.
+     */
     const openManageResModal = (collID, collTitle) => {
         setManageResModal(true);
         setManageResID(collID);
@@ -316,6 +389,11 @@ const CollectionsManager = (props) => {
         getCollectionResources(collID);
     };
 
+
+    /**
+     * Close the Manage Resources Modal and
+     * reset all respective values to their defaults.
+     */
     const closeManageResModal = () => {
         setManageResModal(false);
         setManageResTitle('');
@@ -323,6 +401,60 @@ const CollectionsManager = (props) => {
         setManageResItems([]);
         getCollections();
     };
+
+
+    /**
+     * Submit a PUT request to the server
+     * to delete the Collection being
+     * modified in the Delete Collection
+     * Modal (delCollID).
+     */
+    const submitDeleteCollection = () => {
+        setDelCollLoading(true);
+        axios.put('/commons/collection/delete', {
+            collID: delCollID
+        }).then((res) => {
+            if (!res.data.err) {
+                closeDelCollModal();
+                getCollections();
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setDelCollLoading(false);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setDelCollLoading(false);
+        });
+    };
+
+
+    /**
+     * Open the Delete Collection Modal and
+     * set the respective values for the
+     * Collection to be modified.
+     */
+    const openDelCollModal = (collID, collTitle) => {
+        if ((collID !== '') && (collTitle !== '')) {
+            setDelCollID(collID);
+            setDelCollTitle(collTitle);
+            setDelCollLoading(false);
+            setShowDelCollModal(true);
+        }
+    };
+
+
+    /**
+     * Close the Delete Collection Modal
+     * and reset all respective values
+     * to their defaults.
+     */
+    const closeDelCollModal = () => {
+        setShowDelCollModal(false);
+        setDelCollLoading(false);
+        setDelCollID('');
+        setDelCollTitle('');
+    };
+
 
     return (
         <Grid className='controlpanel-container' divided='vertically'>
@@ -451,6 +583,13 @@ const CollectionsManager = (props) => {
                                                             >
                                                                 <Icon name='list alternate outline' />
                                                                 Manage Resources
+                                                            </Button>
+                                                            <Button
+                                                                color='red'
+                                                                onClick={() => { openDelCollModal(item.collID, item.title) }}
+                                                            >
+                                                                <Icon name='delete' />
+                                                                Delete Collection
                                                             </Button>
                                                         </Button.Group>
                                                     </Table.Cell>
@@ -590,11 +729,35 @@ const CollectionsManager = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
+                    {/* Delete Collection Modal */}
+                    <Modal
+                        open={showDelCollModal}
+                        closeOnDimmerClick={false}
+                    >
+                        <Modal.Header>Delete Collection</Modal.Header>
+                        <Modal.Content scrolling>
+                            <p>Are you sure you want to delete <strong>{delCollTitle}</strong> <span className='muted-text'>({delCollID})</span>?</p>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeDelCollModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='red'
+                                loading={delCollLoading}
+                                onClick={submitDeleteCollection}
+                            >
+                                <Icon name='delete' />
+                                Delete
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
                 </Grid.Column>
             </Grid.Row>
         </Grid>
     )
-
 }
 
 export default CollectionsManager;

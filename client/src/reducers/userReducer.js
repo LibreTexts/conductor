@@ -108,9 +108,9 @@ export default function userReducer(state = userInitialState, action) {
         case 'CLEAR_USER_INFO':
             return userInitialState;
         case 'CLEAR_USER_LOGOUT':
-            var domains = String(process.env.REACT_APP_PRODUCTIONURLS).split(',');
             if (process.env.NODE_ENV === 'production') {
-                Cookies.remove('conductor_access', { path: '/', domain: domains[0], secure: true });
+                Cookies.remove('conductor_access', { path: '/', domain: '.libretexts.org', secure: true });
+                console.log("Attempted to remove access Cookie.");
             } else {
                 Cookies.remove('conductor_access', { path: '/', domain: 'localhost', secure: false });
             }

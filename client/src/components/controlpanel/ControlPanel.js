@@ -137,6 +137,18 @@ const ControlPanel = (props) => {
                                             </List.Item>
                                             <List.Item
                                                 as={Link}
+                                                to='/controlpanel/campussettings'
+                                            >
+                                                <Icon name='university' />
+                                                <List.Content>
+                                                    <List.Header>Campus Settings</List.Header>
+                                                    <List.Description>
+                                                        Manage branding settings for your Conductor instance and your Campus Commons
+                                                    </List.Description>
+                                                </List.Content>
+                                            </List.Item>
+                                            <List.Item
+                                                as={Link}
                                                 to='/controlpanel/usersmanager'
                                             >
                                                 <Icon name='users' />

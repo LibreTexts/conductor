@@ -12,7 +12,7 @@ const middleware = require('./middleware.js');
 /* Interfaces */
 const authAPI = require('./api/auth.js');
 const usersAPI = require('./api/users.js');
-const orgAPI = require('./api/organizations.js');
+const orgsAPI = require('./api/organizations.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
@@ -61,8 +61,14 @@ router.route('/auth/initsso').get(authAPI.initSSO);
 
 
 /* Organizations */
-router.route('/org/info').get(orgAPI.validate('getinfo'),
-    middleware.checkValidationErrors, orgAPI.getOrganizationInfo);
+router.route('/org/info').get(orgsAPI.validate('getinfo'),
+    middleware.checkValidationErrors, orgsAPI.getOrganizationInfo)
+
+router.route('/org/info').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    orgsAPI.validate('updateinfo'),
+    middleware.checkValidationErrors, orgsAPI.updateOrganizationInfo);
 
 
 /* Adoption Reports */
@@ -122,7 +128,7 @@ router.route('/commons/collection/edit').put(authAPI.verifyRequest,
     collectionsAPI.validate('editCollection'),
     middleware.checkValidationErrors, collectionsAPI.editCollection);
 
-router.route('/commons/collection/delete').delete(authAPI.verifyRequest,
+router.route('/commons/collection/delete').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
     collectionsAPI.validate('deleteCollection'),
@@ -152,6 +158,7 @@ router.route('/commons/libraries/shelves').get(
     librariesAPI.validate('getLibraryShelves'),
     middleware.checkValidationErrors,
     librariesAPI.getLibraryShelves);
+
 
 /* Commons Management */
 router.route('/commons/syncwithlibs').post(authAPI.verifyRequest,
@@ -225,6 +232,18 @@ router.route('/user/name').put(authAPI.verifyRequest,
 router.route('/user/email').put(authAPI.verifyRequest,
     usersAPI.validate('updateUserEmail'), middleware.checkValidationErrors,
     usersAPI.updateUserEmail);
+
+router.route('/user/roles').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    usersAPI.validate('getUserRoles'), middleware.checkValidationErrors,
+    usersAPI.getUserRoles);
+
+router.route('/user/role/update').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    usersAPI.validate('updateUserRole'), middleware.checkValidationErrors,
+    usersAPI.updateUserRole);
 
 router.route('/users').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,

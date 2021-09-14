@@ -260,15 +260,15 @@ const CommonsBook = (props) => {
                                         <Segment loading={!loadedSummary}>
                                             <Header as='h3' dividing>Summary</Header>
                                             {(bookSummary !== '')
-                                                ? (<p>{bookSummary}</p>)
-                                                : (<p><em>No summary available.</em></p>)
+                                                ? (<p className='commons-book-summary'>{bookSummary}</p>)
+                                                : (<p className='commons-book-summary'><em>No summary available.</em></p>)
                                             }
                                         </Segment>
                                         <Segment loading={!loadedTOC}>
                                             <Header as='h3' dividing>Table of Contents</Header>
                                             {(bookChapters.length > 0)
-                                                ? (<Accordion fluid panels={bookChapters} />)
-                                                : (<p><em>Table of contents unavailable.</em></p>)
+                                                ? (<Accordion fluid panels={bookChapters} className='commons-book-toc' />)
+                                                : (<p className='commons-book-toc'><em>Table of contents unavailable.</em></p>)
                                             }
                                         </Segment>
                                     </Grid.Column>

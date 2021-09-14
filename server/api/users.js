@@ -4,9 +4,10 @@
 
 'use strict';
 const User = require('../models/user.js');
-const { body } = require('express-validator');
+const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
+const authAPI = require('./auth.js');
 
 
 /**
@@ -281,24 +282,161 @@ const deleteUser = (req, res) => {
 };
 
 
-const addRoleToUser = (req, res) => {
-    User.updateOne({
+/**
+ * Returns the roles held by the User
+ * identified by the @uuid in the request
+ * body. If the requesting user is a Campus Admin,
+ * only the role object relevant to the Campus is
+ * returned. Method should be restricted to
+ * users with elevated privileges.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'deleteUser'
+ */
+const getUserRoles = (req, res) => {
+    var isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+    User.aggregate([
+        {
+            $match: {
+                uuid: req.query.uuid
+            }
+        }, {
+            $project: {
+                uuid: 1,
+                roles: 1
+            }
+        }, {
+            $lookup: {
+                from: 'organizations',
+                let: {
+                    orgs: "$roles.org"
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: ['$orgID', '$$orgs']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            orgID: 1,
+                            shortName: 1,
+                            name: 1
+                        }
+                    }
+                ],
+                as: 'roleOrgs'
+            }
+        }
+    ]).then((users) => {
+        if (users.length > 0) {
+            var user = users[0];
+            var userData = {
+                uuid: users[0].uuid,
+                roles: []
+            };
+            if (user.roleOrgs && Array.isArray(user.roleOrgs)) {
+                user.roleOrgs.forEach((roleOrg) => {
+                    var foundRole = user.roles.find((role) => {
+                        return role.org === roleOrg.orgID;
+                    });
+                    if (foundRole !== undefined) {
+                        var roleName = 'Unknown Role';
+                        if (foundRole.role === 'superadmin') roleName = 'Super Administrator';
+                        else if (foundRole.role === 'campusadmin') roleName = 'Campus Administrator';
+                        else if (foundRole.role === 'member') roleName = 'Member';
+                        if (isSuperAdmin || (!isSuperAdmin && foundRole.org === process.env.ORG_ID)) {
+                            userData.roles.push({
+                                org: roleOrg,
+                                role: foundRole.role,
+                                roleText: roleName
+                            });
+                        }
+                    }
+                });
+            }
+            return res.send({
+                err: false,
+                user: userData
+            });
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).catch((err) => {
+        if (err.message === 'notfound') {
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err7
+            });
+        } else {
+            debugError(err);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
+    });
+};
+
+
+/**
+ * Updates the User identified by the @uuid
+ * in the request body with the new role
+ * specified by the @role for the Organization
+ * specified by the @orgID. Method should be
+ * restricted to users with elevated privileges.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'updateUserRole'
+ */
+const updateUserRole = (req, res) => {
+    var isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+    if (!isSuperAdmin && (req.body.orgID !== process.env.ORG_ID)) {
+        // Halt execution if Campus Admin is trying to assign a role for a different Organization
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err8
+        });
+    }
+    if (req.body.role === 'superadmin' && (req.body.orgID !== 'libretexts' || !isSuperAdmin)) {
+        // Halt execution if user is trying to elevate non-LibreTexts role to Super Admin,
+        // or if the requesting is not a Super Admin themselves
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err2
+        });
+    }
+    User.findOne({
         uuid: req.body.uuid
-    }, {
-        $addToSet: {
-            roles: {
+    }).then((user) => {
+        if (user) {
+            var newRoles = [];
+            var reqRole = {
                 org: req.body.orgID,
                 role: req.body.role
+            };
+            if (user.roles && Array.isArray(user.roles)) {
+                // Remove the current role for the orgID if present
+                newRoles = user.roles.filter((item) => item.org !== req.body.orgID);
+                newRoles.push(reqRole);
+            } else {
+                // Init roles with new requested role
+                newRoles.push(reqRole);
             }
+            return User.updateOne({ uuid: req.body.uuid }, {
+                roles: newRoles
+            });
+        } else {
+            throw(new Error('notfound'));
         }
     }).then((updateRes) => {
         if ((updateRes.n === 1) && (updateRes.ok === 1)) {
             return res.send({
                 err: false,
-                msg: "Successfully gave user the requested role."
+                msg: "Successfully updated the user's roles."
             });
-        } else if (updateRes.n === 0) {
-            throw(new Error('notfound'));
         } else {
             throw(new Error('updatefailed'));
         }
@@ -311,35 +449,20 @@ const addRoleToUser = (req, res) => {
     });
 };
 
-const removeRoleFromUser = (req, res) => {
-    User.updateOne({
-        uuid: req.body.uuid
-    }, {
-        $pull: {
-            roles: {
-                org: req.body.orgID,
-                role: req.body.role
-            }
-        }
-    }).then((updateRes) => {
-        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
-            return res.send({
-                err: false,
-                msg: "Successfully removed the requested role from user."
-            });
-        } else if (updateRes.n === 0) {
-            throw(new Error('notfound'));
-        } else {
-            throw(new Error('updatefailed'));
-        }
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
-    });
-};
+
+/**
+ * Accepts a string, @role, and validates
+ * it against standard Conductor roles.
+ * Returns a boolean:
+ *  TRUE:  Role is valid.
+ *  FALSE: Role is invalid.
+ */
+const roleValidator = (role) => {
+    if ((role === 'member') || (role === 'campusadmin') || (role === 'superadmin')) {
+        return true;
+    }
+    return false;
+}
 
 
 /**
@@ -361,6 +484,16 @@ const validate = (method) => {
             return [
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
             ]
+        case 'getUserRoles':
+            return [
+                query('uuid', conductorErrors.err1).exists().isString().isUUID()
+            ]
+        case 'updateUserRole':
+            return [
+                body('uuid', conductorErrors.err1).exists().isString().isUUID(),
+                body('orgID', conductorErrors.err1).exists().isString().isLength({ min: 2, max: 50 }),
+                body('role', conductorErrors.err1).exists().isString().custom(roleValidator)
+            ]
     }
 }
 
@@ -371,7 +504,7 @@ module.exports = {
     updateUserEmail,
     getUsersList,
     deleteUser,
-    addRoleToUser,
-    removeRoleFromUser,
+    getUserRoles,
+    updateUserRole,
     validate
 };

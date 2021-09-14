@@ -42,6 +42,7 @@ import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingT
 import ControlPanel from './components/controlpanel/ControlPanel.js';
 import AdoptionReports from './components/controlpanel/AdoptionReports.js';
 import BooksManager from './components/controlpanel/BooksManager.js';
+import CampusSettings from './components/controlpanel/CampusSettings.js';
 import CollectionsManager from './components/controlpanel/CollectionsManager.js';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests.js';
 import HomeworkManager from './components/controlpanel/HomeworkManager.js';
@@ -108,6 +109,7 @@ function App() {
                     <PrivateRoute exact path = '/controlpanel' component={ControlPanel} />
                         <PrivateRoute exact path = '/controlpanel/adoptionreports' component={AdoptionReports} />
                         <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
+                        <PrivateRoute exact path = '/controlpanel/campussettings' component={CampusSettings} />
                         <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
                         <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
                         <PrivateRoute exact path = '/controlpanel/homeworkmanager' component={HomeworkManager} />

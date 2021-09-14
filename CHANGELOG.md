@@ -4,10 +4,15 @@
 #### :art: UI/UX
 * Added the Publisher filter to Commons Catalog
 * Fixed a bug when using URL params to directly view search results
+* Added the ability to delete a collection in Collections Manager
+* Implemented ability to manage user roles in Users Manager
+* Started implementing Campus Settings in Control Panel
 
 #### :satellite: Server
 * Added the ability to filter by Publisher/Program
 * Improved Catalog search result accuracy for Campus Commons
+* Updated backend logic to manage user roles
+* Added backend logic to update Organization info
 
 
 ## 09-12-2021

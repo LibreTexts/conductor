@@ -691,7 +691,7 @@ const checkHasRoleMiddleware = (org, role) => {
  * Accepts a string, @password, and validates
  * it against Conductor password standards.
  * Returns a boolean:
- *  TRUE: Password meets standards
+ *  TRUE:  Password meets standards
  *  FALSE: Password does not meet standards
  *         or is not a string
  */
