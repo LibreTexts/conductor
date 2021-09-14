@@ -61,14 +61,16 @@ router.route('/auth/initsso').get(authAPI.initSSO);
 
 
 /* Organizations */
-router.route('/org/info').get(orgsAPI.validate('getinfo'),
-    middleware.checkValidationErrors, orgsAPI.getOrganizationInfo)
-
-router.route('/org/info').put(authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-    orgsAPI.validate('updateinfo'),
-    middleware.checkValidationErrors, orgsAPI.updateOrganizationInfo);
+router.route('/org/info')
+    .get(orgsAPI.validate('getinfo'),
+        middleware.checkValidationErrors,
+        orgsAPI.getOrganizationInfo)
+    .put(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+        orgsAPI.validate('updateinfo'),
+        middleware.checkValidationErrors,
+        orgsAPI.updateOrganizationInfo);
 
 
 /* Adoption Reports */

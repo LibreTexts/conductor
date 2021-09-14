@@ -1,10 +1,6 @@
 'use strict';
 const User = require('../models/user.js');
 const TextbookTarget = require('../models/textbooktarget.js');
-const async = require('async');
-const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const b62 = require('base62-random');
 
 const addTarget = (req, res, next) => {

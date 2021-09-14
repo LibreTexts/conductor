@@ -20,6 +20,7 @@ import ResetPassword from './components/auth/ResetPassword.js';
 
 /* Commons */
 import Commons from './components/commons/Commons.js';
+import AdoptionReportPage from './components/adoptionreport/AdoptionReportPage.js';
 import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
 
 /* Conductor */
@@ -145,6 +146,9 @@ function App() {
                         {/* Standalone */}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/adoptionreport' component={AdoptionReportPage} />
                         }
                         {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />

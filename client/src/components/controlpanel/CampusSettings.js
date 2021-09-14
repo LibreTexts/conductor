@@ -5,7 +5,6 @@ import {
   Header,
   Segment,
   Icon,
-  List,
   Breadcrumb,
   Form,
   Divider,
@@ -14,7 +13,6 @@ import {
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import axios from 'axios';
 
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -43,6 +41,7 @@ const CampusSettings = () => {
     const [commonsHeader, setCommonsHeader] = useState('');
     const [commonsMessage, setCommonsMessage] = useState('');
 
+
     /**
      * Set page title on initial load.
      */
@@ -52,6 +51,11 @@ const CampusSettings = () => {
     }, []);
 
 
+    /**
+     * Retrieves Organization info
+     * via GET request from the server,
+     * then pass to setOrgInfo().
+     */
     const getOrgInfo = () => {
         setLoadedData(false);
         axios.get('/org/info', {
@@ -62,14 +66,7 @@ const CampusSettings = () => {
             if (!res.data.err) {
                 var orgData = res.data;
                 delete orgData.err;
-                setOriginalData(orgData);
-                if (orgData.coverPhoto) setCoverPhoto(orgData.coverPhoto);
-                if (orgData.largeLogo) setLargeLogo(orgData.largeLogo);
-                if (orgData.mediumLogo) setMediumLogo(orgData.mediumLogo);
-                if (orgData.smallLogo) setSmallLogo(orgData.smallLogo);
-                if (orgData.aboutLink) setAboutLink(orgData.aboutLink);
-                if (orgData.commonsHeader) setCommonsHeader(orgData.commonsHeader);
-                if (orgData.commonsMessage) setCommonsMessage(orgData.commonsMessage);
+                setOrgInfo(orgData);
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -81,6 +78,26 @@ const CampusSettings = () => {
     };
 
 
+    /**
+     * Accepts an object, @orgData
+     * and updates all form fields with
+     * their respective values if present.
+     */
+    const setOrgInfo = (orgData) => {
+        setOriginalData(orgData);
+        if (orgData.coverPhoto) setCoverPhoto(orgData.coverPhoto);
+        if (orgData.largeLogo) setLargeLogo(orgData.largeLogo);
+        if (orgData.mediumLogo) setMediumLogo(orgData.mediumLogo);
+        if (orgData.smallLogo) setSmallLogo(orgData.smallLogo);
+        if (orgData.aboutLink) setAboutLink(orgData.aboutLink);
+        if (orgData.commonsHeader) setCommonsHeader(orgData.commonsHeader);
+        if (orgData.commonsMessage) setCommonsMessage(orgData.commonsMessage);
+    };
+
+
+    /**
+     * Reset all form errors.
+     */
     const resetFormErrors = () => {
         setCoverPhotoErr(false);
         setLargeLogoErr(false);
@@ -89,6 +106,10 @@ const CampusSettings = () => {
     };
 
 
+    /**
+     * Validate the form, return true
+     * if no errors, false otherwise.
+     */
     const validateForm = () => {
         var validForm = true;
         if (isEmptyString(coverPhoto)) {
@@ -111,11 +132,19 @@ const CampusSettings = () => {
     };
 
 
+    /**
+     * Validate the form, then submit
+     * changes (if any) via PUT request
+     * to the server, then re-sync
+     * Organization info.
+     */
     const saveChanges = () => {
         resetFormErrors();
         if (validateForm()) {
             setLoadedData(false);
-            var newData = {};
+            var newData = {
+                orgID: process.env.REACT_APP_ORG_ID
+            };
             if (originalData.coverPhoto !== coverPhoto) newData.coverPhoto = coverPhoto;
             if (originalData.largeLogo !== largeLogo) newData.largeLogo = largeLogo;
             if (originalData.mediumLogo !== mediumLogo) newData.mediumLogo = mediumLogo;
@@ -123,20 +152,28 @@ const CampusSettings = () => {
             if (originalData.aboutLink !== aboutLink) newData.aboutLink = aboutLink;
             if (originalData.commonsHeader !== commonsHeader) newData.commonsHeader = commonsHeader;
             if (originalData.commonsMessage !== commonsMessage) newData.commonsMessage = commonsMessage;
-            axios.put('').then((res) => {
-                if (!res.data.err) {
-                    getOrgInfo();
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-                setLoadedData(true);
+            if (Object.keys(newData).length > 1) {
+                axios.put('/org/info', newData).then((res) => {
+                    if (!res.data.err) {
+                        if (res.data.updatedOrg) {
+                            setOrgInfo(res.data.updatedOrg);
+                        }
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                    }
+                    setLoadedData(true);
+                    setSavedData(true);
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setLoadedData(true);
+                });
+            } else {
                 setSavedData(true);
-            }).catch((err) => {
-                handleGlobalError(err);
                 setLoadedData(true);
-            });
+            }
         }
     };
+
 
     return (
         <Grid className='controlpanel-container' divided='vertically'>
@@ -159,11 +196,15 @@ const CampusSettings = () => {
                                 </Breadcrumb.Section>
                             </Breadcrumb>
                         </Segment>
-                        <Segment raised>
+                        <Segment
+                            raised
+                            loading={!loadedData}
+                        >
                             <h3>Branding Images</h3>
                             <Form noValidate>
                                 <Form.Field
                                     required
+                                    error={coverPhotoErr}
                                 >
                                     <label htmlFor='campusCover'>
                                         <span>Campus Cover Photo </span>
@@ -179,11 +220,13 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusCover'
                                         type='url'
+                                        onChange={(e) => setCoverPhoto(e.target.value)}
                                         value={coverPhoto}
                                     />
                                 </Form.Field>
                                 <Form.Field
                                     required
+                                    error={largeLogoErr}
                                 >
                                     <label htmlFor='campusLarge'>
                                         <span>Campus Large Logo </span>
@@ -199,11 +242,13 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusLarge'
                                         type='url'
+                                        onChange={(e) => setLargeLogo(e.target.value)}
                                         value={largeLogo}
                                     />
                                 </Form.Field>
                                 <Form.Field
                                     required
+                                    error={mediumLogoErr}
                                 >
                                     <label htmlFor='campusMedium'>
                                         <span>Campus Medium Logo </span>
@@ -219,6 +264,7 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusMedium'
                                         type='url'
+                                        onChange={(e) => setMediumLogo(e.target.value)}
                                         value={mediumLogo}
                                     />
                                 </Form.Field>
@@ -237,6 +283,7 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusSmall'
                                         type='url'
+                                        onChange={(e) => setSmallLogo(e.target.value)}
                                         value={smallLogo}
                                     />
                                 </Form.Field>
@@ -244,6 +291,7 @@ const CampusSettings = () => {
                                 <h3>Branding Links</h3>
                                 <Form.Field
                                     required
+                                    error={aboutLinkErr}
                                 >
                                     <label htmlFor='campusAbout'>
                                         <span>About Link </span>
@@ -259,6 +307,7 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusAbout'
                                         type='url'
+                                        onChange={(e) => setAboutLink(e.target.value)}
                                         value={aboutLink}
                                     />
                                 </Form.Field>
@@ -279,6 +328,7 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusCommonsHeader'
                                         type='text'
+                                        onChange={(e) => setCommonsHeader(e.target.value)}
                                         value={commonsHeader}
                                     />
                                 </Form.Field>
@@ -297,6 +347,7 @@ const CampusSettings = () => {
                                     <Form.Input
                                         id='campusCommonsMessage'
                                         type='text'
+                                        onChange={(e) => setCommonsMessage(e.target.value)}
                                         value={commonsMessage}
                                     />
                                 </Form.Field>
@@ -305,6 +356,7 @@ const CampusSettings = () => {
                                 color='green'
                                 className='mt-2p'
                                 fluid
+                                onClick={saveChanges}
                             >
                                 <Icon name={savedData ? 'check' : 'save'} />
                                 {!savedData && <span>Save Changes</span>}

@@ -6,11 +6,6 @@
 'use strict';
 const Organization = require('../models/organization.js');
 const { body, query } = require('express-validator');
-const async = require('async');
-const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
 
@@ -62,7 +57,7 @@ const getOrganizationInfo = (req, res, _next) => {
  * elevated privileges.
  * NOTE: This function should only be called AFTER
  *  the validation chain.
- * VALIDATION: 'getinfo'
+ * VALIDATION: 'updateinfo'
  */
 const updateOrganizationInfo = (req, res) => {
     var updateObj = {};
@@ -73,10 +68,15 @@ const updateOrganizationInfo = (req, res) => {
     if (req.body.aboutLink) updateObj.aboutLink = req.body.aboutLink;
     if (req.body.commonsHeader) updateObj.commonsHeader = req.body.commonsHeader;
     if (req.body.commonsMessage) updateObj.commonsMessage = req.body.commonsMessage;
-    Organization.findOneAndUpdate({
-        orgID: req.body.orgID
-    }, updateObj).then((updatedOrg) => {
+    Organization.findOneAndUpdate({ orgID: req.body.orgID }, updateObj, {
+        new: true, lean: true
+    }).then((updatedOrg) => {
         if (updatedOrg) {
+            // prune Org info before returning
+            delete updatedOrg._id;
+            delete updatedOrg.createdAt;
+            delete updatedOrg.updatedAt;
+            delete updatedOrg.aliases;
             return res.send({
                 err: false,
                 updatedOrg: updatedOrg

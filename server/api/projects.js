@@ -10,10 +10,6 @@ const HarvestingProject = require('../models/harvestingproject.js');
 
 const Project = require('../models/project.js');
 const { body, validationResult } = require('express-validator');
-const async = require('async');
-const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
