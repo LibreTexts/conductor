@@ -139,20 +139,6 @@ const validateRole = (value) => {
     return false;
 };
 
-/**
- * Confirm the @resource parameter is an object and contains the
- * id, title, and library fields
- */
-const validateResourceObj = (value) => {
-    if (typeof(value) === 'object') {
-        if (value.hasOwnProperty('id') && value.hasOwnProperty('title') && value.hasOwnProperty('library')) {
-            if (!isEmptyString(value.id) && !isEmptyString(value.title) && !isEmptyString(value.library)) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
 
 /**
  * Confirm the @instructor parameter is an object and that each field,
@@ -280,7 +266,7 @@ const validate = (method) => {
                 body('email', conductorErrors.err1).exists().isEmail(),
                 body('name', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('role', conductorErrors.err1).exists().custom(validateRole),
-                body('resource', conductorErrors.err1).exists().isObject().custom(validateResourceObj),
+                body('resource', conductorErrors.err1).exists().isObject(),
                 body('instructor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateInstructorObj),
                 body('student', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateStudentObj)
             ]

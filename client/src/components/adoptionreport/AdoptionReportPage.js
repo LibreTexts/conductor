@@ -7,8 +7,6 @@ import {
     Segment,
     Header,
     Button,
-    Accordion,
-    List,
     Modal,
     Form,
     Input,
@@ -18,7 +16,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-import Breakpoint from '../util/Breakpoints.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import {
     iAmOptions,
@@ -26,6 +23,7 @@ import {
     studentUseOptions,
     instrTaughtOptions
 } from './AdoptionReportOptions.js';
+import { libraryOptions } from '../util/LibraryOptions';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
 const AdoptionReportPage = (props) => {
@@ -34,9 +32,9 @@ const AdoptionReportPage = (props) => {
 
     // UI
     const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [loadingData, setLoadingData] = useState(false);
-
     const [submitLoading, setSubmitLoading] = useState(false);
+
+    /** Data **/
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [iAm, setIAm] = useState('');
@@ -49,6 +47,7 @@ const AdoptionReportPage = (props) => {
     const [instrTaughtTerm, setInstrTaughtTerm] = useState('');
     const [instrNumStudents, setInstrNumStudents] = useState(0);
     const [instrResourceURL, setInstrResourceURL] = useState('');
+    const [instrResourceLib, setInstrResourceLib] = useState('');
     const [instrReplaceCost, setInstrReplaceCost] = useState(0);
     const [instrPrintCost, setInstrPrintCost] = useState(0);
     const [instrStudentAccess, setInstrStudentAccess] = useState(
@@ -76,6 +75,7 @@ const AdoptionReportPage = (props) => {
     const [instrClassNameErr, setInstrClassNameErr] = useState(false);
     const [instrTaughtTermErr, setInstrTaughtTermErr] = useState(false);
     const [instrNumStudentsErr, setInstrNumStudentsErr] = useState(false);
+    const [instrResLibErr, setInstrResLibErr] = useState(false);
 
 
     /**
@@ -84,12 +84,6 @@ const AdoptionReportPage = (props) => {
     useEffect(() => {
         document.title = "LibreCommons | Adoption Report";
     }, []);
-
-
-    const successModalClosed = () => {
-        setShowSuccessModal(false);
-        props.history.push('/');
-    };
 
 
     /** Form input handlers **/
@@ -161,65 +155,26 @@ const AdoptionReportPage = (props) => {
         setStudentAccess(updated);
     };
 
-    const handleLibreNetInstChange = (e, { value }) => {
+    const handleLibreNetInstChange = (_e, { value }) => {
         setLibreNetInst(value);
     };
 
-    const handleStudentQualityChange = (e, { value }) => {
+    const handleStudentQualityChange = (_e, { value }) => {
         setStudentQuality(value);
     };
 
-    const handleStudentNavigateChange = (e, { value }) => {
+    const handleStudentNavigateChange = (_e, { value }) => {
         setStudentNavigate(value);
     };
 
-    /**
-     * Reset all fields, then call the onClose function
-     * passed from the parent/host component. Parent component
-     * should modify the @open prop value in/after the onClose
-     * function to properly close the modal.
-     */
-    const closeModal = () => {
-        resetFormErrors();
-        setEmail('');
-        setName('');
-        setIAm('');
-        setComments('');
-        setLibreNetInst('');
-        setInstrInstName('');
-        setInstrClassName('');
-        setInstrTaughtTerm('');
-        setInstrNumStudents(0);
-        setInstrReplaceCost(0);
-        setInstrPrintCost(0);
-        setInstrStudentAccess(
-            new Array(5).fill(false)
-        );
-        setStudentUse('');
-        setStudentInst('');
-        setStudentClass('');
-        setStudentInstr('');
-        setStudentQuality(0);
-        setStudentNavigate(0);
-        setStudentPrintCost(0);
-        setStudentAccess(
-            new Array(5).fill(false)
-        );
-        setShowSuccessModal(false);
-        props.onClose();
-    };
 
     /**
      * Validate the form data, return
-     * 'false' if validation errors exists,
-     * 'true' otherwise
+     * 'true' if all fields are valid,
+     * 'false' otherwise
      */
     const validateForm = () => {
         var validForm = true;
-        if (!props.resourceID || !props.resourceTitle || !props.resourceLibrary ||  isEmptyString(props.resourceID) || isEmptyString(props.resourceTitle) || isEmptyString(props.resourceLibrary)) {
-            handleGlobalError("Sorry, required internal values appear to be missing. Try reloading this page and submitting the form again.");
-            validForm = false;
-        }
         if (isEmptyString(email)) {
             validForm = false;
             setEmailErr(true);
@@ -253,12 +208,17 @@ const AdoptionReportPage = (props) => {
                 validForm = false;
                 setInstrNumStudentsErr(true);
             }
+            if (isEmptyString(instrResourceLib)) {
+                validForm = false;
+                setInstrResLibErr(true);
+            }
         }
         return validForm;
     };
 
+
     /**
-     * Reset all form error states
+     * Reset all form error states.
      */
     const resetFormErrors = () => {
         setEmailErr(false);
@@ -269,7 +229,9 @@ const AdoptionReportPage = (props) => {
         setInstrClassNameErr(false);
         setInstrTaughtTermErr(false);
         setInstrNumStudentsErr(false);
+        setInstrResLibErr(false);
     };
+
 
     /**
      * Submit data via POST to the server, then
@@ -284,11 +246,7 @@ const AdoptionReportPage = (props) => {
                 name: name,
                 role: iAm,
                 comments: comments,
-                resource: {
-                    id: props.resourceID,
-                    title: props.resourceTitle,
-                    library: props.resourceLibrary
-                }
+                resource: {}
             };
             if (iAm === 'instructor') {
                 var postInstrStudentAccess = [];
@@ -313,6 +271,10 @@ const AdoptionReportPage = (props) => {
                             break; // silence React warning
                     }
                 });
+                if (!isEmptyString(instrResourceURL)) {
+                    formData.resource.link = instrResourceURL;
+                }
+                formData.resource.library = instrResourceLib;
                 formData.instructor = {
                     isLibreNet: libreNetInst,
                     institution: instrInstName,
@@ -377,6 +339,17 @@ const AdoptionReportPage = (props) => {
     };
 
 
+    /**
+     * Called when the Succes Modal
+     * is closed. Redirects user
+     * to home page.
+     */
+    const successModalClosed = () => {
+        setShowSuccessModal(false);
+        props.history.push('/');
+    };
+
+
     return (
         <Grid centered={true} verticalAlign='middle' className='component-container'>
             <Grid.Row>
@@ -384,7 +357,15 @@ const AdoptionReportPage = (props) => {
                     <Grid verticalAlign='middle' centered={true}>
                         <Grid.Row>
                             <Grid.Column>
-                                <Image src="/transparent_logo.png" size='medium' centered/>
+                                <Image
+                                    src="/transparent_logo.png"
+                                    size='medium'
+                                    centered
+                                    className='cursor-pointer'
+                                    onClick={() => {
+                                        window.open('https://libretexts.org', '_blank', 'noopener');
+                                    }}
+                                />
                                 <Header as='h1' textAlign='center'>Adoption Report</Header>
                             </Grid.Column>
                         </Grid.Row>
@@ -401,7 +382,7 @@ const AdoptionReportPage = (props) => {
                                     required
                                     error={emailErr}
                                 >
-                                    <label htmlFor='email'>Your Email</label>
+                                    <label htmlFor='ar-email-input'>Your Email</label>
                                     <Input
                                         fluid
                                         id='ar-email-input'
@@ -419,7 +400,7 @@ const AdoptionReportPage = (props) => {
                                     required
                                     error={nameErr}
                                 >
-                                    <label htmlFor='name'>Your Name</label>
+                                    <label htmlFor='ar-name-input'>Your Name</label>
                                     <Input
                                         fluid
                                         id='ar-name-input'
@@ -491,7 +472,7 @@ const AdoptionReportPage = (props) => {
                                             required
                                             error={instrInstNameErr}
                                         >
-                                            <label htmlFor='not-libre-inst'>Institution Name</label>
+                                            <label htmlFor='ar-not-libre-inst-input'>Institution Name</label>
                                             <Input
                                                 fluid
                                                 id='ar-not-libre-inst-input'
@@ -509,7 +490,7 @@ const AdoptionReportPage = (props) => {
                                         required
                                         error={instrClassNameErr}
                                     >
-                                        <label htmlFor='instr-class'>Class Name</label>
+                                        <label htmlFor='ar-instr-class-input'>Class Name</label>
                                         <Input
                                             fluid
                                             id='ar-instr-class-input'
@@ -537,7 +518,7 @@ const AdoptionReportPage = (props) => {
                                         required
                                         error={instrNumStudentsErr}
                                     >
-                                        <label htmlFor='instr-num-students'>Number of Students</label>
+                                        <label htmlFor='ar-instr-num-students-input'>Number of Students</label>
                                         <Input
                                             fluid
                                             id='ar-instr-num-students-input'
@@ -565,11 +546,21 @@ const AdoptionReportPage = (props) => {
                                             value={instrResourceURL}
                                         />
                                     </Form.Field>
+                                    <Form.Select
+                                        fluid
+                                        label='LibreTexts Library'
+                                        options={libraryOptions}
+                                        placeholder='Choose...'
+                                        onChange={(_e, { value }) => { setInstrResourceLib(value) }}
+                                        value={instrResourceLib}
+                                        required
+                                        error={instrResLibErr}
+                                    />
                                     <p className='mb-2p'><em>If you used more than one LibreTexts resource for your class please put the main text here and add additional links in the comment section before submission.</em></p>
                                     <Form.Field>
-                                        <label htmlFor='instr-replace-cost'>Cost of textbook that LibreTexts replaced</label>
+                                        <label htmlFor='ar-instr-replace-cost-input'>Cost of textbook that LibreTexts replaced</label>
                                         <Input
-                                            fluid={true}
+                                            fluid
                                             id='ar-instr-replace-cost-input'
                                             type='number'
                                             name='instr-replace-cost'
@@ -614,9 +605,9 @@ const AdoptionReportPage = (props) => {
                                         />
                                     </Form.Group>
                                     <Form.Field>
-                                        <label htmlFor='instr-print-cost'>If you used a printed version of a LibreText, how much did it cost?</label>
+                                        <label htmlFor='ar-instr-print-cost-input'>If you used a printed version of a LibreText, how much did it cost?</label>
                                         <Input
-                                            fluid={true}
+                                            fluid
                                             id='ar-instr-print-cost-input'
                                             type='number'
                                             name='instr-print-cost'
@@ -643,7 +634,7 @@ const AdoptionReportPage = (props) => {
                                         value={studentUse}
                                     />
                                     <Form.Field>
-                                        <label htmlFor='student-inst'>Institution Name</label>
+                                        <label htmlFor='ar-student-inst-input'>Institution Name</label>
                                         <Input
                                             fluid
                                             id='ar-student-inst-input'
@@ -657,7 +648,7 @@ const AdoptionReportPage = (props) => {
                                         />
                                     </Form.Field>
                                     <Form.Field>
-                                        <label htmlFor='student-class'>Class Name</label>
+                                        <label htmlFor='ar-student-class-input'>Class Name</label>
                                         <Input
                                             fluid
                                             id='ar-student-class-input'
@@ -671,7 +662,7 @@ const AdoptionReportPage = (props) => {
                                         />
                                     </Form.Field>
                                     <Form.Field>
-                                        <label htmlFor='student-instructor'>Instructor Name</label>
+                                        <label htmlFor='ar-student-instructor-input'>Instructor Name</label>
                                         <Input
                                             fluid
                                             id='ar-student-instructor-input'
@@ -784,7 +775,7 @@ const AdoptionReportPage = (props) => {
                                         />
                                     </Form.Group>
                                     <Form.Field>
-                                        <label htmlFor='student-print-cost'>If you used a printed version of a LibreText, how much did it cost?</label>
+                                        <label htmlFor='ar-student-print-cost-input'>If you used a printed version of a LibreText, how much did it cost?</label>
                                         <Input
                                             fluid
                                             id='ar-student-print-cost-input'
@@ -801,7 +792,7 @@ const AdoptionReportPage = (props) => {
                             }
                             <Divider />
                             <Form.Field>
-                                <label htmlFor='addtl-comments'>If you have additional comments, please share below</label>
+                                <label htmlFor='ar-addtl-comments-input'>If you have additional comments, please share below</label>
                                 <Input
                                     fluid
                                     id='ar-addtl-comments-input'

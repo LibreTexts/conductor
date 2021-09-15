@@ -142,12 +142,15 @@ const oauthCallback = (req, res) => {
                 var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + '; Secure;';
+                    accessCookie += " Domain=" + domains[0] + ';';
                     sigCookie += " Domain=" + domains[0] + '; Secure;';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];
                 res.setHeader('Set-Cookie', cookiesToSet);
                 var redirectURL = '/dashboard';
+                if (req.cookies.conductor_sso_redirect) {
+                    redirectURL = req.cookies.conductor_sso_redirect + '/dashboard';
+                }
                 if (isNewMember) redirectURL = redirectURL + '?newmember=true';
                 return res.redirect(redirectURL);
             } else {
@@ -227,7 +230,7 @@ const login = (req, res, _next) => {
                 var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + '; Secure;';
+                    accessCookie += " Domain=" + domains[0] + ';';
                     sigCookie += " Domain=" + domains[0] + '; Secure;';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];

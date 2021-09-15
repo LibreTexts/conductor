@@ -319,7 +319,7 @@ const CampusSettings = () => {
                                         <Popup
                                             content={
                                                 <span>
-                                                    An emphasized string of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. <strong>This text is not required.</strong>
+                                                    An emphasized string of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. <strong>This text is optional.</strong>
                                                 </span>
                                             }
                                             trigger={<Icon name='info circle' />}
@@ -338,7 +338,7 @@ const CampusSettings = () => {
                                         <Popup
                                             content={
                                                 <span>
-                                                    A block of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. <strong>This text is not required.</strong>
+                                                    A block of text placed at the top of the Catalog Search interface, used to welcome users to the Campus Commons. <strong>This text is optional.</strong>
                                                 </span>
                                             }
                                             trigger={<Icon name='info circle' />}

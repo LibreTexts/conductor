@@ -72,6 +72,11 @@ router.route('/org/info')
         middleware.checkValidationErrors,
         orgsAPI.updateOrganizationInfo);
 
+router.route('/orgs').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    orgsAPI.getAllOrganizations);
+
 
 /* Adoption Reports */
 // (submission route can be anonymous)

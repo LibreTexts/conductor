@@ -1,18 +1,23 @@
-import { Grid, Segment, Button, Form, Input, Image, Modal, Header, Divider } from 'semantic-ui-react';
-import { DateInput } from 'semantic-ui-calendar-react';
+import {
+    Grid,
+    Segment,
+    Button,
+    Form,
+    Input,
+    Image,
+    Modal,
+    Header,
+    Divider
+} from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { DateInput } from 'semantic-ui-calendar-react';
 import axios from 'axios';
-import { isEmptyString } from '../util/HelperFunctions.js';
+
 import useGlobalError from '../error/ErrorHooks.js';
-
-import {
-    libraryOptions,
-} from '../util/LibraryOptions.js';
+import { isEmptyString } from '../util/HelperFunctions.js';
+import { libraryOptions } from '../util/LibraryOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
-
-import {
-    textUseOptions
-} from '../util/HarvestingMasterOptions.js';
+import { textUseOptions } from '../util/HarvestingMasterOptions.js';
 
 const HarvestRequest = (props) => {
 
@@ -40,15 +45,16 @@ const HarvestRequest = (props) => {
     const [libErr, setLibErr] = useState(false);
     const [licErr, setLicErr] = useState(false);
 
+
+    /**
+     * Update page title.
+     */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Harvest Request";
     }, []);
 
-    const successModalClosed = () => {
-        setSuccessModal(false);
-        props.history.push('/');
-    };
 
+    /** Form input handlers **/
     const onChange = (e) => {
         switch (e.target.id) {
             case 'email':
@@ -74,22 +80,28 @@ const HarvestRequest = (props) => {
         }
     };
 
-    const handleLibChange = (e, { value }) => {
+    const handleLibChange = (_e, { value }) => {
         setLibrary(value);
     };
 
-    const handleLicChange = (e, { value }) => {
+    const handleLicChange = (_e, { value }) => {
         setLicense(value);
     };
 
-    const handleUseChange = (e, { value }) => {
+    const handleUseChange = (_e, { value }) => {
         setResourceUse(value);
     };
 
-    const handleDateChange = (e, { value }) => {
+    const handleDateChange = (_e, { value }) => {
         setDateIntegrate(value);
     };
 
+
+    /**
+     * Validate the form data, return
+     * 'true' if all fields are valid,
+     * 'false' otherwise
+     */
     const validateForm = () => { // returns true if form is ok
         var valid = true;
         if (isEmptyString(email)) {
@@ -111,6 +123,10 @@ const HarvestRequest = (props) => {
         return valid;
     };
 
+
+    /**
+     * Reset all form error states.
+     */
     const resetForm = () => { // resets all field errors
         setEmailErr(false);
         setTitleErr(false);
@@ -118,6 +134,11 @@ const HarvestRequest = (props) => {
         setLicErr(false);
     };
 
+
+    /**
+     * Submit data via POST to the server, then
+     * open the Success Modal.
+     */
     const onSubmit = () => {
         resetForm();
         if (validateForm()) {
@@ -147,6 +168,17 @@ const HarvestRequest = (props) => {
         }
     };
 
+
+    /**
+     * Called when the Succes Modal
+     * is closed. Redirects user
+     * to home page.
+     */
+    const successModalClosed = () => {
+        setSuccessModal(false);
+        props.history.push('/');
+    };
+
     return(
         <Grid centered={true} verticalAlign='middle' className='component-container'>
             <Grid.Row>
@@ -154,7 +186,15 @@ const HarvestRequest = (props) => {
                     <Grid verticalAlign='middle' centered={true}>
                         <Grid.Row>
                             <Grid.Column>
-                                <Image src="/transparent_logo.png" size='medium' centered/>
+                                <Image
+                                    src="/transparent_logo.png"
+                                    size='medium'
+                                    centered
+                                    className='cursor-pointer'
+                                    onClick={() => {
+                                        window.open('https://libretexts.org', '_blank', 'noopener');
+                                    }}
+                                />
                                 <Header as='h1' textAlign='center'>Request OER Integration</Header>
                             </Grid.Column>
                         </Grid.Row>

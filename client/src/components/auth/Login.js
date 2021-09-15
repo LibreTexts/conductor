@@ -158,6 +158,13 @@ const Login = (props) => {
     };
 
     const initSSOLogin = () => {
+        if (process.env.REACT_APP_ORG_ID !== 'libretexts') {
+            if (process.env.NODE_ENV === 'production') {
+                Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: '.libretexts.org', sameSite: 'lax'});
+            } else {
+                Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});
+            }
+        }
         window.location.assign('http://commons.libretexts.org/api/v1/auth/initsso');
     };
 

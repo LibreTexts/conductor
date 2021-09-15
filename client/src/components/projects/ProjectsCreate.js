@@ -33,6 +33,7 @@ const ProjectsCreate = (props) => {
     const org = useSelector((state) => state.org);
 
     // UI
+    const [tagOptions, setTagOptions] = useState([]);
 
     // Project Data
     const [projTitle, setProjTitle] = useState('');
@@ -83,6 +84,27 @@ const ProjectsCreate = (props) => {
 
         }
     };
+
+    const renderTag = (tag) => ({
+        color: 'blue',
+        content: tag.text
+    });
+
+    const handleTagAddition = (e, { value }) => {
+        setTagOptions([{ text: value, value }, ...tagOptions]);
+    };
+
+
+    useEffect(() => {
+        console.log("UPDATED TAGS:");
+        console.log(projTags);
+    }, [projTags]);
+
+
+    useEffect(() => {
+        console.log("UPDATED TAG OPTIONS:");
+        console.log(tagOptions);
+    }, [tagOptions]);
 
     return(
         <Grid className='component-container' divided='vertically'>
@@ -169,9 +191,12 @@ const ProjectsCreate = (props) => {
                                         multiple
                                         search
                                         selection
-                                        options={[
-                                            { key: 'empty', text: 'Clear...', value: ''}
-                                        ]}
+                                        allowAdditions
+                                        options={tagOptions}
+                                        onChange={(_e, { value }) => setProjTags(value) }
+                                        onAddItem={handleTagAddition}
+                                        renderLabel={renderTag}
+                                        value={projTags}
                                     />
                                 <Divider />
                                 <Header as='h3'>Resource Information</Header>

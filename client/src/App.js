@@ -47,6 +47,7 @@ import CampusSettings from './components/controlpanel/CampusSettings.js';
 import CollectionsManager from './components/controlpanel/CollectionsManager.js';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests.js';
 import HomeworkManager from './components/controlpanel/HomeworkManager.js';
+import OrganizationsManager from './components/controlpanel/OrganizationsManager.js';
 import UsersManager from './components/controlpanel/UsersManager.js';
 
 
@@ -114,6 +115,7 @@ function App() {
                         <PrivateRoute exact path = '/controlpanel/collectionsmanager' component={CollectionsManager} />
                         <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
                         <PrivateRoute exact path = '/controlpanel/homeworkmanager' component={HomeworkManager} />
+                        <PrivateRoute exact path = '/controlpanel/orgsmanager' component={OrganizationsManager} />
                         <PrivateRoute exact path = '/controlpanel/usersmanager' component={UsersManager} />
 
                     {/* 404 */}

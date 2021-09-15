@@ -14,17 +14,28 @@ const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError } = require('../debug.js');
 
+
+/**
+ * Creates a new Project within
+ * the current Organization using
+ * the values specified in the
+ * request body.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'createProject'
+ */
 const createProject = (req, res) => {
-    var newProject = new Project({
+    var newProjData = {
         ...req.body,
-        orgID: req.user.org,
+        orgID: process.env.ORG_ID,
         projectID: b62(10),
-        status: 'available',
-        currentProgress: 0,
-        assignees: [],
+        collaborators: [],
         createdBy: req.decoded.uuid
-    });
-    newProject.save.then((newDoc) => {
+    };
+    if (!newProjData.hasOwnProperty('currentProgress')) newProjData.currentProgress = 0;
+    if (!newProjData.hasOwnProperty('status')) newProjData.status = 'data';
+    var newProject = new Project(newProjData);
+    newProject.save().then((newDoc) => {
         if (newDoc) {
             return res.send({
                 err: false,
@@ -32,17 +43,21 @@ const createProject = (req, res) => {
                 id: newDoc.projectID
             });
         } else {
-            return res.send(500).send({
+            throw(new Error('createfail'));
+        }
+    }).catch((err) => {
+        if (err.message === 'createfail') {
+            return res.send({
                 err: true,
                 errMsg: conductorErrors.err3
             });
+        } else {
+            debugError(err);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
         }
-    }).catch((err) => {
-        debugError(err);
-        return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
     });
 };
 
@@ -217,7 +232,7 @@ const getRecentUserProjects = (req, res, next) => {
 
 const validate = (method) => {
     switch (method) {
-        case 'create':
+        case 'createProject':
             return [
                 body('title', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('tags').optional({ checkFalsy: true }).isArray()

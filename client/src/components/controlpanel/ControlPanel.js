@@ -12,12 +12,10 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
-import useGlobalError from '../error/ErrorHooks.js';
 
-const ControlPanel = (props) => {
+const ControlPanel = () => {
 
     // Global State
-    const { handleGlobalError } = useGlobalError();
     const isCampusAdmin = useSelector((state) => state.user.isCampusAdmin);
     const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
 
@@ -82,7 +80,6 @@ const ControlPanel = (props) => {
                                             <List.Item
                                                 as={Link}
                                                 to='/controlpanel/orgsmanager'
-                                                disabled
                                             >
                                                 <Icon name='building' />
                                                 <List.Content>

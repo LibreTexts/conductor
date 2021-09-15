@@ -51,6 +51,39 @@ const getOrganizationInfo = (req, res, _next) => {
 
 
 /**
+ * Retrieves basic information about
+ * all known Organizations. Method
+ * should be restricted to users with
+ * elevated privileges.
+ */
+const getAllOrganizations = (req, res) => {
+    Organization.aggregate([
+        {
+            $match: {}
+        }, {
+            $project: {
+                _id: 0,
+                aliases: 0,
+                createdAt: 0,
+                updatedAt: 0
+            }
+        }
+    ]).then((orgs) => {
+        return res.send({
+            err: false,
+            orgs: orgs
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+
+/**
  * Updates the Organization identified
  * by @orgID in the request body. Method
  * should be restricted to users with
@@ -61,13 +94,13 @@ const getOrganizationInfo = (req, res, _next) => {
  */
 const updateOrganizationInfo = (req, res) => {
     var updateObj = {};
-    if (req.body.coverPhoto) updateObj.coverPhoto = req.body.coverPhoto;
-    if (req.body.largeLogo) updateObj.largeLogo = req.body.largeLogo;
-    if (req.body.mediumLogo) updateObj.mediumLogo = req.body.mediumLogo;
-    if (req.body.smallLogo) updateObj.smallLogo = req.body.smallLogo;
-    if (req.body.aboutLink) updateObj.aboutLink = req.body.aboutLink;
-    if (req.body.commonsHeader) updateObj.commonsHeader = req.body.commonsHeader;
-    if (req.body.commonsMessage) updateObj.commonsMessage = req.body.commonsMessage;
+    if (req.body.hasOwnProperty('coverPhoto')) updateObj.coverPhoto = req.body.coverPhoto;
+    if (req.body.hasOwnProperty('largeLogo')) updateObj.largeLogo = req.body.largeLogo;
+    if (req.body.hasOwnProperty('mediumLogo')) updateObj.mediumLogo = req.body.mediumLogo;
+    if (req.body.hasOwnProperty('smallLogo')) updateObj.smallLogo = req.body.smallLogo;
+    if (req.body.hasOwnProperty('aboutLink')) updateObj.aboutLink = req.body.aboutLink;
+    if (req.body.hasOwnProperty('commonsHeader')) updateObj.commonsHeader = req.body.commonsHeader;
+    if (req.body.hasOwnProperty('commonsMessage')) updateObj.commonsMessage = req.body.commonsMessage;
     Organization.findOneAndUpdate({ orgID: req.body.orgID }, updateObj, {
         new: true, lean: true
     }).then((updatedOrg) => {
@@ -126,6 +159,7 @@ const validate = (method) => {
 
 module.exports = {
     getOrganizationInfo,
+    getAllOrganizations,
     updateOrganizationInfo,
     validate
 };

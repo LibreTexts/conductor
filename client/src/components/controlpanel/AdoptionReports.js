@@ -326,9 +326,9 @@ const AdoptionReports = (props) => {
                                 <Table.Body>
                                     {(adoptionReports.length > 0) &&
                                         sortedReports.map((item, idx) => {
-                                            var resourceTitle = "Unknown";
-                                            var resourceLib = "Unknown";
-                                            var institution = "Unknown";
+                                            var resourceTitle = <em>Unknown</em>;
+                                            var resourceLib = 'unknown';
+                                            var institution = <em>Unknown</em>;
                                             if (item.resource) {
                                                 if (item.resource.title) {
                                                     resourceTitle = item.resource.title;
@@ -359,8 +359,15 @@ const AdoptionReports = (props) => {
                                                     <Table.Cell>
                                                         <span>{resourceTitle}</span></Table.Cell>
                                                     <Table.Cell>
-                                                        <Image src={getLibGlyphURL(resourceLib)} className='library-glyph' />
-                                                        <span>{getLibraryName(resourceLib)}</span>
+                                                        {(resourceLib !== 'unknown')
+                                                            ? (
+                                                                <div>
+                                                                    <Image src={getLibGlyphURL(resourceLib)} className='library-glyph' />
+                                                                    <span>{getLibraryName(resourceLib)}</span>
+                                                                </div>
+                                                            )
+                                                            : (<span><em>Unknown</em></span>)
+                                                        }
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <span>{institution}</span></Table.Cell>
@@ -409,18 +416,39 @@ const AdoptionReports = (props) => {
                                 <Grid.Row columns={3}>
                                     <Grid.Column>
                                         <Header sub>Resource Title</Header>
-                                        <p>{currentReport.resource.title}</p>
+                                        {(currentReport.resource && currentReport.resource.title)
+                                            ? (<p>{currentReport.resource.title}</p>)
+                                            : (<em>Not specified, resource may be linked.</em>)
+                                        }
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Resource Library</Header>
-                                        <Image src={getLibGlyphURL(currentReport.resource.library)} className='library-glyph' />
-                                        <span>{getLibraryName(currentReport.resource.library)}</span>
+                                        {(currentReport.resource && currentReport.resource.library)
+                                            ? (
+                                                <div>
+                                                    <Image src={getLibGlyphURL(currentReport.resource.library)} className='library-glyph' />
+                                                    <span>{getLibraryName(currentReport.resource.library)}</span>
+                                                </div>
+                                            )
+                                            : (<em>Not specified, resource may be linked.</em>)
+                                        }
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Resource ID</Header>
-                                        <p>{currentReport.resource.id}</p>
+                                        {(currentReport.resource && currentReport.resource.id)
+                                            ? (<p>{currentReport.resource.id}</p>)
+                                            : (<em>Not specified, resource may be linked.</em>)
+                                        }
                                     </Grid.Column>
                                 </Grid.Row>
+                                {(currentReport.resource && currentReport.resource.link) &&
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Header sub>Resource Link</Header>
+                                            <a href={currentReport.resource.link} target='_blank' rel='noopener noreferrer'>{truncateString(currentReport.resource.link, 75)}</a>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
                                 <Grid.Row columns={1}>
                                     <Grid.Column>
                                         {(currentReport.role === 'instructor') &&

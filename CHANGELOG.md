@@ -1,5 +1,19 @@
 # Changelog
 
+## 09-14-2021
+#### :art: UI/UX
+* Created the Adoption Report standalone page
+* Updated the Adoption Reports Dashboard to handle standalone submissions
+* Finished implementing Campus Settings in Control Panel
+* Implemented Organizations Manager in Control Panel
+* Added a branded Maintenance in Progress page
+* More work on the Create Project interface
+
+#### :satellite: Server
+* Updated backend logic to support standalone Adoption Reports
+* Update to Campus Catalog management logic
+* Added the Tag model for Projects
+
 ## 09-13-2021
 #### :art: UI/UX
 * Added the Publisher filter to Commons Catalog

@@ -15,18 +15,10 @@ const AdoptionReportSchema = new Schema({
         required: true
     },
     resource: {
-        id: {
-            type: String,
-            required: true
-        },
-        title: {
-            type: String,
-            required: true
-        },
-        library: {
-            type: String,
-            required: true
-        }
+        id: String,
+        title: String,
+        library: String,
+        link: String
     },
     instructor: {
         isLibreNet: String,

@@ -653,12 +653,18 @@ const getMasterCatalog = (req, res) => {
         if (Object.keys(orgData).length > 0) {
             var campusNames = buildOrganizationNamesList(orgData);
             sortedBooks.forEach((book) => {
-                if (book.course && !isEmptyString(book.course)) {
-                    var isCampusBook = campusNames.some((item) => {
+                var isCampusBook = campusNames.some((item) => {
+                    if (book.course && !isEmptyString(book.course)) {
                         return (String(book.course).includes(item) || String(book.course) === item);
-                    });
-                    if (isCampusBook) book.isCampusBook = true;
-                }
+                    } else if (book.program && !isEmptyString(book.program)) {
+                        return (String(book.program).includes(item) || String(book.program) === item);
+                    } else if (book.affiliation && !isEmptyString(book.affiliation)) {
+                        return (String(book.affiliation).includes(item) || String(book.affiliation) === item);
+                    } else {
+                        return false;
+                    }
+                });
+                if (isCampusBook) book.isCampusBook = true;
             });
         }
         return res.send({

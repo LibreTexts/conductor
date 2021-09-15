@@ -37,7 +37,7 @@ const ProjectSchema = new Schema({
     resourceURL: String,        // resource original URL (if applicable)
     projectURL: String,         // the URL where the project exists (if applicable)
     collaborators: [String],    // all users with access to the project (UUIDs)
-    tags: [String],             // project tags
+    tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
     createdBy: String,          // the user who created the project (UUID)
     flaggedUser: String         // user who should review the flagged project (UUID)

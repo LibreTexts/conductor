@@ -69,6 +69,7 @@ const AdoptionReport = (props) => {
     const [instrTaughtTermErr, setInstrTaughtTermErr] = useState(false);
     const [instrNumStudentsErr, setInstrNumStudentsErr] = useState(false);
 
+
     /**
      * Open or close the modal depending on the
      * boolean passed from the parent/host component
@@ -76,6 +77,7 @@ const AdoptionReport = (props) => {
     useEffect(() => {
         setShowModal(props.open);
     }, [props.open])
+
 
     /** Form input handlers **/
     const handleInputChange = (e) => {
@@ -143,17 +145,18 @@ const AdoptionReport = (props) => {
         setStudentAccess(updated);
     };
 
-    const handleLibreNetInstChange = (e, { value }) => {
+    const handleLibreNetInstChange = (_e, { value }) => {
         setLibreNetInst(value);
     };
 
-    const handleStudentQualityChange = (e, { value }) => {
+    const handleStudentQualityChange = (_e, { value }) => {
         setStudentQuality(value);
     };
 
-    const handleStudentNavigateChange = (e, { value }) => {
+    const handleStudentNavigateChange = (_e, { value }) => {
         setStudentNavigate(value);
     };
+
 
     /**
      * Reset all fields, then call the onClose function
@@ -190,6 +193,7 @@ const AdoptionReport = (props) => {
         setShowSuccessModal(false);
         props.onClose();
     };
+
 
     /**
      * Validate the form data, return
@@ -239,6 +243,7 @@ const AdoptionReport = (props) => {
         return validForm;
     };
 
+
     /**
      * Reset all form error states
      */
@@ -252,6 +257,7 @@ const AdoptionReport = (props) => {
         setInstrTaughtTermErr(false);
         setInstrNumStudentsErr(false);
     };
+
 
     /**
      * Submit data via POST to the server, then
@@ -358,6 +364,7 @@ const AdoptionReport = (props) => {
         setSubmitLoading(false);
     };
 
+
     return (
         <Modal
             onClose={closeModal}
@@ -373,7 +380,7 @@ const AdoptionReport = (props) => {
                             required
                             error={emailErr}
                         >
-                            <label htmlFor='email'>Your Email</label>
+                            <label htmlFor='ar-email-input'>Your Email</label>
                             <Input
                                 fluid
                                 id='ar-email-input'
@@ -391,7 +398,7 @@ const AdoptionReport = (props) => {
                             required
                             error={nameErr}
                         >
-                            <label htmlFor='name'>Your Name</label>
+                            <label htmlFor='ar-name-input'>Your Name</label>
                             <Input
                                 fluid
                                 id='ar-name-input'
@@ -463,7 +470,7 @@ const AdoptionReport = (props) => {
                                     required
                                     error={instrInstNameErr}
                                 >
-                                    <label htmlFor='not-libre-inst'>Institution Name</label>
+                                    <label htmlFor='ar-not-libre-inst-input'>Institution Name</label>
                                     <Input
                                         fluid
                                         id='ar-not-libre-inst-input'
@@ -481,7 +488,7 @@ const AdoptionReport = (props) => {
                                 required
                                 error={instrClassNameErr}
                             >
-                                <label htmlFor='instr-class'>Class Name</label>
+                                <label htmlFor='ar-instr-class-input'>Class Name</label>
                                 <Input
                                     fluid
                                     id='ar-instr-class-input'
@@ -509,7 +516,7 @@ const AdoptionReport = (props) => {
                                 required
                                 error={instrNumStudentsErr}
                             >
-                                <label htmlFor='instr-num-students'>Number of Students</label>
+                                <label htmlFor='ar-instr-num-students-input'>Number of Students</label>
                                 <Input
                                     fluid
                                     id='ar-instr-num-students-input'
@@ -524,9 +531,9 @@ const AdoptionReport = (props) => {
                                 />
                             </Form.Field>
                             <Form.Field>
-                                <label htmlFor='instr-replace-cost'>Cost of textbook that LibreTexts replaced</label>
+                                <label htmlFor='ar-instr-replace-cost-input'>Cost of textbook that LibreTexts replaced</label>
                                 <Input
-                                    fluid={true}
+                                    fluid
                                     id='ar-instr-replace-cost-input'
                                     type='number'
                                     name='instr-replace-cost'
@@ -571,9 +578,9 @@ const AdoptionReport = (props) => {
                                 />
                             </Form.Group>
                             <Form.Field>
-                                <label htmlFor='instr-print-cost'>If you used a printed version of this LibreText, how much did it cost?</label>
+                                <label htmlFor='ar-instr-print-cost-input'>If you used a printed version of this LibreText, how much did it cost?</label>
                                 <Input
-                                    fluid={true}
+                                    fluid
                                     id='ar-instr-print-cost-input'
                                     type='number'
                                     name='instr-print-cost'
@@ -600,7 +607,7 @@ const AdoptionReport = (props) => {
                                 value={studentUse}
                             />
                             <Form.Field>
-                                <label htmlFor='student-inst'>Institution Name</label>
+                                <label htmlFor='ar-student-inst-input'>Institution Name</label>
                                 <Input
                                     fluid
                                     id='ar-student-inst-input'
@@ -614,7 +621,7 @@ const AdoptionReport = (props) => {
                                 />
                             </Form.Field>
                             <Form.Field>
-                                <label htmlFor='student-class'>Class Name</label>
+                                <label htmlFor='ar-student-class-input'>Class Name</label>
                                 <Input
                                     fluid
                                     id='ar-student-class-input'
@@ -628,7 +635,7 @@ const AdoptionReport = (props) => {
                                 />
                             </Form.Field>
                             <Form.Field>
-                                <label htmlFor='student-instructor'>Instructor Name</label>
+                                <label htmlFor='ar-student-instructor-input'>Instructor Name</label>
                                 <Input
                                     fluid
                                     id='ar-student-instructor-input'
@@ -741,7 +748,7 @@ const AdoptionReport = (props) => {
                                 />
                             </Form.Group>
                             <Form.Field>
-                                <label htmlFor='student-print-cost'>If you used a printed version of this LibreText, how much did it cost?</label>
+                                <label htmlFor='ar-student-print-cost-input'>If you used a printed version of this LibreText, how much did it cost?</label>
                                 <Input
                                     fluid
                                     id='ar-student-print-cost-input'
@@ -758,7 +765,7 @@ const AdoptionReport = (props) => {
                     }
                     <Divider />
                     <Form.Field>
-                        <label htmlFor='addtl-comments'>If you have additional comments, please share below</label>
+                        <label htmlFor='ar-addtl-comments-input'>If you have additional comments, please share below</label>
                         <Input
                             fluid
                             id='ar-addtl-comments-input'
