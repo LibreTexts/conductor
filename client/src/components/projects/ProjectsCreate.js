@@ -3,41 +3,44 @@ import './ProjectsPortal.css';
 import {
   Grid,
   Header,
-  Menu,
-  Input,
   Segment,
   Divider,
   Message,
   Icon,
   Button,
-  Table,
-  Loader,
-  Form
+  Form,
+  Breadcrumb
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-//import axios from 'axios';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import queryString from 'query-string';
+import axios from 'axios';
 
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-import { visibilityOptions } from '../util/ProjectOptions.js';
+import {
+    visibilityOptions,
+    statusOptions
+} from '../util/ProjectOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
+
+import useGlobalError from '../error/ErrorHooks.js';
 
 const ProjectsCreate = (props) => {
 
-    // Global State
+    // Global State and Eror Handling
+    const { handleGlobalError } = useGlobalError();
     const org = useSelector((state) => state.org);
 
     // UI
     const [tagOptions, setTagOptions] = useState([]);
+    const [loadingData, setLoadingData] = useState(false);
+    const [loadedTags, setLoadedTags] = useState(false);
 
     // Project Data
     const [projTitle, setProjTitle] = useState('');
-    const [projVisibility, setProjVisibility] = useState('');
+    const [projVisibility, setProjVisibility] = useState('private');
+    const [projStatus, setProjStatus] = useState('');
     const [projProgress, setProjProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
@@ -51,20 +54,60 @@ const ProjectsCreate = (props) => {
     const [projProgressErr, setProjProgressErr] = useState(false);
 
 
+    /**
+     * Set page title and load existing Project Tags
+     * on initial load.
+     */
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Projects | Add Existing";
-        date.plugin(ordinal);
+        document.title = "LibreTexts Conductor | Projects | Create Project";
+        getTags();
     }, []);
 
-    useEffect(() => {
-        console.log(org);
-    }, [org]);
 
+    /**
+     * Load existing Project Tags from the server
+     * via GET request, then sort, format, and save
+     * them to state for use in the Dropdown.
+     */
+    const getTags = () => {
+        axios.get('/projects/tags/org').then((res) => {
+            if (!res.data.err) {
+                if (res.data.tags && Array.isArray(res.data.tags)) {
+                    res.data.tags.sort((tagA, tagB) => {
+                        var aNorm = String(tagA.title).toLowerCase();
+                        var bNorm = String(tagB.title).toLowerCase();
+                        if (aNorm < bNorm) return -1;
+                        if (aNorm > bNorm) return 1;
+                        return 0;
+                    })
+                    const newTagOptions = res.data.tags.map((tagItem) => {
+                        return { text: tagItem.title, value: tagItem.title };
+                    });
+                    setTagOptions(newTagOptions);
+                    setLoadedTags(true);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+        });
+    };
+
+
+    /**
+     * Reset all form error states
+     */
     const resetFormErrors = () => {
         setProjTitleErr(false);
         setProjProgressErr(false);
     };
 
+
+    /**
+     * Validate the form data.
+     * @return {Boolean} true if all fields valid, false otherwise.
+     */
     const validateForm = () => {
         var validForm = true;
         if (isEmptyString(projTitle)) {
@@ -78,33 +121,48 @@ const ProjectsCreate = (props) => {
         return validForm;
     };
 
+
+    /**
+     * Ensure the form data is valid, then submit the
+     * data to the server via POST request. Redirects
+     * page to Projects page or Project View page on
+     * success.
+     */
     const submitForm = () => {
         resetFormErrors();
         if (validateForm()) {
-
+            setLoadingData(true);
+            var projData = {
+                title: projTitle
+            };
+            if (!isEmptyString(projVisibility)) projData.visibility = projVisibility;
+            if (!isEmptyString(projStatus)) projData.status = projStatus;
+            if (projProgress > 0) projData.progress = projProgress;
+            if (!isEmptyString(projURL)) projData.projectURL = projURL;
+            if (projTags.length > 0) projData.tags = projTags;
+            if (!isEmptyString(projResAuthor)) projData.author = projResAuthor;
+            if (!isEmptyString(projResLicense)) projData.license = projResLicense;
+            if (!isEmptyString(projResURL)) projData.resourceURL = projResURL;
+            if (!isEmptyString(projNotes)) projData.notes = projNotes;
+            axios.post('/project', projData).then((res) => {
+                if (!res.data.err) {
+                    setLoadingData(false);
+                    if (res.data.projectID) {
+                        props.history.push(`/projects/${res.data.projectID}?projectCreated=true`);
+                    } else {
+                        props.history.push('/projects?projectCreated=true');
+                    }
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setLoadingData(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setLoadingData(false);
+            });
         }
     };
 
-    const renderTag = (tag) => ({
-        color: 'blue',
-        content: tag.text
-    });
-
-    const handleTagAddition = (e, { value }) => {
-        setTagOptions([{ text: value, value }, ...tagOptions]);
-    };
-
-
-    useEffect(() => {
-        console.log("UPDATED TAGS:");
-        console.log(projTags);
-    }, [projTags]);
-
-
-    useEffect(() => {
-        console.log("UPDATED TAG OPTIONS:");
-        console.log(tagOptions);
-    }, [tagOptions]);
 
     return(
         <Grid className='component-container' divided='vertically'>
@@ -115,18 +173,20 @@ const ProjectsCreate = (props) => {
             </Grid.Row>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Segment>
-                        <Link to='/projects'>
-                            <Button color='blue' basic>
-                                <Button.Content>
-                                    <Icon name='arrow left' />
-                                    Back to Projects
-                                </Button.Content>
-                            </Button>
-                        </Link>
-                        <Divider />
-                        <Segment basic className='component-innercontainer'>
-                            <Header as='h2' className='formheader'>Create Project</Header>
+                    <Segment.Group>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/projects'>
+                                    Projects
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    Create Project
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
+                        <Segment>
+                            <Header as='h2' className='mt-1p mb-2p'>Create Project</Header>
                             <Message icon className='mb-2p'>
                                 <Icon name='info circle' />
                                 <Message.Content>
@@ -146,16 +206,16 @@ const ProjectsCreate = (props) => {
                                         <Form.Input
                                             type='text'
                                             placeholder='Enter the project title...'
-                                            onChange={(e) => { setProjTitle(e.target.value) }}
+                                            onChange={(e) => setProjTitle(e.target.value)}
                                             value={projTitle}
                                         />
                                     </Form.Field>
                                     <Form.Select
                                         fluid
-                                        label={<label>Visibility <span className='muted-text'>(defaults to private)</span></label>}
+                                        label={<label>Visibility <span className='muted-text'>(defaults to Private)</span></label>}
                                         placeholder='Visibility...'
                                         options={visibilityOptions}
-                                        onChange={(e, { value }) => { setProjVisibility(value) }}
+                                        onChange={(_e, { value }) => setProjVisibility(value)}
                                         value={projVisibility}
                                     />
                                 </Form.Group>
@@ -170,34 +230,47 @@ const ProjectsCreate = (props) => {
                                             placeholder='Enter current estimated progress...'
                                             min='0'
                                             max='100'
-                                            onChange={(e) => { setProjProgress(e.target.value) }}
+                                            onChange={(e) => setProjProgress(e.target.value)}
                                             value={projProgress}
                                         />
                                     </Form.Field>
-                                    <Form.Field>
-                                        <label>Project URL <span className='muted-text'>(if applicable)</span></label>
-                                        <Form.Input
-                                            name='projectURL'
-                                            type='url'
-                                            placeholder='Enter project URL...'
-                                            onChange={(e) => { setProjURL(e.target.value) }}
-                                            value={projURL}
-                                        />
-                                    </Form.Field>
-                                </Form.Group>
-                                    <Form.Dropdown
-                                        label='Project Tags'
-                                        placeholder='Search tags...'
-                                        multiple
-                                        search
-                                        selection
-                                        allowAdditions
-                                        options={tagOptions}
-                                        onChange={(_e, { value }) => setProjTags(value) }
-                                        onAddItem={handleTagAddition}
-                                        renderLabel={renderTag}
-                                        value={projTags}
+                                    <Form.Select
+                                        fluid
+                                        label={<label>Status <span className='muted-text'>(defaults to Open/In Progress)</span></label>}
+                                        placeholder='Status...'
+                                        options={statusOptions}
+                                        onChange={(_e, { value }) => setProjStatus(value)}
+                                        value={projStatus}
                                     />
+                                </Form.Group>
+                                <Form.Field>
+                                    <label>Project URL <span className='muted-text'>(if applicable)</span></label>
+                                    <Form.Input
+                                        name='projectURL'
+                                        type='url'
+                                        placeholder='Enter project URL...'
+                                        onChange={(e) => setProjURL(e.target.value)}
+                                        value={projURL}
+                                    />
+                                </Form.Field>
+                                <Form.Dropdown
+                                    label='Project Tags'
+                                    placeholder='Search tags...'
+                                    multiple
+                                    search
+                                    selection
+                                    allowAdditions
+                                    options={tagOptions}
+                                    loading={!loadedTags}
+                                    disabled={!loadedTags}
+                                    onChange={(_e, { value }) => setProjTags(value)}
+                                    onAddItem={(_e, { value }) => setTagOptions([{ text: value, value }, ...tagOptions])}
+                                    renderLabel={(tag) => ({
+                                        color: 'blue',
+                                        content: tag.text
+                                    })}
+                                    value={projTags}
+                                />
                                 <Divider />
                                 <Header as='h3'>Resource Information</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
@@ -208,7 +281,7 @@ const ProjectsCreate = (props) => {
                                             name='resourceAuthor'
                                             type='text'
                                             placeholder='Enter resource author name...'
-                                            onChange={(e) => { setProjResAuthor(e.target.value) }}
+                                            onChange={(e) => setProjResAuthor(e.target.value)}
                                             value={projResAuthor}
                                         />
                                     </Form.Field>
@@ -217,6 +290,8 @@ const ProjectsCreate = (props) => {
                                         label='License'
                                         placeholder='License...'
                                         options={licenseOptions}
+                                        onChange={(_e, { value }) => setProjResLicense(value)}
+                                        value={projResLicense}
                                     />
                                 </Form.Group>
                                 <Form.Field>
@@ -225,7 +300,7 @@ const ProjectsCreate = (props) => {
                                         name='resourceURL'
                                         type='url'
                                         placeholder='Enter resource URL...'
-                                        onChange={(e) => { setProjResURL(e.target.value) }}
+                                        onChange={(e) => setProjResURL(e.target.value)}
                                         value={projResURL}
                                     />
                                 </Form.Field>
@@ -235,7 +310,7 @@ const ProjectsCreate = (props) => {
                                     <label>Notes</label>
                                     <Form.TextArea
                                         name='notes'
-                                        onChange={(e) => { setProjNotes(e.target.value) }}
+                                        onChange={(e) => setProjNotes(e.target.value)}
                                         value={projNotes}
                                         placeholder='Enter additional notes here...'
                                     />
@@ -243,13 +318,16 @@ const ProjectsCreate = (props) => {
                                 <Button
                                     type='submit'
                                     color='green'
-                                    className='button-float-right'
+                                    fluid
+                                    loading={loadingData}
+                                    onClick={submitForm}
                                 >
+                                    <Icon name='add' />
                                     Create Project
                                 </Button>
                             </Form>
                         </Segment>
-                    </Segment>
+                    </Segment.Group>
                 </Grid.Column>
             </Grid.Row>
         </Grid>

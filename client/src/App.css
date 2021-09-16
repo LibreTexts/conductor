@@ -279,3 +279,7 @@ body {
 .multiline-display {
     white-space: pre-line !important;
 }
+
+.inlineblock-display {
+    display: inline-block;
+}

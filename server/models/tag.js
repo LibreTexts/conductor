@@ -10,7 +10,7 @@ const Schema = mongoose.Schema;
 const TagSchema = new Schema({
     orgID: String,          // organization identifier string,
     tagID: String,          // base62 12-digit identifier
-    tagTitle: String        // the tag's title/display text
+    title: String           // the tag's title/display text
 }, {
     timestamps: true
 });

@@ -50,9 +50,10 @@ import HomeworkManager from './components/controlpanel/HomeworkManager.js';
 import OrganizationsManager from './components/controlpanel/OrganizationsManager.js';
 import UsersManager from './components/controlpanel/UsersManager.js';
 
-
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
 import ProjectsCreate from './components/projects/ProjectsCreate.js';
+import ProjectView from './components/projects/ProjectView.js';
+
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound.js';
@@ -83,7 +84,7 @@ function App() {
         return Promise.reject(err);
     });
 
-    const Conductor = ({ match }) => {
+    const Conductor = () => {
         return (
             <div className='conductor'>
                 <Navbar />
@@ -95,6 +96,7 @@ function App() {
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
                         <PrivateRoute exact path = '/projects/create' component={ProjectsCreate} />
+                        <PrivateRoute exact path = '/projects/:id' component={ProjectView} />
 
                     <PrivateRoute exact path = '/harvesting' component={HarvestingPortal} />
                         <PrivateRoute exact path = '/harvesting/projects/addexisting' component={HarvestingProjectAddExisting} />

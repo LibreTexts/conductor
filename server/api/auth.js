@@ -143,7 +143,7 @@ const oauthCallback = (req, res) => {
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
                     accessCookie += " Domain=" + domains[0] + ';';
-                    sigCookie += " Domain=" + domains[0] + '; Secure;';
+                    sigCookie += " Domain=" + domains[0] + ';';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];
                 res.setHeader('Set-Cookie', cookiesToSet);
@@ -231,7 +231,7 @@ const login = (req, res, _next) => {
                 if (process.env.NODE_ENV === 'production') {
                     const domains = String(process.env.PRODUCTIONURLS).split(',');
                     accessCookie += " Domain=" + domains[0] + ';';
-                    sigCookie += " Domain=" + domains[0] + '; Secure;';
+                    sigCookie += " Domain=" + domains[0] + ';';
                 }
                 const cookiesToSet = [accessCookie, sigCookie];
                 res.setHeader('Set-Cookie', cookiesToSet);

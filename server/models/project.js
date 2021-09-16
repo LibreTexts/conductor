@@ -39,7 +39,7 @@ const ProjectSchema = new Schema({
     collaborators: [String],    // all users with access to the project (UUIDs)
     tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
-    createdBy: String,          // the user who created the project (UUID)
+    owner: String,              // the user who created the project (UUID)
     flaggedUser: String         // user who should review the flagged project (UUID)
 }, {
     timestamps: true

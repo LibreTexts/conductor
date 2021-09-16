@@ -12,6 +12,9 @@ const conductorErrors = require('./conductor-errors.js');
  * Checks the results of the validation stage for an API route.
  * If there are no errors, the chain continues; otherwise, return an
  * error and the array of validation errors.
+ * @param {Object} req    - the route request object
+ * @param {Object} res    - the route response object
+ * @param {function} next - the route's next middleware function to be ran
  */
 const checkValidationErrors = (req, res, next) => {
     const validationErrors = validationResult(req);
@@ -30,6 +33,9 @@ const checkValidationErrors = (req, res, next) => {
 /**
  * Checks that the route is being run on a LibreCommons server,
  * verified via an environment variable.
+ * @param {Object} req    - the route request object
+ * @param {Object} res    - the route response object
+ * @param {function} next - the route's next middleware function to be ran
  */
 const checkLibreCommons = (_req, res, next) => {
     if (process.env.ORG_ID === 'libretexts') {
@@ -44,7 +50,10 @@ const checkLibreCommons = (_req, res, next) => {
 
 
 /**
- * Verifies CORS properties (all routes)
+ * Verifies CORS properties (all routes).
+ * @param {Object} req    - the route request object
+ * @param {Object} res    - the route response object
+ * @param {function} next - the route's next middleware function to be ran
  */
 const corsHelper = (req, res, next) => {
     var allowedOrigins = [];
@@ -72,6 +81,9 @@ const corsHelper = (req, res, next) => {
 /**
  * Performs security header checks and reconstructs the
  * Authorization header from cookies/credentials (all routes).
+ * @param {Object} req    - the route request object
+ * @param {Object} res    - the route response object
+ * @param {function} next - the route's next middleware function to be ran
  */
 const authSanitizer = (req, res, next) => {
     if (req.method !== 'OPTIONS') {
@@ -90,11 +102,11 @@ const authSanitizer = (req, res, next) => {
 
 
 /**
- * Checks if a route is a member of an array of @paths
- * to exclude from the given @middleware. If so,
- * the route immediately progresses to its respective
- * middleware chain, otherwise, the @middleware
+ * Checks if a route is a member of an array of paths to exclude from the given middleware. If so,
+ * the route immediately progresses to its respective middleware chain, otherwise, the middleware
  * is activated.
+ * @param {string[]} paths       - an array of paths to exclude from the middleware
+ * @param {function} middleware  - the middleware function to execute if the path is not excluded
  */
 const middlewareFilter = (paths, middleware) => {
     return (req, res, next) => {

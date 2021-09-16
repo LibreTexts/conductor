@@ -1,5 +1,15 @@
 # Changelog
 
+## 09-15-2021
+#### :art: UI/UX
+* Finished implementing the Create Project interface
+* Started implementing the Project View interface
+
+#### :satellite: Server
+* Added several backend methods for Project and Tag management
+* Updated the Project and Tag models
+
+
 ## 09-14-2021
 #### :art: UI/UX
 * Created the Adoption Report standalone page

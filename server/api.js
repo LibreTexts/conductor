@@ -22,7 +22,7 @@ const librariesAPI = require('./api/libraries.js');
 //const mailAPI = require('./api/mail.js'); // (enable for development only)
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
-const sharedProjectsAPI = require('./api/projects.js');
+const projectsAPI = require('./api/projects.js');
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
@@ -276,9 +276,32 @@ router.route('/announcements/recent').get(authAPI.verifyRequest,
 
 /* Projects (General) */
 router.route('/projects/all').get(authAPI.verifyRequest,
-    sharedProjectsAPI.getAllUserProjects);
+    projectsAPI.getUserProjects);
+
 router.route('/projects/recent').get(authAPI.verifyRequest,
-    sharedProjectsAPI.getRecentUserProjects);
+    projectsAPI.getRecentUserProjects);
+
+router.route('/projects/tags/org').get(authAPI.verifyRequest,
+    projectsAPI.getOrgTags);
+
+router.route('/project')
+    .get(authAPI.verifyRequest,
+        projectsAPI.validate('getProject'),
+        middleware.checkValidationErrors,
+        projectsAPI.getProject)
+    .post(authAPI.verifyRequest,
+        projectsAPI.validate('createProject'),
+        middleware.checkValidationErrors,
+        projectsAPI.createProject)
+    .put(authAPI.verifyRequest,
+        projectsAPI.validate('updateProject'),
+        middleware.checkValidationErrors,
+        projectsAPI.updateProject);
+
+router.route('/project/visibility').put(authAPI.verifyRequest,
+    projectsAPI.validate('changeProjectVisibility'),
+    middleware.checkValidationErrors,
+    projectsAPI.changeProjectVisibility);
 
 
 /* Harvesting */
