@@ -9,7 +9,7 @@ const User = require('../models/user.js');
 const HarvestingProject = require('../models/harvestingproject.js');
 
 const Project = require('../models/project.js');
-const Tag = require('../models/Tag.js');
+const Tag = require('../models/tag.js');
 const { body, query } = require('express-validator');
 const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
