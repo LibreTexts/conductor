@@ -6,7 +6,8 @@
 /**
  * Accepts a string and checks if it is empty.
  * @param {string} str - the string to check
- * @returns {boolean} true if the string is empty, false if non-empty or not a string
+ * @returns {boolean} true if the string is empty,
+ *                    false if non-empty or not a string
  */
 const isEmptyString = (str) => {
     if (typeof str === 'string') {
@@ -18,11 +19,13 @@ const isEmptyString = (str) => {
 
 
 /**
- * Accepts a string, @str, and returns
- * a new string truncated to the length
- * given in @len. If @str is already
- * shorter than @len, the original
- * string is returned.
+ * Accepts a string and returns it truncated to the
+ * specified length. If the string is already shorter
+ * than specified length, the original string is returned.
+ * @param {string} str - the string to truncate
+ * @param {number} len - the integer specifying the number
+ *                       of characters to allow before truncation
+ * @returns {string} the truncated (if applicable) string
  */
 const truncateString = (str, len) => {
     if (str.length > len) {

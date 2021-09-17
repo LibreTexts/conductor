@@ -16,12 +16,13 @@ const mailgun = mgInstance.client({
 
 
 /**
- * Sends a standard Reset Password email to
- * the @recipientAddress, addressed to @recipientName,
- * tied to the @resetLink via the Mailgun API.
- * NOTE: Do NOT use this method directly from a
- *  Conductor API route. Use internally only after
- *  proper verification via other internal methods.
+ * Sends a standard Reset Password email to a user via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientAddress  - the user's email address
+ * @param {string} recipientName     - the user's name ('firstName' or 'firstName lastName')
+ * @param {string} resetLink         - the URL to use the access the reset form with token
+ * @returns {Promise<Object|Error>} a Mailgun API promise
  */
 const sendPasswordReset = (recipientAddress, recipientName, resetLink) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -35,12 +36,12 @@ const sendPasswordReset = (recipientAddress, recipientName, resetLink) => {
 
 
 /**
- * Sends a standard Welcome email to
- * the @recipientAddress, addressed to @recipientName,
- * via the Mailgun API.
- * NOTE: Do NOT use this method directly from a
- *  Conductor API route. Use internally only after
- *  proper verification via other internal methods.
+ * Sends a standard Welcome email to a user via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientAddress  - the user's email address
+ * @param {string} recipientName     - the user's name ('firstName' or 'firstName lastName')
+ * @returns {Promise<Object|Error>} a Mailgun API promise
  */
 const sendRegistrationConfirmation = (recipientAddress, recipientName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -54,12 +55,12 @@ const sendRegistrationConfirmation = (recipientAddress, recipientName) => {
 
 
 /**
- * Sends a standard Password Change Notification email
- * to the @recipientAddress, addressed to @recipientName,
- * via the Mailgun API.
- * NOTE: Do NOT use this method directly from a
- *  Conductor API route. Use internally only after
- *  proper verification via other internal methods.
+ * Sends a standard Password Change Notification email to a user via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientAddress  - the user's email address
+ * @param {string} recipientName     - the user's name ('firstName' or 'firstName lastName')
+ * @returns {Promise<Object|Error>} a Mailgun API promise
  */
 const sendPasswordChangeNotification = (recipientAddress, recipientName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -71,8 +72,31 @@ const sendPasswordChangeNotification = (recipientAddress, recipientName) => {
     })
 };
 
+
+/**
+ * Sends a standard Added as Collaborator email to a user via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientAddress  - the newly added user's email address
+ * @param {string} recipientName     - the newly added user's name ('firstName' or 'firstName lastName')
+ * @param {string} projectID         - the internal project identifier string
+ * @param {string} projectName       - the project's title/name
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendAddedAsCollaboratorNotification = (recipientAddress, recipientName, projectID, projectName) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `Added as Collaborator: ${projectName}`,
+        text: `Hi ${recipientName}, You're receiving this email because you were added as a collaborator in the "${projectName}" project on the LibreTexts Conductor Platform. You can access this project by visiting ${process.env.LIBRE_SUBDOMAIN}.libretexts.org and opening the Projects tab. Sincerely, The LibreTexts team`,
+        html: `<p>Hi ${recipientName},</p><p>You're receiving this email because you were added as a collaborator in the <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectName}</a> project on the LibreTexts Conductor Platform.</p>You can access this project by clicking the project's name in this email, or by visiting <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org' target='_blank' rel='noopener noreferrer'>Conductor</a> and opening the Projects tab.</p><p>Sincerely,</p><p>The LibreTexts team</p>`
+    });
+};
+
+
 module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
-    sendPasswordChangeNotification
+    sendPasswordChangeNotification,
+    sendAddedAsCollaboratorNotification
 }

@@ -252,6 +252,43 @@ const getUsersList = (_req, res) => {
 
 
 /**
+ * Returns a list of simple information about all Users in the database.
+ * @param {Object} req - the route request object
+ * @param {Object} res - the route response object
+ */
+const getBasicUsersList = (_req, res) => {
+    User.aggregate([
+        {
+            $match: {}
+        }, {
+            $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1
+            }
+        }, {
+            $sort: {
+                firstName: -1
+            }
+        }
+    ]).then((users) => {
+        return res.send({
+            err: false,
+            users: users
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+
+/**
  * Deletes the User identified by
  * the @uuid in the request body.
  * Method should be restricted to
@@ -432,7 +469,7 @@ const updateUserRole = (req, res) => {
             throw(new Error('notfound'));
         }
     }).then((updateRes) => {
-        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+        if ((updateRes.matchedCount === 1) && (updateRes.modifiedCount === 1)) {
             return res.send({
                 err: false,
                 msg: "Successfully updated the user's roles."
@@ -503,6 +540,7 @@ module.exports = {
     editUserName,
     updateUserEmail,
     getUsersList,
+    getBasicUsersList,
     deleteUser,
     getUserRoles,
     updateUserRole,

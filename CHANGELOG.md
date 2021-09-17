@@ -1,5 +1,23 @@
 # Changelog
 
+## 09-16-2021
+#### :art: UI/UX
+* Updated Axios to v0.21.2 to remediate security vulnerabilities
+* Enabled the Maintenance in Progress page (branch `gh-pages`)
+* Finished implementing the Manage Collaborators interface in Project View
+* Finished implementing Complete Project interface in Project View
+* Implemented project deletion flow
+* Designed the Project Discussion area
+* Started designing Project Tasks
+
+#### :satellite: Server
+* Updated Mongoose to v6.0.6 to remediate security vulnerabilities
+    * Updated some backend functions to account for breaking changes
+* Finished implementing backend logic for Project Collaborators management
+* Added the ability to delete a project
+* Added ability to mark a project complete
+* Implemented the Added as Collaborator notification email
+
 ## 09-15-2021
 #### :art: UI/UX
 * Finished implementing the Create Project interface

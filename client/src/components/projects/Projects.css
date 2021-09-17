@@ -1,0 +1,110 @@
+.filterby-span {
+    margin-right: 1% !important;
+}
+
+.project-detail-titleheader {
+    color: #585858;
+}
+
+.project-detail-text {
+    font-size: 1.1em !important;
+}
+
+.project-updates-grid {
+    margin-top: 5% !important;
+}
+
+#project-discussion-segment {
+    padding: 0;
+}
+
+#project-discussion-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#project-discussion-threads {
+    flex-basis: 25%;
+    border-right: 1px solid rgba(34,36,38,.22);
+}
+
+#project-discussion-messages {
+    flex-basis: 75%;
+}
+
+#project-threads-container {
+    height: 100%;
+}
+
+#project-threads-header-container {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+    height: 55px;
+    align-items: center;
+    padding: 2% 2% 2% 4%;
+    -webkit-box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
+    box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
+    z-index: 50;
+}
+
+#project-messages-header-container {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+    height: 55px;
+    align-items: center;
+    padding-left: 1%;
+    -webkit-box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
+    box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
+    z-index: 50;
+}
+
+#project-messages-chat-container {
+    background-color: rgba(251, 251, 251, 0.5);
+    padding: 2%;
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: scroll;
+}
+
+.project-threads-list-item {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+    padding: 3%;
+    background-color: rgba(244,244,244,0.3);
+    cursor: pointer;
+}
+
+.project-threads-list-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.project-threads-list-title.active {
+    color: #00437E;
+}
+
+.project-threads-list-descrip {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: #616970;
+}
+
+#project-messages-reply-container {
+    border-top: 1px solid rgba(34,36,38,.15);
+    -webkit-box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
+    box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
+    padding: 0.5%;
+}
+
+#project-messages-message-input {
+    width: 100%;
+}
+
+.project-messages-message {
+    margin-bottom: 1em;
+}
+
+#project-messages-header-options {
+    padding-right: 0.5%;
+}

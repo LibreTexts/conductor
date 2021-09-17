@@ -368,7 +368,7 @@ const resetPassword = (req, res) => {
             throw(new Error('notfound'));
         }
     }).then((updateRes) => {
-        if (updateRes.ok === 1) {
+        if (updateRes.modifiedCount === 1) {
             const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}`;
             return mailAPI.sendPasswordReset(userEmail, userFirstName, resetLink);
         } else {
@@ -447,7 +447,7 @@ const completeResetPassword = (req, res) => {
             tokenExpiry: currentTime
         });
     }).then((updateRes) => {
-        if (updateRes.ok === 1) {
+        if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
                 msg: "Password updated successfully."
@@ -513,7 +513,7 @@ const changePassword = (req, res) => {
             hash: hash
         });
     }).then((updateRes) => {
-        if (updateRes.ok === 1) {
+        if (updateRes.modifiedCount === 1) {
             return mailAPI.sendPasswordChangeNotification(userEmail, userFirstName);
         } else {
             throw(new Error('updatefailed')) // handle as generic error below

@@ -73,8 +73,8 @@ const editCollection = (req, res) => {
     if (req.body.privacy) {
         updateData.privacy = req.body.privacy;
     }
-    Collection.findOneAndUpdate({ collID: req.body.collID }, updateData).then((updatedDoc) => {
-        if (updatedDoc) {
+    Collection.updateOne({ collID: req.body.collID }, updateData).then((updateRes) => {
+        if (updateRes.modifiedCount) {
             return res.send({
                 err: false,
                 msg: "Collection successfully updated."
@@ -318,7 +318,7 @@ const addResourceToCollection = (req, res) => {
             resources: req.body.bookID
         }
     }).then((updateRes) => {
-        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+        if ((updateRes.matchedCount === 1) && (updateRes.modifiedCount === 1)) {
             return res.send({
                 err: false,
                 msg: "Resource successfully added to Collection."
@@ -361,7 +361,7 @@ const removeResourceFromCollection = (req, res) => {
             resources: [req.body.bookID]
         }
     }).then((updateRes) => {
-        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+        if ((updateRes.matchedCount === 1) && (updateRes.modifiedCount === 1)) {
             return res.send({
                 err: false,
                 msg: "Resource successfully removed from Collection."

@@ -96,6 +96,10 @@ body {
     color: #127BC4 !important;
 }
 
+.color-semanticred {
+    color: #db2828;
+}
+
 .no-margin {
     margin: 0 !important;
 }
@@ -225,7 +229,21 @@ body {
     margin-right: 2rem !important;
 }
 
+.mr-3p {
+    margin-right: 3% !important;
+}
 
+.mr-3r {
+    margin-right: 3rem !important;
+}
+
+.mr-4p {
+    margin-right: 4% !important;
+}
+
+.mr-4r {
+    margin-right: 4rem !important;
+}
 
 
 .float-right {
@@ -245,6 +263,11 @@ body {
 .flex-row-div {
     display: flex;
     flex-direction: row;
+}
+
+.flex-col-div {
+    display: flex;
+    flex-direction: column;
 }
 
 .left-flex {

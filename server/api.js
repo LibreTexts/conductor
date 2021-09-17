@@ -252,16 +252,19 @@ router.route('/user/role/update').put(authAPI.verifyRequest,
     usersAPI.validate('updateUserRole'), middleware.checkValidationErrors,
     usersAPI.updateUserRole);
 
-router.route('/users').get(authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-    usersAPI.getUsersList);
-
 router.route('/user/delete').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     usersAPI.validate('deleteUser'), middleware.checkValidationErrors,
     usersAPI.deleteUser);
+
+router.route('/users').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    usersAPI.getUsersList);
+
+router.route('/users/basic').get(authAPI.verifyRequest,
+    usersAPI.getBasicUsersList);
 
 
 /* Announcements */
@@ -296,12 +299,36 @@ router.route('/project')
     .put(authAPI.verifyRequest,
         projectsAPI.validate('updateProject'),
         middleware.checkValidationErrors,
-        projectsAPI.updateProject);
+        projectsAPI.updateProject)
+    .delete(authAPI.verifyRequest,
+        projectsAPI.validate('deleteProject'),
+        middleware.checkValidationErrors,
+        projectsAPI.deleteProject);
 
 router.route('/project/visibility').put(authAPI.verifyRequest,
     projectsAPI.validate('changeProjectVisibility'),
     middleware.checkValidationErrors,
     projectsAPI.changeProjectVisibility);
+
+router.route('/project/complete').put(authAPI.verifyRequest,
+    projectsAPI.validate('completeProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.completeProject);
+
+router.route('/project/collabs/addable').get(authAPI.verifyRequest,
+    projectsAPI.validate('getAddableCollaborators'),
+    middleware.checkValidationErrors,
+    projectsAPI.getAddableCollaborators);
+
+router.route('/project/collabs/add').put(authAPI.verifyRequest,
+    projectsAPI.validate('addCollaboratorToProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.addCollaboratorToProject);
+
+router.route('/project/collabs/remove').put(authAPI.verifyRequest,
+    projectsAPI.validate('removeCollaboratorFromProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.removeCollaboratorFromProject);
 
 
 /* Harvesting */

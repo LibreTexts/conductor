@@ -892,7 +892,7 @@ const addBookToCustomCatalog = (req, res) => {
     }, {
         upsert: true
     }).then((catalogRes) => {
-        if ((catalogRes.n === 1) && (catalogRes.ok === 1)) {
+        if ((catalogRes.matchedCount === 1) && (catalogRes.modifiedCount === 1)) {
             return res.send({
                 err: false,
                 msg: "Resource successfully added to Catalog."
@@ -936,7 +936,7 @@ const removeBookFromCustomCatalog = (req, res) => {
             resources: [req.body.bookID]
         }
     }).then((catalogRes) => {
-        if ((catalogRes.n === 1) && (catalogRes.ok === 1)) {
+        if ((catalogRes.matchedCount === 1) && (catalogRes.modifiedCount === 1)) {
             return res.send({
                 err: false,
                 msg: "Resource successfully removed from Catalog."

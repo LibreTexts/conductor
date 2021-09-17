@@ -37,12 +37,7 @@ mongoose.Promise = bluebird;
 if (process.env.NODE_ENV === 'development') {
     mongoose.set('debug', true);
 }
-mongoose.connect(process.env.MONGOOSEURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-    useFindAndModify: false
-}).then(() => {
+mongoose.connect(process.env.MONGOOSEURI).then(() => {
     debugDB('Connected to MongoDB Atlas.');
 }).catch((err) => {
     debugDB(err);

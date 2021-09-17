@@ -16,6 +16,8 @@ const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { isValidLicense } = require('../util/bookutils.js');
 
+const mailAPI = require('./mail.js');
+
 
 /**
  * Creates a new Project within the current Organization using the values specified in the
@@ -26,6 +28,7 @@ const { isValidLicense } = require('../util/bookutils.js');
  * @param {Object} res - the express.js response object.
  */
 const createProject = (req, res) => {
+    var hasTags = false;
     // Setup project with defaults
     var newProjData = {
         orgID: process.env.ORG_ID,
@@ -56,6 +59,7 @@ const createProject = (req, res) => {
     new Promise((resolve, _reject) => {
         // lookup all organization tags if new project has tags
         if (req.body.hasOwnProperty('tags')) {
+            hasTags = true;
             resolve(Tag.aggregate([
                 {
                     $match: {
@@ -73,39 +77,40 @@ const createProject = (req, res) => {
     }).then((allOrgTags) => {
         var tagBulkOps = [];
         var projTagIDs = [];
-        // build new array of existing tagIDs,
-        // otherwise generate a new tagID and prepare to insert in DB
-        req.body.tags.forEach((tagItem) => {
-            var foundTag = allOrgTags.find((orgTag) => {
-                return orgTag.title === tagItem;
-            });
-            if (foundTag !== undefined) {
-                projTagIDs.push(foundTag.tagID);
-            } else {
-                var newID = b62(12);
-                tagBulkOps.push({
-                    insertOne: {
-                        document: {
-                            orgID: process.env.ORG_ID,
-                            tagID: newID,
-                            title: tagItem
-                        }
-                    }
+        if (hasTags) {
+            // build new array of existing tagIDs,
+            // otherwise generate a new tagID and prepare to insert in DB
+            req.body.tags.forEach((tagItem) => {
+                var foundTag = allOrgTags.find((orgTag) => {
+                    return orgTag.title === tagItem;
                 });
-                projTagIDs.push(newID);
-            }
-        });
-        // set project tags with resolved array
-        newProjData.tags = projTagIDs;
-        if (tagBulkOps.length > 0) {
-            // insert new tags
-            return Tag.bulkWrite(tagBulkOps, {
-                ordered: false
+                if (foundTag !== undefined) {
+                    projTagIDs.push(foundTag.tagID);
+                } else {
+                    var newID = b62(12);
+                    tagBulkOps.push({
+                        insertOne: {
+                            document: {
+                                orgID: process.env.ORG_ID,
+                                tagID: newID,
+                                title: tagItem
+                            }
+                        }
+                    });
+                    projTagIDs.push(newID);
+                }
             });
-        } else {
-            // no new tags to insert
-            return {};
+            // set project tags with resolved array
+            newProjData.tags = projTagIDs;
+            if (tagBulkOps.length > 0) {
+                // insert new tags
+                return Tag.bulkWrite(tagBulkOps, {
+                    ordered: false
+                });
+            }
         }
+        // no new tags to insert
+        return {};
     }).then((_bulkRes) => {
         // save formatted project to DB
         var newProject = new Project(newProjData);
@@ -121,18 +126,57 @@ const createProject = (req, res) => {
             throw(new Error('createfail'));
         }
     }).catch((err) => {
-        if (err.message === 'createfail') {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'createfail') errMsg = conductorErrors.err3;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Deletes the Project identified by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'deleteProject'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const deleteProject = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner)) {
+                return Project.deleteOne({
+                    projectID: req.body.projectID
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((deleteRes) => {
+        if (deleteRes.deletedCount === 1) {
             return res.send({
-                err: true,
-                errMsg: conductorErrors.err3
+                err: false,
+                msg: 'Successfully deleted project.'
             });
         } else {
-            debugError(err);
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
+            throw(new Error('deletefail')); // handle as generic error below
         }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: false,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -212,9 +256,40 @@ const getProject = (req, res) => {
                 as: 'collaborators'
             }
         }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    owner: '$owner'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$uuid', '$$owner']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'owner'
+            }
+        }, {
             $project: {
                 _id: 0,
                 __v: 0
+            }
+        }, {
+            $set: {
+                owner: {
+                    $arrayElemAt: ['$owner', 0]
+                }
             }
         }
     ]).then((projects) => {
@@ -224,7 +299,12 @@ const getProject = (req, res) => {
                 return tagResult.title;
             });
             delete projResult.tagResults; // prune lookup results
-            if ((req.decoded.uuid === projResult.owner)
+            // resolve owner's uuid
+            var ownerUUID;
+            if (typeof(projResult.owner) === 'object') ownerUUID = projResult.owner.uuid;
+            else if (typeof(projResult.owner) === 'string') ownerUUID = projResult.owner;
+            // check user has permission to view project
+            if ((req.decoded.uuid === ownerUUID)
                 || (projResult.collaborators.includes(req.decoded.uuid))
                 || (projResult.visibility === 'public')) {
                 return res.send({
@@ -238,23 +318,14 @@ const getProject = (req, res) => {
             throw(new Error('notfound'));
         }
     }).catch((err) => {
-        if (err.message === 'notfound') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err11
-            });
-        } else if (err.message === 'unauth') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err8
-            });
-        } else {
-            debugError(err);
-            return res.send({
-                err: false,
-                errMsg: conductorErrors.err6
-            });
-        }
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: false,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -285,7 +356,7 @@ const changeProjectVisibility = (req, res) => {
             throw(new Error('notfound'));
         }
     }).then((updateRes) => {
-        if ((updateRes.n === 1) && (updateRes.ok === 1)) {
+        if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
                 msg: 'Successfully updated project visibility.'
@@ -294,28 +365,62 @@ const changeProjectVisibility = (req, res) => {
             throw(new Error('updatefailed'));
         }
     }).catch((err) => {
-        if (err.message === 'notfound') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err11
-            });
-        } else if (err.message === 'unauth') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err8
-            });
-        } else if (err.message === 'updatefailed') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err3
-            });
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'updatefailed') errMsg = conductorErrors.err3;
+        else debugError(err);
+        return res.send({
+            err: false,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Marks the Project identified by the projectID in the request body as
+ * completed.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'completeProject'
+ * @param  {object} req  - the express.js request object
+ * @param  {[object} res - the express.js response object
+ */
+const completeProject = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner)) {
+                return Project.updateOne({
+                    projectID: req.body.projectID
+                }, {
+                    status: 'completed'
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
         } else {
-            debugError(err);
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
-                errMsg: conductorErrors.err6
+                msg: 'Successfully marked project as completed.'
             });
+        } else {
+            throw(new Error('updatefail')); // handle as generic error below
         }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: false,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -428,41 +533,27 @@ const updateProject = (req, res) => {
         // no new tags to insert
         return {};
     }).then((_bulkRes) => {
-        // use findOneAndUpdate() to return updated Project
-        return Project.findOneAndUpdate({
+        return Project.updateOne({
             projectID: req.body.projectID
-        }, updateObj, {
-            new: true,
-            lean: true
-        });
-    }).then((updatedProject) => {
-        if (updatedProject) {
-            updatedProject.tags = newTagTitles;
+        }, updateObj);
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
-                project: updatedProject
+                msg: 'Successfully updated project.'
             });
         } else {
             throw(new Error('updatefailed'));
         }
     }).catch((err) => {
-        if (err.message === 'notfound') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err11
-            });
-        } else if (err.message === 'unauth') {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err8
-            });
-        } else {
-            debugError(err);
-            return res.send({
-                err: false,
-                errMsg: conductorErrors.err6
-            });
-        }
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: false,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -508,6 +599,188 @@ const getUserProjects = (req, res) => {
             errMsg: conductorErrors.err6
         });
     })
+};
+
+
+/**
+ * Retrieves a list of the Users that can be added to the collaborators list
+ * of the project identified by the projectID in the request query.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getAddableCollaborators'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getAddableCollaborators = (req, res) => {
+    Project.findOne({
+        uuid: req.query.projectID
+    }).lean().then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                var unadd = [project.owner, ...project.collaborators]
+                return User.aggregate([
+                    {
+                        $match: {
+                            uuid: {
+                                $nin: unadd
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }, {
+                        $sort: {
+                            firstName: -1
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'))
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((users) => {
+        return res.send({
+            err: false,
+            users: users
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Adds a User to the collaborators list of the project identified
+ * by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'addCollaboratorToProject'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const addCollaboratorToProject = (req, res) => {
+    var userData = {};
+    var projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            projectData = project;
+            // check user has permission to add collaborators
+            if (project.owner === req.decoded.uuid) {
+                // check user is not attempting to add themself
+                if (req.body.uuid !== project.owner) {
+                    // lookup user being added
+                    return User.findOne({ uuid: req.body.uuid }).lean();
+                } else {
+                    throw(new Error('invalid'));
+                }
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((user) => {
+        if (user) {
+            userData = user;
+            // update the project's collaborators list
+            return Project.updateOne({
+                projectID: projectData.projectID
+            }, {
+                $addToSet: {
+                    collaborators: userData.uuid
+                }
+            });
+        } else {
+            throw(new Error('usernotfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return mailAPI.sendAddedAsCollaboratorNotification(userData.email, userData.firstName,
+                projectData.projectID, projectData.title);
+        } else {
+            throw(new Error('updatefailed')); // handle as generic error below
+        }
+    }).then(() => {
+        // ignore return value of Mailgun call
+        return res.send({
+            err: false,
+            msg: 'Successfully added user as collaborator.'
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'invalid') errMsg = conductorErrors.err2;
+        else if (err.message === 'usernotfound') errMsg = conductorErrors.err7;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Adds a User to the collaborators list of the project identified
+ * by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'removeCollaboratorFromProject'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const removeCollaboratorFromProject = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            // check user has permission to remove collaborators
+            if (project.owner === req.decoded.uuid) {
+                // update the project's collaborators list
+                return Project.updateOne({
+                    projectID: project.projectID
+                }, {
+                    $pull: {
+                        collaborators: req.body.uuid
+                    }
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Successfully removed user as collaborator.'
+            });
+        } else {
+            throw(new Error('updatefailed')); // handle as generic error below
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
 };
 
 
@@ -756,6 +1029,10 @@ const validate = (method) => {
                 body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
             ]
+        case 'deleteProject':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
         case 'updateProject':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -777,15 +1054,38 @@ const validate = (method) => {
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('visibility', conductorErrors.err1).exists().isString().custom(validateVisibility)
             ]
+        case 'completeProject':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+            ]
+        case 'getAddableCollaborators':
+            return [
+                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
+        case 'addCollaboratorToProject':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('uuid', conductorErrors.err1).exists().isString().isUUID()
+            ]
+        case 'removeCollaboratorFromProject':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('uuid', conductorErrors.err1).exists().isString().isUUID()
+            ]
     }
 };
 
 module.exports = {
     createProject,
+    deleteProject,
     getProject,
     changeProjectVisibility,
+    completeProject,
     updateProject,
     getUserProjects,
+    getAddableCollaborators,
+    addCollaboratorToProject,
+    removeCollaboratorFromProject,
     getOrgTags,
     getAllUserProjects,
     getRecentUserProjects,

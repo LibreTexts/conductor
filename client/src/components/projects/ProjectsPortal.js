@@ -1,4 +1,4 @@
-import './ProjectsPortal.css';
+import './Projects.css';
 
 import {
   Grid,
