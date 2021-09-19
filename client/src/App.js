@@ -73,12 +73,12 @@ function App() {
     }, (err) => {
         if (err.response !== undefined) {
             if (err.response.status === 401 && err.response.data.tokenExpired === true) {
-                var domains = String(process.env.PRODUCTIONURLS).split(',');
-                Cookies.remove('conductor_access', { path: '/', domain: domains[0] });
-                if (process.env.NODE_ENV === 'development') {
-                    Cookies.remove('conductor_access', { path: '/', domain: 'localhost' });
+                if (process.env.NODE_ENV === 'production') {
+                    Cookies.remove('conductor_access', { path: '/', domain: '.libretexts.org', secure: false });
+                } else {
+                    Cookies.remove('conductor_access', { path: '/', domain: 'localhost', secure: false });
                 }
-                window.location.assign('/login?src=authexpired')
+                window.location.assign('/login?src=authexpired');
             }
         }
         return Promise.reject(err);
