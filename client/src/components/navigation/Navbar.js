@@ -12,7 +12,8 @@ import {
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
-import Cookies from 'js-cookie';
+
+import AuthHelper from '../util/AuthHelper.js';
 
 const Navbar = (_props) => {
 
@@ -126,9 +127,7 @@ const Navbar = (_props) => {
      * to main page.
      */
     const logOut = () => {
-        dispatch({
-            type: 'CLEAR_USER_LOGOUT'
-        });
+        AuthHelper.logout();
         window.location.assign('/');
     };
 

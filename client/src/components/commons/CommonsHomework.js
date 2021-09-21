@@ -11,7 +11,8 @@ import {
     Header,
     Button,
     Modal,
-    List
+    List,
+    Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { useLocation, useHistory } from 'react-router-dom';
@@ -51,9 +52,11 @@ const CommonsHomework = (_props) => {
 
     // Course View Modal
     const [showCourseModal, setShowCourseModal] = useState(false);
+    const [courseModalID, setCourseModalID] = useState('');
     const [courseModalTitle, setCourseModalTitle] = useState('');
     const [courseModalDescrip, setCourseModalDescrip] = useState('');
     const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
+    const [courseModalOpenCourse, setCourseModalOpenCourse] = useState(false);
 
     /**
      * Retrieve ADAPT Commons courses from the server
@@ -85,9 +88,13 @@ const CommonsHomework = (_props) => {
             return element.hwID === courseID;
         });
         if (course !== undefined) {
+            setCourseModalID(course.externalID);
             setCourseModalTitle(course.title);
             setCourseModalDescrip(course.description);
             setCourseModalAsgmts(course.adaptAssignments);
+            if (course.hasOwnProperty('adaptOpen')) {
+                setCourseModalOpenCourse(course.adaptOpen);
+            }
             setShowCourseModal(true);
         }
     };
@@ -98,8 +105,10 @@ const CommonsHomework = (_props) => {
      */
     const closeCourseViewModal = () => {
         setShowCourseModal(false);
+        setCourseModalID('');
         setCourseModalTitle('');
         setCourseModalDescrip('');
+        setCourseModalOpenCourse(false);
         setCourseModalAsgmts([]);
     };
 
@@ -512,6 +521,23 @@ const CommonsHomework = (_props) => {
                         <Modal.Content scrolling>
                             <Header size='small' dividing>Description</Header>
                             <p>{courseModalDescrip}</p>
+                            <p>{courseModalDescrip}</p>
+                            {courseModalOpenCourse &&
+                                <div>
+                                    <p><em>This course is open for anonymous viewing.</em></p>
+                                    <Button
+                                        color='blue'
+                                        fluid
+                                        as='a'
+                                        href={`https://adapt.libretexts.org/courses/${courseModalID}/anonymous`}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                    >
+                                        <Icon name='external' />
+                                        View Course
+                                    </Button>
+                                </div>
+                            }
                             <Header size='small' dividing>Assignments</Header>
                             <Segment
                                 basic

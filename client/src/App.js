@@ -3,13 +3,13 @@ import './App.css';
 import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import React from 'react';
 import axios from 'axios';
-import Cookies from 'js-cookie';
 
 /* React-Redux State */
 import { Provider } from 'react-redux';
 import store from './store.js';
 
-/* Utility Routes */
+/* Utility Routes and Helpers */
+import AuthHelper from './components/util/AuthHelper.js';
 import AnonRoute from './components/util/AnonRoute.js';
 import PrivateRoute from './components/util/PrivateRoute.js';
 
@@ -73,11 +73,7 @@ function App() {
     }, (err) => {
         if (err.response !== undefined) {
             if (err.response.status === 401 && err.response.data.tokenExpired === true) {
-                if (process.env.NODE_ENV === 'production') {
-                    Cookies.remove('conductor_access', { path: '/', domain: '.libretexts.org', secure: false });
-                } else {
-                    Cookies.remove('conductor_access', { path: '/', domain: 'localhost', secure: false });
-                }
+                AuthHelper.logout();
                 window.location.assign('/login?src=authexpired');
             }
         }

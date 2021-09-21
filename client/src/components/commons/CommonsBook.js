@@ -33,6 +33,7 @@ const CommonsBook = (props) => {
         bookID: '',
         title: '',
         author: '',
+        affiliation: '',
         library: '',
         subject: '',
         course: '',
@@ -46,7 +47,7 @@ const CommonsBook = (props) => {
             files: '',
             lms: '',
         },
-        affiliation: ''
+        adaptID: ''
     });
     const [bookSummary, setBookSummary] = useState('');
     const [bookChapters, setBookChapters] = useState([]);
@@ -245,6 +246,19 @@ const CommonsBook = (props) => {
                                             }
                                             <ThumbnailAttribution />
                                         </div>
+                                        {(book.hasOwnProperty('adaptID') && book.adaptID !== '') &&
+                                            <Button
+                                                icon='tasks'
+                                                content='View Homework on ADAPT'
+                                                color='teal'
+                                                fluid
+                                                as='a'
+                                                href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                                className='mb-2p'
+                                            />
+                                        }
                                         <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
                                         <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
                                             <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
@@ -305,6 +319,19 @@ const CommonsBook = (props) => {
                                 <Grid.Row>
                                     <Grid.Column>
                                         <Button.Group fluid vertical>
+                                            {(book.hasOwnProperty('adaptID') && book.adaptID !== '') &&
+                                                <Button
+                                                    icon='tasks'
+                                                    content='View Homework on ADAPT'
+                                                    color='teal'
+                                                    labelPosition='right'
+                                                    fluid
+                                                    as='a'
+                                                    href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
+                                                    target='_blank'
+                                                    rel='noopener noreferrer'
+                                                />
+                                            }
                                             <Button icon='hand paper' labelPosition='right' content='Submit an Adoption Report' color='green' onClick={() => { setShowAdoptionReport(true) }} />
                                             <Button icon={(showMobileReadingOpts) ? 'angle up' : 'angle down'} labelPosition='right' content='See Reading Options' color='blue' onClick={() => { setShowMobileReadingOpts(!showMobileReadingOpts) }} />
                                             {(showMobileReadingOpts) &&

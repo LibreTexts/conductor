@@ -10,11 +10,17 @@ import React from 'react';
 import AuthHelper from './AuthHelper.js';
 
 const PrivateRoute = ({ component: Component, ...rest }) => (
-    <Route {...rest} render={(props) => (
-        AuthHelper.isAuthenticated() === true
-        ? <Component {...props} />
-        : window.location.assign('/login')
-    )} />
+    <Route {...rest} render={(props) => {
+        if (AuthHelper.isAuthenticated() === true) {
+            return (<Component {...props} />)
+        } else {
+            let redirectURI = encodeURIComponent(props.location.pathname);
+            if (props.location.search !== '') {
+                redirectURI += encodeURIComponent(props.location.search);
+            }
+            window.location.assign(`/login?redirect_uri=${redirectURI}`);
+        }
+    }} />
 );
 
 export default PrivateRoute;

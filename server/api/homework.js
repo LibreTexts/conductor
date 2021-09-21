@@ -98,12 +98,17 @@ const syncADAPTCommons = (_req, res) => {
                 acRes.data.commons_courses.length > 0) {
                     acRes.data.commons_courses.forEach((course) => {
                         if (course.id && !isNaN(course.id)) {
+                            var isOpen = false;
+                            if (course.hasOwnProperty('anonymous_users') && course.anonymous_users === 1) {
+                                isOpen = true;
+                            }
                             adaptCourses.push({
                                 title: course.name,
                                 kind: 'adapt',
                                 externalID: course.id.toString(),
                                 description: course.description,
-                                adaptAssignments: []
+                                adaptAssignments: [],
+                                adaptOpen: isOpen
                             });
                             assgnRequests.push(axios.get(assgnBaseURL + course.id));
                         }
@@ -161,7 +166,8 @@ const syncADAPTCommons = (_req, res) => {
                         $set: {
                             title: course.title,
                             description: course.description,
-                            adaptAssignments: course.adaptAssignments
+                            adaptAssignments: course.adaptAssignments,
+                            adaptOpen: course.adaptOpen
                         }
                     },
                     upsert: true

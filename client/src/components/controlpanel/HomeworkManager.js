@@ -52,9 +52,11 @@ const HomeworkManager = (_props) => {
 
     // Course View Modal
     const [showCourseModal, setShowCourseModal] = useState(false);
+    const [courseModalID, setCourseModalID] = useState('');
     const [courseModalTitle, setCourseModalTitle] = useState('');
     const [courseModalDescrip, setCourseModalDescrip] = useState('');
     const [courseModalAsgmts, setCourseModalAsgmts] = useState([]);
+    const [courseModalOpenCourse, setCourseModalOpenCourse] = useState(false);
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Homework Manager";
@@ -212,9 +214,13 @@ const HomeworkManager = (_props) => {
             return element.hwID === courseID;
         });
         if (course !== undefined) {
+            setCourseModalID(course.externalID);
             setCourseModalTitle(course.title);
             setCourseModalDescrip(course.description);
             setCourseModalAsgmts(course.adaptAssignments);
+            if (course.hasOwnProperty('adaptOpen')) {
+                setCourseModalOpenCourse(course.adaptOpen);
+            }
             setShowCourseModal(true);
         }
     };
@@ -225,8 +231,10 @@ const HomeworkManager = (_props) => {
      */
     const closeCourseViewModal = () => {
         setShowCourseModal(false);
+        setCourseModalID('');
         setCourseModalTitle('');
         setCourseModalDescrip('');
+        setCourseModalOpenCourse(false);
         setCourseModalAsgmts([]);
     };
 
@@ -425,6 +433,22 @@ const HomeworkManager = (_props) => {
                         <Modal.Content scrolling>
                             <Header size='small' dividing>Description</Header>
                             <p>{courseModalDescrip}</p>
+                            {courseModalOpenCourse &&
+                                <div>
+                                    <p><em>This course is open for anonymous viewing.</em></p>
+                                    <Button
+                                        color='blue'
+                                        fluid
+                                        as='a'
+                                        href={`https://adapt.libretexts.org/courses/${courseModalID}/anonymous`}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                    >
+                                        <Icon name='external' />
+                                        View Course
+                                    </Button>
+                                </div>
+                            }
                             <Header size='small' dividing>Assignments</Header>
                             <Segment
                                 basic

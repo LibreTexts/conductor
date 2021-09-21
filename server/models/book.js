@@ -36,7 +36,8 @@ const BookSchema = new Schema({
         zip: String,            //      download ZIP of book pages/files
         files: String,          //      download publication/print files
         lms: String             //      download the LMS import file
-    }
+    },
+    adaptID: String             // the complementary ADAPT course ID (if applicable)
 }, {
     timestamps: true
 });

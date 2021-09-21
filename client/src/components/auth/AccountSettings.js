@@ -16,7 +16,9 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
-import Cookies from 'js-cookie';
+
+import AuthHelper from '../util/AuthHelper.js';
+
 import {
     isEmptyString,
     validatePassword
@@ -274,9 +276,7 @@ const AccountSettings = (_props) => {
                 newPassword: newPassword
             }).then((res) => {
                 if (!res.data.err) {
-                    dispatch({
-                        type: 'CLEAR_USER_LOGOUT'
-                    });
+                    AuthHelper.logout();
                     window.location.assign('/login?passchange=true');
                 } else {
                     handleGlobalError(res.data.errMsg);

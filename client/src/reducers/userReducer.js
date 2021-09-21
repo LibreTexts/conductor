@@ -107,13 +107,6 @@ export default function userReducer(state = userInitialState, action) {
             }
         case 'CLEAR_USER_INFO':
             return userInitialState;
-        case 'CLEAR_USER_LOGOUT':
-            if (process.env.NODE_ENV === 'production') {
-                Cookies.remove('conductor_access', { path: '/', domain: '.libretexts.org', secure: false });
-            } else {
-                Cookies.remove('conductor_access', { path: '/', domain: 'localhost', secure: false });
-            }
-            return userInitialState;
         default:
             return state;
     }

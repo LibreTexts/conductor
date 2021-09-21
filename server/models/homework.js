@@ -32,7 +32,8 @@ const HomeworkSchema = new Schema({
     adaptAssignments: [{        // the array of assignments for an ADAPT course
         title: String,
         description: String
-    }]
+    }],
+    adaptOpen: Boolean          // is an ADAPT open course
 }, {
     timestamps: true
 });

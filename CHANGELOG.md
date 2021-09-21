@@ -1,5 +1,13 @@
 # Changelog
 
+## 09-20-2021
+#### :art: UI/UX
+* Implemented a central logout helper to avoid repetition
+* Introduced an automatic redirect back to the target page when user needs to log in first
+* Open courses on the ADAPT platform can now be opened directly from Homework and Homework Manager
+* Introduced an early version of Book—Homework linking
+
+
 ## 09-16-2021
 #### :art: UI/UX
 * Updated Axios to v0.21.2 to remediate security vulnerabilities
@@ -17,6 +25,7 @@
 * Added the ability to delete a project
 * Added ability to mark a project complete
 * Implemented the Added as Collaborator notification email
+
 
 ## 09-15-2021
 #### :art: UI/UX
@@ -42,6 +51,7 @@
 * Update to Campus Catalog management logic
 * Added the Tag model for Projects
 
+
 ## 09-13-2021
 #### :art: UI/UX
 * Added the Publisher filter to Commons Catalog
@@ -66,6 +76,7 @@
 
 #### :satellite: Server
 * Finished implementing SSO for LibreCommons
+
 
 ## 09-10-2021
 #### :art: UI/UX

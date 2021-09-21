@@ -24,6 +24,24 @@ const profileURL = 'https://sso.libretexts.org/cas/oauth2.0/profile';
 
 
 /**
+ * Creates (Access & Signature) Conductor cookies given a JWT.
+ * @param {string} token  - the full JWT
+ * @returns {string[]} the generated cookies
+ */
+const createTokenCookies = (token) => {
+    const splitToken = token.split('.');
+    var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
+    var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/;';
+    if (process.env.NODE_ENV === 'production') {
+        const domains = String(process.env.PRODUCTIONURLS).split(',');
+        accessCookie += " Domain=" + domains[0] + ';';
+        sigCookie += " Domain=" + domains[0] + ';';
+    }
+    return [accessCookie, sigCookie];
+};
+
+
+/**
  * Redirects the browser to the SSO authorization
  * flow initialization URI.
  */
@@ -137,15 +155,7 @@ const oauthCallback = (req, res) => {
             expiresIn: 86400
         },(err, token) => {
             if (!err && token !== null) {
-                const splitToken = token.split('.');
-                var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
-                var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
-                if (process.env.NODE_ENV === 'production') {
-                    const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + ';';
-                    sigCookie += " Domain=" + domains[0] + ';';
-                }
-                const cookiesToSet = [accessCookie, sigCookie];
+                const cookiesToSet = createTokenCookies(token);
                 res.setHeader('Set-Cookie', cookiesToSet);
                 var redirectURL = '/dashboard';
                 if (req.cookies.conductor_sso_redirect) {
@@ -225,15 +235,7 @@ const login = (req, res, _next) => {
             expiresIn: 86400
         },(err, token) => {
             if (!err && token !== null) {
-                const splitToken = token.split('.');
-                var accessCookie = 'conductor_access=' + splitToken[0] + '.' + splitToken[1] + '; Path=/;';
-                var sigCookie = 'conductor_signed=' + splitToken[2] + '; Path=/; HttpOnly;';
-                if (process.env.NODE_ENV === 'production') {
-                    const domains = String(process.env.PRODUCTIONURLS).split(',');
-                    accessCookie += " Domain=" + domains[0] + ';';
-                    sigCookie += " Domain=" + domains[0] + ';';
-                }
-                const cookiesToSet = [accessCookie, sigCookie];
+                const cookiesToSet = createTokenCookies(token);
                 res.setHeader('Set-Cookie', cookiesToSet);
                 return res.send({
                     err: false,

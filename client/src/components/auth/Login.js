@@ -35,6 +35,7 @@ const Login = (props) => {
     const [showNewRegister, setNewRegister] = useState(false);
     const [showPassReset, setPassReset] = useState(false);
     const [showPassChange, setPassChange] = useState(false);
+    const [redirectURI, setRedirectURI] = useState('');
 
     // Form Data
     const [email, setEmail] = useState('');
@@ -59,7 +60,11 @@ const Login = (props) => {
         if (queryValues.passchange === 'true') {
             setPassChange(true);
         }
+        if (queryValues.redirect_uri && queryValues.redirect_uri !== '') {
+            setRedirectURI(decodeURIComponent(queryValues.redirect_uri));
+        }
     }, [props.location.search]);
+
 
     /** Form input handlers **/
     const onChange = (e) => {
@@ -120,10 +125,14 @@ const Login = (props) => {
                         dispatch({
                             type: 'SET_AUTH'
                         });
-                        if (res.data.isNewMember) {
-                            props.history.push('/dashboard?newmember=true');
+                        if (redirectURI !== '') { // redirect to the page the user tried to visit directly
+                            props.history.push(redirectURI);
                         } else {
-                            props.history.push('/dashboard');
+                            if (res.data.isNewMember) { // default, direct to dashboard
+                                props.history.push('/dashboard?newmember=true');
+                            } else {
+                                props.history.push('/dashboard');
+                            }
                         }
                     } else {
                         handleGlobalError("Oops, we're having trouble completing your login.");
