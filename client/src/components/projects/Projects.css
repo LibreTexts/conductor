@@ -24,6 +24,8 @@
     width: 100%;
     margin: 0;
     padding: 0;
+    min-height: 300px;
+    max-height: 400px;
 }
 
 #project-discussion-threads {
@@ -33,15 +35,26 @@
 
 #project-discussion-messages {
     flex-basis: 75%;
+    align-items: stretch;
 }
 
 #project-threads-container {
     height: 100%;
 }
 
+#project-threads-list-container {
+    height: 100%;
+    overflow-y: scroll;
+}
+
+#project-messages-container {
+    height: 100%;
+}
+
 #project-threads-header-container {
     border-bottom: 1px solid rgba(34,36,38,.15);
-    height: 55px;
+    min-height: 55px;
+    max-height: 55px;
     align-items: center;
     padding: 2% 2% 2% 4%;
     -webkit-box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
@@ -51,7 +64,8 @@
 
 #project-messages-header-container {
     border-bottom: 1px solid rgba(34,36,38,.15);
-    height: 55px;
+    min-height: 55px;
+    max-height: 55px;
     align-items: center;
     padding-left: 1%;
     -webkit-box-shadow: 0 5px 5px -5px rgb(224, 224, 224);
@@ -62,8 +76,7 @@
 #project-messages-chat-container {
     background-color: rgba(251, 251, 251, 0.5);
     padding: 2%;
-    min-height: 300px;
-    max-height: 500px;
+    height: 100%;
     overflow-y: scroll;
 }
 
@@ -107,4 +120,30 @@
 
 #project-messages-header-options {
     padding-right: 0.5%;
+}
+
+#project-messages-chat-list {
+    max-width: 100%;
+}
+
+.project-task-title {
+    font-weight: 450;
+}
+
+.project-task-detail {
+    display: block;
+    width: 98%;
+    margin-left: auto;
+}
+
+.project-task-detail.hidden {
+    display: none;
+}
+
+.project-task-subtask {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+}
+
+.project-task-subtask:last-child {
+    border-bottom: none;
 }

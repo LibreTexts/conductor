@@ -1,5 +1,19 @@
 # Changelog
 
+## 09-21-2021
+#### :art: UI/UX
+* Added the Resource Author Email field to Projects
+* More work on the Project Tasks design
+* Implemented Discussion Thread management in Project View
+* Implemented the ability to send messages in Discussion Threads
+
+#### :satellite: Server
+* Started creating API documention using SwaggerUI
+* Created the Thread and Message models
+* Added backend Thread management logic
+* Added backend logic to send messages
+
+
 ## 09-20-2021
 #### :art: UI/UX
 * Implemented a central logout helper to avoid repetition

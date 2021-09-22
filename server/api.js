@@ -330,6 +330,28 @@ router.route('/project/collabs/remove').put(authAPI.verifyRequest,
     middleware.checkValidationErrors,
     projectsAPI.removeCollaboratorFromProject);
 
+router.route('/project/threads').get(authAPI.verifyRequest,
+    projectsAPI.validate('getThreads'), middleware.checkValidationErrors,
+    projectsAPI.getProjectThreads);
+
+router.route('/project/thread')
+    .post(authAPI.verifyRequest,
+        projectsAPI.validate('createThread'),
+        middleware.checkValidationErrors,
+        projectsAPI.createDiscussionThread)
+    .delete(authAPI.verifyRequest,
+        projectsAPI.validate('deleteThread'),
+        middleware.checkValidationErrors,
+        projectsAPI.deleteDiscussionThread);
+
+router.route('/project/thread/messages').get(authAPI.verifyRequest,
+    projectsAPI.validate('getMessages'), middleware.checkValidationErrors,
+    projectsAPI.getThreadMessages);
+
+router.route('/project/thread/message').post(authAPI.verifyRequest,
+    projectsAPI.validate('createMessage'), middleware.checkValidationErrors,
+    projectsAPI.createThreadMessage);
+
 
 /* Harvesting */
 

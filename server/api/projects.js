@@ -10,6 +10,8 @@ const HarvestingProject = require('../models/harvestingproject.js');
 
 const Project = require('../models/project.js');
 const Tag = require('../models/tag.js');
+const Thread = require('../models/thread.js');
+const Message = require('../models/message.js');
 const { body, query } = require('express-validator');
 const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
@@ -38,6 +40,7 @@ const createProject = (req, res) => {
         visibility: 'private',
         currentProgress: 0,
         author: '',
+        authorEmail: '',
         license: '',
         resourceURL: '',
         projectURL: '',
@@ -53,6 +56,7 @@ const createProject = (req, res) => {
     if (req.body.hasOwnProperty('progress')) newProjData.currentProgress = req.body.progress;
     if (req.body.hasOwnProperty('projectURL')) newProjData.projectURL = req.body.projectURL;
     if (req.body.hasOwnProperty('author')) newProjData.author = req.body.author;
+    if (req.body.hasOwnProperty('authorEmail')) newProjData.authorEmail = req.body.authorEmail;
     if (req.body.hasOwnProperty('license')) newProjData.license = req.body.license;
     if (req.body.hasOwnProperty('resourceURL')) newProjData.resourceURL = req.body.resourceURL;
     if (req.body.hasOwnProperty('notes')) newProjData.notes = req.body.notes;
@@ -454,6 +458,9 @@ const updateProject = (req, res) => {
                 if (req.body.hasOwnProperty('author') && req.body.author !== project.author) {
                     updateObj.author = req.body.author;
                 }
+                if (req.body.hasOwnProperty('authorEmail') && req.body.authorEmail !== project.authorEmail) {
+                    updateObj.authorEmail = req.body.authorEmail;
+                }
                 if (req.body.hasOwnProperty('license') && req.body.author !== project.license) {
                     updateObj.license = req.body.license;
                 }
@@ -819,6 +826,382 @@ const getOrgTags = (_req, res) => {
 };
 
 
+/**
+ * Creates a new Discussion Thread within a Project.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'createThread'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const createDiscussionThread = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                const thread = new Thread({
+                    threadID: b62(14),
+                    project: project.projectID,
+                    title: req.body.title
+                });
+                return thread.save();
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((newThread) => {
+        if (newThread) {
+            return res.send({
+                err: false,
+                msg: 'New thread created successfully.',
+                threadID: newThread.threadID
+            });
+        } else {
+            throw(new Error('createfail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'createfail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Deletes a Discussion Thread and its messages within a Project.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'deleteThread'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const deleteDiscussionThread = (req, res) => {
+    Thread.findOne({
+        threadID: req.body.threadID
+    }).lean().then((thread) => {
+        if (thread) {
+            return Project.findOne({
+                projectID: thread.project
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                return Thread.deleteOne({
+                    threadID: req.body.threadID
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((threadDeleteRes) => {
+        if (threadDeleteRes.deletedCount === 1) {
+            return Message.deleteMany({
+                thread: req.body.threadID
+            });
+        } else {
+            throw(new Error('deletefail'));
+        }
+    }).then((_msgDeleteRes) => {
+        return res.send({
+            err: false,
+            msg: 'Thread and messages successfully deleted.'
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Retrives all Discussion Threads within a Project and their most recent message.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getThreads'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const getProjectThreads = (req, res) => {
+    Project.findOne({
+        projectID: req.query.projectID
+    }).lean().then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                return Thread.aggregate([
+                    {
+                        $match: {
+                            project: req.query.projectID
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            __v: 0
+                        }
+                    }, {
+                        $lookup: {
+                            from: 'messages',
+                            let: {
+                                threadID: '$threadID'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$thread', '$$threadID']
+                                        }
+                                    }
+                                }, {
+                                    $sort: {
+                                        createdAt: -1
+                                    }
+                                }, {
+                                    $limit: 1
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'lastMessage'
+                        }
+                    }, {
+                        $addFields: {
+                            lastMessage: {
+                                $arrayElemAt: ['$lastMessage', 0]
+                            }
+                        }
+                    }, {
+                        $lookup: {
+                            from: 'users',
+                            let: {
+                                author: '$lastMessage.author'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$uuid', '$$author']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        uuid: 1,
+                                        firstName: 1,
+                                        lastName: 1
+                                    }
+                                }
+                            ],
+                            as: 'lastMessage.author'
+                        }
+                    }, {
+                        $addFields: {
+                            'lastMessage.author': {
+                                $arrayElemAt: ['$lastMessage.author', 0]
+                            }
+                        }
+                    }, {
+                        $sort: {
+                            'lastMessage.createdAt': -1
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((threads) => {
+        return res.send({
+            err: false,
+            projectID: req.query.projectID,
+            threads: threads
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Creates a new Message within a Project Thread.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'createMessage'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const createThreadMessage = (req, res) => {
+    Thread.findOne({
+        threadID: req.body.threadID
+    }).lean().then((thread) => {
+        if (thread) {
+            return Project.findOne({
+                projectID: thread.project
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                const message = new Message({
+                    messageID: b62(15),
+                    thread: req.body.threadID,
+                    body: req.body.message,
+                    author: req.decoded.uuid
+                });
+                return message.save();
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((newMsg) => {
+        if (newMsg) {
+            return res.send({
+                err: false,
+                msg: 'Message successfully sent.',
+                messageID: newMsg.messageID
+            });
+        } else {
+            throw(new Error('createfail'));
+        }
+    }).catch((err) => {
+        debugError(err);
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'createfail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Retrieves all Messages within a Project Thread.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getMessages'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const getThreadMessages = (req, res) => {
+    Thread.findOne({
+        threadID: req.query.threadID
+    }).lean().then((thread) => {
+        if (thread) {
+            return Project.findOne({
+                projectID: thread.project
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+                return Message.aggregate([
+                    {
+                        $match: {
+                            thread: req.query.threadID
+                        }
+                    }, {
+                        $lookup: {
+                            from: 'users',
+                            let: {
+                                author: '$author'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$uuid', '$$author']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        uuid: 1,
+                                        firstName: 1,
+                                        lastName: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ],
+                            as: 'author'
+                        }
+                    }, {
+                        $addFields: {
+                            author: {
+                                $arrayElemAt: ['$author', 0]
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            __v: 0
+                        }
+                    }, {
+                        $sort: {
+                            createdAt: 1
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((messages) => {
+        return res.send({
+            err: false,
+            threadID: req.query.threadID,
+            messages: messages
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+
+
+
 
 /* TODO: Outmoded */
 const getAllUserProjects = (req, res, next) => {
@@ -1025,6 +1408,7 @@ const validate = (method) => {
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+                body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
                 body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
                 body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
@@ -1041,6 +1425,7 @@ const validate = (method) => {
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+                body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
                 body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
                 body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
@@ -1072,6 +1457,28 @@ const validate = (method) => {
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
             ]
+        case 'createThread':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 })
+            ]
+        case 'deleteThread':
+            return [
+                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
+            ]
+        case 'getThreads':
+            return [
+                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
+        case 'createMessage':
+            return [
+                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 }),
+                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
+            ]
+        case 'getMessages':
+            return [
+                query('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
+            ]
     }
 };
 
@@ -1087,6 +1494,11 @@ module.exports = {
     addCollaboratorToProject,
     removeCollaboratorFromProject,
     getOrgTags,
+    createDiscussionThread,
+    deleteDiscussionThread,
+    getProjectThreads,
+    createThreadMessage,
+    getThreadMessages,
     getAllUserProjects,
     getRecentUserProjects,
     validate

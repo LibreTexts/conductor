@@ -74,7 +74,7 @@ const editCollection = (req, res) => {
         updateData.privacy = req.body.privacy;
     }
     Collection.updateOne({ collID: req.body.collID }, updateData).then((updateRes) => {
-        if (updateRes.modifiedCount) {
+        if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
                 msg: "Collection successfully updated."

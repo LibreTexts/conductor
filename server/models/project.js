@@ -33,6 +33,7 @@ const ProjectSchema = new Schema({
         default: 0
     },
     author: String,             // resource author (if applicable)
+    authorEmail: String,        // resource author's email (if applicable)
     license: String,            // resource license (if applicable)
     resourceURL: String,        // resource original URL (if applicable)
     projectURL: String,         // the URL where the project exists (if applicable)

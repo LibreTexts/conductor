@@ -45,6 +45,7 @@ const ProjectsCreate = (props) => {
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
     const [projResAuthor, setProjResAuthor] = useState('');
+    const [projResEmail, setProjResEmail] = useState('');
     const [projResLicense, setProjResLicense] = useState('');
     const [projResURL, setProjResURL] = useState('');
     const [projNotes, setProjNotes] = useState('');
@@ -141,6 +142,7 @@ const ProjectsCreate = (props) => {
             if (!isEmptyString(projURL)) projData.projectURL = projURL;
             if (projTags.length > 0) projData.tags = projTags;
             if (!isEmptyString(projResAuthor)) projData.author = projResAuthor;
+            if (!isEmptyString(projResEmail)) projData.authorEmail = projResEmail;
             if (!isEmptyString(projResLicense)) projData.license = projResLicense;
             if (!isEmptyString(projResURL)) projData.resourceURL = projResURL;
             if (!isEmptyString(projNotes)) projData.notes = projNotes;
@@ -285,6 +287,18 @@ const ProjectsCreate = (props) => {
                                             value={projResAuthor}
                                         />
                                     </Form.Field>
+                                    <Form.Field>
+                                        <label>Author's Email</label>
+                                        <Form.Input
+                                            name='resourceEmail'
+                                            type='email'
+                                            placeholder="Enter resource author's email..."
+                                            onChange={(e) => setProjResEmail(e.target.value)}
+                                            value={projResEmail}
+                                        />
+                                    </Form.Field>
+                                </Form.Group>
+                                <Form.Group widths='equal'>
                                     <Form.Select
                                         fluid
                                         label='License'
@@ -293,17 +307,17 @@ const ProjectsCreate = (props) => {
                                         onChange={(_e, { value }) => setProjResLicense(value)}
                                         value={projResLicense}
                                     />
+                                    <Form.Field>
+                                        <label>Original URL</label>
+                                        <Form.Input
+                                            name='resourceURL'
+                                            type='url'
+                                            placeholder='Enter resource URL...'
+                                            onChange={(e) => setProjResURL(e.target.value)}
+                                            value={projResURL}
+                                        />
+                                    </Form.Field>
                                 </Form.Group>
-                                <Form.Field>
-                                    <label>Original URL</label>
-                                    <Form.Input
-                                        name='resourceURL'
-                                        type='url'
-                                        placeholder='Enter resource URL...'
-                                        onChange={(e) => setProjResURL(e.target.value)}
-                                        value={projResURL}
-                                    />
-                                </Form.Field>
                                 <Divider />
                                 <Header as='h3'>Additional Information</Header>
                                 <Form.Field>

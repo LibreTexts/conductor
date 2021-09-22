@@ -12,14 +12,13 @@ import {
   Form,
   Breadcrumb,
   Modal,
-  Dropdown,
   Label,
   List,
   Image,
   Accordion,
   Comment,
   Input,
-  Menu
+  Loader
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -27,12 +26,17 @@ import {
 } from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
+import date from 'date-and-time';
+import ordinal from 'date-and-time/plugin/ordinal';
+import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
+import queryString from 'query-string';
 
 import {
     isEmptyString,
     capitalizeFirstLetter,
-    normalizeURL
+    normalizeURL,
+    truncateString
 } from '../util/HelperFunctions.js';
 
 import {
@@ -52,6 +56,7 @@ const ProjectView = (props) => {
 
     // UI
     const [loadingData, setLoadingData] = useState(false);
+    const [showProjectCreated, setShowProjectCreated] = useState(false);
 
     // Project Data
     const [project, setProject] = useState({});
@@ -70,6 +75,7 @@ const ProjectView = (props) => {
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
     const [projResAuthor, setProjResAuthor] = useState('');
+    const [projResEmail, setProjResEmail] = useState('');
     const [projResLicense, setProjResLicense] = useState('');
     const [projResURL, setProjResURL] = useState('');
     const [projNotes, setProjNotes] = useState('');
@@ -93,14 +99,102 @@ const ProjectView = (props) => {
     const [showCompleteProjModal, setShowCompleteProjModal] = useState(false);
     const [completeProjModalLoading, setCompleteProjModalLoading] = useState(false);
 
+    // New Thread Modal
+    const [showNewThreadModal, setShowNewThreadModal] = useState(false);
+    const [newThreadTitle, setNewThreadTitle] = useState('');
+    const [newThreadLoading, setNewThreadLoading] = useState(false);
+
+
+    // Delete Thread Modal
+    const [showDelThreadModal, setShowDelThreadModal] = useState(false);
+    const [delThreadLoading, setDelThreadLoading] = useState(false);
+
+
+    // Discussion
+    const [projectThreads, setProjectThreads] = useState([]);
+    const [loadedProjThreads, setLoadedProjThreads] = useState(false);
+    const [activeThread, setActiveThread] = useState('');
+    const [activeThreadTitle, setActiveThreadTitle] = useState('');
+    const [activeThreadMsgs, setActiveThreadMsgs] = useState([]);
+    const [loadedThreadMsgs, setLoadedThreadMsgs] = useState(false);
+    const [messageCompose, setMessageCompose] = useState('');
+    const [messageSending, setMessageSending] = useState(false);
+
+
+    // Tasks
+    const [openTaskDetails, setOpenTaskDetails] = useState([
+        true, false, false, false, false
+    ]);
+    const [projTasks, setProjTasks] = useState([
+        {
+            open: false,
+            id: 1,
+            task: {
+                name: "Chapter 1"
+            }
+        },
+        {
+            open: false,
+            id: 2,
+            task: {
+                name: "Chapter 2"
+            }
+        },
+        {
+            open: false,
+            id: 3,
+            task: {
+                name: "Chapter 3"
+            }
+        },
+        {
+            open: false,
+            id: 4,
+            task: {
+                name: "Chapter 4"
+            }
+        },
+        {
+            open: false,
+            id: 5,
+            task: {
+                name: "Chapter 5"
+            }
+        }
+    ]);
+
 
     /**
      * Set page title and load Project information on initial load.
      */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Projects | Project View";
+        date.plugin(ordinal);
+        date.plugin(day_of_week);
         getProject();
+        getDiscussionThreads();
     }, []);
+
+
+    /**
+     * Read URL params and update UI accordingly.
+     */
+    useEffect(() => {
+        const queryValues = queryString.parse(props.location.search);
+        if (queryValues.projectCreated === 'true') {
+            setShowProjectCreated(true);
+        }
+    }, [props.location.search]);
+
+
+    /**
+     * Update the page title to the project title when it is available.
+     */
+    useEffect(() => {
+        if (projTitle !== '') {
+            document.title = `LibreTexts Conductor | Projects | ${projTitle}`;
+        }
+    }, [projTitle]);
 
 
     /**
@@ -195,6 +289,7 @@ const ProjectView = (props) => {
         if (project.projectURL) setProjURL(project.projectURL);
         if (project.tags) setProjTags(project.tags);
         if (project.author) setProjResAuthor(project.author);
+        if (project.authorEmail) setProjResEmail(project.authorEmail);
         if (project.license) setProjResLicense(project.license);
         if (project.resourceURL) setProjResURL(project.resourceURL);
         if (project.notes) setProjNotes(project.notes);
@@ -215,6 +310,7 @@ const ProjectView = (props) => {
         setProjURL('');
         setProjTags([]);
         setProjResAuthor('');
+        setProjResEmail('');
         setProjResLicense('');
         setProjResURL('');
         setProjNotes('');
@@ -315,6 +411,9 @@ const ProjectView = (props) => {
             }
             if ((project.author && project.author !== projResAuthor) || !project.author) {
                 projData.author = projResAuthor;
+            }
+            if ((project.authorEmail && project.authorEmail !== projResEmail) || !project.authorEmail) {
+                projData.authorEmail = projResEmail;
             }
             if ((project.license && project.license !== projResLicense) || !project.license) {
                 projData.license = projResLicense;
@@ -518,6 +617,195 @@ const ProjectView = (props) => {
     };
 
 
+    const getDiscussionThreads = () => {
+        setLoadedProjThreads(false);
+        axios.get('/project/threads', {
+            params: {
+                projectID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.threads && Array.isArray(res.data.threads)) {
+                    setProjectThreads(res.data.threads);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedProjThreads(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedProjThreads(true);
+        });
+    };
+
+
+    const getThreadMessages = () => {
+        setLoadedThreadMsgs(false);
+        axios.get('/project/thread/messages', {
+            params: {
+                threadID: activeThread
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.messages && Array.isArray(res.data.messages)) {
+                    setActiveThreadMsgs(res.data.messages);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadedThreadMsgs(true);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadedThreadMsgs(true);
+        });
+    };
+
+
+    useEffect(() => {
+        if (!isEmptyString(activeThread)) {
+            getThreadMessages();
+        }
+    }, [activeThread]);
+
+
+    const sendMessage = () => {
+        if (!isEmptyString(messageCompose)) {
+            setMessageSending(true);
+            axios.post('/project/thread/message', {
+                threadID: activeThread,
+                message: messageCompose
+            }).then((res) => {
+                if (!res.data.err) {
+                    getThreadMessages();
+                    getDiscussionThreads();
+                    setMessageCompose('');
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setMessageSending(false);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setMessageSending(false);
+            });
+        }
+    };
+
+
+    const activateThread = (thread) => {
+        setActiveThread(thread.threadID);
+        setActiveThreadTitle(thread.title);
+    };
+
+
+    const submitNewThread = () => {
+        if (!isEmptyString(newThreadTitle)) {
+            setNewThreadLoading(true);
+            axios.post('/project/thread', {
+                projectID: props.match.params.id,
+                title: newThreadTitle
+            }).then((res) => {
+                if (!res.data.err) {
+                    getDiscussionThreads();
+                    closeNewThreadModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setNewThreadLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setNewThreadLoading(false);
+            });
+        }
+    };
+
+    const openNewThreadModal = () => {
+        setNewThreadLoading(false);
+        setNewThreadTitle('');
+        setShowNewThreadModal(true);
+    };
+
+    const closeNewThreadModal = () => {
+        setShowNewThreadModal(false);
+        setNewThreadLoading(false);
+        setNewThreadTitle('');
+    };
+
+
+    const submitDeleteThread = () => {
+        if (!isEmptyString(activeThread)) {
+            setDelThreadLoading(true);
+            axios.delete('/project/thread', {
+                data: {
+                    threadID: activeThread
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    setActiveThread('');
+                    setActiveThreadTitle('');
+                    setActiveThreadMsgs([]);
+                    setLoadedThreadMsgs(false);
+                    getDiscussionThreads();
+                    closeDelThreadModal();
+                } else {
+                    setDelThreadLoading(true);
+                    handleGlobalError(res.data.errMsg);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setDelThreadLoading(false);
+            });
+        }
+    }
+
+
+    const openDelThreadModal = () => {
+        setDelThreadLoading(false);
+        setShowDelThreadModal(true);
+    };
+
+    const closeDelThreadModal = () => {
+        setShowDelThreadModal(false);
+        setDelThreadLoading(false);
+    };
+
+
+    const toggleTaskDetail = (id) => {
+        const updatedTasks = projTasks.map((item) => {
+            if (id === item.id) {
+                return {
+                    ...item,
+                    open: !item.open
+                }
+            } else return item;
+        });
+        setProjTasks(updatedTasks);
+    };
+
+
+    const expandCollapseAllTasks = () => {
+        let updatedTasks = [];
+        const foundOpen = projTasks.find((item) => {
+            return (item.open === true);
+        });
+        if (foundOpen !== undefined) { // one is open, close them all
+            updatedTasks = projTasks.map((item) => {
+                return {
+                    ...item,
+                    open: false
+                }
+            });
+        } else { // all are closed, open them all
+            updatedTasks = projTasks.map((item) => {
+                return {
+                    ...item,
+                    open: true
+                }
+            });
+        }
+        setProjTasks(updatedTasks);
+    };
+
+
     // Rendering Helper Booleans
     let hasResourceInfo = project.author || project.license || project.resourceURL;
     let hasNotes = project.notes && !isEmptyString(project.notes);
@@ -550,6 +838,18 @@ const ProjectView = (props) => {
                         </Segment>
                         <Segment loading={loadingData}>
                             <Grid padded='horizontally' relaxed>
+                                {showProjectCreated &&
+                                    <Grid.Row>
+                                        <Grid.Column width={16}>
+                                            <Message floating icon success>
+                                                <Icon name='check' />
+                                                <Message.Content>
+                                                    <Message.Header>Project successfully created!</Message.Header>
+                                                </Message.Content>
+                                            </Message>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
                                 <Grid.Row>
                                     <Grid.Column>
                                         <Button.Group fluid widths={4}>
@@ -622,7 +922,7 @@ const ProjectView = (props) => {
                                                         <Grid.Row>
                                                             {(project.owner && project.owner.firstName && project.owner.lastName) &&
                                                                 <Grid.Column width={4}>
-                                                                    <Header as='span' sub>PROJECT OWNER: </Header>
+                                                                    <Header as='span' sub>Project Owner: </Header>
                                                                     <span>{project.owner.firstName} {project.owner.lastName}</span>
                                                                 </Grid.Column>
                                                             }
@@ -649,6 +949,12 @@ const ProjectView = (props) => {
                                                                 <div className='mb-1p'>
                                                                     <Header as='span' sub>Author: </Header>
                                                                     <span>{project.author}</span>
+                                                                </div>
+                                                            }
+                                                            {(project.authorEmail && !isEmptyString(project.authorEmail)) &&
+                                                                <div className='mt-1p mb-1p'>
+                                                                    <Header as='span' sub>Author Email: </Header>
+                                                                    <a href={`mailto:${project.authorEmail}`} target='_blank' rel='noopener noreferrer'>{project.authorEmail}</a>
                                                                 </div>
                                                             }
                                                             {(project.license && !isEmptyString(project.license)) &&
@@ -697,136 +1003,99 @@ const ProjectView = (props) => {
                                                                     circular
                                                                     icon='plus'
                                                                     color='olive'
+                                                                    onClick={openNewThreadModal}
                                                                 />
                                                             </div>
                                                         </div>
                                                         <div className='flex-col-div' id='project-threads-list-container'>
-                                                            <div className='project-threads-list-item'>
-                                                                <p className='project-threads-list-title active'>General Discussion</p>
-                                                                <p className='project-threads-list-descrip'>
-                                                                    <span className='project-threads-list-descrip'>Delmar Larsen</span>: Let's move the two linear approximation chapters into...
-                                                                </p>
-                                                            </div>
-                                                            <div className='project-threads-list-item'>
-                                                                <p className='project-threads-list-title'>Mathjax Issues</p>
-                                                                <p className='project-threads-list-descrip'>
-                                                                    <span className='project-threads-list-descrip'>Ethan Turner</span>: Cool, I'll let them know to use that package for those.
-                                                                </p>
-                                                            </div>
+                                                            {(loadedProjThreads && projectThreads.length > 0) &&
+                                                                projectThreads.map((item, idx) => {
+                                                                    return (
+                                                                        <div className='project-threads-list-item' key={item.threadID} onClick={() => activateThread(item)}>
+                                                                            <p className={activeThread === item.threadID ? 'project-threads-list-title active' : 'project-threads-list-title'}>
+                                                                                {item.title}
+                                                                            </p>
+                                                                            <p className='project-threads-list-descrip'>
+                                                                                {(item.lastMessage && item.lastMessage.hasOwnProperty('body'))
+                                                                                    ? (
+                                                                                        <span>
+                                                                                            {item.lastMessage.author?.firstName} {item.lastMessage.author?.lastName}: {truncateString(item.lastMessage.body, 50)}
+                                                                                        </span>
+                                                                                    )
+                                                                                    : (<span><em>No messages yet.</em></span>)
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                    )
+                                                                })
+                                                            }
+                                                            {(loadedProjThreads && projectThreads.length === 0) &&
+                                                                <p className='text-center muted-text mt-4r'><em>No threads yet.</em></p>
+                                                            }
+                                                            {(!loadedProjThreads) &&
+                                                                <Loader active inline='centered' className='mt-4r' />
+                                                            }
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div id='project-discussion-messages'>
-                                                    <div className='flex-col-div'>
+                                                    <div className='flex-col-div' id='project-messages-container'>
                                                         <div className='flex-row-div' id='project-messages-header-container'>
                                                             <div className='left-flex'>
-                                                                <Header as='h3'><em>General Discussion</em></Header>
+                                                                <Header as='h3'>
+                                                                    {(activeThreadTitle !== '')
+                                                                        ? <em>{activeThreadTitle}</em>
+                                                                        : <span>Messages</span>
+                                                                    }
+                                                                </Header>
                                                             </div>
                                                             <div className='right-flex' id='project-messages-header-options'>
                                                                 <Button
                                                                     icon='trash'
                                                                     color='red'
+                                                                    disabled={activeThread === ''}
+                                                                    onClick={openDelThreadModal}
                                                                 />
                                                             </div>
                                                         </div>
                                                         <div id='project-messages-chat-container'>
-                                                            <Comment.Group>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Delmar Larsen</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>Today at 5:42PM</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Ethan Turner</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>Yesterday at 12:30AM</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>
-                                                                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-                                                                  </Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Delmar Larsen</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>Just now</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Ethan Turner</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Delmar Larsen</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Ethan Turner</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Delmar Larsen</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Ethan Turner</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-                                                              <Comment className='project-messages-message'>
-                                                                <Comment.Avatar src='/mini_logo.png' />
-                                                                <Comment.Content>
-                                                                  <Comment.Author as='a'>Delmar Larsen</Comment.Author>
-                                                                  <Comment.Metadata>
-                                                                    <div>5 days ago</div>
-                                                                  </Comment.Metadata>
-                                                                  <Comment.Text>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Comment.Text>
-                                                                </Comment.Content>
-                                                              </Comment>
-
-                                                            </Comment.Group>
+                                                            {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
+                                                                <Comment.Group id='project-messages-chat-list'>
+                                                                    {activeThreadMsgs.map((item, idx) => {
+                                                                        const today = new Date();
+                                                                        const itemDate = new Date(item.createdAt);
+                                                                        if (today.getDate() === itemDate.getDate()) { // today
+                                                                            item.date = 'Today';
+                                                                        } else if ((today.getDate() - itemDate.getDate()) >= 7) { // a week ago
+                                                                            item.date = date.format(itemDate, 'MMM DDD, YYYY')
+                                                                        } else { // this week
+                                                                            item.date = date.format(itemDate, 'dddd');
+                                                                        }
+                                                                        item.time = date.format(itemDate, 'h:mm A');
+                                                                        return (
+                                                                            <Comment className='project-messages-message'>
+                                                                              <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
+                                                                              <Comment.Content>
+                                                                                <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
+                                                                                <Comment.Metadata>
+                                                                                  <div>{item.date} at {item.time}</div>
+                                                                                </Comment.Metadata>
+                                                                                <Comment.Text>{item.body}</Comment.Text>
+                                                                              </Comment.Content>
+                                                                            </Comment>
+                                                                        )
+                                                                    })}
+                                                                </Comment.Group>
+                                                            }
+                                                            {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
+                                                                <p className='text-center muted-text mt-4r'><em>No messages yet.</em></p>
+                                                            }
+                                                            {(!loadedThreadMsgs && activeThread !== '') &&
+                                                                <Loader active inline='centered' className='mt-4r' />
+                                                            }
+                                                            {(activeThread === '' && activeThreadMsgs.length === 0) &&
+                                                                <p className='text-center muted-text mt-4r'><em>No thread selected.</em></p>
+                                                            }
                                                         </div>
                                                         <div id='project-messages-reply-container'>
                                                             <Input
@@ -835,8 +1104,13 @@ const ProjectView = (props) => {
                                                                     color: 'blue',
                                                                     icon: 'send',
                                                                     content: 'Send',
+                                                                    disabled: ((activeThread === '') || (messageCompose === '')),
+                                                                    loading: messageSending,
+                                                                    onClick: sendMessage
                                                                 }}
                                                                 fluid
+                                                                onChange={(e) => setMessageCompose(e.target.value)}
+                                                                value={messageCompose}
                                                             />
                                                         </div>
                                                     </div>
@@ -850,47 +1124,93 @@ const ProjectView = (props) => {
                                         <Header as='h2' dividing>Tasks</Header>
                                         <Segment.Group size='large' raised className='mb-4p'>
                                             <Segment>
-                                                <Button
-                                                    color='green'
-                                                >
-                                                    <Icon name='add' />
-                                                    Add Task
-                                                </Button>
+                                                <div className='flex-row-div'>
+                                                    <div className='left-flex'>
+                                                        <Input
+                                                            icon='search'
+                                                            placeholder='Search tasks...'
+                                                            iconPosition='left'
+                                                        />
+                                                    </div>
+                                                    <div className='right-flex'>
+                                                        <Button.Group>
+                                                            <Button
+                                                                color='orange'
+                                                                onClick={expandCollapseAllTasks}
+                                                            >
+                                                                <Icon name='arrows alternate vertical' />
+                                                                Expand/Collapse All
+                                                            </Button>
+                                                            <Button
+                                                                color='olive'
+                                                            >
+                                                                <Icon name='add circle' />
+                                                                Batch Add
+                                                            </Button>
+                                                            <Button
+                                                                color='green'
+                                                            >
+                                                                <Icon name='add' />
+                                                                Add Task
+                                                            </Button>
+                                                        </Button.Group>
+
+                                                    </div>
+                                                </div>
                                             </Segment>
                                             <Segment>
                                                 <List divided verticalAlign='middle'>
-                                                  <List.Item>
-                                                    <List.Content floated='right'>
-                                                      <Button icon='search' color='blue'></Button>
-                                                    </List.Content>
-                                                    <List.Content>
-                                                        Chapter 1
-                                                    </List.Content>
-                                                  </List.Item>
-                                                  <List.Item>
-                                                    <List.Content floated='right'>
-                                                      <Button icon='search' color='blue'></Button>
-                                                    </List.Content>
-                                                    <List.Content>
-                                                        Chapter 2
-                                                    </List.Content>
-                                                  </List.Item>
-                                                  <List.Item>
-                                                    <List.Content floated='right'>
-                                                      <Button icon='search' color='blue'></Button>
-                                                    </List.Content>
-                                                    <List.Content>
-                                                        Chapter 3
-                                                    </List.Content>
-                                                  </List.Item>
-                                                  <List.Item>
-                                                    <List.Content floated='right'>
-                                                      <Button icon='search' color='blue'></Button>
-                                                    </List.Content>
-                                                    <List.Content>
-                                                        Chapter 4
-                                                    </List.Content>
-                                                  </List.Item>
+                                                    {projTasks.map((item, idx) => {
+                                                        return (
+                                                            <List.Item key={item.id}>
+                                                                <div className='flex-col-div'>
+                                                                    <div className='flex-row-div'>
+                                                                        <div className='left-flex'>
+                                                                            <Icon
+                                                                                name={item.open ? 'chevron down' : 'chevron right'}
+                                                                                className='pointer-hover'
+                                                                                onClick={() => toggleTaskDetail(item.id)}
+                                                                                />
+                                                                                <p className='project-task-title'>{item.task.name} {(idx===0) && <Icon name='check' color='green' />}</p>
+                                                                        </div>
+                                                                      <div className='right-flex'>
+                                                                          <Button icon='search' color='blue'></Button>
+                                                                      </div>
+                                                                    </div>
+                                                                    <div className={item.open ? 'project-task-detail' : 'project-task-detail hidden'}>
+                                                                        <List divided verticalAlign='middle'>
+                                                                            <List.Item className='project-task-subtask'>
+                                                                                <div className='flex-row-div'>
+                                                                                    <div className='left-flex'>
+                                                                                        <Icon
+                                                                                            name='circle outline'
+                                                                                            />
+                                                                                            <p className='project-task-title'>Subtask 1</p>
+                                                                                    </div>
+                                                                                  <div className='right-flex'>
+                                                                                      <Button icon='search' color='blue'></Button>
+                                                                                  </div>
+                                                                                </div>
+                                                                            </List.Item>
+                                                                            <List.Item className='project-task-subtask'>
+                                                                                <div className='flex-row-div'>
+                                                                                    <div className='left-flex'>
+                                                                                        <Icon
+                                                                                            name='circle outline'
+                                                                                            />
+                                                                                            <p className='project-task-title'>Subtask 2</p>
+                                                                                    </div>
+                                                                                  <div className='right-flex'>
+                                                                                      <Button icon='search' color='blue'></Button>
+                                                                                  </div>
+                                                                                </div>
+                                                                            </List.Item>
+                                                                        </List>
+                                                                    </div>
+                                                                </div>
+                                                            </List.Item>
+                                                        )
+                                                    })}
                                                 </List>
                                             </Segment>
                                         </Segment.Group>
@@ -977,6 +1297,18 @@ const ProjectView = (props) => {
                                             value={projResAuthor}
                                         />
                                     </Form.Field>
+                                    <Form.Field>
+                                        <label>Author's Email</label>
+                                        <Form.Input
+                                            name='resourceEmail'
+                                            type='email'
+                                            placeholder="Enter resource author's email..."
+                                            onChange={(e) => setProjResEmail(e.target.value)}
+                                            value={projResEmail}
+                                        />
+                                    </Form.Field>
+                                </Form.Group>
+                                <Form.Group widths='equal'>
                                     <Form.Select
                                         fluid
                                         label='License'
@@ -985,17 +1317,17 @@ const ProjectView = (props) => {
                                         onChange={(_e, { value }) => setProjResLicense(value)}
                                         value={projResLicense}
                                     />
+                                    <Form.Field>
+                                        <label>Original URL</label>
+                                        <Form.Input
+                                            name='resourceURL'
+                                            type='url'
+                                            placeholder='Enter resource URL...'
+                                            onChange={(e) => setProjResURL(e.target.value)}
+                                            value={projResURL}
+                                        />
+                                    </Form.Field>
                                 </Form.Group>
-                                <Form.Field>
-                                    <label>Original URL</label>
-                                    <Form.Input
-                                        name='resourceURL'
-                                        type='url'
-                                        placeholder='Enter resource URL...'
-                                        onChange={(e) => setProjResURL(e.target.value)}
-                                        value={projResURL}
-                                    />
-                                </Form.Field>
                                 <Divider />
                                 <Header as='h3'>Additional Information</Header>
                                 <Form.Field>
@@ -1203,6 +1535,69 @@ const ProjectView = (props) => {
                                 onClick={() => setShowCompleteProjModal(false)}
                             >
                                 Cancel
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* New Discussion Thread Modal */}
+                    <Modal
+                        open={showNewThreadModal}
+                        onClose={closeNewThreadModal}
+                    >
+                        <Modal.Header>Create a Thread</Modal.Header>
+                        <Modal.Content>
+                            <Form noValidate>
+                                <Form.Field>
+                                    <label>Thread Title</label>
+                                    <Input
+                                        type='text'
+                                        icon='comments'
+                                        iconPosition='left'
+                                        placeholder='Enter thread title or topic...'
+                                        onChange={(e) => setNewThreadTitle(e.target.value)}
+                                        value={newThreadTitle}
+                                    />
+                                </Form.Field>
+                            </Form>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeNewThreadModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={newThreadLoading}
+                                onClick={submitNewThread}
+                            >
+                                <Icon name='add' />
+                                Create Thread
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Delete Discussion Thread Modal */}
+                    <Modal
+                        open={showDelThreadModal}
+                        onClose={closeDelThreadModal}
+                    >
+                        <Modal.Header>Delete Thread</Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to delete the <strong>{activeThreadTitle}</strong> thread?</p>
+                            <p><em>This will delete all messages within the thread.</em></p>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeDelThreadModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='red'
+                                loading={delThreadLoading}
+                                onClick={submitDeleteThread}
+                            >
+                                <Icon name='trash' />
+                                Delete Thread
                             </Button>
                         </Modal.Actions>
                     </Modal>
