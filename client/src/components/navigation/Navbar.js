@@ -13,6 +13,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
+
+import {
+    getLibGlyphURL,
+} from '../util/LibraryOptions.js';
 import AuthHelper from '../util/AuthHelper.js';
 
 const Navbar = (_props) => {
@@ -192,59 +196,63 @@ const Navbar = (_props) => {
                         />
                     </Menu.Item>
                     <Menu.Item>
-                        <Icon name='bookmark' />
+                        <Icon name='book' />
                         <Dropdown inline text='Libraries'>
                             <Dropdown.Menu>
                                 <Dropdown.Item as='a' href='https://bio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='dna' />
+                                    <Image src={getLibGlyphURL('bio')} className='nav-lib-glyph' />
                                     Biology
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://biz.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='dollar' />
+                                    <Image src={getLibGlyphURL('biz')} className='nav-lib-glyph' />
                                     Business
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://chem.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='flask' />
+                                    <Image src={getLibGlyphURL('chem')} className='nav-lib-glyph' />
                                     Chemistry
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://eng.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='wrench' />
+                                    <Image src={getLibGlyphURL('eng')} className='nav-lib-glyph' />
                                     Engineering
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://espanol.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='language' />
+                                    <Image src={getLibGlyphURL('espanol')} className='nav-lib-glyph' />
                                     Español
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://geo.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='globe' />
+                                    <Image src={getLibGlyphURL('geo')} className='nav-lib-glyph' />
                                     Geosciences
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://human.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='address book' />
+                                    <Image src={getLibGlyphURL('human')} className='nav-lib-glyph' />
                                     Humanities
                                 </Dropdown.Item>
+                                <Dropdown.Item as='a' href='https://k12.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                    <Image src={getLibGlyphURL('k12')} className='nav-lib-glyph' />
+                                    K12 Education
+                                </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://math.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='subscript' />
+                                    <Image src={getLibGlyphURL('math')} className='nav-lib-glyph' />
                                     Mathematics
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://med.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='first aid' />
+                                    <Image src={getLibGlyphURL('med')} className='nav-lib-glyph' />
                                     Medicine
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://phys.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='rocket' />
+                                    <Image src={getLibGlyphURL('phys')} className='nav-lib-glyph' />
                                     Physics
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://socialsci.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='users' />
+                                    <Image src={getLibGlyphURL('socialsci')} className='nav-lib-glyph' />
                                     Social Science
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://stats.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='chart pie' />
+                                    <Image src={getLibGlyphURL('stats')} className='nav-lib-glyph' />
                                     Statistics
                                 </Dropdown.Item>
                                 <Dropdown.Item as='a' href='https://workforce.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='briefcase' />
+                                    <Image src={getLibGlyphURL('workforce')} className='nav-lib-glyph' />
                                     Workforce
                                 </Dropdown.Item>
                             </Dropdown.Menu>

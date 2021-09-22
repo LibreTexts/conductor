@@ -39,3 +39,10 @@
     padding-top: 1%;
     padding-bottom: 1%;
 }
+
+.nav-lib-glyph {
+    vertical-align: middle !important;
+    width: 1.18em !important;
+    display: inline-block;
+    margin-right: 0.5rem !important;
+}

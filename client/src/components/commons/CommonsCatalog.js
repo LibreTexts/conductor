@@ -23,7 +23,6 @@ import queryString from 'query-string';
 
 import {
     getShelfOptions,
-
 } from '../util/HarvestingMasterOptions.js';
 import {
     libraryOptions,

@@ -610,6 +610,53 @@ const getUserProjects = (req, res) => {
 
 
 /**
+ * Retrieves a list of the requesting User's most recent open projects.
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getRecentProjects = (req, res) => {
+    Project.aggregate([
+        {
+            $match: {
+                $and: [
+                    {
+                        $or: [
+                            { owner: req.decoded.uuid },
+                            { collaborators: req.decoded.uuid }
+                        ]
+                    }, {
+                        status: 'open'
+                    }
+                ]
+            }
+        }, {
+            $sort: {
+                updatedAt: -1,
+                title: -1
+            }
+        }, {
+            $limit: 3
+        }, {
+            $project: {
+                _id: 0,
+            }
+        }
+    ]).then((projects) => {
+        return res.send({
+            err: false,
+            projects: projects
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: false,
+            errMsg: conductorErrors.err6
+        });
+    })
+};
+
+
+/**
  * Retrieves a list of the Users that can be added to the collaborators list
  * of the project identified by the projectID in the request query.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -1199,180 +1246,6 @@ const getThreadMessages = (req, res) => {
 };
 
 
-
-
-
-
-/* TODO: Outmoded */
-const getAllUserProjects = (req, res, next) => {
-    var response = {};
-    var decoded = req.decoded;
-    if (decoded != null) {
-        HarvestingProject.aggregate([
-            {
-                $match: {
-                    assignees: decoded.uuid,
-                    status: {
-                        $in: ['ready', 'ip']
-                    }
-                }
-            }, {
-                $project: {
-                    _id: 0,
-                    projectID: 1,
-                    title: 1,
-                    updatedAt: 1
-                }
-            }, {
-                $lookup: {
-                    from: 'harvestingprojectupdates',
-                    let: {
-                        pID: '$projectID'
-                    },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $eq: ['$projectID', '$$pID']
-                                }
-                            }
-                        }, {
-                            $project: {
-                                _id: 0,
-                                createdAt: 1
-                            }
-                        }, {
-                            $sort: {
-                                createdAt: -1
-                            }
-                        }, {
-                            $limit: 1
-                        }
-                    ],
-                    as: 'lastUpdate'
-                }
-            }, {
-                $addFields: {
-                    lastUpdate: {
-                        $arrayElemAt: ['$lastUpdate', 0]
-                    }
-                }
-            }
-        ]).then((harvestResults) => {
-            if (harvestResults.length > 0) {
-                harvestResults.forEach((result) => {
-                    if (result.lastUpdate === undefined) {
-                        const lastUpdate = {
-                            createdAt: result.updatedAt
-                        };
-                        result.lastUpdate = lastUpdate;
-                    }
-                });
-            }
-            response.err = false;
-            response.harvesting = harvestResults;
-            return res.send(response);
-        }).catch((err) => {
-            console.log(err);
-            response.err = true;
-            response.errMsg = err;
-            return res.send(response);
-        });
-    } else {
-        response.err = true;
-        response.errMsg = "Missing authorization token.";
-        return res.status(401).send(response);
-    }
-};
-
-/* TODO: Outmoded */
-const getRecentUserProjects = (req, res, next) => {
-    var response = {};
-    var decoded = req.decoded;
-    if (decoded != null) {
-        var harvestingProject;
-        HarvestingProject.aggregate([
-            {
-                $match: {
-                    assignees: decoded.uuid,
-                    status: {
-                        $in: ['ready', 'ip']
-                    }
-                }
-            }, {
-                $limit: 1
-            },
-            {
-                $project: {
-                    _id: 0,
-                    projectID: 1,
-                    title: 1,
-                    updatedAt: 1
-                }
-            }, {
-                $lookup: {
-                    from: 'harvestingprojectupdates',
-                    let: {
-                        pID: '$projectID'
-                    },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $eq: ['$projectID', '$$pID']
-                                }
-                            }
-                        }, {
-                            $project: {
-                                _id: 0,
-                                createdAt: 1
-                            }
-                        }, {
-                            $sort: {
-                                createdAt: -1
-                            }
-                        }, {
-                            $limit: 1
-                        }
-                    ],
-                    as: 'lastUpdate'
-                }
-            }, {
-                $addFields: {
-                    lastUpdate: {
-                        $arrayElemAt: ['$lastUpdate', 0]
-                    }
-                }
-            }
-        ]).then((harvestResults) => {
-            if (harvestResults.length > 0) {
-                const recentHarvesting = harvestResults[0];
-                if (recentHarvesting.lastUpdate === undefined) {
-                    const lastUpdate = {
-                        createdAt: recentHarvesting.updatedAt
-                    };
-                    recentHarvesting.lastUpdate = lastUpdate;
-                }
-                harvestingProject = recentHarvesting;
-            }
-            response.err = false;
-            if (harvestingProject !== undefined) {
-                response.harvesting = harvestingProject;
-            }
-            return res.send(response);
-        }).catch((err) => {
-            response.err = true;
-            response.errMsg = err;
-            return res.send(response);
-        });
-    } else {
-        response.err = true;
-        response.errMsg = "Missing authorization token.";
-        return res.status(401).send(response);
-    }
-};
-
-
 /**
  * Validate a provided Project Visibility option.
  * @returns {Boolean} true if valid option, false otherwise.
@@ -1490,6 +1363,7 @@ module.exports = {
     completeProject,
     updateProject,
     getUserProjects,
+    getRecentProjects,
     getAddableCollaborators,
     addCollaboratorToProject,
     removeCollaboratorFromProject,
@@ -1499,7 +1373,5 @@ module.exports = {
     getProjectThreads,
     createThreadMessage,
     getThreadMessages,
-    getAllUserProjects,
-    getRecentUserProjects,
     validate
 };

@@ -268,11 +268,21 @@ router.route('/users/basic').get(authAPI.verifyRequest,
 
 
 /* Announcements */
-router.route('/announcements/create').post(authAPI.verifyRequest,
-    authAPI.getUserAttributes, announcementAPI.validate('postAnnouncement'),
-    middleware.checkValidationErrors, announcementAPI.postAnnouncement);
+router.route('/announcement')
+    .post(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        announcementAPI.validate('postAnnouncement'),
+        middleware.checkValidationErrors,
+        announcementAPI.postAnnouncement)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        announcementAPI.validate('deleteAnnouncement'),
+        middleware.checkValidationErrors,
+        announcementAPI.deleteAnnouncement);
+
 router.route('/announcements/all').get(authAPI.verifyRequest,
     announcementAPI.getAllAnnouncements);
+
 router.route('/announcements/recent').get(authAPI.verifyRequest,
     announcementAPI.getRecentAnnouncement);
 
@@ -282,7 +292,7 @@ router.route('/projects/all').get(authAPI.verifyRequest,
     projectsAPI.getUserProjects);
 
 router.route('/projects/recent').get(authAPI.verifyRequest,
-    projectsAPI.getRecentUserProjects);
+    projectsAPI.getRecentProjects);
 
 router.route('/projects/tags/org').get(authAPI.verifyRequest,
     projectsAPI.getOrgTags);

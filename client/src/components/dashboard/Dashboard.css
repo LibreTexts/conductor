@@ -4,11 +4,15 @@
     width: 4em !important;
 }
 
+.recent-announcement-content {
+    margin-left: 1% !important;
+}
+
 .recent-announcement-title {
     margin-bottom: 1% !important;
 }
 
-.author-info-span {
+.recent-announcement-meta {
     display: block;
     margin-top: 1%;
 }

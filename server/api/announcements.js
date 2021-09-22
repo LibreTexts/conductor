@@ -11,11 +11,11 @@ const authAPI = require('./auth.js');
 const { body, query } = require('express-validator');
 
 /**
- * Checks that a user has the property authority
- * to post either a campus-wide or global
- * announcement, then creates and saves a new
- * Announcement model with the data in the
+ * Checks that a user has the property authority to post either a campus-wide or global
+ * announcement, then creates and saves a new Announcement model with the data in the
  * request body.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
  * VALIDATION: 'postAnnouncement'
  */
 const postAnnouncement = (req, res) => {
@@ -63,6 +63,52 @@ const postAnnouncement = (req, res) => {
 };
 
 /**
+ * Checks that a user has the property authority to post delete an announcement
+ * identified by the ID in the request body, then deletes the Announcement from
+ * the database.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'deleteAnnouncement'
+ */
+const deleteAnnouncement = (req, res) => {
+    Announcement.findOne({
+        _id: req.body.announcementID
+    }).then((announcement) => {
+        var hasProperRole = false;
+        if (announcement.org === 'global') {
+            hasProperRole = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+        } else {
+            hasProperRole = authAPI.checkHasRole(req.user, announcement.org, 'campusadmin');
+        }
+        if (hasProperRole) {
+            return Announcement.deleteOne({
+                _id: req.body.announcementID
+            });
+        } else {
+            throw(new Error('unauth'));
+        }
+    }).then((deleteRes) => {
+        if (deleteRes.deletedCount == 1) {
+            return res.send({
+                err: false,
+                msg: 'Announcement succesfully deleted.'
+            });
+        } else {
+            throw(new Error('deletefail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+/**
  * Returns the 50 most recent Announcements
  * from either the global pool or from the user's
  * organization(s)
@@ -84,7 +130,6 @@ const getAllAnnouncements = (_req, res) => {
             $limit: 50
         }, {
             $project: {
-                _id: 0,
                 __v: 0,
                 updatedAt: 0
             }
@@ -102,8 +147,6 @@ const getAllAnnouncements = (_req, res) => {
                             }
                         }
                     }, {
-                        $limit: 1
-                    }, {
                         $project: {
                             _id: 0,
                             uuid: 1,
@@ -113,22 +156,47 @@ const getAllAnnouncements = (_req, res) => {
                         }
                     }
                 ],
-                as: 'authorInfo'
+                as: 'author'
+            }
+        }, {
+            $lookup: {
+                from: 'organizations',
+                let: {
+                    org: '$org'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$orgID', '$$org']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            orgID: 1,
+                            name: 1,
+                            shortName: 1,
+                            abbreviation: 1
+                        }
+                    }
+                ],
+                as: 'org'
             }
         }, {
             $addFields: {
-                authorInfo: {
-                    $arrayElemAt: ['$authorInfo', 0]
+                author: {
+                    $arrayElemAt: ['$author', 0]
+                },
+                org: {
+                    $arrayElemAt: ['$org', 0]
                 }
             }
         }
-    ]).then((results) => {
-        if (results.length > 0) {
-            results.forEach((announcement) => {
-                if (announcement.authorInfo) {
-                    announcement.author = announcement.authorInfo;
-                    delete announcement.authorInfo;
-                } else {
+    ]).then((announcements) => {
+        if (announcements.length > 0) {
+            announcements.forEach((announcement) => {
+                if (!announcement.hasOwnProperty('author') || !announcement.author.hasOwnProperty('uuid')) {
                     announcement.author = {
                         uuid: "",
                         firstName: "Unknown",
@@ -139,7 +207,7 @@ const getAllAnnouncements = (_req, res) => {
         }
         return res.send({
             err: false,
-            announcements: results
+            announcements: announcements
         });
     }).catch((err) => {
         debugError(err);
@@ -172,7 +240,6 @@ const getRecentAnnouncement = (_req, res) => {
             $limit: 1
         }, {
             $project: {
-                _id: 0,
                 __v: 0,
                 updatedAt: 0
             }
@@ -201,12 +268,40 @@ const getRecentAnnouncement = (_req, res) => {
                         }
                     }
                 ],
-                as: 'authorInfo'
+                as: 'author'
+            }
+        }, {
+            $lookup: {
+                from: 'organizations',
+                let: {
+                    org: '$org'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$orgID', '$$org']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            orgID: 1,
+                            name: 1,
+                            shortName: 1,
+                            abbreviation: 1
+                        }
+                    }
+                ],
+                as: 'org'
             }
         }, {
             $addFields: {
-                authorInfo: {
-                    $arrayElemAt: ['$authorInfo', 0]
+                author: {
+                    $arrayElemAt: ['$author', 0]
+                },
+                org: {
+                    $arrayElemAt: ['$org', 0]
                 }
             }
         }
@@ -214,10 +309,7 @@ const getRecentAnnouncement = (_req, res) => {
         var announcement = null;
         if (results.length > 0) {
             announcement = results[0];
-            if (announcement.authorInfo) {
-                announcement.author = announcement.authorInfo;
-                delete announcement.authorInfo;
-            } else {
+            if (!announcement.hasOwnProperty('author') || !announcement.author.hasOwnProperty('uuid')) {
                 announcement.author = {
                     uuid: "",
                     firstName: "Unknown",
@@ -249,12 +341,17 @@ const validate = (method) => {
                 body('message', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('global', conductorErrors.err1).exists().isBoolean().toBoolean()
             ]
+        case 'deleteAnnouncement':
+            return [
+                body('announcementID', conductorErrors.err1).exists().isString().isMongoId()
+            ]
     }
 };
 
 
 module.exports = {
     postAnnouncement,
+    deleteAnnouncement,
     getAllAnnouncements,
     getRecentAnnouncement,
     validate

@@ -1073,7 +1073,7 @@ const ProjectView = (props) => {
                                                                         }
                                                                         item.time = date.format(itemDate, 'h:mm A');
                                                                         return (
-                                                                            <Comment className='project-messages-message'>
+                                                                            <Comment className='project-messages-message' key={item.messageID}>
                                                                               <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
                                                                               <Comment.Content>
                                                                                 <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>

@@ -1,5 +1,17 @@
 # Changelog
 
+## 09-22-2021
+#### :art: UI/UX
+* Removed "Libraries" from Dashboard, added Control Panel link for admins
+* Updated Dashboard to use new Projects paradigm
+* Navbar Libraries Dropdown now uses respective Library Glyphs
+
+#### :satellite: Server
+* Updated backend logic for Announcements
+* Added logic to delete an Announcement
+* Added logic for recent Projects
+
+
 ## 09-21-2021
 #### :art: UI/UX
 * Added the Resource Author Email field to Projects
@@ -8,7 +20,7 @@
 * Implemented the ability to send messages in Discussion Threads
 
 #### :satellite: Server
-* Started creating API documention using SwaggerUI
+* Started creating API documentation using SwaggerUI
 * Created the Thread and Message models
 * Added backend Thread management logic
 * Added backend logic to send messages
