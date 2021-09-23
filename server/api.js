@@ -294,6 +294,12 @@ router.route('/projects/all').get(authAPI.verifyRequest,
 router.route('/projects/recent').get(authAPI.verifyRequest,
     projectsAPI.getRecentProjects);
 
+router.route('/projects/available').get(authAPI.verifyRequest,
+    projectsAPI.getAvailableProjects);
+
+router.route('/projects/completed').get(authAPI.verifyRequest,
+    projectsAPI.getCompletedProjects);
+
 router.route('/projects/tags/org').get(authAPI.verifyRequest,
     projectsAPI.getOrgTags);
 

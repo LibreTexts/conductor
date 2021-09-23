@@ -170,7 +170,7 @@ const ProjectsCreate = (props) => {
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Projects</Header>
+                    <Header className='component-header'>Create Project</Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -188,7 +188,6 @@ const ProjectsCreate = (props) => {
                             </Breadcrumb>
                         </Segment>
                         <Segment>
-                            <Header as='h2' className='mt-1p mb-2p'>Create Project</Header>
                             <Message icon className='mb-2p'>
                                 <Icon name='info circle' />
                                 <Message.Content>

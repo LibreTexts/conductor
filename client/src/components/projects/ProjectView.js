@@ -32,6 +32,8 @@ import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 import queryString from 'query-string';
 
+import { MentionsInput, Mention } from 'react-mentions'
+
 import {
     isEmptyString,
     capitalizeFirstLetter,
@@ -1100,6 +1102,8 @@ const ProjectView = (props) => {
                                                         <div id='project-messages-reply-container'>
                                                             <Input
                                                                 placeholder='Send a message...'
+                                                                onChange={(e) => setMessageCompose(e.target.value)}
+                                                                value={messageCompose}
                                                                 action={{
                                                                     color: 'blue',
                                                                     icon: 'send',
@@ -1109,9 +1113,39 @@ const ProjectView = (props) => {
                                                                     onClick: sendMessage
                                                                 }}
                                                                 fluid
-                                                                onChange={(e) => setMessageCompose(e.target.value)}
-                                                                value={messageCompose}
                                                             />
+                                                            {/*
+                                                            <div className='left-flex' id='project-messages-reply-inputcontainer'>
+                                                                <MentionsInput
+                                                                    placeholder='Send a message...'
+                                                                    onChange={(e, n, t) => {
+                                                                        console.log(e);
+                                                                        setMessageCompose(n);
+                                                                        console.log(t);
+                                                                    }}
+                                                                    value={messageCompose}
+                                                                    className='project-messages-reply-input'
+                                                                >
+                                                                    <Mention
+                                                                        trigger="@"
+                                                                        data={[{id: '1', display: 'Ethan'}, {id:'2', display: 'Delmar'}]}
+                                                                    />
+                                                                </MentionsInput>
+                                                            </div>
+                                                            <div className='right-flex' id='project-messages-reply-sendcontainer'>
+                                                                <Button
+                                                                    color='blue'
+                                                                    disabled={(activeThread === '') || (messageCompose === '')}
+                                                                    onClick={sendMessage}
+                                                                    loading={messageSending}
+                                                                    id='project-messages-reply-send'
+                                                                    fluid
+                                                                >
+                                                                    <Icon name='send' />
+                                                                    Send
+                                                                </Button>
+                                                            </div>
+                                                            */}
                                                         </div>
                                                     </div>
                                                 </div>

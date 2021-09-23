@@ -13,7 +13,8 @@ import {
   Table,
   Loader,
   Dropdown,
-  Pagination
+  Pagination,
+  Breadcrumb
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
@@ -25,7 +26,7 @@ import queryString from 'query-string';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
-const ProjectsPortal = (props) => {
+const ProjectsCompleted = (props) => {
 
     // Global Error Handling
     const { handleGlobalError } = useGlobalError();
@@ -49,11 +50,11 @@ const ProjectsPortal = (props) => {
 
     useEffect(() => {
         date.plugin(ordinal);
-        getUserProjects();
+        getCompletedProjects();
     }, []);
 
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Projects";
+        document.title = "LibreTexts Conductor | Projects | Completed";
         const queryValues = queryString.parse(props.location.search);
         if (queryValues.projectCreated === "true") {
             setProjectCreated(true);
@@ -122,9 +123,9 @@ const ProjectsPortal = (props) => {
 
 
 
-    const getUserProjects = () => {
+    const getCompletedProjects = () => {
         setLoadedProjects(false);
-        axios.get('/projects/all').then((res) => {
+        axios.get('/projects/completed').then((res) => {
             if (!res.data.err) {
                 if (res.data.projects && Array.isArray(res.data.projects)) {
                     setProjects(res.data.projects)
@@ -144,7 +145,7 @@ const ProjectsPortal = (props) => {
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Projects</Header>
+                    <Header className='component-header'>Completed Projects</Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -165,30 +166,26 @@ const ProjectsPortal = (props) => {
                             </Message.Content>
                         </Message>
                     }
-                    <Menu widths={2}>
-                        <Menu.Item as={Link} to='/projects/available' name='availableprojects' icon='folder open' content={<p>Available Projects</p>} />
-                        <Menu.Item as={Link} to='/projects/completed' name='completedprojects' icon='check' content={<p>Completed Projects</p>} />
-                    </Menu>
                     <Segment.Group>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/projects'>
+                                    Projects
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    Completed Projects
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
                         <Segment>
                             <Input
                                 icon='search'
                                 iconPosition='left'
-                                placeholder='Search current projects...'
+                                placeholder='Search completed projects...'
                                 onChange={(e) => { setSearchString(e.target.value) }}
                                 value={searchString}
                             />
-                            <Button
-                                as={Link}
-                                to='/projects/create'
-                                floated='right'
-                                color='green'
-                            >
-                                <Button.Content>
-                                    <Icon name='add' />
-                                    Create a Project
-                                </Button.Content>
-                            </Button>
                         </Segment>
                         <Segment>
                             <div className='flex-row-div'>
@@ -222,9 +219,12 @@ const ProjectsPortal = (props) => {
                             <Table celled>
                                 <Table.Header>
                                     <Table.Row>
-                                        <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Last Updated At</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={12}>
+                                            <Header sub>Title</Header>
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell width={4}>
+                                            <Header sub>Last Updated</Header>
+                                        </Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
@@ -237,9 +237,6 @@ const ProjectsPortal = (props) => {
                                                 <Table.Row key={index}>
                                                     <Table.Cell>
                                                         <p><strong><Link to={`/projects/${item.projectID}`}>{item.title}</Link></strong></p>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{item.currentProgress}%</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{item.updatedDate} at {item.updatedTime}</p>
@@ -266,4 +263,4 @@ const ProjectsPortal = (props) => {
 
 };
 
-export default ProjectsPortal;
+export default ProjectsCompleted;

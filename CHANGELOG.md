@@ -2,6 +2,17 @@
 
 ## 09-22-2021
 #### :art: UI/UX
+* Added the Accessibility Statement on LibreCommons
+* Implemented Available & Completed Projects pages
+* Experimenting with Mentions in Discussion (WIP)
+
+#### :satellite: Server
+* Added logic for Available & Completed Projects
+* Investigating AWS S3 connection (WIP)
+
+
+## 09-22-2021
+#### :art: UI/UX
 * Removed "Libraries" from Dashboard, added Control Panel link for admins
 * Updated Dashboard to use new Projects paradigm
 * Navbar Libraries Dropdown now uses respective Library Glyphs

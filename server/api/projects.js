@@ -657,6 +657,96 @@ const getRecentProjects = (req, res) => {
 
 
 /**
+ * Retrieves a list of the available projects within the current Organization.
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getAvailableProjects = (req, res) => {
+    Project.aggregate([
+        {
+            $match: {
+                $and: [
+                    {
+                        orgID: process.env.ORG_ID
+                    }, {
+                        status: 'available'
+                    }
+                ]
+            }
+        }, {
+            $sort: {
+                title: -1
+            }
+        }, {
+            $project: {
+                _id: 0,
+            }
+        }
+    ]).then((projects) => {
+        return res.send({
+            err: false,
+            projects: projects
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: false,
+            errMsg: conductorErrors.err6
+        });
+    })
+};
+
+
+/**
+ * Retrieves a list of a User's completed projects within the current Organization.
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getCompletedProjects = (req, res) => {
+    Project.aggregate([
+        {
+            $match: {
+                $and: [
+                    {
+                        orgID: process.env.ORG_ID
+                    }, {
+                        status: 'completed'
+                    }, {
+                        $or: [
+                            {
+                                owner: req.decoded.uuid
+                            }, {
+                                collaborators: req.decoded.uuid
+                            }
+                        ]
+                    }
+                ]
+            }
+        }, {
+            $sort: {
+                title: -1
+            }
+        }, {
+            $project: {
+                _id: 0,
+            }
+        }
+    ]).then((projects) => {
+        return res.send({
+            err: false,
+            projects: projects
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: false,
+            errMsg: conductorErrors.err6
+        });
+    })
+};
+
+
+/**
  * Retrieves a list of the Users that can be added to the collaborators list
  * of the project identified by the projectID in the request query.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -1364,6 +1454,8 @@ module.exports = {
     updateProject,
     getUserProjects,
     getRecentProjects,
+    getAvailableProjects,
+    getCompletedProjects,
     getAddableCollaborators,
     addCollaboratorToProject,
     removeCollaboratorFromProject,
