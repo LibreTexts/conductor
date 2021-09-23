@@ -55,6 +55,9 @@ import ProjectsCreate from './components/projects/ProjectsCreate.js';
 import ProjectView from './components/projects/ProjectView.js';
 
 
+/* Accessibility Statement */
+import AccessibilityStatement from './components/util/AccessibilityStatement.js';
+
 /* 404 */
 import PageNotFound from './components/util/PageNotFound.js';
 
@@ -149,6 +152,9 @@ function App() {
                         }
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/adopt' component={AdoptionReportPage} />
+                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/accessibility' component={AccessibilityStatement} />
                         }
                         {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />

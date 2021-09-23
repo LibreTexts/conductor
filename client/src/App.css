@@ -306,3 +306,7 @@ body {
 .inlineblock-display {
     display: inline-block;
 }
+
+.contrast-link {
+    color: #387ABB;
+}
