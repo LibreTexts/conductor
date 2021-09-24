@@ -27,6 +27,7 @@ import {
 import {
     libraryOptions,
     getLibGlyphURL,
+    getLibGlyphAltText,
     getLibraryName
 } from '../util/LibraryOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
@@ -417,7 +418,7 @@ const CommonsCatalog = (_props) => {
                                     loading='lazy'
                                 />
                                 <Card.Content>
-                                    <Card.Header>{item.title}</Card.Header>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>
                                         <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
@@ -441,16 +442,21 @@ const CommonsCatalog = (_props) => {
 
     const ItemizedMode = () => {
         return (
-            <Table celled>
+            <Table celled title='Search Results'>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell>
-                            <Image centered src={getLibGlyphURL('')} className='commons-itemized-glyph' />
+                        <Table.HeaderCell scope='col'>
+                            <Image
+                                centered
+                                src={getLibGlyphURL('')}
+                                className='commons-itemized-glyph'
+                                alt={getLibGlyphAltText('')}
+                            />
                         </Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Subject</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Author</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Affiliation</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Title</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Subject</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Author</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Affiliation</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -459,7 +465,12 @@ const CommonsCatalog = (_props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
-                                        <Image centered src={getLibGlyphURL(item.library)} className='commons-itemized-glyph' />
+                                        <Image
+                                            centered
+                                            src={getLibGlyphURL(item.library)}
+                                            className='commons-itemized-glyph'
+                                            alt={getLibGlyphAltText(item.library)}
+                                        />
                                     </Table.Cell>
                                     <Table.Cell>
                                         <p><strong><Link to={`/book/${item.bookID}`}>{item.title}</Link></strong></p>
@@ -498,7 +509,7 @@ const CommonsCatalog = (_props) => {
                         {((org.commonsHeader && org.commonsHeader !== '') || (org.commonsMessage && org.commonsMessage !== '')) &&
                             <Segment padded>
                                 <Breakpoint name='desktop'>
-                                    <Header id='commons-intro-header'>{org.commonsHeader}</Header>
+                                    <Header id='commons-intro-header' as='h2'>{org.commonsHeader}</Header>
                                     <p id='commons-intro-message'>{org.commonsMessage}</p>
                                 </Breakpoint>
                                 <Breakpoint name='mobileOrTablet'>

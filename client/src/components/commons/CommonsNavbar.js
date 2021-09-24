@@ -33,7 +33,11 @@ const CommonsNavbar = (_props) => {
             <Breakpoint name='tabletOrDesktop'>
                 <Menu id='commons-nav' secondary>
                     <Menu.Item as={Link} to='/'>
-                        <Image src={org.mediumLogo} id='commons-nav-logo' />
+                        <Image
+                            src={org.mediumLogo}
+                            id='commons-nav-logo'
+                            alt={org.shortName}
+                        />
                     </Menu.Item>
                     <Menu.Menu position='right' id='commons-nav-rightmenu'>
                         <Menu.Item
@@ -58,10 +62,20 @@ const CommonsNavbar = (_props) => {
             <Breakpoint name='mobile'>
                 <div id='commons-mobilenav'>
                     <div id='commons-mobilenav-left'>
-                        <Image src={org.mediumLogo} id='commons-mobilenav-logo' />
+                        <Image
+                            src={org.mediumLogo}
+                            id='commons-mobilenav-logo'
+                            alt={org.shortName}
+                        />
                     </div>
                     <div id='commons-mobilenav-right'>
-                        <Button basic circular icon='bars' onClick={closeMobileMenu} />
+                        <Button
+                            basic
+                            circular
+                            icon='bars'
+                            onClick={closeMobileMenu}
+                            aria-label='Navigation Menu'
+                        />
                     </div>
                 </div>
                 {displayMobileMenu &&

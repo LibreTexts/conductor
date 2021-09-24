@@ -26,6 +26,7 @@ import {
 import {
     libraryOptions,
     getLibGlyphURL,
+    getLibGlyphAltText,
     getLibraryName
 } from '../util/LibraryOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
@@ -230,16 +231,21 @@ const CommonsCollectionView = (props) => {
 
     const ItemizedMode = () => {
         return (
-            <Table celled>
+            <Table celled title='Collection Resources'>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell>
-                            <Image centered src={getLibGlyphURL('')} className='commons-itemized-glyph' />
+                        <Table.HeaderCell scope='col' role='columnheader'>
+                            <Image
+                                centered
+                                src={getLibGlyphURL('')}
+                                className='commons-itemized-glyph'
+                                alt={getLibGlyphAltText('')}
+                            />
                         </Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Subject</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Author</Header></Table.HeaderCell>
-                        <Table.HeaderCell><Header sub>Affiliation</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Title</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Subject</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Author</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Affiliation</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -248,7 +254,12 @@ const CommonsCollectionView = (props) => {
                             return (
                                 <Table.Row key={index}>
                                     <Table.Cell>
-                                        <Image centered src={getLibGlyphURL(item.library)} className='commons-itemized-glyph' />
+                                        <Image
+                                            centered
+                                            src={getLibGlyphURL(item.library)}
+                                            className='commons-itemized-glyph'
+                                            alt={getLibGlyphAltText(item.library)}
+                                        />
                                     </Table.Cell>
                                     <Table.Cell>
                                         <p><strong><Link to={`/book/${item.bookID}`}>{item.title}</Link></strong></p>
@@ -286,7 +297,7 @@ const CommonsCollectionView = (props) => {
                     <Segment.Group raised>
                         <Segment>
                             <Breakpoint name='desktop'>
-                                <Header size='large'>{collName}</Header>
+                                <Header size='large' as='h2'>{collName}</Header>
                             </Breakpoint>
                             <Breakpoint name='mobileOrTablet'>
                                 <Header size='large' textAlign='center'>{collName}</Header>

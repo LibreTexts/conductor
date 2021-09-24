@@ -1,6 +1,11 @@
 # Changelog
 
-## 09-22-2021
+## 09-24-2021
+#### :art: UI/UX
+* Several UI updates to remediate accessibility issues
+
+
+## 09-23-2021
 #### :art: UI/UX
 * Added the Accessibility Statement on LibreCommons
 * Implemented Available & Completed Projects pages

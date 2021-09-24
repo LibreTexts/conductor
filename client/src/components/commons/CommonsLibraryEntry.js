@@ -89,7 +89,7 @@ const CommonsLibraryEntry = (props) => {
                         </Segment>
                         <Segment>
                             <Breakpoint name='desktop'>
-                                <Header size='large'>{libName}</Header>
+                                <Header size='large' as='h2'>{libName}</Header>
                             </Breakpoint>
                             <Breakpoint name='mobileOrTablet'>
                                 <Header size='large' textAlign='center'>{libName}</Header>
@@ -102,16 +102,19 @@ const CommonsLibraryEntry = (props) => {
                                         return (
                                             <List.Item
                                                 key={idx}
-                                                as='a'
-                                                href={item.link}
-                                                target='_blank'
-                                                rel='noopener noreferrer'
                                             >
                                                 <List.Content floated='right'>
                                                     <Icon name='external' />
                                                 </List.Content>
                                                 <List.Content>
-                                                    <List.Header>{item.name}</List.Header>
+                                                    <List.Header
+                                                        as='a'
+                                                        href={item.link}
+                                                        target='_blank'
+                                                        rel='noopener noreferrer'
+                                                    >
+                                                        {item.name}
+                                                    </List.Header>
                                                 </List.Content>
                                             </List.Item>
                                         )

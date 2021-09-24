@@ -5,7 +5,6 @@ import {
     Grid,
     Menu,
     Image,
-    Icon,
     Modal,
     Button,
     Message

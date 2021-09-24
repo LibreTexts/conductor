@@ -73,7 +73,7 @@ const CommonsLibraries = (_props) => {
                                     ui={false}
                                 />
                                 <Card.Content>
-                                    <Card.Header>{item.name}</Card.Header>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{item.name}</Card.Header>
                                 </Card.Content>
                             </Card>
                         )
@@ -89,10 +89,10 @@ const CommonsLibraries = (_props) => {
 
     const ItemizedMode = () => {
         return (
-            <Table celled>
+            <Table celled title='All Libraries'>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell><Header sub>Name</Header></Table.HeaderCell>
+                        <Table.HeaderCell scope='col'><Header sub>Name</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -133,7 +133,10 @@ const CommonsLibraries = (_props) => {
                         <Segment>
                             <Breadcrumb>
                                 <Breadcrumb.Section active>
-                                    Libraries
+                                    <span>
+                                        <span className='muted-text'>You are on: </span>
+                                        Libraries
+                                    </span>
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                             </Breadcrumb>

@@ -200,7 +200,7 @@ const CommonsHomework = (_props) => {
                                 key={index}
                             >
                                 <Card.Content>
-                                    <Card.Header>{item.title}</Card.Header>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Description>
                                         {truncateString(item.description, 250)}
                                     </Card.Description>
@@ -228,11 +228,11 @@ const CommonsHomework = (_props) => {
 
     const ItemizedMode = () => {
         return (
-            <Table celled>
+            <Table celled title='All Homework'>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell width={6}><Header sub>Name</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={10}><Header sub>Description</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={6} scope='col'><Header sub>Name</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={10} scope='col'><Header sub>Description</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -517,10 +517,9 @@ const CommonsHomework = (_props) => {
                         open={showCourseModal}
                         onClose={closeCourseViewModal}
                     >
-                        <Modal.Header>{courseModalTitle}</Modal.Header>
+                        <Modal.Header as='h2'>{courseModalTitle}</Modal.Header>
                         <Modal.Content scrolling>
-                            <Header size='small' dividing>Description</Header>
-                            <p>{courseModalDescrip}</p>
+                            <Header size='small' dividing as='h3'>Description</Header>
                             <p>{courseModalDescrip}</p>
                             {courseModalOpenCourse &&
                                 <div>
@@ -538,7 +537,7 @@ const CommonsHomework = (_props) => {
                                     </Button>
                                 </div>
                             }
-                            <Header size='small' dividing>Assignments</Header>
+                            <Header size='small' dividing as='h3'>Assignments</Header>
                             <Segment
                                 basic
                             >
@@ -546,7 +545,13 @@ const CommonsHomework = (_props) => {
                                     <List bulleted>
                                         {courseModalAsgmts.map((item, idx) => {
                                             return (
-                                                <List.Item key={idx}>{item.title}</List.Item>
+                                                <List.Item
+                                                    key={idx}
+                                                    className='item'
+                                                    content={
+                                                        <span className='ml-05p'>{item.title}</span>
+                                                    }
+                                                />
                                             )
                                         })}
                                     </List>

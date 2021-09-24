@@ -60,6 +60,41 @@ const getLibGlyphURL = (library) => {
     }
 };
 
+const getLibGlyphAltText = (library) => {
+    switch (library) {
+        case 'bio':
+            return 'Biology';
+        case 'biz':
+            return 'Business';
+        case 'chem':
+            return 'Chemistry';
+        case 'eng':
+            return 'Engineering';
+        case 'espanol':
+            return 'Español';
+        case 'geo':
+            return 'Geosciences';
+        case 'human':
+            return 'Humanities';
+        case 'k12':
+            return 'K12 Education';
+        case 'math':
+            return 'Mathematics';
+        case 'med':
+            return 'Medicine';
+        case 'phys':
+            return 'Physics';
+        case 'socialsci':
+            return 'Social Sciences';
+        case 'stats':
+            return 'Statistics';
+        case 'workforce':
+            return 'Workforce';
+        default:
+            return 'LibreTexts Library';
+    }
+};
+
 const getLibraryName = (lib) => {
     const foundLib = libraries.find((libEntry) => {
         if ((libEntry.key === lib) || (libEntry.value === lib)) {
@@ -78,5 +113,6 @@ module.exports = {
     libraries,
     libraryOptions,
     getLibGlyphURL,
+    getLibGlyphAltText,
     getLibraryName
 }

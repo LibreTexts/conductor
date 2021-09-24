@@ -406,6 +406,10 @@
     padding: 0 !important;
 }
 
+.commons-content-card-header {
+    margin-bottom: .4em !important;
+}
+
 .commons-content-card-img img {
     height: 200px !important;
 }

@@ -226,13 +226,22 @@ const CommonsBook = (props) => {
                             <Grid divided>
                                 <Grid.Row>
                                     <Grid.Column width={4}>
-                                        <Image id='commons-book-image' src={book.thumbnail} />
+                                        <Image
+                                            id='commons-book-image'
+                                            src={book.thumbnail}
+                                            aria-hidden='true'
+                                        />
                                         <div id='commons-book-details'>
                                             {(book.author && !isEmptyString(book.author)) &&
                                                 <p><Icon name='user'/> {book.author}</p>
                                             }
                                             <p>
-                                                <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
+                                                <Image
+                                                    src={getLibGlyphURL(book.library)}
+                                                    className='library-glyph'
+                                                    inline
+                                                    aria-hidden='true'
+                                                />
                                                 {getLibraryName(book.library)}
                                             </p>
                                             {(book.license && !isEmptyString(book.license)) &&

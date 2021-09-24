@@ -109,7 +109,7 @@ const CommonsCollections = (_props) => {
                                     ui={false}
                                 />
                                 <Card.Content>
-                                    <Card.Header>{item.title}</Card.Header>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>
                                         {item.resources} resources
                                     </Card.Meta>
@@ -128,11 +128,11 @@ const CommonsCollections = (_props) => {
 
     const ItemizedMode = () => {
         return (
-            <Table celled>
+            <Table celled title='All Collections'>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell width={5}><Header sub>Name</Header></Table.HeaderCell>
-                        <Table.HeaderCell width={11}><Header sub>Resources</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={5} scope='col'><Header sub>Name</Header></Table.HeaderCell>
+                        <Table.HeaderCell width={11} scope='col'><Header sub>Resources</Header></Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>

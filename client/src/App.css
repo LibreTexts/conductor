@@ -196,6 +196,10 @@ body {
 }
 
 /** margin-left **/
+.ml-05p {
+    margin-left: 0.5% !important;
+}
+
 .ml-1p {
     margin-left: 1% !important;
 }
@@ -309,4 +313,8 @@ body {
 
 .contrast-link {
     color: #387ABB;
+}
+
+.no-display {
+    display: none;
 }
