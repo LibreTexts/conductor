@@ -5,9 +5,6 @@
 
 'use strict';
 const User = require('../models/user.js');
-
-const HarvestingProject = require('../models/harvestingproject.js');
-
 const Project = require('../models/project.js');
 const Tag = require('../models/tag.js');
 const Thread = require('../models/thread.js');

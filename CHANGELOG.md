@@ -4,6 +4,11 @@
 #### :art: UI/UX
 * Several UI updates to remediate accessibility issues
 
+#### :satellite: Server
+* Defined the Task model
+* Updated the Message model
+* Started setting up Task logic
+
 
 ## 09-23-2021
 #### :art: UI/UX

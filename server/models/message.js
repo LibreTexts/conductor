@@ -13,9 +13,11 @@ const MessageSchema = new Schema({
         required: true,
         unique: true
     },
-    thread: {                           // the threadID the message belongs to
-        type: String,
-        required: true
+    thread: {                           // the threadID the message belongs to (if applicable)
+        type: String
+    },
+    task: {
+        type: String                    // the taskID the message belongs to (if applicable)
     },
     body: {                             // the message body
         type: String,
