@@ -223,8 +223,8 @@ const ProjectsPortal = (props) => {
                                 <Table.Header>
                                     <Table.Row>
                                         <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Current Progress (%)</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Last Updated At</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={4}><Header sub>Current Progress</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={4}><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>

@@ -32,7 +32,7 @@ const TaskSchema = new Schema({
         default: 'available'
     },
     assignees: [String],        // the users who need to complete the task
-    parentTask: String,         // the parent taskID (only applicable if it is a subtask)
+    parent: String,             // the parent taskID (only applicable if it is a subtask)
     dependencies: [String],     // tasks to be completed before the current can be marked in progress (taskIDs)
     createdBy: String           // the user who created the task (UUID)
 }, {

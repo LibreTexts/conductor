@@ -27,7 +27,8 @@ const conductorErrors = {
     'err20': "Your account appears to be provisioned via SSO. Please reset your password using your Central Authentication Provider's methods.",
     'err21': "Invalid reset token. Please try resetting your password again.",
     'err22': "Sorry, we're having trouble retrieving that data.",
-    'err23': "Incorrect current password."
+    'err23': "Incorrect current password.",
+    'err24': "Specified parent task not found."
 };
 
 module.exports = conductorErrors;

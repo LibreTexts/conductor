@@ -23,6 +23,7 @@ const librariesAPI = require('./api/libraries.js');
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const projectsAPI = require('./api/projects.js');
+const tasksAPI = require('./api/tasks.js');
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
@@ -367,6 +368,10 @@ router.route('/project/thread/messages').get(authAPI.verifyRequest,
 router.route('/project/thread/message').post(authAPI.verifyRequest,
     projectsAPI.validate('createMessage'), middleware.checkValidationErrors,
     projectsAPI.createThreadMessage);
+
+router.route('/project/task').post(authAPI.verifyRequest,
+    tasksAPI.validate('createTask'), middleware.checkValidationErrors,
+    tasksAPI.createTask);
 
 
 /* Harvesting */
