@@ -24,6 +24,9 @@ const librariesAPI = require('./api/libraries.js');
 const announcementAPI = require('./api/announcements.js');
 const projectsAPI = require('./api/projects.js');
 const tasksAPI = require('./api/tasks.js');
+const transFeedbackAPI = require('./api/translationfeedback.js');
+
+/* TODO: Deprecated */
 const harvestingTargetsAPI = require('./api/harvestingtargets.js');
 const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
@@ -96,6 +99,14 @@ router.route('/adoptionreport/delete').delete(middleware.checkLibreCommons,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     adoptionReportAPI.validate('deleteReport'), middleware.checkValidationErrors,
     adoptionReportAPI.deleteReport);
+
+
+/* Translation Feedback */
+// (submission route can be anonymous)
+router.route('/translationfeedback').post(middleware.checkLibreCommons,
+    transFeedbackAPI.validate('submitFeedback'),
+    middleware.checkValidationErrors,
+    transFeedbackAPI.submitFeedback);
 
 
 /* OER/Harvesting Requests */

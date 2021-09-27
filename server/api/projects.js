@@ -15,6 +15,7 @@ const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { isValidLicense } = require('../util/bookutils.js');
 
+const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
 
 
@@ -305,9 +306,7 @@ const getProject = (req, res) => {
             if (typeof(projResult.owner) === 'object') ownerUUID = projResult.owner.uuid;
             else if (typeof(projResult.owner) === 'string') ownerUUID = projResult.owner;
             // check user has permission to view project
-            if ((req.decoded.uuid === ownerUUID)
-                || (projResult.collaborators.includes(req.decoded.uuid))
-                || (projResult.visibility === 'public')) {
+            if (checkProjectPermission(projResult, ownerUUID, projResult.collaborators, req.user)) {
                 return res.send({
                     err: false,
                     project: projResult
@@ -448,6 +447,9 @@ const updateProject = (req, res) => {
                 }
                 if (req.body.hasOwnProperty('progress') && req.body.progress !== project.currentProgress) {
                     updateObj.currentProgress = req.body.progress;
+                }
+                if (req.body.hasOwnProperty('status') && req.body.status !== project.status) {
+                    updateObj.status = req.body.status;
                 }
                 if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
                     updateObj.projectURL = req.body.projectURL;
@@ -1334,6 +1336,21 @@ const getThreadMessages = (req, res) => {
 
 
 /**
+ * Checks if a user has permission to perform general actions on a project.
+ * @param {string} owner            - the project owner's UUID
+ * @param {string[]} collaborators  - the array of collaborator UUIDs
+ * @param {object} user             - the current user context
+ * @return {Boolean} true if user has permission, false otherwise
+ */
+const checkProjectPermission = (project, owner, collaborators, user) => {
+    if (project.visibility === 'public' || owner === user.decoded?.uuid
+        || collaborators.includes(user.decoded?.uuid)) {
+            return true;
+    }
+    return false;
+};
+
+/**
  * Validate a provided Project Visibility option.
  * @returns {Boolean} true if valid option, false otherwise.
  */
@@ -1349,6 +1366,18 @@ const validateVisibility = (visibility) => {
  */
 const validateCreateStatus = (status) => {
     if ((status === 'available') || (status === 'open')) return true;
+    return false
+};
+
+
+/**
+ * Validate a provided Project Status option during editing.
+ * @returns {Boolean} true if valid option, false otherwise.
+ */
+const validateEditStatus = (status) => {
+    if (status.length > 0) {
+        if ((status === 'available') || (status === 'open')) return true;
+    }
     return false
 };
 
@@ -1383,6 +1412,7 @@ const validate = (method) => {
                 body('title', conductorErrors.err1).optional().isString().isLength({ min: 1 }),
                 body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),

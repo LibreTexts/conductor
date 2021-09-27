@@ -1,5 +1,16 @@
 # Changelog
 
+## 09-27-2021
+#### :art: UI/UX
+* Added ability to delete an announcement for the author or SuperAdmins
+* Fixed a bug with link normalization logic in Projects
+* Added ability to change Project status between Available/Open
+
+#### :satellite: Server
+* Updated permissions logic for Announcement deletion
+* Added logic to collect Translation Feedback
+
+
 ## 09-24-2021
 #### :art: UI/UX
 * Several UI updates to remediate accessibility issues

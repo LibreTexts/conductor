@@ -62,6 +62,7 @@ const Dashboard = (props) => {
     // Announcement View Modal
     const [showAVModal, setShowAVModal] = useState(false);
     const [avAnnouncement, setAVAnnouncement] = useState({});
+    const [avModalLoading, setAVModalLoading] = useState(false);
 
     // New Member Modal
     const [showNMModal, setShowNMModal] = useState(false);
@@ -121,7 +122,6 @@ const Dashboard = (props) => {
         axios.get('/announcements/recent').then((res) => {
             if (!res.data.err) {
                 if (res.data.announcement !== null) {
-                    console.log(res.data.announcement);
                     const { date, time } = parseDateAndTime(res.data.announcement.createdAt);
                     setRecentAnnouncement({
                         ...res.data.announcement,
@@ -170,7 +170,6 @@ const Dashboard = (props) => {
         axios.get('/announcements/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.announcements && Array.isArray(res.data.announcements)) {
-                    console.log(res.data.announcements);
                     var announcementsForState = [];
                     res.data.announcements.forEach((item) => {
                         const { date, time } = parseDateAndTime(item.createdAt);
@@ -304,8 +303,9 @@ const Dashboard = (props) => {
      */
     const openAVModal = (idx) => {
         if (announcements[idx] !== undefined) {
-            setShowAVModal(true);
             setAVAnnouncement(announcements[idx]);
+            setAVModalLoading(false);
+            setShowAVModal(true);
         }
     };
 
@@ -316,6 +316,34 @@ const Dashboard = (props) => {
     const closeAVModal = () => {
         setShowAVModal(false);
         setAVAnnouncement({});
+        setAVModalLoading(false);
+    };
+
+    /**
+     * Submit a DELETE request to the server to delete the announcement
+     * currently open in the Announcement View Modal, then close
+     * the modal and reload announcements on success.
+     */
+    const deleteAnnouncement = () => {
+        if (avAnnouncement._id && avAnnouncement._id !== '') {
+            setAVModalLoading(true);
+            axios.delete('/announcement', {
+                data: {
+                    announcementID: avAnnouncement._id
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    closeAVModal();
+                    getAnnouncements();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setAVModalLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setAVModalLoading(false);
+            });
+        }
     };
 
     /**
@@ -653,23 +681,22 @@ const Dashboard = (props) => {
                     </Header>
                     <Modal.Description className='announcement-view-text'>{avAnnouncement.message}</Modal.Description>
                     <span className='gray-span'>Sent to: {capitalizeFirstLetter(avAnnouncement.org?.shortName || 'Unknown')}</span>
-                    {(user.hasOwnProperty('uuid') && avAnnouncement.hasOwnProperty('author') &&
-                        avAnnouncement.author.hasOwnProperty('uuid') && avAnnouncement.author.uuid === user.uuid) &&
+                </Modal.Content>
+                <Modal.Actions>
+                    {((avAnnouncement.author?.uuid === user.uuid) || (user.isSuperAdmin)) &&
                         <Button
                             color='red'
-                            className='float-right'
-                            fluid
-                            disabled
+                            loading={avModalLoading}
+                            onClick={deleteAnnouncement}
                         >
                             <Icon name='trash' />
                             Delete
                         </Button>
                     }
-                </Modal.Content>
-                <Modal.Actions>
                     <Button
-                        onClick={closeAVModal}
                         color='blue'
+                        loading={avModalLoading}
+                        onClick={closeAVModal}
                     >
                         Done
                     </Button>

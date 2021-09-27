@@ -57,6 +57,7 @@ const Navbar = (_props) => {
                         dispatch({
                             type: 'SET_USER_INFO',
                             payload: {
+                                uuid: res.data.user.uuid,
                                 firstName: res.data.user.firstName,
                                 lastName: res.data.user.lastName,
                                 avatar: res.data.user.avatar,

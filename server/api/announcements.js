@@ -75,10 +75,10 @@ const deleteAnnouncement = (req, res) => {
         _id: req.body.announcementID
     }).then((announcement) => {
         var hasProperRole = false;
-        if (announcement.org === 'global') {
-            hasProperRole = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+        if (req.user?.decoded?.uuid === announcement.author) {
+            hasProperRole = true;
         } else {
-            hasProperRole = authAPI.checkHasRole(req.user, announcement.org, 'campusadmin');
+            hasProperRole = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
         }
         if (hasProperRole) {
             return Announcement.deleteOne({
@@ -181,28 +181,39 @@ const getAllAnnouncements = (_req, res) => {
                         }
                     }
                 ],
-                as: 'org'
+                as: 'orgInfo'
             }
         }, {
             $addFields: {
                 author: {
                     $arrayElemAt: ['$author', 0]
                 },
-                org: {
-                    $arrayElemAt: ['$org', 0]
-                }
             }
         }
     ]).then((announcements) => {
         if (announcements.length > 0) {
-            announcements.forEach((announcement) => {
+            announcements = announcements.map((announcement) => {
                 if (!announcement.hasOwnProperty('author') || !announcement.author.hasOwnProperty('uuid')) {
                     announcement.author = {
                         uuid: "",
                         firstName: "Unknown",
                         lastName: "User",
-                    }
+                    };
                 }
+                if (announcement.hasOwnProperty('orgInfo') && Array.isArray(announcement.orgInfo)
+                    && announcement.orgInfo.length > 0) {
+                    // replace orgID with info
+                    announcement.org = announcement.orgInfo[0];
+                }
+                if (announcement.org === 'global') {
+                    // pseudo-org info
+                    announcement.org = {
+                        name: 'global',
+                        shortName: 'global'
+                    };
+                }
+                delete announcement.orgInfo; // prune lookup
+                return announcement;
             });
         }
         return res.send({

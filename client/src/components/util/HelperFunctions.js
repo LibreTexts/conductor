@@ -96,7 +96,7 @@ const validatePassword = (passInput) => {
  */
 const normalizeURL = (url) => {
     if (typeof(url) === 'string') {
-        if (!url.includes('http://') || !url.includes('https://')) {
+        if (url.match(/^(http|https):\/\//g) === null) {
             return 'https://' + url;
         }
         return url;

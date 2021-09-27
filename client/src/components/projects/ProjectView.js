@@ -42,7 +42,8 @@ import {
 } from '../util/HelperFunctions.js';
 
 import {
-    visibilityOptions
+    visibilityOptions,
+    statusOptions
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -72,7 +73,7 @@ const ProjectView = (props) => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editModalLoading, setEditModalLoading] = useState(false);
     const [projTitle, setProjTitle] = useState('');
-    //const [projStatus, setProjStatus] = useState('');
+    const [projStatus, setProjStatus] = useState('');
     const [projProgress, setProjProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
@@ -295,6 +296,7 @@ const ProjectView = (props) => {
         if (project.license) setProjResLicense(project.license);
         if (project.resourceURL) setProjResURL(project.resourceURL);
         if (project.notes) setProjNotes(project.notes);
+        if (project.status) setProjStatus(project.status);
         setEditModalLoading(false);
         setShowEditModal(true);
     };
@@ -308,6 +310,7 @@ const ProjectView = (props) => {
         setShowEditModal(false);
         setEditModalLoading(false);
         setProjTitle('');
+        setProjStatus('');
         setProjProgress(0);
         setProjURL('');
         setProjTags([]);
@@ -408,6 +411,9 @@ const ProjectView = (props) => {
             if ((project.hasOwnProperty('currentProgress') && project.currentProgress !== projProgress) || !project.hasOwnProperty('currentProgress')) {
                 projData.progress = projProgress;
             }
+            if ((project.status && project.status !== projStatus) || !project.status) {
+                projData.status = projStatus;
+            }
             if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
                 projData.projectURL = projURL;
             }
@@ -423,7 +429,7 @@ const ProjectView = (props) => {
             if ((project.resourceURL && project.resourceURL !== projResURL) || !project.resourceURL) {
                 projData.resourceURL = projResURL;
             }
-            if ((project.notes && project.notes !== projProgress) || !project.notes) {
+            if ((project.notes && project.notes !== projNotes) || !project.notes) {
                 projData.notes = projNotes;
             }
             if (Object.keys(projData).length > 1) {
@@ -1289,6 +1295,14 @@ const ProjectView = (props) => {
                                         value={projProgress}
                                     />
                                 </Form.Field>
+                                <Form.Select
+                                    fluid
+                                    label={<label>Status</label>}
+                                    placeholder='Status...'
+                                    options={statusOptions}
+                                    onChange={(_e, { value }) => setProjStatus(value)}
+                                    value={projStatus}
+                                />
                                 <Form.Field>
                                     <label>Project URL <span className='muted-text'>(if applicable)</span></label>
                                     <Form.Input
