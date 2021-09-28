@@ -100,10 +100,14 @@ const oauthCallback = (req, res) => {
             console.log("USERDATA:");
             console.log(axiosRes.data);
             const attr = axiosRes.data.attributes;
+            let avatar = '/mini_logo.png';
+            if (attr.hasOwnProperty('picture') && attr.picture !== '') {
+                avatar = attr.picture;
+            }
             // find the user or create them if they do not exist yet
             return User.findOneAndUpdate({
                 $and: [
-                    { email: attr.email },
+                    { email: attr.principalID },
                     { authType: 'sso' }
                 ]
             }, {
@@ -111,8 +115,8 @@ const oauthCallback = (req, res) => {
                     uuid: uuidv4(),
                     firstName: attr.given_name,
                     lastName: attr.family_name,
-                    email: attr.email,
-                    avatar: attr.picture,
+                    email: attr.principalID,
+                    avatar: avatar,
                     hash: '',
                     salt: '',
                     roles: [],
