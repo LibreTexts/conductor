@@ -68,6 +68,8 @@ const oauthCallback = (req, res) => {
     new Promise((resolve) => {
         if (req.query.code) {
             // get token from CAS using auth code
+            console.log("CODE:");
+            console.log(req.query.code);
             resolve(axios.post(tokenURL, {}, {
                 params: {
                     'grant_type': 'authorization_code',
@@ -83,6 +85,8 @@ const oauthCallback = (req, res) => {
     }).then((axiosRes) => {
         if (axiosRes.data.access_token) {
             // get user profile from CAS using access token
+            console.log("ACCESSDATA:");
+            console.log(axiosRes.data);
             return axios.get(profileURL, {
                 params: {
                     'access_token': axiosRes.data.access_token
@@ -93,6 +97,8 @@ const oauthCallback = (req, res) => {
         }
     }).then((axiosRes) => {
         if (axiosRes.data && axiosRes.data.attributes) {
+            console.log("USERDATA:");
+            console.log(axiosRes.data);
             const attr = axiosRes.data.attributes;
             // find the user or create them if they do not exist yet
             return User.findOneAndUpdate({
@@ -158,6 +164,8 @@ const oauthCallback = (req, res) => {
                 const cookiesToSet = createTokenCookies(token);
                 res.setHeader('Set-Cookie', cookiesToSet);
                 var redirectURL = '/dashboard';
+                console.log("COOKIES:");
+                console.log(req.cookies);
                 if (req.cookies.conductor_sso_redirect) {
                     redirectURL = req.cookies.conductor_sso_redirect + '/dashboard';
                 }
