@@ -26,6 +26,7 @@ import {
 } from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
@@ -56,6 +57,7 @@ const ProjectView = (props) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
+    const user = useSelector((state) => state.user);
 
     // UI
     const [loadingData, setLoadingData] = useState(false);
@@ -63,6 +65,9 @@ const ProjectView = (props) => {
 
     // Project Data
     const [project, setProject] = useState({});
+
+    // Project Permissions
+    const [canViewDetails, setCanViewDetails] = useState(false);
 
     // Change Visibility Modal
     const [showVisModal, setShowVisModal] = useState(false);
@@ -175,7 +180,6 @@ const ProjectView = (props) => {
         date.plugin(ordinal);
         date.plugin(day_of_week);
         getProject();
-        getDiscussionThreads();
     }, []);
 
 
@@ -198,6 +202,32 @@ const ProjectView = (props) => {
             document.title = `LibreTexts Conductor | Projects | ${projTitle}`;
         }
     }, [projTitle]);
+
+
+    /*
+     * Update the user's permission to view Project restricted details when
+     * their identity and the project data is available.
+     */
+    useEffect(() => {
+        if (user.uuid && user.uuid !== '') {
+            if (project.hasOwnProperty('owner') || project.hasOwnProperty('collaborators')) {
+                if ((project.owner?.uuid === user.uuid || project.owner === user.uuid)
+                    || (Array.isArray(project.collaborators) && project.collaborators.includes(user.uuid))) {
+                        setCanViewDetails(true);
+                    }
+            }
+        }
+    }, [project, user, setCanViewDetails]);
+
+
+    /*
+     * Get Project's restricted details when the permission changes.
+     */
+    useEffect(() => {
+        if (canViewDetails) {
+            getDiscussionThreads();
+        }
+    }, [canViewDetails]);
 
 
     /**
@@ -912,40 +942,41 @@ const ProjectView = (props) => {
                                                 <Grid.Column width={13}>
                                                     <Grid>
                                                         <Grid.Row>
-                                                            <Grid.Column width={4}>
-                                                                <Header as='span' sub>Status: </Header>
-                                                                <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
+                                                            <Grid.Column>
+                                                                <Header as='h3' dividing>Overview</Header>
+                                                                <div className='mb-1p'>
+                                                                    <Header as='span' sub>Status: </Header>
+                                                                    <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
+                                                                </div>
+                                                                <div className='mb-1p'>
+                                                                    <Header as='span' sub>Visibility: </Header>
+                                                                    <span>{project.visibility ? capitalizeFirstLetter(project.visibility) : 'Loading...'}</span>
+                                                                </div>
+                                                                {(project.projectURL && !isEmptyString(project.projectURL)) &&
+                                                                    <div className='mb-1p'>
+                                                                        <Header as='span' sub>URL: </Header>
+                                                                        <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{project.projectURL}</a>
+                                                                    </div>
+                                                                }
+                                                                {(project.owner && project.owner.firstName && project.owner.lastName) &&
+                                                                    <div className='mb-1p'>
+                                                                        <Header as='span' sub>Project Owner: </Header>
+                                                                        <span>{project.owner.firstName} {project.owner.lastName}</span>
+                                                                    </div>
+                                                                }
+                                                                {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
+                                                                    <div>
+                                                                        <Header as='span' sub>Tags: </Header>
+                                                                        <Label.Group color='blue' className='inlineblock-display ml-1p'>
+                                                                            {project.tags.map((tag, idx) => {
+                                                                                return (
+                                                                                    <Label key={idx}>{tag}</Label>
+                                                                                )
+                                                                            })}
+                                                                        </Label.Group>
+                                                                    </div>
+                                                                }
                                                             </Grid.Column>
-                                                            <Grid.Column width={4}>
-                                                                <Header as='span' sub>Visibility: </Header>
-                                                                <span>{project.visibility ? capitalizeFirstLetter(project.visibility) : 'Loading...'}</span>
-                                                            </Grid.Column>
-                                                            {(project.projectURL && !isEmptyString(project.projectURL)) &&
-                                                                <Grid.Column width={8}>
-                                                                    <Header as='span' sub>URL: </Header>
-                                                                    <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{project.projectURL}</a>
-                                                                </Grid.Column>
-                                                            }
-                                                        </Grid.Row>
-                                                        <Grid.Row>
-                                                            {(project.owner && project.owner.firstName && project.owner.lastName) &&
-                                                                <Grid.Column width={4}>
-                                                                    <Header as='span' sub>Project Owner: </Header>
-                                                                    <span>{project.owner.firstName} {project.owner.lastName}</span>
-                                                                </Grid.Column>
-                                                            }
-                                                            {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
-                                                                <Grid.Column width={12}>
-                                                                    <Header as='span' sub>Tags: </Header>
-                                                                    <Label.Group color='blue' className='inlineblock-display ml-1p'>
-                                                                        {project.tags.map((tag, idx) => {
-                                                                            return (
-                                                                                <Label key={idx}>{tag}</Label>
-                                                                            )
-                                                                        })}
-                                                                    </Label.Group>
-                                                                </Grid.Column>
-                                                            }
                                                         </Grid.Row>
                                                     </Grid>
                                                     {hasResourceInfo &&
@@ -991,173 +1022,187 @@ const ProjectView = (props) => {
                                     </Grid.Column>
                                 </Grid.Row>
                                 <Grid.Row>
-                                    <Grid.Column>
-                                        <Header as='h2' dividing>Discussion</Header>
-                                        <Segment
-                                            id='project-discussion-segment'
-                                            size='large'
-                                            raised
-                                            className='mb-2p'
-                                        >
-                                            <div id='project-discussion-container'>
-                                                <div id='project-discussion-threads'>
-                                                    <div className='flex-col-div' id='project-threads-container'>
-                                                        <div className='flex-row-div' id='project-threads-header-container'>
-                                                            <div className='left-flex'>
-                                                                <Header as='h3'>Threads</Header>
-                                                            </div>
-                                                            <div className='right-flex'>
-                                                                <Button
-                                                                    circular
-                                                                    icon='plus'
-                                                                    color='olive'
-                                                                    onClick={openNewThreadModal}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div className='flex-col-div' id='project-threads-list-container'>
-                                                            {(loadedProjThreads && projectThreads.length > 0) &&
-                                                                projectThreads.map((item, idx) => {
-                                                                    return (
-                                                                        <div className='project-threads-list-item' key={item.threadID} onClick={() => activateThread(item)}>
-                                                                            <p className={activeThread === item.threadID ? 'project-threads-list-title active' : 'project-threads-list-title'}>
-                                                                                {item.title}
-                                                                            </p>
-                                                                            <p className='project-threads-list-descrip'>
-                                                                                {(item.lastMessage && item.lastMessage.hasOwnProperty('body'))
-                                                                                    ? (
-                                                                                        <span>
-                                                                                            {item.lastMessage.author?.firstName} {item.lastMessage.author?.lastName}: {truncateString(item.lastMessage.body, 50)}
-                                                                                        </span>
-                                                                                    )
-                                                                                    : (<span><em>No messages yet.</em></span>)
-                                                                                }
-                                                                            </p>
-                                                                        </div>
-                                                                    )
-                                                                })
-                                                            }
-                                                            {(loadedProjThreads && projectThreads.length === 0) &&
-                                                                <p className='text-center muted-text mt-4r'><em>No threads yet.</em></p>
-                                                            }
-                                                            {(!loadedProjThreads) &&
-                                                                <Loader active inline='centered' className='mt-4r' />
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div id='project-discussion-messages'>
-                                                    <div className='flex-col-div' id='project-messages-container'>
-                                                        <div className='flex-row-div' id='project-messages-header-container'>
-                                                            <div className='left-flex'>
-                                                                <Header as='h3'>
-                                                                    {(activeThreadTitle !== '')
-                                                                        ? <em>{activeThreadTitle}</em>
-                                                                        : <span>Messages</span>
-                                                                    }
-                                                                </Header>
-                                                            </div>
-                                                            <div className='right-flex' id='project-messages-header-options'>
-                                                                <Button
-                                                                    icon='trash'
-                                                                    color='red'
-                                                                    disabled={activeThread === ''}
-                                                                    onClick={openDelThreadModal}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div id='project-messages-chat-container'>
-                                                            {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
-                                                                <Comment.Group id='project-messages-chat-list'>
-                                                                    {activeThreadMsgs.map((item, idx) => {
-                                                                        const today = new Date();
-                                                                        const itemDate = new Date(item.createdAt);
-                                                                        if (today.getDate() === itemDate.getDate()) { // today
-                                                                            item.date = 'Today';
-                                                                        } else if ((today.getDate() - itemDate.getDate()) >= 7) { // a week ago
-                                                                            item.date = date.format(itemDate, 'MMM DDD, YYYY')
-                                                                        } else { // this week
-                                                                            item.date = date.format(itemDate, 'dddd');
-                                                                        }
-                                                                        item.time = date.format(itemDate, 'h:mm A');
-                                                                        return (
-                                                                            <Comment className='project-messages-message' key={item.messageID}>
-                                                                              <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
-                                                                              <Comment.Content>
-                                                                                <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
-                                                                                <Comment.Metadata>
-                                                                                  <div>{item.date} at {item.time}</div>
-                                                                                </Comment.Metadata>
-                                                                                <Comment.Text>{item.body}</Comment.Text>
-                                                                              </Comment.Content>
-                                                                            </Comment>
-                                                                        )
-                                                                    })}
-                                                                </Comment.Group>
-                                                            }
-                                                            {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
-                                                                <p className='text-center muted-text mt-4r'><em>No messages yet.</em></p>
-                                                            }
-                                                            {(!loadedThreadMsgs && activeThread !== '') &&
-                                                                <Loader active inline='centered' className='mt-4r' />
-                                                            }
-                                                            {(activeThread === '' && activeThreadMsgs.length === 0) &&
-                                                                <p className='text-center muted-text mt-4r'><em>No thread selected.</em></p>
-                                                            }
-                                                        </div>
-                                                        <div id='project-messages-reply-container'>
-                                                            <Input
-                                                                placeholder='Send a message...'
-                                                                onChange={(e) => setMessageCompose(e.target.value)}
-                                                                value={messageCompose}
-                                                                action={{
-                                                                    color: 'blue',
-                                                                    icon: 'send',
-                                                                    content: 'Send',
-                                                                    disabled: ((activeThread === '') || (messageCompose === '')),
-                                                                    loading: messageSending,
-                                                                    onClick: sendMessage
-                                                                }}
-                                                                fluid
-                                                            />
-                                                            {/*
-                                                            <div className='left-flex' id='project-messages-reply-inputcontainer'>
-                                                                <MentionsInput
-                                                                    placeholder='Send a message...'
-                                                                    onChange={(e, n, t) => {
-                                                                        console.log(e);
-                                                                        setMessageCompose(n);
-                                                                        console.log(t);
-                                                                    }}
-                                                                    value={messageCompose}
-                                                                    className='project-messages-reply-input'
-                                                                >
-                                                                    <Mention
-                                                                        trigger="@"
-                                                                        data={[{id: '1', display: 'Ethan'}, {id:'2', display: 'Delmar'}]}
+                                    {canViewDetails &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>Discussion</Header>
+                                            <Segment
+                                                id='project-discussion-segment'
+                                                size='large'
+                                                raised
+                                                className='mb-2p'
+                                            >
+                                                <div id='project-discussion-container'>
+                                                    <div id='project-discussion-threads'>
+                                                        <div className='flex-col-div' id='project-threads-container'>
+                                                            <div className='flex-row-div' id='project-threads-header-container'>
+                                                                <div className='left-flex'>
+                                                                    <Header as='h3'>Threads</Header>
+                                                                </div>
+                                                                <div className='right-flex'>
+                                                                    <Button
+                                                                        circular
+                                                                        icon='plus'
+                                                                        color='olive'
+                                                                        onClick={openNewThreadModal}
                                                                     />
-                                                                </MentionsInput>
+                                                                </div>
                                                             </div>
-                                                            <div className='right-flex' id='project-messages-reply-sendcontainer'>
-                                                                <Button
-                                                                    color='blue'
-                                                                    disabled={(activeThread === '') || (messageCompose === '')}
-                                                                    onClick={sendMessage}
-                                                                    loading={messageSending}
-                                                                    id='project-messages-reply-send'
+                                                            <div className='flex-col-div' id='project-threads-list-container'>
+                                                                {(loadedProjThreads && projectThreads.length > 0) &&
+                                                                    projectThreads.map((item, idx) => {
+                                                                        return (
+                                                                            <div className='project-threads-list-item' key={item.threadID} onClick={() => activateThread(item)}>
+                                                                                <p className={activeThread === item.threadID ? 'project-threads-list-title active' : 'project-threads-list-title'}>
+                                                                                    {item.title}
+                                                                                </p>
+                                                                                <p className='project-threads-list-descrip'>
+                                                                                    {(item.lastMessage && item.lastMessage.hasOwnProperty('body'))
+                                                                                        ? (
+                                                                                            <span>
+                                                                                                {item.lastMessage.author?.firstName} {item.lastMessage.author?.lastName}: {truncateString(item.lastMessage.body, 50)}
+                                                                                            </span>
+                                                                                        )
+                                                                                        : (<span><em>No messages yet.</em></span>)
+                                                                                    }
+                                                                                </p>
+                                                                            </div>
+                                                                        )
+                                                                    })
+                                                                }
+                                                                {(loadedProjThreads && projectThreads.length === 0) &&
+                                                                    <p className='text-center muted-text mt-4r'><em>No threads yet.</em></p>
+                                                                }
+                                                                {(!loadedProjThreads) &&
+                                                                    <Loader active inline='centered' className='mt-4r' />
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div id='project-discussion-messages'>
+                                                        <div className='flex-col-div' id='project-messages-container'>
+                                                            <div className='flex-row-div' id='project-messages-header-container'>
+                                                                <div className='left-flex'>
+                                                                    <Header as='h3'>
+                                                                        {(activeThreadTitle !== '')
+                                                                            ? <em>{activeThreadTitle}</em>
+                                                                            : <span>Messages</span>
+                                                                        }
+                                                                    </Header>
+                                                                </div>
+                                                                <div className='right-flex' id='project-messages-header-options'>
+                                                                    <Button
+                                                                        icon='trash'
+                                                                        color='red'
+                                                                        disabled={activeThread === ''}
+                                                                        onClick={openDelThreadModal}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div id='project-messages-chat-container'>
+                                                                {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
+                                                                    <Comment.Group id='project-messages-chat-list'>
+                                                                        {activeThreadMsgs.map((item, idx) => {
+                                                                            const today = new Date();
+                                                                            const itemDate = new Date(item.createdAt);
+                                                                            if (today.getDate() === itemDate.getDate()) { // today
+                                                                                item.date = 'Today';
+                                                                            } else if ((today.getDate() - itemDate.getDate()) >= 7) { // a week ago
+                                                                                item.date = date.format(itemDate, 'MMM DDD, YYYY')
+                                                                            } else { // this week
+                                                                                item.date = date.format(itemDate, 'dddd');
+                                                                            }
+                                                                            item.time = date.format(itemDate, 'h:mm A');
+                                                                            return (
+                                                                                <Comment className='project-messages-message' key={item.messageID}>
+                                                                                  <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
+                                                                                  <Comment.Content>
+                                                                                    <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
+                                                                                    <Comment.Metadata>
+                                                                                      <div>{item.date} at {item.time}</div>
+                                                                                    </Comment.Metadata>
+                                                                                    <Comment.Text>{item.body}</Comment.Text>
+                                                                                  </Comment.Content>
+                                                                                </Comment>
+                                                                            )
+                                                                        })}
+                                                                    </Comment.Group>
+                                                                }
+                                                                {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
+                                                                    <p className='text-center muted-text mt-4r'><em>No messages yet.</em></p>
+                                                                }
+                                                                {(!loadedThreadMsgs && activeThread !== '') &&
+                                                                    <Loader active inline='centered' className='mt-4r' />
+                                                                }
+                                                                {(activeThread === '' && activeThreadMsgs.length === 0) &&
+                                                                    <p className='text-center muted-text mt-4r'><em>No thread selected.</em></p>
+                                                                }
+                                                            </div>
+                                                            <div id='project-messages-reply-container'>
+                                                                <Input
+                                                                    placeholder='Send a message...'
+                                                                    onChange={(e) => setMessageCompose(e.target.value)}
+                                                                    value={messageCompose}
+                                                                    action={{
+                                                                        color: 'blue',
+                                                                        icon: 'send',
+                                                                        content: 'Send',
+                                                                        disabled: ((activeThread === '') || (messageCompose === '')),
+                                                                        loading: messageSending,
+                                                                        onClick: sendMessage
+                                                                    }}
                                                                     fluid
-                                                                >
-                                                                    <Icon name='send' />
-                                                                    Send
-                                                                </Button>
+                                                                />
+                                                                {/*
+                                                                <div className='left-flex' id='project-messages-reply-inputcontainer'>
+                                                                    <MentionsInput
+                                                                        placeholder='Send a message...'
+                                                                        onChange={(e, n, t) => {
+                                                                            console.log(e);
+                                                                            setMessageCompose(n);
+                                                                            console.log(t);
+                                                                        }}
+                                                                        value={messageCompose}
+                                                                        className='project-messages-reply-input'
+                                                                    >
+                                                                        <Mention
+                                                                            trigger="@"
+                                                                            data={[{id: '1', display: 'Ethan'}, {id:'2', display: 'Delmar'}]}
+                                                                        />
+                                                                    </MentionsInput>
+                                                                </div>
+                                                                <div className='right-flex' id='project-messages-reply-sendcontainer'>
+                                                                    <Button
+                                                                        color='blue'
+                                                                        disabled={(activeThread === '') || (messageCompose === '')}
+                                                                        onClick={sendMessage}
+                                                                        loading={messageSending}
+                                                                        id='project-messages-reply-send'
+                                                                        fluid
+                                                                    >
+                                                                        <Icon name='send' />
+                                                                        Send
+                                                                    </Button>
+                                                                </div>
+                                                                */}
                                                             </div>
-                                                            */}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </Segment>
-                                    </Grid.Column>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
+                                    {!canViewDetails &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>Discussion</Header>
+                                            <Segment
+                                                size='large'
+                                                raised
+                                                className='mb-2p'
+                                            >
+                                                <p><em>You don't have permission to view this project's Discussion yet.</em></p>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
                                 </Grid.Row>
                                 <Grid.Row>
                                     <Grid.Column>

@@ -92,6 +92,36 @@ const createTask = (req, res) => {
 
 
 /**
+ * Retrieves information about the Task identified by the taskID in the request
+ * query.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getTask'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const getTask = (req, res) => {
+    Task.findOne({
+        taskID: req.query.taskID
+    }).lean().then((task) => {
+        if (task) {
+            // TODO: Finish implementation
+            return {};
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
  * Validate a provided Task Status option during creation.
  * @returns {Boolean} true if valid option, false otherwise.
  */

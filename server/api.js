@@ -317,6 +317,7 @@ router.route('/projects/tags/org').get(authAPI.verifyRequest,
 
 router.route('/project')
     .get(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
         projectsAPI.validate('getProject'),
         middleware.checkValidationErrors,
         projectsAPI.getProject)
@@ -325,6 +326,7 @@ router.route('/project')
         middleware.checkValidationErrors,
         projectsAPI.createProject)
     .put(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
         projectsAPI.validate('updateProject'),
         middleware.checkValidationErrors,
         projectsAPI.updateProject)
@@ -334,6 +336,7 @@ router.route('/project')
         projectsAPI.deleteProject);
 
 router.route('/project/visibility').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     projectsAPI.validate('changeProjectVisibility'),
     middleware.checkValidationErrors,
     projectsAPI.changeProjectVisibility);
@@ -344,6 +347,7 @@ router.route('/project/complete').put(authAPI.verifyRequest,
     projectsAPI.completeProject);
 
 router.route('/project/collabs/addable').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     projectsAPI.validate('getAddableCollaborators'),
     middleware.checkValidationErrors,
     projectsAPI.getAddableCollaborators);
@@ -359,26 +363,29 @@ router.route('/project/collabs/remove').put(authAPI.verifyRequest,
     projectsAPI.removeCollaboratorFromProject);
 
 router.route('/project/threads').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     projectsAPI.validate('getThreads'), middleware.checkValidationErrors,
     projectsAPI.getProjectThreads);
 
 router.route('/project/thread')
     .post(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
         projectsAPI.validate('createThread'),
         middleware.checkValidationErrors,
         projectsAPI.createDiscussionThread)
     .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
         projectsAPI.validate('deleteThread'),
         middleware.checkValidationErrors,
         projectsAPI.deleteDiscussionThread);
 
 router.route('/project/thread/messages').get(authAPI.verifyRequest,
-    projectsAPI.validate('getMessages'), middleware.checkValidationErrors,
-    projectsAPI.getThreadMessages);
+    authAPI.getUserAttributes, projectsAPI.validate('getMessages'),
+    middleware.checkValidationErrors, projectsAPI.getThreadMessages);
 
 router.route('/project/thread/message').post(authAPI.verifyRequest,
-    projectsAPI.validate('createMessage'), middleware.checkValidationErrors,
-    projectsAPI.createThreadMessage);
+    authAPI.getUserAttributes, projectsAPI.validate('createMessage'),
+    middleware.checkValidationErrors, projectsAPI.createThreadMessage);
 
 router.route('/project/task').post(authAPI.verifyRequest,
     tasksAPI.validate('createTask'), middleware.checkValidationErrors,

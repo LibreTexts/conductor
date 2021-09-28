@@ -1,5 +1,16 @@
 # Changelog
 
+## 09-28-2021
+#### :art: UI/UX
+* Updated permissions handling for Projects
+* UI updates to Project View
+
+#### :satellite: Server
+* Fixed issues with SSO authentication using Microsoft Active Directory
+* Implemented SSO Single Logout (SLO)
+* Updated permissions handling for Projects
+
+
 ## 09-27-2021
 #### :art: UI/UX
 * Added ability to delete an announcement for the author or SuperAdmins
