@@ -20,6 +20,7 @@ const basicUserInfo = (req, res) => {
     }, {
         _id: 0,
         uuid: 1,
+        authType: 1,
         firstName: 1,
         lastName: 1,
         roles: 1,

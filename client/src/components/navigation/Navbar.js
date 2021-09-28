@@ -58,6 +58,7 @@ const Navbar = (_props) => {
                             type: 'SET_USER_INFO',
                             payload: {
                                 uuid: res.data.user.uuid,
+                                authType: res.data.user.authType,
                                 firstName: res.data.user.firstName,
                                 lastName: res.data.user.lastName,
                                 avatar: res.data.user.avatar,
@@ -132,8 +133,7 @@ const Navbar = (_props) => {
      * to main page.
      */
     const logOut = () => {
-        AuthHelper.logout();
-        window.location.assign('/');
+        AuthHelper.logout(user);
     };
 
     /*

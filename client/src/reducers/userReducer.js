@@ -10,6 +10,7 @@ import { isEmptyString } from '../components/util/HelperFunctions.js';
 /* User */
 const userInitialState = {
     uuid: '',
+    authType: '',
     firstName: '',
     lastName: '',
     avatar: '/favicon-96x96.png',
@@ -100,6 +101,7 @@ export default function userReducer(state = userInitialState, action) {
             return {
                 ...state,
                 uuid: action.payload.uuid,
+                authType: action.payload.authType,
                 firstName: action.payload.firstName,
                 lastName: action.payload.lastName,
                 roles: action.payload.roles,
