@@ -14,7 +14,13 @@ const statusOptions = [
     { key: 'open', text: 'Open/In Progress', value: 'open' }
 ];
 
+const editStatusOptions = [
+    { key: 'available', text: 'Available', value: 'available' },
+    { key: 'open', text: 'Open/In Progress', value: 'open' }
+];
+
 module.exports = {
     visibilityOptions,
-    statusOptions
+    statusOptions,
+    editStatusOptions
 }

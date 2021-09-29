@@ -335,12 +335,6 @@ router.route('/project')
         middleware.checkValidationErrors,
         projectsAPI.deleteProject);
 
-router.route('/project/visibility').put(authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    projectsAPI.validate('changeProjectVisibility'),
-    middleware.checkValidationErrors,
-    projectsAPI.changeProjectVisibility);
-
 router.route('/project/complete').put(authAPI.verifyRequest,
     projectsAPI.validate('completeProject'),
     middleware.checkValidationErrors,
@@ -387,9 +381,26 @@ router.route('/project/thread/message').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('createMessage'),
     middleware.checkValidationErrors, projectsAPI.createThreadMessage);
 
-router.route('/project/task').post(authAPI.verifyRequest,
-    tasksAPI.validate('createTask'), middleware.checkValidationErrors,
-    tasksAPI.createTask);
+router.route('/project/tasks').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes, tasksAPI.validate('getProjectTasks'),
+    middleware.checkValidationErrors, tasksAPI.getProjectTasks);
+
+router.route('/project/task')
+    .get(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        tasksAPI.validate('getTask'),
+        middleware.checkValidationErrors,
+        tasksAPI.getTask)
+    .post(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        tasksAPI.validate('createTask'),
+        middleware.checkValidationErrors,
+        tasksAPI.createTask)
+    .put(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        tasksAPI.validate('updateTask'),
+        middleware.checkValidationErrors,
+        tasksAPI.updateTask);
 
 
 /* Harvesting */

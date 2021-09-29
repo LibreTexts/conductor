@@ -44,7 +44,7 @@ import {
 
 import {
     visibilityOptions,
-    statusOptions
+    editStatusOptions
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -69,16 +69,12 @@ const ProjectView = (props) => {
     // Project Permissions
     const [canViewDetails, setCanViewDetails] = useState(false);
 
-    // Change Visibility Modal
-    const [showVisModal, setShowVisModal] = useState(false);
-    const [projVisibility, setProjVisibility] = useState('');
-    const [visModalLoading, setVisModalLoading] = useState(false);
-
     // Edit Information Modal
     const [showEditModal, setShowEditModal] = useState(false);
     const [editModalLoading, setEditModalLoading] = useState(false);
     const [projTitle, setProjTitle] = useState('');
-    const [projStatus, setProjStatus] = useState('');
+    const [projStatus, setProjStatus] = useState('open');
+    const [projVisibility, setProjVisibility] = useState('private');
     const [projProgress, setProjProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
@@ -257,60 +253,6 @@ const ProjectView = (props) => {
 
 
     /**
-     * Opens the Change Visibility Modal and sets fields
-     * to their current respective values.
-     */
-    const openVisModal = () => {
-        if (project.visibility) {
-            setProjVisibility(project.visibility);
-        }
-        setVisModalLoading(false);
-        setShowVisModal(true);
-    };
-
-
-    /**
-     * Closes the Change Visibility Modal and resets
-     * fields to their default values.
-     */
-    const closeVisModal = () => {
-        setShowVisModal(false);
-        setProjVisibility('private');
-        setVisModalLoading(false);
-    };
-
-
-    /**
-     * Submits the project visibility change (if any) to
-     * the server via PUT request, then closes the Change
-     * Visibility Modal and re-syncs Project information.
-     */
-    const submitVisChange = () => {
-        var visChange = true;
-        if ((project.visibility) && (project.visibility === projVisibility)) visChange = false;
-        if (visChange) {
-            setVisModalLoading(true);
-            axios.put('/project/visibility', {
-                projectID: props.match.params.id,
-                visibility: projVisibility
-            }).then((res) => {
-                if (!res.data.err) {
-                    closeVisModal();
-                    getProject();
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-            }).catch((err) => {
-                handleGlobalError(err);
-                setVisModalLoading(false);
-            });
-        } else {
-            closeVisModal();
-        }
-    };
-
-
-    /**
      * Opens the Edit Information Modal and retrieves existing tags,
      * then sets fields to their current respective values.
      */
@@ -318,6 +260,8 @@ const ProjectView = (props) => {
         setEditModalLoading(true);
         getTags();
         if (project.title) setProjTitle(project.title);
+        if (project.status) setProjStatus(project.status);
+        if (project.visibility) setProjVisibility(project.visibility);
         if (project.hasOwnProperty('currentProgress')) setProjProgress(project.currentProgress);
         if (project.projectURL) setProjURL(project.projectURL);
         if (project.tags) setProjTags(project.tags);
@@ -326,7 +270,6 @@ const ProjectView = (props) => {
         if (project.license) setProjResLicense(project.license);
         if (project.resourceURL) setProjResURL(project.resourceURL);
         if (project.notes) setProjNotes(project.notes);
-        if (project.status) setProjStatus(project.status);
         setEditModalLoading(false);
         setShowEditModal(true);
     };
@@ -340,7 +283,8 @@ const ProjectView = (props) => {
         setShowEditModal(false);
         setEditModalLoading(false);
         setProjTitle('');
-        setProjStatus('');
+        setProjStatus('open');
+        setProjVisibility('private');
         setProjProgress(0);
         setProjURL('');
         setProjTags([]);
@@ -443,6 +387,9 @@ const ProjectView = (props) => {
             }
             if ((project.status && project.status !== projStatus) || !project.status) {
                 projData.status = projStatus;
+            }
+            if ((project.visibility && project.visibility !== projVisibility) || !project.visibility) {
+                projData.visibility = projVisibility;
             }
             if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
                 projData.projectURL = projURL;
@@ -897,7 +844,7 @@ const ProjectView = (props) => {
                                                 onClick={openEditInfoModal}
                                             >
                                                 <Icon name='edit' />
-                                                Edit Information
+                                                Edit Properties
                                             </Button>
                                             <Button
                                                 color='violet'
@@ -905,13 +852,6 @@ const ProjectView = (props) => {
                                             >
                                                 <Icon name='users' />
                                                 Manage Collaborators
-                                            </Button>
-                                            <Button
-                                                color='teal'
-                                                onClick={openVisModal}
-                                            >
-                                                <Icon name='eye' />
-                                                Change Visibility
                                             </Button>
                                             <Button
                                                 color='green'
@@ -1310,7 +1250,7 @@ const ProjectView = (props) => {
                         closeOnDimmerClick={false}
                         size='large'
                     >
-                        <Modal.Header>Edit Project Information</Modal.Header>
+                        <Modal.Header>Edit Project Properties</Modal.Header>
                         <Modal.Content>
                             <Form noValidate>
                                 <Header as='h3'>Project Overview</Header>
@@ -1344,9 +1284,18 @@ const ProjectView = (props) => {
                                     fluid
                                     label={<label>Status</label>}
                                     placeholder='Status...'
-                                    options={statusOptions}
+                                    options={editStatusOptions}
                                     onChange={(_e, { value }) => setProjStatus(value)}
                                     value={projStatus}
+                                    disabled={projStatus === 'completed'}
+                                />
+                                <Form.Select
+                                    fluid
+                                    label={<label>Visibility</label>}
+                                    selection
+                                    options={visibilityOptions}
+                                    value={projVisibility}
+                                    onChange={(_e, { value }) => setProjVisibility(value)}
                                 />
                                 <Form.Field>
                                     <label>Project URL <span className='muted-text'>(if applicable)</span></label>
@@ -1537,42 +1486,6 @@ const ProjectView = (props) => {
                                 onClick={closeCollabsModal}
                             >
                                 Done
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Change Visibility Modal */}
-                    <Modal
-                        open={showVisModal}
-                        onClose={closeVisModal}
-                    >
-                        <Modal.Header>Change Project Visibility</Modal.Header>
-                        <Modal.Content>
-                            <Form noValidate>
-                                <Form.Select
-                                    fluid
-                                    label={<label>Visibility <span className='muted-text'>(defaults to Private)</span></label>}
-                                    selection
-                                    options={visibilityOptions}
-                                    value={projVisibility}
-                                    onChange={(_e, { value }) => setProjVisibility(value)}
-                                />
-                            </Form>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeVisModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                icon
-                                labelPosition='left'
-                                color='green'
-                                loading={visModalLoading}
-                                onClick={submitVisChange}
-                            >
-                                <Icon name='save' />
-                                Save
                             </Button>
                         </Modal.Actions>
                     </Modal>

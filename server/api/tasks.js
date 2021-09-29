@@ -14,6 +14,7 @@ const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { validateUUIDArray } = require('../util/helpers.js');
 
+const projectsAPI = require('./projects.js');
 const mailAPI = require('./mail.js');
 
 
@@ -42,7 +43,7 @@ const createTask = (req, res) => {
         projectID: req.body.projectID
     }).lean().then((project) => {
         if (project) {
-            if ((req.decoded.uuid === project.owner) || (project.collaborators.includes(req.decoded.uuid))) {
+            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
                 if (req.body.hasOwnProperty('parent')) {
                     return Task.findOne({
                         taskID: req.body.parent
@@ -92,6 +93,77 @@ const createTask = (req, res) => {
 
 
 /**
+ * Updates the Task identified by the taskID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'updateTask'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const updateTask = (req, res) => {
+    var task;
+    Task.findOne({
+        taskID: req.body.taskID
+    }).lean().then((taskData) => {
+        if (taskData) {
+            task = taskData;
+            return Project.findOne({
+                projectID: task.projectID
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+                // build update object
+                let updateObj = {};
+                if (req.body.hasOwnProperty('title') && req.body.title !== task.title) {
+                    updateObj.title = req.body.title;
+                }
+                if (req.body.hasOwnProperty('description') && req.body.description !== task.description) {
+                    updateObj.description = req.body.description;
+                }
+                if (req.body.hasOwnProperty('status') && req.body.status !== task.status) {
+                    updateObj.status = req.body.status;
+                }
+                if (req.body.hasOwnProperty('assignees')) {
+                    updateObj.assignees = req.body.assignees;
+                }
+                if (req.body.hasOwnProperty('dependencies')) {
+                    updateObj.dependencies = req.body.dependencies;
+                }
+                return Task.updateOne({
+                    taskID: task.taskID
+                }, updateObj);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: "Successfully updated task."
+            });
+        } else {
+            throw(new Error('updatefail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
  * Retrieves information about the Task identified by the taskID in the request
  * query.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -102,10 +174,144 @@ const createTask = (req, res) => {
 const getTask = (req, res) => {
     Task.findOne({
         taskID: req.query.taskID
-    }).lean().then((task) => {
-        if (task) {
-            // TODO: Finish implementation
-            return {};
+    }).lean().then((taskData) => {
+        if (taskData) {
+            return Project.findOne({
+                projectID: taskData.projectID
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+                return Task.aggregate([
+                    {
+                        $match: {
+                            taskID: req.query.taskID
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            __v: 0
+                        }
+                    }, {
+                        // lookup parent
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                parent: '$parent'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$taskID', '$$parent']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'parent'
+                        }
+                    }, {
+                        $addFields: {
+                            parent: {
+                                $arrayElemAt: ['$parent', 0]
+                            }
+                        }
+                    }, {
+                        // lookup dependencies
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                deps: '$dependencies'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$taskID', '$$deps']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'dependencies'
+                        }
+                    }, {
+                        // lookup tasks being blocked
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                taskID: '$taskID'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$$taskID', '$dependencies']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'blocking'
+                        }
+                    }, {
+                        // lookup assignees
+                        $lookup: {
+                            from: 'users',
+                            let: {
+                                assignees: '$assignees'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$uuid', '$$assignees']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        uuid: 1,
+                                        firstName: 1,
+                                        lastName: 1,
+                                        avatar: 1,
+                                        email: 1
+                                    }
+                                }
+                            ],
+                            as: 'assignees'
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((taskRes) => {
+        if (taskRes.length > 0) {
+            let task = taskRes[0];
+            return res.send({
+                err: false,
+                task: task
+            });
         } else {
             throw(new Error('notfound'));
         }
@@ -113,6 +319,87 @@ const getTask = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Retrieves all Tasks and subtasks belonging to the Project identified by
+ * the projectID in the request query.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getProjectTasks'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const getProjectTasks = (req, res) => {
+    Project.findOne({
+        projectID: req.query.projectID
+    }).lean().then((project) => {
+        if (project) {
+            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+                return Task.aggregate([
+                    {
+                        $match: {
+                            $and: [
+                                {
+                                    projectID: req.query.projectID
+                                }, {
+                                    parent: {
+                                        $in: ['', null]
+                                    }
+                                }
+                            ]
+                        }
+                    }, {
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                taskID: '$taskID'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$parent', '$$taskID']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'subtasks'
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            __V: 0
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((tasks) => {
+        return res.send({
+            err: false,
+            tasks: tasks
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else debugError(err);
         return res.send({
             err: true,
             errMsg: errMsg
@@ -132,18 +419,31 @@ const validateCreateStatus = (status) => {
 
 
 /**
+ * Validate a provided Task Status option during a task update.
+ * @returns {Boolean} true if valid option, false otherwise.
+ */
+const validateUpdateStatus = (status) => {
+    if ((status === 'available')
+        || (status === 'inprogress')
+        || (status === 'completed')) return true;
+    return false;
+};
+
+
+/**
  * Validates that an array of strings contains only TaskIDs.
  * @param {string[]} arr  - the array of strings to validate
  * @returns {Boolean} true if valid array, false otherwise.
  */
 const validateTaskIDArray = (arr) => {
     if (Array.isArray(arr)) {
-        var validArray = true;
+        let validArray = true;
         arr.forEach((item) => {
             if (typeof(item) === 'string') {
                 if (item.length !== 16) validArray = false;
             } else validArray = false;
         });
+        return validArray;
     }
     return false;
 };
@@ -165,10 +465,30 @@ const validate = (method) => {
                 body('parent', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 16, max: 16 }),
                 body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
             ]
+        case 'updateTask':
+            return [
+                body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 }),
+                body('title', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 250 }),
+                body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateUpdateStatus),
+                body('assignees', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
+                body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
+            ]
+        case 'getTask':
+            return [
+                query('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 })
+            ]
+        case 'getProjectTasks':
+            return [
+                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
     }
 };
 
 module.exports = {
     createTask,
+    updateTask,
+    getTask,
+    getProjectTasks,
     validate
 };

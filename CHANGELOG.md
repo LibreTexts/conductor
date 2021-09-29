@@ -1,5 +1,14 @@
 # Changelog
 
+## 09-29-2021
+#### :art: UI/UX
+* Renamed 'Edit Project Information' to 'Edit Properties'
+* Moved Project Visibility into Project Properties
+
+#### :satellite: Server
+* Added more backend logic for Project Task management
+
+
 ## 09-28-2021
 #### :art: UI/UX
 * Updated permissions handling for Projects

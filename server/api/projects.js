@@ -163,6 +163,7 @@ const deleteProject = (req, res) => {
         }
     }).then((deleteRes) => {
         if (deleteRes.deletedCount === 1) {
+            // TODO: Delete threads, messages, and tasks
             return res.send({
                 err: false,
                 msg: 'Successfully deleted project.'
@@ -331,54 +332,6 @@ const getProject = (req, res) => {
 
 
 /**
- * Updates the visibility setting of the Project identified by the projectID in
- * the request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'changeProjectVisibility'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const changeProjectVisibility = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
-                return Project.updateOne({
-                    projectID: req.body.projectID
-                }, {
-                    visibility: req.body.visibility
-                });
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Successfully updated project visibility.'
-            });
-        } else {
-            throw(new Error('updatefailed'));
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'updatefailed') errMsg = conductorErrors.err3;
-        else debugError(err);
-        return res.send({
-            err: false,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
  * Marks the Project identified by the projectID in the request body as
  * completed.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -450,6 +403,9 @@ const updateProject = (req, res) => {
                 }
                 if (req.body.hasOwnProperty('status') && req.body.status !== project.status) {
                     updateObj.status = req.body.status;
+                }
+                if (req.body.hasOwnProperty('visibility') && req.body.visibility !== project.visibility) {
+                    updateObj.visibility = req.body.visibility;
                 }
                 if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
                     updateObj.projectURL = req.body.projectURL;
@@ -1371,6 +1327,9 @@ const checkProjectMemberPermission = (owner, collaborators, user) => {
     // check if the user is the owner or a collaborator
     if (owner === user.decoded?.uuid || collaborators.includes(user.decoded?.uuid)) {
         return true;
+    } else {
+        // check if user is a SuperAdmin
+        return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
     }
     return false;
 };
@@ -1439,6 +1398,7 @@ const validate = (method) => {
                 body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
+                body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
@@ -1449,11 +1409,6 @@ const validate = (method) => {
         case 'getProject':
             return [
                 query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'changeProjectVisibility':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('visibility', conductorErrors.err1).exists().isString().custom(validateVisibility)
             ]
         case 'completeProject':
             return [
@@ -1502,7 +1457,6 @@ module.exports = {
     createProject,
     deleteProject,
     getProject,
-    changeProjectVisibility,
     completeProject,
     updateProject,
     getUserProjects,
@@ -1518,5 +1472,7 @@ module.exports = {
     getProjectThreads,
     createThreadMessage,
     getThreadMessages,
+    checkProjectGeneralPermission,
+    checkProjectMemberPermission,
     validate
 };
