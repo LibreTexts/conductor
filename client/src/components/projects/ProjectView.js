@@ -851,7 +851,15 @@ const ProjectView = (props) => {
                                                 onClick={openCollabsModal}
                                             >
                                                 <Icon name='users' />
-                                                Manage Collaborators
+                                                Manage Team
+                                            </Button>
+                                            <Button
+                                                color='teal'
+                                                as={Link}
+                                                to={`${props.match.url}/accessibility`}
+                                            >
+                                                <Icon name='universal access' />
+                                                Accessibility
                                             </Button>
                                             <Button
                                                 color='green'
@@ -1428,7 +1436,7 @@ const ProjectView = (props) => {
                         onClose={closeCollabsModal}
                         size='large'
                     >
-                        <Modal.Header>Manage Project Collaborators</Modal.Header>
+                        <Modal.Header>Manage Project Team</Modal.Header>
                         <Modal.Content scrolling>
                             <Form noValidate>
                                 <Form.Select

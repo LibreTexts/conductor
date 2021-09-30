@@ -1,5 +1,11 @@
 # Changelog
 
+## 09-30-2021
+#### :art: UI/UX
+* Renamed 'Manage Collaborators' to 'Manage Team' in Projects
+* Added the Project Accessibility page and mocked up the Accessibility Review Matrix
+
+
 ## 09-29-2021
 #### :art: UI/UX
 * Renamed 'Edit Project Information' to 'Edit Properties'

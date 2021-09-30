@@ -54,6 +54,7 @@ import ProjectsPortal from './components/projects/ProjectsPortal.js';
 import ProjectsAvailable from './components/projects/ProjectsAvailable.js';
 import ProjectsCompleted from './components/projects/ProjectsCompleted.js';
 import ProjectsCreate from './components/projects/ProjectsCreate.js';
+import ProjectAccessibility from './components/projects/ProjectAccessibility.js';
 import ProjectView from './components/projects/ProjectView.js';
 
 
@@ -100,6 +101,7 @@ function App() {
                         <PrivateRoute exact path = '/projects/create' component={ProjectsCreate} />
                         <PrivateRoute exact path = '/projects/completed' component={ProjectsCompleted} />
                         <PrivateRoute exact path = '/projects/:id' component={ProjectView} />
+                        <PrivateRoute exact path = '/projects/:id/accessibility' component={ProjectAccessibility} />
 
                     <PrivateRoute exact path = '/harvesting' component={HarvestingPortal} />
                         <PrivateRoute exact path = '/harvesting/projects/addexisting' component={HarvestingProjectAddExisting} />
