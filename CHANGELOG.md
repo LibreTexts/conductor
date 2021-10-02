@@ -1,5 +1,10 @@
 # Changelog
 
+## 10-02-2021
+#### :satellite: Server
+* Fixed a bug in Project permissions handling for team members
+
+
 ## 10-01-2021
 #### :art: UI/UX
 * Started updating Date Pickers to a replace an outdated library

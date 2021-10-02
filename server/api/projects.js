@@ -256,7 +256,7 @@ const getProject = (req, res) => {
                         }
                     }
                 ],
-                as: 'collaborators'
+                as: 'collaboratorsData'
             }
         }, {
             $lookup: {
@@ -308,6 +308,10 @@ const getProject = (req, res) => {
             else if (typeof(projResult.owner) === 'string') ownerUUID = projResult.owner;
             // check user has permission to view project
             if (checkProjectGeneralPermission(projResult, ownerUUID, projResult.collaborators, req.user)) {
+                if (projResult.collaboratorsData) {
+                    projResult.collaborators = projResult.collaboratorsData;
+                    delete projResult.collaboratorsData;
+                }
                 return res.send({
                     err: false,
                     project: projResult

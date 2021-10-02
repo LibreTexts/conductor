@@ -206,11 +206,20 @@ const ProjectView = (props) => {
      */
     useEffect(() => {
         if (user.uuid && user.uuid !== '') {
-            if (project.hasOwnProperty('owner') || project.hasOwnProperty('collaborators')) {
-                if ((project.owner?.uuid === user.uuid || project.owner === user.uuid)
-                    || (Array.isArray(project.collaborators) && project.collaborators.includes(user.uuid))) {
-                        setCanViewDetails(true);
-                    }
+            if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
+                setCanViewDetails(true);
+            } else {
+                if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+                    let foundCollab = project.collaborators.find((item) => {
+                        if (typeof(item) === 'string') {
+                            return item === user.uuid;
+                        } else if (typeof(item) === 'object') {
+                            return item.uuid === user.uuid;
+                        }
+                        return false;
+                    });
+                    if (foundCollab !== undefined) setCanViewDetails(true);
+                }
             }
         }
     }, [project, user, setCanViewDetails]);
