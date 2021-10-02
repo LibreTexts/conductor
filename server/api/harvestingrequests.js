@@ -58,7 +58,7 @@ const getRequests = (req, res) => {
             sM = parseInt(sComp[0]) - 1;
             sD = parseInt(sComp[1]);
             sY = parseInt(sComp[2]);
-            eM = parseInt(eComp[0]);
+            eM = parseInt(eComp[0]) - 1;
             eD = parseInt(eComp[1]);
             eY = parseInt(eComp[2]);
         }

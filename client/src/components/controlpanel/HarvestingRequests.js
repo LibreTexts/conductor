@@ -1,6 +1,6 @@
 import './ControlPanel.css';
+import 'react-datepicker/dist/react-datepicker.css';
 
-import { DateInput } from 'semantic-ui-calendar-react';
 import {
   Grid,
   Header,
@@ -13,7 +13,8 @@ import {
   Dropdown,
   Breadcrumb
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import React, { useEffect, useState, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -22,6 +23,9 @@ import ordinal from 'date-and-time/plugin/ordinal';
 import {
     isEmptyString,
 } from '../util/HelperFunctions.js';
+import {
+    datePickerPopperOptions
+} from '../util/DatePickerOptions.js';
 import {
     getLibGlyphURL,
     getLibraryName
@@ -55,8 +59,8 @@ const HarvestingRequests = (props) => {
     const [currentRequest, setCurrentRequest] = useState(emptyRequest);
 
     // UI
-    const [fromDate, setFromDate] = useState('01-01-2021');
-    const [toDate, setToDate] = useState('');
+    const [fromDate, setFromDate] = useState(new Date('01/01/2021'));
+    const [toDate, setToDate] = useState(new Date());
     const [showHRVModal, setShowHRVModal] = useState(false);
     const [sortChoice, setSortChoice] = useState('date');
 
@@ -72,18 +76,17 @@ const HarvestingRequests = (props) => {
     useEffect(() => {
         document.title = "LibreTexts Conductor | Harvesting Requests";
         date.plugin(ordinal);
-        const today = new Date();
-        const todayString = `${today.getMonth()+1}-${today.getDate()}-${today.getFullYear()}`;
-        setToDate(todayString);
     }, []);
 
     // getHarvestingRequests()
     useEffect(() => {
-        if (!isEmptyString(fromDate) && !isEmptyString(toDate)) {
+        if (fromDate !== null && toDate !== null) {
+            const fromDateString = `${fromDate.getMonth()+1}-${fromDate.getDate()}-${fromDate.getFullYear()}`;
+            const toDateString = `${toDate.getMonth()+1}-${toDate.getDate()}-${toDate.getFullYear()}`;
             axios.get('/harvestingrequests', {
                 params: {
-                    startDate: fromDate,
-                    endDate: toDate
+                    startDate: fromDateString,
+                    endDate: toDateString
                 }
             }).then((res) => {
                 if (!res.data.err) {
@@ -210,6 +213,32 @@ const HarvestingRequests = (props) => {
         setCurrentRequest(emptyRequest);
     };
 
+    const FromDateInput = forwardRef(({ value, onClick }, ref) => (
+        <Form.Input
+            value={value}
+            ref={ref}
+            onClick={onClick}
+            iconPosition='left'
+            icon='calendar'
+            placeholder='From...'
+            inline
+            label='From'
+        />
+    ));
+
+    const ToDateInput = forwardRef(({ value, onClick }, ref) => (
+        <Form.Input
+            value={value}
+            ref={ref}
+            onClick={onClick}
+            iconPosition='left'
+            icon='calendar'
+            placeholder='To...'
+            inline
+            label='To'
+        />
+    ));
+
     return (
         <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
@@ -234,29 +263,23 @@ const HarvestingRequests = (props) => {
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
                                 <Form className='mr-2p'>
-                                    <DateInput
-                                        name='fromdate'
-                                        label='From'
-                                        inlineLabel
-                                        placeholder='From ...'
-                                        iconPosition='left'
-                                        dateFormat='MM-DD-YYYY'
-                                        popupPosition='bottom center'
-                                        onChange={(e, data) => { setFromDate(data.value) }}
-                                        value={fromDate}
+                                    <DatePicker
+                                        popperPlacement='bottom'
+                                        popperModifiers={datePickerPopperOptions}
+                                        dateFormat='MM/dd/yyyy'
+                                        onChange={(date) => setFromDate(date)}
+                                        selected={fromDate}
+                                        customInput={<FromDateInput  />}
                                     />
                                 </Form>
                                 <Form className='mr-2p'>
-                                    <DateInput
-                                        name='todate'
-                                        label='To'
-                                        inlineLabel
-                                        placeholder='To ...'
-                                        iconPosition='left'
-                                        dateFormat='MM-DD-YYYY'
-                                        popupPosition='bottom center'
-                                        onChange={(e, data) => { setToDate(data.value) }}
-                                        value={toDate}
+                                    <DatePicker
+                                        popperPlacement='bottom'
+                                        popperModifiers={datePickerPopperOptions}
+                                        dateFormat='MM/dd/yyyy'
+                                        onChange={(date) => setToDate(date)}
+                                        selected={toDate}
+                                        customInput={<ToDateInput />}
                                     />
                                 </Form>
                                 <Form>

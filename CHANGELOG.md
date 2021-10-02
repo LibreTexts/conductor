@@ -1,5 +1,14 @@
 # Changelog
 
+## 10-01-2021
+#### :art: UI/UX
+* Started updating Date Pickers to a replace an outdated library
+* Troubleshooting adding Gantt chart package
+
+#### :satellite: Server
+* Fixed a bug in Adoption Report & Harvest Request query date handling
+
+
 ## 09-30-2021
 #### :art: UI/UX
 * Renamed 'Manage Collaborators' to 'Manage Team' in Projects
