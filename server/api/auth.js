@@ -165,7 +165,10 @@ const oauthCallback = (req, res) => {
                 if (req.cookies.conductor_sso_redirect) {
                     redirectURL = req.cookies.conductor_sso_redirect + '/dashboard';
                 }
+                console.log(redirectURL);
+                console.log(req.cookies);
                 if (isNewMember) redirectURL = redirectURL + '?newmember=true';
+                console.log(redirectURL);
                 return res.redirect(redirectURL);
             } else {
                 throw(err);
