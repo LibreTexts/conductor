@@ -63,6 +63,7 @@ const initSSO = (_req, res) => {
  * is issued.
  */
 const oauthCallback = (req, res) => {
+    console.log("OAUTH");
     var isNewMember = false;
     var payload = {};
     new Promise((resolve) => {
@@ -163,6 +164,7 @@ const oauthCallback = (req, res) => {
                 res.setHeader('Set-Cookie', cookiesToSet);
                 var redirectURL = '/dashboard';
                 if (req.cookies.conductor_sso_redirect) {
+                    console.log("COOKIES");
                     redirectURL = req.cookies.conductor_sso_redirect + '/dashboard';
                 }
                 console.log(redirectURL);
