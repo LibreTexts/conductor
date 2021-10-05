@@ -1,5 +1,10 @@
 # Changelog
 
+## 10-04-2021
+#### :art: UI/UX
+* Added the "Campus Commons" dropdown to the Commons navbar
+
+
 ## 10-02-2021
 #### :satellite: Server
 * Fixed a bug in Project permissions handling for team members

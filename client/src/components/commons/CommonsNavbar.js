@@ -14,6 +14,7 @@ const CommonsNavbar = (_props) => {
 
     // UI
     const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
+    const [showMobileCommons, setShowMobileCommons] = useState(false);
     //const [showMobileLibs, setShowMobileLibs] = useState(false);
 
     /**
@@ -25,6 +26,9 @@ const CommonsNavbar = (_props) => {
             setShowMobileLibs(false);
         }
         */
+        if (!displayMobileMenu === false) {
+            setShowMobileCommons(false);
+        }
         setDisplayMobileMenu(!displayMobileMenu);
     }
 
@@ -49,6 +53,32 @@ const CommonsNavbar = (_props) => {
                         >
                             About {org.shortName}
                         </Menu.Item>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                            <Dropdown item text='Campus Commons'>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item as='a' href='http://oeri.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        ASCCC (OERI)
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://highline.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        Highline College
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://losrios.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        Los Rios Community College District
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://pgcc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        Prince George's Community College
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://ucdavis.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        UC Davis
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        }
                         <Menu.Item
                             as={Link}
                             to='/login'
@@ -90,6 +120,43 @@ const CommonsNavbar = (_props) => {
                             About {org.shortName}
                             <Icon name='external' className='float-right' />
                         </Menu.Item>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                            <Menu.Item onClick={() => { setShowMobileCommons(!showMobileCommons) }}>
+                                Campus Commons
+                                {showMobileCommons
+                                    ? (
+                                        <Icon name='angle up' className='float-right' />
+                                    )
+                                    : (
+                                        <Icon name='angle down' className='float-right' />
+                                    )
+                                }
+                            </Menu.Item>
+                        }
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts' && showMobileCommons) &&
+                            <Menu.Menu id='commons-mobilenav-libmenu'>
+                                <Menu.Item as='a' href='http://oeri.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    ASCCC (OERI)
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://highline.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    Highline College
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://losrios.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    Los Rios Community College District
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://pgcc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    Prince George's Community College
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://ucdavis.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    UC Davis
+                                </Menu.Item>
+                            </Menu.Menu>
+                        }
                         <Menu.Item
                             as={Link}
                             to='/login'
