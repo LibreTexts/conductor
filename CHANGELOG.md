@@ -1,5 +1,19 @@
 # Changelog
 
+## 10-05-2021
+#### :art: UI/UX
+* Updated Commons Catalog to show default search results on load
+* Various upgrades to the Project Manage Team modal
+* More work on Project Tasks interface
+    * Implemented an version of Task searching
+    * Implemented the Create Task Modal
+    * Implemented an early version of dynamic Task list loading
+
+#### :satellite: Server
+* More work on Project Tasks API
+* Simplified internal Project permissions handling
+
+
 ## 10-04-2021
 #### :art: UI/UX
 * Added the "Campus Commons" dropdown to the Commons navbar

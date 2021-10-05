@@ -39,11 +39,13 @@ const createTask = (req, res) => {
         dependencies: [],
         createdBy: req.decoded.uuid
     };
+    let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
     }).lean().then((project) => {
         if (project) {
-            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
+                projectData = project;
                 if (req.body.hasOwnProperty('parent')) {
                     return Task.findOne({
                         taskID: req.body.parent
@@ -63,9 +65,58 @@ const createTask = (req, res) => {
         } else if (!parentTaskRes && req.body.hasOwnProperty('parent')) {
             throw(new Error('ptnotfound'));
         }
+        if (req.body.hasOwnProperty('status')) newTaskData.status = req.body.status;
         if (req.body.hasOwnProperty('description')) newTaskData.description = req.body.description;
         if (req.body.hasOwnProperty('assignees')) newTaskData.assignees = req.body.assignees;
         if (req.body.hasOwnProperty('dependencies')) newTaskData.dependencies = req.body.dependencies;
+        if (newTaskData.assignees.length > 0) {
+            // verify all assignees are project members
+            let validAssignees = true;
+            newTaskData.assignees.forEach((item) => {
+                if (item !== projectData.owner) {
+                    validAssignees = false;
+                } else if (!projectData.collaborators.includes(item)) {
+                    validAssignees = false;
+                }
+            });
+            if (!validAssignees) {
+                throw(new Error('assignees'));
+            }
+        }
+        if (newTaskData.dependencies.length > 0) {
+            // dependencies need to be resolved/sanitized
+            if (newTaskData.parent !== '') {
+                // a task can't be dependent on its own parent task (circular dependency)
+                let foundParent = newTaskData.dependencies.find((item) => item === newTaskData.parent);
+                if (foundParent !== undefined) throw(new Error('parentdep'));
+            }
+            return Task.aggregate([
+                {
+                    $match: {
+                        taskID: {
+                            $in: newTaskData.dependencies
+                        }
+                    }
+                }
+            ]);
+        } else {
+            return [];
+        }
+    }).then((dependencies) => {
+        if (newTaskData.dependencies.length > 0 && dependencies.length > 0) {
+            if (newTaskData.status === 'completed') {
+                // a task can't be marked completed until its dependencies are completed
+                let foundNotCompleted = dependencies.find((item) => item.status !== 'completed');
+                if (foundNotCompleted !== undefined) {
+                    throw(new Error('depnotcompleted'));
+                }
+            }
+            let depIDs = dependencies.map((item) => item.taskID).filter((item) => (item !== undefined && item !== null));
+            newTaskData.dependencies = depIDs;
+        } else if (newTaskData.dependencies.length > 0 && dependencies.length == 0) {
+            // dependencies were provided but none were found, empty the array
+            newTaskData.dependencies = [];
+        }
         let newTask = new Task(newTaskData);
         return newTask.save();
     }).then((newDoc) => {
@@ -84,6 +135,9 @@ const createTask = (req, res) => {
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'ptnotfound') errMsg = conductorErrors.err24;
         else if (err.message === 'createfail') errMsg = conductorErrors.err3;
+        else if (err.message === 'assignees') errMsg = conductorErrors.err26;
+        else if (err.message === 'parentdep') errMsg = conductorErrors.err27;
+        else if (err.message === 'depnotcompleted') errMsg = conductorErrors.err25;
         return res.send({
             err: true,
             errMsg: errMsg
@@ -114,7 +168,7 @@ const updateTask = (req, res) => {
         }
     }).then((project) => {
         if (project) {
-            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
                 // build update object
                 let updateObj = {};
                 if (req.body.hasOwnProperty('title') && req.body.title !== task.title) {
@@ -184,7 +238,7 @@ const getTask = (req, res) => {
         }
     }).then((project) => {
         if (project) {
-            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
                 return Task.aggregate([
                     {
                         $match: {
@@ -341,7 +395,7 @@ const getProjectTasks = (req, res) => {
         projectID: req.query.projectID
     }).lean().then((project) => {
         if (project) {
-            if (projectsAPI.checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
                 return Task.aggregate([
                     {
                         $match: {
@@ -409,20 +463,10 @@ const getProjectTasks = (req, res) => {
 
 
 /**
- * Validate a provided Task Status option during creation.
+ * Validate a provided Task Status option during a task creation or update.
  * @returns {Boolean} true if valid option, false otherwise.
  */
-const validateCreateStatus = (status) => {
-    if ((status === 'available') || (status === 'inprogress')) return true;
-    return false
-};
-
-
-/**
- * Validate a provided Task Status option during a task update.
- * @returns {Boolean} true if valid option, false otherwise.
- */
-const validateUpdateStatus = (status) => {
+const validateStatus = (status) => {
     if ((status === 'available')
         || (status === 'inprogress')
         || (status === 'completed')) return true;
@@ -460,7 +504,7 @@ const validate = (method) => {
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('title', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 250 }),
                 body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateStatus),
                 body('assignees', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
                 body('parent', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 16, max: 16 }),
                 body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
@@ -470,7 +514,7 @@ const validate = (method) => {
                 body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 }),
                 body('title', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 250 }),
                 body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateUpdateStatus),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateStatus),
                 body('assignees', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
                 body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
             ]

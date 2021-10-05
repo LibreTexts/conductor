@@ -256,13 +256,37 @@ const Login = (props) => {
                             error={emailError}
                         >
                             <label htmlFor='email'>Email</label>
-                            <Input fluid={true} id='email' type='email' name='email' placeholder='Email' required={true} value={email} onChange={onChange} icon='user' iconPosition='left' />
+                            <Input
+                                fluid={true}
+                                id='email'
+                                type='email'
+                                name='email'
+                                placeholder='Email'
+                                required={true}
+                                value={email}
+                                onChange={onChange}
+                                icon='user'
+                                iconPosition='left'
+                                autoComplete='username'
+                            />
                         </Form.Field>
                         <Form.Field
                             error={passwordError}
                         >
                             <label htmlFor='password'>Password</label>
-                            <Input fluid={true} type='password' id='password' name='password' placeholder='********' required={true} value={password} onChange={onChange} icon='lock' iconPosition='left' />
+                            <Input
+                                fluid={true}
+                                type='password'
+                                id='password'
+                                name='password'
+                                placeholder='********'
+                                required={true}
+                                value={password}
+                                onChange={onChange}
+                                icon='lock'
+                                iconPosition='left'
+                                autoComplete='current-password'
+                            />
                         </Form.Field>
                         <Button
                             type='submit'

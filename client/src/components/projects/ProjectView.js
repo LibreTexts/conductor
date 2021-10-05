@@ -18,7 +18,8 @@ import {
   Accordion,
   Comment,
   Input,
-  Loader
+  Loader,
+  Search
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -44,7 +45,8 @@ import {
 
 import {
     visibilityOptions,
-    editStatusOptions
+    editStatusOptions,
+    createTaskOptions
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -61,6 +63,7 @@ const ProjectView = (props) => {
 
     // UI
     const [loadingData, setLoadingData] = useState(false);
+    const [loadingTasks, setLoadingTasks] = useState(false);
     const [showProjectCreated, setShowProjectCreated] = useState(false);
 
     // Project Data
@@ -129,44 +132,31 @@ const ProjectView = (props) => {
     const [openTaskDetails, setOpenTaskDetails] = useState([
         true, false, false, false, false
     ]);
-    const [projTasks, setProjTasks] = useState([
-        {
-            open: false,
-            id: 1,
-            task: {
-                name: "Chapter 1"
-            }
-        },
-        {
-            open: false,
-            id: 2,
-            task: {
-                name: "Chapter 2"
-            }
-        },
-        {
-            open: false,
-            id: 3,
-            task: {
-                name: "Chapter 3"
-            }
-        },
-        {
-            open: false,
-            id: 4,
-            task: {
-                name: "Chapter 4"
-            }
-        },
-        {
-            open: false,
-            id: 5,
-            task: {
-                name: "Chapter 5"
-            }
-        }
-    ]);
+    const [projTasks, setProjTasks] = useState([]);
 
+
+    // Task Search
+    const [taskSearchLoading, setTaskSearchLoading] = useState(false);
+    const [taskSearchQuery, setTaskSearchQuery] = useState('');
+    const [taskSearchResults, setTaskSearchResults] = useState([]);
+
+
+    // Add Task Modal
+    const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+    const [addTaskLoading, setAddTaskLoading] = useState(false);
+    const [addTaskTitle, setAddTaskTitle] = useState('');
+    const [addTaskDescrip, setAddTaskDescrip] = useState('');
+    const [addTaskStatus, setAddTaskStatus] = useState('available');
+    const [addTaskDeps, setAddTaskDeps] = useState([]);
+    const [addTaskDepOptions, setAddTaskDepOptions] = useState([]);
+    const [addTaskAssigns, setAddTaskAssigns] = useState([]);
+    const [addTaskAssignOptions, setAddTaskAssignOptions] = useState([]);
+    const [addTaskTitleErr, setAddTaskTitleErr] = useState(false);
+
+
+    // View Task Modal
+    const [showViewTaskModal, setShowViewTaskModal] = useState(false);
+    const [viewTaskData, setViewTaskData] = useState({});
 
     /**
      * Set page title and load Project information on initial load.
@@ -231,6 +221,7 @@ const ProjectView = (props) => {
     useEffect(() => {
         if (canViewDetails) {
             getDiscussionThreads();
+            //getProjectTasks();
         }
     }, [canViewDetails]);
 
@@ -257,6 +248,34 @@ const ProjectView = (props) => {
         }).catch((err) => {
             handleGlobalError(err);
             setLoadingData(false);
+        });
+    };
+
+
+    const getProjectTasks = () => {
+        setLoadingTasks(true);
+        axios.get('/project/tasks', {
+            params: {
+                projectID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.tasks && Array.isArray(res.data.tasks)) {
+                    let newTasks = res.data.tasks.map((item) => {
+                        return {
+                            ...item,
+                            uiOpen: false
+                        }
+                    });
+                    setProjTasks(newTasks);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadingTasks(false);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadingTasks(false);
         });
     };
 
@@ -452,9 +471,7 @@ const ProjectView = (props) => {
         }).then((res) => {
             if (!res.data.err) {
                 if (res.data.users && Array.isArray(res.data.users)) {
-                    var newOptions = [
-                        { key: 'empty', text: 'Clear...', value: '' }
-                    ];
+                    var newOptions = [];
                     res.data.users.forEach((item) => {
                         newOptions.push({
                             key: item.uuid,
@@ -466,6 +483,18 @@ const ProjectView = (props) => {
                             }
                         });
                     });
+                    newOptions.sort((a, b) => {
+                        var normalizedA = String(a.text).toLowerCase().replace(/[^a-zA-Z]/gm, '');
+                        var normalizedB = String(b.text).toLowerCase().replace(/[^a-zA-Z]/gm, '');
+                        if (normalizedA < normalizedB) {
+                            return -1;
+                        }
+                        if (normalizedA > normalizedB) {
+                            return 1;
+                        }
+                        return 0;
+                    });
+                    newOptions.unshift({ key: 'empty', text: 'Clear...', value: '' });
                     setCollabsUserOptions(newOptions);
                 }
             } else {
@@ -763,12 +792,34 @@ const ProjectView = (props) => {
     };
 
 
+    const handleTaskSearch = (_e, { searchString }) => {
+        setTaskSearchLoading(true);
+        setTaskSearchQuery(searchString);
+        let results = projTasks.filter((task) => {
+            var descripString = String(task.title).toLowerCase() + String(task.description).toLowerCase();
+            if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
+                return task;
+            } else {
+                return false;
+            }
+        }).map((item) => {
+            return {
+                taskID: item.taskID,
+                title: item.title,
+                description: item.description
+            }
+        });
+        setTaskSearchResults(results);
+        setTaskSearchLoading(false);
+    };
+
+
     const toggleTaskDetail = (id) => {
         const updatedTasks = projTasks.map((item) => {
-            if (id === item.id) {
+            if (id === item.taskID) {
                 return {
                     ...item,
-                    open: !item.open
+                    uiOpen: !item.uiOpen
                 }
             } else return item;
         });
@@ -779,24 +830,148 @@ const ProjectView = (props) => {
     const expandCollapseAllTasks = () => {
         let updatedTasks = [];
         const foundOpen = projTasks.find((item) => {
-            return (item.open === true);
+            return (item.uiOpen === true);
         });
         if (foundOpen !== undefined) { // one is open, close them all
             updatedTasks = projTasks.map((item) => {
                 return {
                     ...item,
-                    open: false
+                    uiOpen: false
                 }
             });
         } else { // all are closed, open them all
             updatedTasks = projTasks.map((item) => {
                 return {
                     ...item,
-                    open: true
+                    uiOpen: true
                 }
             });
         }
         setProjTasks(updatedTasks);
+    };
+
+
+    const openAddTaskModal = () => {
+        if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+            let assignOptions = project.collaborators.map((item) => {
+                var newOption = {
+                    key: '',
+                    text: 'Unknown User',
+                    value: '',
+                    image: {
+                        avatar: true,
+                        src: '/mini_logo.png'
+                    }
+                };
+                if (item.hasOwnProperty('uuid')) {
+                    newOption.key = item.uuid;
+                    newOption.value = item.uuid;
+                    if (item.hasOwnProperty('firstName') && item.hasOwnProperty('lastName')) {
+                        newOption.text = item.firstName + ' ' + item.lastName;
+                    }
+                    if (item.hasOwnProperty('avatar') && item.avatar !== '') {
+                        newOption.image = {
+                            avatar: true,
+                            src: item.avatar
+                        };
+                    }
+                    return newOption;
+                } else {
+                    return null;
+                }
+            }).filter(item => item !== null);
+            setAddTaskAssignOptions(assignOptions);
+        } else {
+            setAddTaskAssignOptions([]);
+        }
+        if (projTasks.length > 0) {
+            let depOptions = projTasks.map((item) => {
+                var newOption = {
+                    key: '',
+                    text: 'Unknown Task',
+                    value: ''
+                };
+                if (item.hasOwnProperty('taskID')) {
+                    newOption.key = item.taskID;
+                    newOption.value = item.taskID;
+                    if (item.hasOwnProperty('title') && item.title !== '') {
+                        newOption.text = item.title;
+                    }
+                    return newOption;
+                } else {
+                    return null;
+                }
+            }).filter(item => item !== null);
+            setAddTaskDepOptions(depOptions);
+        } else {
+            setAddTaskDepOptions([]);
+        }
+        setAddTaskLoading(false);
+        setAddTaskTitle('');
+        setAddTaskDescrip('');
+        setAddTaskStatus('available');
+        setAddTaskDeps([]);
+        setAddTaskAssigns([]);
+        setAddTaskTitleErr(false);
+        setShowAddTaskModal(true);
+    };
+
+
+    const closeAddTaskModal = () => {
+        setShowAddTaskModal(false);
+        setAddTaskLoading(false);
+        setAddTaskTitle('');
+        setAddTaskDescrip('');
+        setAddTaskStatus('available');
+        setAddTaskDeps([]);
+        setAddTaskDepOptions([]);
+        setAddTaskAssigns([]);
+        setAddTaskAssignOptions([]);
+        setAddTaskTitleErr(false);
+    };
+
+
+    const submitAddTask = () => {
+        setAddTaskTitleErr(false);
+        if (!isEmptyString(addTaskTitle)) {
+            setAddTaskLoading(true);
+            let taskData = {
+                projectID: props.match.params.id,
+                title: addTaskTitle,
+                status: addTaskStatus
+            };
+            if (!isEmptyString(addTaskDescrip)) taskData.description = addTaskDescrip;
+            if (addTaskAssigns.length > 0) taskData.assignees = addTaskAssigns;
+            if (addTaskDeps.length > 0) taskData.dependencies = addTaskDeps;
+            axios.post('/project/task', taskData).then((res) => {
+                if (!res.data.err) {
+                    closeAddTaskModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setAddTaskLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setAddTaskLoading(false);
+            });
+        } else {
+            setAddTaskTitleErr(true);
+        }
+    };
+
+
+    const openViewTaskModal = (taskID) => {
+        let foundTask = projTasks.find((item) => item.taskID === taskID);
+        if (foundTask !== undefined) {
+            setViewTaskData(foundTask);
+            setShowViewTaskModal(true);
+        }
+    };
+
+
+    const closeViewTaskModal = () => {
+        setShowViewTaskModal(false);
+        setViewTaskData({});
     };
 
 
@@ -1164,98 +1339,13 @@ const ProjectView = (props) => {
                                 <Grid.Row>
                                     <Grid.Column>
                                         <Header as='h2' dividing>Tasks</Header>
-                                        <Segment.Group size='large' raised className='mb-4p'>
-                                            <Segment>
-                                                <div className='flex-row-div'>
-                                                    <div className='left-flex'>
-                                                        <Input
-                                                            icon='search'
-                                                            placeholder='Search tasks...'
-                                                            iconPosition='left'
-                                                        />
-                                                    </div>
-                                                    <div className='right-flex'>
-                                                        <Button.Group>
-                                                            <Button
-                                                                color='orange'
-                                                                onClick={expandCollapseAllTasks}
-                                                            >
-                                                                <Icon name='arrows alternate vertical' />
-                                                                Expand/Collapse All
-                                                            </Button>
-                                                            <Button
-                                                                color='olive'
-                                                            >
-                                                                <Icon name='add circle' />
-                                                                Batch Add
-                                                            </Button>
-                                                            <Button
-                                                                color='green'
-                                                            >
-                                                                <Icon name='add' />
-                                                                Add Task
-                                                            </Button>
-                                                        </Button.Group>
-
-                                                    </div>
-                                                </div>
-                                            </Segment>
-                                            <Segment>
-                                                <List divided verticalAlign='middle'>
-                                                    {projTasks.map((item, idx) => {
-                                                        return (
-                                                            <List.Item key={item.id}>
-                                                                <div className='flex-col-div'>
-                                                                    <div className='flex-row-div'>
-                                                                        <div className='left-flex'>
-                                                                            <Icon
-                                                                                name={item.open ? 'chevron down' : 'chevron right'}
-                                                                                className='pointer-hover'
-                                                                                onClick={() => toggleTaskDetail(item.id)}
-                                                                                />
-                                                                                <p className='project-task-title'>{item.task.name} {(idx===0) && <Icon name='check' color='green' />}</p>
-                                                                        </div>
-                                                                      <div className='right-flex'>
-                                                                          <Button icon='search' color='blue'></Button>
-                                                                      </div>
-                                                                    </div>
-                                                                    <div className={item.open ? 'project-task-detail' : 'project-task-detail hidden'}>
-                                                                        <List divided verticalAlign='middle'>
-                                                                            <List.Item className='project-task-subtask'>
-                                                                                <div className='flex-row-div'>
-                                                                                    <div className='left-flex'>
-                                                                                        <Icon
-                                                                                            name='circle outline'
-                                                                                            />
-                                                                                            <p className='project-task-title'>Subtask 1</p>
-                                                                                    </div>
-                                                                                  <div className='right-flex'>
-                                                                                      <Button icon='search' color='blue'></Button>
-                                                                                  </div>
-                                                                                </div>
-                                                                            </List.Item>
-                                                                            <List.Item className='project-task-subtask'>
-                                                                                <div className='flex-row-div'>
-                                                                                    <div className='left-flex'>
-                                                                                        <Icon
-                                                                                            name='circle outline'
-                                                                                            />
-                                                                                            <p className='project-task-title'>Subtask 2</p>
-                                                                                    </div>
-                                                                                  <div className='right-flex'>
-                                                                                      <Button icon='search' color='blue'></Button>
-                                                                                  </div>
-                                                                                </div>
-                                                                            </List.Item>
-                                                                        </List>
-                                                                    </div>
-                                                                </div>
-                                                            </List.Item>
-                                                        )
-                                                    })}
-                                                </List>
-                                            </Segment>
-                                        </Segment.Group>
+                                        <Segment
+                                            size='large'
+                                            raised
+                                            className='mb-2p'
+                                        >
+                                            <p><em>This area has been temporarily disabled during construction.</em></p>
+                                        </Segment>
                                     </Grid.Column>
                                 </Grid.Row>
                             </Grid>
@@ -1446,11 +1536,11 @@ const ProjectView = (props) => {
                         size='large'
                     >
                         <Modal.Header>Manage Project Team</Modal.Header>
-                        <Modal.Content scrolling>
+                        <Modal.Content scrolling id='project-manage-team-content'>
                             <Form noValidate>
                                 <Form.Select
                                     search
-                                    label='Add Collaborator'
+                                    label='Add Team Member'
                                     placeholder='Choose...'
                                     options={collabsUserOptions}
                                     onChange={(_e, { value }) => {
@@ -1468,33 +1558,34 @@ const ProjectView = (props) => {
                                     onClick={submitAddCollaborator}
                                 >
                                     <Icon name='add user' />
-                                    Add Collaborator
+                                    Add Team Member
                                 </Button>
                             </Form>
                             <Divider />
-                            {(hasCollabs) &&
-                                <List divided verticalAlign='middle'>
-                                    {project.collaborators.map((item, idx) => {
-                                        return (
-                                            <List.Item key={idx}>
-                                                <List.Content floated='right'>
-                                                    <Button
-                                                        color='red'
-                                                        onClick={() => submitRemoveCollaborator(item.uuid)}
-                                                    >
-                                                        Remove
-                                                    </Button>
-                                                </List.Content>
-                                                <Image avatar src={item.avatar} />
-                                                <List.Content>{item.firstName} { item.lastName}</List.Content>
-                                            </List.Item>
-                                        )
-                                    })}
-                                </List>
-                            }
-                            {(!hasCollabs) &&
-                                <p className='text-center'><em>No collaborators added.</em></p>
-                            }
+                            <List divided verticalAlign='middle'>
+                                <List.Item key={project.owner?.uuid || 'owner'}>
+                                    <Image avatar src={project.owner?.avatar || '/mini_logo.png'} />
+                                    <List.Content>
+                                        {project.owner?.firstName} {project.owner?.lastName} (<em>Owner</em>)
+                                    </List.Content>
+                                </List.Item>
+                                {(hasCollabs && project.collaborators.map((item, idx) => {
+                                    return (
+                                        <List.Item key={idx}>
+                                            <List.Content floated='right'>
+                                                <Button
+                                                    color='red'
+                                                    onClick={() => submitRemoveCollaborator(item.uuid)}
+                                                >
+                                                    Remove
+                                                </Button>
+                                            </List.Content>
+                                            <Image avatar src={item.avatar} />
+                                            <List.Content>{item.firstName} {item.lastName}</List.Content>
+                                        </List.Item>
+                                    )
+                                }))}
+                            </List>
                         </Modal.Content>
                         <Modal.Actions>
                             <Button
@@ -1624,6 +1715,95 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
+                    {/* Add Task Modal */}
+                    <Modal
+                        open={showAddTaskModal}
+                        closeOnDimmerClick={false}
+                    >
+                        <Modal.Header>New Task</Modal.Header>
+                        <Modal.Content>
+                            <p><em>To add a subtask, use the add button on a task listing.</em></p>
+                            <Form noValidate>
+                                <Form.Field
+                                    required={true}
+                                    error={addTaskTitleErr}
+                                >
+                                    <label>Title</label>
+                                    <Input
+                                        type='text'
+                                        placeholder='Title...'
+                                        icon='file'
+                                        iconPosition='left'
+                                        onChange={(e) => setAddTaskTitle(e.target.value)}
+                                        value={addTaskTitle}
+                                    />
+                                </Form.Field>
+                                <Form.Field>
+                                    <label>Description</label>
+                                    <Input
+                                        type='text'
+                                        placeholder='Description...'
+                                        icon='file alternate'
+                                        iconPosition='left'
+                                        onChange={(e) => setAddTaskDescrip(e.target.value)}
+                                        value={addTaskDescrip}
+                                    />
+                                </Form.Field>
+                                <Form.Select
+                                    label='Status'
+                                    options={createTaskOptions}
+                                    onChange={(e, { value }) => setAddTaskStatus(value)}
+                                    value={addTaskStatus}
+                                />
+                                <Form.Select
+                                    label='Dependencies (must be completed before this task can be completed)'
+                                    options={addTaskDepOptions}
+                                    onChange={(_e, { value }) => setAddTaskDeps(value)}
+                                    value={addTaskDeps}
+                                    multiple
+                                    search
+                                />
+                                <Form.Select
+                                    label='Assignees'
+                                    options={addTaskAssignOptions}
+                                    onChange={(_e, { value }) => setAddTaskAssigns(value)}
+                                    value={addTaskAssigns}
+                                    multiple
+                                    search
+                                />
+                            </Form>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeAddTaskModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={addTaskLoading}
+                                onClick={submitAddTask}
+                            >
+                                <Icon name='add' />
+                                Add Task
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* View Task Modal */}
+                    <Modal
+                        open={showViewTaskModal}
+                        onClose={closeViewTaskModal}
+                    >
+                        <Modal.Header>Task: <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em></Modal.Header>
+                        <Modal.Actions>
+                            <Button
+                                color='blue'
+                                onClick={closeViewTaskModal}
+                            >
+                                Done
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
                 </Grid.Column>
             </Grid.Row>
         </Grid>
@@ -1632,3 +1812,131 @@ const ProjectView = (props) => {
 };
 
 export default ProjectView;
+
+
+
+
+/*
+TASK INTERACE: DO NOT DELETE!!!!!!
+{canViewDetails &&
+    <Grid.Column>
+        <Header as='h2' dividing>Tasks</Header>
+        <Segment.Group size='large' raised className='mb-4p'>
+            <Segment>
+                <div className='flex-row-div'>
+                    <div className='left-flex'>
+                        <Search
+                            input={{
+                                icon: 'search',
+                                iconPosition: 'left',
+                                placeholder: 'Search tasks...'
+                            }}
+                            loading={taskSearchLoading}
+                            onResultSelect={(_e, { result }) => console.log(result)}
+                            onSearchChange={handleTaskSearch}
+                            results={taskSearchResults}
+                            value={taskSearchQuery}
+                        />
+                    </div>
+                    <div className='right-flex'>
+                        <Button.Group>
+                            <Button
+                                color='orange'
+                                onClick={expandCollapseAllTasks}
+                            >
+                                <Icon name='arrows alternate vertical' />
+                                Expand/Collapse All
+                            </Button>
+                            <Button
+                                color='olive'
+                            >
+                                <Icon name='add circle' />
+                                Batch Add
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={addTaskLoading}
+                                onClick={openAddTaskModal}
+                            >
+                                <Icon name='add' />
+                                Add Task
+                            </Button>
+                        </Button.Group>
+
+                    </div>
+                </div>
+            </Segment>
+            <Segment loading={loadingTasks}>
+                <List divided verticalAlign='middle'>
+                    {projTasks.map((item, idx) => {
+                        return (
+                            <List.Item key={item.taskID}>
+                                <div className='flex-col-div'>
+                                    <div className='flex-row-div'>
+                                        <div className='left-flex'>
+                                            <Icon
+                                                name={item.uiOpen ? 'chevron down' : 'chevron right'}
+                                                className='pointer-hover'
+                                                onClick={() => toggleTaskDetail(item.taskID)}
+                                                />
+                                                <p className='project-task-title'>{item.title} {(item.status === 'completed') && <Icon name='check' color='green' />}</p>
+                                        </div>
+                                      <div className='right-flex'>
+                                          <Button
+                                            onClick={() => openViewTaskModal(item.taskID)}
+                                            icon='search'
+                                            color='blue'
+                                        >
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
+                                        <List divided verticalAlign='middle'>
+                                            {(item.hasOwnProperty('subtasks') && item.subtasks.length > 0)
+                                                ? item.subtasks.map((subtask) => {
+                                                    return (
+                                                        <List.Item className='project-task-subtask' key={subtask.taskID}>
+                                                            <div className='flex-row-div'>
+                                                                <div className='left-flex'>
+                                                                    <Icon
+                                                                        name='circle outline'
+                                                                        />
+                                                                        <p className='project-task-title'>{subtask.title}</p>
+                                                                </div>
+                                                              <div className='right-flex'>
+                                                                  <Button icon='search' color='blue'></Button>
+                                                              </div>
+                                                            </div>
+                                                        </List.Item>
+                                                    )
+                                                })
+                                                : (
+                                                    <List.Item className='project-task-subtask'>
+                                                        <p><em>No subtasks yet.</em></p>
+                                                    </List.Item>
+                                                )
+                                            }
+                                        </List>
+                                    </div>
+                                </div>
+                            </List.Item>
+                        )
+                    })}
+                </List>
+            </Segment>
+        </Segment.Group>
+    </Grid.Column>
+}
+{!canViewDetails &&
+    <Grid.Column>
+        <Header as='h2' dividing>Tasks</Header>
+        <Segment
+            size='large'
+            raised
+            className='mb-2p'
+        >
+            <p><em>You don't have permission to view this project's Tasks yet.</em></p>
+        </Segment>
+    </Grid.Column>
+}
+*/

@@ -298,7 +298,7 @@ const CommonsCatalog = (_props) => {
      * performed.
      */
     useEffect(() => {
-        if (checkedParams.current && initialSearch.current) {
+        if (checkedParams.current) {
             searchCommonsCatalog();
         }
     }, [checkedParams.current, initialSearch.current, location.search]);
@@ -692,44 +692,79 @@ const CommonsCatalog = (_props) => {
                                 </div>
                             </div>
                         </Segment>
-                        {(initialSearch.current) &&
-                            <Segment>
-                                <Breakpoint name='desktop'>
-                                    <div className='commons-content-pagemenu'>
-                                        <div className='commons-content-pagemenu-left'>
-                                            <span>Displaying </span>
-                                            <Dropdown
-                                                className='commons-content-pagemenu-dropdown'
-                                                selection
-                                                options={catalogItemsPerPageOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setItemsPerPage(value);
-                                                }}
-                                                value={itemsPerPage}
-                                            />
-                                            <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                        </div>
-                                        <div className='commons-content-pagemenu-center'>
-                                            <Pagination
-                                                activePage={activePage}
-                                                totalPages={totalPages}
-                                                firstItem={null}
-                                                lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                            />
-                                        </div>
-                                        <div className='commons-content-pagemenu-right'>
-                                            <Dropdown
-                                                placeholder='Sort by...'
-                                                floating
-                                                selection
-                                                button
-                                                options={sortOptions}
-                                                onChange={(_e, { value }) => {
-                                                    setSortChoice(value);
-                                                }}
-                                                value={sortChoice}
-                                            />
+                        <Segment>
+                            <Breakpoint name='desktop'>
+                                <div className='commons-content-pagemenu'>
+                                    <div className='commons-content-pagemenu-left'>
+                                        <span>Displaying </span>
+                                        <Dropdown
+                                            className='commons-content-pagemenu-dropdown'
+                                            selection
+                                            options={catalogItemsPerPageOptions}
+                                            onChange={(_e, { value }) => {
+                                                setItemsPerPage(value);
+                                            }}
+                                            value={itemsPerPage}
+                                        />
+                                        <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                    </div>
+                                    <div className='commons-content-pagemenu-center'>
+                                        <Pagination
+                                            activePage={activePage}
+                                            totalPages={totalPages}
+                                            firstItem={null}
+                                            lastItem={null}
+                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                        />
+                                    </div>
+                                    <div className='commons-content-pagemenu-right'>
+                                        <Dropdown
+                                            placeholder='Sort by...'
+                                            floating
+                                            selection
+                                            button
+                                            options={sortOptions}
+                                            onChange={(_e, { value }) => {
+                                                setSortChoice(value);
+                                            }}
+                                            value={sortChoice}
+                                        />
+                                        <Dropdown
+                                            placeholder='Display mode...'
+                                            floating
+                                            selection
+                                            button
+                                            options={catalogDisplayOptions}
+                                            onChange={(_e, { value }) => {
+                                                setDisplayChoice(value);
+                                            }}
+                                            value={displayChoice}
+                                        />
+
+                                    </div>
+                                </div>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
+                                <Grid>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <div className='center-flex flex-wrap'>
+                                                <span>Displaying </span>
+                                                <Dropdown
+                                                    className='commons-content-pagemenu-dropdown'
+                                                    selection
+                                                    options={catalogItemsPerPageOptions}
+                                                    onChange={(_e, { value }) => {
+                                                        setItemsPerPage(value);
+                                                    }}
+                                                    value={itemsPerPage}
+                                                />
+                                                <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                            </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
                                             <Dropdown
                                                 placeholder='Display mode...'
                                                 floating
@@ -740,146 +775,105 @@ const CommonsCatalog = (_props) => {
                                                     setDisplayChoice(value);
                                                 }}
                                                 value={displayChoice}
+                                                fluid
                                             />
-
-                                        </div>
-                                    </div>
-                                </Breakpoint>
-                                <Breakpoint name='mobileOrTablet'>
-                                    <Grid>
-                                        <Grid.Row columns={1}>
-                                            <Grid.Column>
-                                                <div className='center-flex flex-wrap'>
-                                                    <span>Displaying </span>
-                                                    <Dropdown
-                                                        className='commons-content-pagemenu-dropdown'
-                                                        selection
-                                                        options={catalogItemsPerPageOptions}
-                                                        onChange={(_e, { value }) => {
-                                                            setItemsPerPage(value);
-                                                        }}
-                                                        value={itemsPerPage}
-                                                    />
-                                                    <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                                </div>
-                                            </Grid.Column>
-                                        </Grid.Row>
-                                        <Grid.Row columns={1}>
-                                            <Grid.Column>
-                                                <Dropdown
-                                                    placeholder='Display mode...'
-                                                    floating
-                                                    selection
-                                                    button
-                                                    options={catalogDisplayOptions}
-                                                    onChange={(_e, { value }) => {
-                                                        setDisplayChoice(value);
-                                                    }}
-                                                    value={displayChoice}
-                                                    fluid
-                                                />
-                                                <Dropdown
-                                                    placeholder='Sort by...'
-                                                    floating
-                                                    selection
-                                                    button
-                                                    options={sortOptions}
-                                                    onChange={(_e, { value }) => {
-                                                        setSortChoice(value);
-                                                    }}
-                                                    value={sortChoice}
-                                                    fluid
-                                                    className='commons-filter'
-                                                />
-                                            </Grid.Column>
-                                        </Grid.Row>
-                                        <Grid.Row columns={1}>
-                                            <Grid.Column className='commons-pagination-mobile-container'>
-                                                <Pagination
-                                                    activePage={activePage}
-                                                    totalPages={totalPages}
-                                                    siblingRange={1}
-                                                    firstItem={null}
-                                                    lastItem={null}
-                                                    onPageChange={(_e, data) => { setActivePage(data.activePage) }}
-                                                />
-                                            </Grid.Column>
-                                        </Grid.Row>
-                                    </Grid>
-                                </Breakpoint>
-                            </Segment>
-                        }
-                        {(initialSearch.current) &&
-                            <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
-                                {displayChoice === 'visual'
-                                    ? (<VisualMode />)
-                                    : (<ItemizedMode />)
-                                }
-                            </Segment>
-                        }
-                        {(initialSearch.current) &&
-                            <Segment>
-                                <Breakpoint name='desktop'>
-                                    <div className='commons-content-pagemenu'>
-                                        <div className='commons-content-pagemenu-left'>
-                                            <span>Displaying </span>
                                             <Dropdown
-                                                className='commons-content-pagemenu-dropdown'
+                                                placeholder='Sort by...'
+                                                floating
                                                 selection
-                                                options={catalogItemsPerPageOptions}
+                                                button
+                                                options={sortOptions}
                                                 onChange={(_e, { value }) => {
-                                                    setItemsPerPage(value);
+                                                    setSortChoice(value);
                                                 }}
-                                                value={itemsPerPage}
+                                                value={sortChoice}
+                                                fluid
+                                                className='commons-filter'
                                             />
-                                            <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                        </div>
-                                        <div className='commons-content-pagemenu-right'>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column className='commons-pagination-mobile-container'>
                                             <Pagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
+                                                siblingRange={1}
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={(_e, data) => { setActivePage(data.activePage) }}
                                             />
-                                        </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                        </Segment>
+                        <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
+                            {displayChoice === 'visual'
+                                ? (<VisualMode />)
+                                : (<ItemizedMode />)
+                            }
+                        </Segment>
+                        <Segment>
+                            <Breakpoint name='desktop'>
+                                <div className='commons-content-pagemenu'>
+                                    <div className='commons-content-pagemenu-left'>
+                                        <span>Displaying </span>
+                                        <Dropdown
+                                            className='commons-content-pagemenu-dropdown'
+                                            selection
+                                            options={catalogItemsPerPageOptions}
+                                            onChange={(_e, { value }) => {
+                                                setItemsPerPage(value);
+                                            }}
+                                            value={itemsPerPage}
+                                        />
+                                        <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
-                                </Breakpoint>
-                                <Breakpoint name='mobileOrTablet'>
-                                    <Grid>
-                                        <Grid.Row columns={1}>
-                                            <Grid.Column>
-                                                <div className='center-flex flex-wrap'>
-                                                    <span>Displaying </span>
-                                                    <Dropdown
-                                                        className='commons-content-pagemenu-dropdown'
-                                                        selection
-                                                        options={catalogItemsPerPageOptions}
-                                                        onChange={(_e, { value }) => {
-                                                            setItemsPerPage(value);
-                                                        }}
-                                                        value={itemsPerPage}
-                                                    />
-                                                    <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
-                                                </div>
-                                            </Grid.Column>
-                                        </Grid.Row>
-                                        <Grid.Row columns={1}>
-                                            <Grid.Column className='commons-pagination-mobile-container'>
-                                                <Pagination
-                                                    activePage={activePage}
-                                                    totalPages={totalPages}
-                                                    siblingRange={1}
-                                                    firstItem={null}
-                                                    lastItem={null}
-                                                    onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                    <div className='commons-content-pagemenu-right'>
+                                        <Pagination
+                                            activePage={activePage}
+                                            totalPages={totalPages}
+                                            firstItem={null}
+                                            lastItem={null}
+                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                        />
+                                    </div>
+                                </div>
+                            </Breakpoint>
+                            <Breakpoint name='mobileOrTablet'>
+                                <Grid>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <div className='center-flex flex-wrap'>
+                                                <span>Displaying </span>
+                                                <Dropdown
+                                                    className='commons-content-pagemenu-dropdown'
+                                                    selection
+                                                    options={catalogItemsPerPageOptions}
+                                                    onChange={(_e, { value }) => {
+                                                        setItemsPerPage(value);
+                                                    }}
+                                                    value={itemsPerPage}
                                                 />
-                                            </Grid.Column>
-                                        </Grid.Row>
-                                    </Grid>
-                                </Breakpoint>
-                            </Segment>
-                        }
+                                                <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                            </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column className='commons-pagination-mobile-container'>
+                                            <Pagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                siblingRange={1}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            />
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                        </Segment>
                     </Segment.Group>
                 </Grid.Column>
             </Grid.Row>

@@ -28,7 +28,10 @@ const conductorErrors = {
     'err21': "Invalid reset token. Please try resetting your password again.",
     'err22': "Sorry, we're having trouble retrieving that data.",
     'err23': "Incorrect current password.",
-    'err24': "Specified parent task not found."
+    'err24': "Specified parent task not found.",
+    'err25': "A task can't be marked completed until its dependencies are completed.",
+    'err26': "A user must be a project team member to be assigned to a task.",
+    'err27': "A subtask cannot be dependent on its parent task."
 };
 
 module.exports = conductorErrors;

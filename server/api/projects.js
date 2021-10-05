@@ -151,7 +151,7 @@ const deleteProject = (req, res) => {
         projectID: req.body.projectID
     }).then((project) => {
         if (project) {
-            if ((req.decoded.uuid === project.owner)) {
+            if ((req.user?.decoded?.uuid === project.owner)) {
                 return Project.deleteOne({
                     projectID: req.body.projectID
                 });
@@ -302,12 +302,8 @@ const getProject = (req, res) => {
                 return tagResult.title;
             });
             delete projResult.tagResults; // prune lookup results
-            // resolve owner's uuid
-            var ownerUUID;
-            if (typeof(projResult.owner) === 'object') ownerUUID = projResult.owner.uuid;
-            else if (typeof(projResult.owner) === 'string') ownerUUID = projResult.owner;
             // check user has permission to view project
-            if (checkProjectGeneralPermission(projResult, ownerUUID, projResult.collaborators, req.user)) {
+            if (checkProjectGeneralPermission(projResult, req.user)) {
                 if (projResult.collaboratorsData) {
                     projResult.collaborators = projResult.collaboratorsData;
                     delete projResult.collaboratorsData;
@@ -397,7 +393,7 @@ const updateProject = (req, res) => {
         projectID: req.body.projectID
     }).then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 // determine if there are changes to save
                 if (req.body.hasOwnProperty('title') && req.body.title !== project.title) {
                     updateObj.title = req.body.title;
@@ -718,7 +714,7 @@ const getAddableCollaborators = (req, res) => {
         projectID: req.query.projectID
     }).lean().then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 var unadd = [project.owner, ...project.collaborators]
                 return User.aggregate([
                     {
@@ -934,7 +930,7 @@ const createDiscussionThread = (req, res) => {
         projectID: req.body.projectID
     }).lean().then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 const thread = new Thread({
                     threadID: b62(14),
                     project: project.projectID,
@@ -990,7 +986,7 @@ const deleteDiscussionThread = (req, res) => {
         }
     }).then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 return Thread.deleteOne({
                     threadID: req.body.threadID
                 });
@@ -1038,7 +1034,7 @@ const getProjectThreads = (req, res) => {
         projectID: req.query.projectID
     }).lean().then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 return Thread.aggregate([
                     {
                         $match: {
@@ -1164,7 +1160,7 @@ const createThreadMessage = (req, res) => {
         }
     }).then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 const message = new Message({
                     messageID: b62(15),
                     thread: req.body.threadID,
@@ -1222,7 +1218,7 @@ const getThreadMessages = (req, res) => {
         }
     }).then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project.owner, project.collaborators, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 return Message.aggregate([
                     {
                         $match: {
@@ -1299,18 +1295,30 @@ const getThreadMessages = (req, res) => {
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
- * @param {string} owner            - the project owner's UUID
- * @param {string[]} collaborators  - the array of collaborator UUIDs
  * @param {Object} user             - the current user context
  * @return {Boolean} true if user has permission, false otherwise
  */
-const checkProjectGeneralPermission = (project, owner, collaborators, user) => {
+const checkProjectGeneralPermission = (project, user) => {
     // check if project is public/available, or if the user is the owner or a
     // collaborator
+    var projOwner = '';
+    var projCollabs = [];
+    if (project.hasOwnProperty('owner')) {
+        if (typeof(project.owner) === 'string') {
+            projOwner = project.owner;
+        } else if (typeof(project.owner) === 'object') {
+            if (project.owner?.uuid !== undefined) {
+                projOwner = project.owner.uuid;
+            }
+        }
+    }
+    if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+        projCollabs = project.collaborators;
+    }
     if (project.visibility === 'public'
         || project.status === 'available'
-        || owner === user.decoded?.uuid
-        || collaborators.includes(user.decoded?.uuid)) {
+        || projOwner === user.decoded?.uuid
+        || projCollabs.includes(user.decoded?.uuid)) {
             return true;
     } else {
         // check if user is a SuperAdmin
@@ -1322,14 +1330,27 @@ const checkProjectGeneralPermission = (project, owner, collaborators, user) => {
 
 /**
  * Checks if a user has permission to perform member-only actions on a Project.
- * @param {string} owner            - the project owner's UUID
- * @param {string[]} collaborators  - the array of collaborator UUIDs
+ * @param {Object} project          - the project data object
  * @param {Object} user             - the current user context
  * @return {Boolean} true if user has permission, false otherwise
  */
-const checkProjectMemberPermission = (owner, collaborators, user) => {
+const checkProjectMemberPermission = (project, user) => {
     // check if the user is the owner or a collaborator
-    if (owner === user.decoded?.uuid || collaborators.includes(user.decoded?.uuid)) {
+    var projOwner = '';
+    var projCollabs = [];
+    if (project.hasOwnProperty('owner')) {
+        if (typeof(project.owner) === 'string') {
+            projOwner = project.owner;
+        } else if (typeof(project.owner) === 'object') {
+            if (project.owner?.uuid !== undefined) {
+                projOwner = project.owner.uuid;
+            }
+        }
+    }
+    if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+        projCollabs = project.collaborators;
+    }
+    if (projOwner === user.decoded?.uuid || projCollabs.includes(user.decoded?.uuid)) {
         return true;
     } else {
         // check if user is a SuperAdmin

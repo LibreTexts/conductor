@@ -19,8 +19,15 @@ const editStatusOptions = [
     { key: 'open', text: 'Open/In Progress', value: 'open' }
 ];
 
+const createTaskOptions = [
+    { key: 'available', text: 'Available', value: 'available' },
+    { key: 'inprogress', text: 'In Progress', value: 'inprogress' },
+    { key: 'completed', text: 'Completed', value: 'completed' },
+];
+
 module.exports = {
     visibilityOptions,
     statusOptions,
-    editStatusOptions
+    editStatusOptions,
+    createTaskOptions
 }

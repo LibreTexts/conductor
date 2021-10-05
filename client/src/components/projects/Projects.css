@@ -27,6 +27,10 @@
     max-height: 700px;
 }
 
+#project-manage-team-content {
+    min-height: 50vh;
+}
+
 #access-table>thead>tr>th{
     text-align: center;
 }

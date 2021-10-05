@@ -102,7 +102,7 @@ const ProjectsPortal = (props) => {
             } else {
                 return false;
             }
-        })
+        });
         if (sortChoice === 'title') {
             const sorted = [...filtered].sort((a, b) => {
                 var normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
