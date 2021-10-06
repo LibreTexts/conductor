@@ -60,9 +60,17 @@ const CommonsNavbar = (_props) => {
                                         <Icon name='university' />
                                         ASCCC (OERI)
                                     </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://hacc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        HACC
+                                    </Dropdown.Item>
                                     <Dropdown.Item as='a' href='http://highline.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='university' />
                                         Highline College
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://k-state.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        Kansas State University
                                     </Dropdown.Item>
                                     <Dropdown.Item as='a' href='http://losrios.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='university' />
@@ -71,6 +79,10 @@ const CommonsNavbar = (_props) => {
                                     <Dropdown.Item as='a' href='http://pgcc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='university' />
                                         Prince George's Community College
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='http://reedley.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='university' />
+                                        Reedley College
                                     </Dropdown.Item>
                                     <Dropdown.Item as='a' href='http://ucdavis.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='university' />
@@ -139,9 +151,17 @@ const CommonsNavbar = (_props) => {
                                     <Icon name='university' />
                                     ASCCC (OERI)
                                 </Menu.Item>
+                                <Menu.Item as='a' href='http://hacc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    HACC
+                                </Menu.Item>
                                 <Menu.Item as='a' href='http://highline.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                     <Icon name='university' />
                                     Highline College
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://k-state.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    Kansas State University
                                 </Menu.Item>
                                 <Menu.Item as='a' href='http://losrios.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                     <Icon name='university' />
@@ -150,6 +170,10 @@ const CommonsNavbar = (_props) => {
                                 <Menu.Item as='a' href='http://pgcc.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                     <Icon name='university' />
                                     Prince George's Community College
+                                </Menu.Item>
+                                <Menu.Item as='a' href='http://reedley.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
+                                    <Icon name='university' />
+                                    Reedley College
                                 </Menu.Item>
                                 <Menu.Item as='a' href='http://ucdavis.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                     <Icon name='university' />
