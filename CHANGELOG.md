@@ -1,6 +1,11 @@
 # Changelog
 
 ## 10-05-2021
+#### :satellite: Server
+* Fixed a bug with loading Books Manager on Campus Commons instances
+
+
+## 10-05-2021
 #### :art: UI/UX
 * Updated Commons Catalog to show default search results on load
 * Various upgrades to the Project Manage Team modal

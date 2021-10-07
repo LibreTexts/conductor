@@ -640,7 +640,7 @@ const getMasterCatalog = (req, res) => {
         }
     }).then((customCatalogRes) => {
         // Check if book has been enabled via Custom Catalog
-        if (Object.keys(customCatalogRes).length > 0) {
+        if ((customCatalogRes !== null) && (Object.keys(customCatalogRes).length > 0)) {
             if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources)) {
                 sortedBooks.forEach((book) => {
                     if (customCatalogRes.resources.includes(book.bookID)) {
