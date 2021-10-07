@@ -100,6 +100,18 @@ body {
     color: #db2828;
 }
 
+.color-semanticteal {
+    color: #00b5ad;
+}
+
+.color-semanticblue {
+    color: #2185d0;
+}
+
+.color-semanticgreen {
+    color: #21ba45;
+}
+
 .no-margin {
     margin: 0 !important;
 }

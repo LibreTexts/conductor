@@ -25,9 +25,23 @@ const createTaskOptions = [
     { key: 'completed', text: 'Completed', value: 'completed' },
 ];
 
+const getTaskStatusText = (status) => {
+    switch (status) {
+        case 'completed':
+            return 'Completed';
+        case 'inprogress':
+            return 'In Progress';
+        case 'available':
+            return 'Available';
+        default:
+            return 'Unknown';
+    }
+};
+
 module.exports = {
     visibilityOptions,
     statusOptions,
     editStatusOptions,
-    createTaskOptions
+    createTaskOptions,
+    getTaskStatusText
 }

@@ -1,6 +1,17 @@
 # Changelog
 
-## 10-05-2021
+## 10-07-2021
+#### :art: UI/UX
+* Removed pagination from Projects Portal
+* Added Project Owner to Projects Portal table
+* Added ability to delete messages in Project Discussion threads
+* More work on Projects Task interface
+
+#### :satellite: Server
+* Logic to delete Project Discussion thread messages
+
+
+## 10-06-2021
 #### :satellite: Server
 * Fixed a bug with loading Books Manager on Campus Commons instances
 

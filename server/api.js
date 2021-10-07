@@ -377,9 +377,17 @@ router.route('/project/thread/messages').get(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('getMessages'),
     middleware.checkValidationErrors, projectsAPI.getThreadMessages);
 
-router.route('/project/thread/message').post(authAPI.verifyRequest,
-    authAPI.getUserAttributes, projectsAPI.validate('createMessage'),
-    middleware.checkValidationErrors, projectsAPI.createThreadMessage);
+router.route('/project/thread/message')
+    .post(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        projectsAPI.validate('createMessage'),
+        middleware.checkValidationErrors,
+        projectsAPI.createThreadMessage)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        projectsAPI.validate('deleteMessage'),
+        middleware.checkValidationErrors,
+        projectsAPI.deleteThreadMessage);
 
 router.route('/project/tasks').get(authAPI.verifyRequest,
     authAPI.getUserAttributes, tasksAPI.validate('getProjectTasks'),

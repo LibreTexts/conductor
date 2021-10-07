@@ -32,9 +32,6 @@ const ProjectsPortal = (props) => {
 
     // UI
     const [loadedProjects, setLoadedProjects] = useState(true);
-    const [activePage, setActivePage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchString, setSearchString] = useState('');
     const [sortChoice, setSortChoice] = useState('title');
 
@@ -45,7 +42,6 @@ const ProjectsPortal = (props) => {
     // Projects Data
     const [projects, setProjects] = useState([]);
     const [displayProjects, setDisplayProjects] = useState([]);
-    const [pageProjects, setPageProjects] = useState([]);
 
     useEffect(() => {
         date.plugin(ordinal);
@@ -69,10 +65,12 @@ const ProjectsPortal = (props) => {
      * and the selected itemsPerPage and update the
      * set of projects to display.
      */
+     /*
     useEffect(() => {
         setTotalPages(Math.ceil(displayProjects.length/itemsPerPage));
         setPageProjects(displayProjects.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
     }, [itemsPerPage, displayProjects, activePage]);
+    */
 
 
     /**
@@ -127,7 +125,8 @@ const ProjectsPortal = (props) => {
         axios.get('/projects/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.projects && Array.isArray(res.data.projects)) {
-                    setProjects(res.data.projects)
+                    setProjects(res.data.projects);
+                    console.log(res.data.projects);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -190,49 +189,26 @@ const ProjectsPortal = (props) => {
                                 </Button.Content>
                             </Button>
                         </Segment>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <span>Displaying </span>
-                                    <Dropdown
-                                        className='commons-content-pagemenu-dropdown'
-                                        selection
-                                        options={itemsPerPageOptions}
-                                        onChange={(_e, { value }) => {
-                                            setItemsPerPage(value);
-                                        }}
-                                        value={itemsPerPage}
-                                    />
-                                    <span> items per page of <strong>{Number(projects.length).toLocaleString()}</strong> results.</span>
-                                </div>
-                                <div className='right-flex'>
-                                    <Pagination
-                                        activePage={activePage}
-                                        totalPages={totalPages}
-                                        firstItem={null}
-                                        lastItem={null}
-                                        onPageChange={(_e, data) => {
-                                            setActivePage(data.activePage)
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </Segment>
                         <Segment loading={!loadedProjects}>
                             <Table celled>
                                 <Table.Header>
                                     <Table.Row>
-                                        <Table.HeaderCell width={5}><Header sub>Title</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Current Progress</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={4}><Header sub>Last Updated</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Current Progress</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Owner</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
-                                    {(pageProjects.length > 0) &&
-                                        pageProjects.map((item, index) => {
+                                    {(displayProjects.length > 0) &&
+                                        displayProjects.map((item, index) => {
                                             const itemDate = new Date(item.updatedAt);
                                             item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
                                             item.updatedTime = date.format(itemDate, 'h:mm A');
+                                            let projectOwner = 'Unknown User';
+                                            if (item.owner?.firstName && item.owner?.lastName) {
+                                                projectOwner = item.owner.firstName + ' ' + item.owner.lastName;
+                                            }
                                             return (
                                                 <Table.Row key={index}>
                                                     <Table.Cell>
@@ -242,13 +218,16 @@ const ProjectsPortal = (props) => {
                                                         <p>{item.currentProgress}%</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
+                                                        <p>{projectOwner}</p>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
                                                         <p>{item.updatedDate} at {item.updatedTime}</p>
                                                     </Table.Cell>
                                                 </Table.Row>
                                             )
                                         })
                                     }
-                                    {(pageProjects.length === 0) &&
+                                    {(displayProjects.length === 0) &&
                                         <Table.Row>
                                             <Table.Cell colSpan={3}>
                                                 <p className='text-center'><em>No results found.</em></p>

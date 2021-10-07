@@ -46,7 +46,8 @@ import {
 import {
     visibilityOptions,
     editStatusOptions,
-    createTaskOptions
+    createTaskOptions,
+    getTaskStatusText
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -111,10 +112,14 @@ const ProjectView = (props) => {
     const [newThreadTitle, setNewThreadTitle] = useState('');
     const [newThreadLoading, setNewThreadLoading] = useState(false);
 
-
     // Delete Thread Modal
     const [showDelThreadModal, setShowDelThreadModal] = useState(false);
     const [delThreadLoading, setDelThreadLoading] = useState(false);
+
+    // Delete Message Modal
+    const [showDelMsgModal, setShowDelMsgModal] = useState(false);
+    const [delMsgID, setDelMsgID] = useState('');
+    const [delMsgLoading, setDelMsgLoading] = useState(false);
 
 
     // Discussion
@@ -770,7 +775,7 @@ const ProjectView = (props) => {
                     getDiscussionThreads();
                     closeDelThreadModal();
                 } else {
-                    setDelThreadLoading(true);
+                    setDelThreadLoading(false);
                     handleGlobalError(res.data.errMsg);
                 }
             }).catch((err) => {
@@ -789,6 +794,42 @@ const ProjectView = (props) => {
     const closeDelThreadModal = () => {
         setShowDelThreadModal(false);
         setDelThreadLoading(false);
+    };
+
+
+    const openDelMsgModal = (msgID) => {
+        if (msgID !== null && !isEmptyString(msgID)) {
+            setDelMsgID(msgID);
+            setDelMsgLoading(false);
+            setShowDelMsgModal(true);
+        }
+    };
+
+    const closeDelMsgModal = () => {
+        setShowDelMsgModal(false);
+        setDelMsgID('');
+        setDelMsgLoading(false);
+    };
+
+    const submitDeleteMessage = () => {
+        setDelMsgLoading(true);
+        axios.delete('/project/thread/message', {
+            data: {
+                messageID: delMsgID
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                getDiscussionThreads();
+                getThreadMessages();
+                closeDelMsgModal();
+            } else {
+                setDelMsgLoading(false);
+                handleGlobalError(res.data.errMsg);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+            setDelMsgLoading(false);
+        });
     };
 
 
@@ -1183,8 +1224,18 @@ const ProjectView = (props) => {
                                                                 {(loadedProjThreads && projectThreads.length > 0) &&
                                                                     projectThreads.map((item, idx) => {
                                                                         return (
-                                                                            <div className='project-threads-list-item' key={item.threadID} onClick={() => activateThread(item)}>
-                                                                                <p className={activeThread === item.threadID ? 'project-threads-list-title active' : 'project-threads-list-title'}>
+                                                                            <div
+                                                                                className={activeThread === item.threadID
+                                                                                    ? 'project-threads-list-item active'
+                                                                                    : 'project-threads-list-item'}
+                                                                                key={item.threadID}
+                                                                                onClick={() => activateThread(item)}
+                                                                            >
+                                                                                <p
+                                                                                    className={activeThread === item.threadID
+                                                                                        ? 'project-threads-list-title active'
+                                                                                        : 'project-threads-list-title'}
+                                                                                >
                                                                                     {item.title}
                                                                                 </p>
                                                                                 <p className='project-threads-list-descrip'>
@@ -1253,6 +1304,11 @@ const ProjectView = (props) => {
                                                                                       <div>{item.date} at {item.time}</div>
                                                                                     </Comment.Metadata>
                                                                                     <Comment.Text>{item.body}</Comment.Text>
+                                                                                    {(item.author?.uuid === user.uuid) &&
+                                                                                        <Comment.Actions>
+                                                                                            <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
+                                                                                        </Comment.Actions>
+                                                                                    }
                                                                                   </Comment.Content>
                                                                                 </Comment>
                                                                             )
@@ -1697,7 +1753,7 @@ const ProjectView = (props) => {
                         <Modal.Header>Delete Thread</Modal.Header>
                         <Modal.Content>
                             <p>Are you sure you want to delete the <strong>{activeThreadTitle}</strong> thread?</p>
-                            <p><em>This will delete all messages within the thread.</em></p>
+                            <p><strong>This will delete all messages within the thread. This action is irreversible.</strong></p>
                         </Modal.Content>
                         <Modal.Actions>
                             <Button
@@ -1712,6 +1768,32 @@ const ProjectView = (props) => {
                             >
                                 <Icon name='trash' />
                                 Delete Thread
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Delete Discussion Message Modal */}
+                    <Modal
+                        open={showDelMsgModal}
+                        onClose={closeDelMsgModal}
+                    >
+                        <Modal.Header>Delete Message</Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to this message? <span className='muted-text'>(MessageID: {delMsgID})</span></p>
+                            <p><strong>This action is irreversible.</strong></p>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeDelMsgModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='red'
+                                loading={delMsgLoading}
+                                onClick={submitDeleteMessage}
+                            >
+                                <Icon name='trash' />
+                                Delete Message
                             </Button>
                         </Modal.Actions>
                     </Modal>
@@ -1793,16 +1875,35 @@ const ProjectView = (props) => {
                     <Modal
                         open={showViewTaskModal}
                         onClose={closeViewTaskModal}
+                        size='fullscreen'
+                        closeIcon
+                        style={{
+                            left: 'auto !important',
+                            right: 'auto !important'
+                        }}
                     >
-                        <Modal.Header>Task: <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em></Modal.Header>
-                        <Modal.Actions>
-                            <Button
-                                color='blue'
-                                onClick={closeViewTaskModal}
-                            >
-                                Done
-                            </Button>
-                        </Modal.Actions>
+                        <Modal.Header>
+                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>
+                        </Modal.Header>
+                        <Modal.Content scrolling>
+                            <div className='flex-row-div'>
+                                <div>
+                                    <Header sub>Status</Header>
+                                    <p className={(viewTaskData.status === 'completed') ? 'color-semanticgreen' : (viewTaskData.status === 'inprogress' ? 'color-semanticblue' : 'color-semanticteal')}>{getTaskStatusText(viewTaskData.status)}</p>
+                                </div>
+                                <div>
+                                    <Header sub>Created</Header>
+                                    <p>October 7th, 2021</p>
+                                </div>
+                                <div>
+                                    <Header sub>Assignees</Header>
+                                    <p>Avis here...</p>
+                                </div>
+                            </div>
+                            <Header as='h3' dividing>Description</Header>
+                            <p>{viewTaskData.description}</p>
+                            <Header as='h3' dividing>Subtasks</Header>
+                        </Modal.Content>
                     </Modal>
                 </Grid.Column>
             </Grid.Row>
@@ -1817,7 +1918,7 @@ export default ProjectView;
 
 
 /*
-TASK INTERACE: DO NOT DELETE!!!!!!
+TASK INTERFACE: DO NOT DELETE!!!!!!
 {canViewDetails &&
     <Grid.Column>
         <Header as='h2' dividing>Tasks</Header>
@@ -1899,9 +2000,10 @@ TASK INTERACE: DO NOT DELETE!!!!!!
                                                             <div className='flex-row-div'>
                                                                 <div className='left-flex'>
                                                                     <Icon
-                                                                        name='circle outline'
-                                                                        />
-                                                                        <p className='project-task-title'>{subtask.title}</p>
+                                                                        name={subtask.status === 'completed' ? 'check' : 'circle outline'}
+                                                                        color={subtask.status === 'completed' ? 'green' : 'black'}
+                                                                    />
+                                                                    <p className='project-task-title'>{subtask.title}</p>
                                                                 </div>
                                                               <div className='right-flex'>
                                                                   <Button icon='search' color='blue'></Button>

@@ -541,6 +541,37 @@ const getUserProjects = (req, res) => {
                 ]
             }
         }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    owner: '$owner'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$uuid', '$$owner']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'owner'
+            }
+        }, {
+            $set: {
+                owner: {
+                    $arrayElemAt: ['$owner', 0]
+                }
+            }
+        }, {
             $sort: {
                 title: -1
             }
@@ -1199,6 +1230,51 @@ const createThreadMessage = (req, res) => {
 
 
 /**
+ * Deletes a Message within a Project Thread.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'deleteMessage'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const deleteThreadMessage = (req, res) => {
+    Message.findOne({
+        messageID: req.body.messageID
+    }).lean().then((message) => {
+        if (message) {
+            if ((message.author === req.user?.decoded?.uuid)
+                || (authAPI.checkHasRole(req.user, 'libretexts', 'superadmin'))) {
+                    return Message.deleteOne({
+                        messageID: req.body.messageID
+                    })
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((msgDeleteRes) => {
+        if (msgDeleteRes.deletedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Message successfully deleted.'
+            });
+        } else {
+            throw(new Error('deletefail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
  * Retrieves all Messages within a Project Thread.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getMessages'
@@ -1471,6 +1547,10 @@ const validate = (method) => {
                 body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 }),
                 body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
             ]
+        case 'deleteMessage':
+            return [
+                body('messageID', conductorErrors.err1).exists().isString().isLength({ min: 15, max: 15 }),
+            ]
         case 'getMessages':
             return [
                 query('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
@@ -1496,6 +1576,7 @@ module.exports = {
     deleteDiscussionThread,
     getProjectThreads,
     createThreadMessage,
+    deleteThreadMessage,
     getThreadMessages,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,

@@ -160,6 +160,10 @@
     cursor: pointer;
 }
 
+.project-threads-list-item.active {
+    background-color: rgba(240,240,240,0.9);
+}
+
 .project-threads-list-title {
     font-size: 1.05rem;
     font-weight: 600;
