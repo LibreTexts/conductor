@@ -20,7 +20,8 @@ import { isEmptyString } from '../util/HelperFunctions.js';
 
 import {
     visibilityOptions,
-    statusOptions
+    statusOptions,
+    classificationOptions
 } from '../util/ProjectOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
 
@@ -41,6 +42,7 @@ const ProjectsCreate = (props) => {
     const [projTitle, setProjTitle] = useState('');
     const [projVisibility, setProjVisibility] = useState('private');
     const [projStatus, setProjStatus] = useState('');
+    const [projClassification, setProjClassification] = useState('');
     const [projProgress, setProjProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
@@ -139,6 +141,7 @@ const ProjectsCreate = (props) => {
             if (!isEmptyString(projVisibility)) projData.visibility = projVisibility;
             if (!isEmptyString(projStatus)) projData.status = projStatus;
             if (projProgress > 0) projData.progress = projProgress;
+            if (!isEmptyString(projClassification)) projData.classification = projClassification;
             if (!isEmptyString(projURL)) projData.projectURL = projURL;
             if (projTags.length > 0) projData.tags = projTags;
             if (!isEmptyString(projResAuthor)) projData.author = projResAuthor;
@@ -198,19 +201,27 @@ const ProjectsCreate = (props) => {
                             <Form noValidate>
                                 <Header as='h3'>Project Overview</Header>
                                 <p><em>This project will be created within <strong>{org.name}</strong>. Collaborators can be added after creation.</em></p>
+                                <Form.Field
+                                    required
+                                    error={projTitleErr}
+                                >
+                                    <label>Project Title</label>
+                                    <Form.Input
+                                        type='text'
+                                        placeholder='Enter the project title...'
+                                        onChange={(e) => setProjTitle(e.target.value)}
+                                        value={projTitle}
+                                    />
+                                </Form.Field>
                                 <Form.Group widths='equal'>
-                                    <Form.Field
-                                        required
-                                        error={projTitleErr}
-                                    >
-                                        <label>Project Title</label>
-                                        <Form.Input
-                                            type='text'
-                                            placeholder='Enter the project title...'
-                                            onChange={(e) => setProjTitle(e.target.value)}
-                                            value={projTitle}
-                                        />
-                                    </Form.Field>
+                                    <Form.Select
+                                        fluid
+                                        label={<label>Classification</label>}
+                                        placeholder='Classification...'
+                                        options={classificationOptions}
+                                        onChange={(_e, { value }) => setProjClassification(value)}
+                                        value={projClassification}
+                                    />
                                     <Form.Select
                                         fluid
                                         label={<label>Visibility <span className='muted-text'>(defaults to Private)</span></label>}

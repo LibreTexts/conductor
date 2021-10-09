@@ -47,7 +47,9 @@ import {
     visibilityOptions,
     editStatusOptions,
     createTaskOptions,
-    getTaskStatusText
+    classificationOptions,
+    getTaskStatusText,
+    getClassificationText
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -78,6 +80,7 @@ const ProjectView = (props) => {
     const [editModalLoading, setEditModalLoading] = useState(false);
     const [projTitle, setProjTitle] = useState('');
     const [projStatus, setProjStatus] = useState('open');
+    const [projClassification, setProjClassification] = useState('');
     const [projVisibility, setProjVisibility] = useState('private');
     const [projProgress, setProjProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
@@ -296,6 +299,7 @@ const ProjectView = (props) => {
         if (project.status) setProjStatus(project.status);
         if (project.visibility) setProjVisibility(project.visibility);
         if (project.hasOwnProperty('currentProgress')) setProjProgress(project.currentProgress);
+        if (project.classification) setProjClassification(project.classification);
         if (project.projectURL) setProjURL(project.projectURL);
         if (project.tags) setProjTags(project.tags);
         if (project.author) setProjResAuthor(project.author);
@@ -319,6 +323,7 @@ const ProjectView = (props) => {
         setProjStatus('open');
         setProjVisibility('private');
         setProjProgress(0);
+        setProjClassification('');
         setProjURL('');
         setProjTags([]);
         setProjResAuthor('');
@@ -417,6 +422,9 @@ const ProjectView = (props) => {
             }
             if ((project.hasOwnProperty('currentProgress') && project.currentProgress !== projProgress) || !project.hasOwnProperty('currentProgress')) {
                 projData.progress = projProgress;
+            }
+            if ((project.classification && project.classification !== projClassification) || !project.classification) {
+                projData.classification = projClassification;
             }
             if ((project.status && project.status !== projStatus) || !project.status) {
                 projData.status = projStatus;
@@ -1062,7 +1070,7 @@ const ProjectView = (props) => {
                                 }
                                 <Grid.Row>
                                     <Grid.Column>
-                                        <Button.Group fluid widths={4}>
+                                        <Button.Group fluid>
                                             <Button
                                                 color='blue'
                                                 loading={editModalLoading}
@@ -1079,12 +1087,28 @@ const ProjectView = (props) => {
                                                 Manage Team
                                             </Button>
                                             <Button
+                                                color='olive'
+                                                as={Link}
+                                                to={`${props.match.url}/timeline`}
+                                            >
+                                                <Icon name='clock outline' />
+                                                Timeline
+                                            </Button>
+                                            <Button
                                                 color='teal'
                                                 as={Link}
                                                 to={`${props.match.url}/accessibility`}
                                             >
                                                 <Icon name='universal access' />
                                                 Accessibility
+                                            </Button>
+                                            <Button
+                                                color='orange'
+                                                as={Link}
+                                                to={`${props.match.url}/peerreview`}
+                                            >
+                                                <Icon name='clipboard outline' />
+                                                Peer Review
                                             </Button>
                                             <Button
                                                 color='green'
@@ -1100,63 +1124,99 @@ const ProjectView = (props) => {
                                     <Grid.Column>
                                         <Header as='h2' dividing>Project Information</Header>
                                         <Grid>
-                                            <Grid.Row>
-                                                <Grid.Column width={3}>
+                                            <Grid.Row centered>
+                                                <Grid.Column width={4} className='project-progress-column'>
+                                                    <p className='text-center'><strong>Project</strong></p>
                                                     <CircularProgressbar
                                                         value={project.currentProgress || 0}
                                                         text={`${project.currentProgress || 0}%`}
                                                         strokeWidth={5}
+                                                        circleRatio={0.75}
                                                         styles={buildStyles({
+                                                            rotation: 1 / 2 + 1 / 8,
                                                             pathColor: '#127BC4',
-                                                            textColor: '#127BC4'
+                                                            textColor: '#127BC4',
+                                                            strokeLinecap: 'butt'
                                                         })}
                                                     />
                                                 </Grid.Column>
-                                                <Grid.Column width={13}>
-                                                    <Grid>
-                                                        <Grid.Row>
-                                                            <Grid.Column>
-                                                                <Header as='h3' dividing>Overview</Header>
-                                                                <div className='mb-1p'>
-                                                                    <Header as='span' sub>Status: </Header>
-                                                                    <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
-                                                                </div>
-                                                                <div className='mb-1p'>
-                                                                    <Header as='span' sub>Visibility: </Header>
-                                                                    <span>{project.visibility ? capitalizeFirstLetter(project.visibility) : 'Loading...'}</span>
-                                                                </div>
-                                                                {(project.projectURL && !isEmptyString(project.projectURL)) &&
-                                                                    <div className='mb-1p'>
-                                                                        <Header as='span' sub>URL: </Header>
-                                                                        <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{project.projectURL}</a>
-                                                                    </div>
-                                                                }
-                                                                {(project.owner && project.owner.firstName && project.owner.lastName) &&
-                                                                    <div className='mb-1p'>
-                                                                        <Header as='span' sub>Project Owner: </Header>
-                                                                        <span>{project.owner.firstName} {project.owner.lastName}</span>
-                                                                    </div>
-                                                                }
-                                                                {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
-                                                                    <div>
-                                                                        <Header as='span' sub>Tags: </Header>
-                                                                        <Label.Group color='blue' className='inlineblock-display ml-1p'>
-                                                                            {project.tags.map((tag, idx) => {
-                                                                                return (
-                                                                                    <Label key={idx}>{tag}</Label>
-                                                                                )
-                                                                            })}
-                                                                        </Label.Group>
-                                                                    </div>
-                                                                }
-                                                            </Grid.Column>
-                                                        </Grid.Row>
-                                                    </Grid>
-                                                    {hasResourceInfo &&
-                                                        <Header as='h3' dividing>Resource</Header>
+                                                <Grid.Column width={4} className='project-progress-column'>
+                                                    <p className='text-center'><strong>Peer Review</strong></p>
+                                                    <CircularProgressbar
+                                                        value={0}
+                                                        text={`${0}%`}
+                                                        strokeWidth={5}
+                                                        circleRatio={0.75}
+                                                        styles={buildStyles({
+                                                            rotation: 1 / 2 + 1 / 8,
+                                                            pathColor: '#127BC4',
+                                                            textColor: '#127BC4',
+                                                            strokeLinecap: 'butt'
+                                                        })}
+                                                    />
+                                                </Grid.Column>
+                                                <Grid.Column width={4} className='project-progress-column'>
+                                                    <p className='text-center'><strong>Accessibility</strong></p>
+                                                    <CircularProgressbar
+                                                        value={0}
+                                                        text={`${0}%`}
+                                                        strokeWidth={5}
+                                                        circleRatio={0.75}
+                                                        styles={buildStyles({
+                                                            rotation: 1 / 2 + 1 / 8,
+                                                            pathColor: '#127BC4',
+                                                            textColor: '#127BC4',
+                                                            strokeLinecap: 'butt'
+                                                        })}
+                                                    />
+                                                </Grid.Column>
+                                            </Grid.Row>
+                                            <Grid.Row columns='equal'>
+                                                <Grid.Column>
+                                                    <Header as='h3' dividing>Overview</Header>
+                                                    <div className='mb-1p'>
+                                                        <Header as='span' sub>Status: </Header>
+                                                        <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
+                                                    </div>
+                                                    <div className='mb-1p'>
+                                                        <Header as='span' sub>Visibility: </Header>
+                                                        <span>{project.visibility ? capitalizeFirstLetter(project.visibility) : 'Loading...'}</span>
+                                                    </div>
+                                                    {(project.classification && !isEmptyString(project.classification)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Classification: </Header>
+                                                            <span>{getClassificationText(project.classification)}</span>
+                                                        </div>
                                                     }
-                                                    {hasResourceInfo &&
+                                                    {(project.projectURL && !isEmptyString(project.projectURL)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>URL: </Header>
+                                                            <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{truncateString(project.projectURL, 100)}</a>
+                                                        </div>
+                                                    }
+                                                    {(project.owner && project.owner.firstName && project.owner.lastName) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Project Owner: </Header>
+                                                            <span>{project.owner.firstName} {project.owner.lastName}</span>
+                                                        </div>
+                                                    }
+                                                    {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
                                                         <div>
+                                                            <Header as='span' sub>Tags: </Header>
+                                                            <Label.Group color='blue' className='inlineblock-display ml-1p'>
+                                                                {project.tags.map((tag, idx) => {
+                                                                    return (
+                                                                        <Label key={idx}>{tag}</Label>
+                                                                    )
+                                                                })}
+                                                            </Label.Group>
+                                                        </div>
+                                                    }
+                                                </Grid.Column>
+                                                <Grid.Column>
+                                                    {hasResourceInfo &&
+                                                        <Grid.Column>
+                                                            <Header as='h3' dividing>Resource</Header>
                                                             {(project.author && !isEmptyString(project.author)) &&
                                                                 <div className='mb-1p'>
                                                                     <Header as='span' sub>Author: </Header>
@@ -1181,16 +1241,18 @@ const ProjectView = (props) => {
                                                                     <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>{project.resourceURL}</a>
                                                                 </div>
                                                             }
-                                                        </div>
-                                                    }
-                                                    {hasNotes &&
-                                                        <Header as='h3' dividing>Notes</Header>
-                                                    }
-                                                    {hasNotes &&
-                                                        <p>{project.notes}</p>
+                                                        </Grid.Column>
                                                     }
                                                 </Grid.Column>
                                             </Grid.Row>
+                                            {hasNotes &&
+                                                <Grid.Row columns={1}>
+                                                    <Grid.Column>
+                                                        <Header as='h3' dividing>Notes</Header>
+                                                        <p>{project.notes}</p>
+                                                    </Grid.Column>
+                                                </Grid.Row>
+                                            }
                                         </Grid>
                                     </Grid.Column>
                                 </Grid.Row>
@@ -1451,6 +1513,14 @@ const ProjectView = (props) => {
                                     onChange={(_e, { value }) => setProjStatus(value)}
                                     value={projStatus}
                                     disabled={projStatus === 'completed'}
+                                />
+                                <Form.Select
+                                    fluid
+                                    label={<label>Classification</label>}
+                                    placeholder='Classification...'
+                                    options={classificationOptions}
+                                    onChange={(_e, { value }) => setProjClassification(value)}
+                                    value={projClassification}
                                 />
                                 <Form.Select
                                     fluid

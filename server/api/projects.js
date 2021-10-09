@@ -14,6 +14,7 @@ const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { isValidLicense } = require('../util/bookutils.js');
+const { validateProjectClassification } = require('../util/projectutils.js');
 
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
@@ -37,6 +38,7 @@ const createProject = (req, res) => {
         status: 'open',
         visibility: 'private',
         currentProgress: 0,
+        classification: '',
         author: '',
         authorEmail: '',
         license: '',
@@ -52,6 +54,7 @@ const createProject = (req, res) => {
     if (req.body.hasOwnProperty('visibility')) newProjData.visibility = req.body.visibility;
     if (req.body.hasOwnProperty('status')) newProjData.status = req.body.status;
     if (req.body.hasOwnProperty('progress')) newProjData.currentProgress = req.body.progress;
+    if (req.body.hasOwnProperty('classification')) newProjData.classification = req.body.classification;
     if (req.body.hasOwnProperty('projectURL')) newProjData.projectURL = req.body.projectURL;
     if (req.body.hasOwnProperty('author')) newProjData.author = req.body.author;
     if (req.body.hasOwnProperty('authorEmail')) newProjData.authorEmail = req.body.authorEmail;
@@ -407,6 +410,9 @@ const updateProject = (req, res) => {
                 if (req.body.hasOwnProperty('visibility') && req.body.visibility !== project.visibility) {
                     updateObj.visibility = req.body.visibility;
                 }
+                if (req.body.hasOwnProperty('classification') && req.body.classification !== project.classification) {
+                    updateObj.classification = req.body.classification;
+                }
                 if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
                     updateObj.projectURL = req.body.projectURL;
                 }
@@ -495,14 +501,24 @@ const updateProject = (req, res) => {
         // no new tags to insert
         return {};
     }).then((_bulkRes) => {
-        return Project.updateOne({
-            projectID: req.body.projectID
-        }, updateObj);
+        if (Object.keys(updateObj).length > 0) {
+            // check if an update needs to be submitted
+            return Project.updateOne({
+                projectID: req.body.projectID
+            }, updateObj);
+        } else {
+            return {};
+        }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
                 msg: 'Successfully updated project.'
+            });
+        } else if (Object.keys(updateRes).length === 0 && Object.keys(updateObj).length === 0) {
+            return res.send({
+                err: false,
+                msg: 'No changes to save.'
             });
         } else {
             throw(new Error('updatefailed'));
@@ -513,7 +529,7 @@ const updateProject = (req, res) => {
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else debugError(err);
         return res.send({
-            err: false,
+            err: true,
             errMsg: errMsg
         });
     });
@@ -1481,6 +1497,7 @@ const validate = (method) => {
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
                 body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+                body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
@@ -1499,6 +1516,7 @@ const validate = (method) => {
                 body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
+                body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),

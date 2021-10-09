@@ -14,6 +14,11 @@
     margin-top: 5% !important;
 }
 
+.project-progress-column {
+    padding-left: 5% !important;
+    padding-right: 5% !important;
+}
+
 .access-table-outer {
     display: flex;
     flex-direction: row;
@@ -51,7 +56,7 @@
 #access-table tbody tr td:first-child {
     position: sticky;
     left: 0;
-    z-index: 1;
+    z-index: 5;
     background: #F7F7F7;
     box-shadow: inset 0 1px 1px 0 rgba(0,0,0,0.14), 0 2px 1px -1px rgba(0,0,0,0.12), 0 1px 3px 0 rgba(0,0,0,0.20);
 }
@@ -68,6 +73,7 @@
 
 .access-table-cell {
     min-width: 150px;
+    text-align: center;
 }
 
 #project-accessibility-score-header {

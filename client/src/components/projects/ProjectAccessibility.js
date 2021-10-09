@@ -21,7 +21,8 @@ import {
   Loader,
   Table,
   Radio,
-  Popup
+  Popup,
+  Checkbox
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -171,7 +172,7 @@ const ProjectAccessibility = (props) => {
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Project Accessibility: <em>{project.title || 'Loading...'}</em></Header>
+                    <Header className='component-header'>Accessibility: <em>{project.title || 'Loading...'}</em></Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -373,7 +374,7 @@ const ProjectAccessibility = (props) => {
                                         </Table.HeaderCell>
                                         {/* IMAGES */}
                                         <Table.HeaderCell>
-                                            <span>Does all images have meaningful alt text?</span>
+                                            <span>Do all images have meaningful alt text?</span>
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
                                             <span>For images not requiring alt text, is it marked as decorative?</span>
@@ -509,938 +510,121 @@ const ProjectAccessibility = (props) => {
                                                         <strong>{item.name}</strong>
                                                     </Table.Cell>
                                                     {/* NAV */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <label></label>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`nav-1-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Radio
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`nav-1-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Radio
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`nav-1-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* IMAGES */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-1-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-1-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-1-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-2-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-2-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-2-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-3-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-3-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`img-3-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* LINKS */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-1-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-1-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-1-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-2-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-2-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-2-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-3-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-3-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`link-3-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* CONTRAST */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-1-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-1-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-1-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-2-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-2-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-2-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-3-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-3-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`contrast-3-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* TEXT */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-1-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-1-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-1-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-2-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-2-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-2-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-3-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-3-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-3-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-4-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-4-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-4-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-5-group-s${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-5-group-s${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`text-5-group-s${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* HEADINGS */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`heading-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* FORMS */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`form-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* TABLES */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-3-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-3-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`table-3-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* LISTS */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`list-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* DOCUMENTS */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`doc-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* MULTIMEDIA */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-2-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-2-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-2-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-3-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-3-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-3-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-4-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-4-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`multi-4-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* DIV */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`div-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`div-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`div-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* SENSORY */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`sense-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`sense-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`sense-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* TIMING */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`time-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`time-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`time-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                     {/* CODE */}
-                                                    <Table.Cell className='access-table-cell'>
-                                                        <Form>
-                                                            <Form.Group grouped>
-                                                                <Form.Field
-                                                                    label='Y'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`code-1-group-${idx}`}
-                                                                    value='yes'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`code-1-group-${idx}`}
-                                                                    value='no'
-                                                                />
-                                                                <Form.Field
-                                                                    label='N/A'
-                                                                    control='input'
-                                                                    type='radio'
-                                                                    name={`code-1-group-${idx}`}
-                                                                    value='na'
-                                                                />
-                                                            </Form.Group>
-                                                        </Form>
+                                                    <Table.Cell className='access-table-cell' textAlign='center'>
+                                                        <Checkbox toggle />
                                                     </Table.Cell>
                                                 </Table.Row>
                                             )

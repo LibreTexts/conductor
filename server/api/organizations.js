@@ -101,6 +101,7 @@ const updateOrganizationInfo = (req, res) => {
     if (req.body.hasOwnProperty('aboutLink')) updateObj.aboutLink = req.body.aboutLink;
     if (req.body.hasOwnProperty('commonsHeader')) updateObj.commonsHeader = req.body.commonsHeader;
     if (req.body.hasOwnProperty('commonsMessage')) updateObj.commonsMessage = req.body.commonsMessage;
+    if (req.body.hasOwnProperty('mainColor')) updateObj.mainColor = req.body.mainColor;
     Organization.findOneAndUpdate({ orgID: req.body.orgID }, updateObj, {
         new: true, lean: true
     }).then((updatedOrg) => {
@@ -152,7 +153,8 @@ const validate = (method) => {
                 body('smallLogo', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 2 }),
                 body('aboutLink', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isString()
+                body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+                body('mainColor', conductorErrors.err1).optional({ checkFalsy: true }).isString().isHexColor()
             ]
     }
 };

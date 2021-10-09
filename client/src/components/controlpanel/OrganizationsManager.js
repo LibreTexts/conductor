@@ -16,6 +16,7 @@ import {
   Popup,
   Divider
 } from 'semantic-ui-react';
+import { ChromePicker } from 'react-color';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';

@@ -7,6 +7,8 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+const { projectClassifications } = require('../util/projectutils.js');
+
 const ProjectSchema = new Schema({
     orgID: {                    // organization identifier string
         type: String,
@@ -31,6 +33,10 @@ const ProjectSchema = new Schema({
     currentProgress: {          // estimated project progress (%)
         type: Number,
         default: 0
+    },
+    classification: {           // the project's internal classification
+        type: String,
+        enum: ['', ...projectClassifications]
     },
     author: String,             // resource author (if applicable)
     authorEmail: String,        // resource author's email (if applicable)

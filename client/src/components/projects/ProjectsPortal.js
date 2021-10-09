@@ -23,6 +23,7 @@ import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
+import { getClassificationText } from '../util/ProjectOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const ProjectsPortal = (props) => {
@@ -195,6 +196,7 @@ const ProjectsPortal = (props) => {
                                     <Table.Row>
                                         <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Current Progress</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Classification</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Owner</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
@@ -216,6 +218,12 @@ const ProjectsPortal = (props) => {
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{item.currentProgress}%</p>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        {(!item.classification || item.classification === '')
+                                                            ? <p><em>Unclassified</em></p>
+                                                            : <p>{getClassificationText(item.classification)}</p>
+                                                        }
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{projectOwner}</p>

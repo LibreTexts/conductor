@@ -22,8 +22,12 @@ import {
   Table,
   Radio,
   Popup,
-  Menu
+  Checkbox
 } from 'semantic-ui-react';
+import {
+    CircularProgressbar,
+    buildStyles
+} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -53,23 +57,22 @@ import {
 
 import useGlobalError from '../error/ErrorHooks.js';
 
-const ProjectTimeline = (props) => {
+const ProjectPeerReview = (props) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
-    const user = useSelector((state) => state.user);
-
-    // UI
-    const [loadingData, setLoadingData] = useState(false);
 
     // Project Data
     const [project, setProject] = useState({});
+
+    const [loadingData, setLoadingData] = useState(false);
+
 
     /**
      * Set page title and load Project information on initial load.
      */
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Projects | Project View | Timeline";
+        document.title = "LibreTexts Conductor | Projects | Project View | Peer Review";
         date.plugin(ordinal);
         date.plugin(day_of_week);
         getProject();
@@ -89,7 +92,7 @@ const ProjectTimeline = (props) => {
      */
     useEffect(() => {
         if (project.title && project.title !== '') {
-            document.title = `LibreTexts Conductor | Projects | ${project.title} | Timeline`;
+            document.title = `LibreTexts Conductor | Projects | ${project.title} | Peer Review`;
         }
     }, [project]);
 
@@ -124,7 +127,7 @@ const ProjectTimeline = (props) => {
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Timeline: <em>{project.title || 'Loading...'}</em></Header>
+                    <Header className='component-header'>Peer Review: <em>{project.title || 'Loading...'}</em></Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -141,16 +144,12 @@ const ProjectTimeline = (props) => {
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                                 <Breadcrumb.Section active>
-                                    Timeline
+                                    Peer Review
                                 </Breadcrumb.Section>
                             </Breadcrumb>
                         </Segment>
-                        <Segment>
-                            <Header as='h2' dividing className='mt-1p'>Timeline</Header>
-                            <Menu widths={2}>
-                                <Menu.Item name='ganttview' icon='exchange' content={<p>Gantt View</p>} />
-                                <Menu.Item name='calendarview' icon='calendar alternate outline' content={<p>Calendar View</p>} />
-                            </Menu>
+                        <Segment loading={loadingData}>
+                            <Header as='h2' dividing className='mt-1p'>Peer Review</Header>
                             <p><em>Coming soon!</em></p>
                         </Segment>
                     </Segment.Group>
@@ -161,4 +160,4 @@ const ProjectTimeline = (props) => {
 
 };
 
-export default ProjectTimeline;
+export default ProjectPeerReview;

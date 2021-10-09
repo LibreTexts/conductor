@@ -2,6 +2,16 @@
 
 ## 10-07-2021
 #### :art: UI/UX
+* Added ability to classify a Project
+* Project View UI updates
+* Provisioned Project Peer Review page
+
+#### :satellite: Server
+* Logic to create/update Project classifications
+
+
+## 10-07-2021
+#### :art: UI/UX
 * Removed pagination from Projects Portal
 * Added Project Owner to Projects Portal table
 * Added ability to delete messages in Project Discussion threads
