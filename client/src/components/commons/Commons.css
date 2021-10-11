@@ -48,6 +48,10 @@
     font-size: 1.05em;
 }
 
+#commons-nav-campusdropdown > i {
+    margin-left: 0.25em;
+}
+
 #commons-mobilenav {
     z-index: 100; /* Layer over jumbotron */
     position: relative;

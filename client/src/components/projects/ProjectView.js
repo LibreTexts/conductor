@@ -33,6 +33,8 @@ import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 import queryString from 'query-string';
+import DOMPurify from 'dompurify';
+import marked from 'marked';
 
 import { MentionsInput, Mention } from 'react-mentions'
 
@@ -173,6 +175,13 @@ const ProjectView = (props) => {
         document.title = "LibreTexts Conductor | Projects | Project View";
         date.plugin(ordinal);
         date.plugin(day_of_week);
+        // Hook to force message links to open in new window
+        DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+          if ('target' in node) {
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer')
+          }
+        });
         getProject();
     }, []);
 
@@ -1031,7 +1040,7 @@ const ProjectView = (props) => {
 
 
     return(
-        <Grid className='component-container' divided='vertically'>
+        <Grid className='component-container'>
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Header className='component-header'>Project: <em>{project.title || 'Loading...'}</em></Header>
@@ -1046,6 +1055,19 @@ const ProjectView = (props) => {
                                     Projects
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
+                                {(project.status === 'available') &&
+                                    <Breadcrumb.Section as={Link} to='/projects/available'>
+                                        Available Projects
+                                    </Breadcrumb.Section>
+                                }
+                                {(project.status === 'completed') &&
+                                    <Breadcrumb.Section as={Link} to='/projects/completed'>
+                                        Completed Projects
+                                    </Breadcrumb.Section>
+                                }
+                                {(project.status === 'available' || project.status === 'completed') &&
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                }
                                 <Breadcrumb.Section active>
                                     {project.title || 'Loading...'}
                                 </Breadcrumb.Section>
@@ -1095,20 +1117,20 @@ const ProjectView = (props) => {
                                                 Timeline
                                             </Button>
                                             <Button
-                                                color='teal'
-                                                as={Link}
-                                                to={`${props.match.url}/accessibility`}
-                                            >
-                                                <Icon name='universal access' />
-                                                Accessibility
-                                            </Button>
-                                            <Button
                                                 color='orange'
                                                 as={Link}
                                                 to={`${props.match.url}/peerreview`}
                                             >
                                                 <Icon name='clipboard outline' />
                                                 Peer Review
+                                            </Button>
+                                            <Button
+                                                color='teal'
+                                                as={Link}
+                                                to={`${props.match.url}/accessibility`}
+                                            >
+                                                <Icon name='universal access' />
+                                                Accessibility
                                             </Button>
                                             <Button
                                                 color='green'
@@ -1276,6 +1298,14 @@ const ProjectView = (props) => {
                                                                 <div className='right-flex'>
                                                                     <Button
                                                                         circular
+                                                                        icon='trash'
+                                                                        color='red'
+                                                                        disabled={activeThread === ''}
+                                                                        onClick={openDelThreadModal}
+                                                                        className='mr-2p'
+                                                                    />
+                                                                    <Button
+                                                                        circular
                                                                         icon='plus'
                                                                         color='olive'
                                                                         onClick={openNewThreadModal}
@@ -1285,6 +1315,13 @@ const ProjectView = (props) => {
                                                             <div className='flex-col-div' id='project-threads-list-container'>
                                                                 {(loadedProjThreads && projectThreads.length > 0) &&
                                                                     projectThreads.map((item, idx) => {
+                                                                        let lastMessage = '*No messages yet*';
+                                                                        if (item.lastMessage && item.lastMessage.body) {
+                                                                            lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
+                                                                        }
+                                                                        const readyLastMsg = {
+                                                                            __html: DOMPurify.sanitize(marked.parseInline(lastMessage))
+                                                                        };
                                                                         return (
                                                                             <div
                                                                                 className={activeThread === item.threadID
@@ -1300,15 +1337,7 @@ const ProjectView = (props) => {
                                                                                 >
                                                                                     {item.title}
                                                                                 </p>
-                                                                                <p className='project-threads-list-descrip'>
-                                                                                    {(item.lastMessage && item.lastMessage.hasOwnProperty('body'))
-                                                                                        ? (
-                                                                                            <span>
-                                                                                                {item.lastMessage.author?.firstName} {item.lastMessage.author?.lastName}: {truncateString(item.lastMessage.body, 50)}
-                                                                                            </span>
-                                                                                        )
-                                                                                        : (<span><em>No messages yet.</em></span>)
-                                                                                    }
+                                                                                <p className='project-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
                                                                                 </p>
                                                                             </div>
                                                                         )
@@ -1335,12 +1364,7 @@ const ProjectView = (props) => {
                                                                     </Header>
                                                                 </div>
                                                                 <div className='right-flex' id='project-messages-header-options'>
-                                                                    <Button
-                                                                        icon='trash'
-                                                                        color='red'
-                                                                        disabled={activeThread === ''}
-                                                                        onClick={openDelThreadModal}
-                                                                    />
+
                                                                 </div>
                                                             </div>
                                                             <div id='project-messages-chat-container'>
@@ -1357,6 +1381,9 @@ const ProjectView = (props) => {
                                                                                 item.date = date.format(itemDate, 'dddd');
                                                                             }
                                                                             item.time = date.format(itemDate, 'h:mm A');
+                                                                            const readyMsgBody = {
+                                                                                __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
+                                                                            };
                                                                             return (
                                                                                 <Comment className='project-messages-message' key={item.messageID}>
                                                                                   <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
@@ -1365,7 +1392,7 @@ const ProjectView = (props) => {
                                                                                     <Comment.Metadata>
                                                                                       <div>{item.date} at {item.time}</div>
                                                                                     </Comment.Metadata>
-                                                                                    <Comment.Text>{item.body}</Comment.Text>
+                                                                                    <Comment.Text dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
                                                                                     {(item.author?.uuid === user.uuid) &&
                                                                                         <Comment.Actions>
                                                                                             <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
@@ -1378,30 +1405,42 @@ const ProjectView = (props) => {
                                                                     </Comment.Group>
                                                                 }
                                                                 {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No messages yet.</em></p>
+                                                                    <p className='text-center muted-text mt-4r'><em>No messages yet. Send one below!</em></p>
                                                                 }
                                                                 {(!loadedThreadMsgs && activeThread !== '') &&
                                                                     <Loader active inline='centered' className='mt-4r' />
                                                                 }
                                                                 {(activeThread === '' && activeThreadMsgs.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No thread selected.</em></p>
+                                                                    <p className='text-center muted-text mt-4r'><em>No thread selected. Select one from the list on the left or create one using the + button!</em></p>
                                                                 }
                                                             </div>
                                                             <div id='project-messages-reply-container'>
-                                                                <Input
-                                                                    placeholder='Send a message...'
-                                                                    onChange={(e) => setMessageCompose(e.target.value)}
-                                                                    value={messageCompose}
-                                                                    action={{
-                                                                        color: 'blue',
-                                                                        icon: 'send',
-                                                                        content: 'Send',
-                                                                        disabled: ((activeThread === '') || (messageCompose === '')),
-                                                                        loading: messageSending,
-                                                                        onClick: sendMessage
-                                                                    }}
-                                                                    fluid
-                                                                />
+                                                                <div id='project-messages-input-container'>
+                                                                    <textarea
+                                                                        id='project-messages-input-textarea'
+                                                                        placeholder='Send a message...'
+                                                                        value={messageCompose}
+                                                                        onChange={(e) => setMessageCompose(e.target.value)}
+                                                                        rows={1}
+                                                                    ></textarea>
+                                                                    <div id='project-messages-input-attached'>
+                                                                        <div className='left-flex'>
+                                                                            <span id='project-messages-helptext'>You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* message!</span>
+                                                                        </div>
+                                                                        <div className='right-flex'>
+                                                                            <Button
+                                                                                disabled={(activeThread === '') || (messageCompose === '')}
+                                                                                loading={messageSending}
+                                                                                onClick={sendMessage}
+                                                                                color='blue'
+                                                                                floated='right'
+                                                                            >
+                                                                                <Icon name='send' />
+                                                                                Send
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
                                                                 {/*
                                                                 <div className='left-flex' id='project-messages-reply-inputcontainer'>
                                                                     <MentionsInput

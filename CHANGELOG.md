@@ -1,6 +1,16 @@
 # Changelog
 
-## 10-07-2021
+## 10-11-2021
+#### :art: UI/UX
+* Small UI updates to Project View
+* Several upgrades to the Discussion interface
+    * Multiline messages are now supported
+    * URLs in message are automatically recognized
+    * Messages can be formatted using basic Markdown syntax
+    * Expandable textarea for message composition
+
+
+## 10-08-2021
 #### :art: UI/UX
 * Added ability to classify a Project
 * Project View UI updates

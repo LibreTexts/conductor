@@ -54,7 +54,7 @@ const CommonsNavbar = (_props) => {
                             About {org.shortName}
                         </Menu.Item>
                         {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                            <Dropdown item text='Campus Commons'>
+                            <Dropdown item text='Campus Commons' id='commons-nav-campusdropdown'>
                                 <Dropdown.Menu>
                                     <Dropdown.Item as='a' href='http://oeri.commons.libretexts.org' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='university' />
