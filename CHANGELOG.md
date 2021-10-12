@@ -8,6 +8,7 @@
     * URLs in message are automatically recognized
     * Messages can be formatted using basic Markdown syntax
     * Expandable textarea for message composition
+* Early version of the Construction Roadmap/Checklist in Project View
 
 
 ## 10-08-2021

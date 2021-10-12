@@ -19,7 +19,8 @@ import {
   Comment,
   Input,
   Loader,
-  Search
+  Search,
+  Card
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -167,6 +168,11 @@ const ProjectView = (props) => {
     // View Task Modal
     const [showViewTaskModal, setShowViewTaskModal] = useState(false);
     const [viewTaskData, setViewTaskData] = useState({});
+
+
+    // Roadmap
+    const [showRoadmap, setShowRoadmap] = useState(false);
+    const [roadmapRequiresRemix, setRoadmapRequiresRemix] = useState(null);
 
     /**
      * Set page title and load Project information on initial load.
@@ -1171,8 +1177,8 @@ const ProjectView = (props) => {
                                                         circleRatio={0.75}
                                                         styles={buildStyles({
                                                             rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#127BC4',
-                                                            textColor: '#127BC4',
+                                                            pathColor: '#f2711c',
+                                                            textColor: '#f2711c',
                                                             strokeLinecap: 'butt'
                                                         })}
                                                     />
@@ -1186,8 +1192,8 @@ const ProjectView = (props) => {
                                                         circleRatio={0.75}
                                                         styles={buildStyles({
                                                             rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#127BC4',
-                                                            textColor: '#127BC4',
+                                                            pathColor: '#00b5ad',
+                                                            textColor: '#00b5ad',
                                                             strokeLinecap: 'butt'
                                                         })}
                                                     />
@@ -1277,6 +1283,240 @@ const ProjectView = (props) => {
                                             }
                                         </Grid>
                                     </Grid.Column>
+                                </Grid.Row>
+                                <Grid.Row>
+                                    {(canViewDetails && showRoadmap) &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>
+                                                Construction Roadmap
+                                                <Button
+                                                    compact
+                                                    floated='right'
+                                                    onClick={() => setShowRoadmap(!showRoadmap)}
+                                                >
+                                                    Hide
+                                                </Button>
+                                            </Header>
+                                            <Segment
+                                                id='project-roadmap-segment'
+                                                size='large'
+                                                raised
+                                                className='mb-2p'
+                                            >
+                                                <div id='project-roadmap-container'>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <Card
+                                                            header='Step 1'
+                                                            description='Construct a Vision of your Book'
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 2'
+                                                            description='Obtain proper LibreTexts accounts'
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 3'
+                                                            description='Review Remixing and Editing Fundamentals'
+                                                            extra={
+                                                                <a
+                                                                    target='blank'
+                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide' rel='noopener noreferrer'
+                                                                >
+                                                                    <Icon name='external square' />
+                                                                    Construction Guide
+                                                                </a>
+                                                            }
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 4'
+                                                            description='Does your Vision require remixing of existing content?'
+                                                            extra={
+                                                                <Button.Group widths={2}>
+                                                                    <Button
+                                                                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
+                                                                        color='blue'
+                                                                        onClick={() => setRoadmapRequiresRemix(true)}
+                                                                    >
+                                                                        Yes
+                                                                    </Button>
+                                                                    <Button
+                                                                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === true)}
+                                                                        color='green'
+                                                                        onClick={() => setRoadmapRequiresRemix(false)}
+                                                                    >
+                                                                        No
+                                                                    </Button>
+                                                                </Button.Group>
+                                                            }
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+                                                            <div className='project-roadmap-arrow-container'>
+                                                                <Icon name='arrow right' size='large' fitted />
+                                                            </div>
+                                                            <Card
+                                                                header='Step 5a'
+                                                                description='Review & evaluate existing content on LibreTexts and identify gaps'
+                                                                className='project-roadmap-card'
+                                                            />
+                                                        </div>
+                                                    }
+                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+                                                            <div className='project-roadmap-arrow-container'>
+                                                                <Icon name='arrow right' size='large' fitted />
+                                                            </div>
+                                                            <Card
+                                                                header='Step 5b'
+                                                                description='Build a Remixing Map'
+                                                                centered
+                                                                className='project-roadmap-card'
+                                                            />
+                                                        </div>
+                                                    }
+                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+                                                            <div className='project-roadmap-arrow-container'>
+                                                                <Icon name='arrow right' size='large' fitted />
+                                                            </div>
+                                                            <Card
+                                                                header='Step 5c'
+                                                                description='Build Remix using Map & Remixer (blank pages for gaps) in your sandbox'
+                                                                centered
+                                                                className='project-roadmap-card'
+                                                            />
+                                                        </div>
+                                                    }
+                                                    {(roadmapRequiresRemix === false || roadmapRequiresRemix === null) &&
+                                                        <div className={(roadmapRequiresRemix === false) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+                                                            <div className='project-roadmap-arrow-container'>
+                                                                <Icon name='arrow right' size='large' fitted />
+                                                            </div>
+                                                            <Card
+                                                                header='Step 6'
+                                                                description='Build initial empty text skeleton (i.e. empty pages) using the Remixer in your sandbox'
+                                                                className='project-roadmap-card'
+                                                            />
+                                                        </div>
+                                                    }
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 7'
+                                                            description='Fill in gaps with pre-existing OER content or construct content directly.'
+                                                            centered
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 8'
+                                                            description='Edit pages to fit faculty/class needs (may require forking of remixed content)'
+                                                            centered
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 9'
+                                                            description='Work up advanced features (autograded assessments, visualizations, simulations, interactive graphs, etc.)'
+                                                            centered
+                                                            meta='Optional'
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 10'
+                                                            description='Request a preliminary accessibility check (Bradbot or A11Y bot)'
+                                                            centered
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 11'
+                                                            description="Request 'publishing' of text: external review of organization, remixer check, Bradbot check, move text into campus bookshelf, compile for PDF/LMS/bookstore export."
+                                                            centered
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                    <div className='project-roadmap-step-container'>
+                                                        <div className='project-roadmap-arrow-container'>
+                                                            <Icon name='arrow right' size='large' fitted />
+                                                        </div>
+                                                        <Card
+                                                            header='Step 12'
+                                                            description='Curate text (edit, polish, and hone) in campus bookshelf'
+                                                            centered
+                                                            className='project-roadmap-card'
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
+                                    {(canViewDetails && !showRoadmap) &&
+                                        <Grid.Column>
+                                            <Segment
+                                                raised
+                                                clearing
+                                            >
+                                                <Header as='h2' id='project-roadmap-heading'>Construction Roadmap</Header>
+                                                <Button
+                                                    floated='right'
+                                                    onClick={() => setShowRoadmap(!showRoadmap)}
+                                                >
+                                                    Show
+                                                </Button>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
+                                    {!canViewDetails &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>Construction Roadmap</Header>
+                                            <Segment
+                                                size='large'
+                                                raised
+                                                className='mb-2p'
+                                            >
+                                                <p><em>You don't have permission to view this project's Construction Roadmap yet.</em></p>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
                                 </Grid.Row>
                                 <Grid.Row>
                                     {canViewDetails &&
