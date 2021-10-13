@@ -27,7 +27,7 @@ import { licenseOptions } from '../util/LicenseOptions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
-const ProjectsCreate = (props) => {
+const ProjectCreate = (props) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
@@ -359,4 +359,4 @@ const ProjectsCreate = (props) => {
 
 };
 
-export default ProjectsCreate;
+export default ProjectCreate;

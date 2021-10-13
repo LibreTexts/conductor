@@ -1,5 +1,22 @@
 # Changelog
 
+## 10-12-2021
+#### :art: UI/UX
+* Construction Roadmap step is now saved and presented in Project View
+* Moved 'Complete Project' into 'Edit Properties'
+* Renamed 'Project Owner' to 'Project Lead'
+* Peer Review & Accessibility percentages can temporarily be edited using Edit Properties
+* Timeline now remembers preference to show/hide Construction Roadmap
+* Accessibility Review Matrix is now dynamic and saves information to the server
+* Created a reusable ConductorTextArea component
+* Project Notes now support the same Markdown-esque syntax as messages
+* Implemented an early version of Publishing Request in Construction Roadmap
+
+#### :satellite: Server
+* Fixed a bug with Reset Password links
+* Logic to handle Accessibility Review sections
+
+
 ## 10-11-2021
 #### :art: UI/UX
 * Small UI updates to Project View

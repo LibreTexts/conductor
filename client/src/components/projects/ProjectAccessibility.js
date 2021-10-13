@@ -5,29 +5,18 @@ import {
   Grid,
   Header,
   Segment,
-  Divider,
-  Message,
   Icon,
   Button,
   Form,
   Breadcrumb,
   Modal,
-  Label,
-  List,
-  Image,
-  Accordion,
   Comment,
   Input,
   Loader,
   Table,
-  Radio,
   Popup,
   Checkbox
 } from 'semantic-ui-react';
-import {
-    CircularProgressbar,
-    buildStyles
-} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -37,7 +26,8 @@ import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import { MentionsInput, Mention } from 'react-mentions'
+import ConductorTextArea from '../util/ConductorTextArea';
+import { MentionsInput, Mention } from 'react-mentions';
 
 import {
     isEmptyString,
@@ -68,10 +58,12 @@ const ProjectAccessibility = (props) => {
 
     // Project Data
     const [project, setProject] = useState({});
+    const [reviewSections, setReviewSections] = useState([]);
 
     const [accessScore, setAccessScore] = useState(90);
-    const [sections, setSections] = useState([]);
 
+    // Project Permissions
+    const [canViewDetails, setCanViewDetails] = useState(false);
 
     // Add Section Modal
     const [showAddModal, setShowAddModal] = useState(false);
@@ -120,6 +112,41 @@ const ProjectAccessibility = (props) => {
     }, [project]);
 
 
+    /*
+     * Update the user's permission to view Project restricted details when
+     * their identity and the project data is available.
+     */
+    useEffect(() => {
+        if (user.uuid && user.uuid !== '') {
+            if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
+                setCanViewDetails(true);
+            } else {
+                if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+                    let foundCollab = project.collaborators.find((item) => {
+                        if (typeof(item) === 'string') {
+                            return item === user.uuid;
+                        } else if (typeof(item) === 'object') {
+                            return item.uuid === user.uuid;
+                        }
+                        return false;
+                    });
+                    if (foundCollab !== undefined) setCanViewDetails(true);
+                }
+            }
+        }
+    }, [project, user, setCanViewDetails]);
+
+
+    /*
+     * Get Project's restricted details when the permission changes.
+     */
+    useEffect(() => {
+        if (canViewDetails) {
+            getReviewSections();
+        }
+    }, [canViewDetails]);
+
+
     /**
      * Retrieves the Project information via GET request
      * to the server and saves it to state.
@@ -145,14 +172,78 @@ const ProjectAccessibility = (props) => {
         });
     };
 
+
+    const getReviewSections = () => {
+        setLoadingData(true);
+        axios.get('/project/accessibility/sections', {
+            params: {
+                projectID: props.match.params.id
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                if (res.data.a11yReview) {
+                    setReviewSections(res.data.a11yReview);
+                    console.log(res.data.a11yReview);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+            setLoadingData(false);
+        }).catch((err) => {
+            handleGlobalError(err);
+            setLoadingData(false);
+        });
+    };
+
     const addSection = () => {
-        if (!isEmptyString(addName)) {
+        if (!isEmptyString(addName) && addName.length < 150) {
             setAddNameErr(false);
-            setSections([...sections, { name: addName }]);
+            setLoadingData(true);
+            axios.post('/project/accessibility/section', {
+                projectID: props.match.params.id,
+                sectionTitle: addName
+            }).then((res) => {
+                if (!res.data.err) {
+                    getReviewSections();
+                    closeAddModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setLoadingData(false);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setLoadingData(false);
+            });
             closeAddModal();
         } else {
             setAddNameErr(true);
         }
+    };
+
+
+    const updateSectionItem = (sectionID, itemName, newValue) => {
+        axios.put('/project/accessibility/section/item', {
+            projectID: props.match.params.id,
+            sectionID: sectionID,
+            itemName: itemName,
+            newResponse: newValue
+        }).then((res) => {
+            if (!res.data.err) {
+                let updatedSections = reviewSections.map((item) => {
+                    if (item._id === sectionID) {
+                        item[itemName] = newValue;
+                        return item;
+                    } else {
+                        return item;
+                    }
+                });
+                setReviewSections(updatedSections);
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+        });
     };
 
     const openAddModal = () => {
@@ -211,6 +302,14 @@ const ProjectAccessibility = (props) => {
                                                 <div className='right-flex'>
                                                     <Button
                                                         circular
+                                                        icon='trash'
+                                                        color='red'
+                                                        disabled={activeThread === ''}
+                                                        onClick={() => {}}
+                                                        className='mr-2p'
+                                                    />
+                                                    <Button
+                                                        circular
                                                         icon='plus'
                                                         color='olive'
                                                         onClick={() => {}}
@@ -240,7 +339,7 @@ const ProjectAccessibility = (props) => {
                                                     })
                                                 }
                                                 {(loadedProjThreads && projectThreads.length === 0) &&
-                                                    <p className='text-center muted-text mt-4r'><em>No threads yet.</em></p>
+                                                    <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
                                                 }
                                                 {(!loadedProjThreads) &&
                                                     <Loader active inline='centered' className='mt-4r' />
@@ -260,12 +359,6 @@ const ProjectAccessibility = (props) => {
                                                     </Header>
                                                 </div>
                                                 <div className='right-flex' id='project-messages-header-options'>
-                                                    <Button
-                                                        icon='trash'
-                                                        color='red'
-                                                        disabled={activeThread === ''}
-                                                        onClick={() => {}}
-                                                    />
                                                 </div>
                                             </div>
                                             <div id='project-messages-chat-container'>
@@ -298,29 +391,23 @@ const ProjectAccessibility = (props) => {
                                                     </Comment.Group>
                                                 }
                                                 {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
-                                                    <p className='text-center muted-text mt-4r'><em>No messages yet.</em></p>
+                                                    <p className='text-center muted-text mt-4r'><em>No messages yet. Send one below!</em></p>
                                                 }
                                                 {(!loadedThreadMsgs && activeThread !== '') &&
                                                     <Loader active inline='centered' className='mt-4r' />
                                                 }
                                                 {(activeThread === '' && activeThreadMsgs.length === 0) &&
-                                                    <p className='text-center muted-text mt-4r'><em>No thread selected.</em></p>
+                                                    <p className='text-center muted-text mt-4r'><em>No thread selected. Select one from the list on the left or create one using the + button!</em></p>
                                                 }
                                             </div>
                                             <div id='project-messages-reply-container'>
-                                                <Input
+                                                <ConductorTextArea
                                                     placeholder='Send a message...'
-                                                    onChange={(e) => setMessageCompose(e.target.value)}
-                                                    value={messageCompose}
-                                                    action={{
-                                                        color: 'blue',
-                                                        icon: 'send',
-                                                        content: 'Send',
-                                                        disabled: ((activeThread === '') || (messageCompose === '')),
-                                                        loading: messageSending,
-                                                        onClick: () => {}
-                                                    }}
-                                                    fluid
+                                                    textValue={messageCompose}
+                                                    onTextChange={(value) => setMessageCompose(value)}
+                                                    disableSend={(activeThread === '') || (messageCompose === '')}
+                                                    sendLoading={messageSending}
+                                                    onSendClick={() => {}}
                                                 />
                                             </div>
                                         </div>
@@ -339,7 +426,7 @@ const ProjectAccessibility = (props) => {
                             <Table celled structured className='mt-1p' id='access-table'>
                                 <Table.Header>
                                     <Table.Row>
-                                        <Table.HeaderCell rowSpan={3} colSpan={1} id='access-add-cell'>
+                                        <Table.HeaderCell rowSpan={2} id='access-add-cell'>
                                             <Button
                                                 color='green'
                                                 icon
@@ -349,8 +436,6 @@ const ProjectAccessibility = (props) => {
                                                 <Icon name='add' />
                                             </Button>
                                         </Table.HeaderCell>
-                                    </Table.Row>
-                                    <Table.Row>
                                         <Table.HeaderCell colSpan={1} textAlign='center'>Navigation</Table.HeaderCell>
                                         <Table.HeaderCell colSpan={3} textAlign='center'>Images</Table.HeaderCell>
                                         <Table.HeaderCell colSpan={3} textAlign='center'>Links</Table.HeaderCell>
@@ -437,7 +522,7 @@ const ProjectAccessibility = (props) => {
                                             <span>Do tables have column and row headers?</span>
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            <span>Are the tables labelled?</span>
+                                            <span>Are the tables labeled?</span>
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
                                             <span>No tables are embedded as images</span>
@@ -447,7 +532,7 @@ const ProjectAccessibility = (props) => {
                                             <span>Are ordered lists properly labeled?</span>
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            <span>Are unordered lists prrroperly labelled?</span>
+                                            <span>Are unordered lists properly labeled?</span>
                                         </Table.HeaderCell>
                                         {/* DOCUMENTS */}
                                         <Table.HeaderCell>
@@ -502,135 +587,135 @@ const ProjectAccessibility = (props) => {
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body id='access-table-body'>
-                                    {(sections.length > 0 ) &&
-                                        sections.map((item, idx) => {
+                                    {(reviewSections.length > 0 ) &&
+                                        reviewSections.map((item) => {
                                             return (
-                                                <Table.Row verticalAlign='middle' key={idx}>
+                                                <Table.Row verticalAlign='middle' key={item._id}>
                                                     <Table.Cell>
-                                                        <strong>{item.name}</strong>
+                                                        <span><strong>{item.sectionTitle}</strong></span>
                                                     </Table.Cell>
                                                     {/* NAV */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.navKeyboard} onChange={(_e, data) => { updateSectionItem(item._id, 'navKeyboard', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* IMAGES */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.imgAltText} onChange={(_e, data) => { updateSectionItem(item._id, 'imgAltText', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.imgDecorative} onChange={(_e, data) => { updateSectionItem(item._id, 'imgDecorative', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.imgShortAlt} onChange={(_e, data) => { updateSectionItem(item._id, 'imgShortAlt', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* LINKS */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.linkNoneEmpty} onChange={(_e, data) => { updateSectionItem(item._id, 'linkNoneEmpty', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.linkSuspicious} onChange={(_e, data) => { updateSectionItem(item._id, 'linkSuspicious', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.linkExtLabeled} onChange={(_e, data) => { updateSectionItem(item._id, 'linkExtLabeled', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* CONTRAST */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.contrastSmall} onChange={(_e, data) => { updateSectionItem(item._id, 'contrastSmall', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.contrastLarge} onChange={(_e, data) => { updateSectionItem(item._id, 'contrastLarge', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.contrastButtons} onChange={(_e, data) => { updateSectionItem(item._id, 'contrastButtons', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* TEXT */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.textSize} onChange={(_e, data) => { updateSectionItem(item._id, 'textSize', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.textLineHeight} onChange={(_e, data) => { updateSectionItem(item._id, 'textLineHeight', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.textParSpacing} onChange={(_e, data) => { updateSectionItem(item._id, 'textParSpacing', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.textLetterSpacing} onChange={(_e, data) => { updateSectionItem(item._id, 'textLetterSpacing', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.textWordSpacing} onChange={(_e, data) => { updateSectionItem(item._id, 'textWordSpacing', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* HEADINGS */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.headingNoneEmpty} onChange={(_e, data) => { updateSectionItem(item._id, 'headingNoneEmpty', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.headingOutline} onChange={(_e, data) => { updateSectionItem(item._id, 'headingOutline', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* FORMS */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.formFieldLabels} onChange={(_e, data) => { updateSectionItem(item._id, 'formFieldLabels', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.formNavRadio} onChange={(_e, data) => { updateSectionItem(item._id, 'formNavRadio', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* TABLES */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.tableHeaders} onChange={(_e, data) => { updateSectionItem(item._id, 'tableHeaders', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.tableLabel} onChange={(_e, data) => { updateSectionItem(item._id, 'tableLabel', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.tableNotImage} onChange={(_e, data) => { updateSectionItem(item._id, 'tableNotImage', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* LISTS */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.listOlLabel} onChange={(_e, data) => { updateSectionItem(item._id, 'listOlLabel', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.listUlLabel} onChange={(_e, data) => { updateSectionItem(item._id, 'listUlLabel', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* DOCUMENTS */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.docLinkFile} onChange={(_e, data) => { updateSectionItem(item._id, 'docLinkFile', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.docAccess} onChange={(_e, data) => { updateSectionItem(item._id, 'docAccess', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* MULTIMEDIA */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.multiCaption} onChange={(_e, data) => { updateSectionItem(item._id, 'multiCaption', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.multiNavControls} onChange={(_e, data) => { updateSectionItem(item._id, 'multiNavControls', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.multiAudioTrans} onChange={(_e, data) => { updateSectionItem(item._id, 'multiAudioTrans', data.checked) }} />
                                                     </Table.Cell>
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.multiAudioDescrip} onChange={(_e, data) => { updateSectionItem(item._id, 'multiAudioDescrip', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* DIV */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.divSection} onChange={(_e, data) => { updateSectionItem(item._id, 'divSection', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* SENSORY */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.senseInstruction} onChange={(_e, data) => { updateSectionItem(item._id, 'senseInstruction', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* TIMING */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.timingCriteria} onChange={(_e, data) => { updateSectionItem(item._id, 'timingCriteria', data.checked) }} />
                                                     </Table.Cell>
                                                     {/* CODE */}
                                                     <Table.Cell className='access-table-cell' textAlign='center'>
-                                                        <Checkbox toggle />
+                                                        <Checkbox toggle checked={item.codeAltText} onChange={(_e, data) => { updateSectionItem(item._id, 'codeAltText', data.checked) }} />
                                                     </Table.Cell>
                                                 </Table.Row>
                                             )
                                         })
                                     }
-                                    {(sections.length === 0) &&
+                                    {(reviewSections.length === 0) &&
                                         <Table.Row>
                                             <Table.Cell></Table.Cell>
                                             <Table.Cell colSpan={33}>

@@ -13,8 +13,10 @@ const { body, query } = require('express-validator');
 const b62 = require('base62-random');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
-const { isValidLicense } = require('../util/bookutils.js');
-const { validateProjectClassification } = require('../util/projectutils.js');
+const { isValidLicense, isValidLibrary } = require('../util/bookutils.js');
+const { validateProjectClassification, validateRoadmapStep } = require('../util/projectutils.js');
+const { validateA11YReviewSectionItem } = require('../util/a11yreviewutils.js');
+const { isEmptyString } = require('../util/helpers.js');
 
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
@@ -38,6 +40,8 @@ const createProject = (req, res) => {
         status: 'open',
         visibility: 'private',
         currentProgress: 0,
+        peerProgress: 0,
+        a11yProgress: 0,
         classification: '',
         author: '',
         authorEmail: '',
@@ -289,7 +293,8 @@ const getProject = (req, res) => {
         }, {
             $project: {
                 _id: 0,
-                __v: 0
+                __v: 0,
+                a11yReview: 0
             }
         }, {
             $set: {
@@ -404,6 +409,12 @@ const updateProject = (req, res) => {
                 if (req.body.hasOwnProperty('progress') && req.body.progress !== project.currentProgress) {
                     updateObj.currentProgress = req.body.progress;
                 }
+                if (req.body.hasOwnProperty('peerProgress') && req.body.peerProgress !== project.peerProgress) {
+                    updateObj.peerProgress = req.body.peerProgress;
+                }
+                if (req.body.hasOwnProperty('a11yProgress') && req.body.a11yProgress !== project.a11yProgress) {
+                    updateObj.a11yProgress = req.body.a11yProgress;
+                }
                 if (req.body.hasOwnProperty('status') && req.body.status !== project.status) {
                     updateObj.status = req.body.status;
                 }
@@ -430,6 +441,18 @@ const updateProject = (req, res) => {
                 }
                 if (req.body.hasOwnProperty('notes') && req.body.notes !== project.notes) {
                     updateObj.notes = req.body.notes;
+                }
+                if (req.body.hasOwnProperty('rdmpReqRemix') && req.body.rdmpReqRemix !== project.rdmpReqRemix) {
+                    updateObj.rdmpReqRemix = req.body.rdmpReqRemix;
+                }
+                if (req.body.hasOwnProperty('rdmpCurrentStep') && req.body.rdmpCurrentStep !== project.rdmpCurrentStep) {
+                    updateObj.rdmpCurrentStep = req.body.rdmpCurrentStep;
+                }
+                if (req.body.hasOwnProperty('libreLibrary') && req.body.libreLibrary !== project.libreLibrary) {
+                    updateObj.libreLibrary = req.body.libreLibrary;
+                }
+                if (req.body.hasOwnProperty('libreCoverID') && req.body.libreCoverID !== project.libreCoverID) {
+                    updateObj.libreCoverID = req.body.libreCoverID;
                 }
                 if (req.body.hasOwnProperty('tags') && Array.isArray(req.body.tags)) {
                     checkTags = true;
@@ -1384,6 +1407,211 @@ const getThreadMessages = (req, res) => {
 
 
 /**
+ * Sends an email via the Mailgun API to the LibreTexts team requesting
+ * publishing of the Project identified by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'requestProjectPublishing'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const requestProjectPublishing = (req, res) => {
+    var projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            projectData = project;
+            // check user has permission to request publishing
+            if (checkProjectMemberPermission(projectData, req.user)) {
+                // lookup user for info
+                if (req.user?.decoded?.uuid) {
+                    return User.findOne({ uuid: req.user.decoded.uuid }).lean();
+                } else {
+                    throw(new Error('unauth'));
+                }
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((user) => {
+        if (user) {
+            let userName = user.firstName + ' ' + user.lastName;
+            let projLib = null;
+            let projCoverID = null;
+            if (projectData.libreLibrary && !isEmptyString(projectData.libreLibrary)) {
+                projLib = projectData.libreLibrary;
+            }
+            if (projectData.libreCoverID && !isEmptyString(projectData.libreCoverID)) {
+                projCoverID = projectData.libreCoverID;
+            }
+            return mailAPI.sendPublishingRequestedNotification(userName, projectData.projectID,
+                projectData.title, projLib, projCoverID);
+        } else {
+            throw(new Error('usernotfound'));
+        }
+    }).then(() => {
+        // ignore return value of Mailgun call
+        return res.send({
+            err: false,
+            msg: 'Successfully requested publishing.'
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'invalid') errMsg = conductorErrors.err2;
+        else if (err.message === 'usernotfound') errMsg = conductorErrors.err7;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Adds a A11Y Review Section to the A11Y Review array of the project identified
+ * by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'createA11YReviewSection'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const createA11YReviewSection = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            // check user has permission to add section
+            if (checkProjectMemberPermission(project, req.user)) {
+                return Project.updateOne({
+                    projectID: project.projectID
+                }, {
+                    $push: {
+                        a11yReview: {
+                            sectionTitle: req.body.sectionTitle
+                        }
+                    }
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Successfully added accessibility review section.'
+            });
+        } else {
+            throw(new Error('updatefailed')); // handle as generic error below
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Retrieves the list of A11Y Review Sections for the project identified
+ * by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getA11YReviewSections'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getA11YReviewSections = (req, res) => {
+    Project.findOne({
+        projectID: req.query.projectID
+    }).lean().then((project) => {
+        if (project) {
+            // check user has permission to view reviews
+            if (checkProjectMemberPermission(project, req.user)) {
+                return res.send({
+                    err: false,
+                    projectID: project.projectID,
+                    a11yReview: project.a11yReview
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Updates an item within a A11Y Review Section for the project identified
+ * by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'updateA11YReviewSectionItem'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const updateA11YReviewSectionItem = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            // check user has permission to update item
+            if (checkProjectMemberPermission(project, req.user)) {
+                let toSet = {};
+                toSet[`a11yReview.$.${req.body.itemName}`] = req.body.newResponse;
+                console.log(toSet);
+                return Project.updateOne({
+                    projectID: project.projectID,
+                    'a11yReview._id': req.body.sectionID
+                }, {
+                    $set: toSet
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Successfully updated review section item'
+            });
+        } else {
+            throw(new Error('updatefailed')) // handle as generic error below
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
@@ -1515,6 +1743,8 @@ const validate = (method) => {
                 body('title', conductorErrors.err1).optional().isString().isLength({ min: 1 }),
                 body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+                body('peerProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+                body('a11yProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
                 body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
@@ -1523,7 +1753,11 @@ const validate = (method) => {
                 body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
                 body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
                 body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-                body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
+                body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+                body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+                body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
+                body('libreLibrary', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLibrary),
+                body('libreCoverID', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 4, max: 6}),
             ]
         case 'getProject':
             return [
@@ -1573,6 +1807,26 @@ const validate = (method) => {
             return [
                 query('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
             ]
+        case 'createA11YReviewSection':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('sectionTitle', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 })
+            ]
+        case 'getA11YReviewSections':
+            return [
+                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
+        case 'updateA11YReviewSectionItem':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('sectionID', conductorErrors.err1).exists().isMongoId(),
+                body('itemName', conductorErrors.err1).exists().isString().custom(validateA11YReviewSectionItem),
+                body('newResponse', conductorErrors.err1).exists().isBoolean().toBoolean()
+            ]
+        case 'requestProjectPublishing':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+            ]
     }
 };
 
@@ -1596,6 +1850,10 @@ module.exports = {
     createThreadMessage,
     deleteThreadMessage,
     getThreadMessages,
+    requestProjectPublishing,
+    createA11YReviewSection,
+    getA11YReviewSections,
+    updateA11YReviewSectionItem,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
     validate

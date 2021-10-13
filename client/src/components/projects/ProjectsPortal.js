@@ -6,14 +6,10 @@ import {
   Menu,
   Input,
   Segment,
-  Divider,
   Message,
   Icon,
   Button,
-  Table,
-  Loader,
-  Dropdown,
-  Pagination
+  Table
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
@@ -127,7 +123,6 @@ const ProjectsPortal = (props) => {
             if (!res.data.err) {
                 if (res.data.projects && Array.isArray(res.data.projects)) {
                     setProjects(res.data.projects);
-                    console.log(res.data.projects);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -197,7 +192,7 @@ const ProjectsPortal = (props) => {
                                         <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Current Progress</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Classification</Header></Table.HeaderCell>
-                                        <Table.HeaderCell><Header sub>Owner</Header></Table.HeaderCell>
+                                        <Table.HeaderCell><Header sub>Lead</Header></Table.HeaderCell>
                                         <Table.HeaderCell><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>

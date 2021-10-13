@@ -53,8 +53,8 @@ import UsersManager from './components/controlpanel/UsersManager.js';
 import ProjectsPortal from './components/projects/ProjectsPortal.js';
 import ProjectsAvailable from './components/projects/ProjectsAvailable.js';
 import ProjectsCompleted from './components/projects/ProjectsCompleted.js';
-import ProjectsCreate from './components/projects/ProjectsCreate.js';
 import ProjectAccessibility from './components/projects/ProjectAccessibility.js';
+import ProjectCreate from './components/projects/ProjectCreate.js';
 import ProjectPeerReview from './components/projects/ProjectPeerReview.js';
 import ProjectTimeline from './components/projects/ProjectTimeline.js';
 import ProjectView from './components/projects/ProjectView.js';
@@ -100,7 +100,7 @@ function App() {
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
                         <PrivateRoute exact path = '/projects/available' component={ProjectsAvailable} />
-                        <PrivateRoute exact path = '/projects/create' component={ProjectsCreate} />
+                        <PrivateRoute exact path = '/projects/create' component={ProjectCreate} />
                         <PrivateRoute exact path = '/projects/completed' component={ProjectsCompleted} />
                         <PrivateRoute exact path = '/projects/:id' component={ProjectView} />
                             <PrivateRoute exact path = '/projects/:id/accessibility' component={ProjectAccessibility} />

@@ -20,7 +20,8 @@ import {
   Input,
   Loader,
   Search,
-  Card
+  Card,
+  Popup
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -37,6 +38,7 @@ import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import marked from 'marked';
 
+import ConductorTextArea from '../util/ConductorTextArea';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -45,14 +47,18 @@ import {
     normalizeURL,
     truncateString
 } from '../util/HelperFunctions.js';
-
+import {
+    libraryOptions,
+    getLibraryName
+} from '../util/LibraryOptions.js';
 import {
     visibilityOptions,
     editStatusOptions,
     createTaskOptions,
     classificationOptions,
     getTaskStatusText,
-    getClassificationText
+    getClassificationText,
+    getRoadmapStepName
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -86,8 +92,12 @@ const ProjectView = (props) => {
     const [projClassification, setProjClassification] = useState('');
     const [projVisibility, setProjVisibility] = useState('private');
     const [projProgress, setProjProgress] = useState(0);
+    const [projPRProgress, setProjPRProgress] = useState(0);
+    const [projA11YProgress, setProjA11YProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
+    const [projLibreLibrary, setProjLibreLibrary] = useState('');
+    const [projLibreCoverID, setProjLibreCoverID] = useState('');
     const [projResAuthor, setProjResAuthor] = useState('');
     const [projResEmail, setProjResEmail] = useState('');
     const [projResLicense, setProjResLicense] = useState('');
@@ -95,6 +105,8 @@ const ProjectView = (props) => {
     const [projNotes, setProjNotes] = useState('');
     const [projTitleErr, setProjTitleErr] = useState(false);
     const [projProgressErr, setProjProgressErr] = useState(false);
+    const [projPRProgressErr, setProjPRProgressErr] = useState(false);
+    const [projA11YProgressErr, setProjA11YProgressErr] = useState(false);
     const [tagOptions, setTagOptions] = useState([]);
     const [loadedTags, setLoadedTags] = useState(false);
 
@@ -169,10 +181,6 @@ const ProjectView = (props) => {
     const [showViewTaskModal, setShowViewTaskModal] = useState(false);
     const [viewTaskData, setViewTaskData] = useState({});
 
-
-    // Roadmap
-    const [showRoadmap, setShowRoadmap] = useState(false);
-    const [roadmapRequiresRemix, setRoadmapRequiresRemix] = useState(null);
 
     /**
      * Set page title and load Project information on initial load.
@@ -314,9 +322,13 @@ const ProjectView = (props) => {
         if (project.status) setProjStatus(project.status);
         if (project.visibility) setProjVisibility(project.visibility);
         if (project.hasOwnProperty('currentProgress')) setProjProgress(project.currentProgress);
+        if (project.hasOwnProperty('peerProgress')) setProjPRProgress(project.peerProgress);
+        if (project.hasOwnProperty('a11yProgress')) setProjA11YProgress(project.a11yProgress);
         if (project.classification) setProjClassification(project.classification);
         if (project.projectURL) setProjURL(project.projectURL);
         if (project.tags) setProjTags(project.tags);
+        if (project.libreLibrary) setProjLibreLibrary(project.libreLibrary);
+        if (project.libreCoverID) setProjLibreCoverID(project.libreCoverID);
         if (project.author) setProjResAuthor(project.author);
         if (project.authorEmail) setProjResEmail(project.authorEmail);
         if (project.license) setProjResLicense(project.license);
@@ -338,9 +350,13 @@ const ProjectView = (props) => {
         setProjStatus('open');
         setProjVisibility('private');
         setProjProgress(0);
+        setProjPRProgress(0);
+        setProjA11YProgress(0);
         setProjClassification('');
         setProjURL('');
         setProjTags([]);
+        setProjLibreLibrary('');
+        setProjLibreCoverID('');
         setProjResAuthor('');
         setProjResEmail('');
         setProjResLicense('');
@@ -386,6 +402,8 @@ const ProjectView = (props) => {
     const resetEditInfoFormErrors = () => {
         setProjTitleErr(false);
         setProjProgressErr(false);
+        setProjPRProgressErr(false);
+        setProjA11YProgressErr(false);
     };
 
 
@@ -402,6 +420,14 @@ const ProjectView = (props) => {
         if ((projProgress < 0) || (projProgress > 100)) {
             validForm = false;
             setProjProgressErr(true);
+        }
+        if ((projPRProgress < 0) || (projPRProgress > 100)) {
+            validForm = false;
+            setProjPRProgressErr(true);
+        }
+        if ((projA11YProgress < 0) || (projA11YProgress > 100)) {
+            validForm = false;
+            setProjA11YProgressErr(true);
         }
         return validForm;
     };
@@ -438,6 +464,12 @@ const ProjectView = (props) => {
             if ((project.hasOwnProperty('currentProgress') && project.currentProgress !== projProgress) || !project.hasOwnProperty('currentProgress')) {
                 projData.progress = projProgress;
             }
+            if ((project.hasOwnProperty('peerProgress') && project.peerProgress !== projPRProgress) || !project.hasOwnProperty('peerProgress')) {
+                projData.peerProgress = projPRProgress;
+            }
+            if ((project.hasOwnProperty('a11yProgress') && project.a11yProgress !== projA11YProgress) || !project.hasOwnProperty('a11yProgress')) {
+                projData.a11yProgress = projA11YProgress;
+            }
             if ((project.classification && project.classification !== projClassification) || !project.classification) {
                 projData.classification = projClassification;
             }
@@ -449,6 +481,12 @@ const ProjectView = (props) => {
             }
             if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
                 projData.projectURL = projURL;
+            }
+            if ((project.libreLibrary && project.libreLibrary !== projLibreLibrary) || !project.libreLibrary) {
+                projData.libreLibrary = projLibreLibrary;
+            }
+            if ((project.libreCoverID && project.libreCoverID !== projLibreCoverID) || !project.libreCoverID) {
+                projData.libreCoverID = projLibreCoverID;
             }
             if ((project.author && project.author !== projResAuthor) || !project.author) {
                 projData.author = projResAuthor;
@@ -657,6 +695,8 @@ const ProjectView = (props) => {
                 getProject();
                 setCompleteProjModalLoading(false);
                 setShowCompleteProjModal(false);
+                resetEditInfoFormErrors();
+                closeEditInfoModal();
             } else {
                 handleGlobalError(res.data.errMsg);
                 setCompleteProjModalLoading(false);
@@ -1079,7 +1119,7 @@ const ProjectView = (props) => {
                                 </Breadcrumb.Section>
                             </Breadcrumb>
                             <div className='float-right'>
-                                <p className='muted-text'>ID: {project.projectID || 'Loading...'}</p>
+                                <span className='muted-text'>ID: {project.projectID || 'Loading...'}</span>
                             </div>
                         </Segment>
                         <Segment loading={loadingData}>
@@ -1138,13 +1178,6 @@ const ProjectView = (props) => {
                                                 <Icon name='universal access' />
                                                 Accessibility
                                             </Button>
-                                            <Button
-                                                color='green'
-                                                onClick={() => setShowCompleteProjModal(true)}
-                                            >
-                                                <Icon name='check' />
-                                                Complete Project
-                                            </Button>
                                         </Button.Group>
                                     </Grid.Column>
                                 </Grid.Row>
@@ -1171,8 +1204,8 @@ const ProjectView = (props) => {
                                                 <Grid.Column width={4} className='project-progress-column'>
                                                     <p className='text-center'><strong>Peer Review</strong></p>
                                                     <CircularProgressbar
-                                                        value={0}
-                                                        text={`${0}%`}
+                                                        value={project.peerProgress || 0}
+                                                        text={`${project.peerProgress || 0}%`}
                                                         strokeWidth={5}
                                                         circleRatio={0.75}
                                                         styles={buildStyles({
@@ -1186,8 +1219,8 @@ const ProjectView = (props) => {
                                                 <Grid.Column width={4} className='project-progress-column'>
                                                     <p className='text-center'><strong>Accessibility</strong></p>
                                                     <CircularProgressbar
-                                                        value={0}
-                                                        text={`${0}%`}
+                                                        value={project.a11yProgress || 0}
+                                                        text={`${project.a11yProgress || 0}%`}
                                                         strokeWidth={5}
                                                         circleRatio={0.75}
                                                         styles={buildStyles({
@@ -1216,6 +1249,12 @@ const ProjectView = (props) => {
                                                             <span>{getClassificationText(project.classification)}</span>
                                                         </div>
                                                     }
+                                                    {(project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Construction Step: </Header>
+                                                            <span><em>{getRoadmapStepName(project.rdmpCurrentStep)}</em></span>
+                                                        </div>
+                                                    }
                                                     {(project.projectURL && !isEmptyString(project.projectURL)) &&
                                                         <div className='mb-1p'>
                                                             <Header as='span' sub>URL: </Header>
@@ -1224,8 +1263,25 @@ const ProjectView = (props) => {
                                                     }
                                                     {(project.owner && project.owner.firstName && project.owner.lastName) &&
                                                         <div className='mb-1p'>
-                                                            <Header as='span' sub>Project Owner: </Header>
+                                                            <Header as='span' sub>Project Lead: </Header>
                                                             <span>{project.owner.firstName} {project.owner.lastName}</span>
+                                                        </div>
+                                                    }
+                                                    {(project.libreLibrary && !isEmptyString(project.libreLibrary)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Library: </Header>
+                                                            {(project.libreCoverID && !isEmptyString(project.libreCoverID))
+                                                                ?   <a
+                                                                        target='_blank'
+                                                                        rel='noopener noreferrer'
+                                                                        href={`https://${project.libreLibrary}.libretexts.org/@go/page/${project.libreCoverID}`}
+                                                                        className='mr-1r'
+                                                                    >
+                                                                        {getLibraryName(project.libreLibrary)}
+                                                                        <Icon name='external' className='ml-1p'/>
+                                                                    </a>
+                                                                : <span>{getLibraryName(project.libreLibrary)}</span>
+                                                            }
                                                         </div>
                                                     }
                                                     {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
@@ -1277,246 +1333,14 @@ const ProjectView = (props) => {
                                                 <Grid.Row columns={1}>
                                                     <Grid.Column>
                                                         <Header as='h3' dividing>Notes</Header>
-                                                        <p>{project.notes}</p>
+                                                        <p dangerouslySetInnerHTML={{
+                                                            __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
+                                                        }}></p>
                                                     </Grid.Column>
                                                 </Grid.Row>
                                             }
                                         </Grid>
                                     </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row>
-                                    {(canViewDetails && showRoadmap) &&
-                                        <Grid.Column>
-                                            <Header as='h2' dividing>
-                                                Construction Roadmap
-                                                <Button
-                                                    compact
-                                                    floated='right'
-                                                    onClick={() => setShowRoadmap(!showRoadmap)}
-                                                >
-                                                    Hide
-                                                </Button>
-                                            </Header>
-                                            <Segment
-                                                id='project-roadmap-segment'
-                                                size='large'
-                                                raised
-                                                className='mb-2p'
-                                            >
-                                                <div id='project-roadmap-container'>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <Card
-                                                            header='Step 1'
-                                                            description='Construct a Vision of your Book'
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 2'
-                                                            description='Obtain proper LibreTexts accounts'
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 3'
-                                                            description='Review Remixing and Editing Fundamentals'
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide' rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external square' />
-                                                                    Construction Guide
-                                                                </a>
-                                                            }
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 4'
-                                                            description='Does your Vision require remixing of existing content?'
-                                                            extra={
-                                                                <Button.Group widths={2}>
-                                                                    <Button
-                                                                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
-                                                                        color='blue'
-                                                                        onClick={() => setRoadmapRequiresRemix(true)}
-                                                                    >
-                                                                        Yes
-                                                                    </Button>
-                                                                    <Button
-                                                                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === true)}
-                                                                        color='green'
-                                                                        onClick={() => setRoadmapRequiresRemix(false)}
-                                                                    >
-                                                                        No
-                                                                    </Button>
-                                                                </Button.Group>
-                                                            }
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header='Step 5a'
-                                                                description='Review & evaluate existing content on LibreTexts and identify gaps'
-                                                                className='project-roadmap-card'
-                                                            />
-                                                        </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header='Step 5b'
-                                                                description='Build a Remixing Map'
-                                                                centered
-                                                                className='project-roadmap-card'
-                                                            />
-                                                        </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header='Step 5c'
-                                                                description='Build Remix using Map & Remixer (blank pages for gaps) in your sandbox'
-                                                                centered
-                                                                className='project-roadmap-card'
-                                                            />
-                                                        </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === false || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === false) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header='Step 6'
-                                                                description='Build initial empty text skeleton (i.e. empty pages) using the Remixer in your sandbox'
-                                                                className='project-roadmap-card'
-                                                            />
-                                                        </div>
-                                                    }
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 7'
-                                                            description='Fill in gaps with pre-existing OER content or construct content directly.'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 8'
-                                                            description='Edit pages to fit faculty/class needs (may require forking of remixed content)'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 9'
-                                                            description='Work up advanced features (autograded assessments, visualizations, simulations, interactive graphs, etc.)'
-                                                            centered
-                                                            meta='Optional'
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 10'
-                                                            description='Request a preliminary accessibility check (Bradbot or A11Y bot)'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 11'
-                                                            description="Request 'publishing' of text: external review of organization, remixer check, Bradbot check, move text into campus bookshelf, compile for PDF/LMS/bookstore export."
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header='Step 12'
-                                                            description='Curate text (edit, polish, and hone) in campus bookshelf'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
-                                    {(canViewDetails && !showRoadmap) &&
-                                        <Grid.Column>
-                                            <Segment
-                                                raised
-                                                clearing
-                                            >
-                                                <Header as='h2' id='project-roadmap-heading'>Construction Roadmap</Header>
-                                                <Button
-                                                    floated='right'
-                                                    onClick={() => setShowRoadmap(!showRoadmap)}
-                                                >
-                                                    Show
-                                                </Button>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
-                                    {!canViewDetails &&
-                                        <Grid.Column>
-                                            <Header as='h2' dividing>Construction Roadmap</Header>
-                                            <Segment
-                                                size='large'
-                                                raised
-                                                className='mb-2p'
-                                            >
-                                                <p><em>You don't have permission to view this project's Construction Roadmap yet.</em></p>
-                                            </Segment>
-                                        </Grid.Column>
-                                    }
                                 </Grid.Row>
                                 <Grid.Row>
                                     {canViewDetails &&
@@ -1584,7 +1408,7 @@ const ProjectView = (props) => {
                                                                     })
                                                                 }
                                                                 {(loadedProjThreads && projectThreads.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No threads yet.</em></p>
+                                                                    <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
                                                                 }
                                                                 {(!loadedProjThreads) &&
                                                                     <Loader active inline='centered' className='mt-4r' />
@@ -1655,32 +1479,14 @@ const ProjectView = (props) => {
                                                                 }
                                                             </div>
                                                             <div id='project-messages-reply-container'>
-                                                                <div id='project-messages-input-container'>
-                                                                    <textarea
-                                                                        id='project-messages-input-textarea'
-                                                                        placeholder='Send a message...'
-                                                                        value={messageCompose}
-                                                                        onChange={(e) => setMessageCompose(e.target.value)}
-                                                                        rows={1}
-                                                                    ></textarea>
-                                                                    <div id='project-messages-input-attached'>
-                                                                        <div className='left-flex'>
-                                                                            <span id='project-messages-helptext'>You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* message!</span>
-                                                                        </div>
-                                                                        <div className='right-flex'>
-                                                                            <Button
-                                                                                disabled={(activeThread === '') || (messageCompose === '')}
-                                                                                loading={messageSending}
-                                                                                onClick={sendMessage}
-                                                                                color='blue'
-                                                                                floated='right'
-                                                                            >
-                                                                                <Icon name='send' />
-                                                                                Send
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                                <ConductorTextArea
+                                                                    placeholder='Send a message...'
+                                                                    textValue={messageCompose}
+                                                                    onTextChange={(value) => setMessageCompose(value)}
+                                                                    disableSend={(activeThread === '') || (messageCompose === '')}
+                                                                    sendLoading={messageSending}
+                                                                    onSendClick={sendMessage}
+                                                                />
                                                                 {/*
                                                                 <div className='left-flex' id='project-messages-reply-inputcontainer'>
                                                                     <MentionsInput
@@ -1755,7 +1561,16 @@ const ProjectView = (props) => {
                         size='large'
                     >
                         <Modal.Header>Edit Project Properties</Modal.Header>
-                        <Modal.Content>
+                        <Modal.Content scrolling>
+                            <Button
+                                color='green'
+                                onClick={() => setShowCompleteProjModal(true)}
+                                fluid
+                                className='mb-2p'
+                            >
+                                <Icon name='check' />
+                                Complete Project
+                            </Button>
                             <Form noValidate>
                                 <Header as='h3'>Project Overview</Header>
                                 <Form.Field
@@ -1782,6 +1597,34 @@ const ProjectView = (props) => {
                                         max='100'
                                         onChange={(e) => setProjProgress(e.target.value)}
                                         value={projProgress}
+                                    />
+                                </Form.Field>
+                                <Form.Field
+                                    error={projPRProgressErr}
+                                >
+                                    <label>Peer Review Progress</label>
+                                    <Form.Input
+                                        name='peerreviewprogress'
+                                        type='number'
+                                        placeholder='Enter current estimated progress...'
+                                        min='0'
+                                        max='100'
+                                        onChange={(e) => setProjPRProgress(e.target.value)}
+                                        value={projPRProgress}
+                                    />
+                                </Form.Field>
+                                <Form.Field
+                                    error={projA11YProgressErr}
+                                >
+                                    <label>Accessibility Progress</label>
+                                    <Form.Input
+                                        name='a11yprogress'
+                                        type='number'
+                                        placeholder='Enter current estimated progress...'
+                                        min='0'
+                                        max='100'
+                                        onChange={(e) => setProjA11YProgress(e.target.value)}
+                                        value={projA11YProgress}
                                     />
                                 </Form.Field>
                                 <Form.Select
@@ -1838,6 +1681,39 @@ const ProjectView = (props) => {
                                     value={projTags}
                                 />
                                 <Divider />
+                                <Header as='h3'>LibreText Information</Header>
+                                <p><em>Use this section if your project pertains to an existing LibreText on the live libraries.</em></p>
+                                <Form.Group widths='equal'>
+                                    <Form.Select
+                                        fluid
+                                        label='Library'
+                                        placeholder='Library...'
+                                        options={libraryOptions}
+                                        onChange={(_e, { value }) => setProjLibreLibrary(value)}
+                                        value={projLibreLibrary}
+                                    />
+                                    <Form.Field>
+                                        <label htmlFor='coverpageID'>
+                                            <span className='mr-1p'>Coverpage ID</span>
+                                            <Popup
+                                                content={
+                                                    <span>
+                                                        This is the 'Page ID' of the <strong>topmost</strong> page of your LibreText (typically the chapter listing). It is visible when logged into a library with editing privileges.
+                                                    </span>
+                                                }
+                                                trigger={<Icon name='info circle' />}
+                                            />
+                                        </label>
+                                        <Form.Input
+                                            name='coverpageID'
+                                            type='text'
+                                            placeholder='Enter Coverpage ID...'
+                                            onChange={(e) => setProjLibreCoverID(e.target.value)}
+                                            value={projLibreCoverID}
+                                        />
+                                    </Form.Field>
+                                </Form.Group>
+                                <Divider />
                                 <Header as='h3'>Resource Information</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
                                 <Form.Group widths='equal'>
@@ -1886,11 +1762,12 @@ const ProjectView = (props) => {
                                 <Header as='h3'>Additional Information</Header>
                                 <Form.Field>
                                     <label>Notes</label>
-                                    <Form.TextArea
-                                        name='notes'
-                                        onChange={(e) => setProjNotes(e.target.value)}
-                                        value={projNotes}
+                                    <ConductorTextArea
                                         placeholder='Enter additional notes here...'
+                                        textValue={projNotes}
+                                        onTextChange={(value) => setProjNotes(value)}
+                                        inputType='notes'
+                                        showSendButton={false}
                                     />
                                 </Form.Field>
                             </Form>
@@ -1939,6 +1816,7 @@ const ProjectView = (props) => {
                         open={showCollabsModal}
                         onClose={closeCollabsModal}
                         size='large'
+                        closeIcon
                     >
                         <Modal.Header>Manage Project Team</Modal.Header>
                         <Modal.Content scrolling id='project-manage-team-content'>
@@ -1971,7 +1849,7 @@ const ProjectView = (props) => {
                                 <List.Item key={project.owner?.uuid || 'owner'}>
                                     <Image avatar src={project.owner?.avatar || '/mini_logo.png'} />
                                     <List.Content>
-                                        {project.owner?.firstName} {project.owner?.lastName} (<em>Owner</em>)
+                                        {project.owner?.firstName} {project.owner?.lastName} (<em>Lead</em>)
                                     </List.Content>
                                 </List.Item>
                                 {(hasCollabs && project.collaborators.map((item, idx) => {

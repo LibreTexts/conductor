@@ -375,7 +375,7 @@ const resetPassword = (req, res) => {
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
-            const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}`;
+            const resetLink = `https://commons.libretexts.org/resetpassword?token=${resetToken}`;
             return mailAPI.sendPasswordReset(userEmail, userFirstName, resetLink);
         } else {
             throw(new Error('updatefailed')); // handle as generic internal error below

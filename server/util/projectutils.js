@@ -14,6 +14,10 @@ const projectClassifications = [
     'adoptionrequest'
 ];
 
+const constrRoadmapSteps = [
+    '1', '2', '3', '4', '5a', '5b', '5c', '6', '7', '8', '9', '10', '11', '12'
+];
+
 
 /**
  * Validates that a given classification string is one of the
@@ -23,14 +27,23 @@ const projectClassifications = [
  *
  */
 const validateProjectClassification = (classification) => {
-    if (typeof(classification) === 'string') {
-        return projectClassifications.includes(classification);
-    }
-    return false;
+    return projectClassifications.includes(classification);
 };
 
 
+/**
+ * Validates that a given Construction Roadmap step name is one of the
+ * pre-defined, acceptable step names.
+ * @param {String} step  - the step name to test
+ * @returns {Boolean} true if valid step, false otherwise.
+ */
+const validateRoadmapStep = (step) => {
+    return constrRoadmapSteps.includes(step);
+};
+
 module.exports = {
     projectClassifications,
-    validateProjectClassification
+    constrRoadmapSteps,
+    validateProjectClassification,
+    validateRoadmapStep
 }

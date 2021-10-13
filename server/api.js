@@ -410,6 +410,22 @@ router.route('/project/task')
         middleware.checkValidationErrors,
         tasksAPI.updateTask);
 
+router.route('/project/publishing').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('requestProjectPublishing'),
+    middleware.checkValidationErrors, projectsAPI.requestProjectPublishing);
+
+router.route('/project/accessibility/sections').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('getA11YReviewSections'),
+    middleware.checkValidationErrors, projectsAPI.getA11YReviewSections);
+
+router.route('/project/accessibility/section').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('createA11YReviewSection'),
+    middleware.checkValidationErrors, projectsAPI.createA11YReviewSection);
+
+router.route('/project/accessibility/section/item').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('updateA11YReviewSectionItem'),
+    middleware.checkValidationErrors, projectsAPI.updateA11YReviewSectionItem);
 
 /* Harvesting */
 
