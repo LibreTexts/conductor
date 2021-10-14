@@ -341,6 +341,10 @@ body {
     display: none;
 }
 
+.small-text {
+    font-size: 0.75em;
+}
+
 code {
     padding: .2em .4em;
     margin: 0;

@@ -74,6 +74,8 @@ const ProjectTimeline = (props) => {
     const [roadmapRequiresRemix, setRoadmapRequiresRemix] = useState(null);
     const [currentRoadmapStep, setCurrentRoadmapStep] = useState('');
     const [showConfirmPublish, setShowConfirmPublish] = useState(false);
+    const [openRoadmapStep, setOpenRoadmapStep] = useState('');
+    const [openRoadmapStepInfo, setOpenRoadmapStepInfo] = useState({});
 
     /**
      * Set page title and load Project information on initial load.
@@ -246,6 +248,189 @@ const ProjectTimeline = (props) => {
         });
     };
 
+
+    const roadmapSteps = [
+        {
+            key: '1',
+            title: 'Step 1',
+            name: 'Vision',
+            description: 'Construct a Vision of your Book',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/02%3A_A_Framework_for_Designing_Online_Texts',
+            linkTitle: 'Designing Online Texts'
+        }, {
+            key: '2',
+            title: 'Step 2',
+            name: 'Accounts',
+            description: 'Obtain proper LibreTexts accounts',
+            hasExtra: true,
+            linkHref: 'https://register.libretexts.org/',
+            linkTitle: 'Register at LibreTexts'
+        }, {
+            key: '3',
+            title: 'Step 3',
+            name: 'Training',
+            description: 'Review Remixing and Editing Fundamentals',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing',
+            linkTitle: 'Basic Editing'
+        }, {
+            key: '4',
+            title: 'Step 4',
+            name: '',
+            description: 'Does your Vision require remixing of existing content?',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content',
+            linkTitle: 'Remixing Existing Content'
+        }, {
+            key: '5a',
+            title: 'Step 5a',
+            name: 'Scan',
+            description: 'Review & evaluate existing content on LibreTexts and identify gaps',
+            hasExtra: false,
+            linkHref: '',
+            linkTitle: ''
+        }, {
+            key: '5b',
+            title: 'Step 5b',
+            name: 'Mapping',
+            description: 'Build a Remixing Map',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.02%3A_Building_Remixing_Maps',
+            linkTitle: 'Building Remixing Maps'
+        }, {
+            key: '5c',
+            title: 'Step 5c',
+            name: 'Remixing',
+            description: '',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix',
+            linkTitle: 'Remixer Tutorial'
+        }, {
+            key: '6',
+            title: 'Step 6',
+            name: 'Skeleton',
+            description: 'Build initial empty text skeleton (i.e. empty pages) using the Remixer in your sandbox',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix',
+            linkTitle: 'Remixer Tutorial'
+        }, {
+            key: '7',
+            title: 'Step 7',
+            name: 'Constructing',
+            description: 'Fill in gaps with pre-existing OER content or construct content directly.',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing',
+            linkTitle: 'Basic Editing'
+        }, {
+            key: '8',
+            title: 'Step 8',
+            name: 'Editing',
+            description: 'Edit pages to fit faculty/class needs (may require forking of remixed content)',
+            hasExtra: false,
+            linkHref: '',
+            linkTitle: ''
+        }, {
+            key: '9',
+            title: 'Step 9',
+            name: 'Advanced',
+            description: 'Work up advanced features (autograded assessments, visualizations, simulations, interactive graphs, etc.)',
+            hasExtra: true,
+            linkHref: 'https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/04%3A_Advanced_Editing',
+            linkTitle: 'Advanced Editing',
+            optional: true
+        }, {
+            key: '10',
+            title: 'Step 10',
+            name: 'Accessibility',
+            description: 'Request a preliminary accessibility check (Bradbot or A11Y bot)',
+            hasExtra: false,
+            linkHref: '',
+            linkTitle: ''
+        }, {
+            key: '11',
+            title: 'Step 11',
+            name: 'Publishing',
+            description: "Request 'publishing' of text: external review of organization, remixer check, Bradbot check, move text into campus bookshelf, compile for PDF/LMS/bookstore export.",
+            hasExtra: false,
+            linkHref: '',
+            linkTitle: ''
+        }, {
+            key: '12',
+            title: 'Step 12',
+            name: 'Curating',
+            description: 'Curate text (edit, polish, and hone) in campus bookshelf',
+            hasExtra: false,
+            linkHref: '',
+            linkTitle: ''
+        }
+    ];
+
+    const activateRoadmapStep = (key) => {
+        let foundStep = roadmapSteps.find(item => item.key === key);
+        if (foundStep !== undefined) {
+            setOpenRoadmapStep(foundStep.key);
+            setOpenRoadmapStepInfo(foundStep);
+        }
+    };
+
+    const renderRoadmapStep = (item, idx) => {
+        let listClassName = 'project-roadmap-steps-list-item flex-row-div';
+        if (['5a', '5b', '5c', '6'].includes(item.key) && roadmapRequiresRemix === null) {
+            listClassName = 'project-roadmap-steps-list-item flex-row-div project-roadmap-step-disabled';
+        } else {
+            if (openRoadmapStep === item.key) {
+                listClassName = 'project-roadmap-steps-list-item flex-row-div active';
+            }
+        }
+        return (
+            <div
+                className={listClassName}
+                key={idx}
+            >
+                <div className='project-roadmap-step-list-info'>
+                    <Radio
+                        checked={currentRoadmapStep === item.key}
+                        onChange={() => updateRoadmapStep(item.key)}
+                        className='project-roadmap-step-radio'
+                    />
+                    <p
+                        className={(openRoadmapStep === item.key)
+                            ? 'project-roadmap-steps-list-title active'
+                            : 'project-roadmap-steps-list-title'
+                        }
+                        onClick={() => activateRoadmapStep(item.key)}
+                    >
+                        {item.title}
+                        {item.name &&
+                            <span>: <em>{item.name}</em></span>
+                        }
+                        {item.optional &&
+                            <span className='muted-text small-text'> (optional)</span>
+                        }
+                    </p>
+                    {item.hasExtra &&
+                        <a
+                            className='project-roadmap-steps-list-descrip'
+                            href={item.linkHref}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                        >
+                            <Icon name='external' />
+                            {item.linkTitle}
+                        </a>
+                    }
+                </div>
+                <div className='right-flex project-roadmap-step-list-icon'>
+                    <Icon
+                        name='chevron right'
+                        onClick={() => activateRoadmapStep(item.key)}
+                    />
+                </div>
+            </div>
+        )
+    };
+
     return(
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
@@ -293,108 +478,44 @@ const ProjectTimeline = (props) => {
                                                 className='mb-2p'
                                             >
                                                 <div id='project-roadmap-container'>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 1: <em>Vision</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '1'}
-                                                                        onChange={() => updateRoadmapStep('1')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Construct a Vision of your Book'
-                                                            className='project-roadmap-card'
-                                                            extra={
-                                                                <a
-                                                                    target='_blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/02%3A_A_Framework_for_Designing_Online_Texts'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Designing Online Texts
-                                                                </a>
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
+                                                    <div id='project-roadmap-steps'>
+                                                        <div className='flex-col-div' id='project-roadmap-steps-container'>
+                                                            <div className='flex-row-div' id='project-roadmap-steps-header-container'>
+                                                                <div className='left-flex'>
+                                                                    <Header as='h3'>Steps</Header>
+                                                                </div>
+                                                            </div>
+                                                            <div className='flex-col-div' id='project-roadmap-steps-list-container'>
+                                                                {(roadmapRequiresRemix === true) &&
+                                                                    roadmapSteps.filter(item => item.key !== '6').map(renderRoadmapStep)
+                                                                }
+                                                                {(roadmapRequiresRemix === false) &&
+                                                                    roadmapSteps.filter(item => item.key !== '5a' && item.key !== '5b' && item.key !== '5c').map(renderRoadmapStep)
+                                                                }
+                                                                {(roadmapRequiresRemix === null) &&
+                                                                    roadmapSteps.map(renderRoadmapStep)
+                                                                }
+                                                            </div>
                                                         </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 2: <em>Accounts</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '2'}
-                                                                        onChange={() => updateRoadmapStep('2')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Obtain proper LibreTexts accounts'
-                                                            className='project-roadmap-card'
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://register.libretexts.org/'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Register at LibreTexts
-                                                                </a>
-                                                            }
-                                                        />
                                                     </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 3: <em>Training</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '3'}
-                                                                        onChange={() => updateRoadmapStep('3')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Review Remixing and Editing Fundamentals'
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Basic Editing
-                                                                </a>
-                                                            }
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 4
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '4'}
-                                                                        onChange={() => updateRoadmapStep('4')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description={
-                                                                <div>
-                                                                    <p>Does your Vision require remixing of existing content?</p>
+                                                    <div id='project-roadmap-stepdetail'>
+                                                        <div className='flex-col-div' id='project-roadmap-stepdetail-container'>
+                                                            <div className='flex-row-div' id='project-roadmap-stepdetail-header-container'>
+                                                                <Header as='h3'>
+                                                                    {openRoadmapStepInfo.key
+                                                                        ? ((openRoadmapStepInfo.name)
+                                                                            ? <span>Step {openRoadmapStepInfo.key}: <em>{openRoadmapStepInfo.name}</em></span>
+                                                                            : <span>Step {openRoadmapStepInfo.key}</span>
+                                                                        )
+                                                                        : <em>Step Detail</em>
+                                                                    }
+                                                                </Header>
+                                                            </div>
+                                                            <div id='project-roadmap-stepdetail-info-container'>
+                                                                {openRoadmapStepInfo.key &&
+                                                                    <p>{openRoadmapStepInfo.description}</p>
+                                                                }
+                                                                {(openRoadmapStepInfo.key === '4') &&
                                                                     <Button.Group widths={2}>
                                                                         <Button
                                                                             basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
@@ -411,286 +532,21 @@ const ProjectTimeline = (props) => {
                                                                             No
                                                                         </Button>
                                                                     </Button.Group>
-                                                                </div>
-                                                            }
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Remixing Existing Content
-                                                                </a>
-                                                            }
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header={
-                                                                    <span className='header'>
-                                                                        Step 5a: <em>Scan</em>
-                                                                        <Radio
-                                                                            className='float-right'
-                                                                            checked={currentRoadmapStep === '5a'}
-                                                                            onChange={() => updateRoadmapStep('5a')}
-                                                                        />
-                                                                    </span>
                                                                 }
-                                                                description='Review & evaluate existing content on LibreTexts and identify gaps'
-                                                                className='project-roadmap-card'
-                                                            />
-                                                        </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header={
-                                                                    <span className='header'>
-                                                                        Step 5b: <em>Mapping</em>
-                                                                        <Radio
-                                                                            className='float-right'
-                                                                            checked={currentRoadmapStep === '5b'}
-                                                                            onChange={() => updateRoadmapStep('5b')}
-                                                                        />
-                                                                    </span>
-                                                                }
-                                                                description='Build a Remixing Map'
-                                                                centered
-                                                                className='project-roadmap-card'
-                                                                extra={
-                                                                    <a
-                                                                        target='blank'
-                                                                        href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.02%3A_Building_Remixing_Maps'
-                                                                        rel='noopener noreferrer'
+                                                                {openRoadmapStepInfo.key === '11' &&
+                                                                    <Button
+                                                                        color='blue'
+                                                                        onClick={() => setShowConfirmPublish(true)}
+                                                                        fluid
                                                                     >
-                                                                        <Icon name='external' />
-                                                                        Building Remixing Maps
-                                                                    </a>
+                                                                        Publish Text
+                                                                    </Button>
                                                                 }
-                                                            />
-                                                        </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
+                                                                {!openRoadmapStepInfo.key &&
+                                                                    <p className='text-center muted-text mt-4r'><em>Select a step from the list on the left.</em></p>
+                                                                }
                                                             </div>
-                                                            <Card
-                                                                header={
-                                                                    <span className='header'>
-                                                                        Step 5c: <em>Remixing</em>
-                                                                        <Radio
-                                                                            className='float-right'
-                                                                            checked={currentRoadmapStep === '5c'}
-                                                                            onChange={() => updateRoadmapStep('5c')}
-                                                                        />
-                                                                    </span>
-                                                                }
-                                                                description='Build Remix using Map & Remixer (blank pages for gaps) in your sandbox'
-                                                                centered
-                                                                className='project-roadmap-card'
-                                                                extra={
-                                                                    <a
-                                                                        target='blank'
-                                                                        href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix'
-                                                                        rel='noopener noreferrer'
-                                                                    >
-                                                                        <Icon name='external' />
-                                                                        Remixer Tutorial
-                                                                    </a>
-                                                                }
-                                                            />
                                                         </div>
-                                                    }
-                                                    {(roadmapRequiresRemix === false || roadmapRequiresRemix === null) &&
-                                                        <div className={(roadmapRequiresRemix === false) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
-                                                            <div className='project-roadmap-arrow-container'>
-                                                                <Icon name='arrow right' size='large' fitted />
-                                                            </div>
-                                                            <Card
-                                                                header={
-                                                                    <span className='header'>
-                                                                        Step 6: <em>Skeleton</em>
-                                                                        <Radio
-                                                                            className='float-right'
-                                                                            checked={currentRoadmapStep === '6'}
-                                                                            onChange={() => updateRoadmapStep('6')}
-                                                                        />
-                                                                    </span>
-                                                                }
-                                                                description='Build initial empty text skeleton (i.e. empty pages) using the Remixer in your sandbox'
-                                                                className='project-roadmap-card'
-                                                                extra={
-                                                                    <a
-                                                                        target='blank'
-                                                                        href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix'
-                                                                        rel='noopener noreferrer'
-                                                                    >
-                                                                        <Icon name='external' />
-                                                                        Remixer Tutorial
-                                                                    </a>
-                                                                }
-                                                            />
-                                                        </div>
-                                                    }
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 7: <em>Constructing</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '7'}
-                                                                        onChange={() => updateRoadmapStep('7')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Fill in gaps with pre-existing OER content or construct content directly.'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Basic Editing
-                                                                </a>
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 8: <em>Editing</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '8'}
-                                                                        onChange={() => updateRoadmapStep('8')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Edit pages to fit faculty/class needs (may require forking of remixed content)'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 9: <em>Advanced</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '9'}
-                                                                        onChange={() => updateRoadmapStep('9')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Work up advanced features (autograded assessments, visualizations, simulations, interactive graphs, etc.)'
-                                                            centered
-                                                            meta='Optional'
-                                                            className='project-roadmap-card'
-                                                            extra={
-                                                                <a
-                                                                    target='blank'
-                                                                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/04%3A_Advanced_Editing'
-                                                                    rel='noopener noreferrer'
-                                                                >
-                                                                    <Icon name='external' />
-                                                                    Advanced Editing
-                                                                </a>
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 10: <em>Accessibility</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '10'}
-                                                                        onChange={() => updateRoadmapStep('10')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Request a preliminary accessibility check (Bradbot or A11Y bot)'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 11: <em>Publishing</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '11'}
-                                                                        onChange={() => updateRoadmapStep('11')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description="Request 'publishing' of text: external review of organization, remixer check, Bradbot check, move text into campus bookshelf, compile for PDF/LMS/bookstore export."
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                            extra={
-                                                                <Button
-                                                                    color='blue'
-                                                                    onClick={() => setShowConfirmPublish(true)}
-                                                                    fluid
-                                                                >
-                                                                    Publish Text
-                                                                </Button>
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <div className='project-roadmap-step-container'>
-                                                        <div className='project-roadmap-arrow-container'>
-                                                            <Icon name='arrow right' size='large' fitted />
-                                                        </div>
-                                                        <Card
-                                                            header={
-                                                                <span className='header'>
-                                                                    Step 12: <em>Curating</em>
-                                                                    <Radio
-                                                                        className='float-right'
-                                                                        checked={currentRoadmapStep === '12'}
-                                                                        onChange={() => updateRoadmapStep('12')}
-                                                                    />
-                                                                </span>
-                                                            }
-                                                            description='Curate text (edit, polish, and hone) in campus bookshelf'
-                                                            centered
-                                                            className='project-roadmap-card'
-                                                        />
                                                     </div>
                                                 </div>
                                             </Segment>
@@ -768,3 +624,406 @@ const ProjectTimeline = (props) => {
 };
 
 export default ProjectTimeline;
+
+
+/**
+<div className='project-roadmap-step-container'>
+    <Card
+        header={
+            <span className='header'>
+                Step 1: <em>Vision</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '1'}
+                    onChange={() => updateRoadmapStep('1')}
+                />
+            </span>
+        }
+        description='Construct a Vision of your Book'
+        className='project-roadmap-card'
+        extra={
+            <a
+                target='_blank'
+                href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/02%3A_A_Framework_for_Designing_Online_Texts'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Designing Online Texts
+            </a>
+        }
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 2: <em>Accounts</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '2'}
+                    onChange={() => updateRoadmapStep('2')}
+                />
+            </span>
+        }
+        description='Obtain proper LibreTexts accounts'
+        className='project-roadmap-card'
+        extra={
+            <a
+                target='blank'
+                href='https://register.libretexts.org/'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Register at LibreTexts
+            </a>
+        }
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 3: <em>Training</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '3'}
+                    onChange={() => updateRoadmapStep('3')}
+                />
+            </span>
+        }
+        description='Review Remixing and Editing Fundamentals'
+        extra={
+            <a
+                target='blank'
+                href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Basic Editing
+            </a>
+        }
+        className='project-roadmap-card'
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 4
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '4'}
+                    onChange={() => updateRoadmapStep('4')}
+                />
+            </span>
+        }
+        description={
+            <div>
+                <p>Does your Vision require remixing of existing content?</p>
+                <Button.Group widths={2}>
+                    <Button
+                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === false)}
+                        color='blue'
+                        onClick={() => updateRoadmapRequiresRemix(true)}
+                    >
+                        Yes
+                    </Button>
+                    <Button
+                        basic={(roadmapRequiresRemix === null) || (roadmapRequiresRemix === true)}
+                        color='green'
+                        onClick={() => updateRoadmapRequiresRemix(false)}
+                    >
+                        No
+                    </Button>
+                </Button.Group>
+            </div>
+        }
+        extra={
+            <a
+                target='blank'
+                href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Remixing Existing Content
+            </a>
+        }
+        className='project-roadmap-card'
+    />
+</div>
+{(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+    <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+        <div className='project-roadmap-arrow-container'>
+            <Icon name='arrow right' size='large' fitted />
+        </div>
+        <Card
+            header={
+                <span className='header'>
+                    Step 5a: <em>Scan</em>
+                    <Radio
+                        className='float-right'
+                        checked={currentRoadmapStep === '5a'}
+                        onChange={() => updateRoadmapStep('5a')}
+                    />
+                </span>
+            }
+            description='Review & evaluate existing content on LibreTexts and identify gaps'
+            className='project-roadmap-card'
+        />
+    </div>
+}
+{(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+    <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+        <div className='project-roadmap-arrow-container'>
+            <Icon name='arrow right' size='large' fitted />
+        </div>
+        <Card
+            header={
+                <span className='header'>
+                    Step 5b: <em>Mapping</em>
+                    <Radio
+                        className='float-right'
+                        checked={currentRoadmapStep === '5b'}
+                        onChange={() => updateRoadmapStep('5b')}
+                    />
+                </span>
+            }
+            description='Build a Remixing Map'
+            centered
+            className='project-roadmap-card'
+            extra={
+                <a
+                    target='blank'
+                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.02%3A_Building_Remixing_Maps'
+                    rel='noopener noreferrer'
+                >
+                    <Icon name='external' />
+                    Building Remixing Maps
+                </a>
+            }
+        />
+    </div>
+}
+{(roadmapRequiresRemix === true || roadmapRequiresRemix === null) &&
+    <div className={(roadmapRequiresRemix === true) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+        <div className='project-roadmap-arrow-container'>
+            <Icon name='arrow right' size='large' fitted />
+        </div>
+        <Card
+            header={
+                <span className='header'>
+                    Step 5c: <em>Remixing</em>
+                    <Radio
+                        className='float-right'
+                        checked={currentRoadmapStep === '5c'}
+                        onChange={() => updateRoadmapStep('5c')}
+                    />
+                </span>
+            }
+            description='Build Remix using Map & Remixer (blank pages for gaps) in your sandbox'
+            centered
+            className='project-roadmap-card'
+            extra={
+                <a
+                    target='blank'
+                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix'
+                    rel='noopener noreferrer'
+                >
+                    <Icon name='external' />
+                    Remixer Tutorial
+                </a>
+            }
+        />
+    </div>
+}
+{(roadmapRequiresRemix === false || roadmapRequiresRemix === null) &&
+    <div className={(roadmapRequiresRemix === false) ? 'project-roadmap-step-container' : 'project-roadmap-step-container project-roadmap-step-disabled'}>
+        <div className='project-roadmap-arrow-container'>
+            <Icon name='arrow right' size='large' fitted />
+        </div>
+        <Card
+            header={
+                <span className='header'>
+                    Step 6: <em>Skeleton</em>
+                    <Radio
+                        className='float-right'
+                        checked={currentRoadmapStep === '6'}
+                        onChange={() => updateRoadmapStep('6')}
+                    />
+                </span>
+            }
+            description='Build initial empty text skeleton (i.e. empty pages) using the Remixer in your sandbox'
+            className='project-roadmap-card'
+            extra={
+                <a
+                    target='blank'
+                    href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/07%3A_Remixing_Existing_Content/7.03%3A_How_to_Make_a_LibreTexts_Remix'
+                    rel='noopener noreferrer'
+                >
+                    <Icon name='external' />
+                    Remixer Tutorial
+                </a>
+            }
+        />
+    </div>
+}
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 7: <em>Constructing</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '7'}
+                    onChange={() => updateRoadmapStep('7')}
+                />
+            </span>
+        }
+        description='Fill in gaps with pre-existing OER content or construct content directly.'
+        centered
+        className='project-roadmap-card'
+        extra={
+            <a
+                target='blank'
+                href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/03%3A_Basic_Editing'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Basic Editing
+            </a>
+        }
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 8: <em>Editing</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '8'}
+                    onChange={() => updateRoadmapStep('8')}
+                />
+            </span>
+        }
+        description='Edit pages to fit faculty/class needs (may require forking of remixed content)'
+        centered
+        className='project-roadmap-card'
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 9: <em>Advanced</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '9'}
+                    onChange={() => updateRoadmapStep('9')}
+                />
+            </span>
+        }
+        description='Work up advanced features (autograded assessments, visualizations, simulations, interactive graphs, etc.)'
+        centered
+        meta='Optional'
+        className='project-roadmap-card'
+        extra={
+            <a
+                target='blank'
+                href='https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/04%3A_Advanced_Editing'
+                rel='noopener noreferrer'
+            >
+                <Icon name='external' />
+                Advanced Editing
+            </a>
+        }
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 10: <em>Accessibility</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '10'}
+                    onChange={() => updateRoadmapStep('10')}
+                />
+            </span>
+        }
+        description='Request a preliminary accessibility check (Bradbot or A11Y bot)'
+        centered
+        className='project-roadmap-card'
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 11: <em>Publishing</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '11'}
+                    onChange={() => updateRoadmapStep('11')}
+                />
+            </span>
+        }
+        description="Request 'publishing' of text: external review of organization, remixer check, Bradbot check, move text into campus bookshelf, compile for PDF/LMS/bookstore export."
+        centered
+        className='project-roadmap-card'
+        extra={
+            <Button
+                color='blue'
+                onClick={() => setShowConfirmPublish(true)}
+                fluid
+            >
+                Publish Text
+            </Button>
+        }
+    />
+</div>
+<div className='project-roadmap-step-container'>
+    <div className='project-roadmap-arrow-container'>
+        <Icon name='arrow right' size='large' fitted />
+    </div>
+    <Card
+        header={
+            <span className='header'>
+                Step 12: <em>Curating</em>
+                <Radio
+                    className='float-right'
+                    checked={currentRoadmapStep === '12'}
+                    onChange={() => updateRoadmapStep('12')}
+                />
+            </span>
+        }
+        description='Curate text (edit, polish, and hone) in campus bookshelf'
+        centered
+        className='project-roadmap-card'
+    />
+</div>
+**/
