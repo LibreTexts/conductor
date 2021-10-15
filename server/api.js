@@ -414,6 +414,11 @@ router.route('/project/publishing').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('requestProjectPublishing'),
     middleware.checkValidationErrors, projectsAPI.requestProjectPublishing);
 
+router.route('/project/accessibility/importsections').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('importA11YSectionsFromTOC'),
+    middleware.checkValidationErrors, projectsAPI.importA11YSectionsFromTOC);
+
 router.route('/project/accessibility/sections').get(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('getA11YReviewSections'),
     middleware.checkValidationErrors, projectsAPI.getA11YReviewSections);
@@ -426,6 +431,7 @@ router.route('/project/accessibility/section/item').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     projectsAPI.validate('updateA11YReviewSectionItem'),
     middleware.checkValidationErrors, projectsAPI.updateA11YReviewSectionItem);
+
 
 /* Harvesting */
 

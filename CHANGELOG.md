@@ -1,5 +1,21 @@
 # Changelog
 
+## 10-14-2021
+#### :art: UI/UX
+* Created a reusable ConductorMessagingUI component
+* Implemented Discussion for Project, Project Accessibility, and Project Peer Review
+* Updates to Accessibility Review Matrix
+* Updates to Construction Roadmap descriptions and UI
+* Performance updates for global error handling
+* Implemented ability to toggle display of Accessibility and Peer Review Discussions
+* Implemented an early demonstration version of Peer Review
+
+#### :satellite: Server
+* Updated Book TOC querying from library
+* Updated Discussion Thread handling to handle different subjects (main, a11y, peer review)
+* Logic to sync Book TOC with A11Y Review sections
+
+
 ## 10-12-2021
 #### :art: UI/UX
 * Construction Roadmap step is now saved and presented in Project View

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 function useGlobalError() {
@@ -10,7 +11,7 @@ function useGlobalError() {
      * message or converts it to a string.
      * The @statusCode argument is optional.
      */
-    const setError = (errObj, statusCode) => {
+    const setError = useCallback((errObj, statusCode) => {
         if (errObj && errObj.name && errObj.message) {
             dispatch({
                 type: 'SET_ERROR',
@@ -36,7 +37,7 @@ function useGlobalError() {
                 }
             });
         }
-    };
+    }, [dispatch]);
 
     /**
      * Clear the global error
@@ -53,7 +54,7 @@ function useGlobalError() {
      * Process a REST-returned error object and activate
      * the global error modal
      */
-    const handleGlobalError = (err) => {
+    const handleGlobalError = useCallback((err) => {
         console.log(err);
         var message = "";
         if (err.response) {
@@ -89,7 +90,7 @@ function useGlobalError() {
             message = err.toString();
         }
         setError(message);
-    };
+    }, [setError]);
 
     return { error, setError, clearError, handleGlobalError };
 };

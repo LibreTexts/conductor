@@ -142,6 +142,10 @@ body {
 }
 
 /** margin-top **/
+.mt-05p {
+    margin-top: 0.5% !important;
+}
+
 .mt-1p {
     margin-top: 1% !important;
 }
@@ -175,6 +179,10 @@ body {
 }
 
 /** margin-bottom **/
+.mb-05p {
+    margin-bottom: 0.5% !important;
+}
+
 .mb-1p {
     margin-bottom: 1% !important;
 }
@@ -229,6 +237,10 @@ body {
 }
 
 /** margin-right **/
+.mr-05p {
+    margin-right: 0.5% !important;
+}
+
 .mr-1p {
     margin-right: 1% !important;
 }
@@ -351,4 +363,8 @@ code {
     font-size: 85%;
     background-color: rgba(175,184,193,0.2);
     border-radius: 20px;
+}
+
+.form-normallabel {
+    font-size: 1em !important;
 }

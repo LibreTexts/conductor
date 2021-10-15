@@ -1035,129 +1035,155 @@ const buildSubpageRequestURL = (lib, pageID) => {
 
 
 /**
- * Makes a request to a Book's respective library
- * to build a Book's Table of Contents using list(s)
- * of its subpages.
+ * Retrieves a Book's Table of Contents via an internal
+ * call to its respective library.
  * NOTE: This function should only be called AFTER
  *  the validation chain.
  * VALIDATION: 'getBookTOC'
  */
 const getBookTOC = (req, res) => {
-    const [lib, pageID] = getLibraryAndPageFromBookID(req.query.bookID);
-    const browserKey = getBrowserKeyForLib(lib);
-    var chapters = [];
-    const subpageRequests = [];
-    if ((browserKey !== '') && (browserKey !== 'err')) {
-        const reqConfig = {
-            headers: {
-                "X-Requested-With": "XMLHttpRequest",
-                "x-deki-token": browserKey
-            }
-        };
-        // Start by retrieving the Book chapters
-        axios.get(buildSubpageRequestURL(lib, pageID), reqConfig).then((axiosRes) => {
-            const subpageData = axiosRes.data;
-            if (subpageData['page.subpage']) {
-                const subpages = subpageData['page.subpage'];
-                // process chapter pages
-                if (Array.isArray(subpages)) {
-                    subpages.forEach((page, idx) => {
-                        var title = '';
-                        var link = '';
-                        var sPageID = '';
-                        if ((page.title) && (typeof(title) === 'string')) {
-                            title = page.title;
-                        }
-                        if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
-                            link = page['uri.ui'];
-                        }
-                        if ((page['@id']) && (typeof(page['@id']) === 'string')) {
-                            sPageID = page['@id'];
-                        }
-                        chapters.push({
-                            idx: idx,
-                            title: title,
-                            link: link,
-                            pageID: sPageID,
-                            pages: []
-                        });
-                        if (sPageID !== '') {
-                            // queue request to get chapter's subpages
-                            subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
-                        }
-                    });
-                }
-            }
-            if (subpageRequests.length > 0) {
-                return Promise.all(subpageRequests);
-            } else {
-                return [];
-            }
-        }).then((subRes) => {
-            if (subRes.length > 0) {
-                // If subpages were found and retrieved, process them
-                subRes.forEach((sRes) => {
-                    if (sRes.data) {
-                        const subpageData = sRes.data;
-                        // find the associated parent chapter
-                        var chapterIdx = chapters.findIndex((item) => {
-                            if (subpageData['@href'] && item.pageID) {
-                                var hrefString = String(subpageData['@href']);
-                                if (hrefString.includes(item.pageID)) {
-                                    return item;
-                                }
-                            }
-                            return null;
-                        });
-                        if ((chapterIdx !== -1) && (subpageData['page.subpage'])) {
-                            const subpages = subpageData['page.subpage'];
-                            if (Array.isArray(subpages)) {
-                                subpages.forEach((page, idx) => {
-                                    // process each subpage and add it to the chapter's list of pages
-                                    var title = '';
-                                    var link = '';
-                                    var sPageID = '';
-                                    if ((page.title) && (typeof(title) === 'string')) {
-                                        title = page.title;
-                                    }
-                                    if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
-                                        link = page['uri.ui'];
-                                    }
-                                    if ((page['@id']) && (typeof(page['@id']) === 'string')) {
-                                        sPageID = page['@id'];
-                                    }
-                                    chapters[chapterIdx].pages.push({
-                                        idx: idx,
-                                        title: title,
-                                        link: link,
-                                        pageID: sPageID
-                                    });
-                                });
-                            }
-                        }
-                    }
-                });
-            }
-            return res.send({
-                err: false,
-                toc: chapters
-            });
-        }).catch((_axiosErr) => {
-            // error requesting data from MindTouch
-            debugErr(new Error('Book TOC — axiosErr'));
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
+    getBookTOCFromLib(req.query.bookID).then((toc) => {
+        debugObject(toc);
+        return res.send({
+            err: false,
+            toc: toc
         });
-    } else {
-        // missing browserkey — can't authorize request to MindTouch
-        debugError(new Error('Book TOC — browserkey'));
+    }).catch((err) => {
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
-        });
-    }
+        })
+    });
+};
+
+
+/**
+ * Makes a request to a Book's respective library
+ * to build a Book's Table of Contents using list(s)
+ * of its subpages.
+ * INTERNAL USE ONLY
+ * NOTE: This function should NOT be called directly from
+ * an API route.
+ * @param {String} bookID  - a standard lib-coverpageID LibreTexts identifier
+ * @returns {Promise<Object|Error>}
+ */
+const getBookTOCFromLib = (bookID) => {
+    let chapters = [];
+    let subpageRequests = [];
+    let lib = '';
+    let pageID = '';
+    let browserKey = ''
+    let reqConfig = {};
+    return new Promise((resolve, reject) => {
+        if (bookID && !isEmptyString(bookID)) {
+            [lib, pageID] = getLibraryAndPageFromBookID(bookID);
+            browserKey = getBrowserKeyForLib(lib);
+            if ((browserKey !== '') && (browserKey !== 'err')) {
+                reqConfig = {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "x-deki-token": browserKey
+                    }
+                };
+                // Start by retrieving the Book chapters
+                resolve(axios.get(buildSubpageRequestURL(lib, pageID), reqConfig));
+            } else {
+                // missing browserkey — can't authorize request to MindTouch
+                debugError(new Error('Book TOC — browserkey'));
+                reject('browserkey');
+            }
+        } else {
+            reject('bookID');
+        }
+    }).then((axiosRes) => {
+        const subpageData = axiosRes.data;
+        if (subpageData['page.subpage']) {
+            const subpages = subpageData['page.subpage'];
+            // process chapter pages
+            if (Array.isArray(subpages)) {
+                subpages.forEach((page, idx) => {
+                    var title = '';
+                    var link = '';
+                    var sPageID = '';
+                    if ((page.title) && (typeof(title) === 'string')) {
+                        title = page.title;
+                    }
+                    if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
+                        link = page['uri.ui'];
+                    }
+                    if ((page['@id']) && (typeof(page['@id']) === 'string')) {
+                        sPageID = page['@id'];
+                    }
+                    chapters.push({
+                        idx: idx,
+                        title: title,
+                        link: link,
+                        pageID: sPageID,
+                        pages: []
+                    });
+                    if (sPageID !== '') {
+                        // queue request to get chapter's subpages
+                        subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
+                    }
+                });
+            }
+        }
+        if (subpageRequests.length > 0) {
+            return Promise.all(subpageRequests);
+        } else {
+            return [];
+        }
+    }).then((subRes) => {
+        if (subRes.length > 0) {
+            // If subpages were found and retrieved, process them
+            subRes.forEach((sRes) => {
+                if (sRes.data) {
+                    const subpageData = sRes.data;
+                    // find the associated parent chapter
+                    var chapterIdx = chapters.findIndex((item) => {
+                        if (subpageData['@href'] && item.pageID) {
+                            var hrefString = String(subpageData['@href']);
+                            if (hrefString.includes(item.pageID)) {
+                                return item;
+                            }
+                        }
+                        return null;
+                    });
+                    if ((chapterIdx !== -1) && (subpageData['page.subpage'])) {
+                        const subpages = subpageData['page.subpage'];
+                        if (Array.isArray(subpages)) {
+                            subpages.forEach((page, idx) => {
+                                // process each subpage and add it to the chapter's list of pages
+                                var title = '';
+                                var link = '';
+                                var sPageID = '';
+                                if ((page.title) && (typeof(title) === 'string')) {
+                                    title = page.title;
+                                }
+                                if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
+                                    link = page['uri.ui'];
+                                }
+                                if ((page['@id']) && (typeof(page['@id']) === 'string')) {
+                                    sPageID = page['@id'];
+                                }
+                                chapters[chapterIdx].pages.push({
+                                    idx: idx,
+                                    title: title,
+                                    link: link,
+                                    pageID: sPageID
+                                });
+                            });
+                        }
+                    }
+                }
+            });
+        }
+        return chapters;
+    }).catch((axiosErr) => {
+        // error requesting data from MindTouch
+        debugError(new Error('Book TOC — axiosErr'));
+        throw(new Error('axioserr'));
+    });
 };
 
 
@@ -1216,5 +1242,6 @@ module.exports = {
     removeBookFromCustomCatalog,
     getBookSummary,
     getBookTOC,
+    getBookTOCFromLib,
     validate
 };

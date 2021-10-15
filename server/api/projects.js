@@ -20,6 +20,7 @@ const { isEmptyString } = require('../util/helpers.js');
 
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
+const bookAPI = require('./books.js');
 
 
 /**
@@ -1004,7 +1005,9 @@ const createDiscussionThread = (req, res) => {
                 const thread = new Thread({
                     threadID: b62(14),
                     project: project.projectID,
-                    title: req.body.title
+                    title: req.body.title,
+                    kind: req.body.kind,
+                    createdBy: req.user.decoded.uuid
                 });
                 return thread.save();
             } else {
@@ -1100,6 +1103,10 @@ const deleteDiscussionThread = (req, res) => {
  * @param {Object} res - the express.js response object.
  */
 const getProjectThreads = (req, res) => {
+    let threadKind = 'project';
+    if (req.query.kind) {
+        threadKind = req.query.kind;
+    }
     Project.findOne({
         projectID: req.query.projectID
     }).lean().then((project) => {
@@ -1108,7 +1115,8 @@ const getProjectThreads = (req, res) => {
                 return Thread.aggregate([
                     {
                         $match: {
-                            project: req.query.projectID
+                            project: req.query.projectID,
+                            kind: threadKind
                         }
                     }, {
                         $project: {
@@ -1611,6 +1619,118 @@ const updateA11YReviewSectionItem = (req, res) => {
 };
 
 
+const importA11YSectionsFromTOC = (req, res) => {
+    let projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            projectData = project;
+            // check user has permission to import TOC
+            if (checkProjectMemberPermission(projectData, req.user)) {
+                if (projectData.libreLibrary && projectData.libreCoverID
+                    && !isEmptyString(projectData.libreLibrary) && !isEmptyString(projectData.libreCoverID)) {
+                        return bookAPI.getBookTOCFromLib(`${projectData.libreLibrary}-${projectData.libreCoverID}`);
+                } else {
+                    throw(new Error('bookid'));
+                }
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((toc) => {
+        if (toc) {
+            let pages = [];
+            toc.forEach((chapter) => {
+                if (chapter.title && !isEmptyString(chapter.title)) {
+                    pages.push(chapter.title);
+                    if (chapter.pages && Array.isArray(chapter.pages)) {
+                        chapter.pages.forEach((page) => {
+                            if (page.title && !isEmptyString(page.title)) {
+                                pages.push(page.title);
+                            }
+                        });
+                    }
+                }
+            });
+            let pageObjs = pages.map((page) => {
+                return {
+                    sectionTitle: page
+                }
+            });
+            if (pageObjs.length > 0) {
+                if (req.body.merge === true) {
+                    if (projectData.a11yReview && Array.isArray(projectData.a11yReview)) {
+                        let currentState = projectData.a11yReview;
+                        pageObjs = pageObjs.map((page) => {
+                            let foundIndex = -1;
+                            let foundExisting = projectData.a11yReview.find((existing, index) => {
+                                if (existing.sectionTitle === page.sectionTitle) {
+                                    foundIndex = index;
+                                    return existing;
+                                }
+                                return null;
+                            });
+                            if (foundExisting !== undefined) {
+                                if (foundIndex !== -1) {
+                                    currentState.splice(foundIndex, 1);
+                                }
+                                return foundExisting;
+                            } else {
+                                return page;
+                            }
+                        });
+                    }
+                }
+                // need to update project
+                return Project.updateOne({
+                    projectID: projectData.projectID
+                }, {
+                    $set: {
+                        a11yReview: pageObjs
+                    }
+                });
+            } else {
+                // no pages, don't need to update
+                return {};
+            }
+        } else {
+            throw(new Error('notoc')); // handle as generic error below
+        }
+        return {};
+    }).then((updateRes) => {
+        let resMsg = 'No pages found to import.';
+        if (Object.keys(updateRes).length > 0) { // update performed
+            if (updateRes.modifiedCount === 1) {
+                if (req.body.merge === true) {
+                    resMsg = 'LibreText sections successfully imported and merged.';
+                } else {
+                    resMsg = 'LibreText sections successfully imported.';
+                }
+            } else {
+                throw(new Error('updatefail')); // handle as generic error below
+            }
+        }
+        return res.send({
+            err: false,
+            projectID: projectData.projectID,
+            msg: resMsg
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'bookid') errMsg = conductorErrors.err28;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
 /**
  * Checks if a user has permission to perform general actions on or view a
  * project.
@@ -1713,6 +1833,18 @@ const validateEditStatus = (status) => {
 
 
 /**
+ * Validate a provided Thread Kind.
+ * @returns {Boolean} true if valid Kind, false otherwise.
+ */
+const validateThreadKind = (kind) => {
+    if (kind.length > 0) {
+        if ((kind === 'project') || (kind === 'a11y') || (kind === 'peerreview')) return true;
+    }
+    return false
+};
+
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -1784,7 +1916,8 @@ const validate = (method) => {
         case 'createThread':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 })
+                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
+                body('kind', conductorErrors.err1).exists().isString().custom(validateThreadKind)
             ]
         case 'deleteThread':
             return [
@@ -1792,7 +1925,8 @@ const validate = (method) => {
             ]
         case 'getThreads':
             return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                query('kind', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateThreadKind)
             ]
         case 'createMessage':
             return [
@@ -1827,6 +1961,11 @@ const validate = (method) => {
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
             ]
+        case 'importA11YSectionsFromTOC':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('merge', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
+            ]
     }
 };
 
@@ -1854,6 +1993,7 @@ module.exports = {
     createA11YReviewSection,
     getA11YReviewSections,
     updateA11YReviewSectionItem,
+    importA11YSectionsFromTOC,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
     validate

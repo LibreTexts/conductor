@@ -39,6 +39,7 @@ import DOMPurify from 'dompurify';
 import marked from 'marked';
 
 import ConductorTextArea from '../util/ConductorTextArea';
+import ConductorMessagingUI from '../util/ConductorMessagingUI';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -77,6 +78,7 @@ const ProjectView = (props) => {
     const [loadingData, setLoadingData] = useState(false);
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [showProjectCreated, setShowProjectCreated] = useState(false);
+    const [showDiscussion, setShowDiscussion] = useState(true);
 
     // Project Data
     const [project, setProject] = useState({});
@@ -125,31 +127,6 @@ const ProjectView = (props) => {
     const [showCompleteProjModal, setShowCompleteProjModal] = useState(false);
     const [completeProjModalLoading, setCompleteProjModalLoading] = useState(false);
 
-    // New Thread Modal
-    const [showNewThreadModal, setShowNewThreadModal] = useState(false);
-    const [newThreadTitle, setNewThreadTitle] = useState('');
-    const [newThreadLoading, setNewThreadLoading] = useState(false);
-
-    // Delete Thread Modal
-    const [showDelThreadModal, setShowDelThreadModal] = useState(false);
-    const [delThreadLoading, setDelThreadLoading] = useState(false);
-
-    // Delete Message Modal
-    const [showDelMsgModal, setShowDelMsgModal] = useState(false);
-    const [delMsgID, setDelMsgID] = useState('');
-    const [delMsgLoading, setDelMsgLoading] = useState(false);
-
-
-    // Discussion
-    const [projectThreads, setProjectThreads] = useState([]);
-    const [loadedProjThreads, setLoadedProjThreads] = useState(false);
-    const [activeThread, setActiveThread] = useState('');
-    const [activeThreadTitle, setActiveThreadTitle] = useState('');
-    const [activeThreadMsgs, setActiveThreadMsgs] = useState([]);
-    const [loadedThreadMsgs, setLoadedThreadMsgs] = useState(false);
-    const [messageCompose, setMessageCompose] = useState('');
-    const [messageSending, setMessageSending] = useState(false);
-
 
     // Tasks
     const [openTaskDetails, setOpenTaskDetails] = useState([
@@ -197,6 +174,11 @@ const ProjectView = (props) => {
           }
         });
         getProject();
+        if (localStorage.getItem('conductor_show_projectdiscussion') !== null) {
+            if (localStorage.getItem('conductor_show_projectdiscussion') === 'true') {
+                setShowDiscussion(true);
+            }
+        }
     }, []);
 
 
@@ -251,7 +233,6 @@ const ProjectView = (props) => {
      */
     useEffect(() => {
         if (canViewDetails) {
-            getDiscussionThreads();
             //getProjectTasks();
         }
     }, [canViewDetails]);
@@ -590,6 +571,7 @@ const ProjectView = (props) => {
                     setCollabsModalLoading(false);
                     getCollabsUserOptions();
                     getProject();
+                    closeCollabsModal();
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
@@ -619,6 +601,7 @@ const ProjectView = (props) => {
                     setCollabsModalLoading(false);
                     getCollabsUserOptions();
                     getProject();
+                    closeCollabsModal();
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
@@ -704,194 +687,6 @@ const ProjectView = (props) => {
         }).catch((err) => {
             handleGlobalError(err);
             setCompleteProjModalLoading(false);
-        });
-    };
-
-
-    const getDiscussionThreads = () => {
-        setLoadedProjThreads(false);
-        axios.get('/project/threads', {
-            params: {
-                projectID: props.match.params.id
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.threads && Array.isArray(res.data.threads)) {
-                    setProjectThreads(res.data.threads);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setLoadedProjThreads(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setLoadedProjThreads(true);
-        });
-    };
-
-
-    const getThreadMessages = () => {
-        setLoadedThreadMsgs(false);
-        axios.get('/project/thread/messages', {
-            params: {
-                threadID: activeThread
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.messages && Array.isArray(res.data.messages)) {
-                    setActiveThreadMsgs(res.data.messages);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setLoadedThreadMsgs(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setLoadedThreadMsgs(true);
-        });
-    };
-
-
-    useEffect(() => {
-        if (!isEmptyString(activeThread)) {
-            getThreadMessages();
-        }
-    }, [activeThread]);
-
-
-    const sendMessage = () => {
-        if (!isEmptyString(messageCompose)) {
-            setMessageSending(true);
-            axios.post('/project/thread/message', {
-                threadID: activeThread,
-                message: messageCompose
-            }).then((res) => {
-                if (!res.data.err) {
-                    getThreadMessages();
-                    getDiscussionThreads();
-                    setMessageCompose('');
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-                setMessageSending(false);
-            }).catch((err) => {
-                handleGlobalError(err);
-                setMessageSending(false);
-            });
-        }
-    };
-
-
-    const activateThread = (thread) => {
-        setActiveThread(thread.threadID);
-        setActiveThreadTitle(thread.title);
-    };
-
-
-    const submitNewThread = () => {
-        if (!isEmptyString(newThreadTitle)) {
-            setNewThreadLoading(true);
-            axios.post('/project/thread', {
-                projectID: props.match.params.id,
-                title: newThreadTitle
-            }).then((res) => {
-                if (!res.data.err) {
-                    getDiscussionThreads();
-                    closeNewThreadModal();
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                    setNewThreadLoading(false);
-                }
-            }).catch((err) => {
-                handleGlobalError(err);
-                setNewThreadLoading(false);
-            });
-        }
-    };
-
-    const openNewThreadModal = () => {
-        setNewThreadLoading(false);
-        setNewThreadTitle('');
-        setShowNewThreadModal(true);
-    };
-
-    const closeNewThreadModal = () => {
-        setShowNewThreadModal(false);
-        setNewThreadLoading(false);
-        setNewThreadTitle('');
-    };
-
-
-    const submitDeleteThread = () => {
-        if (!isEmptyString(activeThread)) {
-            setDelThreadLoading(true);
-            axios.delete('/project/thread', {
-                data: {
-                    threadID: activeThread
-                }
-            }).then((res) => {
-                if (!res.data.err) {
-                    setActiveThread('');
-                    setActiveThreadTitle('');
-                    setActiveThreadMsgs([]);
-                    setLoadedThreadMsgs(false);
-                    getDiscussionThreads();
-                    closeDelThreadModal();
-                } else {
-                    setDelThreadLoading(false);
-                    handleGlobalError(res.data.errMsg);
-                }
-            }).catch((err) => {
-                handleGlobalError(err);
-                setDelThreadLoading(false);
-            });
-        }
-    }
-
-
-    const openDelThreadModal = () => {
-        setDelThreadLoading(false);
-        setShowDelThreadModal(true);
-    };
-
-    const closeDelThreadModal = () => {
-        setShowDelThreadModal(false);
-        setDelThreadLoading(false);
-    };
-
-
-    const openDelMsgModal = (msgID) => {
-        if (msgID !== null && !isEmptyString(msgID)) {
-            setDelMsgID(msgID);
-            setDelMsgLoading(false);
-            setShowDelMsgModal(true);
-        }
-    };
-
-    const closeDelMsgModal = () => {
-        setShowDelMsgModal(false);
-        setDelMsgID('');
-        setDelMsgLoading(false);
-    };
-
-    const submitDeleteMessage = () => {
-        setDelMsgLoading(true);
-        axios.delete('/project/thread/message', {
-            data: {
-                messageID: delMsgID
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                getDiscussionThreads();
-                getThreadMessages();
-                closeDelMsgModal();
-            } else {
-                setDelMsgLoading(false);
-                handleGlobalError(res.data.errMsg);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-            setDelMsgLoading(false);
         });
     };
 
@@ -1078,6 +873,11 @@ const ProjectView = (props) => {
         setViewTaskData({});
     };
 
+    const handleChangeDiscussionVis = () => {
+        setShowDiscussion(!showDiscussion);
+        localStorage.setItem('conductor_show_projectdiscussion', !showDiscussion);
+    };
+
 
     // Rendering Helper Booleans
     let hasResourceInfo = project.author || project.license || project.resourceURL;
@@ -1181,7 +981,7 @@ const ProjectView = (props) => {
                                         </Button.Group>
                                     </Grid.Column>
                                 </Grid.Row>
-                                <Grid.Row>
+                                <Grid.Row className='mb-2p'>
                                     <Grid.Column>
                                         <Header as='h2' dividing>Project Information</Header>
                                         <Grid>
@@ -1261,12 +1061,6 @@ const ProjectView = (props) => {
                                                             <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{truncateString(project.projectURL, 100)}</a>
                                                         </div>
                                                     }
-                                                    {(project.owner && project.owner.firstName && project.owner.lastName) &&
-                                                        <div className='mb-1p'>
-                                                            <Header as='span' sub>Project Lead: </Header>
-                                                            <span>{project.owner.firstName} {project.owner.lastName}</span>
-                                                        </div>
-                                                    }
                                                     {(project.libreLibrary && !isEmptyString(project.libreLibrary)) &&
                                                         <div className='mb-1p'>
                                                             <Header as='span' sub>Library: </Header>
@@ -1297,232 +1091,107 @@ const ProjectView = (props) => {
                                                         </div>
                                                     }
                                                 </Grid.Column>
-                                                <Grid.Column>
-                                                    {hasResourceInfo &&
-                                                        <Grid.Column>
-                                                            <Header as='h3' dividing>Resource</Header>
-                                                            {(project.author && !isEmptyString(project.author)) &&
-                                                                <div className='mb-1p'>
-                                                                    <Header as='span' sub>Author: </Header>
-                                                                    <span>{project.author}</span>
-                                                                </div>
-                                                            }
-                                                            {(project.authorEmail && !isEmptyString(project.authorEmail)) &&
-                                                                <div className='mt-1p mb-1p'>
-                                                                    <Header as='span' sub>Author Email: </Header>
-                                                                    <a href={`mailto:${project.authorEmail}`} target='_blank' rel='noopener noreferrer'>{project.authorEmail}</a>
-                                                                </div>
-                                                            }
-                                                            {(project.license && !isEmptyString(project.license)) &&
-                                                                <div className='mt-1p mb-1p'>
-                                                                    <Header as='span' sub>License: </Header>
-                                                                    <span>{getLicenseText(project.license)}</span>
-                                                                </div>
-                                                            }
-                                                            {(project.resourceURL && !isEmptyString(project.resourceURL)) &&
-                                                                <div className='mt-1p'>
-                                                                    <Header as='span' sub>URL: </Header>
-                                                                    <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>{project.resourceURL}</a>
-                                                                </div>
-                                                            }
-                                                        </Grid.Column>
-                                                    }
-                                                </Grid.Column>
+                                                {hasResourceInfo &&
+                                                    <Grid.Column>
+                                                        <Header as='h3' dividing>Resource</Header>
+                                                        {(project.author && !isEmptyString(project.author)) &&
+                                                            <div className='mb-1p'>
+                                                                <Header as='span' sub>Author: </Header>
+                                                                <span>{project.author}</span>
+                                                            </div>
+                                                        }
+                                                        {(project.authorEmail && !isEmptyString(project.authorEmail)) &&
+                                                            <div className='mt-1p mb-1p'>
+                                                                <Header as='span' sub>Author Email: </Header>
+                                                                <a href={`mailto:${project.authorEmail}`} target='_blank' rel='noopener noreferrer'>{project.authorEmail}</a>
+                                                            </div>
+                                                        }
+                                                        {(project.license && !isEmptyString(project.license)) &&
+                                                            <div className='mt-1p mb-1p'>
+                                                                <Header as='span' sub>License: </Header>
+                                                                <span>{getLicenseText(project.license)}</span>
+                                                            </div>
+                                                        }
+                                                        {(project.resourceURL && !isEmptyString(project.resourceURL)) &&
+                                                            <div className='mt-1p'>
+                                                                <Header as='span' sub>URL: </Header>
+                                                                <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>{project.resourceURL}</a>
+                                                            </div>
+                                                        }
+                                                    </Grid.Column>
+                                                }
                                             </Grid.Row>
-                                            {hasNotes &&
-                                                <Grid.Row columns={1}>
+                                            <Grid.Row columns='equal'>
+                                                {hasNotes &&
                                                     <Grid.Column>
                                                         <Header as='h3' dividing>Notes</Header>
                                                         <p dangerouslySetInnerHTML={{
                                                             __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
                                                         }}></p>
                                                     </Grid.Column>
-                                                </Grid.Row>
-                                            }
+                                                }
+                                                <Grid.Column>
+                                                    <Header as='h3' dividing>Team</Header>
+                                                    <List divided verticalAlign='middle'>
+                                                        <List.Item key={project.owner?.uuid || 'owner'}>
+                                                            <Image avatar src={project.owner?.avatar || '/mini_logo.png'} />
+                                                            <List.Content>
+                                                                {project.owner?.firstName} {project.owner?.lastName} (<em>Lead</em>)
+                                                            </List.Content>
+                                                        </List.Item>
+                                                        {(hasCollabs && project.collaborators.map((item, idx) => {
+                                                            return (
+                                                                <List.Item key={idx}>
+                                                                    <Image avatar src={item.avatar} />
+                                                                    <List.Content>{item.firstName} {item.lastName}</List.Content>
+                                                                </List.Item>
+                                                            )
+                                                        }))}
+                                                    </List>
+                                                </Grid.Column>
+                                            </Grid.Row>
                                         </Grid>
                                     </Grid.Column>
                                 </Grid.Row>
                                 <Grid.Row>
-                                    {canViewDetails &&
+                                    {(canViewDetails && showDiscussion) &&
                                         <Grid.Column>
-                                            <Header as='h2' dividing>Discussion</Header>
+                                            <Header as='h2' dividing>
+                                                Discussion
+                                                <Button
+                                                    compact
+                                                    floated='right'
+                                                    onClick={handleChangeDiscussionVis}
+                                                >
+                                                    Hide
+                                                </Button>
+                                            </Header>
                                             <Segment
-                                                id='project-discussion-segment'
                                                 size='large'
                                                 raised
-                                                className='mb-2p'
+                                                className='project-discussion-segment mb-2p'
                                             >
-                                                <div id='project-discussion-container'>
-                                                    <div id='project-discussion-threads'>
-                                                        <div className='flex-col-div' id='project-threads-container'>
-                                                            <div className='flex-row-div' id='project-threads-header-container'>
-                                                                <div className='left-flex'>
-                                                                    <Header as='h3'>Threads</Header>
-                                                                </div>
-                                                                <div className='right-flex'>
-                                                                    <Button
-                                                                        circular
-                                                                        icon='trash'
-                                                                        color='red'
-                                                                        disabled={activeThread === ''}
-                                                                        onClick={openDelThreadModal}
-                                                                        className='mr-2p'
-                                                                    />
-                                                                    <Button
-                                                                        circular
-                                                                        icon='plus'
-                                                                        color='olive'
-                                                                        onClick={openNewThreadModal}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <div className='flex-col-div' id='project-threads-list-container'>
-                                                                {(loadedProjThreads && projectThreads.length > 0) &&
-                                                                    projectThreads.map((item, idx) => {
-                                                                        let lastMessage = '*No messages yet*';
-                                                                        if (item.lastMessage && item.lastMessage.body) {
-                                                                            lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
-                                                                        }
-                                                                        const readyLastMsg = {
-                                                                            __html: DOMPurify.sanitize(marked.parseInline(lastMessage))
-                                                                        };
-                                                                        return (
-                                                                            <div
-                                                                                className={activeThread === item.threadID
-                                                                                    ? 'project-threads-list-item active'
-                                                                                    : 'project-threads-list-item'}
-                                                                                key={item.threadID}
-                                                                                onClick={() => activateThread(item)}
-                                                                            >
-                                                                                <p
-                                                                                    className={activeThread === item.threadID
-                                                                                        ? 'project-threads-list-title active'
-                                                                                        : 'project-threads-list-title'}
-                                                                                >
-                                                                                    {item.title}
-                                                                                </p>
-                                                                                <p className='project-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
-                                                                                </p>
-                                                                            </div>
-                                                                        )
-                                                                    })
-                                                                }
-                                                                {(loadedProjThreads && projectThreads.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
-                                                                }
-                                                                {(!loadedProjThreads) &&
-                                                                    <Loader active inline='centered' className='mt-4r' />
-                                                                }
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div id='project-discussion-messages'>
-                                                        <div className='flex-col-div' id='project-messages-container'>
-                                                            <div className='flex-row-div' id='project-messages-header-container'>
-                                                                <div className='left-flex'>
-                                                                    <Header as='h3'>
-                                                                        {(activeThreadTitle !== '')
-                                                                            ? <em>{activeThreadTitle}</em>
-                                                                            : <span>Messages</span>
-                                                                        }
-                                                                    </Header>
-                                                                </div>
-                                                                <div className='right-flex' id='project-messages-header-options'>
-
-                                                                </div>
-                                                            </div>
-                                                            <div id='project-messages-chat-container'>
-                                                                {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
-                                                                    <Comment.Group id='project-messages-chat-list'>
-                                                                        {activeThreadMsgs.map((item, idx) => {
-                                                                            const today = new Date();
-                                                                            const itemDate = new Date(item.createdAt);
-                                                                            if (today.getDate() === itemDate.getDate()) { // today
-                                                                                item.date = 'Today';
-                                                                            } else if ((today.getDate() - itemDate.getDate()) >= 7) { // a week ago
-                                                                                item.date = date.format(itemDate, 'MMM DDD, YYYY')
-                                                                            } else { // this week
-                                                                                item.date = date.format(itemDate, 'dddd');
-                                                                            }
-                                                                            item.time = date.format(itemDate, 'h:mm A');
-                                                                            const readyMsgBody = {
-                                                                                __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
-                                                                            };
-                                                                            return (
-                                                                                <Comment className='project-messages-message' key={item.messageID}>
-                                                                                  <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
-                                                                                  <Comment.Content>
-                                                                                    <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
-                                                                                    <Comment.Metadata>
-                                                                                      <div>{item.date} at {item.time}</div>
-                                                                                    </Comment.Metadata>
-                                                                                    <Comment.Text dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
-                                                                                    {(item.author?.uuid === user.uuid) &&
-                                                                                        <Comment.Actions>
-                                                                                            <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
-                                                                                        </Comment.Actions>
-                                                                                    }
-                                                                                  </Comment.Content>
-                                                                                </Comment>
-                                                                            )
-                                                                        })}
-                                                                    </Comment.Group>
-                                                                }
-                                                                {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No messages yet. Send one below!</em></p>
-                                                                }
-                                                                {(!loadedThreadMsgs && activeThread !== '') &&
-                                                                    <Loader active inline='centered' className='mt-4r' />
-                                                                }
-                                                                {(activeThread === '' && activeThreadMsgs.length === 0) &&
-                                                                    <p className='text-center muted-text mt-4r'><em>No thread selected. Select one from the list on the left or create one using the + button!</em></p>
-                                                                }
-                                                            </div>
-                                                            <div id='project-messages-reply-container'>
-                                                                <ConductorTextArea
-                                                                    placeholder='Send a message...'
-                                                                    textValue={messageCompose}
-                                                                    onTextChange={(value) => setMessageCompose(value)}
-                                                                    disableSend={(activeThread === '') || (messageCompose === '')}
-                                                                    sendLoading={messageSending}
-                                                                    onSendClick={sendMessage}
-                                                                />
-                                                                {/*
-                                                                <div className='left-flex' id='project-messages-reply-inputcontainer'>
-                                                                    <MentionsInput
-                                                                        placeholder='Send a message...'
-                                                                        onChange={(e, n, t) => {
-                                                                            console.log(e);
-                                                                            setMessageCompose(n);
-                                                                            console.log(t);
-                                                                        }}
-                                                                        value={messageCompose}
-                                                                        className='project-messages-reply-input'
-                                                                    >
-                                                                        <Mention
-                                                                            trigger="@"
-                                                                            data={[{id: '1', display: 'Ethan'}, {id:'2', display: 'Delmar'}]}
-                                                                        />
-                                                                    </MentionsInput>
-                                                                </div>
-                                                                <div className='right-flex' id='project-messages-reply-sendcontainer'>
-                                                                    <Button
-                                                                        color='blue'
-                                                                        disabled={(activeThread === '') || (messageCompose === '')}
-                                                                        onClick={sendMessage}
-                                                                        loading={messageSending}
-                                                                        id='project-messages-reply-send'
-                                                                        fluid
-                                                                    >
-                                                                        <Icon name='send' />
-                                                                        Send
-                                                                    </Button>
-                                                                </div>
-                                                                */}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <ConductorMessagingUI
+                                                    projectID={props.match.params.id}
+                                                    user={user}
+                                                    kind='project'
+                                                />
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
+                                    {(canViewDetails && !showDiscussion) &&
+                                        <Grid.Column>
+                                            <Segment
+                                                raised
+                                                clearing
+                                            >
+                                                <Header as='h2' className='project-hiddensection-heading'>Discussion</Header>
+                                                <Button
+                                                    floated='right'
+                                                    onClick={handleChangeDiscussionVis}
+                                                >
+                                                    Show
+                                                </Button>
                                             </Segment>
                                         </Grid.Column>
                                     }
@@ -1870,15 +1539,6 @@ const ProjectView = (props) => {
                                 }))}
                             </List>
                         </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                color='blue'
-                                loading={collabsModalLoading}
-                                onClick={closeCollabsModal}
-                            >
-                                Done
-                            </Button>
-                        </Modal.Actions>
                     </Modal>
                     {/* Confirm Delete Modal */}
                     <Modal
@@ -1932,95 +1592,6 @@ const ProjectView = (props) => {
                                 onClick={() => setShowCompleteProjModal(false)}
                             >
                                 Cancel
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* New Discussion Thread Modal */}
-                    <Modal
-                        open={showNewThreadModal}
-                        onClose={closeNewThreadModal}
-                    >
-                        <Modal.Header>Create a Thread</Modal.Header>
-                        <Modal.Content>
-                            <Form noValidate>
-                                <Form.Field>
-                                    <label>Thread Title</label>
-                                    <Input
-                                        type='text'
-                                        icon='comments'
-                                        iconPosition='left'
-                                        placeholder='Enter thread title or topic...'
-                                        onChange={(e) => setNewThreadTitle(e.target.value)}
-                                        value={newThreadTitle}
-                                    />
-                                </Form.Field>
-                            </Form>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeNewThreadModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={newThreadLoading}
-                                onClick={submitNewThread}
-                            >
-                                <Icon name='add' />
-                                Create Thread
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Delete Discussion Thread Modal */}
-                    <Modal
-                        open={showDelThreadModal}
-                        onClose={closeDelThreadModal}
-                    >
-                        <Modal.Header>Delete Thread</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to delete the <strong>{activeThreadTitle}</strong> thread?</p>
-                            <p><strong>This will delete all messages within the thread. This action is irreversible.</strong></p>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeDelThreadModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='red'
-                                loading={delThreadLoading}
-                                onClick={submitDeleteThread}
-                            >
-                                <Icon name='trash' />
-                                Delete Thread
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Delete Discussion Message Modal */}
-                    <Modal
-                        open={showDelMsgModal}
-                        onClose={closeDelMsgModal}
-                    >
-                        <Modal.Header>Delete Message</Modal.Header>
-                        <Modal.Content>
-                            <p>Are you sure you want to this message? <span className='muted-text'>(MessageID: {delMsgID})</span></p>
-                            <p><strong>This action is irreversible.</strong></p>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeDelMsgModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='red'
-                                loading={delMsgLoading}
-                                onClick={submitDeleteMessage}
-                            >
-                                <Icon name='trash' />
-                                Delete Message
                             </Button>
                         </Modal.Actions>
                     </Modal>

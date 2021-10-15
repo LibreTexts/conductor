@@ -20,6 +20,15 @@ const ThreadSchema = new Schema({
     title: {                            // the thread's title/topic
         type: String,
         required: true
+    },
+    kind: {                             // the thread's type/area
+        type: String,
+        required: true,
+        enum: ['project', 'a11y', 'peerreview']
+    },
+    createdBy: {                        // the UUID of the user who created the thread
+        type: String,
+        required: true
     }
 }, {
     timestamps: true

@@ -42,7 +42,11 @@ const ConductorTextArea = ({
                 id='textarea-input'
                 placeholder={placeholder}
                 value={textValue}
-                onChange={(e) => onTextChange(e.target.value)}
+                onChange={(e) => {
+                    if (onTextChange !== undefined) {
+                        onTextChange(e.target.value)
+                    }
+                }}
                 rows={1}
             ></textarea>
             <div id='textarea-attached'>
