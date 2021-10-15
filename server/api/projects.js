@@ -1723,6 +1723,7 @@ const importA11YSectionsFromTOC = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'bookid') errMsg = conductorErrors.err28;
+        else if (err.message === 'privateresource') errMsg = conductorErrors.err29;
         return res.send({
             err: true,
             errMsg: errMsg

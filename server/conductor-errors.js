@@ -32,7 +32,8 @@ const conductorErrors = {
     'err25': "A task can't be marked completed until its dependencies are completed.",
     'err26': "A user must be a project team member to be assigned to a task.",
     'err27': "A subtask cannot be dependent on its parent task.",
-    'err28': "Oops, this project must have a LibreTexts library and CoverpageID saved to complete this request."
+    'err28': "Oops, this project must have a LibreTexts library and CoverpageID saved to complete this request.",
+    'err29': "Oops, this resource appears to have its access restriced or privated."
 };
 
 module.exports = conductorErrors;

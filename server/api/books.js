@@ -1180,9 +1180,14 @@ const getBookTOCFromLib = (bookID) => {
         }
         return chapters;
     }).catch((axiosErr) => {
-        // error requesting data from MindTouch
-        debugError(new Error('Book TOC — axiosErr'));
-        throw(new Error('axioserr'));
+        if (axiosErr.response?.data?.exception === 'MindTouch.Deki.Exceptions.PermissionsDeniedException') {
+            // book is likely private/sandboxed
+            throw(new Error('privateresource'));
+        } else {
+            // error requesting data from MindTouch
+            debugError(new Error('Book TOC — axiosErr'));
+            throw(new Error('axioserr'));
+        }
     });
 };
 
