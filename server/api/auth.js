@@ -557,6 +557,46 @@ const changePassword = (req, res) => {
 
 
 /**
+ * Retrieves an array of LibreTexts Super/Campus Admins, with each administrator
+ * as their own object with email, uuid, and name.
+ * INTERNAL USE ONLY.
+ * @returns {Object[]} an array of the administrators and their information
+ */
+const getLibreTextsAdmins = () => {
+    return User.aggregate([{
+        $match: {
+            roles: {
+                $elemMatch: {
+                    $and: [{
+                        org: 'libretexts'
+                    }, {
+                        $or: [{
+                            role: 'superadmin'
+                        }, {
+                            role: 'campusadmin'
+                        }]
+                    }]
+                }
+            }
+        }
+    }, {
+        $project: {
+            _id: 0,
+            uuid: 1,
+            email: 1,
+            fullName: {
+                $concat: ['$firstName', ' ', '$lastName']
+            }
+        }
+    }]).then((admins) => {
+        return admins;
+    }).catch((err) => {
+        throw(err);
+    });
+};
+
+
+/**
  * Middleware to verify the JWT provided in a
  * request's Authorization header.
  */
@@ -579,6 +619,16 @@ const verifyRequest = (req, res, next) => {
         }
         return res.status(401).send(response);
     }
+};
+
+
+/**
+ * Middleware to optionally verify a request if
+ * authorization headers are present.
+ */
+const optionalVerifyRequest = (req, res, next) => {
+    if (req.headers.authorization) return verifyRequest(req, res, next);
+    else return next();
 };
 
 
@@ -759,7 +809,9 @@ module.exports = {
     resetPassword,
     completeResetPassword,
     changePassword,
+    getLibreTextsAdmins,
     verifyRequest,
+    optionalVerifyRequest,
     getUserAttributes,
     checkHasRole,
     checkHasRoleMiddleware,

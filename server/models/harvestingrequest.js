@@ -10,6 +10,11 @@ const HarvestingRequestSchema = new Schema({
         type: String,
         required: true
     },
+    status: {
+        type: String,
+        required: true,
+        default: 'open'     // request status, one of: ['open', 'converted']
+    },
     library: {
         type: String,
         required: true
@@ -23,7 +28,8 @@ const HarvestingRequestSchema = new Schema({
     institution: String,
     resourceUse: String,
     dateIntegrate: Date,
-    comments: String
+    comments: String,
+    submitter: String       // user's uuid if submitter was authenticated
 }, {
     timestamps: true
 });

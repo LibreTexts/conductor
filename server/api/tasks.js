@@ -147,6 +147,89 @@ const createTask = (req, res) => {
 
 
 /**
+ * Creates the number of new Tasks specified by the value in the request body.
+ * If requested, the specified number of subtasks is also created for each.
+ * request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'batchCreateTask'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const batchCreateTask = (req, res) => {
+    let taskOps = [];
+    let titlePrefix = String(req.body.titlePrefix).trim();
+    let subtitlePrefix = '';
+    let addSubtasks = false;
+    if (req.body.addSubtasks === true && req.body.subtitlePrefix && req.body.hasOwnProperty('subtasks')) {
+        addSubtasks = true;
+        subtitlePrefix = String(req.body.subtitlePrefix).trim();
+    }
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
+                if (isNaN(req.body.tasks) || (addSubtasks && isNaN(req.body.subtasks))) {
+                    throw(new Error('number'));
+                }
+                for (let i = 1; i <= req.body.tasks; i++) {
+                    let newTaskID = b62(16);
+                    taskOps.push({
+                        orgID: process.env.ORG_ID,
+                        projectID: project.projectID,
+                        taskID: newTaskID,
+                        title: `${titlePrefix} ${i}`,
+                        description: '',
+                        status: 'available',
+                        assignees: [],
+                        parent: '',
+                        dependencies: [],
+                        createdBy: req.decoded.uuid
+                    });
+                    if (addSubtasks) {
+                        for (let j = 1; j <= req.body.subtasks; j++) {
+                            taskOps.push({
+                                orgID: process.env.ORG_ID,
+                                projectID: project.projectID,
+                                taskID: b62(16),
+                                title: `${subtitlePrefix} ${i}.${j}`,
+                                description: '',
+                                status: 'available',
+                                assignees: [],
+                                parent: newTaskID,
+                                dependencies: [],
+                                createdBy: req.decoded.uuid
+                            });
+                        }
+                    }
+                }
+                return Task.insertMany(taskOps);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((_insertRes) => {
+        return res.send({
+            err: false,
+            msg: 'Successfully added tasks.'
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'insertfail') errMsg = conductorErrors.err3;
+        else if (err.message === 'number') errMsg = conductorErrors.err2;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
  * Updates the Task identified by the taskID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'updateTask'
@@ -155,6 +238,8 @@ const createTask = (req, res) => {
  */
 const updateTask = (req, res) => {
     var task;
+    let updateObj = {};
+    let updateDependencies = false;
     Task.findOne({
         taskID: req.body.taskID
     }).lean().then((taskData) => {
@@ -170,7 +255,6 @@ const updateTask = (req, res) => {
         if (project) {
             if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
                 // build update object
-                let updateObj = {};
                 if (req.body.hasOwnProperty('title') && req.body.title !== task.title) {
                     updateObj.title = req.body.title;
                 }
@@ -180,21 +264,98 @@ const updateTask = (req, res) => {
                 if (req.body.hasOwnProperty('status') && req.body.status !== task.status) {
                     updateObj.status = req.body.status;
                 }
-                if (req.body.hasOwnProperty('assignees')) {
-                    updateObj.assignees = req.body.assignees;
+                if (updateObj.status === 'completed') {
+                    return Task.aggregate([
+                        {
+                            $match: {
+                                parent: task.taskID
+                            }
+                        }
+                    ]);
+                } else {
+                    return [];
                 }
-                if (req.body.hasOwnProperty('dependencies')) {
-                    updateObj.dependencies = req.body.dependencies;
-                }
-                return Task.updateOne({
-                    taskID: task.taskID
-                }, updateObj);
             } else {
                 throw(new Error('unauth'));
             }
         } else {
             throw(new Error('notfound'));
         }
+    }).then((subtasks) => {
+        // check that a task is not being marked completed before subtasks are complete
+        if (subtasks.length > 0) {
+            let foundNotCompleted = subtasks.find((item) => item.status !== 'completed');
+            if (foundNotCompleted !== undefined) {
+                throw(new Error('subnotcomplete'));
+            }
+        }
+        // continue building update object
+        if (req.body.hasOwnProperty('assignees') && Array.isArray(req.body.assignees)) {
+            // verify all assignees are project members
+            let validAssignees = true;
+            req.body.assignees.forEach((item) => {
+                if (item !== project.owner) {
+                    validAssignees = false;
+                } else if (!project.collaborators.includes(item)) {
+                    validAssignees = false;
+                }
+            });
+            if (validAssignees) {
+                updateObj.assignees = req.body.assignees;
+            } else {
+                throw(new Error('assignees'));
+            }
+        }
+        if (req.body.hasOwnProperty('dependencies') && Array.isArray(req.body.dependencies)) {
+            if (req.body.dependencies.length > 0) {
+                updateDependencies = true;
+                // dependencies need to be resolved/sanitized
+                if (task.parent !== '') {
+                    // a task can't be dependent on its own parent task (circular dependency)
+                    let foundParent = req.body.dependencies.find((item) => item === task.parent);
+                    if (foundParent !== undefined) throw(new Error('parentdep'));
+                }
+                // a task can't be dependent on itself (circular dependency)
+                let foundSelf = req.body.dependencies.find((item) => item === task.taskID);
+                if (foundSelf !== undefined) throw(new Error('selfdep'));
+                // lookup valid dependencies
+                return Task.aggregate([
+                    {
+                        $match: {
+                            taskID: {
+                                $in: req.body.dependencies
+                            }
+                        }
+                    }
+                ]);
+            } else if (req.body.dependencies.length === 0) {
+                updateDependencies = true;
+            }
+        }
+        return [];
+    }).then((dependencies) => {
+        if (updateDependencies) {
+            if (req.body.dependencies.length > 0 && dependencies.length > 0) {
+                let depIDs = dependencies.map((item) => item.taskID).filter((item) => (item !== undefined && item !== null));
+                updateObj.dependencies = depIDs;
+                if (task.status === 'completed' || updateObj.status === 'completed') {
+                    // a task can't be marked completed until its dependencies are completed
+                    let foundNotCompleted = dependencies.find((item) => item.status !== 'completed');
+                    if (foundNotCompleted !== undefined) {
+                        throw(new Error('depnotcompleted'));
+                    }
+                }
+            } else if (req.body.dependencies.length > 0 && dependencies.length === 0) {
+                // dependencies were provided but none were found, empty the array
+                updateObj.dependencies = [];
+            } else if (req.body.dependencies.length === 0) {
+                // dependencies were cleared
+                updateObj.dependencies = [];
+            }
+        }
+        return Task.updateOne({
+            taskID: task.taskID
+        }, updateObj);
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             return res.send({
@@ -209,6 +370,85 @@ const updateTask = (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
+        else if (err.message === 'assignees') errMsg = conductorErrors.err26;
+        else if (err.message === 'depnotcompleted') errMsg = conductorErrors.err25;
+        else if (err.message === 'subnotcomplete') errMsg = conductorErrors.err30;
+        else if (err.message === 'parentdep') errMsg = conductorErrors.err27;
+        else if (err.message === 'selfdep') errMsg = conductorErrors.err31;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Delete the Task identified by the taskID in the request body and any of
+ * its subtasks.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'deleteTask'
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const deleteTask = (req, res) => {
+    var task;
+    let tasksToDelete = [];
+    Task.findOne({
+        taskID: req.body.taskID
+    }).lean().then((taskData) => {
+        if (taskData) {
+            task = taskData;
+            return Project.findOne({
+                projectID: task.projectID
+            }).lean();
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((project) => {
+        if (project) {
+            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
+                return Task.aggregate([
+                    {
+                        $match: {
+                            parent: task.taskID
+                        }
+                    }
+                ]);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((subtasks) => {
+        if (subtasks.length > 0) {
+            subtasks.forEach((item) => {
+                tasksToDelete.push(item.taskID);
+            });
+        }
+        tasksToDelete.push(task.taskID);
+        tasksToDelete = tasksToDelete.filter(item => (item !== undefined && item !== null));
+        return Task.deleteMany({
+            taskID: {
+                $in: tasksToDelete
+            }
+        });
+    }).then((deleteRes) => {
+        if (deleteRes.deletedCount === tasksToDelete.length) {
+            return res.send({
+                err: false,
+                msg: "Successfully deleted task and any subtasks."
+            });
+        } else {
+            throw(new Error('deletefail'));
+        }
+    }).catch((err) => {
+        console.log(err);
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
         return res.send({
             err: true,
             errMsg: errMsg
@@ -410,6 +650,7 @@ const getProjectTasks = (req, res) => {
                             ]
                         }
                     }, {
+                        // lookup subtasks
                         $lookup: {
                             from: 'tasks',
                             let: {
@@ -432,9 +673,107 @@ const getProjectTasks = (req, res) => {
                             as: 'subtasks'
                         }
                     }, {
+                        // lookup dependencies
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                deps: '$dependencies'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$taskID', '$$deps']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'dependencies'
+                        }
+                    }, {
+                        // lookup tasks being blocked
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                taskID: '$taskID'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$$taskID', '$dependencies']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'blocking'
+                        }
+                    }, {
+                        // lookup assignees
+                        $lookup: {
+                            from: 'users',
+                            let: {
+                                assignees: '$assignees'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $in: ['$uuid', '$$assignees']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        uuid: 1,
+                                        firstName: 1,
+                                        lastName: 1,
+                                        avatar: 1,
+                                        email: 1
+                                    }
+                                }
+                            ],
+                            as: 'assignees'
+                        }
+                    }, {
                         $project: {
                             _id: 0,
-                            __V: 0
+                            __v: 0
+                        }
+                    }, {
+                        $unwind: '$subtasks'
+                    }, {
+                        // lookup subdependencies
+                        $lookup: {
+                            from: 'tasks',
+                            let: {
+                                deps: 'reviews.dependencies'
+                            },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $eq: ['$taskID', '$$deps']
+                                        }
+                                    }
+                                }, {
+                                    $project: {
+                                        _id: 0,
+                                        __v: 0
+                                    }
+                                }
+                            ],
+                            as: 'subdependencies'
                         }
                     }
                 ]);
@@ -445,6 +784,7 @@ const getProjectTasks = (req, res) => {
             throw(new Error('notfound'));
         }
     }).then((tasks) => {
+        //console.log(tasks);
         return res.send({
             err: false,
             tasks: tasks
@@ -460,6 +800,19 @@ const getProjectTasks = (req, res) => {
         });
     });
 };
+
+/**
+{
+   $graphLookup: {
+       from: 'tasks',
+       startWith: '$subtasks.dependencies',
+       connectFromField: 'subtasks.dependencies',
+       connectToField: 'taskID',
+       as: 'dependencyGraph',
+       maxDepth: 3
+   }
+}
+**/
 
 
 /**
@@ -509,6 +862,15 @@ const validate = (method) => {
                 body('parent', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 16, max: 16 }),
                 body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
             ]
+        case 'batchCreateTask':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('tasks', conductorErrors.err1).exists().isNumeric().toInt(),
+                body('titlePrefix', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 }),
+                body('addSubtasks', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+                body('subtasks', conductorErrors.err1).optional({ checkFalsy: true }).isNumeric().toInt(),
+                body('subtitlePrefix', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 150 })
+            ]
         case 'updateTask':
             return [
                 body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 }),
@@ -517,6 +879,10 @@ const validate = (method) => {
                 body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateStatus),
                 body('assignees', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
                 body('dependencies', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskIDArray)
+            ]
+        case 'deleteTask':
+            return [
+                body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 })
             ]
         case 'getTask':
             return [
@@ -531,7 +897,9 @@ const validate = (method) => {
 
 module.exports = {
     createTask,
+    batchCreateTask,
     updateTask,
+    deleteTask,
     getTask,
     getProjectTasks,
     validate

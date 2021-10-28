@@ -7,9 +7,12 @@ import {
     Image,
     Modal,
     Header,
-    Divider
+    Divider,
+    Message,
+    Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { DateInput } from 'semantic-ui-calendar-react';
 import axios from 'axios';
 
@@ -21,7 +24,9 @@ import { textUseOptions } from '../util/HarvestingMasterOptions.js';
 
 const HarvestRequest = (props) => {
 
+    // Global State and Error
     const { handleGlobalError } = useGlobalError();
+    const user = useSelector((state) => state.user);
 
     // UI
     const [showSuccessModal, setSuccessModal] = useState(false);
@@ -104,7 +109,7 @@ const HarvestRequest = (props) => {
      */
     const validateForm = () => { // returns true if form is ok
         var valid = true;
-        if (isEmptyString(email)) {
+        if (!user.isAuthenticated && isEmptyString(email)) {
             valid = false;
             setEmailErr(true);
         }
@@ -158,13 +163,15 @@ const HarvestRequest = (props) => {
             axios.post('/harvestingrequest', requestData).then((res) => {
                 if (!res.data.err) {
                     setSuccessModal(true);
+                    setLoadingData(false);
                 } else {
                     handleGlobalError(res.data.errMsg);
+                    setLoadingData(false);
                 }
             }).catch((err) => {
                 handleGlobalError(err);
+                setLoadingData(false);
             });
-            setLoadingData(false);
         }
     };
 
@@ -176,7 +183,11 @@ const HarvestRequest = (props) => {
      */
     const successModalClosed = () => {
         setSuccessModal(false);
-        props.history.push('/');
+        if (user.isAuthenticated) {
+            props.history.push('/dashboard');
+        } else {
+            props.history.push('/');
+        }
     };
 
     return(
@@ -204,12 +215,23 @@ const HarvestRequest = (props) => {
             <Grid.Row>
                 <Grid.Column mobile={16} computer={10}>
                     <Segment raised className='mb-4r'>
-                        <p className='text-center'>If you want to request an existing openly licensed resource be integrated into a LibreTexts library please fill out and submit this form. </p>
+                        <p className='text-center'>If you want to request an existing openly licensed resource be integrated into a LibreTexts library, please fill out and submit this form. </p>
+                        {user.isAuthenticated &&
+                            <Message icon positive>
+                                <Icon name='user circle' />
+                                <Message.Content>
+                                    <Message.Header>Welcome, {user.firstName}</Message.Header>
+                                    <p>This integration request will be tied to your Conductor account.</p>
+                                </Message.Content>
+                            </Message>
+                        }
                         <Form onSubmit={onSubmit}>
-                            <Form.Field required error={emailErr}>
-                                <label htmlFor='email'>Email</label>
-                                <Input fluid={true} id='email' type='email' name='email' placeholder='Email' value={email} onChange={onChange} icon='mail' iconPosition='left' />
-                            </Form.Field>
+                            {!user.isAuthenticated &&
+                                <Form.Field required error={emailErr}>
+                                    <label htmlFor='email'>Email</label>
+                                    <Input fluid={true} id='email' type='email' name='email' placeholder='Email' value={email} onChange={onChange} icon='mail' iconPosition='left' />
+                                </Form.Field>
+                            }
                             <Form.Field required error={titleErr}>
                                 <label htmlFor='title'>Resource Title</label>
                                 <Input fluid={true} id='title' type='text' name='title' placeholder='Title' value={title} onChange={onChange} icon='info circle' iconPosition='left' />
@@ -246,10 +268,12 @@ const HarvestRequest = (props) => {
                             <Divider />
                             <Header as='h3'>Priority Integration</Header>
                             <p>We try to prioritize integrating OER texts that people are ready to adopt in their classes. If you would like to use this text in your class you can fill out this section for priority consideration.</p>
-                            <Form.Field>
-                                <label htmlFor='name'>Your Name</label>
-                                <Input fluid={true} id='name' type='text' name='name' placeholder='Name' required={false} value={name} onChange={onChange} icon='user circle' iconPosition='left' />
-                            </Form.Field>
+                            {!user.isAuthenticated &&
+                                <Form.Field>
+                                    <label htmlFor='name'>Your Name</label>
+                                    <Input fluid={true} id='name' type='text' name='name' placeholder='Name' required={false} value={name} onChange={onChange} icon='user circle' iconPosition='left' />
+                                </Form.Field>
+                            }
                             <Form.Field>
                                 <label htmlFor='institution'>Your Institution</label>
                                 <Input fluid={true} id='institution' type='text' name='institution' placeholder='Institution' required={false} value={institution} onChange={onChange} icon='university' iconPosition='left' />

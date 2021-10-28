@@ -129,6 +129,10 @@ function App() {
                         <PrivateRoute exact path = '/controlpanel/orgsmanager' component={OrganizationsManager} />
                         <PrivateRoute exact path = '/controlpanel/usersmanager' component={UsersManager} />
 
+                    {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                        <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                    }
+
                     {/* 404 */}
                     <Route component={PageNotFound} />
                 </Switch>
@@ -157,9 +161,6 @@ function App() {
                             <Route exact path = '/libraries/:lib' component={Commons} />
                         }
                         {/* Standalone */}
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                        }
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/adopt' component={AdoptionReportPage} />
                         }

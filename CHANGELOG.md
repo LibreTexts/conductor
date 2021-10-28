@@ -1,5 +1,52 @@
 # Changelog
 
+## 10-27-2021
+#### :art: UI/UX
+* Laying groundwork for Project flagging
+* Loading indicator fixed on Harvest Request form
+* Harvesting Requests can now be converted to Projects
+* The Projects dashboard now includes 'available' projects as long as the user is part of the project team (WIP)
+
+#### :satellite: Server
+* Users submitting Harvesting Requests now receive a confirmation via email
+* Laying groundwork for Project flagging
+* The LibreTexts team is now notified via email when a new Harvesting Request is submitted
+
+
+## 10-26-2021
+#### :art: UI/UX
+* Projects are now marked Complete via the Edit Information modal
+* Ability to delete Harvesting Requests
+
+#### :satellite: Server
+* Logic to delete Harvesting Requests
+* Started work on logic to create projects from Harvesting Requests
+* Conductor users who submit Harvesting Requests are now tied to the request and can be added to the project
+* Harvesting Request submitters receive an email notice when their request has been approved/converted to a project
+* Fixed server logging bug in Book TOC retrieval
+
+
+## 10-25-2021
+#### :satellite: Server
+* More work on Tasks algorithms
+
+
+## 10-24-2021
+#### :art: UI/UX
+* More work on the Tasks interface
+    * Delete Task
+    * Edit Task Information
+
+#### :satellite: Server
+* Delete Task logic
+* Batch Add logic
+
+
+## 10-23-2021
+#### :art: UI/UX
+* More work on the Tasks interface
+
+
 ## 10-14-2021
 #### :art: UI/UX
 * Created a reusable ConductorMessagingUI component

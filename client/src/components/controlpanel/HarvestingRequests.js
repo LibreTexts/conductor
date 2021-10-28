@@ -11,10 +11,13 @@ import {
   Modal,
   Button,
   Dropdown,
-  Breadcrumb
+  Breadcrumb,
+  Icon,
+  Checkbox
 } from 'semantic-ui-react';
 import DatePicker from 'react-datepicker';
-import React, { useEffect, useState, forwardRef } from 'react';
+import React, { useEffect, useState, forwardRef, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -38,7 +41,10 @@ import useGlobalError from '../error/ErrorHooks.js';
 
 const HarvestingRequests = (props) => {
 
+    // Global State and Error
     const { handleGlobalError } = useGlobalError();
+    const user = useSelector((state) => state.user);
+
 
     const emptyRequest = {
         email: '',
@@ -64,6 +70,16 @@ const HarvestingRequests = (props) => {
     const [showHRVModal, setShowHRVModal] = useState(false);
     const [sortChoice, setSortChoice] = useState('date');
 
+    // Confirm Deletion Modal
+    const [showDelModal, setShowDelModal] = useState(false);
+    const [delRequestLoading, setDelRequestLoading] = useState(false);
+
+    // Convert Project Modal
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [convertLoading, setConvertLoading] = useState(false);
+    const [convertAddSubmitter, setConvertAddSubmitter] = useState(false);
+
+
     const sortOptions = [
         { key: 'date', text: 'Date', value: 'date' },
         { key: 'reqdate', text: 'Requested Harvest Date', value: 'reqdate' },
@@ -78,28 +94,35 @@ const HarvestingRequests = (props) => {
         date.plugin(ordinal);
     }, []);
 
-    // getHarvestingRequests()
+
+    const getHarvestingRequests = useCallback(() => {
+        const fromDateString = `${fromDate.getMonth()+1}-${fromDate.getDate()}-${fromDate.getFullYear()}`;
+        const toDateString = `${toDate.getMonth()+1}-${toDate.getDate()}-${toDate.getFullYear()}`;
+        axios.get('/harvestingrequests', {
+            params: {
+                startDate: fromDateString,
+                endDate: toDateString
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                setHarvestingRequests(res.data.requests);
+                setSortedRequests(res.data.requests);
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+        });
+    }, [fromDate, toDate, handleGlobalError]);
+
+    /**
+     * Get request whenever date range changes
+     */
     useEffect(() => {
         if (fromDate !== null && toDate !== null) {
-            const fromDateString = `${fromDate.getMonth()+1}-${fromDate.getDate()}-${fromDate.getFullYear()}`;
-            const toDateString = `${toDate.getMonth()+1}-${toDate.getDate()}-${toDate.getFullYear()}`;
-            axios.get('/harvestingrequests', {
-                params: {
-                    startDate: fromDateString,
-                    endDate: toDateString
-                }
-            }).then((res) => {
-                if (!res.data.err) {
-                    setHarvestingRequests(res.data.requests);
-                    setSortedRequests(res.data.requests);
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-            }).catch((err) => {
-                handleGlobalError(err);
-            });
+            getHarvestingRequests();
         }
-    }, [fromDate, toDate])
+    }, [fromDate, toDate, getHarvestingRequests])
 
     useEffect(() => {
         var sorted = [];
@@ -212,6 +235,80 @@ const HarvestingRequests = (props) => {
         setShowHRVModal(false);
         setCurrentRequest(emptyRequest);
     };
+
+    const openDeleteModal = () => {
+        setDelRequestLoading(false);
+        setShowDelModal(true);
+    };
+
+    const closeDeleteModal = () => {
+        setDelRequestLoading(false);
+        setShowDelModal(false);
+    };
+
+    const submitDeleteRequest = () => {
+        if (currentRequest._id) {
+            setDelRequestLoading(true);
+            axios.delete('/harvestingrequest', {
+                data: {
+                    requestID: currentRequest._id
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    getHarvestingRequests();
+                    closeDeleteModal();
+                    closeHRVModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setDelRequestLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setDelRequestLoading(false);
+            });
+        }
+    };
+
+    const openConvertModal = () => {
+        setConvertLoading(false);
+        setConvertAddSubmitter(false);
+        setShowConvertModal(true);
+    };
+
+    const closeConvertModal = () => {
+        setShowConvertModal(false);
+        setConvertAddSubmitter(false);
+        setConvertLoading(false);
+    };
+
+    const submitConvertRequest = () => {
+        if (currentRequest._id && !isEmptyString(currentRequest._id)) {
+            setConvertLoading(true);
+            axios.post('/harvestingrequest/convert', {
+                requestID: currentRequest._id,
+                addSubmitter: convertAddSubmitter
+            }).then((res) => {
+                if (!res.data.err) {
+                    if (res.data.projectID) {
+                        props.history.push(`/projects/${res.data.projectID}`);
+                    } else {
+                        closeConvertModal();
+                        closeHRVModal();
+                        getHarvestingRequests();
+                    }
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setConvertLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setConvertLoading(false);
+            });
+        } else {
+            handleGlobalError('Unable to convert: no requestID present.');
+        }
+    };
+
 
     const FromDateInput = forwardRef(({ value, onClick }, ref) => (
         <Form.Input
@@ -472,11 +569,94 @@ const HarvestingRequests = (props) => {
                             </Grid>
                         </Modal.Content>
                         <Modal.Actions>
+                            <div className='flex-row-div'>
+                                {user.isSuperAdmin &&
+                                    <div className='ui left-flex'>
+                                        <Button
+                                            color='red'
+                                            onClick={openDeleteModal}
+                                        >
+                                            <Icon name='trash' />
+                                            Delete
+                                        </Button>
+                                    </div>
+                                }
+                                <div className='ui center-flex'>
+                                    <Button
+                                        color='green'
+                                        onClick={openConvertModal}
+                                    >
+                                        <Icon name='share' />
+                                        Convert to Project
+                                    </Button>
+                                </div>
+                                <div className='ui right-flex'>
+                                    <Button
+                                        color='blue'
+                                        onClick={closeHRVModal}
+                                    >
+                                        Done
+                                    </Button>
+                                </div>
+                            </div>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Confirm Deletion Modal */}
+                    <Modal
+                        open={showDelModal}
+                        onClose={closeDeleteModal}
+                    >
+                        <Modal.Header>Confirm Request Deletion</Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to delete the integration request for <strong>{currentRequest.title}</strong> <span className='muted-text'>(ID: {currentRequest._id})</span>?</p>
+                            <p><strong>This action is irreversible.</strong></p>
+                        </Modal.Content>
+                        <Modal.Actions>
                             <Button
-                                color='blue'
-                                onClick={closeHRVModal}
+                                onClick={closeDeleteModal}
                             >
-                                Done
+                                Cancel
+                            </Button>
+                            <Button
+                                color='red'
+                                loading={delRequestLoading}
+                                onClick={submitDeleteRequest}
+                            >
+                                <Icon name='trash' />
+                                Delete Request
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Convert Project Modal */}
+                    <Modal
+                        open={showConvertModal}
+                        onClose={closeConvertModal}
+                    >
+                        <Modal.Header>Convert Request to Project</Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to convert this request to a new "available" project? The requester will be notified via email.</p>
+                            {(currentRequest.submitter && !isEmptyString(currentRequest.submitter)) &&
+                                <Checkbox
+                                    toggle
+                                    label={<label><em>The requester is a Conductor user. Add them to the new project?</em></label>}
+                                    onChange={(_e, data) => setConvertAddSubmitter(data.checked)}
+                                    checked={convertAddSubmitter}
+                                />
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeConvertModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={convertLoading}
+                                onClick={submitConvertRequest}
+                            >
+                                <Icon name='share' />
+                                Convert to Project
                             </Button>
                         </Modal.Actions>
                     </Modal>

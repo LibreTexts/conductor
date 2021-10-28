@@ -106,27 +106,6 @@
     color: #DB2828 !important;
 }
 
-.project-task-title {
-    font-weight: 450;
-}
-
-.project-task-detail {
-    display: block;
-    width: 98%;
-    margin-left: auto;
-}
-
-.project-task-detail.hidden {
-    display: none;
-}
-
-.project-task-subtask {
-    border-bottom: 1px solid rgba(34,36,38,.15);
-}
-
-.project-task-subtask:last-child {
-    border-bottom: none;
-}
 
 .project-hiddensection-heading {
     margin: 0 !important;
@@ -301,4 +280,52 @@
 
 .likert-option label {
     font-weight: 500;
+}
+
+
+/** Tasks **/
+.project-task-title {
+    font-weight: 450;
+    margin-right: 1%;
+}
+
+.project-task-detail {
+    display: block;
+    width: 98%;
+    margin-left: auto;
+}
+
+.project-task-detail.hidden {
+    display: none;
+}
+
+.project-task-subtask {
+    border: none !important;
+    border-bottom: 1px solid rgba(34,36,38,.15) !important;
+    padding: 0.5% 0 0.5% 0 !important;
+}
+
+.project-task-subtask:last-child {
+    border-bottom: none !important;
+}
+
+#task-view-left {
+    flex-basis: 65%;
+    border-right: 1px solid rgba(34,36,38,.22);
+    padding: 0.5%;
+}
+
+#task-view-right {
+    flex-basis: 35%;
+    padding: 0.5%;
+}
+
+.task-detail-div {
+    flex-grow: 1;
+}
+
+.task-view-header-crumbs {
+    font-size: 1.42857143rem !important;
+    line-height: 1.28571429em !important;
+    font-weight: 700 !important;
 }

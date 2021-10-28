@@ -11,12 +11,8 @@ const visibilityOptions = [
 const statusOptions = [
     { key: 'empty', text: 'Clear...', value: '' },
     { key: 'available', text: 'Available', value: 'available' },
-    { key: 'open', text: 'Open/In Progress', value: 'open' }
-];
-
-const editStatusOptions = [
-    { key: 'available', text: 'Available', value: 'available' },
-    { key: 'open', text: 'Open/In Progress', value: 'open' }
+    { key: 'open', text: 'Open/In Progress', value: 'open' },
+    { key: 'completed', text: 'Completed', value: 'completed'}
 ];
 
 const createTaskOptions = [
@@ -109,7 +105,6 @@ const getRoadmapStepName = (step) => {
 module.exports = {
     visibilityOptions,
     statusOptions,
-    editStatusOptions,
     createTaskOptions,
     classificationOptions,
     roadmapSteps,

@@ -1043,7 +1043,6 @@ const buildSubpageRequestURL = (lib, pageID) => {
  */
 const getBookTOC = (req, res) => {
     getBookTOCFromLib(req.query.bookID).then((toc) => {
-        debugObject(toc);
         return res.send({
             err: false,
             toc: toc

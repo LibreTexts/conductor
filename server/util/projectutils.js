@@ -41,9 +41,31 @@ const validateRoadmapStep = (step) => {
     return constrRoadmapSteps.includes(step);
 };
 
+
+const textUseOptions = [
+    { key: 'empty', text: 'Clear...', value: '' },
+    { key: 'primary', text: 'As the primary textbook', value: 'primary' },
+    { key: 'supplement', text: 'As supplementary material', value: 'supplement' },
+    { key: 'remix', text: 'As part of a remix that I am creating for my class', value: 'remix' },
+    { key: 'other', text: 'Other (please explain in comments)', value: 'other' },
+];
+
+const getTextUse = (use) => {
+    if (use !== '') {
+        let foundUse = textUseOptions.find((item) => {
+            return item.value === use;
+        });
+        return foundUse.text;
+    } else {
+        return '';
+    }
+};
+
 module.exports = {
     projectClassifications,
     constrRoadmapSteps,
     validateProjectClassification,
-    validateRoadmapStep
+    validateRoadmapStep,
+    textUseOptions,
+    getTextUse
 }

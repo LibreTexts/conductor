@@ -62,7 +62,9 @@ const ProjectSchema = new Schema({
     rdmpCurrentStep: String,    // the project's current step in the Construction Roadmap,
     a11yReview: [               // the text section accessibility reviews
         a11ySectionReviewSchema
-    ]
+    ],
+    harvestReqID: String,
+    flag: String                // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
 }, {
     timestamps: true
 });

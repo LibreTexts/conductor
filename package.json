@@ -34,5 +34,8 @@
     "util": "^0.12.4",
     "uuid": "^8.3.1"
   },
+  "eslintConfig": {
+    "extends": "standard"
+  },
   "author": "Ethan Turner <ethanaturner13@gmail.com>"
 }

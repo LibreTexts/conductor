@@ -137,6 +137,10 @@ body {
     text-align: center;
 }
 
+.text-center-force {
+    text-align: center !important;
+}
+
 .pointer-hover:hover {
     cursor: pointer;
 }
@@ -274,6 +278,10 @@ body {
 }
 
 
+.float-left {
+    float: left !important;
+}
+
 .float-right {
     float: right !important;
 }
@@ -367,4 +375,25 @@ code {
 
 .form-normallabel {
     font-size: 1em !important;
+}
+
+.muted-segment {
+    background-color: rgba(240,240,240,0.4) !important;
+}
+
+.header-icon-small {
+    font-size: .75em !important;
+    color: #787878 !important;
+    line-height: 1 !important;
+}
+
+.header-icon-small:hover {
+    color: #000000 !important;
+    cursor: pointer;
+}
+
+/* Hotfix for fullscreen modal centering */
+.ui.modal.fullscreen {
+    left: 0 !important;
+    right: 0 !important;
 }

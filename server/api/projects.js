@@ -347,6 +347,8 @@ const getProject = (req, res) => {
  * VALIDATION: 'completeProject'
  * @param  {object} req  - the express.js request object
  * @param  {[object} res - the express.js response object
+ *
+ * TODO: Deprecated
  */
 const completeProject = (req, res) => {
     Project.findOne({
@@ -576,7 +578,9 @@ const getUserProjects = (req, res) => {
                             { collaborators: req.decoded.uuid }
                         ]
                     }, {
-                        status: 'open'
+                        status: {
+                            $ne: 'completed'
+                        }
                     }
                 ]
             }
@@ -651,7 +655,9 @@ const getRecentProjects = (req, res) => {
                             { collaborators: req.decoded.uuid }
                         ]
                     }, {
-                        status: 'open'
+                        status: {
+                            $ne: 'completed'
+                        }
                     }
                 ]
             }
@@ -946,6 +952,76 @@ const removeCollaboratorFromProject = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Sets a flag on the Project identified by the projectID in the request body
+ * and sends an email to the user(s) in the flagging group.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'flagProject'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const flagProject = (req, res) => {
+    let projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            projectData = project;
+            if (checkProjectMemberPermission(project, req.user)) {
+                // check there is a liaison specified if option is chosen
+                if (req.body.flagOption === 'liaison' && (!project.liaison || isEmptyString(project.liaison))) {
+                    throw(new Error('noliaison'));
+                }
+                // set flag on project
+                return Project.updateOne({
+                    projectID: req.body.projectID
+                }, {
+                    flag: req.body.flagOption
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            switch (req.body.flagOption) {
+                case 'libretexts':
+                    return authAPI.getLibreTextsAdmins();
+                case 'campusadmin':
+                    return [];
+                case 'liaison':
+                    return [projectData.liaison];
+                case 'lead':
+                    return [projectData.owner];
+                default:
+                    throw(new Error('flagoption'));
+            }
+        } else {
+            throw(new Error('updatefail'));
+        }
+    }).then((flaggingGroup) => {
+        console.log(flaggingGroup.length);
+        return res.send({
+            err: false,
+        });
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
+        else if (err.message === 'noliaison') errMsg = conductorErrors.err32;
+        else if (err.message === 'flagoption') errMsg = conductorErrors.err1;
+        else debugError(err);
         return res.send({
             err: true,
             errMsg: errMsg
@@ -1585,7 +1661,6 @@ const updateA11YReviewSectionItem = (req, res) => {
             if (checkProjectMemberPermission(project, req.user)) {
                 let toSet = {};
                 toSet[`a11yReview.$.${req.body.itemName}`] = req.body.newResponse;
-                console.log(toSet);
                 return Project.updateOne({
                     projectID: project.projectID,
                     'a11yReview._id': req.body.sectionID
@@ -1822,12 +1897,19 @@ const validateCreateStatus = (status) => {
 
 
 /**
- * Validate a provided Project Status option during editing.
+ * Validate a provided Project Status.
  * @returns {Boolean} true if valid option, false otherwise.
  */
-const validateEditStatus = (status) => {
+const validateProjectStatus = (status) => {
     if (status.length > 0) {
-        if ((status === 'available') || (status === 'open')) return true;
+        switch (status) {
+            case 'completed':
+            case 'available':
+            case 'open':
+                return true;
+            default:
+                return false;
+        }
     }
     return false
 };
@@ -1846,6 +1928,18 @@ const validateThreadKind = (kind) => {
 
 
 /**
+ * Validate a provided Project Flagging Group.
+ * @returns {Boolean} true if valid Group, false otherwise.
+ */
+const validateFlaggingGroup = (group) => {
+    if (group.length > 0) {
+        return ['libretexts', 'campusadmin', 'liaison', 'lead'].includes(group);
+    }
+    return false
+};
+
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -1856,7 +1950,7 @@ const validate = (method) => {
                 body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
                 body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
@@ -1878,7 +1972,7 @@ const validate = (method) => {
                 body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('peerProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
                 body('a11yProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateCreateStatus),
+                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
                 body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
@@ -1913,6 +2007,11 @@ const validate = (method) => {
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
+            ]
+        case 'flagProject':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup)
             ]
         case 'createThread':
             return [
@@ -1983,6 +2082,7 @@ module.exports = {
     getAddableCollaborators,
     addCollaboratorToProject,
     removeCollaboratorFromProject,
+    flagProject,
     getOrgTags,
     createDiscussionThread,
     deleteDiscussionThread,

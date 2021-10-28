@@ -111,9 +111,25 @@ router.route('/translationfeedback').post(middleware.checkLibreCommons,
 
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)
-router.route('/harvestingrequest').post(middleware.checkLibreCommons,
-    harvestingRequestsAPI.validate('addRequest'),
-    middleware.checkValidationErrors, harvestingRequestsAPI.addRequest);
+router.route('/harvestingrequest')
+    .post(authAPI.optionalVerifyRequest,
+        middleware.checkLibreCommons,
+        harvestingRequestsAPI.validate('addRequest'),
+        middleware.checkValidationErrors,
+        harvestingRequestsAPI.addRequest)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+        harvestingRequestsAPI.validate('deleteRequest'),
+        middleware.checkValidationErrors,
+        harvestingRequestsAPI.deleteRequest);
+
+router.route('/harvestingrequest/convert').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    harvestingRequestsAPI.validate('convertRequest'),
+    middleware.checkValidationErrors,
+    harvestingRequestsAPI.convertRequest);
 
 router.route('/harvestingrequests').get(middleware.checkLibreCommons,
     authAPI.verifyRequest, authAPI.getUserAttributes,
@@ -335,6 +351,10 @@ router.route('/project')
         middleware.checkValidationErrors,
         projectsAPI.deleteProject);
 
+router.route('/project/flag').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('flagProject'),
+    middleware.checkValidationErrors, projectsAPI.flagProject);
+
 router.route('/project/complete').put(authAPI.verifyRequest,
     projectsAPI.validate('completeProject'),
     middleware.checkValidationErrors,
@@ -408,7 +428,16 @@ router.route('/project/task')
         authAPI.getUserAttributes,
         tasksAPI.validate('updateTask'),
         middleware.checkValidationErrors,
-        tasksAPI.updateTask);
+        tasksAPI.updateTask)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        tasksAPI.validate('deleteTask'),
+        middleware.checkValidationErrors,
+        tasksAPI.deleteTask);
+
+router.route('/project/task/batchadd').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes, tasksAPI.validate('batchCreateTask'),
+    middleware.checkValidationErrors, tasksAPI.batchCreateTask);
 
 router.route('/project/publishing').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('requestProjectPublishing'),

@@ -16,19 +16,19 @@ import {
   List,
   Image,
   Accordion,
-  Comment,
   Input,
   Loader,
   Search,
-  Card,
-  Popup
+  Popup,
+  Dropdown,
+  Checkbox
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
     buildStyles
 } from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -54,7 +54,7 @@ import {
 } from '../util/LibraryOptions.js';
 import {
     visibilityOptions,
-    editStatusOptions,
+    statusOptions,
     createTaskOptions,
     classificationOptions,
     getTaskStatusText,
@@ -124,6 +124,7 @@ const ProjectView = (props) => {
     const [deleteProjModalLoading, setDeleteProjModalLoading] = useState(false);
 
     // Complete Project Modal
+    // TODO: Deprecated
     const [showCompleteProjModal, setShowCompleteProjModal] = useState(false);
     const [completeProjModalLoading, setCompleteProjModalLoading] = useState(false);
 
@@ -132,6 +133,7 @@ const ProjectView = (props) => {
     const [openTaskDetails, setOpenTaskDetails] = useState([
         true, false, false, false, false
     ]);
+    const [allProjTasks, setAllProjTasks] = useState([]);
     const [projTasks, setProjTasks] = useState([]);
 
 
@@ -141,22 +143,56 @@ const ProjectView = (props) => {
     const [taskSearchResults, setTaskSearchResults] = useState([]);
 
 
-    // Add Task Modal
-    const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-    const [addTaskLoading, setAddTaskLoading] = useState(false);
-    const [addTaskTitle, setAddTaskTitle] = useState('');
-    const [addTaskDescrip, setAddTaskDescrip] = useState('');
-    const [addTaskStatus, setAddTaskStatus] = useState('available');
-    const [addTaskDeps, setAddTaskDeps] = useState([]);
-    const [addTaskDepOptions, setAddTaskDepOptions] = useState([]);
-    const [addTaskAssigns, setAddTaskAssigns] = useState([]);
-    const [addTaskAssignOptions, setAddTaskAssignOptions] = useState([]);
-    const [addTaskTitleErr, setAddTaskTitleErr] = useState(false);
+    // Manage (Add/Edit) Task Modal
+    const [showMngTaskModal, setShowMngTaskModal] = useState(false);
+    const [mngTaskMode, setMngTaskMode] = useState('add');
+    const [mngTaskLoading, setMngTaskLoading] = useState(false);
+    const [mngTaskTitle, setMngTaskTitle] = useState('');
+    const [mngTaskDescrip, setMngTaskDescrip] = useState('');
+    const [mngTaskStatus, setMngTaskStatus] = useState('available');
+    const [mngTaskDeps, setMngTaskDeps] = useState([]);
+    const [mngTaskDepOptions, setMngTaskDepOptions] = useState([]);
+    const [mngTaskAssigns, setMngTaskAssigns] = useState([]);
+    const [mngTaskAssignOptions, setMngTaskAssignOptions] = useState([]);
+    const [mngTaskTitleErr, setMngTaskTitleErr] = useState(false);
+    const [mngTaskSubtask, setMngTaskSubtask] = useState(false);
+    const [mngTaskParent, setMngTaskParent] = useState('');
+    const [mngTaskData, setMngTaskData] = useState({});
 
 
     // View Task Modal
     const [showViewTaskModal, setShowViewTaskModal] = useState(false);
     const [viewTaskData, setViewTaskData] = useState({});
+    const [viewTaskLoading, setViewTaskLoading] = useState(false);
+
+
+    // Delete Task Modal
+    const [showDelTaskModal, setShowDelTaskModal] = useState(false);
+    const [delTaskData, setDelTaskData] = useState({});
+    const [delTaskLoading, setDelTaskLoading] = useState(false);
+    const [delTaskSubtask, setDelTaskSubtask] = useState(false);
+    const [delTaskParent, setDelTaskParent] = useState('');
+    const [delTaskHasSubtasks, setDelTaskHasSubtasks] = useState(false);
+
+
+    // Batch Task Add Modal
+    const [showBatchModal, setShowBatchModal] = useState(false);
+    const [batchAddLoading, setBatchAddLoading] = useState(false);
+    const [batchTasks, setBatchTasks] = useState(1);
+    const [batchTitle, setBatchTitle] = useState('');
+    const [batchAddSubtasks, setBatchAddSubtasks] = useState(false);
+    const [batchSubtasks, setBatchSubtasks] = useState(1);
+    const [batchSubtitle, setBatchSubtitle] = useState('');
+    const [batchTasksErr, setBatchTasksErr] = useState(false);
+    const [batchTitleErr, setBatchTitleErr] = useState(false);
+    const [batchSubtasksErr, setBatchSubtasksErr] = useState(false);
+    const [batchSubtitleErr, setBatchSubtitleErr] = useState(false);
+
+
+    // Flag Project Modal
+    const [showFlagModal, setShowFlagModal] = useState(false);
+    const [flagLoading, setFlagLoading] = useState(false);
+    const [flagOption, setFlagOption] = useState('');
 
 
     /**
@@ -273,13 +309,30 @@ const ProjectView = (props) => {
         }).then((res) => {
             if (!res.data.err) {
                 if (res.data.tasks && Array.isArray(res.data.tasks)) {
+                    // Flatten array of tasks by extracting subtasks
+                    let flattenedTasks = [];
+                    res.data.tasks.forEach(item => {
+                        if (item.subtasks && item.subtasks.length > 0) {
+                            flattenedTasks = flattenedTasks.concat(item.subtasks);
+                        }
+                    });
+                    flattenedTasks = [...res.data.tasks, ...flattenedTasks];
+                    // Prep tasks for UI presentation
                     let newTasks = res.data.tasks.map((item) => {
                         return {
                             ...item,
                             uiOpen: false
                         }
                     });
+                    setAllProjTasks(flattenedTasks);
                     setProjTasks(newTasks);
+                    // If there is a task currently open, update it
+                    if (viewTaskData.taskID && viewTaskData.taskID !== '') {
+                        let foundTask = flattenedTasks.find(item => item.taskID === viewTaskData.taskID);
+                        if (foundTask !== undefined) {
+                            setViewTaskData(foundTask);
+                        }
+                    }
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -669,6 +722,8 @@ const ProjectView = (props) => {
      * Submits a PUT request to the server to mark the project as completed,
      * then closes the Complete Project modal and re-syncs the Project data.
      */
+    // TODO: Deprecated
+    /*
     const submitMarkCompleted = () => {
         setCompleteProjModalLoading(true);
         axios.put('/project/complete', {
@@ -689,21 +744,25 @@ const ProjectView = (props) => {
             setCompleteProjModalLoading(false);
         });
     };
+    */
 
 
-    const handleTaskSearch = (_e, { searchString }) => {
+    const handleTaskSearch = (_e, { value }) => {
         setTaskSearchLoading(true);
-        setTaskSearchQuery(searchString);
-        let results = projTasks.filter((task) => {
-            var descripString = String(task.title).toLowerCase() + String(task.description).toLowerCase();
-            if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
-                return task;
-            } else {
-                return false;
+        setTaskSearchQuery(value);
+        let searchRegExp = new RegExp(value, 'g');
+        let results = allProjTasks.filter((task) => {
+            let descripString = String(task.title).toLowerCase() + ' ' + String(task.description).toLowerCase();
+            if (value !== '') {
+                let match = descripString.match(searchRegExp);
+                if (match !== null && match.length > 0) {
+                    return task;
+                }
             }
+            return false;
         }).map((item) => {
             return {
-                taskID: item.taskID,
+                id: item.taskID,
                 title: item.title,
                 description: item.description
             }
@@ -750,9 +809,13 @@ const ProjectView = (props) => {
     };
 
 
-    const openAddTaskModal = () => {
-        if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-            let assignOptions = project.collaborators.map((item) => {
+    const openManageTaskModal = (mode, taskID, parent) => {
+        let canOpen = false;
+        setMngTaskLoading(true);
+        if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)
+            && project.owner && !isEmptyString(project.owner)) {
+            let assignOptions = [...project.collaborators, project.owner];
+            assignOptions = assignOptions.map((item) => {
                 var newOption = {
                     key: '',
                     text: 'Unknown User',
@@ -779,12 +842,12 @@ const ProjectView = (props) => {
                     return null;
                 }
             }).filter(item => item !== null);
-            setAddTaskAssignOptions(assignOptions);
+            setMngTaskAssignOptions(assignOptions);
         } else {
-            setAddTaskAssignOptions([]);
+            setMngTaskAssignOptions([]);
         }
         if (projTasks.length > 0) {
-            let depOptions = projTasks.map((item) => {
+            let depOptions = allProjTasks.map((item) => {
                 var newOption = {
                     key: '',
                     text: 'Unknown Task',
@@ -800,71 +863,170 @@ const ProjectView = (props) => {
                 } else {
                     return null;
                 }
-            }).filter(item => item !== null);
-            setAddTaskDepOptions(depOptions);
-        } else {
-            setAddTaskDepOptions([]);
-        }
-        setAddTaskLoading(false);
-        setAddTaskTitle('');
-        setAddTaskDescrip('');
-        setAddTaskStatus('available');
-        setAddTaskDeps([]);
-        setAddTaskAssigns([]);
-        setAddTaskTitleErr(false);
-        setShowAddTaskModal(true);
-    };
-
-
-    const closeAddTaskModal = () => {
-        setShowAddTaskModal(false);
-        setAddTaskLoading(false);
-        setAddTaskTitle('');
-        setAddTaskDescrip('');
-        setAddTaskStatus('available');
-        setAddTaskDeps([]);
-        setAddTaskDepOptions([]);
-        setAddTaskAssigns([]);
-        setAddTaskAssignOptions([]);
-        setAddTaskTitleErr(false);
-    };
-
-
-    const submitAddTask = () => {
-        setAddTaskTitleErr(false);
-        if (!isEmptyString(addTaskTitle)) {
-            setAddTaskLoading(true);
-            let taskData = {
-                projectID: props.match.params.id,
-                title: addTaskTitle,
-                status: addTaskStatus
-            };
-            if (!isEmptyString(addTaskDescrip)) taskData.description = addTaskDescrip;
-            if (addTaskAssigns.length > 0) taskData.assignees = addTaskAssigns;
-            if (addTaskDeps.length > 0) taskData.dependencies = addTaskDeps;
-            axios.post('/project/task', taskData).then((res) => {
-                if (!res.data.err) {
-                    closeAddTaskModal();
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                    setAddTaskLoading(false);
+            }).filter((item) => {
+                if (typeof(taskID) === 'string' && taskID !== null) {
+                    return (item !== null && item.value !== taskID);
                 }
-            }).catch((err) => {
-                handleGlobalError(err);
-                setAddTaskLoading(false);
+                return (item !== null);
             });
+            setMngTaskDepOptions(depOptions);
         } else {
-            setAddTaskTitleErr(true);
+            setMngTaskDepOptions([]);
+        }
+        if (mode === 'edit' && (typeof(taskID) === 'string' && taskID !== null)) {
+            setMngTaskMode('edit');
+            let foundTask = allProjTasks.find(item => item.taskID === taskID);
+            if (foundTask !== undefined) {
+                canOpen = true;
+                setMngTaskData(foundTask);
+                setMngTaskTitle(foundTask.title);
+                setMngTaskDescrip(foundTask.description);
+                setMngTaskStatus(foundTask.status);
+                if (foundTask.parent && foundTask.parent !== '') {
+                    setMngTaskSubtask(true);
+                    setMngTaskParent(foundTask.parent);
+                }
+                if (foundTask.dependencies && Array.isArray(foundTask.dependencies)) {
+                    setMngTaskDeps(foundTask.dependencies);
+                } else {
+                    setMngTaskDeps([]);
+                }
+                if (foundTask.assignees && Array.isArray(foundTask.assignees)) {
+                    let assignees = foundTask.assignees.map((item) => {
+                        if (item.hasOwnProperty('uuid')) {
+                            return item.uuid;
+                        }
+                        return null;
+                    }).filter(item => item !== null);
+                    setMngTaskAssigns(assignees);
+                } else {
+                    setMngTaskAssigns([]);
+                }
+            }
+        } else {
+            canOpen = true;
+            setMngTaskMode('add');
+            setMngTaskTitle('');
+            setMngTaskDescrip('');
+            setMngTaskStatus('available');
+            setMngTaskDeps([]);
+            setMngTaskAssigns([]);
+            if (parent !== null && typeof(parent) === 'string') {
+                setMngTaskSubtask(true);
+                setMngTaskParent(parent);
+            }
+        }
+        setMngTaskTitleErr(false);
+        setMngTaskLoading(false);
+        if (canOpen) {
+            setShowMngTaskModal(true);
+        }
+    };
+
+
+    const closeManageTaskModal = () => {
+        setShowMngTaskModal(false);
+        setMngTaskMode('add');
+        setMngTaskLoading(false);
+        setMngTaskTitle('');
+        setMngTaskDescrip('');
+        setMngTaskStatus('available');
+        setMngTaskDeps([]);
+        setMngTaskDepOptions([]);
+        setMngTaskAssigns([]);
+        setMngTaskAssignOptions([]);
+        setMngTaskTitleErr(false);
+        setMngTaskSubtask(false);
+        setMngTaskParent('');
+    };
+
+
+    const submitManageTask = () => {
+        setMngTaskTitleErr(false);
+        if (!isEmptyString(mngTaskTitle)) {
+            setMngTaskLoading(true);
+            if (mngTaskMode === 'edit') {
+                let taskData = {
+                    projectID: props.match.params.id,
+                    taskID: mngTaskData.taskID,
+                    assignees: mngTaskAssigns,
+                    dependencies: mngTaskDeps
+                };
+                if ((mngTaskData.title && mngTaskData.title !== mngTaskTitle) || !mngTaskData.title) {
+                    taskData.title = mngTaskTitle;
+                }
+                if ((mngTaskData.description && mngTaskData.description !== mngTaskDescrip) || !mngTaskData.description) {
+                    taskData.description = mngTaskDescrip;
+                }
+                if ((mngTaskData.status && mngTaskData.status !== mngTaskStatus) || !mngTaskData.status) {
+                    taskData.status = mngTaskStatus;
+                }
+                axios.put('/project/task', taskData).then((res) => {
+                    if (!res.data.err) {
+                        getProjectTasks();
+                        closeManageTaskModal();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                        setMngTaskLoading(false);
+                    }
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setMngTaskLoading(false);
+                });
+            } else if (mngTaskMode === 'add') {
+                let taskData = {
+                    projectID: props.match.params.id,
+                    title: mngTaskTitle,
+                    status: mngTaskStatus
+                };
+                if (!isEmptyString(mngTaskDescrip)) taskData.description = mngTaskDescrip;
+                if (mngTaskAssigns.length > 0) taskData.assignees = mngTaskAssigns;
+                if (mngTaskDeps.length > 0) taskData.dependencies = mngTaskDeps;
+                if (mngTaskParent !== '') taskData.parent = mngTaskParent;
+                axios.post('/project/task', taskData).then((res) => {
+                    if (!res.data.err) {
+                        getProjectTasks();
+                        closeManageTaskModal();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                        setMngTaskLoading(false);
+                    }
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setMngTaskLoading(false);
+                });
+            }
+        } else {
+            setMngTaskTitleErr(true);
         }
     };
 
 
     const openViewTaskModal = (taskID) => {
-        let foundTask = projTasks.find((item) => item.taskID === taskID);
+        setShowViewTaskModal(true);
+        setViewTaskLoading(true);
+        axios.get('/project/task', {
+            params: {
+                taskID: taskID
+            }
+        }).then((res) => {
+            if (!res.data.err) {
+                console.log(res.data);
+                if (typeof(res.data.task) === 'object') {
+                    setViewTaskData(res.data.task);
+                }
+            } else {
+                handleGlobalError(res.data.errMsg);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+        });
+        /*
+        let foundTask = allProjTasks.find((item) => item.taskID === taskID);
         if (foundTask !== undefined) {
-            setViewTaskData(foundTask);
-            setShowViewTaskModal(true);
+
         }
+        */
     };
 
 
@@ -878,12 +1040,216 @@ const ProjectView = (props) => {
         localStorage.setItem('conductor_show_projectdiscussion', !showDiscussion);
     };
 
+    const getParentTaskName = (taskID) => {
+        let foundTask = allProjTasks.find((item) => item.taskID === taskID);
+        if (foundTask !== undefined) {
+            return foundTask.title;
+        } else {
+            return 'Unknown';
+        }
+    };
+
+    const openDeleteTaskModal = (taskID) => {
+        let foundTask = allProjTasks.find((item) => item.taskID === taskID);
+        if (foundTask !== undefined) {
+            setDelTaskData(foundTask);
+            if (foundTask.parent && foundTask.parent !== '') {
+                setDelTaskParent(foundTask.parent);
+                setDelTaskSubtask(true);
+            }
+            if (foundTask.subtasks && Array.isArray(foundTask.subtasks) && foundTask.subtasks.length > 0) {
+                setDelTaskHasSubtasks(true);
+            }
+            setDelTaskLoading(false);
+            setShowDelTaskModal(true);
+        }
+    };
+
+    const closeDeleteTaskModal = () => {
+        setShowDelTaskModal(false);
+        setDelTaskData({});
+        setDelTaskLoading(false);
+        setDelTaskSubtask(false);
+        setDelTaskParent('');
+        setDelTaskHasSubtasks(false);
+    };
+
+    const submitDeleteTask = () => {
+        if (delTaskData.taskID && delTaskData.taskID !== '') {
+            setDelTaskLoading(true);
+            axios.delete('/project/task', {
+                data: {
+                    taskID: delTaskData.taskID
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    getProjectTasks();
+                    closeDeleteTaskModal();
+                    closeViewTaskModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setDelTaskLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setDelTaskLoading(false);
+            });
+        }
+    };
+
+    const openBatchModal = () => {
+        resetBatchAddForm();
+        setBatchTasks(1);
+        setBatchTitle('');
+        setBatchAddSubtasks(false);
+        setBatchSubtasks(1);
+        setBatchSubtitle('');
+        setBatchAddLoading(false);
+        setShowBatchModal(true);
+    };
+
+    const closeBatchModal = () => {
+        setShowBatchModal(false);
+        resetBatchAddForm();
+        setBatchTasks(1);
+        setBatchTitle('');
+        setBatchAddSubtasks(false);
+        setBatchSubtasks(1);
+        setBatchSubtitle('');
+        setBatchAddLoading(false);
+    };
+
+    const validateBatchAdd = () => {
+        let validForm = true;
+        if ((batchTasks < 1) || (batchTasks > 100)) {
+            validForm = false;
+            setBatchTasksErr(true);
+        }
+        if (isEmptyString(batchTitle)) {
+            validForm = false;
+            setBatchTitleErr(true);
+        }
+        if (batchAddSubtasks) {
+            if ((batchSubtasks < 1) || (batchSubtasks > 100)) {
+                validForm = false;
+                setBatchSubtasksErr(true);
+            }
+            if (isEmptyString(batchSubtitle)) {
+                validForm = false;
+                setBatchSubtitleErr(true);
+            }
+        }
+        return validForm;
+    };
+
+    const resetBatchAddForm = () => {
+        setBatchTasksErr(false);
+        setBatchTitleErr(false);
+        setBatchSubtasksErr(false);
+        setBatchSubtitleErr(false);
+    };
+
+    const submitBatchAdd = () => {
+        resetBatchAddForm();
+        if (validateBatchAdd()) {
+            setBatchAddLoading(true);
+            let taskData = {
+                projectID: props.match.params.id,
+                tasks: batchTasks,
+                titlePrefix: batchTitle
+            };
+            if (batchAddSubtasks) {
+                taskData = {
+                    ...taskData,
+                    addSubtasks: true,
+                    subtasks: batchSubtasks,
+                    subtitlePrefix: batchSubtitle
+                };
+            }
+            axios.post('/project/task/batchadd', taskData).then((res) => {
+                if (!res.data.err) {
+                    getProjectTasks();
+                    closeBatchModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setBatchAddLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setBatchAddLoading(false);
+            });
+        }
+    };
+
+    const openFlagModal = () => {
+        setFlagLoading(false);
+        setFlagOption('');
+        setShowFlagModal(true);
+    };
+
+    const closeFlagModal = () => {
+        setShowFlagModal(false);
+        setFlagLoading(false);
+        setFlagOption('');
+    };
+
+    const submitFlagProject = () => {
+
+    };
+
 
     // Rendering Helper Booleans
     let hasResourceInfo = project.author || project.license || project.resourceURL;
     let hasNotes = project.notes && !isEmptyString(project.notes);
     let hasCollabs = project.collaborators && Array.isArray(project.collaborators) && project.collaborators.length > 0;
 
+
+    const AvailableIndicator = () => {
+        return (
+            <Popup
+                content='Available'
+                trigger={
+                    <Icon name='circle outline' color='teal' />
+                }
+                position='top center'
+            />
+        )
+    };
+
+    const InProgressIndicator = () => {
+        return (
+            <Popup
+                content='In progress'
+                trigger={
+                    <Icon name='circle' color='blue' />
+                }
+                position='top center'
+            />
+        )
+    };
+
+    const CompletedIndicator = () => {
+        return (
+            <Popup
+                content='Completed'
+                trigger={
+                    <Icon name='check' color='green' />
+                }
+                position='top center'
+            />
+        )
+    };
+
+    const renderStatusIndicator = useCallback((status, addLeftMargin) => {
+        switch (status) {
+            case 'completed':
+                return <CompletedIndicator />;
+            case 'inprogress':
+                return <InProgressIndicator />;
+            default:
+                return <AvailableIndicator />;
+        }
+    }, []);
 
     return(
         <Grid className='component-container'>
@@ -978,6 +1344,17 @@ const ProjectView = (props) => {
                                                 <Icon name='universal access' />
                                                 Accessibility
                                             </Button>
+                                            <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
+                                                <Dropdown.Menu>
+                                                    <Dropdown.Item icon='send' text='Send LibreTexts Alert' disabled />
+                                                    <Dropdown.Item
+                                                        icon='attention'
+                                                        text='Flag Project'
+                                                        onClick={openFlagModal}
+                                                        disabled
+                                                    />
+                                                </Dropdown.Menu>
+                                            </Dropdown>
                                         </Button.Group>
                                     </Grid.Column>
                                 </Grid.Row>
@@ -1231,15 +1608,6 @@ const ProjectView = (props) => {
                     >
                         <Modal.Header>Edit Project Properties</Modal.Header>
                         <Modal.Content scrolling>
-                            <Button
-                                color='green'
-                                onClick={() => setShowCompleteProjModal(true)}
-                                fluid
-                                className='mb-2p'
-                            >
-                                <Icon name='check' />
-                                Complete Project
-                            </Button>
                             <Form noValidate>
                                 <Header as='h3'>Project Overview</Header>
                                 <Form.Field
@@ -1300,10 +1668,9 @@ const ProjectView = (props) => {
                                     fluid
                                     label={<label>Status</label>}
                                     placeholder='Status...'
-                                    options={editStatusOptions}
+                                    options={statusOptions}
                                     onChange={(_e, { value }) => setProjStatus(value)}
                                     value={projStatus}
-                                    disabled={projStatus === 'completed'}
                                 />
                                 <Form.Select
                                     fluid
@@ -1566,7 +1933,8 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Complete Project Modal */}
+                    {/* Complete Project Modal
+                    // TODO: Deprecated
                     <Modal
                         open={showCompleteProjModal}
                         onClose={() => setShowCompleteProjModal(false)}
@@ -1595,18 +1963,45 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Add Task Modal */}
+                    */}
+                    {/* Manage (Add/Edit) Task Modal */}
                     <Modal
-                        open={showAddTaskModal}
+                        open={showMngTaskModal}
                         closeOnDimmerClick={false}
                     >
-                        <Modal.Header>New Task</Modal.Header>
+                        <Modal.Header>
+                            {(mngTaskSubtask && mngTaskParent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section>
+                                            <em>{getParentTaskName(mngTaskParent)}</em>
+                                        </Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        {(mngTaskMode === 'add')
+                                            ? (<Breadcrumb.Section active>New Subtask</Breadcrumb.Section>)
+                                            : (<Breadcrumb.Section active>Edit <em>{mngTaskData.title || 'Loading...'}</em></Breadcrumb.Section>)
+                                        }
+
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        {(mngTaskMode === 'add')
+                                            ? (<Breadcrumb.Section active>New Task</Breadcrumb.Section>)
+                                            : (<Breadcrumb.Section active>Edit <em>{mngTaskData.title || 'Loading...'}</em></Breadcrumb.Section>)
+                                        }
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
                         <Modal.Content>
-                            <p><em>To add a subtask, use the add button on a task listing.</em></p>
+                            {(mngTaskMode === 'add' && !mngTaskSubtask) &&
+                                <p><em>To add a subtask, use the add button on a task listing.</em></p>
+                            }
                             <Form noValidate>
                                 <Form.Field
                                     required={true}
-                                    error={addTaskTitleErr}
+                                    error={mngTaskTitleErr}
                                 >
                                     <label>Title</label>
                                     <Input
@@ -1614,40 +2009,39 @@ const ProjectView = (props) => {
                                         placeholder='Title...'
                                         icon='file'
                                         iconPosition='left'
-                                        onChange={(e) => setAddTaskTitle(e.target.value)}
-                                        value={addTaskTitle}
+                                        onChange={(e) => setMngTaskTitle(e.target.value)}
+                                        value={mngTaskTitle}
                                     />
                                 </Form.Field>
                                 <Form.Field>
                                     <label>Description</label>
-                                    <Input
-                                        type='text'
+                                    <ConductorTextArea
                                         placeholder='Description...'
-                                        icon='file alternate'
-                                        iconPosition='left'
-                                        onChange={(e) => setAddTaskDescrip(e.target.value)}
-                                        value={addTaskDescrip}
+                                        textValue={mngTaskDescrip}
+                                        onTextChange={(value) => setMngTaskDescrip(value)}
+                                        inputType='description'
+                                        showSendButton={false}
                                     />
                                 </Form.Field>
                                 <Form.Select
                                     label='Status'
                                     options={createTaskOptions}
-                                    onChange={(e, { value }) => setAddTaskStatus(value)}
-                                    value={addTaskStatus}
+                                    onChange={(e, { value }) => setMngTaskStatus(value)}
+                                    value={mngTaskStatus}
                                 />
                                 <Form.Select
                                     label='Dependencies (must be completed before this task can be completed)'
-                                    options={addTaskDepOptions}
-                                    onChange={(_e, { value }) => setAddTaskDeps(value)}
-                                    value={addTaskDeps}
+                                    options={mngTaskDepOptions}
+                                    onChange={(_e, { value }) => setMngTaskDeps(value)}
+                                    value={mngTaskDeps}
                                     multiple
                                     search
                                 />
                                 <Form.Select
                                     label='Assignees'
-                                    options={addTaskAssignOptions}
-                                    onChange={(_e, { value }) => setAddTaskAssigns(value)}
-                                    value={addTaskAssigns}
+                                    options={mngTaskAssignOptions}
+                                    onChange={(_e, { value }) => setMngTaskAssigns(value)}
+                                    value={mngTaskAssigns}
                                     multiple
                                     search
                                 />
@@ -1655,17 +2049,20 @@ const ProjectView = (props) => {
                         </Modal.Content>
                         <Modal.Actions>
                             <Button
-                                onClick={closeAddTaskModal}
+                                onClick={closeManageTaskModal}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 color='green'
-                                loading={addTaskLoading}
-                                onClick={submitAddTask}
+                                loading={mngTaskLoading}
+                                onClick={submitManageTask}
                             >
-                                <Icon name='add' />
-                                Add Task
+                                <Icon name={(mngTaskMode === 'add') ? 'add' : 'save'} />
+                                {(mngTaskMode === 'add')
+                                    ? (mngTaskSubtask ? 'Add Subtask': 'Add Task')
+                                    : 'Save Changes'
+                                }
                             </Button>
                         </Modal.Actions>
                     </Modal>
@@ -1675,33 +2072,312 @@ const ProjectView = (props) => {
                         onClose={closeViewTaskModal}
                         size='fullscreen'
                         closeIcon
-                        style={{
-                            left: 'auto !important',
-                            right: 'auto !important'
-                        }}
                     >
                         <Modal.Header>
-                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>
+                            {(viewTaskData.parent && viewTaskData.parent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section
+                                            onClick={() => openViewTaskModal(viewTaskData.parent)}
+                                        >{getParentTaskName(viewTaskData.parent)}</Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active><em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em></Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>
+                                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>
+                                        </Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
                         </Modal.Header>
                         <Modal.Content scrolling>
+                            <Loader active={viewTaskLoading} />
                             <div className='flex-row-div'>
-                                <div>
-                                    <Header sub>Status</Header>
-                                    <p className={(viewTaskData.status === 'completed') ? 'color-semanticgreen' : (viewTaskData.status === 'inprogress' ? 'color-semanticblue' : 'color-semanticteal')}>{getTaskStatusText(viewTaskData.status)}</p>
+                                <div id='task-view-left'>
+                                    <div className='flex-row-div'>
+                                        <div className='task-detail-div'>
+                                            <Header sub>Status</Header>
+                                            {/* <Dropdown placeholder='Status..' options={createTaskOptions}/> */}
+                                            <p className={(viewTaskData.status === 'completed') ? 'color-semanticgreen' : (viewTaskData.status === 'inprogress' ? 'color-semanticblue' : 'color-semanticteal')}>{getTaskStatusText(viewTaskData.status)}</p>
+                                        </div>
+                                        <div className='task-detail-div'>
+                                            <Header sub>Created</Header>
+                                            <p>October 7th, 2021</p>
+                                        </div>
+                                        <div className='task-detail-div'>
+                                            <Header sub>Assignees</Header>
+                                            {(viewTaskData.hasOwnProperty('assignees') && viewTaskData.assignees.length > 0)
+                                                ? (
+                                                    <div>
+                                                        {viewTaskData.assignees.map((item) => {
+                                                            return (
+                                                                <Popup
+                                                                    header={`${item.firstName} ${item.lastName}`}
+                                                                    trigger={<Image src={item.avatar} avatar key={item.uuid}/>}
+                                                                />
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )
+                                                : <p>No assignees yet.</p>
+                                            }
+                                        </div>
+                                    </div>
+                                    {(viewTaskData.description && viewTaskData.description !== '') &&
+                                        <div className='mt-2p mb-2p'>
+                                            <Header as='h3' dividing>Description</Header>
+                                            <p dangerouslySetInnerHTML={{
+                                                __html: DOMPurify.sanitize(marked(viewTaskData.description, { breaks: true }))
+                                            }}></p>
+                                        </div>
+                                    }
+                                    {(viewTaskData.parent === undefined || viewTaskData.parent === '' || viewTaskData.parent === null) &&
+                                        <div className='mt-2p'>
+                                            <Header as='h3' dividing>Subtasks</Header>
+                                            <Button
+                                                color='green'
+                                                fluid
+                                                onClick={() => openManageTaskModal('add', null, viewTaskData.taskID)}
+                                                compact
+                                            >
+                                                <Icon name='add' />
+                                                Add Subtask
+                                            </Button>
+                                            {(viewTaskData.hasOwnProperty('subtasks') && viewTaskData.subtasks.length > 0)
+                                                ? (
+                                                    <List divided verticalAlign='middle'>
+                                                        {viewTaskData.subtasks.map((subtask) => {
+                                                            return (
+                                                                <List.Item className='project-task-subtask' key={subtask.taskID}>
+                                                                    <div className='flex-row-div'>
+                                                                        <div className='left-flex'>
+                                                                            <span className='project-task-title'>{subtask.title}</span>
+                                                                            {renderStatusIndicator(subtask.status)}
+                                                                        </div>
+                                                                      <div className='right-flex'>
+                                                                          <Popup
+                                                                              content='View Subtask'
+                                                                              trigger={
+                                                                                  <Button
+                                                                                    onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                    icon='expand'
+                                                                                    color='blue'
+                                                                                  />
+                                                                              }
+                                                                              position='top center'
+                                                                          />
+                                                                      </div>
+                                                                    </div>
+                                                                </List.Item>
+                                                            )
+                                                        })}
+                                                    </List>
+                                                )
+                                                : (<p className='text-center muted-text mt-2p'><em>No subtasks yet. Add one above!</em></p>)
+                                            }
+                                        </div>
+                                    }
                                 </div>
-                                <div>
-                                    <Header sub>Created</Header>
-                                    <p>October 7th, 2021</p>
-                                </div>
-                                <div>
-                                    <Header sub>Assignees</Header>
-                                    <p>Avis here...</p>
+                                <div id='task-view-right'>
+                                    <Button.Group compact fluid>
+                                        <Button
+                                            color='blue'
+                                            onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}
+                                        >
+                                            <Icon name='edit' />
+                                            Edit Task
+                                        </Button>
+                                        <Button
+                                            color='red'
+                                            onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
+                                        >
+                                            <Icon name='trash' />
+                                            Delete Task
+                                        </Button>
+                                    </Button.Group>
+                                    <Header as='h3' dividing>Discussion</Header>
                                 </div>
                             </div>
-                            <Header as='h3' dividing>Description</Header>
-                            <p>{viewTaskData.description}</p>
-                            <Header as='h3' dividing>Subtasks</Header>
                         </Modal.Content>
+                    </Modal>
+                    {/* Delete Task Modal */}
+                    <Modal
+                        open={showDelTaskModal}
+                        closeOnDimmerClick={false}
+                    >
+                        <Modal.Header>
+                            {(delTaskSubtask && delTaskParent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section>
+                                            <em>{getParentTaskName(delTaskParent)}</em>
+                                        </Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active>Delete <em>{delTaskData.title || 'Loading...'}</em></Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>Delete <em>{delTaskData.title || 'Loading...'}</em></Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to delete the <strong>{delTaskData.title}</strong> <span className='muted-text'>(ID: {delTaskData.taskID})</span> task?</p>
+                            {delTaskHasSubtasks &&
+                                <p className='text-center'><strong>All subtasks will also be deleted!</strong></p>
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeDeleteTaskModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='red'
+                                loading={delTaskLoading}
+                                onClick={submitDeleteTask}
+                            >
+                                <Icon name='trash' />
+                                Delete
+                                {(delTaskSubtask ? ' Subtask': ' Task')}
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Batch Task Add Modal */}
+                    <Modal
+                        open={showBatchModal}
+                        onClose={closeBatchModal}
+                    >
+                        <Modal.Header>Batch Add Tasks</Modal.Header>
+                        <Modal.Content>
+                            <Form noValidate>
+                                <Form.Field error={batchTasksErr}>
+                                    <label>Number of Tasks to Add</label>
+                                    <Input
+                                        type='number'
+                                        placeholder='Number...'
+                                        min={1}
+                                        max={100}
+                                        onChange={(_e, { value }) => setBatchTasks(value)}
+                                        value={batchTasks}
+                                    />
+                                </Form.Field>
+                                <Form.Field error={batchTitleErr}>
+                                    <label>Task Title Prefix</label>
+                                    <Input
+                                        type='text'
+                                        placeholder='Title prefix...'
+                                        onChange={(_e, { value }) => setBatchTitle(value)}
+                                        value={batchTitle}
+                                    />
+                                </Form.Field>
+                                <p><strong>Example: </strong><em>{(batchTitle !== '') ? batchTitle : '<Title prefix>'} 1</em></p>
+                                <Form.Field>
+                                    <Checkbox
+                                        toggle
+                                        label='Add Subtasks to Each'
+                                        onChange={(_e, data) => setBatchAddSubtasks(data.checked)}
+                                        checked={batchAddSubtasks}
+                                    />
+                                </Form.Field>
+                                {batchAddSubtasks &&
+                                    <div>
+                                        <Form.Field error={batchSubtasksErr}>
+                                            <label>Number of Subtasks to Add to Each</label>
+                                            <Input
+                                                type='number'
+                                                placeholder='Number...'
+                                                min={1}
+                                                max={100}
+                                                onChange={(_e, { value }) => setBatchSubtasks(value)}
+                                                value={batchSubtasks}
+                                            />
+                                        </Form.Field>
+                                        <Form.Field error={batchSubtitleErr}>
+                                            <label>Subtask Title Prefix</label>
+                                            <Input
+                                                type='text'
+                                                placeholder='Title prefix...'
+                                                onChange={(_e, { value }) => setBatchSubtitle(value)}
+                                                value={batchSubtitle}
+                                            />
+                                        </Form.Field>
+                                        <p><strong>Example: </strong><em>{(batchSubtitle !== '') ? batchSubtitle : '<Subtitle prefix>'} 1.1</em></p>
+                                    </div>
+                                }
+                            </Form>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeBatchModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={batchAddLoading}
+                                onClick={submitBatchAdd}
+                            >
+                                <Icon name='add' />
+                                Add Tasks
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Flag Project Modal */}
+                    <Modal
+                        open={showFlagModal}
+                        onClose={closeFlagModal}
+                    >
+                        <Modal.Header>Flag Project</Modal.Header>
+                        <Modal.Content>
+                            <p>Flagging a project sends an email notification to the selected user and places it in their Flagged Projects list for review. Please place a description of the reason for flagging in the Project Notes.</p>
+                            <Dropdown
+                                placeholder='Flag Option...'
+                                fluid
+                                selection
+                                options={[{
+                                    key: 'libretexts',
+                                    text: 'LibreTexts Administrators',
+                                    value: 'libretexts'
+                                }, {
+                                    key: 'campusadmin',
+                                    text: 'Campus Administrator',
+                                    value: 'campusadmin'
+                                }, {
+                                    key: 'liaison',
+                                    text: 'Project Liaison',
+                                    value: 'liaison',
+                                    disabled: true
+                                }, {
+                                    key: 'lead',
+                                    text: 'Project Lead',
+                                    value: 'lead'
+                                }]}
+                                value={flagOption}
+                                onChange={(e, { value }) => setFlagOption(value)}
+                            />
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeFlagModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='orange'
+                                loading={flagLoading}
+                                onClick={submitFlagProject}
+                            >
+                                <Icon name='attention' />
+                                Flag Project
+                            </Button>
+                        </Modal.Actions>
                     </Modal>
                 </Grid.Column>
             </Grid.Row>
@@ -1731,7 +2407,7 @@ TASK INTERFACE: DO NOT DELETE!!!!!!
                                 placeholder: 'Search tasks...'
                             }}
                             loading={taskSearchLoading}
-                            onResultSelect={(_e, { result }) => console.log(result)}
+                            onResultSelect={(_e, { result }) => openViewTaskModal(result.id)}
                             onSearchChange={handleTaskSearch}
                             results={taskSearchResults}
                             value={taskSearchQuery}
@@ -1748,14 +2424,15 @@ TASK INTERFACE: DO NOT DELETE!!!!!!
                             </Button>
                             <Button
                                 color='olive'
+                                onClick={openBatchModal}
                             >
                                 <Icon name='add circle' />
                                 Batch Add
                             </Button>
                             <Button
                                 color='green'
-                                loading={addTaskLoading}
-                                onClick={openAddTaskModal}
+                                loading={mngTaskLoading}
+                                onClick={() => openManageTaskModal('add')}
                             >
                                 <Icon name='add' />
                                 Add Task
@@ -1765,64 +2442,99 @@ TASK INTERFACE: DO NOT DELETE!!!!!!
                     </div>
                 </div>
             </Segment>
-            <Segment loading={loadingTasks}>
-                <List divided verticalAlign='middle'>
-                    {projTasks.map((item, idx) => {
-                        return (
-                            <List.Item key={item.taskID}>
-                                <div className='flex-col-div'>
-                                    <div className='flex-row-div'>
-                                        <div className='left-flex'>
-                                            <Icon
-                                                name={item.uiOpen ? 'chevron down' : 'chevron right'}
-                                                className='pointer-hover'
-                                                onClick={() => toggleTaskDetail(item.taskID)}
+            <Segment loading={loadingTasks} className={(projTasks.length === 0) ? 'muted-segment' : ''}>
+                {(projTasks.length > 0)
+                    ? (
+                        <List divided verticalAlign='middle'>
+                            {projTasks.map((item, idx) => {
+                                return (
+                                    <List.Item key={item.taskID}>
+                                        <div className='flex-col-div'>
+                                            <div className='flex-row-div'>
+                                                <div className='left-flex'>
+                                                    <Icon
+                                                        name={item.uiOpen ? 'chevron down' : 'chevron right'}
+                                                        className='pointer-hover'
+                                                        onClick={() => toggleTaskDetail(item.taskID)}
+                                                    />
+                                                    <span className='project-task-title'>
+                                                        {item.title}
+                                                    </span>
+                                                    {renderStatusIndicator(item.status)}
+                                                </div>
+                                              <div className='right-flex'>
+                                                <Popup
+                                                    content='Add Subtask'
+                                                    trigger={
+                                                        <Button
+                                                            onClick={() => openManageTaskModal('add', null, item.taskID)}
+                                                            icon='add'
+                                                            color='green'
+                                                        />
+                                                    }
+                                                    position='top center'
                                                 />
-                                                <p className='project-task-title'>{item.title} {(item.status === 'completed') && <Icon name='check' color='green' />}</p>
+                                                <Popup
+                                                    content='View Task'
+                                                    trigger={
+                                                        <Button
+                                                          onClick={() => openViewTaskModal(item.taskID)}
+                                                          icon='expand'
+                                                          color='blue'
+                                                        />
+                                                    }
+                                                    position='top center'
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
+                                                <List divided verticalAlign='middle'>
+                                                    {(item.hasOwnProperty('subtasks') && item.subtasks.length > 0)
+                                                        ? item.subtasks.map((subtask) => {
+                                                            return (
+                                                                <List.Item className='project-task-subtask' key={subtask.taskID}>
+                                                                    <div className='flex-row-div'>
+                                                                        <div className='left-flex'>
+                                                                            <span className='project-task-title'>{subtask.title}</span>
+                                                                            {renderStatusIndicator(subtask.status)}
+                                                                        </div>
+                                                                      <div className='right-flex'>
+                                                                          <Popup
+                                                                              content='View Subtask'
+                                                                              trigger={
+                                                                                  <Button
+                                                                                    onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                    icon='expand'
+                                                                                    color='blue'
+                                                                                  />
+                                                                              }
+                                                                              position='top center'
+                                                                          />
+                                                                      </div>
+                                                                    </div>
+                                                                </List.Item>
+                                                            )
+                                                        })
+                                                        : (
+                                                            <List.Item className='project-task-subtask'>
+                                                                <p><em>No subtasks yet.</em></p>
+                                                            </List.Item>
+                                                        )
+                                                    }
+                                                </List>
+                                            </div>
                                         </div>
-                                      <div className='right-flex'>
-                                          <Button
-                                            onClick={() => openViewTaskModal(item.taskID)}
-                                            icon='search'
-                                            color='blue'
-                                        >
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
-                                        <List divided verticalAlign='middle'>
-                                            {(item.hasOwnProperty('subtasks') && item.subtasks.length > 0)
-                                                ? item.subtasks.map((subtask) => {
-                                                    return (
-                                                        <List.Item className='project-task-subtask' key={subtask.taskID}>
-                                                            <div className='flex-row-div'>
-                                                                <div className='left-flex'>
-                                                                    <Icon
-                                                                        name={subtask.status === 'completed' ? 'check' : 'circle outline'}
-                                                                        color={subtask.status === 'completed' ? 'green' : 'black'}
-                                                                    />
-                                                                    <p className='project-task-title'>{subtask.title}</p>
-                                                                </div>
-                                                              <div className='right-flex'>
-                                                                  <Button icon='search' color='blue'></Button>
-                                                              </div>
-                                                            </div>
-                                                        </List.Item>
-                                                    )
-                                                })
-                                                : (
-                                                    <List.Item className='project-task-subtask'>
-                                                        <p><em>No subtasks yet.</em></p>
-                                                    </List.Item>
-                                                )
-                                            }
-                                        </List>
-                                    </div>
-                                </div>
-                            </List.Item>
-                        )
-                    })}
-                </List>
+                                    </List.Item>
+                                )
+                            })}
+                        </List>
+                    )
+                    : (
+                        <div>
+                            <p className='text-center muted-text'><em>No tasks yet. Add one above!</em></p>
+                        </div>
+                    )
+                }
             </Segment>
         </Segment.Group>
     </Grid.Column>
