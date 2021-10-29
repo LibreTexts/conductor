@@ -63,8 +63,9 @@ const ProjectSchema = new Schema({
     a11yReview: [               // the text section accessibility reviews
         a11ySectionReviewSchema
     ],
-    harvestReqID: String,
-    flag: String                // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
+    harvestReqID: String,       // the _id of the Harvesting Request the project was converted from (if applicable)
+    flag: String,               // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
+    libreAlerts: [String]       // array of uuids of users who have a LibreTexts Alert enabled on the project
 }, {
     timestamps: true
 });

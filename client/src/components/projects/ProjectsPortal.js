@@ -160,9 +160,10 @@ const ProjectsPortal = (props) => {
                             </Message.Content>
                         </Message>
                     }
-                    <Menu widths={2}>
+                    <Menu widths={3}>
                         <Menu.Item as={Link} to='/projects/available' name='availableprojects' icon='folder open' content={<p>Available Projects</p>} />
                         <Menu.Item as={Link} to='/projects/completed' name='completedprojects' icon='check' content={<p>Completed Projects</p>} />
+                        <Menu.Item as={Link} to='/projects/flagged' name='flaggedprojects' icon='attention' content={<p>Flagged Projects</p>} />
                     </Menu>
                     <Segment.Group>
                         <Segment>

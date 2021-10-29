@@ -102,6 +102,28 @@ const getRoadmapStepName = (step) => {
 };
 
 
+/**
+ * Accepts an internal Project flagging group name and attempts to
+ * return the UI-ready string representation.
+ * @param {String} group  - the flagging group name to find UI text for
+ * @returns {String} the UI-ready string representation
+ */
+const getFlagGroupName = (group) => {
+    switch (group) {
+        case 'libretexts':
+            return 'LibreTexts Administrators';
+        case 'campusadmin':
+            return 'Campus Administrators';
+        case 'liaison':
+            return 'Project Liaison';
+        case 'lead':
+            return 'Project Lead'
+        default:
+            return 'Unknown';
+    }
+};
+
+
 module.exports = {
     visibilityOptions,
     statusOptions,
@@ -110,5 +132,6 @@ module.exports = {
     roadmapSteps,
     getTaskStatusText,
     getClassificationText,
-    getRoadmapStepName
+    getRoadmapStepName,
+    getFlagGroupName
 }

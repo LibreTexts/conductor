@@ -164,7 +164,6 @@ const sendOERIntRequestConfirmation = (requesterName, recipientAddress, resource
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
 const sendOERIntRequestAdminNotif = (requesterName, resourceTitle) => {
-    const recipients = ['eaturner@ucdavis.edu', 'eaturner@libretexts.org'];
     let textToSend = `Attention: ${requesterName} has submitted a new OER Integration Request for "${resourceTitle}". This request is available in Conductor.` + autoGenNoticeText;
     let htmlToSend = `<p>Attention:</p><p>${requesterName} has submitted a new OER Integration Request for "${resourceTitle}".</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -208,6 +207,81 @@ const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitl
 };
 
 
+/**
+ * Sends a standard Project Flagged notification to the respective group via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} recipients       - the flagging group to notify
+ * @param {String} projectID        - the flagged project's internal ID
+ * @param {String} projectTitle     - the flagged project's title
+ * @param {String} projectOrg       - the flagged project's organization
+ * @param {String} flaggingGroup    - the flagging group's title
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, projectOrg, flaggingGroup) => {
+    let textToSend = `Attention: A team member of the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor has flagged their project and requested that you (${flaggingGroup}) review it. Teams are asked to put information about the reason for flagging in the "Project Notes" area. You can find this project in the "Flagged Projects" option under the "Projects" tab in Conductor. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>A team member of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor has flagged their project and requested that you (<em>${flaggingGroup}</em>) review it.</p><p>Teams are asked to put information about the reason for flagging in the "Project Notes" area. You can find this project in the <em>Flagged Projects</em> option under the <em>Projects</em> tab in Conductor.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: ['conductor@noreply.libretexts.org'],
+        bcc: recipients,
+        subject: `Conductor Project Flagged for Review: ${projectTitle}`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
+/**
+ * Sends a standard New Project Messages notification to the respective group via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} recipients       - the users to notify
+ * @param {String} projectID        - the project's internal ID
+ * @param {String} projectTitle     - the project's title
+ * @param {String} projectOrg       - the project's organization
+ * @param {String} messagesKind     - the Discussion section the messages are in
+ * @param {String} threadTitle      - the relevant thread's title
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle) => {
+    let textToSend = `Attention: New messages are available in the "${threadTitle}" thread (${messagesKind} Discussion) of the "${projectTitle}" project on Conductor. This project is available in the ${projectOrg} instance. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>New messages are available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p><p>This project is available in the <strong>${projectOrg}</strong> instance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: ['conductor@noreply.libretexts.org'],
+        bcc: recipients,
+        subject: `New Messages in ${projectTitle}`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+/**
+ * Sends a standard LibreTexts Alert (Project Completed) notification to the
+ * respective group via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} recipients       - the users to notify
+ * @param {String} projectID        - the project's internal ID
+ * @param {String} projectTitle     - the project's title
+ * @param {String} projectOrg       - the project's organization
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendProjectCompletedAlert = (recipients, projectID, projectTitle, projectOrg) => {
+    let textToSend = `Attention: The "${projectTitle}" project on Conductor has been marked as completed. This project is available in the ${projectOrg} instance. You are receiving this message because you enabled a LibreTexts Alert for this project, or you submitted the OER Integration Request this project originated from. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>The <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor has been marked as completed. This project is available in the <strong>${projectOrg}</strong> instance.</p><p><em>You are receiving this message because you enabled a LibreTexts Alert for this project, or you submitted the OER Integration Request this project originated from.</em></p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: ['conductor@noreply.libretexts.org'],
+        bcc: recipients,
+        subject: `LibreTexts Alert: ${projectTitle} is Complete`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
 module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -216,5 +290,8 @@ module.exports = {
     sendPublishingRequestedNotification,
     sendOERIntRequestConfirmation,
     sendOERIntRequestAdminNotif,
-    sendOERIntRequestApproval
+    sendOERIntRequestApproval,
+    sendProjectFlaggedNotification,
+    sendNewProjectMessagesNotification,
+    sendProjectCompletedAlert
 }

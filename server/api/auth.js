@@ -558,7 +558,7 @@ const changePassword = (req, res) => {
 
 /**
  * Retrieves an array of LibreTexts Super/Campus Admins, with each administrator
- * as their own object with email, uuid, and name.
+ * as their own object with email, uuid, firstName, and lastName.
  * INTERNAL USE ONLY.
  * @returns {Object[]} an array of the administrators and their information
  */
@@ -584,12 +584,93 @@ const getLibreTextsAdmins = () => {
             _id: 0,
             uuid: 1,
             email: 1,
-            fullName: {
-                $concat: ['$firstName', ' ', '$lastName']
-            }
+            firstName: 1,
+            lastName: 1
         }
     }]).then((admins) => {
         return admins;
+    }).catch((err) => {
+        throw(err);
+    });
+};
+
+
+/**
+ * Retrieves an array of Campus Admins for the specific orgID, with each
+ * administrator as their own object with email, uuid, firstName, and lastName.
+ * INTERNAL USE ONLY.
+ * @param {String} campus  - the orgID to retrieve admins for
+ * @returns {Object[]} an array of the administrators and their information
+ */
+const getCampusAdmins = (campus) => {
+    return new Promise((resolve, reject) => {
+        if (campus && !isEmptyString(campus)) {
+            resolve(User.aggregate([{
+                $match: {
+                    roles: {
+                        $elemMatch: {
+                            $and: [{
+                                org: campus
+                            }, {
+                                role: 'campusadmin'
+                            }]
+                        }
+                    }
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    email: 1,
+                    firstName: 1,
+                    lastName: 1
+                }
+            }]));
+        } else {
+            reject('missingcampus');
+        }
+    }).then((admins) => {
+        return admins;
+    }).catch((err) => {
+        throw(err);
+    });
+};
+
+
+/**
+ * Retrieves either a single object or an array of an object of a user's
+ * information with email, uuid, firstName, and lastName.
+ * INTERNAL USE ONLY.
+ * @param {String}  uuid        - the user's uuid to lookup by
+ * @param {Boolean} asArray     - return as object (false) or array (true)
+ * @returns {Object|Object[]} a single object or single-object array of the
+ *  user's information
+ */
+const getUserBasicWithEmail = (uuid, asArray) => {
+    return new Promise((resolve, reject) => {
+        if (uuid && !isEmptyString(uuid)) {
+            resolve(User.aggregate([{
+                $match: {
+                    uuid: uuid
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    email: 1,
+                    firstName: 1,
+                    lastName: 1
+                }
+            }]));
+        } else {
+            reject('missinguuid');
+        }
+    }).then((users) => {
+        if (asArray !== null & asArray === true) {
+            return users;
+        } else {
+            return users[0];
+        }
     }).catch((err) => {
         throw(err);
     });
@@ -691,6 +772,9 @@ const checkHasRole = (user, org, role) => {
                 } else if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
                     // OVERRIDE: SuperAdmins always have permission
                     return element;
+                } else if ((element.org === process.env.ORG_ID) && (element.role === 'campusadmin')) {
+                    // OVERRIDE: CampusAdmins always have permission in their own instance
+                    return element;
                 }
             }
             return null;
@@ -722,6 +806,9 @@ const checkHasRoleMiddleware = (org, role) => {
                         return element;
                     } else if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
                         // OVERRIDE: SuperAdmins always have permission
+                        return element;
+                    } else if ((element.org === process.env.ORG_ID) && (element.role === 'campusadmin')) {
+                        // OVERRIDE: CampusAdmins always have permission in their own instance
                         return element;
                     }
                 }
@@ -810,6 +897,8 @@ module.exports = {
     completeResetPassword,
     changePassword,
     getLibreTextsAdmins,
+    getCampusAdmins,
+    getUserBasicWithEmail,
     verifyRequest,
     optionalVerifyRequest,
     getUserAttributes,

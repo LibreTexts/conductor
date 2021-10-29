@@ -9,8 +9,10 @@ const Project = require('../models/project.js');
 const Tag = require('../models/tag.js');
 const Thread = require('../models/thread.js');
 const Message = require('../models/message.js');
+const HarvestingRequest = require('../models/harvestingrequest.js');
 const { body, query } = require('express-validator');
 const b62 = require('base62-random');
+const { validate: uuidValidate } = require('uuid');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { isValidLicense, isValidLibrary } = require('../util/bookutils.js');
@@ -21,6 +23,23 @@ const { isEmptyString } = require('../util/helpers.js');
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
 const bookAPI = require('./books.js');
+
+const projectListingProjection = {
+    _id: 0,
+    orgID: 1,
+    projectID: 1,
+    title: 1,
+    status: 1,
+    visibility: 1,
+    currentProgress: 1,
+    a11yProgress: 1,
+    peerProgress: 1,
+    owner: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    classification: 1,
+    flag: 1
+};
 
 
 /**
@@ -293,9 +312,7 @@ const getProject = (req, res) => {
             }
         }, {
             $project: {
-                _id: 0,
-                __v: 0,
-                a11yReview: 0
+                _id: 0
             }
         }, {
             $set: {
@@ -307,9 +324,13 @@ const getProject = (req, res) => {
     ]).then((projects) => {
         if (projects.length > 0) {
             var projResult = projects[0];
-            projResult.tags = projResult.tagResults.map((tagResult) => {
-                return tagResult.title;
-            });
+            if (projResult.tagResults) {
+                projResult.tags = projResult.tagResults.map((tagResult) => {
+                    return tagResult.title;
+                });
+            } else {
+                projResult.tags = [];
+            }
             delete projResult.tagResults; // prune lookup results
             // check user has permission to view project
             if (checkProjectGeneralPermission(projResult, req.user)) {
@@ -400,6 +421,7 @@ const updateProject = (req, res) => {
     var updateObj = {};
     var checkTags = false;
     var newTagTitles = []; // titles of the project's tags to be returned with the updated document
+    var sendAlert = false;
     Project.findOne({
         projectID: req.body.projectID
     }).then((project) => {
@@ -420,6 +442,10 @@ const updateProject = (req, res) => {
                 }
                 if (req.body.hasOwnProperty('status') && req.body.status !== project.status) {
                     updateObj.status = req.body.status;
+                    if (req.body.status === 'completed' && project.status !== 'completed') {
+                        // only send alert when status if first changed to completed
+                        sendAlert = true;
+                    }
                 }
                 if (req.body.hasOwnProperty('visibility') && req.body.visibility !== project.visibility) {
                     updateObj.visibility = req.body.visibility;
@@ -537,6 +563,9 @@ const updateProject = (req, res) => {
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
+            if (sendAlert) {
+                sendLibreTextsAlert(req.body.projectID);
+            }
             return res.send({
                 err: false,
                 msg: 'Successfully updated project.'
@@ -620,11 +649,122 @@ const getUserProjects = (req, res) => {
                 title: -1
             }
         }, {
-            $project: {
-                _id: 0,
-            }
+            $project: projectListingProjection
         }
     ]).then((projects) => {
+        return res.send({
+            err: false,
+            projects: projects
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: false,
+            errMsg: conductorErrors.err6
+        });
+    })
+};
+
+
+/**
+ * Retrieves a list of flagged projects that the requesting user may need to review.
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const getUserFlaggedProjects = (req, res) => {
+    let isLibreAdmin = false;
+    let isCampusAdmin = false;
+    let orObj = [{
+        $and: [{
+            flag: 'liaison'
+        }, {
+            liaison: req.decoded.uuid
+        }]
+    }, {
+        $and: [{
+            flag: 'lead'
+        }, {
+            owner: req.decoded.uuid
+        }]
+    }];
+    User.findOne({
+        uuid: req.decoded.uuid
+    }).then((user) => {
+        if (user) {
+            if (user.roles && Array.isArray(user.roles)) {
+                user.roles.forEach((item) => {
+                    if (item.org === 'libretexts' && item.role === 'superadmin') {
+                        // user is a LibreTexts Admin
+                        isLibreAdmin = true;
+                    }
+                    if (item.org === process.env.ORG_ID && (item.role === 'campusadmin' || item.role === 'superadmin')) {
+                        // user is a Campus Admin or LibreTexts Campus Admin
+                        isCampusAdmin = true;
+                    }
+                });
+            }
+            if (isLibreAdmin) {
+                orObj.push({
+                    flag: 'libretexts'
+                });
+            }
+            if (isCampusAdmin) {
+                orObj.push({
+                    $and: [{
+                        flag: 'campusadmin'
+                    }, {
+                        orgID: process.env.ORG_ID
+                    }]
+                });
+            }
+            return Project.aggregate([
+                {
+                    $match: {
+                        $or: orObj
+                    }
+                }, {
+                    $lookup: {
+                        from: 'users',
+                        let: {
+                            owner: '$owner'
+                        },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $eq: ['$uuid', '$$owner']
+                                    }
+                                }
+                            }, {
+                                $project: {
+                                    _id: 0,
+                                    uuid: 1,
+                                    firstName: 1,
+                                    lastName: 1,
+                                    avatar: 1
+                                }
+                            }
+                        ],
+                        as: 'owner'
+                    }
+                }, {
+                    $set: {
+                        owner: {
+                            $arrayElemAt: ['$owner', 0]
+                        }
+                    }
+                }, {
+                    $sort: {
+                        title: -1
+                    }
+                }, {
+                    $project: projectListingProjection
+                }
+            ]);
+        } else {
+            throw(new Error('user'));
+        }
+    }).then((projects) => {
         return res.send({
             err: false,
             projects: projects
@@ -669,9 +809,7 @@ const getRecentProjects = (req, res) => {
         }, {
             $limit: 3
         }, {
-            $project: {
-                _id: 0,
-            }
+            $project: projectListingProjection
         }
     ]).then((projects) => {
         return res.send({
@@ -710,9 +848,7 @@ const getAvailableProjects = (req, res) => {
                 title: -1
             }
         }, {
-            $project: {
-                _id: 0,
-            }
+            $project: projectListingProjection
         }
     ]).then((projects) => {
         return res.send({
@@ -759,9 +895,7 @@ const getCompletedProjects = (req, res) => {
                 title: -1
             }
         }, {
-            $project: {
-                _id: 0,
-            }
+            $project: projectListingProjection
         }
     ]).then((projects) => {
         return res.send({
@@ -970,6 +1104,7 @@ const removeCollaboratorFromProject = (req, res) => {
  */
 const flagProject = (req, res) => {
     let projectData = {};
+    let flagGroupTitle = null;
     Project.findOne({
         projectID: req.body.projectID
     }).then((project) => {
@@ -994,15 +1129,26 @@ const flagProject = (req, res) => {
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
+            const userProjectOptions = {
+                _id: 0,
+                uuid: 1,
+                email: 1,
+                firstName: 1,
+                lastName: 1
+            };
             switch (req.body.flagOption) {
                 case 'libretexts':
+                    flagGroupTitle = 'LibreTexts Administrators';
                     return authAPI.getLibreTextsAdmins();
                 case 'campusadmin':
-                    return [];
+                    flagGroupTitle = 'Campus Administrators';
+                    return authAPI.getCampusAdmins(projectData.orgID);
                 case 'liaison':
-                    return [projectData.liaison];
+                    flagGroupTitle = 'Project Liaison';
+                    return authAPI.getUserBasicWithEmail(projectData.liaison, true);
                 case 'lead':
-                    return [projectData.owner];
+                    flagGroupTitle = 'Project Lead';
+                    return authAPI.getUserBasicWithEmail(projectData.owner, true);
                 default:
                     throw(new Error('flagoption'));
             }
@@ -1010,9 +1156,17 @@ const flagProject = (req, res) => {
             throw(new Error('updatefail'));
         }
     }).then((flaggingGroup) => {
-        console.log(flaggingGroup.length);
+        const recipients = flaggingGroup.map((item) => {
+            if (item.hasOwnProperty('email')) return item.email;
+            else return null;
+        }).filter(item => item !== null);
+        return mailAPI.sendProjectFlaggedNotification(recipients, projectData.projectID,
+            projectData.title, projectData.orgID, flagGroupTitle);
+    }).then(() => {
+        // ignore return value of Mailgun call
         return res.send({
             err: false,
+            msg: 'Project successfully flagged.'
         });
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1021,12 +1175,190 @@ const flagProject = (req, res) => {
         else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
         else if (err.message === 'noliaison') errMsg = conductorErrors.err32;
         else if (err.message === 'flagoption') errMsg = conductorErrors.err1;
+        else if (err.message === 'missingcampus' || err.message === 'missinguuid') errMsg = conductorErrors.err1;
         else debugError(err);
         return res.send({
             err: true,
             errMsg: errMsg
         });
     });
+};
+
+
+/**
+ * Clears a flag on the Project identified by the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'clearProjectFlag'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const clearProjectFlag = (req, res) => {
+    let projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            projectData = project;
+            if (checkProjectMemberPermission(project, req.user)) {
+                // set flag on project
+                return Project.updateOne({
+                    projectID: req.body.projectID
+                }, {
+                    flag: null
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Project successfully unflagged.'
+            });
+        } else {
+            throw(new Error('updatefail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Enables or disables a LibreTexts Alert on the Project identified by
+ * the projectID in the request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'setProjectAlert'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const setProjectAlert = (req, res) => {
+    let projectData = {};
+    Project.findOne({
+        projectID: req.body.projectID
+    }).then((project) => {
+        if (project) {
+            projectData = project;
+            if (req.user?.decoded?.uuid && checkProjectMemberPermission(project, req.user)) {
+                let updateObj = {};
+                if (req.body.mode === 'enable') {
+                    updateObj['$addToSet'] = {
+                        libreAlerts: req.user.decoded.uuid
+                    };
+                } else if (req.body.mode === 'disable') {
+                    updateObj['$pull'] = {
+                        libreAlerts: req.user.decoded.uuid
+                    };
+                }
+                // set alert on project
+                return Project.updateOne({
+                    projectID: req.body.projectID
+                }, updateObj);
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Project alert successfully set.'
+            });
+        } else {
+            throw(new Error('updatefail'));
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
+        else debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Retrieves a list of users who enabled a LibreTexts Alert for the project
+ * identified by the projectID param (or the OER Integration Request submitter)
+ * and triggers the Mail API to send the LibreTexts Alert via email.
+ * INTERNAL USE ONLY.
+ * @param {String} projectID - the standard internal projectID
+ * @returns {Promise<Object|Error>} a promise from the Mail API
+ */
+const sendLibreTextsAlert = (projectID) => {
+    if (projectID !== null && !isEmptyString(projectID)) {
+        let projectData = {};
+        let alertRecipients = [];
+        Project.findOne({
+            projectID: projectID
+        }).lean().then((project) => {
+            projectData = project;
+            if (project.harvestReqID && !isEmptyString(project.harvestReqID)) {
+                return HarvestingRequest.findOne({
+                    _id: project.harvestReqID
+                }).lean();
+            } else {
+                return {};
+            }
+        }).then((harvestReq) => {
+            if (Object.keys(harvestReq).length > 0 && harvestReq.email && !isEmptyString(harvestReq.email)) {
+                alertRecipients.push(harvestReq.email);
+            }
+            if (projectData.libreAlerts && Array.isArray(projectData.libreAlerts) && projectData.libreAlerts.length > 0) {
+                return User.aggregate([
+                    {
+                        $match: {
+                            uuid: {
+                                $in: projectData.libreAlerts
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            email: 1
+                        }
+                    }
+                ]);
+            } else {
+                return [];
+            }
+        }).then((alertUsers) => {
+            if (alertUsers && Array.isArray(alertUsers) && alertUsers.length > 0) {
+                alertUsers = alertUsers.map((item) => {
+                    if (item.hasOwnProperty('email')) return item.email;
+                    else return null;
+                }).filter(item => item !== null);
+                alertUsers.forEach((item) => {
+                    if (alertRecipients.indexOf(item) === -1) {
+                        alertRecipients.push(item);
+                    }
+                });
+            }
+            if (alertRecipients.length > 0) {
+                return mailAPI.sendProjectCompletedAlert(alertRecipients, projectData.projectID, projectData.title, projectData.orgID);
+            }
+        }).catch((err) => {
+            debugError(err);
+        });
+    }
 };
 
 
@@ -1302,10 +1634,37 @@ const getProjectThreads = (req, res) => {
  * @param {Object} res - the express.js response object.
  */
 const createThreadMessage = (req, res) => {
+    let discussionKind = null;
+    let threadTitle = null;
+    let projectData = {};
+    let sentMessage = false;
+    let sentMsgData = {};
+    let allowNotif = true;
+    let sentNotif = false;
+    const currentTime = new Date();
     Thread.findOne({
         threadID: req.body.threadID
     }).lean().then((thread) => {
         if (thread) {
+            if (thread.hasOwnProperty('lastNotifSent')) {
+                // rate limit email notifications
+                const lastNotifTime = new Date(thread.lastNotifSent);
+                const minutesSince = (currentTime - lastNotifTime) / (1000 * 60);
+                if (minutesSince < 15) {
+                    allowNotif = false;
+                }
+            }
+            threadTitle = thread.title;
+            switch (thread.kind) {
+                case 'peerreview':
+                    discussionKind = 'Peer Review';
+                    break;
+                case 'a11y':
+                    discussionKind = 'accessibility';
+                    break;
+                default:
+                    discussionKind = 'Project';
+            }
             return Project.findOne({
                 projectID: thread.project
             }).lean();
@@ -1314,6 +1673,7 @@ const createThreadMessage = (req, res) => {
         }
     }).then((project) => {
         if (project) {
+            projectData = project;
             if (checkProjectMemberPermission(project, req.user)) {
                 const message = new Message({
                     messageID: b62(15),
@@ -1330,24 +1690,97 @@ const createThreadMessage = (req, res) => {
         }
     }).then((newMsg) => {
         if (newMsg) {
-            return res.send({
-                err: false,
-                msg: 'Message successfully sent.',
-                messageID: newMsg.messageID
-            });
+            sentMessage = true;
+            sentMsgData = newMsg;
+            if (allowNotif) {
+                // construct team members to lookup
+                let projectTeam = [];
+                if (projectData.collaborators && Array.isArray(projectData.collaborators)) {
+                    projectTeam = [...projectData.collaborators];
+                }
+                if (projectData.owner && !isEmptyString(projectData.owner) && uuidValidate(projectData.owner)) {
+                    projectTeam.push(projectData.owner);
+                }
+                if (projectData.liaison && !isEmptyString(projectData.liaison) && uuidValidate(projectData.owner)) {
+                    projectTeam.push(projectData.liaison);
+                }
+                // don't lookup/notify the message author
+                projectTeam = projectTeam.filter(item => item !== req.decoded.uuid);
+                if (projectTeam.length > 0) {
+                    return User.aggregate([
+                        {
+                            $match: {
+                                uuid: {
+                                    $in: projectTeam
+                                }
+                            }
+                        }, {
+                            $project: {
+                                _id: 0,
+                                uuid: 1,
+                                email: 1
+                            }
+                        }
+                    ]);
+                } else {
+                    return [];
+                }
+            } else {
+                return [];
+            }
         } else {
             throw(new Error('createfail'));
         }
-    }).catch((err) => {
-        debugError(err);
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'createfail') errMsg = conductorErrors.err3;
+    }).then((team) => {
+        if (allowNotif && Array.isArray(team) && team.length > 0) {
+            let teamEmails = team.map((item) => {
+                if (item.hasOwnProperty('email')) return item.email;
+                else return null;
+            }).filter(item => item !== null);
+            // send email notifications
+            sentNotif = true;
+            return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
+                projectData.title, projectData.orgID, discussionKind, threadTitle);
+        } else {
+            return {};
+        }
+    }).then(() => {
+        // ignore return value of Mailgun call
+        if (sentNotif) {
+            return Thread.updateOne({
+                threadID: req.body.threadID
+            }, {
+                lastNotifSent: currentTime
+            });
+        } else {
+            return {};
+        }
+    }).then(() => {
+        // ignore return value of update
         return res.send({
-            err: true,
-            errMsg: errMsg
+            err: false,
+            msg: 'Message successfully sent.',
+            messageID: sentMsgData.messageID
         });
+    }).catch((err) => {
+        // return success as long as message was sent, ignoring notification failures
+        if (sentMessage) {
+            return res.send({
+                err: false,
+                msg: 'Message successfully sent.',
+                messageID: sentMsgData.messageID
+            });
+        } else {
+            debugError(err);
+            var errMsg = conductorErrors.err6;
+            if (err.message === 'notfound') errMsg = conductorErrors.err11;
+            else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+            else if (err.message === 'createfail') errMsg = conductorErrors.err3;
+            return res.send({
+                err: true,
+                errMsg: errMsg
+            });
+        }
     });
 };
 
@@ -1940,6 +2373,18 @@ const validateFlaggingGroup = (group) => {
 
 
 /**
+ * Validate a provided LibreTexts Alert mode.
+ * @returns {Boolean} true if valid mode, false otherwise.
+ */
+const validateAlertMode = (mode) => {
+    if (mode.length > 0) {
+        return ['enable', 'disable'].includes(mode);
+    }
+    return false
+};
+
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -2013,6 +2458,15 @@ const validate = (method) => {
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup)
             ]
+        case 'clearProjectFlag':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
+        case 'setProjectAlert':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('mode', conductorErrors.err1).exists().isString().custom(validateAlertMode)
+            ]
         case 'createThread':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -2076,6 +2530,7 @@ module.exports = {
     completeProject,
     updateProject,
     getUserProjects,
+    getUserFlaggedProjects,
     getRecentProjects,
     getAvailableProjects,
     getCompletedProjects,
@@ -2083,6 +2538,9 @@ module.exports = {
     addCollaboratorToProject,
     removeCollaboratorFromProject,
     flagProject,
+    clearProjectFlag,
+    setProjectAlert,
+    sendLibreTextsAlert,
     getOrgTags,
     createDiscussionThread,
     deleteDiscussionThread,

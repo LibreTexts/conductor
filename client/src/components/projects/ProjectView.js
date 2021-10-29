@@ -59,7 +59,8 @@ import {
     classificationOptions,
     getTaskStatusText,
     getClassificationText,
-    getRoadmapStepName
+    getRoadmapStepName,
+    getFlagGroupName
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
@@ -79,6 +80,9 @@ const ProjectView = (props) => {
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [showProjectCreated, setShowProjectCreated] = useState(false);
     const [showDiscussion, setShowDiscussion] = useState(true);
+    const [showReviewerCrumb, setShowReviewerCrumb] = useState(false);
+    const [showAlertEnabled, setShowAlertEnabled] = useState(false);
+    const [showAlertDisabled, setShowAlertDisabled] = useState(false);
 
     // Project Data
     const [project, setProject] = useState({});
@@ -191,8 +195,16 @@ const ProjectView = (props) => {
 
     // Flag Project Modal
     const [showFlagModal, setShowFlagModal] = useState(false);
+    const [flagMode, setFlagMode] = useState('set');
     const [flagLoading, setFlagLoading] = useState(false);
     const [flagOption, setFlagOption] = useState('');
+    const [flagOptionErr, setFlagOptionErr] = useState(false);
+
+
+    // LibreTexts Alert Modal
+    const [showLibreAlertModal, setShowLibreAlertModal] = useState(false);
+    const [alertMode, setAlertMode] = useState('enable');
+    const [alertLoading, setAlertLoading] = useState(false);
 
 
     /**
@@ -225,6 +237,9 @@ const ProjectView = (props) => {
         const queryValues = queryString.parse(props.location.search);
         if (queryValues.projectCreated === 'true') {
             setShowProjectCreated(true);
+        }
+        if (queryValues.reviewer === 'true') {
+            setShowReviewerCrumb(true);
         }
     }, [props.location.search]);
 
@@ -1181,20 +1196,100 @@ const ProjectView = (props) => {
         }
     };
 
-    const openFlagModal = () => {
+    const openFlagModal = (mode = 'set') => {
         setFlagLoading(false);
         setFlagOption('');
         setShowFlagModal(true);
+        setFlagMode(mode);
+        setFlagOptionErr(false);
     };
 
     const closeFlagModal = () => {
         setShowFlagModal(false);
+        setFlagMode('set');
         setFlagLoading(false);
         setFlagOption('');
+        setFlagOptionErr(false);
     };
 
     const submitFlagProject = () => {
+        if (flagMode === 'set') {
+            setFlagOptionErr(false);
+            if (!isEmptyString(flagOption)) {
+                setFlagLoading(true);
+                axios.put('/project/flag', {
+                    projectID: props.match.params.id,
+                    flagOption: flagOption
+                }).then((res) => {
+                    if (!res.data.err) {
+                        getProject();
+                        closeFlagModal();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                        setFlagLoading(false);
+                    }
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setFlagLoading(false);
+                });
+            } else {
+                setFlagOptionErr(true);
+            }
+        } else if (flagMode === 'clear') {
+            setFlagLoading(true);
+            axios.put('/project/flag/clear', {
+                projectID: props.match.params.id
+            }).then((res) => {
+                if (!res.data.err) {
+                    getProject();
+                    closeFlagModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setFlagLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setFlagLoading(false);
+            });
+        }
+    };
 
+    const openAlertModal = (mode = 'enable') => {
+        setAlertMode(mode);
+        setAlertLoading(false);
+        setShowLibreAlertModal(true);
+    };
+
+    const closeAlertModal = () => {
+        setAlertMode('enable');
+        setAlertLoading(false);
+        setShowLibreAlertModal(false);
+    };
+
+    const submitLibreTextsAlert = () => {
+        setAlertLoading(true);
+        axios.post('/project/alert', {
+            projectID: props.match.params.id,
+            mode: alertMode
+        }).then((res) => {
+            if (!res.data.err) {
+                if (alertMode === 'enable') {
+                    setShowAlertEnabled(true);
+                    setShowAlertDisabled(false);
+                } else if (alertMode === 'disable') {
+                    setShowAlertDisabled(true);
+                    setShowAlertEnabled(false);
+                }
+                getProject();
+                closeAlertModal();
+            } else {
+                handleGlobalError(res.data.errMsg);
+                setAlertLoading(false);
+            }
+        }).catch((err) => {
+            handleGlobalError(err);
+            setAlertLoading(false);
+        });
     };
 
 
@@ -1202,6 +1297,9 @@ const ProjectView = (props) => {
     let hasResourceInfo = project.author || project.license || project.resourceURL;
     let hasNotes = project.notes && !isEmptyString(project.notes);
     let hasCollabs = project.collaborators && Array.isArray(project.collaborators) && project.collaborators.length > 0;
+    let hasFlag = project.flag && !isEmptyString(project.flag);
+    let flagCrumbEnabled = hasFlag && showReviewerCrumb;
+    let libreAlertEnabled = project.libreAlerts && Array.isArray(project.libreAlerts) && user.uuid && project.libreAlerts.includes(user.uuid);
 
 
     const AvailableIndicator = () => {
@@ -1267,17 +1365,22 @@ const ProjectView = (props) => {
                                     Projects
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
-                                {(project.status === 'available') &&
+                                {(flagCrumbEnabled) &&
+                                    <Breadcrumb.Section as={Link} to='/projects/flagged'>
+                                        Flagged Projects
+                                    </Breadcrumb.Section>
+                                }
+                                {(!flagCrumbEnabled && project.status === 'available') &&
                                     <Breadcrumb.Section as={Link} to='/projects/available'>
                                         Available Projects
                                     </Breadcrumb.Section>
                                 }
-                                {(project.status === 'completed') &&
+                                {(!flagCrumbEnabled && project.status === 'completed') &&
                                     <Breadcrumb.Section as={Link} to='/projects/completed'>
                                         Completed Projects
                                     </Breadcrumb.Section>
                                 }
-                                {(project.status === 'available' || project.status === 'completed') &&
+                                {(flagCrumbEnabled || project.status === 'available' || project.status === 'completed') &&
                                     <Breadcrumb.Divider icon='right chevron' />
                                 }
                                 <Breadcrumb.Section active>
@@ -1297,6 +1400,43 @@ const ProjectView = (props) => {
                                                 <Icon name='check' />
                                                 <Message.Content>
                                                     <Message.Header>Project successfully created!</Message.Header>
+                                                </Message.Content>
+                                            </Message>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
+                                {showAlertEnabled &&
+                                    <Grid.Row>
+                                        <Grid.Column width={16}>
+                                            <Message
+                                                floating
+                                                icon
+                                                success
+                                                onDismiss={() => setShowAlertEnabled(false)}
+                                            >
+                                                <Icon name='alarm' />
+                                                <Message.Content>
+                                                    <Message.Header>LibreTexts Alert successfully enabled!</Message.Header>
+                                                </Message.Content>
+                                            </Message>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
+                                {showAlertDisabled &&
+                                    <Grid.Row>
+                                        <Grid.Column width={16}>
+                                            <Message
+                                                floating
+                                                icon
+                                                info
+                                                onDismiss={() => setShowAlertDisabled(false)}
+                                            >
+                                                <Icon.Group className='icon'>
+                                                    <Icon name='alarm' />
+                                                    <Icon corner name='x' />
+                                                </Icon.Group>
+                                                <Message.Content>
+                                                    <Message.Header>LibreTexts Alert disabled.</Message.Header>
                                                 </Message.Content>
                                             </Message>
                                         </Grid.Column>
@@ -1346,18 +1486,50 @@ const ProjectView = (props) => {
                                             </Button>
                                             <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                                                 <Dropdown.Menu>
-                                                    <Dropdown.Item icon='send' text='Send LibreTexts Alert' disabled />
                                                     <Dropdown.Item
-                                                        icon='attention'
-                                                        text='Flag Project'
-                                                        onClick={openFlagModal}
-                                                        disabled
+                                                        icon={libreAlertEnabled
+                                                            ? (
+                                                                <Icon.Group className='icon'>
+                                                                    <Icon name='alarm' />
+                                                                    <Icon corner name='x' />
+                                                                </Icon.Group>
+                                                            )
+                                                            : <Icon name='alarm' />
+                                                        }
+                                                        text={libreAlertEnabled ? 'Disable LibreTexts Alert' : 'Enable LibreTexts Alert'}
+                                                        onClick={() => {
+                                                            if (libreAlertEnabled) openAlertModal('disable')
+                                                            else openAlertModal('enable')
+                                                        }}
+                                                    />
+                                                    <Dropdown.Item
+                                                        icon={hasFlag
+                                                            ? (
+                                                                <Icon.Group className='icon'>
+                                                                    <Icon name='attention' />
+                                                                    <Icon corner name='x' />
+                                                                </Icon.Group>
+                                                            )
+                                                            : <Icon name='attention' />
+                                                        }
+                                                        text={hasFlag ? 'Clear flag' : 'Flag Project'}
+                                                        onClick={() => {
+                                                            if (hasFlag) openFlagModal('clear')
+                                                            else openFlagModal('set')
+                                                        }}
                                                     />
                                                 </Dropdown.Menu>
                                             </Dropdown>
                                         </Button.Group>
                                     </Grid.Column>
                                 </Grid.Row>
+                                {hasFlag &&
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Message color='orange'><Icon name='attention' /><span>This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</span></Message>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
                                 <Grid.Row className='mb-2p'>
                                     <Grid.Column>
                                         <Header as='h2' dividing>Project Information</Header>
@@ -2329,39 +2501,47 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Flag Project Modal */}
+                    {/* Flag/Clear Flag Project Modal */}
                     <Modal
                         open={showFlagModal}
                         onClose={closeFlagModal}
                     >
-                        <Modal.Header>Flag Project</Modal.Header>
+                        <Modal.Header>{flagMode === 'set' ? 'Flag Project' : 'Clear Project Flag'}</Modal.Header>
                         <Modal.Content>
-                            <p>Flagging a project sends an email notification to the selected user and places it in their Flagged Projects list for review. Please place a description of the reason for flagging in the Project Notes.</p>
-                            <Dropdown
-                                placeholder='Flag Option...'
-                                fluid
-                                selection
-                                options={[{
-                                    key: 'libretexts',
-                                    text: 'LibreTexts Administrators',
-                                    value: 'libretexts'
-                                }, {
-                                    key: 'campusadmin',
-                                    text: 'Campus Administrator',
-                                    value: 'campusadmin'
-                                }, {
-                                    key: 'liaison',
-                                    text: 'Project Liaison',
-                                    value: 'liaison',
-                                    disabled: true
-                                }, {
-                                    key: 'lead',
-                                    text: 'Project Lead',
-                                    value: 'lead'
-                                }]}
-                                value={flagOption}
-                                onChange={(e, { value }) => setFlagOption(value)}
-                            />
+                            {flagMode === 'set'
+                                ? (
+                                    <div>
+                                        <p>Flagging a project sends an email notification to the selected user and places it in their Flagged Projects list for review. Please place a description of the reason for flagging in the Project Notes.</p>
+                                        <Dropdown
+                                            placeholder='Flag Option...'
+                                            fluid
+                                            selection
+                                            options={[{
+                                                key: 'libretexts',
+                                                text: 'LibreTexts Administrators',
+                                                value: 'libretexts'
+                                            }, {
+                                                key: 'campusadmin',
+                                                text: 'Campus Administrator',
+                                                value: 'campusadmin'
+                                            }, {
+                                                key: 'liaison',
+                                                text: 'Project Liaison',
+                                                value: 'liaison',
+                                                disabled: true
+                                            }, {
+                                                key: 'lead',
+                                                text: 'Project Lead',
+                                                value: 'lead'
+                                            }]}
+                                            value={flagOption}
+                                            onChange={(e, { value }) => setFlagOption(value)}
+                                            error={flagOptionErr}
+                                        />
+                                    </div>
+                                )
+                                : (<p>Are you sure you want to clear this project's flag?</p>)
+                            }
                         </Modal.Content>
                         <Modal.Actions>
                             <Button
@@ -2374,8 +2554,56 @@ const ProjectView = (props) => {
                                 loading={flagLoading}
                                 onClick={submitFlagProject}
                             >
-                                <Icon name='attention' />
-                                Flag Project
+                                {flagMode === 'set'
+                                    ? <Icon name='attention' />
+                                    : <Icon name='x' />
+                                }
+                                {flagMode === 'set'
+                                    ? 'Flag Project'
+                                    : 'Clear Flag'
+                                }
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* LibreTexts Alert Modal */}
+                    <Modal
+                        open={showLibreAlertModal}
+                        onClose={closeAlertModal}
+                    >
+                        <Modal.Header>{alertMode === 'enable' ? 'Enable LibreTexts Alert' : 'Disable LibreTexts Alert'}</Modal.Header>
+                        <Modal.Content>
+                            {(alertMode === 'enable') &&
+                                <div>
+                                    <p>Are you sure you want to enable a LibreTexts Alert for this project? You'll receive a notification when this project is marked complete.</p>
+                                    <p><em>If this project was converted from an OER Integration Request, the submitter will receive a notification by default.</em></p>
+                                </div>
+                            }
+                            {(alertMode === 'disable') &&
+                                <div>
+                                    <p>Are you sure you want to disable your LibreTexts Alert for this project? You will no longer receive a notification when this project is marked complete.</p>
+                                    <p><em>If this project was converted from an OER Integration Request, the submitter will still receive a notification by default.</em></p>
+                                </div>
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeAlertModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color={libreAlertEnabled ? 'red': 'blue'}
+                                loading={alertLoading}
+                                onClick={submitLibreTextsAlert}
+                            >
+                                {alertMode === 'enable'
+                                    ? <Icon name='alarm' />
+                                    : <Icon name='x' />
+                                }
+                                {alertMode === 'enable'
+                                    ? 'Enable Alert'
+                                    : 'Disable Alert'
+                                }
                             </Button>
                         </Modal.Actions>
                     </Modal>

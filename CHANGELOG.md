@@ -1,5 +1,18 @@
 # Changelog
 
+## 10-28-2021
+#### :art: UI/UX
+* Added UI for Project flagging
+    * Added the Flagged Projects page
+* Added UI for LibreTexts Alerts
+
+#### :satellite: Server
+* Finished logic for Project flagging
+    * The selected Flagging Group now receives an email notification
+* Logic for LibreTexts Alerts
+    * Users who enabled Alerts (and Harvest Request submitters) now receive an email notification when a Project is marked completed
+* Email notifications are now sent when new messages are available in Project threads (with 15 minute cooldown)
+
 ## 10-27-2021
 #### :art: UI/UX
 * Laying groundwork for Project flagging

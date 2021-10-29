@@ -319,6 +319,9 @@ router.route('/announcements/recent').get(authAPI.verifyRequest,
 router.route('/projects/all').get(authAPI.verifyRequest,
     projectsAPI.getUserProjects);
 
+router.route('/projects/flagged').get(authAPI.verifyRequest,
+    projectsAPI.getUserFlaggedProjects);
+
 router.route('/projects/recent').get(authAPI.verifyRequest,
     projectsAPI.getRecentProjects);
 
@@ -354,6 +357,14 @@ router.route('/project')
 router.route('/project/flag').put(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('flagProject'),
     middleware.checkValidationErrors, projectsAPI.flagProject);
+
+router.route('/project/flag/clear').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('clearProjectFlag'),
+    middleware.checkValidationErrors, projectsAPI.clearProjectFlag);
+
+router.route('/project/alert').post(authAPI.verifyRequest,
+    authAPI.getUserAttributes, projectsAPI.validate('setProjectAlert'),
+    middleware.checkValidationErrors, projectsAPI.setProjectAlert);
 
 router.route('/project/complete').put(authAPI.verifyRequest,
     projectsAPI.validate('completeProject'),

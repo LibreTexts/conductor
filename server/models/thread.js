@@ -29,7 +29,8 @@ const ThreadSchema = new Schema({
     createdBy: {                        // the UUID of the user who created the thread
         type: String,
         required: true
-    }
+    },
+    lastNotifSent: Date                 // the datetime of the last email notification sent for new messages
 }, {
     timestamps: true
 });
