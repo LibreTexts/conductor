@@ -575,6 +575,28 @@ const Dashboard = (props) => {
                             </Menu.Item>
                         }
                         <Menu.Item
+                            href='https://commons.libretexts.org/harvestrequest'
+                            target='_blank'
+                            rel='noopener noreferrer'
+                        >
+                            Harvesting Request
+                            <Icon name='plus' />
+                        </Menu.Item>
+                        <Menu.Item
+                            href='https://commons.libretexts.org/adopt'
+                            target='_blank'
+                            rel='noopener noreferrer'
+                        >
+                            Adoption Report
+                            <Icon name='clipboard check' />
+                        </Menu.Item>
+                        <Menu.Item
+                            disabled
+                        >
+                            Account Request
+                            <Icon name='share alternate' />
+                        </Menu.Item>
+                        <Menu.Item
                             href='https://libretexts.org'
                             target='_blank'
                             rel='noopener noreferrer'

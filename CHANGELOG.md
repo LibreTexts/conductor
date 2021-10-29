@@ -1,5 +1,11 @@
 # Changelog
 
+## 10-29-2021
+#### :art: UI/UX
+* Added Harvesting Request and Adoption Report links to Dashboard menu
+* Added a 'Login' suggestion to 'anon' Harvesting Request submissions
+
+
 ## 10-28-2021
 #### :art: UI/UX
 * Added UI for Project flagging

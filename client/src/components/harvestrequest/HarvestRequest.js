@@ -12,6 +12,7 @@ import {
     Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { DateInput } from 'semantic-ui-calendar-react';
 import axios from 'axios';
@@ -223,6 +224,11 @@ const HarvestRequest = (props) => {
                                     <Message.Header>Welcome, {user.firstName}</Message.Header>
                                     <p>This integration request will be tied to your Conductor account.</p>
                                 </Message.Content>
+                            </Message>
+                        }
+                        {!user.isAuthenticated &&
+                            <Message info>
+                                <p>Are you a Conductor user? <Link to='/login?redirect_uri=%2Fharvestrequest'><strong>Log in</strong></Link> to have this request tied to your account so you can track its status!</p>
                             </Message>
                         }
                         <Form onSubmit={onSubmit}>
