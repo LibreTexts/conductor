@@ -199,6 +199,10 @@ const ProjectView = (props) => {
     const [flagLoading, setFlagLoading] = useState(false);
     const [flagOption, setFlagOption] = useState('');
     const [flagOptionErr, setFlagOptionErr] = useState(false);
+    const [flagDescrip, setFlagDescrip] = useState('');
+    const [flagDescripErr, setFlagDescripErr] = useState(false);
+
+    // TODO: Finish flagDescripErr implementation
 
 
     // LibreTexts Alert Modal
@@ -1199,9 +1203,11 @@ const ProjectView = (props) => {
     const openFlagModal = (mode = 'set') => {
         setFlagLoading(false);
         setFlagOption('');
+        setFlagDescrip('');
         setShowFlagModal(true);
         setFlagMode(mode);
         setFlagOptionErr(false);
+        setFlagDescripErr(false);
     };
 
     const closeFlagModal = () => {
@@ -1209,18 +1215,34 @@ const ProjectView = (props) => {
         setFlagMode('set');
         setFlagLoading(false);
         setFlagOption('');
+        setFlagDescrip('');
         setFlagOptionErr(false);
+        setFlagDescripErr(false);
     };
 
     const submitFlagProject = () => {
         if (flagMode === 'set') {
             setFlagOptionErr(false);
-            if (!isEmptyString(flagOption)) {
+            setFlagDescripErr(false);
+            let validForm = true;
+            if (isEmptyString(flagOption)) {
+                validForm = false;
+                setFlagOptionErr(true);
+            }
+            if (flagDescrip.length > 2000) {
+                validForm = false;
+                setFlagDescripErr(true);
+            }
+            if (validForm) {
                 setFlagLoading(true);
-                axios.put('/project/flag', {
+                let flagData = {
                     projectID: props.match.params.id,
                     flagOption: flagOption
-                }).then((res) => {
+                };
+                if (!isEmptyString(flagDescrip)) {
+                    flagData.flagDescrip = flagDescrip;
+                }
+                axios.put('/project/flag', flagData).then((res) => {
                     if (!res.data.err) {
                         getProject();
                         closeFlagModal();
@@ -1232,8 +1254,6 @@ const ProjectView = (props) => {
                     handleGlobalError(err);
                     setFlagLoading(false);
                 });
-            } else {
-                setFlagOptionErr(true);
             }
         } else if (flagMode === 'clear') {
             setFlagLoading(true);
@@ -1526,7 +1546,19 @@ const ProjectView = (props) => {
                                 {hasFlag &&
                                     <Grid.Row>
                                         <Grid.Column>
-                                            <Message color='orange'><Icon name='attention' /><span>This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</span></Message>
+                                            <Message color='orange'>
+                                                <Message.Content>
+                                                    <p><Icon name='attention' /> This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</p>
+                                                    {(project.flagDescrip && !isEmptyString(project.flagDescrip)) &&
+                                                        <div>
+                                                            <p><strong>Reason for flagging:</strong></p>
+                                                            <div className='ui message' dangerouslySetInnerHTML={{
+                                                                __html: DOMPurify.sanitize(marked(project.flagDescrip, { breaks: true }))
+                                                            }} />
+                                                        </div>
+                                                    }
+                                                </Message.Content>
+                                            </Message>
                                         </Grid.Column>
                                     </Grid.Row>
                                 }
@@ -2507,11 +2539,11 @@ const ProjectView = (props) => {
                         onClose={closeFlagModal}
                     >
                         <Modal.Header>{flagMode === 'set' ? 'Flag Project' : 'Clear Project Flag'}</Modal.Header>
-                        <Modal.Content>
+                        <Modal.Content scrolling>
                             {flagMode === 'set'
                                 ? (
                                     <div>
-                                        <p>Flagging a project sends an email notification to the selected user and places it in their Flagged Projects list for review. Please place a description of the reason for flagging in the Project Notes.</p>
+                                        <p>Flagging a project sends an email notification to the selected user and places it in their Flagged Projects list for review. Please place a description of the reason for flagging in the text box below.</p>
                                         <Dropdown
                                             placeholder='Flag Option...'
                                             fluid
@@ -2537,6 +2569,14 @@ const ProjectView = (props) => {
                                             value={flagOption}
                                             onChange={(e, { value }) => setFlagOption(value)}
                                             error={flagOptionErr}
+                                            className='mb-2p'
+                                        />
+                                        <ConductorTextArea
+                                            placeholder='Describe the reason for flagging...'
+                                            textValue={flagDescrip}
+                                            onTextChange={(value) => setFlagDescrip(value)}
+                                            inputType='description'
+                                            showSendButton={false}
                                         />
                                     </div>
                                 )

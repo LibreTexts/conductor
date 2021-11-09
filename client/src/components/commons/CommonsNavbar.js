@@ -40,7 +40,7 @@ const CommonsNavbar = (_props) => {
                         <Image
                             src={org.mediumLogo}
                             id='commons-nav-logo'
-                            alt={org.shortName}
+                            alt={org.shortName === 'LibreTexts' ? 'LibreCommons Home' : `${org.shortName} Commons Home`}
                         />
                     </Menu.Item>
                     <Menu.Menu position='right' id='commons-nav-rightmenu'>

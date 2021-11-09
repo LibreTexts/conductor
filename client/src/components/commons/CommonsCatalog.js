@@ -6,7 +6,6 @@ import {
     Image,
     Dropdown,
     Segment,
-    Pagination,
     Card,
     Table,
     Header,
@@ -18,6 +17,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
+import ConductorPagination from '../util/ConductorPagination.js';
 import axios from 'axios';
 import queryString from 'query-string';
 
@@ -532,6 +532,7 @@ const CommonsCatalog = (_props) => {
                                         }}
                                         fluid
                                         value={searchString}
+                                        aria-label='Search query'
                                     />
                                 </Form>
                             </div>
@@ -541,7 +542,7 @@ const CommonsCatalog = (_props) => {
                                     id='commons-search-button'
                                     onClick={performSearch}
                                 >
-                                    SEARCH CATALOG
+                                    Search Catalog
                                 </Button>
                                 {(initialSearch.current) &&
                                     <Button
@@ -549,7 +550,7 @@ const CommonsCatalog = (_props) => {
                                         id='commons-reset-button'
                                         onClick={resetSearch}
                                     >
-                                        CLEAR
+                                        Clear
                                     </Button>
                                 }
                                 <button
@@ -574,6 +575,7 @@ const CommonsCatalog = (_props) => {
                                         }}
                                         value={libraryFilter}
                                         className='commons-filter'
+                                        aria-label='Library filter'
                                     />
                                     <Dropdown
                                         placeholder='Location'
@@ -587,6 +589,7 @@ const CommonsCatalog = (_props) => {
                                         }}
                                         value={locationFilter}
                                         className='commons-filter'
+                                        aria-label='Location filter'
                                     />
                                     <Dropdown
                                         placeholder='Subject'
@@ -658,6 +661,7 @@ const CommonsCatalog = (_props) => {
                                         }}
                                         value={instrFilter}
                                         disabled
+                                        tabIndex={-1}
                                         loading={!loadedFilters}
                                         className='commons-filter'
                                     />
@@ -705,16 +709,17 @@ const CommonsCatalog = (_props) => {
                                                 setItemsPerPage(value);
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            onPageChange={setActivePage}
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -728,6 +733,7 @@ const CommonsCatalog = (_props) => {
                                                 setSortChoice(value);
                                             }}
                                             value={sortChoice}
+                                            aria-label='Sort results by'
                                         />
                                         <Dropdown
                                             placeholder='Display mode...'
@@ -739,6 +745,7 @@ const CommonsCatalog = (_props) => {
                                                 setDisplayChoice(value);
                                             }}
                                             value={displayChoice}
+                                            aria-label='Set results display mode'
                                         />
 
                                     </div>
@@ -758,6 +765,7 @@ const CommonsCatalog = (_props) => {
                                                         setItemsPerPage(value);
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                             </div>
@@ -776,6 +784,7 @@ const CommonsCatalog = (_props) => {
                                                 }}
                                                 value={displayChoice}
                                                 fluid
+                                                aria-label='Set results display mode'
                                             />
                                             <Dropdown
                                                 placeholder='Sort by...'
@@ -789,18 +798,19 @@ const CommonsCatalog = (_props) => {
                                                 value={sortChoice}
                                                 fluid
                                                 className='commons-filter'
+                                                aria-label='Sort results by'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 siblingRange={1}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                onPageChange={setActivePage}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -826,16 +836,17 @@ const CommonsCatalog = (_props) => {
                                                 setItemsPerPage(value);
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            onPageChange={setActivePage}
                                         />
                                     </div>
                                 </div>
@@ -854,6 +865,7 @@ const CommonsCatalog = (_props) => {
                                                         setItemsPerPage(value);
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
                                             </div>
@@ -861,13 +873,13 @@ const CommonsCatalog = (_props) => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 siblingRange={1}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                onPageChange={setActivePage}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

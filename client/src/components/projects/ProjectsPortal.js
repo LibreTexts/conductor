@@ -20,6 +20,7 @@ import queryString from 'query-string';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import { getClassificationText } from '../util/ProjectOptions.js';
+import { truncateString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const ProjectsPortal = (props) => {
@@ -190,11 +191,11 @@ const ProjectsPortal = (props) => {
                             <Table celled>
                                 <Table.Header>
                                     <Table.Row>
-                                        <Table.HeaderCell><Header sub>Title</Header></Table.HeaderCell>
-                                        <Table.HeaderCell><Header sub>Current Progress</Header></Table.HeaderCell>
-                                        <Table.HeaderCell><Header sub>Classification</Header></Table.HeaderCell>
-                                        <Table.HeaderCell><Header sub>Lead</Header></Table.HeaderCell>
-                                        <Table.HeaderCell><Header sub>Last Updated</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={7}><Header sub>Title</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={2}><Header sub>Progress (C/PR/A11Y)</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={2}><Header sub>Classification</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={2}><Header sub>Lead</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={3}><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
@@ -207,13 +208,31 @@ const ProjectsPortal = (props) => {
                                             if (item.owner?.firstName && item.owner?.lastName) {
                                                 projectOwner = item.owner.firstName + ' ' + item.owner.lastName;
                                             }
+                                            if (!item.hasOwnProperty('peerProgress')) item.peerProgress = 0;
+                                            if (!item.hasOwnProperty('a11yProgress')) item.a11yProgress = 0;
                                             return (
                                                 <Table.Row key={index}>
                                                     <Table.Cell>
-                                                        <p><strong><Link to={`/projects/${item.projectID}`}>{item.title}</Link></strong></p>
+                                                        <p><strong><Link to={`/projects/${item.projectID}`}>{truncateString(item.title, 100)}</Link></strong></p>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <p>{item.currentProgress}%</p>
+                                                        <div className='flex-row-div projectprotal-progress-row'>
+                                                            <div className='projectportal-progress-col'>
+                                                                <span>{item.currentProgress}%</span>
+                                                            </div>
+                                                            <div className='projectportal-progresssep-col'>
+                                                                <span className='projectportal-progresssep'>/</span>
+                                                            </div>
+                                                            <div className='projectportal-progress-col'>
+                                                                <span>{item.peerProgress}%</span>
+                                                            </div>
+                                                            <div className='projectportal-progresssep-col'>
+                                                                <span className='projectportal-progresssep'>/</span>
+                                                            </div>
+                                                            <div className='projectportal-progress-col'>
+                                                                <span>{item.a11yProgress}%</span>
+                                                            </div>
+                                                        </div>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         {(!item.classification || item.classification === '')

@@ -22,6 +22,10 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
+import DOMPurify from 'dompurify';
+import marked from 'marked';
+
+import ConductorTextArea from '../util/ConductorTextArea';
 
 import {
     truncateString,
@@ -81,6 +85,13 @@ const Dashboard = (props) => {
     useEffect(() => {
         document.title = "LibreTexts Conductor | Dashboard";
         date.plugin(ordinal);
+        // Hook to force message links to open in new window
+        DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+          if ('target' in node) {
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer')
+          }
+        });
         getRecentAnnouncement();
         getRecentProjects();
     }, []);
@@ -398,7 +409,9 @@ const Dashboard = (props) => {
                                                 {item.title}
                                                 <Feed.Date className='announcement-details'>by {item.author.firstName} {item.author.lastName} on {item.date} at {item.time} </Feed.Date>
                                             </Feed.Summary>
-                                            <p className='announcement-text'>{truncateString(item.message, 280)}</p>
+                                            <p className='announcement-text' dangerouslySetInnerHTML={{
+                                                __html: DOMPurify.sanitize(marked(truncateString(item.message, 250)))
+                                            }}></p>
                                         </Feed.Content>
                                     </Feed.Event>
                                 );
@@ -470,7 +483,9 @@ const Dashboard = (props) => {
                                     <Icon name='announcement' circular fitted className='recent-announcement-icon' />
                                     <Message.Content className='recent-announcement-content'>
                                         <Message.Header className="recent-announcement-title">{recentAnnouncement.title}</Message.Header>
-                                        <p>{truncateString(recentAnnouncement.message, 250)}</p>
+                                        <p dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(marked(truncateString(recentAnnouncement.message, 250)))
+                                        }}></p>
                                         <p className='recent-announcement-meta gray-span'>by {recentAnnouncement.author?.firstName} {recentAnnouncement.author?.lastName} on {recentAnnouncement.date} at {recentAnnouncement.time}</p>
                                     </Message.Content>
                                 </Message>
@@ -616,7 +631,7 @@ const Dashboard = (props) => {
                 closeOnDimmerClick={false}
             >
                 <Modal.Header>New Announcement</Modal.Header>
-                <Modal.Content>
+                <Modal.Content scrolling>
                     <Form noValidate>
                         <Form.Field
                             required
@@ -636,10 +651,12 @@ const Dashboard = (props) => {
                             error={naMessageError}
                         >
                             <label>Message</label>
-                            <Form.TextArea
-                                placeholder='Enter message...'
-                                onChange={(e) => setNAMessage(e.target.value)}
-                                value={naMessage}
+                            <ConductorTextArea
+                                placeholder='Enter announcement text...'
+                                textValue={naMessage}
+                                onTextChange={(value) => setNAMessage(value)}
+                                inputType='announcement'
+                                showSendButton={false}
                             />
                         </Form.Field>
                         {(user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) &&
@@ -701,7 +718,13 @@ const Dashboard = (props) => {
                             </Header.Subheader>
                         </Header.Content>
                     </Header>
-                    <Modal.Description className='announcement-view-text'>{avAnnouncement.message}</Modal.Description>
+                    <Modal.Description className='announcement-view-text'>
+                        {avAnnouncement.message &&
+                            <p dangerouslySetInnerHTML={{
+                                __html: DOMPurify.sanitize(marked(avAnnouncement.message, { breaks: true }))
+                            }}></p>
+                        }
+                    </Modal.Description>
                     <span className='gray-span'>Sent to: {capitalizeFirstLetter(avAnnouncement.org?.shortName || 'Unknown')}</span>
                 </Modal.Content>
                 <Modal.Actions>

@@ -159,6 +159,7 @@ const CommonsLibraries = (_props) => {
                                                 setDisplayChoice(value);
                                             }}
                                             value={displayChoice}
+                                            aria-label='Set results display mode'
                                         />
                                     </div>
                                 </div>
@@ -184,6 +185,7 @@ const CommonsLibraries = (_props) => {
                                                     setDisplayChoice(value);
                                                 }}
                                                 value={displayChoice}
+                                                aria-label='Set results display mode'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

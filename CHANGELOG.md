@@ -1,5 +1,22 @@
 # Changelog
 
+## 11-8-2021
+#### :art: UI/UX
+* Translation Feedback Data Export page
+* Various UI improvements to the Projects Portal and sub-portals
+* Project flagging now stores a formatted description of the reason for flagging
+* Announcements can now be formatted using Markdown
+* Various accessibility improvements (in Commons)
+* New reusable ConductorPagination component
+
+#### :satellite: Server
+* Logic for Translation Feedback data exports
+* Revised the Added as Team Member email notification
+* New Project Messages email now includes the message that triggered the notification
+* Updated the Project Flagged email notification with the formatted reason for flagging
+* New helper for date input sanitization
+
+
 ## 10-29-2021
 #### :art: UI/UX
 * Added Harvesting Request and Adoption Report links to Dashboard menu

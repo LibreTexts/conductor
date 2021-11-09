@@ -7,7 +7,6 @@ import {
     Dropdown,
     Segment,
     Input,
-    Pagination,
     Card,
     Table,
     Header
@@ -16,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.js';
+import ConductorPagination from '../util/ConductorPagination.js';
 import axios from 'axios';
 //import queryString from 'query-string';
 
@@ -319,6 +319,7 @@ const CommonsCollectionView = (props) => {
                                                     setSortChoice(value);
                                                 }}
                                                 value={sortChoice}
+                                                aria-label='Sort results by'
                                             />
                                         </Grid.Column>
                                         <Grid.Column width={6}>
@@ -359,16 +360,17 @@ const CommonsCollectionView = (props) => {
                                                 setItemsPerPage(value);
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            onPageChange={setActivePage}
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -383,6 +385,7 @@ const CommonsCollectionView = (props) => {
                                                 setDisplayChoice(value);
                                             }}
                                             value={displayChoice}
+                                            aria-label='Set results display mode'
                                         />
                                     </div>
                                 </div>
@@ -403,6 +406,7 @@ const CommonsCollectionView = (props) => {
                                                 }}
                                                 value={displayChoice}
                                                 fluid
+                                                aria-label='Set results display mode'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -418,6 +422,7 @@ const CommonsCollectionView = (props) => {
                                                         setItemsPerPage(value);
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                             </div>
@@ -425,12 +430,12 @@ const CommonsCollectionView = (props) => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                onPageChange={setActivePage}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -456,16 +461,17 @@ const CommonsCollectionView = (props) => {
                                                 setItemsPerPage(value);
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                            onPageChange={setActivePage}
                                         />
                                     </div>
                                 </div>
@@ -484,6 +490,7 @@ const CommonsCollectionView = (props) => {
                                                         setItemsPerPage(value);
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{Number(displayBooks.length).toLocaleString()}</strong> results.</span>
                                             </div>
@@ -491,12 +498,12 @@ const CommonsCollectionView = (props) => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => { setActivePage(data.activePage) }}
+                                                onPageChange={setActivePage}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

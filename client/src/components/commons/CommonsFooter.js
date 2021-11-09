@@ -22,8 +22,8 @@ const CommonsFooter = (_props) => {
                 <Grid.Row>
                     <Grid.Column textAlign='center'>
                         <a className='commons-footer-contactlinks' href='mailto:info@libretexts.org'>Contact Us</a>
-                        <a className='commons-footer-contactlinks' href='https://www.facebook.com/LibreTexts/' target='_blank' rel='noopener noreferrer'><Icon name='facebook f'/></a>
-                        <a className='commons-footer-contactlinks' href='https://twitter.com/libretexts' target='_blank' rel='noopener noreferrer'><Icon name='twitter'/></a>
+                        <a className='commons-footer-contactlinks' href='https://www.facebook.com/LibreTexts/' target='_blank' rel='noopener noreferrer'><Icon name='facebook f' aria-label='Follow LibreTexts on Facebook' /></a>
+                        <a className='commons-footer-contactlinks' href='https://twitter.com/libretexts' target='_blank' rel='noopener noreferrer'><Icon name='twitter' aria-label='Follow LibreTexts on Twitter' /></a>
                         <a className='commons-footer-contactlinks' href='https://libretexts.org/legal/index.html' target='_blank' rel='noopener noreferrer'>Legal</a>
                         <a className='commons-footer-contactlinks' href='/accessibility' target='_blank' rel='noopener noreferrer'>Accessibility</a>
                     </Grid.Column>

@@ -7,6 +7,8 @@ const Mailgun = require('mailgun.js');
 const formData = require('form-data');
 const { debugError } = require('../debug.js');
 const conductorErrors = require('../conductor-errors.js');
+const marked = require('marked');
+const { isEmptyString, truncateString } = require('../util/helpers.js');
 
 const mgInstance = new Mailgun(formData);
 const mailgun = mgInstance.client({
@@ -78,7 +80,7 @@ const sendPasswordChangeNotification = (recipientAddress, recipientName) => {
 
 
 /**
- * Sends a standard Added as Collaborator email to a user via the Mailgun API.
+ * Sends a standard Added as Team Member email to a user via the Mailgun API.
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
  *  only after proper verification via other internal methods.
  * @param {string} recipientAddress  - the newly added user's email address
@@ -87,13 +89,13 @@ const sendPasswordChangeNotification = (recipientAddress, recipientName) => {
  * @param {string} projectName       - the project's title/name
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendAddedAsCollaboratorNotification = (recipientAddress, recipientName, projectID, projectName) => {
+const sendAddedAsMemberNotification = (recipientAddress, recipientName, projectID, projectName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
-        subject: `Added as Collaborator: ${projectName}`,
-        text: `Hi ${recipientName}, You're receiving this email because you were added as a collaborator in the "${projectName}" project on the LibreTexts Conductor Platform. You can access this project by visiting ${process.env.LIBRE_SUBDOMAIN}.libretexts.org and opening the Projects tab. Sincerely, The LibreTexts team` + autoGenNoticeText,
-        html: `<p>Hi ${recipientName},</p><p>You're receiving this email because you were added as a collaborator in the <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectName}</a> project on the LibreTexts Conductor Platform.</p>You can access this project by clicking the project's name in this email, or by visiting <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org' target='_blank' rel='noopener noreferrer'>Conductor</a> and opening the Projects tab.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
+        subject: `Added as Team Member: ${projectName}`,
+        text: `Hi ${recipientName}, You're receiving this email because you were added as a team member in the "${projectName}" project on the LibreTexts Conductor Platform. You can access this project by visiting ${process.env.LIBRE_SUBDOMAIN}.libretexts.org and opening the Projects tab. Sincerely, The LibreTexts team` + autoGenNoticeText,
+        html: `<p>Hi ${recipientName},</p><p>You're receiving this email because you were added as a team member in the <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectName}</a> project on the LibreTexts Conductor Platform.</p>You can access this project by clicking the project's name in this email, or by visiting <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org' target='_blank' rel='noopener noreferrer'>Conductor</a> and opening the Projects tab.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
     });
 };
 
@@ -216,11 +218,19 @@ const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitl
  * @param {String} projectTitle     - the flagged project's title
  * @param {String} projectOrg       - the flagged project's organization
  * @param {String} flaggingGroup    - the flagging group's title
+ * @param {String} flagDescrip      - the description of the reason for flagging
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, projectOrg, flaggingGroup) => {
-    let textToSend = `Attention: A team member of the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor has flagged their project and requested that you (${flaggingGroup}) review it. Teams are asked to put information about the reason for flagging in the "Project Notes" area. You can find this project in the "Flagged Projects" option under the "Projects" tab in Conductor. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    let htmlToSend = `<p>Attention:</p><p>A team member of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor has flagged their project and requested that you (<em>${flaggingGroup}</em>) review it.</p><p>Teams are asked to put information about the reason for flagging in the "Project Notes" area. You can find this project in the <em>Flagged Projects</em> option under the <em>Projects</em> tab in Conductor.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, projectOrg, flaggingGroup, flagDescrip) => {
+    let textToSend = `Attention: A team member of the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor has flagged their project and requested that you (${flaggingGroup}) review it.`;
+    let htmlToSend = `<p>Attention:</p><p>A team member of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor has flagged their project and requested that you (<em>${flaggingGroup}</em>) review it.</p>`;
+    if (!isEmptyString(flagDescrip)) {
+        let truncDescrip = truncateString(flagDescrip, 500);
+        textToSend += `Reason for flagging (full description available on Conductor): ${truncDescrip}.`;
+        textToSend += `<p>Reason for flagging (full description available on Conductor):</p><p>${marked.parseInline(truncDescrip)}</p>`;
+    }
+    textToSend += `You can find this project in the "Flagged Projects" option under the "Projects" tab in Conductor. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    htmlToSend += `<p>You can find this project in the <em>Flagged Projects</em> option under the <em>Projects</em> tab in Conductor.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: ['conductor@noreply.libretexts.org'],
@@ -242,11 +252,19 @@ const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, pro
  * @param {String} projectOrg       - the project's organization
  * @param {String} messagesKind     - the Discussion section the messages are in
  * @param {String} threadTitle      - the relevant thread's title
+ * @param {String} messageText      - the recent message text
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle) => {
-    let textToSend = `Attention: New messages are available in the "${threadTitle}" thread (${messagesKind} Discussion) of the "${projectTitle}" project on Conductor. This project is available in the ${projectOrg} instance. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    let htmlToSend = `<p>Attention:</p><p>New messages are available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p><p>This project is available in the <strong>${projectOrg}</strong> instance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle, messageText) => {
+    let textToSend = `Attention: New messages are available in the "${threadTitle}" thread (${messagesKind} Discussion) of the "${projectTitle}" project on Conductor.`;
+    let htmlToSend = `<p>Attention:</p><p>New messages are available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p>`;
+    if (!isEmptyString(messageText)) {
+        let truncMsg = truncateString(messageText, 500);
+        textToSend += `Recent message: ${truncMsg}.`;
+        htmlToSend += `<p><strong>Recent message:<strong></p><p>${marked.parseInline(truncMsg)}</p><br>`;
+    }
+    textToSend += `This project is available in the ${projectOrg} instance. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    htmlToSend += `<p>This project is available in the <strong>${projectOrg}</strong> instance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: ['conductor@noreply.libretexts.org'],
@@ -286,7 +304,7 @@ module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
     sendPasswordChangeNotification,
-    sendAddedAsCollaboratorNotification,
+    sendAddedAsMemberNotification,
     sendPublishingRequestedNotification,
     sendOERIntRequestConfirmation,
     sendOERIntRequestAdminNotif,

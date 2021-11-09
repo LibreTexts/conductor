@@ -122,7 +122,7 @@ const Commons = (_props) => {
                 <Grid>
                     <Grid.Row>
                         <Grid.Column>
-                            <h3 id='commons-libresubheader'>WELCOME TO</h3>
+                            <h1 id='commons-libresubheader'>Welcome to</h1>
                             <h1 id='commons-libreheader'>LibreCommons</h1>
                         </Grid.Column>
                     </Grid.Row>

@@ -108,6 +108,11 @@ router.route('/translationfeedback').post(middleware.checkLibreCommons,
     middleware.checkValidationErrors,
     transFeedbackAPI.submitFeedback);
 
+router.route('/translationfeedback/export').get(middleware.checkLibreCommons,
+    transFeedbackAPI.validate('exportFeedback'),
+    middleware.checkValidationErrors,
+    transFeedbackAPI.exportFeedback);
+
 
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)

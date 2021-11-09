@@ -64,6 +64,9 @@ import ProjectView from './components/projects/ProjectView.js';
 /* Accessibility Statement */
 import AccessibilityStatement from './components/util/AccessibilityStatement.js';
 
+/* Translation Feedback Export */
+import TranslationFeedbackExport from './components/util/TranslationFeedbackExport.js';
+
 /* 404 */
 import PageNotFound from './components/util/PageNotFound.js';
 
@@ -168,6 +171,9 @@ function App() {
                         }
                         {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                             <Route exact path = '/accessibility' component={AccessibilityStatement} />
+                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                            <Route exact path = '/translationfeedbackexport' component={TranslationFeedbackExport} />
                         }
                         {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />

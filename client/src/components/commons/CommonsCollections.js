@@ -192,6 +192,7 @@ const CommonsCollections = (_props) => {
                                                 });
                                             }}
                                             value={displayChoice}
+                                            aria-label='Set results display mode'
                                         />
                                     </div>
                                 </div>
@@ -220,6 +221,7 @@ const CommonsCollections = (_props) => {
                                                     });
                                                 }}
                                                 value={displayChoice}
+                                                aria-label='Set results display mode'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

@@ -5,7 +5,6 @@ import {
     Dropdown,
     Segment,
     Input,
-    Pagination,
     Card,
     Table,
     Header,
@@ -21,6 +20,7 @@ import axios from 'axios';
 import queryString from 'query-string';
 
 import Breakpoint from '../util/Breakpoints.js';
+import ConductorPagination from '../util/ConductorPagination.js';
 import useGlobalError from '../error/ErrorHooks.js';
 import { catalogDisplayOptions } from '../util/CatalogOptions.js';
 import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
@@ -242,8 +242,9 @@ const CommonsHomework = (_props) => {
                                 <Table.Row key={index}>
                                     <Table.Cell>
                                         <p
-                                            onClick={() => { openCourseViewModal(item.hwID) }}
+                                            onClick={() => { return openCourseViewModal(item.hwID); }}
                                             className='text-link'
+                                            tabIndex={0}
                                         >
                                             <strong>{item.title}</strong>
                                         </p>
@@ -326,19 +327,20 @@ const CommonsHomework = (_props) => {
                                                 });
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => {
+                                            onPageChange={(newActivePage) => {
                                                 dispatch({
                                                     type: 'SET_ADAPT_PAGE',
-                                                    payload: data.activePage
+                                                    payload: newActivePage
                                                 });
                                             }}
                                         />
@@ -358,8 +360,8 @@ const CommonsHomework = (_props) => {
                                                 });
                                             }}
                                             value={displayChoice}
+                                            aria-label='Set results display mode'
                                         />
-
                                     </div>
                                 </div>
                             </Breakpoint>
@@ -382,6 +384,7 @@ const CommonsHomework = (_props) => {
                                                 }}
                                                 value={displayChoice}
                                                 fluid
+                                                aria-label='Set results display mode'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -400,6 +403,7 @@ const CommonsHomework = (_props) => {
                                                         });
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{adaptCourses.length}</strong> results.</span>
                                             </div>
@@ -407,15 +411,15 @@ const CommonsHomework = (_props) => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => {
+                                                onPageChange={(newActivePage) => {
                                                     dispatch({
                                                         type: 'SET_ADAPT_PAGE',
-                                                        payload: data.activePage
+                                                        payload: newActivePage
                                                     });
                                                 }}
                                             />
@@ -452,19 +456,20 @@ const CommonsHomework = (_props) => {
                                                 });
                                             }}
                                             value={itemsPerPage}
+                                            aria-label='Number of results to display per page'
                                         />
                                         <span> items per page of <strong>{adaptCourses.length}</strong> results, sorted by name.</span>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
-                                        <Pagination
+                                        <ConductorPagination
                                             activePage={activePage}
                                             totalPages={totalPages}
                                             firstItem={null}
                                             lastItem={null}
-                                            onPageChange={(_e, data) => {
+                                            onPageChange={(newActivePage) => {
                                                 dispatch({
                                                     type: 'SET_ADAPT_PAGE',
-                                                    payload: data.activePage
+                                                    payload: newActivePage
                                                 });
                                             }}
                                         />
@@ -488,6 +493,7 @@ const CommonsHomework = (_props) => {
                                                         });
                                                     }}
                                                     value={itemsPerPage}
+                                                    aria-label='Number of results to display per page'
                                                 />
                                                 <span> items per page of <strong>{adaptCourses.length}</strong> results.</span>
                                             </div>
@@ -495,15 +501,15 @@ const CommonsHomework = (_props) => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <Pagination
+                                            <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
                                                 firstItem={null}
                                                 lastItem={null}
-                                                onPageChange={(_e, data) => {
+                                                onPageChange={(newActivePage) => {
                                                     dispatch({
                                                         type: 'SET_ADAPT_PAGE',
-                                                        payload: data.activePage
+                                                        payload: newActivePage
                                                     });
                                                 }}
                                             />
@@ -518,7 +524,7 @@ const CommonsHomework = (_props) => {
                         onClose={closeCourseViewModal}
                     >
                         <Modal.Header as='h2'>{courseModalTitle}</Modal.Header>
-                        <Modal.Content scrolling>
+                        <Modal.Content scrolling tabIndex={0}>
                             <Header size='small' dividing as='h3'>Description</Header>
                             <p>{courseModalDescrip}</p>
                             {courseModalOpenCourse &&

@@ -38,7 +38,8 @@ const projectListingProjection = {
     createdAt: 1,
     updatedAt: 1,
     classification: 1,
-    flag: 1
+    flag: 1,
+    flagDescrip: 1
 };
 
 
@@ -71,8 +72,7 @@ const createProject = (req, res) => {
         collaborators: [],
         tags: [],
         notes: '',
-        owner: req.decoded.uuid,
-        flaggedUser: ''
+        owner: req.decoded.uuid
     };
     // Apply user values if present
     if (req.body.hasOwnProperty('visibility')) newProjData.visibility = req.body.visibility;
@@ -844,6 +844,37 @@ const getAvailableProjects = (req, res) => {
                 ]
             }
         }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    owner: '$owner'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$uuid', '$$owner']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'owner'
+            }
+        }, {
+            $set: {
+                owner: {
+                    $arrayElemAt: ['$owner', 0]
+                }
+            }
+        }, {
             $sort: {
                 title: -1
             }
@@ -889,6 +920,37 @@ const getCompletedProjects = (req, res) => {
                         ]
                     }
                 ]
+            }
+        }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    owner: '$owner'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ['$uuid', '$$owner']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'owner'
+            }
+        }, {
+            $set: {
+                owner: {
+                    $arrayElemAt: ['$owner', 0]
+                }
             }
         }, {
             $sort: {
@@ -1019,7 +1081,7 @@ const addCollaboratorToProject = (req, res) => {
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
-            return mailAPI.sendAddedAsCollaboratorNotification(userData.email, userData.firstName,
+            return mailAPI.sendAddedAsMemberNotification(userData.email, userData.firstName,
                 projectData.projectID, projectData.title);
         } else {
             throw(new Error('updatefailed')); // handle as generic error below
@@ -1115,11 +1177,15 @@ const flagProject = (req, res) => {
                 if (req.body.flagOption === 'liaison' && (!project.liaison || isEmptyString(project.liaison))) {
                     throw(new Error('noliaison'));
                 }
+                if (!req.body.hasOwnProperty('flagDescrip')) {
+                    req.body.flagDescrip = '';
+                }
                 // set flag on project
                 return Project.updateOne({
                     projectID: req.body.projectID
                 }, {
-                    flag: req.body.flagOption
+                    flag: req.body.flagOption,
+                    flagDescrip: req.body.flagDescrip
                 });
             } else {
                 throw(new Error('unauth'));
@@ -1161,7 +1227,7 @@ const flagProject = (req, res) => {
             else return null;
         }).filter(item => item !== null);
         return mailAPI.sendProjectFlaggedNotification(recipients, projectData.projectID,
-            projectData.title, projectData.orgID, flagGroupTitle);
+            projectData.title, projectData.orgID, flagGroupTitle, req.body.flagDescrip);
     }).then(() => {
         // ignore return value of Mailgun call
         return res.send({
@@ -1204,7 +1270,8 @@ const clearProjectFlag = (req, res) => {
                 return Project.updateOne({
                     projectID: req.body.projectID
                 }, {
-                    flag: null
+                    flag: null,
+                    flagDescrip: ''
                 });
             } else {
                 throw(new Error('unauth'));
@@ -1740,7 +1807,7 @@ const createThreadMessage = (req, res) => {
             // send email notifications
             sentNotif = true;
             return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
-                projectData.title, projectData.orgID, discussionKind, threadTitle);
+                projectData.title, projectData.orgID, discussionKind, threadTitle, sentMsgData.body);
         } else {
             return {};
         }
@@ -2456,7 +2523,8 @@ const validate = (method) => {
         case 'flagProject':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup)
+                body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup),
+                body('flagDescrip', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ max: 2000 })
             ]
         case 'clearProjectFlag':
             return [
