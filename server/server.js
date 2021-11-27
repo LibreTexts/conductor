@@ -12,9 +12,9 @@ const cookieParser = require('cookie-parser');
 const bluebird = require('bluebird');
 const helmet = require('helmet');
 const { exit } = require('process');
-const { debug, debugServer, debugDB } = require('./server/debug.js');
+const { debug, debugServer, debugDB } = require('./debug.js');
 const swaggerUI = require('swagger-ui-express');
-const swaggerDocs = require('./server/docs');
+const swaggerDocs = require('./docs');
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID || process.env.ORG_ID === '') {
@@ -29,7 +29,7 @@ if (!process.env.MAILGUN_API_KEY || process.env.MAILGUN_API_KEY === '' ||
     exit(1);
 }
 
-const api = require('./server/api.js');
+const api = require('./api.js');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -106,10 +106,10 @@ app.use(
 // Serve API
 app.use('/api/v1', api);
 
-app.use(express.static(path.join(__dirname, 'client/build')));
+app.use(express.static(path.join(__dirname, '../client/build')));
 var cliRouter = express.Router();
 cliRouter.route('*').get((_req, res) => {
-    res.sendFile(path.resolve('./client/build/index.html'));
+    res.sendFile(path.resolve('../client/build/index.html'));
 });
 app.use('/', cliRouter);
 

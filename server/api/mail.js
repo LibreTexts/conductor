@@ -275,6 +275,7 @@ const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle,
     });
 };
 
+
 /**
  * Sends a standard LibreTexts Alert (Project Completed) notification to the
  * respective group via the Mailgun API.
@@ -300,6 +301,31 @@ const sendProjectCompletedAlert = (recipients, projectID, projectTitle, projectO
 };
 
 
+/**
+ * Sends a standard Assigned to Task email to the respective user
+ * via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} recipient        - the user to notify
+ * @param {String} projectID        - the project's internal ID
+ * @param {String} projectTitle     - the project's title
+ * @param {String} projectOrg       - the project's organization
+ * @param {String} taskTitle        - the task's title
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, projectOrg, taskTitle) => {
+    let textToSend = `Attention: You have been assigned to the "${taskTitle}" task in the ${projectTitle} project on Conductor. This project is available in the ${projectOrg} instance. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>You have been assigned to the <em>${taskTitle}</em> task in the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor. This project is available in the <strong>${projectOrg}</strong> instance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipient],
+        subject: `Task Assigned: ${taskTitle}`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
 module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -311,5 +337,6 @@ module.exports = {
     sendOERIntRequestApproval,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
-    sendProjectCompletedAlert
+    sendProjectCompletedAlert,
+    sendAssignedToTaskNotification
 }

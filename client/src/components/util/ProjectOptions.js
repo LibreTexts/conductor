@@ -3,6 +3,8 @@
 // ProjectOptions.js
 //
 
+const { isEmptyString } = require('./HelperFunctions.js');
+
 const visibilityOptions = [
     { key: 'private', text: 'Private (only collaborators)', value: 'private' },
     { key: 'public', text: 'Public (within Conductor)', value: 'public' }
@@ -30,23 +32,6 @@ const classificationOptions = [
     { key: 'librefest', text: 'LibreFest', value: 'librefest' },
     { key: 'coursereport', text: 'Course Report', value: 'coursereport' },
     { key: 'adoptionrequest', text: 'Adoption Request', value: 'adoptionrequest' },
-];
-
-const roadmapSteps = [
-    { name: '1',    text: 'Vision (1)' },
-    { name: '2',    text: 'Accounts (2)' },
-    { name: '3',    text: 'Training (3)' },
-    { name: '4',    text: 'Step 4' },
-    { name: '5a',   text: 'Scan (5a)' },
-    { name: '5b',   text: 'Mapping (5b)' },
-    { name: '5c',   text: 'Remixing (5c)' },
-    { name: '6',    text: 'Skeleton (6)' },
-    { name: '7',    text: 'Constructing (7)' },
-    { name: '8',    text: 'Editing (8)' },
-    { name: '9',    text: 'Advanced (9)' },
-    { name: '10',   text: 'Accessibility (10)' },
-    { name: '11',   text: 'Publishing (11)' },
-    { name: '12',   text: 'Curating (12)' }
 ];
 
 
@@ -87,22 +72,6 @@ const getClassificationText = (classification) => {
 
 
 /**
- * Accepts an internal Project Construction Roadmap step name and attempts to
- * return the UI-ready string representation.
- * @param {String} step  - the step name to find UI text for
- * @returns {String} the UI-ready string representation
- */
-const getRoadmapStepName = (step) => {
-    let foundStep = roadmapSteps.find(item => item.name === step);
-    if (foundStep !== undefined) {
-        return foundStep.text;
-    } else {
-        return 'Unknown Step';
-    }
-};
-
-
-/**
  * Accepts an internal Project flagging group name and attempts to
  * return the UI-ready string representation.
  * @param {String} group  - the flagging group name to find UI text for
@@ -124,14 +93,101 @@ const getFlagGroupName = (group) => {
 };
 
 
+/**
+ * Construct an array of users in a project's team, with optional exclusion(s).
+ * @param {Object} project  - the project data object
+ * @param {String|String[]} [exclude] - the UUID(s) to exclude from the array. OPTIONAL.
+ * @returns {Object[]} basic information about each project member
+ */
+const constructProjectTeam = (project, exclude) => {
+    let projectTeam = [];
+    if (project.collaborators && Array.isArray(project.collaborators)) {
+        project.collaborators.forEach((item) => {
+            if (typeof(item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
+                projectTeam.push(item);
+            } else if (typeof(item) === 'string') {
+                projectTeam.push({
+                    uuid: item
+                });
+            }
+        });
+    }
+    if (project.hasOwnProperty('owner')) {
+        if (typeof(item) === 'object' && project.owner.uuid && !isEmptyString(project.owner.uuid)) {
+            projectTeam.push(project.owner);
+        } else if (typeof(project.owner) === 'string') {
+            projectTeam.push({
+                uuid: project.owner
+            });
+        }
+    }
+    if (project.hasOwnProperty('liaison')) {
+        if (typeof(item) === 'object' && project.liaison.uuid && !isEmptyString(project.liaison.uuid)) {
+            projectTeam.push(project.liaison);
+        } else if (typeof(project.liaison) === 'string') {
+            projectTeam.push({
+                uuid: project.liaison
+            });
+        }
+    }
+    // filter invalid values
+    projectTeam = projectTeam.filter((item) => {
+        if (typeof(item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
+            return true;
+        }
+    });
+    if (exclude !== null) {
+        if (typeof(exclude) === 'string') {
+            projectTeam = projectTeam.filter(item => item.uuid !== exclude);
+        } else if (typeof(exclude) === 'object' && Array.isArray(exclude) && exclude.length > 0) {
+            projectTeam = projectTeam.filter(item => !exclude.includes(item.uuid));
+        }
+    }
+    return projectTeam;
+};
+
+
+/**
+ * Checks if a user has permission to view more detailed information
+ * about a project.
+ * @param {Object} project - the project's information object
+ * @param {Object} user - the current user's state information object
+ * @returns {Boolean} true if can view details, false otherwise
+ */
+const checkCanViewProjectDetails = (project, user) => {
+    let setCanView = false;
+    if (user.uuid && user.uuid !== '') {
+        if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
+            setCanView = true;
+        }
+        if (!setCanView && (project.liaison?.uuid === user.uuid || project.liaison === user.uuid)) {
+            setCanView = true;
+        }
+        if (!setCanView && project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
+            let foundCollab = project.collaborators.find((item) => {
+                if (typeof(item) === 'string') {
+                    return item === user.uuid;
+                } else if (typeof(item) === 'object') {
+                    return item.uuid === user.uuid;
+                }
+                return false;
+            });
+            if (foundCollab !== undefined) setCanView = true;
+        }
+        if (!setCanView && user.isSuperAdmin === true) setCanView = true;
+    }
+    return setCanView;
+};
+
+
 module.exports = {
     visibilityOptions,
     statusOptions,
     createTaskOptions,
     classificationOptions,
-    roadmapSteps,
     getTaskStatusText,
     getClassificationText,
-    getRoadmapStepName,
-    getFlagGroupName
+    getFlagGroupName,
+    constructProjectTeam,
+    checkCanViewProjectDetails
 }

@@ -3,22 +3,32 @@
   "version": "0.1.0",
   "description": "The LibreTexts Conductor platform web app.",
   "private": true,
+  "proxy": "http://localhost:5000",
+  "scripts": {
+    "start": "BROWSER=none PORT=3000 react-scripts start",
+    "build": "INLINE_RUNTIME_CHUNK=false react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
   "dependencies": {
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^12.8.3",
     "axios": "^0.21.4",
     "date-and-time": "^0.14.2",
+    "date-fns": "^2.26.0",
     "dompurify": "^2.3.3",
+    "frappe-gantt": "^0.5.0",
     "html-react-parser": "^1.2.7",
     "js-cookie": "^2.2.1",
     "marked": "^3.0.7",
     "prop-types": "^15.7.2",
     "query-string": "^6.14.1",
     "react": "^17.0.2",
+    "react-big-calendar": "^0.38.1",
     "react-circular-progressbar": "^2.0.4",
     "react-color": "^2.19.3",
-    "react-datepicker": "^4.2.1",
+    "react-day-picker": "^7.4.10",
     "react-dom": "^17.0.2",
     "react-mentions": "^4.3.0",
     "react-redux": "^7.2.4",
@@ -26,18 +36,10 @@
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.0",
     "redux": "^4.1.1",
-    "semantic-ui-calendar-react": "^0.15.3",
     "semantic-ui-css": "^2.4.1",
     "semantic-ui-react": "^2.0.3",
     "style-it": "^2.1.4",
     "web-vitals": "^0.2.4"
-  },
-  "proxy": "http://localhost:5000",
-  "scripts": {
-    "start": "BROWSER=none PORT=3000 react-scripts start",
-    "build": "INLINE_RUNTIME_CHUNK=false react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -57,5 +59,8 @@
       "not dead",
       "not op_mini all"
     ]
+  },
+  "devDependencies": {
+    "sass": "^1.43.4"
   }
 }

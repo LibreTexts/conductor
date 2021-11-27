@@ -29,16 +29,6 @@ import AccountSettings from './components/auth/AccountSettings.js';
 import Dashboard from './components/dashboard/Dashboard.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
-import HarvestingCompletedProjects from './components/harvesting/HarvestingCompletedProjects.js';
-import HarvestingPortal from './components/harvesting/HarvestingPortal.js';
-import HarvestingProjectAddExisting from './components/harvesting/HarvestingProjectAddExisting.js';
-import HarvestingProjectDetail from './components/harvesting/HarvestingProjectDetail.js';
-import HarvestingProjectEdit from './components/harvesting/HarvestingProjectEdit.js';
-
-import HarvestingTargetAdd from './components/harvesting/targetlist/HarvestingTargetAdd.js';
-import HarvestingTargetDetail from './components/harvesting/targetlist/HarvestingTargetDetail.js';
-import HarvestingTargetEdit from './components/harvesting/targetlist/HarvestingTargetEdit.js';
-import HarvestingTargetlist from './components/harvesting/targetlist/HarvestingTargetlist.js';
 
 import ControlPanel from './components/controlpanel/ControlPanel.js';
 import AdoptionReports from './components/controlpanel/AdoptionReports.js';
@@ -111,16 +101,6 @@ function App() {
                             <PrivateRoute exact path = '/projects/:id/accessibility' component={ProjectAccessibility} />
                             <PrivateRoute exact path = '/projects/:id/peerreview' component={ProjectPeerReview} />
                             <PrivateRoute exact path = '/projects/:id/timeline' component={ProjectTimeline} />
-
-                    <PrivateRoute exact path = '/harvesting' component={HarvestingPortal} />
-                        <PrivateRoute exact path = '/harvesting/projects/addexisting' component={HarvestingProjectAddExisting} />
-                        <PrivateRoute exact path = '/harvesting/projects/completed' component={HarvestingCompletedProjects} />
-                        <PrivateRoute exact path = '/harvesting/projects/:id/edit' component={HarvestingProjectEdit} />
-                        <PrivateRoute path = '/harvesting/projects/:id' component={HarvestingProjectDetail} />
-                        <PrivateRoute exact path = '/harvesting/targetlist' component={HarvestingTargetlist} />
-                        <PrivateRoute exact path = '/harvesting/targetlist/add' component={HarvestingTargetAdd} />
-                        <PrivateRoute exact path = '/harvesting/targetlist/:id/edit' component={HarvestingTargetEdit} />
-                        <PrivateRoute path = '/harvesting/targetlist/:id' component={HarvestingTargetDetail} />
 
                     <PrivateRoute exact path = '/account' component={AccountSettings} />
 

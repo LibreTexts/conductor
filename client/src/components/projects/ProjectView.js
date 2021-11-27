@@ -28,7 +28,7 @@ import {
     buildStyles
 } from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -40,6 +40,8 @@ import marked from 'marked';
 
 import ConductorTextArea from '../util/ConductorTextArea';
 import ConductorMessagingUI from '../util/ConductorMessagingUI';
+import ConductorChatUI from '../util/ConductorChatUI';
+import ConductorDateInput from '../util/ConductorDateInput';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -59,13 +61,17 @@ import {
     classificationOptions,
     getTaskStatusText,
     getClassificationText,
-    getRoadmapStepName,
-    getFlagGroupName
+    getFlagGroupName,
+    constructProjectTeam,
+    checkCanViewProjectDetails
 } from '../util/ProjectOptions.js';
 import {
     licenseOptions,
     getLicenseText
 } from '../util/LicenseOptions.js';
+import {
+    getRoadmapStepName
+} from '../util/RoadmapOptions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -153,6 +159,8 @@ const ProjectView = (props) => {
     const [mngTaskLoading, setMngTaskLoading] = useState(false);
     const [mngTaskTitle, setMngTaskTitle] = useState('');
     const [mngTaskDescrip, setMngTaskDescrip] = useState('');
+    const [mngTaskStartDate, setMngTaskStartDate] = useState(null);
+    const [mngTaskEndDate, setMngTaskEndDate] = useState(null);
     const [mngTaskStatus, setMngTaskStatus] = useState('available');
     const [mngTaskDeps, setMngTaskDeps] = useState([]);
     const [mngTaskDepOptions, setMngTaskDepOptions] = useState([]);
@@ -168,6 +176,32 @@ const ProjectView = (props) => {
     const [showViewTaskModal, setShowViewTaskModal] = useState(false);
     const [viewTaskData, setViewTaskData] = useState({});
     const [viewTaskLoading, setViewTaskLoading] = useState(false);
+    const [viewTaskMsgs, setViewTaskMsgs] = useState([]);
+    const [viewTaskLoadedMsgs, setViewTaskLoadedMsgs] = useState(false);
+    const [viewTaskStatusLoading, setViewTaskStatusLoading] = useState(false);
+    const [viewTaskStartDateEdit, setViewTaskStartDateEdit] = useState(false);
+    const [viewTaskStartDateLoading, setViewTaskStartDateLoading] = useState(false);
+    const [viewTaskStartDateNew, setViewTaskStartDateNew] = useState(new Date());
+    const [viewTaskEndDateEdit, setViewTaskEndDateEdit] = useState(false);
+    const [viewTaskEndDateLoading, setViewTaskEndDateLoading] = useState(false);
+    const [viewTaskEndDateNew, setViewTaskEndDateNew] = useState(new Date());
+
+
+    // Add Task Assignee Modal
+    const [showATAModal, setShowATAModal] = useState(false);
+    const [ataUsers, setATAUsers] = useState([]);
+    const [ataUUID, setATAUUID] = useState('');
+    const [ataSubtasks, setATASubtasks] = useState(false);
+    const [ataLoading, setATALoading] = useState(false);
+    const [ataError, setATAError] = useState(false);
+
+
+    // Remove Task Assignee Modal
+    const [showRMTAModal, setShowRMTAModal] = useState(false);
+    const [rmtaName, setRMTAName] = useState('');
+    const [rmtaUUID, setRMTAUUID] = useState('');
+    const [rmtaSubtasks, setRMTASubtasks] = useState(false);
+    const [rmtaLoading, setRMTALoading] = useState(false);
 
 
     // Delete Task Modal
@@ -264,21 +298,8 @@ const ProjectView = (props) => {
      */
     useEffect(() => {
         if (user.uuid && user.uuid !== '') {
-            if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
-                setCanViewDetails(true);
-            } else {
-                if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-                    let foundCollab = project.collaborators.find((item) => {
-                        if (typeof(item) === 'string') {
-                            return item === user.uuid;
-                        } else if (typeof(item) === 'object') {
-                            return item.uuid === user.uuid;
-                        }
-                        return false;
-                    });
-                    if (foundCollab !== undefined) setCanViewDetails(true);
-                }
-            }
+            let canView = checkCanViewProjectDetails(project, user);
+            setCanViewDetails(canView);
         }
     }, [project, user, setCanViewDetails]);
 
@@ -288,7 +309,7 @@ const ProjectView = (props) => {
      */
     useEffect(() => {
         if (canViewDetails) {
-            //getProjectTasks();
+            getProjectTasks();
         }
     }, [canViewDetails]);
 
@@ -319,6 +340,34 @@ const ProjectView = (props) => {
     };
 
 
+    const parseTaskDates = (array, format = 'MMMM DDD, YYYY') => {
+        return array.map((item) => {
+            if (item.createdAt) {
+                const parsed = date.parse(item.createdAt, 'YYYY-MM-DD HH:mm:ss.SSS ');
+                if (parsed instanceof Date && !isNaN(parsed.valueOf())) {
+                    item.createdAtObj = parsed;
+                    item.createdAtString = date.format(parsed, format);
+                }
+            }
+            if (item.startDate) {
+                const parsed = date.parse(item.startDate, 'YYYY-MM-DD');
+                if (parsed instanceof Date && !isNaN(parsed.valueOf())) {
+                    item.startDateObj = parsed;
+                    item.startDateString = date.format(parsed, format);
+                }
+            }
+            if (item.endDate) {
+                const parsed = date.parse(item.endDate, 'YYYY-MM-DD');
+                if (parsed instanceof Date && !isNaN(parsed.valueOf())) {
+                    item.endDateObj = parsed;
+                    item.endDateString = date.format(parsed, format);
+                }
+            }
+            return item;
+        });
+    };
+
+
     const getProjectTasks = () => {
         setLoadingTasks(true);
         axios.get('/project/tasks', {
@@ -328,19 +377,42 @@ const ProjectView = (props) => {
         }).then((res) => {
             if (!res.data.err) {
                 if (res.data.tasks && Array.isArray(res.data.tasks)) {
-                    // Flatten array of tasks by extracting subtasks
+                    // Flatten array of tasks by extracting subtasks and sort all
+                    let tasks = [...res.data.tasks];
                     let flattenedTasks = [];
-                    res.data.tasks.forEach(item => {
+                    tasks.forEach(item => {
                         if (item.subtasks && item.subtasks.length > 0) {
+                            item.subtasks = parseTaskDates(item.subtasks);
+                            item.subtasks.sort((a,b) => {
+                                if (a.title < b.title) return -1;
+                                if (a.title > b.title) return 1;
+                                return 0;
+                            });
                             flattenedTasks = flattenedTasks.concat(item.subtasks);
                         }
                     });
-                    flattenedTasks = [...res.data.tasks, ...flattenedTasks];
+                    tasks = parseTaskDates(tasks);
+                    tasks.sort((a, b) => {
+                        if (a.title < b.title) return -1;
+                        if (a.title > b.title) return 1;
+                        return 0;
+                    });
+                    flattenedTasks = [...tasks, ...flattenedTasks];
                     // Prep tasks for UI presentation
-                    let newTasks = res.data.tasks.map((item) => {
+                    let newTasks = tasks.map((item) => {
+                        let uiOpen = false;
+                        if (projTasks.length > 0) {
+                            // try to preserve UI state on refresh
+                            let foundTask = projTasks.find((existing) => {
+                                return existing.hasOwnProperty('taskID') && existing.taskID === item.taskID;
+                            });
+                            if (foundTask !== undefined && foundTask.hasOwnProperty('uiOpen')) {
+                                uiOpen = foundTask.uiOpen;
+                            }
+                        }
                         return {
                             ...item,
-                            uiOpen: false
+                            uiOpen: uiOpen
                         }
                     });
                     setAllProjTasks(flattenedTasks);
@@ -737,35 +809,6 @@ const ProjectView = (props) => {
     };
 
 
-    /**
-     * Submits a PUT request to the server to mark the project as completed,
-     * then closes the Complete Project modal and re-syncs the Project data.
-     */
-    // TODO: Deprecated
-    /*
-    const submitMarkCompleted = () => {
-        setCompleteProjModalLoading(true);
-        axios.put('/project/complete', {
-            projectID: props.match.params.id
-        }).then((res) => {
-            if (!res.data.err) {
-                getProject();
-                setCompleteProjModalLoading(false);
-                setShowCompleteProjModal(false);
-                resetEditInfoFormErrors();
-                closeEditInfoModal();
-            } else {
-                handleGlobalError(res.data.errMsg);
-                setCompleteProjModalLoading(false);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-            setCompleteProjModalLoading(false);
-        });
-    };
-    */
-
-
     const handleTaskSearch = (_e, { value }) => {
         setTaskSearchLoading(true);
         setTaskSearchQuery(value);
@@ -937,6 +980,8 @@ const ProjectView = (props) => {
         }
         setMngTaskTitleErr(false);
         setMngTaskLoading(false);
+        setMngTaskStartDate(null);
+        setMngTaskEndDate(null);
         if (canOpen) {
             setShowMngTaskModal(true);
         }
@@ -957,6 +1002,8 @@ const ProjectView = (props) => {
         setMngTaskTitleErr(false);
         setMngTaskSubtask(false);
         setMngTaskParent('');
+        setMngTaskStartDate(null);
+        setMngTaskEndDate(null);
     };
 
 
@@ -1002,6 +1049,12 @@ const ProjectView = (props) => {
                 if (mngTaskAssigns.length > 0) taskData.assignees = mngTaskAssigns;
                 if (mngTaskDeps.length > 0) taskData.dependencies = mngTaskDeps;
                 if (mngTaskParent !== '') taskData.parent = mngTaskParent;
+                if (mngTaskStartDate !== null) {
+                    taskData.startDate = date.format(mngTaskStartDate, 'YYYY-MM-DD');
+                }
+                if (mngTaskEndDate !== null) {
+                    taskData.endDate = date.format(mngTaskEndDate, 'YYYY-MM-DD');
+                }
                 axios.post('/project/task', taskData).then((res) => {
                     if (!res.data.err) {
                         getProjectTasks();
@@ -1020,38 +1073,156 @@ const ProjectView = (props) => {
         }
     };
 
+    const submitTaskStatus = (e, { value }) => {
+        if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+            setViewTaskStatusLoading(true);
+            axios.put('/project/task', {
+                projectID: props.match.params.id,
+                taskID: viewTaskData.taskID,
+                status: value
+            }).then((res) => {
+                if (!res.data.err) {
+                    getProjectTasks();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setViewTaskStatusLoading(false);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setViewTaskStatusLoading(false);
+            });
+        }
+    };
+
+    const getTaskMessages = useCallback(() => {
+        setViewTaskLoadedMsgs(false);
+        if (viewTaskData.taskID !== undefined & !isEmptyString(viewTaskData.taskID)) {
+            axios.get('/project/task/messages', {
+                params: {
+                    taskID: viewTaskData.taskID
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    if (res.data.messages && Array.isArray(res.data.messages)) {
+                        setViewTaskMsgs(res.data.messages);
+                    }
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setViewTaskLoadedMsgs(true);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setViewTaskLoadedMsgs(true);
+            });
+        }
+    }, [handleGlobalError, viewTaskData]);
+
+    useEffect(() => {
+        if (viewTaskData.taskID !== undefined && !isEmptyString(viewTaskData.taskID)) {
+            getTaskMessages();
+        }
+    }, [viewTaskData, getTaskMessages]);
 
     const openViewTaskModal = (taskID) => {
-        setShowViewTaskModal(true);
         setViewTaskLoading(true);
-        axios.get('/project/task', {
-            params: {
-                taskID: taskID
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                console.log(res.data);
-                if (typeof(res.data.task) === 'object') {
-                    setViewTaskData(res.data.task);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-        });
-        /*
         let foundTask = allProjTasks.find((item) => item.taskID === taskID);
         if (foundTask !== undefined) {
-
+            setViewTaskData(foundTask);
+            setShowViewTaskModal(true);
+            setViewTaskLoading(false);
+            setViewTaskLoadedMsgs(false);
+            setViewTaskStartDateEdit(false);
+            setViewTaskStartDateLoading(false);
+            setViewTaskStartDateNew(new Date());
+            setViewTaskEndDateNew(new Date());
+            setViewTaskEndDateEdit(false);
+            setViewTaskEndDateLoading(false);
         }
-        */
     };
 
 
     const closeViewTaskModal = () => {
         setShowViewTaskModal(false);
+        setViewTaskLoading(false);
+        setViewTaskLoadedMsgs(false);
+        setViewTaskStartDateEdit(false);
+        setViewTaskStartDateLoading(false);
+        setViewTaskStartDateNew(new Date());
+        setViewTaskEndDateNew(new Date());
+        setViewTaskEndDateEdit(false);
+        setViewTaskEndDateLoading(false);
         setViewTaskData({});
+        setViewTaskMsgs([]);
+    };
+
+    const editTaskDate = (type) => {
+        if (type === 'start') {
+            if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+                if (viewTaskData.startDate) {
+                    const parsed = date.parse(viewTaskData.startDate, 'YYYY-MM-DD');
+                    if (parsed instanceof Date && !isNaN(parsed.valueOf())) {
+                        setViewTaskStartDateNew(parsed);
+                    }
+                }
+            }
+            setViewTaskStartDateEdit(true);
+        } else if (type === 'end') {
+            if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+                if (viewTaskData.endDate) {
+                    const parsed = date.parse(viewTaskData.endDate, 'YYYY-MM-DD');
+                    if (parsed instanceof Date && !isNaN(parsed.valueOf())) {
+                        setViewTaskEndDateNew(parsed);
+                    }
+                }
+            }
+            setViewTaskEndDateEdit(true);
+        }
+    };
+
+    const saveTaskDate = (type) => {
+        if (type === 'start') {
+            if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+                setViewTaskStartDateLoading(true);
+                let formattedDate = date.format(viewTaskStartDateNew, 'YYYY-MM-DD');
+                axios.put('/project/task', {
+                    taskID: viewTaskData.taskID,
+                    startDate: formattedDate
+                }).then((res) => {
+                    if (!res.data.err) {
+                        setViewTaskStartDateEdit(false);
+                        setViewTaskStartDateNew(new Date());
+                        getProjectTasks();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                    }
+                    setViewTaskStartDateLoading(false);
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setViewTaskStartDateLoading(false);
+                });
+            }
+        } else if (type === 'end') {
+            if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+                setViewTaskEndDateLoading(true);
+                let formattedDate = date.format(viewTaskEndDateNew, 'YYYY-MM-DD');
+                axios.put('/project/task', {
+                    taskID: viewTaskData.taskID,
+                    endDate: formattedDate
+                }).then((res) => {
+                    if (!res.data.err) {
+                        setViewTaskEndDateEdit(false);
+                        setViewTaskEndDateNew(new Date());
+                        getProjectTasks();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                    }
+                    setViewTaskEndDateLoading(false);
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setViewTaskEndDateLoading(false);
+                });
+            }
+        }
     };
 
     const handleChangeDiscussionVis = () => {
@@ -1066,6 +1237,133 @@ const ProjectView = (props) => {
         } else {
             return 'Unknown';
         }
+    };
+
+    const openATAModal = (task) => {
+        if (task.taskID !== null && !isEmptyString(task.taskID)
+            && typeof(task) === 'object') {
+            setATAUsers([]);
+            setATAUUID('');
+            setATASubtasks(false);
+            setATAError(false);
+            setATALoading(true);
+            setShowATAModal(true);
+            let currentAssignees = null;
+            if (task.assignees && Array.isArray(task.assignees)
+                && task.assignees.length > 0) {
+                currentAssignees = [];
+                task.assignees.forEach((item) => {
+                    if (typeof(item) === 'string') currentAssignees.push(item);
+                    else if (typeof(item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
+                        currentAssignees.push(item.uuid);
+                    }
+                });
+            }
+            let projectTeam = constructProjectTeam(project, currentAssignees);
+            let usersToSet = [];
+            if (Array.isArray(projectTeam) && projectTeam.length > 0) {
+                projectTeam.forEach((item) => {
+                    if (item.uuid && item.firstName && item.lastName) {
+                        let newEntry = {
+                            key: item.uuid,
+                            text: `${item.firstName} ${item.lastName}`,
+                            value: item.uuid,
+                            image: {
+                                avatar: true
+                            }
+                        };
+                        if (item.avatar && !isEmptyString(item.avatar)) {
+                            newEntry.image.src = item.avatar;
+                        } else {
+                            newEntry.image.src = '/mini_logo.png';
+                        }
+                        usersToSet.push(newEntry);
+                    }
+                });
+            }
+            setATAUsers(usersToSet);
+            setATALoading(false);
+        }
+    };
+
+    const closeATAModal = () => {
+        setShowATAModal(false);
+        setATAUsers([]);
+        setATAUUID('');
+        setATASubtasks(false);
+        setATALoading(false);
+        setATAError(false);
+    };
+
+    const submitAddTaskAssignee = () => {
+        setATAError(false);
+        if (!isEmptyString(ataUUID)) {
+            if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+                setATALoading(true);
+                axios.put('/project/task/assignees/add', {
+                    projectID: props.match.params.id,
+                    taskID: viewTaskData.taskID,
+                    assignee: ataUUID,
+                    subtasks: ataSubtasks
+                }).then((res) => {
+                    if (!res.data.err) {
+                        getProjectTasks();
+                        closeATAModal();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                        setATALoading(false);
+                    }
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setATALoading(false);
+                });
+            }
+        } else setATAError(true);
+    };
+
+    const openRMTAModal = (name, uuid) => {
+        if (viewTaskData.taskID !== null
+            && !isEmptyString(viewTaskData.taskID)
+            && typeof(name) === 'string'
+            && typeof(uuid) === 'string'
+            && !isEmptyString(uuid)) {
+            setRMTAName(name);
+            setRMTAUUID(uuid);
+            setRMTASubtasks(false);
+            setRMTALoading(false);
+            setShowRMTAModal(true);
+        }
+    };
+
+    const submitRemoveTaskAssignee = () => {
+        if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+            setRMTALoading(true);
+            axios.put('/project/task/assignees/remove', {
+                projectID: props.match.params.id,
+                taskID: viewTaskData.taskID,
+                assignee: rmtaUUID,
+                subtasks: rmtaSubtasks
+            }).then((res) => {
+                if (!res.data.err) {
+                    getProjectTasks();
+                    closeRMTAModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setRMTALoading(false);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setRMTALoading(false);
+            });
+        }
+    };
+
+    const closeRMTAModal = () => {
+        setShowRMTAModal(false);
+        setRMTAName('');
+        setRMTAUUID('');
+        setRMTASubtasks(false);
+        setRMTALoading(false);
     };
 
     const openDeleteTaskModal = (taskID) => {
@@ -1327,7 +1625,7 @@ const ProjectView = (props) => {
             <Popup
                 content='Available'
                 trigger={
-                    <Icon name='circle outline' color='teal' />
+                    <Icon name='bullseye' color='teal' />
                 }
                 position='top center'
             />
@@ -1339,7 +1637,7 @@ const ProjectView = (props) => {
             <Popup
                 content='In progress'
                 trigger={
-                    <Icon name='circle' color='blue' />
+                    <Icon name='spinner' color='blue' />
                 }
                 position='top center'
             />
@@ -1358,7 +1656,7 @@ const ProjectView = (props) => {
         )
     };
 
-    const renderStatusIndicator = useCallback((status, addLeftMargin) => {
+    const renderStatusIndicator = (status, addLeftMargin) => {
         switch (status) {
             case 'completed':
                 return <CompletedIndicator />;
@@ -1367,7 +1665,7 @@ const ProjectView = (props) => {
             default:
                 return <AvailableIndicator />;
         }
-    }, []);
+    };
 
     return(
         <Grid className='component-container'>
@@ -1790,16 +2088,242 @@ const ProjectView = (props) => {
                                     }
                                 </Grid.Row>
                                 <Grid.Row>
-                                    <Grid.Column>
-                                        <Header as='h2' dividing>Tasks</Header>
-                                        <Segment
-                                            size='large'
-                                            raised
-                                            className='mb-2p'
-                                        >
-                                            <p><em>This area has been temporarily disabled during construction.</em></p>
-                                        </Segment>
-                                    </Grid.Column>
+                                    {canViewDetails &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>Tasks</Header>
+                                            <Message info>
+                                                <p>Tasks are now in beta testing. <strong>Data integrity is not guaranteed.</strong> If you believe you've encountered a bug, please contact <a href='mailto:info@libretexts.org?subject=Conductor Bug Report' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p>
+                                            </Message>
+                                            <Segment.Group size='large' raised className='mb-4p'>
+                                                <Segment>
+                                                    <div className='flex-row-div'>
+                                                        <div className='left-flex'>
+                                                            <Search
+                                                                input={{
+                                                                    icon: 'search',
+                                                                    iconPosition: 'left',
+                                                                    placeholder: 'Search tasks...'
+                                                                }}
+                                                                loading={taskSearchLoading}
+                                                                onResultSelect={(_e, { result }) => openViewTaskModal(result.id)}
+                                                                onSearchChange={handleTaskSearch}
+                                                                results={taskSearchResults}
+                                                                value={taskSearchQuery}
+                                                            />
+                                                        </div>
+                                                        <div className='right-flex'>
+                                                            <Button.Group>
+                                                                <Button
+                                                                    color='olive'
+                                                                    as={Link}
+                                                                    to={`${props.match.url}/timeline`}
+                                                                >
+                                                                    <Icon name='clock outline' />
+                                                                    Timeline
+                                                                </Button>
+                                                                <Button
+                                                                    color='orange'
+                                                                    onClick={expandCollapseAllTasks}
+                                                                >
+                                                                    <Icon name='arrows alternate vertical' />
+                                                                    Expand/Collapse All
+                                                                </Button>
+                                                                <Button
+                                                                    color='purple'
+                                                                    onClick={openBatchModal}
+                                                                >
+                                                                    <Icon name='add circle' />
+                                                                    Batch Add
+                                                                </Button>
+                                                                <Button
+                                                                    color='green'
+                                                                    loading={mngTaskLoading}
+                                                                    onClick={() => openManageTaskModal('add')}
+                                                                >
+                                                                    <Icon name='add' />
+                                                                    Add Task
+                                                                </Button>
+                                                            </Button.Group>
+
+                                                        </div>
+                                                    </div>
+                                                </Segment>
+                                                <Segment loading={loadingTasks} className={(projTasks.length === 0) ? 'muted-segment' : ''}>
+                                                    {(projTasks.length > 0)
+                                                        ? (
+                                                            <List divided verticalAlign='middle'>
+                                                                {projTasks.map((item, idx) => {
+                                                                    let today = new Date();
+                                                                    let overdueTasks = false;
+                                                                    if (item.endDateObj && item.endDateObj instanceof Date && item.endDateObj <= today && item.status !== 'completed') {
+                                                                        overdueTasks = true;
+                                                                    }
+                                                                    if (item.subtasks && Array.isArray(item.subtasks)) {
+                                                                        item.subtasks.forEach((subtask, idx) => {
+                                                                            if (subtask.endDateObj && subtask.endDateObj instanceof Date
+                                                                                && subtask.endDateObj <= today && subtask.status !== 'completed') {
+                                                                                overdueTasks = true;
+                                                                                item.subtasks[idx].overdue = true;
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                    if (overdueTasks) item.overdue = true;
+                                                                    return (
+                                                                        <List.Item key={item.taskID}>
+                                                                            <div className='flex-col-div'>
+                                                                                <div className='flex-row-div'>
+                                                                                    <div className='left-flex'>
+                                                                                        <Icon
+                                                                                            name={item.uiOpen ? 'chevron down' : 'chevron right'}
+                                                                                            className='pointer-hover'
+                                                                                            onClick={() => toggleTaskDetail(item.taskID)}
+                                                                                        />
+                                                                                        <span className='project-task-title'>
+                                                                                            {item.title}
+                                                                                        </span>
+                                                                                        {renderStatusIndicator(item.status)}
+                                                                                        {(item.hasOwnProperty('overdue') && item.overdue === true) &&
+                                                                                            <Label color='red' className='ml-2p'>OVERDUE</Label>
+                                                                                        }
+                                                                                    </div>
+                                                                                  <div className='right-flex'>
+                                                                                      <div className='task-assignees-row'>
+                                                                                          {(item.hasOwnProperty('assignees') && item.assignees.length > 0) &&
+                                                                                              (item.assignees.map((assignee, assignIdx) => {
+                                                                                                  if (assignee.uuid && assignee.firstName && assignee.lastName) {
+                                                                                                      return (
+                                                                                                          <Popup
+                                                                                                              key={assignIdx}
+                                                                                                              trigger={
+                                                                                                                  <Image
+                                                                                                                      className='cursor-pointer'
+                                                                                                                      src={assignee.avatar || '/mini_logo.png'}
+                                                                                                                      avatar
+                                                                                                                      key={assignee.uuid}
+                                                                                                                  />
+                                                                                                              }
+                                                                                                              header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
+                                                                                                              position='top center'
+                                                                                                          />
+                                                                                                      )
+                                                                                                  } else return null;
+                                                                                              }))
+                                                                                          }
+                                                                                      </div>
+                                                                                    <Popup
+                                                                                        content='Add Subtask'
+                                                                                        trigger={
+                                                                                            <Button
+                                                                                                onClick={() => openManageTaskModal('add', null, item.taskID)}
+                                                                                                icon='add'
+                                                                                                color='green'
+                                                                                            />
+                                                                                        }
+                                                                                        position='top center'
+                                                                                    />
+                                                                                    <Popup
+                                                                                        content='View Task'
+                                                                                        trigger={
+                                                                                            <Button
+                                                                                              onClick={() => openViewTaskModal(item.taskID)}
+                                                                                              icon='expand'
+                                                                                              color='blue'
+                                                                                            />
+                                                                                        }
+                                                                                        position='top center'
+                                                                                    />
+                                                                                  </div>
+                                                                                </div>
+                                                                                <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
+                                                                                    <List divided verticalAlign='middle'>
+                                                                                        {(item.hasOwnProperty('subtasks') && item.subtasks.length > 0)
+                                                                                            ? item.subtasks.map((subtask) => {
+                                                                                                return (
+                                                                                                    <List.Item className='project-task-subtask' key={subtask.taskID}>
+                                                                                                        <div className='flex-row-div'>
+                                                                                                            <div className='left-flex'>
+                                                                                                                <span className='project-task-title'>{subtask.title}</span>
+                                                                                                                {renderStatusIndicator(subtask.status)}
+                                                                                                                {(subtask.hasOwnProperty('overdue') && subtask.overdue === true) &&
+                                                                                                                    <Label color='red' className='ml-2p'>OVERDUE</Label>
+                                                                                                                }
+                                                                                                            </div>
+                                                                                                          <div className='right-flex'>
+                                                                                                            <div className='task-assignees-row'>
+                                                                                                              {(subtask.hasOwnProperty('assignees') && subtask.assignees.length > 0) &&
+                                                                                                                  (subtask.assignees.map((assignee, assignIdx) => {
+                                                                                                                      if (assignee.uuid && assignee.firstName && assignee.lastName) {
+                                                                                                                          return (
+                                                                                                                              <Popup
+                                                                                                                                  key={assignIdx}
+                                                                                                                                  trigger={
+                                                                                                                                      <Image
+                                                                                                                                          className='cursor-pointer'
+                                                                                                                                          src={assignee.avatar || '/mini_logo.png'}
+                                                                                                                                          avatar
+                                                                                                                                          key={assignee.uuid}
+                                                                                                                                      />
+                                                                                                                                  }
+                                                                                                                                  header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
+                                                                                                                                  position='top center'
+                                                                                                                              />
+                                                                                                                          )
+                                                                                                                      } else return null;
+                                                                                                                  }))
+                                                                                                              }
+                                                                                                              </div>
+                                                                                                              <Popup
+                                                                                                                  content='View Subtask'
+                                                                                                                  trigger={
+                                                                                                                      <Button
+                                                                                                                        onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                                                        icon='expand'
+                                                                                                                        color='blue'
+                                                                                                                      />
+                                                                                                                  }
+                                                                                                                  position='top center'
+                                                                                                              />
+                                                                                                          </div>
+                                                                                                        </div>
+                                                                                                    </List.Item>
+                                                                                                )
+                                                                                            })
+                                                                                            : (
+                                                                                                <List.Item className='project-task-subtask'>
+                                                                                                    <p><em>No subtasks yet.</em></p>
+                                                                                                </List.Item>
+                                                                                            )
+                                                                                        }
+                                                                                    </List>
+                                                                                </div>
+                                                                            </div>
+                                                                        </List.Item>
+                                                                    )
+                                                                })}
+                                                            </List>
+                                                        )
+                                                        : (
+                                                            <div>
+                                                                <p className='text-center muted-text'><em>No tasks yet. Add one above!</em></p>
+                                                            </div>
+                                                        )
+                                                    }
+                                                </Segment>
+                                            </Segment.Group>
+                                        </Grid.Column>
+                                    }
+                                    {!canViewDetails &&
+                                        <Grid.Column>
+                                            <Header as='h2' dividing>Tasks</Header>
+                                            <Segment
+                                                size='large'
+                                                raised
+                                                className='mb-2p'
+                                            >
+                                                <p><em>You don't have permission to view this project's Tasks yet.</em></p>
+                                            </Segment>
+                                        </Grid.Column>
+                                    }
                                 </Grid.Row>
                             </Grid>
                         </Segment>
@@ -2137,37 +2661,6 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Complete Project Modal
-                    // TODO: Deprecated
-                    <Modal
-                        open={showCompleteProjModal}
-                        onClose={() => setShowCompleteProjModal(false)}
-                    >
-                        <Modal.Header>Complete Project</Modal.Header>
-                        <Modal.Content>
-                            <p className='text-center'>Are you sure you want to mark this project as completed?</p>
-                            {(project.hasOwnProperty('currentProgress') && project.currentProgress < 100) &&
-                                <p className='text-center'><em>This project has not reached 100% progress yet.</em></p>
-                            }
-                            <Button
-                                color='green'
-                                loading={completeProjModalLoading}
-                                onClick={submitMarkCompleted}
-                                fluid
-                            >
-                                <Icon name='check circle' />
-                                Mark Completed
-                            </Button>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={() => setShowCompleteProjModal(false)}
-                            >
-                                Cancel
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    */}
                     {/* Manage (Add/Edit) Task Modal */}
                     <Modal
                         open={showMngTaskModal}
@@ -2185,7 +2678,6 @@ const ProjectView = (props) => {
                                             ? (<Breadcrumb.Section active>New Subtask</Breadcrumb.Section>)
                                             : (<Breadcrumb.Section active>Edit <em>{mngTaskData.title || 'Loading...'}</em></Breadcrumb.Section>)
                                         }
-
                                     </Breadcrumb>
                                 )
                                 : (
@@ -2227,28 +2719,21 @@ const ProjectView = (props) => {
                                         showSendButton={false}
                                     />
                                 </Form.Field>
-                                <Form.Select
-                                    label='Status'
-                                    options={createTaskOptions}
-                                    onChange={(e, { value }) => setMngTaskStatus(value)}
-                                    value={mngTaskStatus}
-                                />
-                                <Form.Select
-                                    label='Dependencies (must be completed before this task can be completed)'
-                                    options={mngTaskDepOptions}
-                                    onChange={(_e, { value }) => setMngTaskDeps(value)}
-                                    value={mngTaskDeps}
-                                    multiple
-                                    search
-                                />
-                                <Form.Select
-                                    label='Assignees'
-                                    options={mngTaskAssignOptions}
-                                    onChange={(_e, { value }) => setMngTaskAssigns(value)}
-                                    value={mngTaskAssigns}
-                                    multiple
-                                    search
-                                />
+                                {(mngTaskMode === 'add') &&
+                                    <ConductorDateInput
+                                        value={mngTaskStartDate}
+                                        onChange={(value) => setMngTaskStartDate(value)}
+                                        label='Start Date'
+                                    />
+                                }
+                                {(mngTaskMode === 'add') &&
+                                    <ConductorDateInput
+                                        value={mngTaskEndDate}
+                                        className='mt-2p'
+                                        onChange={(value) => setMngTaskEndDate(value)}
+                                        label='End Date'
+                                    />
+                                }
                             </Form>
                         </Modal.Content>
                         <Modal.Actions>
@@ -2297,115 +2782,473 @@ const ProjectView = (props) => {
                                 )
                             }
                         </Modal.Header>
-                        <Modal.Content scrolling>
+                        <Modal.Content scrolling id='task-view-content'>
                             <Loader active={viewTaskLoading} />
-                            <div className='flex-row-div'>
-                                <div id='task-view-left'>
-                                    <div className='flex-row-div'>
-                                        <div className='task-detail-div'>
-                                            <Header sub>Status</Header>
-                                            {/* <Dropdown placeholder='Status..' options={createTaskOptions}/> */}
-                                            <p className={(viewTaskData.status === 'completed') ? 'color-semanticgreen' : (viewTaskData.status === 'inprogress' ? 'color-semanticblue' : 'color-semanticteal')}>{getTaskStatusText(viewTaskData.status)}</p>
-                                        </div>
-                                        <div className='task-detail-div'>
-                                            <Header sub>Created</Header>
-                                            <p>October 7th, 2021</p>
-                                        </div>
-                                        <div className='task-detail-div'>
-                                            <Header sub>Assignees</Header>
-                                            {(viewTaskData.hasOwnProperty('assignees') && viewTaskData.assignees.length > 0)
-                                                ? (
-                                                    <div>
-                                                        {viewTaskData.assignees.map((item) => {
-                                                            return (
-                                                                <Popup
-                                                                    header={`${item.firstName} ${item.lastName}`}
-                                                                    trigger={<Image src={item.avatar} avatar key={item.uuid}/>}
-                                                                />
-                                                            )
-                                                        })}
-                                                    </div>
-                                                )
-                                                : <p>No assignees yet.</p>
+                            <div className='flex-col-div'>
+                                <div className='flex-row-div' id='project-task-header'>
+                                    <div className='task-detail-div'>
+                                        <Header sub>Status</Header>
+                                        <Dropdown
+                                            className={`compact button ${(viewTaskData.status === 'completed') ? 'green' : (viewTaskData.status === 'inprogress' ? 'blue' : 'teal')}`}
+                                            placeholder='Status..'
+                                            options={createTaskOptions}
+                                            value={viewTaskData.status}
+                                            loading={viewTaskStatusLoading}
+                                            onChange={submitTaskStatus}
+                                        />
+                                    </div>
+                                    <div className='task-detail-div'>
+                                        <Header sub>Created</Header>
+                                        <div className='task-detail-textdiv'>
+                                            {viewTaskData.createdAtString
+                                                ? <p>{viewTaskData.createdAtString}</p>
+                                                : <p><em>Unknown</em></p>
                                             }
                                         </div>
                                     </div>
-                                    {(viewTaskData.description && viewTaskData.description !== '') &&
-                                        <div className='mt-2p mb-2p'>
-                                            <Header as='h3' dividing>Description</Header>
-                                            <p dangerouslySetInnerHTML={{
-                                                __html: DOMPurify.sanitize(marked(viewTaskData.description, { breaks: true }))
-                                            }}></p>
-                                        </div>
-                                    }
-                                    {(viewTaskData.parent === undefined || viewTaskData.parent === '' || viewTaskData.parent === null) &&
-                                        <div className='mt-2p'>
-                                            <Header as='h3' dividing>Subtasks</Header>
-                                            <Button
-                                                color='green'
-                                                fluid
-                                                onClick={() => openManageTaskModal('add', null, viewTaskData.taskID)}
-                                                compact
-                                            >
-                                                <Icon name='add' />
-                                                Add Subtask
-                                            </Button>
-                                            {(viewTaskData.hasOwnProperty('subtasks') && viewTaskData.subtasks.length > 0)
-                                                ? (
-                                                    <List divided verticalAlign='middle'>
-                                                        {viewTaskData.subtasks.map((subtask) => {
-                                                            return (
-                                                                <List.Item className='project-task-subtask' key={subtask.taskID}>
-                                                                    <div className='flex-row-div'>
-                                                                        <div className='left-flex'>
-                                                                            <span className='project-task-title'>{subtask.title}</span>
-                                                                            {renderStatusIndicator(subtask.status)}
-                                                                        </div>
-                                                                      <div className='right-flex'>
-                                                                          <Popup
-                                                                              content='View Subtask'
-                                                                              trigger={
-                                                                                  <Button
-                                                                                    onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                    icon='expand'
-                                                                                    color='blue'
-                                                                                  />
-                                                                              }
-                                                                              position='top center'
-                                                                          />
-                                                                      </div>
-                                                                    </div>
-                                                                </List.Item>
-                                                            )
-                                                        })}
-                                                    </List>
-                                                )
-                                                : (<p className='text-center muted-text mt-2p'><em>No subtasks yet. Add one above!</em></p>)
+                                    <div className='task-detail-div'>
+                                        <Header sub>Start Date</Header>
+                                        {!viewTaskStartDateEdit &&
+                                            <div className='task-detail-textdiv'>
+                                                <p>
+                                                    {viewTaskData.startDateString
+                                                        ? viewTaskData.startDateString
+                                                        : <em>Not set</em>
+                                                    }
+                                                    <Icon
+                                                        name='pencil'
+                                                        className='pl-4p cursor-pointer'
+                                                        onClick={() => editTaskDate('start')}
+                                                        color='grey'
+                                                    />
+                                                </p>
+                                            </div>
+                                        }
+                                        {viewTaskStartDateEdit &&
+                                            <div className='task-detail-textdiv'>
+                                                <ConductorDateInput
+                                                    value={viewTaskStartDateNew}
+                                                    className='mt-2p'
+                                                    onChange={(value) => setViewTaskStartDateNew(value)}
+                                                />
+                                                <Button
+                                                    icon
+                                                    className='mt-2p ml-1p'
+                                                    onClick={() => saveTaskDate('start')}
+                                                    color='green'
+                                                    loading={viewTaskStartDateLoading}
+                                                >
+                                                    <Icon name='save outline' />
+                                                </Button>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div className='task-detail-div'>
+                                        <Header sub>End/Due Date</Header>
+                                        {!viewTaskEndDateEdit &&
+                                            <div className='task-detail-textdiv'>
+                                                <p>
+                                                    {viewTaskData.endDateString
+                                                        ? (viewTaskData.endDateObj && viewTaskData.endDateObj instanceof Date
+                                                            && viewTaskData.endDateObj <= new Date() && viewTaskData.status !== 'completed')
+                                                            ? <span className='color-semanticred'>{viewTaskData.endDateString}</span>
+                                                            : viewTaskData.endDateString
+                                                        : <em>Not set</em>
+                                                    }
+                                                    <Icon
+                                                        name='pencil'
+                                                        className='pl-4p cursor-pointer'
+                                                        onClick={() => editTaskDate('end')}
+                                                        color='grey'
+                                                    />
+                                                </p>
+                                            </div>
+                                        }
+                                        {viewTaskEndDateEdit &&
+                                            <div className='task-detail-textdiv'>
+                                                <ConductorDateInput
+                                                    value={viewTaskEndDateNew}
+                                                    className='mt-2p'
+                                                    onChange={(value) => setViewTaskEndDateNew(value)}
+                                                />
+                                                <Button
+                                                    icon
+                                                    className='mt-2p ml-1p'
+                                                    onClick={() => saveTaskDate('end')}
+                                                    color='green'
+                                                    loading={viewTaskEndDateLoading}
+                                                >
+                                                    <Icon name='save outline' />
+                                                </Button>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div className='task-detail-div'>
+                                        <Header sub>Assignees</Header>
+                                        <div className='flex-row-div left-flex'>
+                                            {(viewTaskData.hasOwnProperty('assignees') && viewTaskData.assignees.length > 0) &&
+                                                (viewTaskData.assignees.map((item, idx) => {
+                                                    return (
+                                                        <Popup
+                                                            key={idx}
+                                                            trigger={
+                                                                <Image
+                                                                    className='cursor-pointer'
+                                                                    src={item.avatar}
+                                                                    avatar
+                                                                    key={item.uuid}
+                                                                    onClick={() => { openRMTAModal(`${item.firstName} ${item.lastName}`, item.uuid)}}
+                                                                />
+                                                            }
+                                                            header={<span><strong>{`${item.firstName} ${item.lastName}`}</strong> <span className='color-semanticred'>(click to remove)</span></span>}
+                                                            position='top center'
+                                                        />
+                                                    )
+                                                }))
                                             }
+                                            <Popup
+                                                key='add-assignee'
+                                                trigger={
+                                                    <Button
+                                                        size='tiny'
+                                                        circular
+                                                        icon='add'
+                                                        color='green'
+                                                        onClick={() => openATAModal(viewTaskData)}
+                                                    />
+                                                }
+                                                header={<span><em>Add Assignee</em></span>}
+                                                position='top center'
+                                            />
                                         </div>
-                                    }
+                                    </div>
+                                    <div className='task-more-div'>
+                                        <Dropdown
+                                            className='button blue'
+                                            floating
+                                            text='More'
+                                            direction='left'
+                                        >
+                                            <Dropdown.Menu>
+                                                <Dropdown.Item onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}>
+                                                    <Icon name='edit' />
+                                                    Edit Task
+                                                </Dropdown.Item>
+                                                <Dropdown.Item onClick={() => openDeleteTaskModal(viewTaskData.taskID)}>
+                                                    <Icon name='trash' />
+                                                    Delete Task
+                                                </Dropdown.Item>
+                                            </Dropdown.Menu>
+                                        </Dropdown>
+                                    </div>
                                 </div>
-                                <div id='task-view-right'>
-                                    <Button.Group compact fluid>
-                                        <Button
-                                            color='blue'
-                                            onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}
-                                        >
-                                            <Icon name='edit' />
-                                            Edit Task
-                                        </Button>
-                                        <Button
-                                            color='red'
-                                            onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
-                                        >
-                                            <Icon name='trash' />
-                                            Delete Task
-                                        </Button>
-                                    </Button.Group>
-                                    <Header as='h3' dividing>Discussion</Header>
+                                <div className='flex-row-div' id='project-task-page'>
+                                    <div id='task-view-left'>
+                                        {(viewTaskData.description && viewTaskData.description !== '') &&
+                                            <div className='mt-1p mb-4p'>
+                                                <Header as='h3' dividing>Description</Header>
+                                                <p dangerouslySetInnerHTML={{
+                                                    __html: DOMPurify.sanitize(marked(viewTaskData.description, { breaks: true }))
+                                                }}></p>
+                                            </div>
+                                        }
+                                        {(viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies) && viewTaskData.dependencies.length > 0 ) &&
+                                            <div className='mt-2p mb-4p'>
+                                                <div className='dividing-header-custom'>
+                                                    <h3>Dependencies</h3>
+                                                    <Popup
+                                                        trigger={<Icon className='ml-05p' name='info circle' />}
+                                                        position='top center'
+                                                        content={<span className='text-center'>Tasks that must be completed before <em>{(viewTaskData.parent && viewTaskData.parent !== '')
+                                                                    ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
+                                                                    : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em>.</span>}
+                                                    />
+                                                    <div className='right-flex'>
+                                                        <Popup
+                                                            position='top center'
+                                                            trigger={
+                                                                <Button
+                                                                    color='green'
+                                                                    icon
+                                                                >
+                                                                    <Icon name='add' />
+                                                                </Button>
+                                                            }
+                                                            content='Add dependencies'
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <List divided verticalAlign='middle' className='project-task-list'>
+                                                    {viewTaskData.dependencies.map((depend) => {
+                                                        return (
+                                                            <List.Item className='project-task-subtask' key={depend.taskID}>
+                                                                <div className='flex-row-div'>
+                                                                    <div className='left-flex'>
+                                                                        <span className='project-task-title'>{depend.title}</span>
+                                                                        {renderStatusIndicator(depend.status)}
+                                                                    </div>
+                                                                  <div className='right-flex'>
+                                                                      <Popup
+                                                                          content='Remove as dependency'
+                                                                          trigger={
+                                                                              <Button
+                                                                                onClick={() => {}}
+                                                                                icon='remove circle'
+                                                                                color='red'
+                                                                              />
+                                                                          }
+                                                                          position='top center'
+                                                                      />
+                                                                      <Popup
+                                                                          content='View dependency'
+                                                                          trigger={
+                                                                              <Button
+                                                                                onClick={() => openViewTaskModal(depend.taskID)}
+                                                                                icon='expand'
+                                                                                color='blue'
+                                                                              />
+                                                                          }
+                                                                          position='top center'
+                                                                      />
+                                                                  </div>
+                                                                </div>
+                                                            </List.Item>
+                                                        )
+                                                    })}
+                                                </List>
+                                            </div>
+                                        }
+                                        {(viewTaskData.blocking && Array.isArray(viewTaskData.blocking) && viewTaskData.blocking.length > 0) &&
+                                            <div className='mt-4p mb-4p'>
+                                                <div className='dividing-header-custom'>
+                                                    <h3>Blocking</h3>
+                                                    <Popup
+                                                        trigger={<Icon className='ml-05p' name='info circle' />}
+                                                        position='top center'
+                                                        content={<span className='text-center'><em>{(viewTaskData.parent && viewTaskData.parent !== '')
+                                                                    ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
+                                                                    : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em> must be completed before these tasks.</span>}
+                                                    />
+                                                </div>
+                                                <List divided verticalAlign='middle' className='project-task-list'>
+                                                    {viewTaskData.blocking.map((block) => {
+                                                        return (
+                                                            <List.Item className='project-task-subtask' key={block.taskID}>
+                                                                <div className='flex-row-div'>
+                                                                    <div className='left-flex'>
+                                                                        <span className='project-task-title'>{block.title}</span>
+                                                                        {renderStatusIndicator(block.status)}
+                                                                    </div>
+                                                                  <div className='right-flex'>
+                                                                      <Popup
+                                                                          content='View blocked task'
+                                                                          trigger={
+                                                                              <Button
+                                                                                onClick={() => openViewTaskModal(block.taskID)}
+                                                                                icon='expand'
+                                                                                color='blue'
+                                                                              />
+                                                                          }
+                                                                          position='top center'
+                                                                      />
+                                                                  </div>
+                                                                </div>
+                                                            </List.Item>
+                                                        )
+                                                    })}
+                                                </List>
+                                            </div>
+                                        }
+                                        {(viewTaskData.parent === undefined || viewTaskData.parent === '' || viewTaskData.parent === null) &&
+                                            <div className='mt-4p mb-4p'>
+                                                <div className='dividing-header-custom'>
+                                                    <h3>Subtasks</h3>
+                                                    <div className='right-flex'>
+                                                        <Popup
+                                                            position='top center'
+                                                            trigger={
+                                                                <Button
+                                                                    color='green'
+                                                                    icon
+                                                                    onClick={() => openManageTaskModal('add', null, viewTaskData.taskID)}
+                                                                >
+                                                                    <Icon name='add' />
+                                                                </Button>
+                                                            }
+                                                            content='Add subtask'
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {(viewTaskData.hasOwnProperty('subtasks') && viewTaskData.subtasks.length > 0)
+                                                    ? (
+                                                        <List divided verticalAlign='middle' className='project-task-list'>
+                                                            {viewTaskData.subtasks.map((subtask) => {
+                                                                return (
+                                                                    <List.Item className='project-task-subtask' key={subtask.taskID}>
+                                                                        <div className='flex-row-div'>
+                                                                            <div className='left-flex'>
+                                                                                <span className='project-task-title'>{subtask.title}</span>
+                                                                                {renderStatusIndicator(subtask.status)}
+                                                                            </div>
+                                                                          <div className='right-flex'>
+                                                                              <Popup
+                                                                                  content='View subtask'
+                                                                                  trigger={
+                                                                                      <Button
+                                                                                        onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                        icon='expand'
+                                                                                        color='blue'
+                                                                                      />
+                                                                                  }
+                                                                                  position='top center'
+                                                                              />
+                                                                          </div>
+                                                                        </div>
+                                                                    </List.Item>
+                                                                )
+                                                            })}
+                                                        </List>
+                                                    )
+                                                    : (<p className='text-center muted-text mt-2p'><em>No subtasks yet. Add one above!</em></p>)
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div id='task-view-right'>
+                                        <div id='task-view-chat'>
+                                            <ConductorChatUI
+                                                projectID={props.match.params.id}
+                                                user={user}
+                                                mode='standalone'
+                                                kind='task'
+                                                activeThread={viewTaskData.taskID}
+                                                activeThreadTitle={viewTaskData.title}
+                                                activeThreadMsgs={viewTaskMsgs}
+                                                loadedThreadMsgs={viewTaskLoadedMsgs}
+                                                getMessages={getTaskMessages}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </Modal.Content>
+                    </Modal>
+                    {/* Add Task Assignee Modal */}
+                    <Modal
+                        open={showATAModal}
+                        onClose={closeATAModal}
+                    >
+                        <Modal.Header>
+                            {(viewTaskData.parent && viewTaskData.parent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section
+                                            onClick={() => openViewTaskModal(viewTaskData.parent)}
+                                        >{getParentTaskName(viewTaskData.parent)}</Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active><em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Add Assignee</Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>
+                                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Add Assignee
+                                        </Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
+                        <Modal.Content scrolling className='modal-tall-content'>
+                            <p>Select a user to assign to <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>.</p>
+                            <Dropdown
+                                placeholder='Select assignee...'
+                                search
+                                fluid
+                                selection
+                                loading={ataLoading}
+                                options={ataUsers}
+                                error={ataError}
+                                value={ataUUID}
+                                onChange={(_e, { value }) => setATAUUID(value)}
+                                className={(!viewTaskData.parent || viewTaskData.parent === '') ? 'mb-2p' : 'mb-4p'}
+                            />
+                            {(!viewTaskData.parent || viewTaskData.parent === '') &&
+                                <Checkbox
+                                    toggle
+                                    checked={ataSubtasks}
+                                    onChange={(_e, data) => setATASubtasks(data.checked)}
+                                    label='Assign to all subtasks'
+                                    className='mb-2p'
+                                />
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeATAModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='green'
+                                loading={ataLoading}
+                                onClick={submitAddTaskAssignee}
+                            >
+                                <Icon name='add' />
+                                Add Assignee
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Remove Task Assignee Modal */}
+                    <Modal
+                        open={showRMTAModal}
+                        onClose={closeRMTAModal}
+                    >
+                        <Modal.Header>
+                            {(viewTaskData.parent && viewTaskData.parent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section
+                                            onClick={() => openViewTaskModal(viewTaskData.parent)}
+                                        >{getParentTaskName(viewTaskData.parent)}</Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active><em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Remove Assignee</Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>
+                                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Remove Assignee
+                                        </Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to remove <strong>{rmtaName}</strong> as an assignee for <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>?</p>
+                            {(!viewTaskData.parent || viewTaskData.parent === '') &&
+                                <Checkbox
+                                    toggle
+                                    checked={rmtaSubtasks}
+                                    onChange={(_e, data) => setRMTASubtasks(data.checked)}
+                                    label='Remove from all subtasks'
+                                />
+                            }
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeRMTAModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                loading={rmtaLoading}
+                                color='red'
+                                onClick={submitRemoveTaskAssignee}
+                            >
+                                <Icon name='remove circle' />
+                                Remove Assignee
+                            </Button>
+                        </Modal.Actions>
                     </Modal>
                     {/* Delete Task Modal */}
                     <Modal
@@ -2661,162 +3504,14 @@ export default ProjectView;
 
 /*
 TASK INTERFACE: DO NOT DELETE!!!!!!
-{canViewDetails &&
-    <Grid.Column>
-        <Header as='h2' dividing>Tasks</Header>
-        <Segment.Group size='large' raised className='mb-4p'>
-            <Segment>
-                <div className='flex-row-div'>
-                    <div className='left-flex'>
-                        <Search
-                            input={{
-                                icon: 'search',
-                                iconPosition: 'left',
-                                placeholder: 'Search tasks...'
-                            }}
-                            loading={taskSearchLoading}
-                            onResultSelect={(_e, { result }) => openViewTaskModal(result.id)}
-                            onSearchChange={handleTaskSearch}
-                            results={taskSearchResults}
-                            value={taskSearchQuery}
-                        />
-                    </div>
-                    <div className='right-flex'>
-                        <Button.Group>
-                            <Button
-                                color='orange'
-                                onClick={expandCollapseAllTasks}
-                            >
-                                <Icon name='arrows alternate vertical' />
-                                Expand/Collapse All
-                            </Button>
-                            <Button
-                                color='olive'
-                                onClick={openBatchModal}
-                            >
-                                <Icon name='add circle' />
-                                Batch Add
-                            </Button>
-                            <Button
-                                color='green'
-                                loading={mngTaskLoading}
-                                onClick={() => openManageTaskModal('add')}
-                            >
-                                <Icon name='add' />
-                                Add Task
-                            </Button>
-                        </Button.Group>
-
-                    </div>
-                </div>
-            </Segment>
-            <Segment loading={loadingTasks} className={(projTasks.length === 0) ? 'muted-segment' : ''}>
-                {(projTasks.length > 0)
-                    ? (
-                        <List divided verticalAlign='middle'>
-                            {projTasks.map((item, idx) => {
-                                return (
-                                    <List.Item key={item.taskID}>
-                                        <div className='flex-col-div'>
-                                            <div className='flex-row-div'>
-                                                <div className='left-flex'>
-                                                    <Icon
-                                                        name={item.uiOpen ? 'chevron down' : 'chevron right'}
-                                                        className='pointer-hover'
-                                                        onClick={() => toggleTaskDetail(item.taskID)}
-                                                    />
-                                                    <span className='project-task-title'>
-                                                        {item.title}
-                                                    </span>
-                                                    {renderStatusIndicator(item.status)}
-                                                </div>
-                                              <div className='right-flex'>
-                                                <Popup
-                                                    content='Add Subtask'
-                                                    trigger={
-                                                        <Button
-                                                            onClick={() => openManageTaskModal('add', null, item.taskID)}
-                                                            icon='add'
-                                                            color='green'
-                                                        />
-                                                    }
-                                                    position='top center'
-                                                />
-                                                <Popup
-                                                    content='View Task'
-                                                    trigger={
-                                                        <Button
-                                                          onClick={() => openViewTaskModal(item.taskID)}
-                                                          icon='expand'
-                                                          color='blue'
-                                                        />
-                                                    }
-                                                    position='top center'
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
-                                                <List divided verticalAlign='middle'>
-                                                    {(item.hasOwnProperty('subtasks') && item.subtasks.length > 0)
-                                                        ? item.subtasks.map((subtask) => {
-                                                            return (
-                                                                <List.Item className='project-task-subtask' key={subtask.taskID}>
-                                                                    <div className='flex-row-div'>
-                                                                        <div className='left-flex'>
-                                                                            <span className='project-task-title'>{subtask.title}</span>
-                                                                            {renderStatusIndicator(subtask.status)}
-                                                                        </div>
-                                                                      <div className='right-flex'>
-                                                                          <Popup
-                                                                              content='View Subtask'
-                                                                              trigger={
-                                                                                  <Button
-                                                                                    onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                    icon='expand'
-                                                                                    color='blue'
-                                                                                  />
-                                                                              }
-                                                                              position='top center'
-                                                                          />
-                                                                      </div>
-                                                                    </div>
-                                                                </List.Item>
-                                                            )
-                                                        })
-                                                        : (
-                                                            <List.Item className='project-task-subtask'>
-                                                                <p><em>No subtasks yet.</em></p>
-                                                            </List.Item>
-                                                        )
-                                                    }
-                                                </List>
-                                            </div>
-                                        </div>
-                                    </List.Item>
-                                )
-                            })}
-                        </List>
-                    )
-                    : (
-                        <div>
-                            <p className='text-center muted-text'><em>No tasks yet. Add one above!</em></p>
-                        </div>
-                    )
-                }
-            </Segment>
-        </Segment.Group>
-    </Grid.Column>
-}
-{!canViewDetails &&
-    <Grid.Column>
-        <Header as='h2' dividing>Tasks</Header>
-        <Segment
-            size='large'
-            raised
-            className='mb-2p'
-        >
-            <p><em>You don't have permission to view this project's Tasks yet.</em></p>
-        </Segment>
-    </Grid.Column>
-}
+<Grid.Column>
+    <Header as='h2' dividing>Tasks</Header>
+    <Segment
+        size='large'
+        raised
+        className='mb-2p'
+    >
+        <p><em>This area has been temporarily disabled during construction.</em></p>
+    </Segment>
+</Grid.Column>
 */

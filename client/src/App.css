@@ -145,6 +145,11 @@ body {
     cursor: pointer;
 }
 
+/** padding-left **/
+.pl-4p {
+    padding-left: 4% !important;
+}
+
 /** margin-top **/
 .mt-05p {
     margin-top: 0.5% !important;
@@ -390,6 +395,28 @@ code {
 .header-icon-small:hover {
     color: #000000 !important;
     cursor: pointer;
+}
+
+.dividing-header-custom {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    padding-bottom: .21428571rem;
+    border-bottom: 1px solid rgba(34,36,38,.15);
+    align-items: center;
+}
+
+.dividing-header-custom h3 {
+    font-size: 1.28571429rem;
+    font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+    font-weight: 700;
+    text-transform: none;
+    color: rgba(0,0,0,.87);
+    margin: 0 !important;
+}
+
+.modal-tall-content {
+    min-height: 250px;
 }
 
 /* Hotfix for fullscreen modal centering */

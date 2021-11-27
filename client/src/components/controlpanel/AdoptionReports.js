@@ -1,5 +1,5 @@
 import './ControlPanel.css';
-import 'react-datepicker/dist/react-datepicker.css';
+import 'react-day-picker/lib/style.css';
 
 import {
   Grid,
@@ -13,12 +13,13 @@ import {
   Dropdown,
   Breadcrumb
 } from 'semantic-ui-react';
-import DatePicker from 'react-datepicker';
 import React, { useEffect, useState, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+
+import ConductorDateInput from '../util/ConductorDateInput';
 
 import {
     isEmptyString,
@@ -219,31 +220,6 @@ const AdoptionReports = (props) => {
         setCurrentReport(emptyReport);
     };
 
-    const FromDateInput = forwardRef(({ value, onClick }, ref) => (
-        <Form.Input
-            value={value}
-            ref={ref}
-            onClick={onClick}
-            iconPosition='left'
-            icon='calendar'
-            placeholder='From...'
-            inline
-            label='From'
-        />
-    ));
-
-    const ToDateInput = forwardRef(({ value, onClick }, ref) => (
-        <Form.Input
-            value={value}
-            ref={ref}
-            onClick={onClick}
-            iconPosition='left'
-            icon='calendar'
-            placeholder='To...'
-            inline
-            label='To'
-        />
-    ));
 
     return (
         <Grid className='controlpanel-container' divided='vertically'>
@@ -268,26 +244,20 @@ const AdoptionReports = (props) => {
                         </Segment>
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
-                                <Form className='mr-2p'>
-                                    <DatePicker
-                                        popperPlacement='bottom'
-                                        popperModifiers={datePickerPopperOptions}
-                                        dateFormat='MM/dd/yyyy'
-                                        onChange={(date) => setFromDate(date)}
-                                        selected={fromDate}
-                                        customInput={<FromDateInput/>}
-                                    />
-                                </Form>
-                                <Form className='mr-2p'>
-                                    <DatePicker
-                                        popperPlacement='bottom'
-                                        popperModifiers={datePickerPopperOptions}
-                                        dateFormat='MM/dd/yyyy'
-                                        onChange={(date) => setToDate(date)}
-                                        selected={toDate}
-                                        customInput={<ToDateInput/>}
-                                    />
-                                </Form>
+                                <ConductorDateInput
+                                    value={fromDate}
+                                    onChange={(value) => setFromDate(value)}
+                                    label='From'
+                                    inlineLabel={true}
+                                    className='mr-2p'
+                                />
+                                <ConductorDateInput
+                                    value={toDate}
+                                    onChange={(value) => setToDate(value)}
+                                    label='To'
+                                    inlineLabel={true}
+                                    className='mr-2p'
+                                />
                                 <Form>
                                     <Form.Field inline>
                                         <label>Sort by</label>

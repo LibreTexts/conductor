@@ -1,5 +1,20 @@
 # Changelog
 
+## 11-26-2021
+#### :art: UI/UX
+* Beta version of full Tasks interface
+* Fixed a Projects permissions issue for administrators
+* Updated all date pickers to new library
+* Restructed messaging into reusable ConductorChatUI and ConductorMessagingUI
+* Created new, reusable ConductorDateInput
+* Fixed a bug with API calls in ConductorChatUI
+
+#### :satellite: Server
+* Finished implementing Tasks logic
+* Restructured all server files into `server` folder
+* Setup ESLint
+
+
 ## 11-8-2021
 #### :art: UI/UX
 * Translation Feedback Data Export page

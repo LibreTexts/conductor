@@ -6,28 +6,11 @@ import {
   Header,
   Segment,
   Divider,
-  Message,
   Icon,
   Button,
   Form,
   Breadcrumb,
-  Modal,
-  Label,
-  List,
-  Image,
-  Accordion,
-  Comment,
-  Input,
-  Loader,
-  Table,
-  Radio,
-  Popup,
-  Checkbox
 } from 'semantic-ui-react';
-import {
-    CircularProgressbar,
-    buildStyles
-} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -41,21 +24,6 @@ import ConductorTextArea from '../util/ConductorTextArea';
 import ConductorMessagingUI from '../util/ConductorMessagingUI';
 import { MentionsInput, Mention } from 'react-mentions'
 
-import {
-    isEmptyString,
-    capitalizeFirstLetter,
-    normalizeURL,
-    truncateString
-} from '../util/HelperFunctions.js';
-
-import {
-    visibilityOptions,
-    editStatusOptions
-} from '../util/ProjectOptions.js';
-import {
-    licenseOptions,
-    getLicenseText
-} from '../util/LicenseOptions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 

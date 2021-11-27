@@ -283,7 +283,7 @@ const getProject = (req, res) => {
                         }
                     }
                 ],
-                as: 'collaboratorsData'
+                as: 'collaborators'
             }
         }, {
             $lookup: {
@@ -334,10 +334,6 @@ const getProject = (req, res) => {
             delete projResult.tagResults; // prune lookup results
             // check user has permission to view project
             if (checkProjectGeneralPermission(projResult, req.user)) {
-                if (projResult.collaboratorsData) {
-                    projResult.collaborators = projResult.collaboratorsData;
-                    delete projResult.collaboratorsData;
-                }
                 return res.send({
                     err: false,
                     project: projResult
@@ -2317,24 +2313,25 @@ const importA11YSectionsFromTOC = (req, res) => {
 const checkProjectGeneralPermission = (project, user) => {
     // check if project is public/available, or if the user is the owner or a
     // collaborator
-    var projOwner = '';
-    var projCollabs = [];
+    let projMembers = [];
+    let userUUID = '';
+    if (typeof(user) === 'string') userUUID = user;
+    else if (typeof(user) === 'object') {
+        if (user.uuid !== undefined) userUUID = user.uuid;
+        else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid
+    }
     if (project.hasOwnProperty('owner')) {
-        if (typeof(project.owner) === 'string') {
-            projOwner = project.owner;
-        } else if (typeof(project.owner) === 'object') {
-            if (project.owner?.uuid !== undefined) {
-                projOwner = project.owner.uuid;
-            }
+        if (typeof(project.owner) === 'string') projMembers.push(project.owner);
+        else if (typeof(project.owner) === 'object') {
+            if (project.owner?.uuid !== undefined) projMembers.push(project.owner.uuid);
         }
     }
     if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-        projCollabs = project.collaborators;
+        projMembers = [projMembers, ...project.collaborators];
     }
     if (project.visibility === 'public'
         || project.status === 'available'
-        || projOwner === user.decoded?.uuid
-        || projCollabs.includes(user.decoded?.uuid)) {
+        || projMembers.push(userUUID)) {
             return true;
     } else {
         // check if user is a SuperAdmin
@@ -2346,33 +2343,54 @@ const checkProjectGeneralPermission = (project, user) => {
 
 /**
  * Checks if a user has permission to perform member-only actions on a Project.
- * @param {Object} project          - the project data object
- * @param {Object} user             - the current user context
+ * @param {Object} project - the project data object
+ * @param {Object|String} user - the current user context
  * @return {Boolean} true if user has permission, false otherwise
  */
 const checkProjectMemberPermission = (project, user) => {
     // check if the user is the owner or a collaborator
-    var projOwner = '';
-    var projCollabs = [];
-    if (project.hasOwnProperty('owner')) {
-        if (typeof(project.owner) === 'string') {
-            projOwner = project.owner;
-        } else if (typeof(project.owner) === 'object') {
-            if (project.owner?.uuid !== undefined) {
-                projOwner = project.owner.uuid;
-            }
-        }
+    let projMembers = constructProjectTeam(project);
+    let userUUID = '';
+    if (typeof(user) === 'string') userUUID = user;
+    else if (typeof(user) === 'object') {
+        if (user.uuid !== undefined) userUUID = user.uuid;
+        else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
     }
-    if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-        projCollabs = project.collaborators;
-    }
-    if (projOwner === user.decoded?.uuid || projCollabs.includes(user.decoded?.uuid)) {
+    if (projMembers.includes(userUUID)) {
         return true;
     } else {
         // check if user is a SuperAdmin
         return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
     }
     return false;
+};
+
+
+/**
+ * Construct an array of users in a project's team, with optional exclusion(s).
+ * @param {Object} project  - the project data object
+ * @param {String|String[]} [exclude] - the UUID(s) to exclude from the array. OPTIONAL.
+ * @returns {String[]} the UUIDs of the project team members
+ */
+const constructProjectTeam = (project, exclude) => {
+    let projectTeam = [];
+    if (project.collaborators && Array.isArray(project.collaborators)) {
+        projectTeam = [...project.collaborators];
+    }
+    if (project.owner && !isEmptyString(project.owner) && uuidValidate(project.owner)) {
+        projectTeam.push(project.owner);
+    }
+    if (project.liaison && !isEmptyString(project.liaison) && uuidValidate(project.owner)) {
+        projectTeam.push(project.liaison);
+    }
+    if (exclude !== null) {
+        if (typeof(exclude) === 'string') {
+            projectTeam = projectTeam.filter(item => item !== exclude);
+        } else if (typeof(exclude) === 'object' && Array.isArray(exclude) && exclude.length > 0) {
+            projectTeam = projectTeam.filter(item => !exclude.includes(item));
+        }
+    }
+    return projectTeam;
 };
 
 
@@ -2535,34 +2553,6 @@ const validate = (method) => {
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('mode', conductorErrors.err1).exists().isString().custom(validateAlertMode)
             ]
-        case 'createThread':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
-                body('kind', conductorErrors.err1).exists().isString().custom(validateThreadKind)
-            ]
-        case 'deleteThread':
-            return [
-                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
-            ]
-        case 'getThreads':
-            return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                query('kind', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateThreadKind)
-            ]
-        case 'createMessage':
-            return [
-                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 }),
-                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
-            ]
-        case 'deleteMessage':
-            return [
-                body('messageID', conductorErrors.err1).exists().isString().isLength({ min: 15, max: 15 }),
-            ]
-        case 'getMessages':
-            return [
-                query('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 })
-            ]
         case 'createA11YReviewSection':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -2610,12 +2600,6 @@ module.exports = {
     setProjectAlert,
     sendLibreTextsAlert,
     getOrgTags,
-    createDiscussionThread,
-    deleteDiscussionThread,
-    getProjectThreads,
-    createThreadMessage,
-    deleteThreadMessage,
-    getThreadMessages,
     requestProjectPublishing,
     createA11YReviewSection,
     getA11YReviewSections,
@@ -2623,5 +2607,6 @@ module.exports = {
     importA11YSectionsFromTOC,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
+    constructProjectTeam,
     validate
 };

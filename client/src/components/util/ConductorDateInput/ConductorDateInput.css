@@ -1,0 +1,24 @@
+.cdi-label {
+    margin-bottom: 0.285714rem;
+    vertical-align: baseline;
+    font-size: .92857143em;
+    font-weight: 700;
+    color: rgba(0,0,0,.87);
+    text-transform: none;
+}
+
+.cdi-label.inline {
+    margin-bottom: 0;
+    margin-right: 5px;
+}
+
+.conductor-date-input {
+    display: flex;
+    flex-direction: column;
+}
+
+.conductor-date-input.inline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}

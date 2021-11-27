@@ -40,6 +40,8 @@ const TaskSchema = new Schema({
         type: [String],
         default: []
     },
+    startDate: String,          // the day the task is scheduled to start
+    endDate: String,            // the day the task is scheduled to end or is due on
     createdBy: String           // the user who created the task (UUID)
 }, {
     timestamps: true

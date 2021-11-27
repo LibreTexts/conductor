@@ -24,6 +24,7 @@ const librariesAPI = require('./api/libraries.js');
 const announcementAPI = require('./api/announcements.js');
 const projectsAPI = require('./api/projects.js');
 const tasksAPI = require('./api/tasks.js');
+const msgAPI = require('./api/messaging.js');
 const transFeedbackAPI = require('./api/translationfeedback.js');
 
 /* TODO: Deprecated */
@@ -394,36 +395,36 @@ router.route('/project/collabs/remove').put(authAPI.verifyRequest,
 
 router.route('/project/threads').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('getThreads'), middleware.checkValidationErrors,
-    projectsAPI.getProjectThreads);
+    msgAPI.validate('getProjectThreads'), middleware.checkValidationErrors,
+    msgAPI.getProjectThreads);
 
 router.route('/project/thread')
     .post(authAPI.verifyRequest,
         authAPI.getUserAttributes,
-        projectsAPI.validate('createThread'),
+        msgAPI.validate('createDiscussionThread'),
         middleware.checkValidationErrors,
-        projectsAPI.createDiscussionThread)
+        msgAPI.createDiscussionThread)
     .delete(authAPI.verifyRequest,
         authAPI.getUserAttributes,
-        projectsAPI.validate('deleteThread'),
+        msgAPI.validate('deleteDiscussionThread'),
         middleware.checkValidationErrors,
-        projectsAPI.deleteDiscussionThread);
+        msgAPI.deleteDiscussionThread);
 
 router.route('/project/thread/messages').get(authAPI.verifyRequest,
-    authAPI.getUserAttributes, projectsAPI.validate('getMessages'),
-    middleware.checkValidationErrors, projectsAPI.getThreadMessages);
+    authAPI.getUserAttributes, msgAPI.validate('getThreadMessages'),
+    middleware.checkValidationErrors, msgAPI.getThreadMessages);
 
 router.route('/project/thread/message')
     .post(authAPI.verifyRequest,
         authAPI.getUserAttributes,
-        projectsAPI.validate('createMessage'),
+        msgAPI.validate('createThreadMessage'),
         middleware.checkValidationErrors,
-        projectsAPI.createThreadMessage)
+        msgAPI.createThreadMessage)
     .delete(authAPI.verifyRequest,
         authAPI.getUserAttributes,
-        projectsAPI.validate('deleteMessage'),
+        msgAPI.validate('deleteMessage'),
         middleware.checkValidationErrors,
-        projectsAPI.deleteThreadMessage);
+        msgAPI.deleteMessage);
 
 router.route('/project/tasks').get(authAPI.verifyRequest,
     authAPI.getUserAttributes, tasksAPI.validate('getProjectTasks'),
@@ -454,6 +455,30 @@ router.route('/project/task')
 router.route('/project/task/batchadd').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, tasksAPI.validate('batchCreateTask'),
     middleware.checkValidationErrors, tasksAPI.batchCreateTask);
+
+router.route('/project/task/assignees/add').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes, tasksAPI.validate('addTaskAssignee'),
+    middleware.checkValidationErrors, tasksAPI.addTaskAssignee);
+
+router.route('/project/task/assignees/remove').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes, tasksAPI.validate('removeTaskAssignee'),
+    middleware.checkValidationErrors, tasksAPI.removeTaskAssignee);
+
+router.route('/project/task/messages').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes, msgAPI.validate('getTaskMessages'),
+    middleware.checkValidationErrors, msgAPI.getTaskMessages);
+
+router.route('/project/task/message')
+    .post(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        msgAPI.validate('createTaskMessage'),
+        middleware.checkValidationErrors,
+        msgAPI.createTaskMessage)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        msgAPI.validate('deleteMessage'),
+        middleware.checkValidationErrors,
+        msgAPI.deleteMessage);
 
 router.route('/project/publishing').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('requestProjectPublishing'),

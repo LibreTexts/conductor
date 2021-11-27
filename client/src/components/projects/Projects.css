@@ -143,22 +143,22 @@
 }
 
 
- /** Timeline — Construction Roadmap **/
- #project-roadmap-heading {
-     margin: 0;
-     display: inline-block;
- }
+/** Timeline — Construction Roadmap **/
+#project-roadmap-heading {
+    margin: 0;
+    display: inline-block;
+}
 
- #project-roadmap-segment {
-     padding: 0;
-     /*
-     background: #f9fafb;
-     box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
-     -webkit-box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
-     max-height: 500px;
-     overflow-y: scroll;
-     */
- }
+#project-roadmap-segment {
+    padding: 0;
+    /*
+    background: #f9fafb;
+    box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
+    -webkit-box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
+    max-height: 500px;
+    overflow-y: scroll;
+    */
+}
 
  #project-roadmap-container {
      display: flex;
@@ -275,8 +275,46 @@
      margin-bottom: 2%;
  }
 
+/** Timeline — Gantt/Calendar **/
+#project-timeline-segment.handle.progress {
+    display: none;
+}
 
- /** Peer Review **/
+.task-completed > .bar-group > .bar-progress {
+    fill: #21ba45 !important;
+}
+
+.task-inprogress > .bar-group > .bar-progress {
+    fill: #2185d0 !important;
+}
+
+.task-available > .bar-group > .bar-progress {
+    fill: #00b5ad !important;
+}
+
+.gantt .bar-label {
+    font-weight: bold !important;
+}
+
+.task-calendar-container .rbc-calendar {
+    min-height: 800px;
+}
+
+.task-calendar-event-complete {
+    background-color: #21ba45 !important;
+}
+
+.task-calendar-event-inprogress {
+    background-color: #2185d0 !important;;
+}
+
+.task-calendar-event-available {
+    background-color: #00b5ad;
+}
+
+
+
+/** Peer Review **/
 
 .project-peerreview-subheader {
     font-size: 1.25rem !important;
@@ -309,6 +347,10 @@
 
 
 /** Tasks **/
+.project-task-list {
+    margin-left: 1em !important;
+}
+
 .project-task-title {
     font-weight: 450;
     margin-right: 1%;
@@ -336,7 +378,7 @@
 
 #task-view-left {
     flex-basis: 65%;
-    border-right: 1px solid rgba(34,36,38,.22);
+    /*border-right: 1px solid rgba(34,36,38,.22);*/
     padding: 0.5%;
 }
 
@@ -345,12 +387,54 @@
     padding: 0.5%;
 }
 
+.task-assignees-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    margin-right: 2%;
+}
+
 .task-detail-div {
     flex-grow: 1;
+}
+
+.task-detail-textdiv {
+    height: 2em;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.task-more-div {
+    display: flex;
+    align-items: center;
+    justify-content: end;
 }
 
 .task-view-header-crumbs {
     font-size: 1.42857143rem !important;
     line-height: 1.28571429em !important;
     font-weight: 700 !important;
+}
+
+#task-view-chat {
+    border: 1px solid rgba(34,36,38,.22);
+    border-radius: 1%;
+    -webkit-box-shadow: 0 2px 4px 0 rgb(34 36 38 / 12%), 0 2px 10px 0 rgb(34 36 38 / 15%);
+    box-shadow: 0 2px 4px 0 rgb(34 36 38 / 12%), 0 2px 10px 0 rgb(34 36 38 / 15%);
+}
+
+#project-task-page {
+    box-shadow: inset 0 2px 9px -7px rgb(0 0 0 / 70%);
+    background-color: #FDFDFD;
+    padding: 1.5rem;
+}
+
+#task-view-content {
+    padding: 0;
+}
+
+#project-task-header {
+    margin: 1.5rem;
 }

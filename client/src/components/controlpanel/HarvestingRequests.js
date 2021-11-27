@@ -1,5 +1,4 @@
 import './ControlPanel.css';
-import 'react-datepicker/dist/react-datepicker.css';
 
 import {
   Grid,
@@ -15,7 +14,6 @@ import {
   Icon,
   Checkbox
 } from 'semantic-ui-react';
-import DatePicker from 'react-datepicker';
 import React, { useEffect, useState, forwardRef, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -23,12 +21,11 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
+import ConductorDateInput from '../util/ConductorDateInput';
+
 import {
     isEmptyString,
 } from '../util/HelperFunctions.js';
-import {
-    datePickerPopperOptions
-} from '../util/DatePickerOptions.js';
 import {
     getLibGlyphURL,
     getLibraryName
@@ -359,26 +356,20 @@ const HarvestingRequests = (props) => {
                         </Segment>
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
-                                <Form className='mr-2p'>
-                                    <DatePicker
-                                        popperPlacement='bottom'
-                                        popperModifiers={datePickerPopperOptions}
-                                        dateFormat='MM/dd/yyyy'
-                                        onChange={(date) => setFromDate(date)}
-                                        selected={fromDate}
-                                        customInput={<FromDateInput  />}
-                                    />
-                                </Form>
-                                <Form className='mr-2p'>
-                                    <DatePicker
-                                        popperPlacement='bottom'
-                                        popperModifiers={datePickerPopperOptions}
-                                        dateFormat='MM/dd/yyyy'
-                                        onChange={(date) => setToDate(date)}
-                                        selected={toDate}
-                                        customInput={<ToDateInput />}
-                                    />
-                                </Form>
+                                <ConductorDateInput
+                                    value={fromDate}
+                                    onChange={(value) => setFromDate(value)}
+                                    label='From'
+                                    inlineLabel={true}
+                                    className='mr-2p'
+                                />
+                                <ConductorDateInput
+                                    value={toDate}
+                                    onChange={(value) => setToDate(value)}
+                                    label='To'
+                                    inlineLabel={true}
+                                    className='mr-2p'
+                                />
                                 <Form>
                                     <Form.Field inline>
                                         <label>Sort by</label>

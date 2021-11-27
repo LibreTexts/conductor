@@ -490,6 +490,49 @@ const updateUserRole = (req, res) => {
 
 
 /**
+ * Returns an array of strings containing the email addresses of the requested users.
+ * INTERNAL USE ONLY.
+ * @param {String[]} users  - an array of UUIDs to lookup users by
+ * @returns {Promise<String[]|Error>} the array of email addresses
+ */
+const getUserEmails = (users) => {
+    return new Promise((resolve, reject) => {
+        if (users !== null && Array.isArray(users)) {
+            if (users.length > 0) {
+                resolve(User.aggregate([
+                    {
+                        $match: {
+                            uuid: {
+                                $in: users
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            email: 1
+                        }
+                    }
+                ]));
+            } else {
+                resolve([]);
+            }
+        } else {
+            reject('Argument has invalid type.')
+        }
+    }).then((usersData) => {
+        let userEmails = [];
+        if (Array.isArray(usersData) && usersData.length > 0) {
+            userEmails = usersData.map((item) => {
+                if (item.hasOwnProperty('email')) return item.email;
+                else return null;
+            }).filter(item => item !== null);
+        }
+        return userEmails;
+    });
+};
+
+
+/**
  * Accepts a string, @role, and validates
  * it against standard Conductor roles.
  * Returns a boolean:
@@ -546,5 +589,6 @@ module.exports = {
     deleteUser,
     getUserRoles,
     updateUserRole,
+    getUserEmails,
     validate
 };

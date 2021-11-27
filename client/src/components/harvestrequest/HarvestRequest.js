@@ -14,8 +14,10 @@ import {
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { DateInput } from 'semantic-ui-calendar-react';
 import axios from 'axios';
+import date from 'date-and-time';
+
+import ConductorDateInput from '../util/ConductorDateInput';
 
 import useGlobalError from '../error/ErrorHooks.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -149,6 +151,8 @@ const HarvestRequest = (props) => {
         resetForm();
         if (validateForm()) {
             setLoadingData(true);
+            let dateString = '';
+            if (dateIntegrate !== '') dateString = date.format(dateIntegrate, 'MM-DD-YYYY');
             const requestData = {
                 email: email,
                 title: title,
@@ -158,7 +162,7 @@ const HarvestRequest = (props) => {
                 name: name,
                 institution: institution,
                 resourceUse: resourceUse,
-                dateIntegrate: dateIntegrate,
+                dateIntegrate: dateString,
                 comments: comments
             };
             axios.post('/harvestingrequest', requestData).then((res) => {
@@ -293,15 +297,12 @@ const HarvestRequest = (props) => {
                                 onChange={handleUseChange}
                                 value={resourceUse}
                             />
-                            <DateInput
-                                name='dateIntegrate'
-                                label='Date integration has to be completed for adoption to be possible:*'
-                                placeholder='Date...'
+                            <ConductorDateInput
                                 value={dateIntegrate}
-                                iconPosition='left'
-                                onChange={handleDateChange}
-                                dateFormat='MM-DD-YYYY'
-                                popupPosition='bottom center'
+                                onChange={(value) => setDateIntegrate(value)}
+                                label='Date integration has to be completed for adoption to be possible:*'
+                                inlineLabel={false}
+                                className='mr-2p'
                             />
                             <p>
                                 *
