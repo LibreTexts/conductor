@@ -1,5 +1,16 @@
 # Changelog
 
+## 11-30-2021
+#### :art: UI/UX
+* Finished implementing Add/Remove Task Dependencies
+* Improved cookie management during logout
+
+#### :satellite: Server
+* Fixed a bug in the expired authentication handler
+* Improved the project task lookup algorithm
+* Removed leftover/unnecessary log statements from development
+
+
 ## 11-26-2021
 #### :art: UI/UX
 * Beta version of full Tasks interface

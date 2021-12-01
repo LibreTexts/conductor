@@ -34,7 +34,6 @@ const api = require('./api.js');
 const app = express();
 const port = process.env.PORT || 5000;
 
-
 mongoose.Promise = bluebird;
 if (process.env.NODE_ENV === 'development') {
     mongoose.set('debug', true);

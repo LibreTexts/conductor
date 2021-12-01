@@ -553,7 +553,6 @@ const getCommonsCatalog = (req, res) => {
                 }];
             }
         }
-        debugObject(matchObj);
         return Book.aggregate([
             {
                 $match: matchObj
@@ -573,7 +572,6 @@ const getCommonsCatalog = (req, res) => {
             books: sortedBooks
         });
     }).catch((err) => {
-        console.log(err);
         debugError(err);
         return res.send({
             err: true,

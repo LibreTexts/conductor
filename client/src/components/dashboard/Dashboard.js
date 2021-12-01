@@ -376,7 +376,7 @@ const Dashboard = (props) => {
                                 </Grid.Column>
                                 <Grid.Column>
                                     {((user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true) ||
-                                        (user.hasOwnProperty('isCampusAdmin') && user.isSuperAdmin === true)) &&
+                                        (user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true)) &&
                                         <Button color='green' floated='right' onClick={openNAModal}>
                                             <Icon name='add' />
                                             New
@@ -580,7 +580,7 @@ const Dashboard = (props) => {
                         <Menu.Item>&nbsp;
                         </Menu.Item>
                         {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
-                            (user.hasOwnProperty('isSuperAdmin') && user.isCampusAdmin === true)) &&
+                            (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
                             <Menu.Item
                                 as={Link}
                                 to='/controlpanel'

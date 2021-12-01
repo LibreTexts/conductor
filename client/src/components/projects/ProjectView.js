@@ -28,7 +28,7 @@ import {
     buildStyles
 } from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -133,16 +133,7 @@ const ProjectView = (props) => {
     const [showDeleteProjModal, setShowDeleteProjModal] = useState(false);
     const [deleteProjModalLoading, setDeleteProjModalLoading] = useState(false);
 
-    // Complete Project Modal
-    // TODO: Deprecated
-    const [showCompleteProjModal, setShowCompleteProjModal] = useState(false);
-    const [completeProjModalLoading, setCompleteProjModalLoading] = useState(false);
-
-
-    // Tasks
-    const [openTaskDetails, setOpenTaskDetails] = useState([
-        true, false, false, false, false
-    ]);
+    // Project Tasks
     const [allProjTasks, setAllProjTasks] = useState([]);
     const [projTasks, setProjTasks] = useState([]);
 
@@ -162,10 +153,6 @@ const ProjectView = (props) => {
     const [mngTaskStartDate, setMngTaskStartDate] = useState(null);
     const [mngTaskEndDate, setMngTaskEndDate] = useState(null);
     const [mngTaskStatus, setMngTaskStatus] = useState('available');
-    const [mngTaskDeps, setMngTaskDeps] = useState([]);
-    const [mngTaskDepOptions, setMngTaskDepOptions] = useState([]);
-    const [mngTaskAssigns, setMngTaskAssigns] = useState([]);
-    const [mngTaskAssignOptions, setMngTaskAssignOptions] = useState([]);
     const [mngTaskTitleErr, setMngTaskTitleErr] = useState(false);
     const [mngTaskSubtask, setMngTaskSubtask] = useState(false);
     const [mngTaskParent, setMngTaskParent] = useState('');
@@ -202,6 +189,21 @@ const ProjectView = (props) => {
     const [rmtaUUID, setRMTAUUID] = useState('');
     const [rmtaSubtasks, setRMTASubtasks] = useState(false);
     const [rmtaLoading, setRMTALoading] = useState(false);
+
+
+    // Add Task Dependency Modal
+    const [showATDModal, setShowATDModal] = useState(false);
+    const [atdTaskID, setATDTaskID] = useState('');
+    const [atdLoading, setATDLoading] = useState(false);
+    const [atdTasks, setATDTasks] = useState([]);
+    const [atdError, setATDError] = useState(false);
+
+
+    // Remove Task Dependency Modal
+    const [showRTDModal, setShowRTDModal] = useState(false);
+    const [rtdTaskID, setRTDTaskID] = useState('');
+    const [rtdTaskTitle, setRTDTaskTitle] = useState('');
+    const [rtdLoading, setRTDLoading] = useState(false);
 
 
     // Delete Task Modal
@@ -874,67 +876,6 @@ const ProjectView = (props) => {
     const openManageTaskModal = (mode, taskID, parent) => {
         let canOpen = false;
         setMngTaskLoading(true);
-        if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)
-            && project.owner && !isEmptyString(project.owner)) {
-            let assignOptions = [...project.collaborators, project.owner];
-            assignOptions = assignOptions.map((item) => {
-                var newOption = {
-                    key: '',
-                    text: 'Unknown User',
-                    value: '',
-                    image: {
-                        avatar: true,
-                        src: '/mini_logo.png'
-                    }
-                };
-                if (item.hasOwnProperty('uuid')) {
-                    newOption.key = item.uuid;
-                    newOption.value = item.uuid;
-                    if (item.hasOwnProperty('firstName') && item.hasOwnProperty('lastName')) {
-                        newOption.text = item.firstName + ' ' + item.lastName;
-                    }
-                    if (item.hasOwnProperty('avatar') && item.avatar !== '') {
-                        newOption.image = {
-                            avatar: true,
-                            src: item.avatar
-                        };
-                    }
-                    return newOption;
-                } else {
-                    return null;
-                }
-            }).filter(item => item !== null);
-            setMngTaskAssignOptions(assignOptions);
-        } else {
-            setMngTaskAssignOptions([]);
-        }
-        if (projTasks.length > 0) {
-            let depOptions = allProjTasks.map((item) => {
-                var newOption = {
-                    key: '',
-                    text: 'Unknown Task',
-                    value: ''
-                };
-                if (item.hasOwnProperty('taskID')) {
-                    newOption.key = item.taskID;
-                    newOption.value = item.taskID;
-                    if (item.hasOwnProperty('title') && item.title !== '') {
-                        newOption.text = item.title;
-                    }
-                    return newOption;
-                } else {
-                    return null;
-                }
-            }).filter((item) => {
-                if (typeof(taskID) === 'string' && taskID !== null) {
-                    return (item !== null && item.value !== taskID);
-                }
-                return (item !== null);
-            });
-            setMngTaskDepOptions(depOptions);
-        } else {
-            setMngTaskDepOptions([]);
-        }
         if (mode === 'edit' && (typeof(taskID) === 'string' && taskID !== null)) {
             setMngTaskMode('edit');
             let foundTask = allProjTasks.find(item => item.taskID === taskID);
@@ -948,22 +889,6 @@ const ProjectView = (props) => {
                     setMngTaskSubtask(true);
                     setMngTaskParent(foundTask.parent);
                 }
-                if (foundTask.dependencies && Array.isArray(foundTask.dependencies)) {
-                    setMngTaskDeps(foundTask.dependencies);
-                } else {
-                    setMngTaskDeps([]);
-                }
-                if (foundTask.assignees && Array.isArray(foundTask.assignees)) {
-                    let assignees = foundTask.assignees.map((item) => {
-                        if (item.hasOwnProperty('uuid')) {
-                            return item.uuid;
-                        }
-                        return null;
-                    }).filter(item => item !== null);
-                    setMngTaskAssigns(assignees);
-                } else {
-                    setMngTaskAssigns([]);
-                }
             }
         } else {
             canOpen = true;
@@ -971,8 +896,6 @@ const ProjectView = (props) => {
             setMngTaskTitle('');
             setMngTaskDescrip('');
             setMngTaskStatus('available');
-            setMngTaskDeps([]);
-            setMngTaskAssigns([]);
             if (parent !== null && typeof(parent) === 'string') {
                 setMngTaskSubtask(true);
                 setMngTaskParent(parent);
@@ -995,10 +918,6 @@ const ProjectView = (props) => {
         setMngTaskTitle('');
         setMngTaskDescrip('');
         setMngTaskStatus('available');
-        setMngTaskDeps([]);
-        setMngTaskDepOptions([]);
-        setMngTaskAssigns([]);
-        setMngTaskAssignOptions([]);
         setMngTaskTitleErr(false);
         setMngTaskSubtask(false);
         setMngTaskParent('');
@@ -1014,9 +933,7 @@ const ProjectView = (props) => {
             if (mngTaskMode === 'edit') {
                 let taskData = {
                     projectID: props.match.params.id,
-                    taskID: mngTaskData.taskID,
-                    assignees: mngTaskAssigns,
-                    dependencies: mngTaskDeps
+                    taskID: mngTaskData.taskID
                 };
                 if ((mngTaskData.title && mngTaskData.title !== mngTaskTitle) || !mngTaskData.title) {
                     taskData.title = mngTaskTitle;
@@ -1046,8 +963,6 @@ const ProjectView = (props) => {
                     status: mngTaskStatus
                 };
                 if (!isEmptyString(mngTaskDescrip)) taskData.description = mngTaskDescrip;
-                if (mngTaskAssigns.length > 0) taskData.assignees = mngTaskAssigns;
-                if (mngTaskDeps.length > 0) taskData.dependencies = mngTaskDeps;
                 if (mngTaskParent !== '') taskData.parent = mngTaskParent;
                 if (mngTaskStartDate !== null) {
                     taskData.startDate = date.format(mngTaskStartDate, 'YYYY-MM-DD');
@@ -1364,6 +1279,148 @@ const ProjectView = (props) => {
         setRMTAUUID('');
         setRMTASubtasks(false);
         setRMTALoading(false);
+    };
+
+    const openATDModal = () => {
+        if (viewTaskData.taskID !== null && !isEmptyString(viewTaskData.taskID)) {
+            setATDLoading(true);
+            setATDTaskID('');
+            setATDError(false);
+            setShowATDModal(true);
+            let taskOptions = [];
+            if (Array.isArray(allProjTasks) && allProjTasks.length > 0) {
+                taskOptions = allProjTasks.filter((item) => {
+                    if (!item.hasOwnProperty('taskID')) return false;
+                    if (item.taskID && item.taskID === viewTaskData.taskID) {
+                        // don't include the task itself
+                        return false;
+                    }
+                    // don't include existing dependencies
+                    if (viewTaskData.hasOwnProperty('dependencies') && Array.isArray(viewTaskData.dependencies)) {
+                        let foundTask = viewTaskData.dependencies.find((existingDep) => {
+                            if (typeof(existingDep) === 'string') {
+                                return existingDep === item.taskID;
+                            } else if (typeof(existingDep) === 'object') {
+                                return existingDep.taskID === item.taskID;
+                            }
+                            return false;
+                        });
+                        if (foundTask !== undefined) return false;
+                    }
+                    // don't include the parent task
+                    if (viewTaskData.hasOwnProperty('parent') && typeof(viewTaskData.parent) === 'string') {
+                        if (viewTaskData.parent === item.taskID) return false;
+                    } else if (viewTaskData.hasOwnProperty('parent') && typeof(viewTaskData.parent) === 'object' && viewTaskData.parent !== null) {
+                        if (viewTaskData.parent?.taskID === item.taskID) return false;
+                    }
+                    return true;
+                }).map((item) => {
+                    return {
+                        key: item.taskID,
+                        text: item.title,
+                        value: item.taskID
+                    }
+                });
+            }
+            setATDTasks(taskOptions);
+            setATDLoading(false);
+        }
+    };
+
+    const submitAddTaskDependency = () => {
+        setATDError(false);
+        if (viewTaskData.taskID && !isEmptyString(viewTaskData.taskID)) {
+            if (!isEmptyString(atdTaskID)) {
+                setATDLoading(true);
+                let depsToSend = [];
+                if (viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies)) {
+                    depsToSend = viewTaskData.dependencies.map((item) => {
+                        if (typeof(item) === 'string') return item;
+                        else if (typeof(item) === 'object') {
+                            if (item.hasOwnProperty('taskID')) return item.taskID;
+                        }
+                        return null;
+                    }).filter(item => item !== null);
+                }
+                depsToSend.push(atdTaskID);
+                axios.put('/project/task', {
+                    taskID: viewTaskData.taskID,
+                    dependencies: depsToSend
+                }).then((res) => {
+                    if (!res.data.err) {
+                        getProjectTasks();
+                        closeATDModal();
+                    } else {
+                        handleGlobalError(res.data.errMsg);
+                        setATDLoading(false);
+                    }
+                }).catch((err) => {
+                    handleGlobalError(err);
+                    setATDLoading(false);
+                });
+            } else {
+                setATDError(true);
+            }
+        }
+    };
+
+    const closeATDModal = () => {
+        setShowATDModal(false);
+        setATDLoading(false);
+        setATDTaskID('');
+        setATDTasks([]);
+        setATDError(false);
+    };
+
+    const openRTDModal = (depend) => {
+        if (viewTaskData.taskID && !isEmptyString(viewTaskData.taskID) && depend !== undefined
+            && depend !== null && depend.hasOwnProperty('taskID') && !isEmptyString(depend.taskID)) {
+            setShowRTDModal(true);
+            setRTDLoading(true);
+            setRTDTaskID(depend.taskID);
+            if (depend.hasOwnProperty('title') && !isEmptyString(depend.title)) {
+                setRTDTaskTitle(depend.title);
+            } else setRTDTaskTitle('Unknown Task');
+            setRTDLoading(false);
+        }
+    };
+
+    const submitRemoveTaskDependency = () => {
+        if (viewTaskData.taskID && !isEmptyString(viewTaskData.taskID) && !isEmptyString(rtdTaskID)) {
+            setRTDLoading(true);
+            let depsToSend = [];
+            if (viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies)) {
+                depsToSend = viewTaskData.dependencies.map((item) => {
+                    if (typeof(item) === 'string') return item;
+                    else if (typeof(item) === 'object') {
+                        if (item.hasOwnProperty('taskID')) return item.taskID;
+                    }
+                    return null;
+                }).filter(item => item !== null && item !== rtdTaskID);
+            }
+            axios.put('/project/task', {
+                taskID: viewTaskData.taskID,
+                dependencies: depsToSend
+            }).then((res) => {
+                if (!res.data.err) {
+                    getProjectTasks();
+                    closeRTDModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setRTDLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setRTDLoading(false);
+            });
+        }
+    };
+
+    const closeRTDModal = () => {
+        setShowRTDModal(false);
+        setRTDTaskID('');
+        setRTDTaskTitle('');
+        setRTDLoading(false);
     };
 
     const openDeleteTaskModal = (taskID) => {
@@ -2952,72 +3009,78 @@ const ProjectView = (props) => {
                                                 }}></p>
                                             </div>
                                         }
-                                        {(viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies) && viewTaskData.dependencies.length > 0 ) &&
-                                            <div className='mt-2p mb-4p'>
-                                                <div className='dividing-header-custom'>
-                                                    <h3>Dependencies</h3>
+                                        <div className='mt-2p mb-4p'>
+                                            <div className='dividing-header-custom'>
+                                                <h3>Dependencies</h3>
+                                                <Popup
+                                                    trigger={<Icon className='ml-05p' name='info circle' />}
+                                                    position='top center'
+                                                    content={<span className='text-center'>Tasks that must be completed before <em>{(viewTaskData.parent && viewTaskData.parent !== '')
+                                                                ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
+                                                                : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em>.</span>}
+                                                />
+                                                <div className='right-flex'>
                                                     <Popup
-                                                        trigger={<Icon className='ml-05p' name='info circle' />}
                                                         position='top center'
-                                                        content={<span className='text-center'>Tasks that must be completed before <em>{(viewTaskData.parent && viewTaskData.parent !== '')
-                                                                    ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
-                                                                    : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em>.</span>}
+                                                        trigger={
+                                                            <Button
+                                                                color='green'
+                                                                icon
+                                                                onClick={openATDModal}
+                                                                loading={atdLoading}
+                                                            >
+                                                                <Icon name='add' />
+                                                            </Button>
+                                                        }
+                                                        content='Add dependencies'
                                                     />
-                                                    <div className='right-flex'>
-                                                        <Popup
-                                                            position='top center'
-                                                            trigger={
-                                                                <Button
-                                                                    color='green'
-                                                                    icon
-                                                                >
-                                                                    <Icon name='add' />
-                                                                </Button>
-                                                            }
-                                                            content='Add dependencies'
-                                                        />
-                                                    </div>
                                                 </div>
-                                                <List divided verticalAlign='middle' className='project-task-list'>
-                                                    {viewTaskData.dependencies.map((depend) => {
-                                                        return (
-                                                            <List.Item className='project-task-subtask' key={depend.taskID}>
-                                                                <div className='flex-row-div'>
-                                                                    <div className='left-flex'>
-                                                                        <span className='project-task-title'>{depend.title}</span>
-                                                                        {renderStatusIndicator(depend.status)}
-                                                                    </div>
-                                                                  <div className='right-flex'>
-                                                                      <Popup
-                                                                          content='Remove as dependency'
-                                                                          trigger={
-                                                                              <Button
-                                                                                onClick={() => {}}
-                                                                                icon='remove circle'
-                                                                                color='red'
-                                                                              />
-                                                                          }
-                                                                          position='top center'
-                                                                      />
-                                                                      <Popup
-                                                                          content='View dependency'
-                                                                          trigger={
-                                                                              <Button
-                                                                                onClick={() => openViewTaskModal(depend.taskID)}
-                                                                                icon='expand'
-                                                                                color='blue'
-                                                                              />
-                                                                          }
-                                                                          position='top center'
-                                                                      />
-                                                                  </div>
-                                                                </div>
-                                                            </List.Item>
-                                                        )
-                                                    })}
-                                                </List>
                                             </div>
-                                        }
+                                            {(viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies) && viewTaskData.dependencies.length > 0)
+                                                ? (
+                                                    <List divided verticalAlign='middle' className='project-task-list'>
+                                                        {viewTaskData.dependencies.map((depend) => {
+                                                            return (
+                                                                <List.Item className='project-task-subtask' key={depend.taskID}>
+                                                                    <div className='flex-row-div'>
+                                                                        <div className='left-flex'>
+                                                                            <span className='project-task-title'>{depend.title}</span>
+                                                                            {renderStatusIndicator(depend.status)}
+                                                                        </div>
+                                                                      <div className='right-flex'>
+                                                                          <Popup
+                                                                              content='Remove as dependency'
+                                                                              trigger={
+                                                                                  <Button
+                                                                                    onClick={() => openRTDModal(depend)}
+                                                                                    icon='remove circle'
+                                                                                    color='red'
+                                                                                  />
+                                                                              }
+                                                                              position='top center'
+                                                                          />
+                                                                          <Popup
+                                                                              content='View dependency'
+                                                                              trigger={
+                                                                                  <Button
+                                                                                    onClick={() => openViewTaskModal(depend.taskID)}
+                                                                                    icon='expand'
+                                                                                    color='blue'
+                                                                                  />
+                                                                              }
+                                                                              position='top center'
+                                                                          />
+                                                                      </div>
+                                                                    </div>
+                                                                </List.Item>
+                                                            )
+                                                        })}
+                                                    </List>
+                                                )
+                                                : <p className='text-center muted-text mt-2p'><em>No dependencies yet. Add one above!</em></p>
+                                            }
+
+                                        </div>
                                         {(viewTaskData.blocking && Array.isArray(viewTaskData.blocking) && viewTaskData.blocking.length > 0) &&
                                             <div className='mt-4p mb-4p'>
                                                 <div className='dividing-header-custom'>
@@ -3161,7 +3224,7 @@ const ProjectView = (props) => {
                         <Modal.Content scrolling className='modal-tall-content'>
                             <p>Select a user to assign to <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>.</p>
                             <Dropdown
-                                placeholder='Select assignee...'
+                                placeholder='Select assignee or start typing to search......'
                                 search
                                 fluid
                                 selection
@@ -3250,10 +3313,105 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
+                    {/* Add Task Dependency Modal */}
+                    <Modal
+                        open={showATDModal}
+                        onClose={closeATDModal}
+                    >
+                        <Modal.Header>
+                            {(viewTaskData.parent && viewTaskData.parent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section
+                                            onClick={() => openViewTaskModal(viewTaskData.parent)}
+                                        >{getParentTaskName(viewTaskData.parent)}</Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active><em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Add Dependency</Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>
+                                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Add Dependency
+                                        </Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
+                        <Modal.Content scrolling className='modal-tall-content'>
+                            <p>Select a task to add as a dependency for <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>.</p>
+                            <Dropdown
+                                placeholder='Select task or start typing to search...'
+                                search
+                                fluid
+                                selection
+                                loading={atdLoading}
+                                options={atdTasks}
+                                error={atdError}
+                                value={atdTaskID}
+                                onChange={(_e, { value }) => setATDTaskID(value)}
+                                className='mb-4p'
+                            />
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button onClick={closeATDModal}>Cancel</Button>
+                            <Button
+                                color='green'
+                                loading={atdLoading}
+                                onClick={submitAddTaskDependency}
+                            >
+                                <Icon name='add'/> Add Dependency
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Remove Task Dependency Modal */}
+                    <Modal
+                        open={showRTDModal}
+                        onClose={closeRTDModal}
+                    >
+                        <Modal.Header>
+                            {(viewTaskData.parent && viewTaskData.parent !== '')
+                                ? (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section
+                                            onClick={() => openViewTaskModal(viewTaskData.parent)}
+                                        >{getParentTaskName(viewTaskData.parent)}</Breadcrumb.Section>
+                                        <Breadcrumb.Divider icon='right chevron' />
+                                        <Breadcrumb.Section active><em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Remove Dependency</Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                                : (
+                                    <Breadcrumb className='task-view-header-crumbs'>
+                                        <Breadcrumb.Section active>
+                                            <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>: Remove Dependency
+                                        </Breadcrumb.Section>
+                                    </Breadcrumb>
+                                )
+                            }
+                        </Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to remove <em>{rtdTaskTitle}</em> as a dependency of <em>{viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}</em>?</p>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeRTDModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                loading={rtdLoading}
+                                color='red'
+                                onClick={submitRemoveTaskDependency}
+                            >
+                                <Icon name='remove circle' />
+                                Remove Dependency
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
                     {/* Delete Task Modal */}
                     <Modal
                         open={showDelTaskModal}
-                        closeOnDimmerClick={false}
+                        onClose={closeDeleteTaskModal}
                     >
                         <Modal.Header>
                             {(delTaskSubtask && delTaskParent !== '')
@@ -3498,20 +3656,3 @@ const ProjectView = (props) => {
 };
 
 export default ProjectView;
-
-
-
-
-/*
-TASK INTERFACE: DO NOT DELETE!!!!!!
-<Grid.Column>
-    <Header as='h2' dividing>Tasks</Header>
-    <Segment
-        size='large'
-        raised
-        className='mb-2p'
-    >
-        <p><em>This area has been temporarily disabled during construction.</em></p>
-    </Segment>
-</Grid.Column>
-*/

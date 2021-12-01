@@ -19,13 +19,16 @@ import {
 } from '../util/LibraryOptions.js';
 import AuthHelper from '../util/AuthHelper.js';
 
+import useGlobalError from '../error/ErrorHooks.js';
+
 const Navbar = (_props) => {
 
-    // Global State and Location
+    // Global State, Location, and Error Handling
     const location = useLocation();
     const dispatch = useDispatch();
     const user = useSelector((state) => state.user);
     const org = useSelector((state) => state.org);
+    const { handleGlobalError } = useGlobalError();
 
     // Data fetch flags
     const loadedUser = useRef(false);
@@ -52,33 +55,29 @@ const Navbar = (_props) => {
     useEffect(() => {
         if (user.isAuthenticated && !loadedUser.current) {
             axios.get('/user/basicinfo').then((res) => {
-                if (!res.data.err) {
-                    if (res.data.user != null) {
-                        dispatch({
-                            type: 'SET_USER_INFO',
-                            payload: {
-                                uuid: res.data.user.uuid,
-                                authType: res.data.user.authType,
-                                firstName: res.data.user.firstName,
-                                lastName: res.data.user.lastName,
-                                avatar: res.data.user.avatar,
-                                roles: res.data.user.roles
-                            }
-                        });
-                        loadedUser.current = true;
-                    } else {
-                        console.log(res.data.errMsg);
-                    }
+                if (!res.data.err && res.data.user !== null) {
+                    dispatch({
+                        type: 'SET_USER_INFO',
+                        payload: {
+                            uuid: res.data.user.uuid,
+                            authType: res.data.user.authType,
+                            firstName: res.data.user.firstName,
+                            lastName: res.data.user.lastName,
+                            avatar: res.data.user.avatar,
+                            roles: res.data.user.roles
+                        }
+                    });
+                    loadedUser.current = true;
                 } else {
-                    console.log(res.data.errMsg);
+                    handleGlobalError(res.data.errMsg);
                 }
             }).catch((err) => {
-                if (err.response.data.tokenExpired !== true) {
-                    alert("Oops, we encountered an error.");
+                if (err.response?.data?.tokenExpired !== true) {
+                    handleGlobalError("Oops, we encountered an error.");
                 }
             });
         }
-    }, [user.isAuthenticated, dispatch]);
+    }, [user.isAuthenticated, dispatch, handleGlobalError]);
 
     /**
      * Check if Organization info is already
@@ -337,9 +336,5 @@ const Navbar = (_props) => {
         return (null);
     }
 }
-
-/*
-
-*/
 
 export default Navbar;

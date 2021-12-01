@@ -113,7 +113,7 @@ const constructProjectTeam = (project, exclude) => {
         });
     }
     if (project.hasOwnProperty('owner')) {
-        if (typeof(item) === 'object' && project.owner.uuid && !isEmptyString(project.owner.uuid)) {
+        if (typeof(project.owner) === 'object' && project.owner.uuid && !isEmptyString(project.owner.uuid)) {
             projectTeam.push(project.owner);
         } else if (typeof(project.owner) === 'string') {
             projectTeam.push({
@@ -122,7 +122,7 @@ const constructProjectTeam = (project, exclude) => {
         }
     }
     if (project.hasOwnProperty('liaison')) {
-        if (typeof(item) === 'object' && project.liaison.uuid && !isEmptyString(project.liaison.uuid)) {
+        if (typeof(project.liaison) === 'object' && project.liaison.uuid && !isEmptyString(project.liaison.uuid)) {
             projectTeam.push(project.liaison);
         } else if (typeof(project.liaison) === 'string') {
             projectTeam.push({
@@ -135,6 +135,7 @@ const constructProjectTeam = (project, exclude) => {
         if (typeof(item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
             return true;
         }
+        return false;
     });
     if (exclude !== null) {
         if (typeof(exclude) === 'string') {
@@ -156,6 +157,7 @@ const constructProjectTeam = (project, exclude) => {
  */
 const checkCanViewProjectDetails = (project, user) => {
     let setCanView = false;
+    if (typeof(project) !== 'object' || typeof(user) !== 'object') return false;
     if (user.uuid && user.uuid !== '') {
         if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
             setCanView = true;

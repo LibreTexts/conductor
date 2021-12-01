@@ -675,7 +675,8 @@ const getProjectTasks = (req, res) => {
                             startWith: '$dependencies',
                             connectFromField: 'dependencies',
                             connectToField: 'taskID',
-                            as: 'dependencies'
+                            as: 'dependencies',
+                            maxDepth: 0
                         }
                     }, {
                         // lookup tasks being blocked
@@ -684,7 +685,8 @@ const getProjectTasks = (req, res) => {
                              startWith: '$taskID',
                              connectFromField: 'taskID',
                              connectToField: 'dependencies',
-                             as: 'blocking'
+                             as: 'blocking',
+                             maxDepth: 0
                          }
                      }, {
                         // lookup subtasks
@@ -782,11 +784,12 @@ const getProjectTasks = (req, res) => {
                             parent: { $first: '$parent' },
                             createdBy: { $first: '$createdBy' },
                             subtasks: { $push: '$subtasks' },
-                            dependencies: { $addToSet: { $first: '$dependencies' }},
-                            blocking: { $addToSet: { $first: '$blocking' }},
+                            dependencies: { $first: '$dependencies' },
+                            blocking: { $first: '$blocking' },
                             startDate: { $first: '$startDate' },
                             endDate: { $first: '$endDate' },
-                            createdAt: { $first: '$createdAt' }
+                            createdAt: { $first: '$createdAt' },
+                            createdBy: { $first: '$createdBy' }
                         }
                     }, {
                         $addFields: {

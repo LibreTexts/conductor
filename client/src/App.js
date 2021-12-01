@@ -75,8 +75,7 @@ function App() {
     }, (err) => {
         if (err.response !== undefined) {
             if (err.response.status === 401 && err.response.data.tokenExpired === true) {
-                AuthHelper.logout();
-                window.location.assign('/login?src=authexpired');
+                AuthHelper.logout(null, true);
             }
         }
         return Promise.reject(err);
