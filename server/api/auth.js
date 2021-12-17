@@ -36,7 +36,7 @@ const createTokenCookies = (token) => {
     if (process.env.NODE_ENV === 'production') {
         const domains = String(process.env.PRODUCTIONURLS).split(',');
         accessCookie += " Domain=" + domains[0] + ';';
-        sigCookie += " Domain=" + domains[0] + ';';
+        sigCookie += " Domain=" + domains[0] + '; HttpOnly;';
     }
     return [accessCookie, sigCookie];
 };
