@@ -106,11 +106,34 @@ const normalizeURL = (url) => {
 };
 
 
+/**
+ * Sort an array of user objects by first and lastname.
+ * @param {Object[]} users - the array to sort
+ * @returns {Object[]} the sorted array
+ */
+const sortUsersByName = (users) => {
+    if (typeof(users) === 'object' && Array.isArray(users)) {
+        return users.sort((a, b) => {
+            if (typeof(a.firstName) === 'string' && typeof(a.lastName) === 'string'
+                && typeof(b.firstName) === 'string' && typeof(b.lastName) === 'string') {
+                let aName = `${a.firstName} ${a.lastName}`;
+                let bName = `${b.firstName} ${b.lastName}`;
+                if (aName < bName) return -1;
+                if (aName > bName) return 1;
+            }
+            return 0;
+        });
+    }
+    return [];
+};
+
+
 module.exports = {
     isEmptyString,
     truncateString,
     capitalizeFirstLetter,
     updateParams,
     validatePassword,
-    normalizeURL
+    normalizeURL,
+    sortUsersByName
 };

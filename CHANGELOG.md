@@ -1,5 +1,20 @@
 # Changelog
 
+## 12-15-2021
+#### :art: UI/UX
+* Implemented Book Licensing UI in Commons
+* Revamped permissions handling in the Projects interface
+* Minimalized the Navbar user dropdown
+    * Moved 'Control Panel' and 'Commons' links to Dashboard
+* Project listing tables now show project visibility
+
+#### :satellite: Server
+* Remove deprecated 'Complete Project' route
+* Added logic for retrieving Book Licensing Reports
+* Implemented the new Project 'Liaison' and 'Auditor' roles
+* Added 'Miscellaneous' classification for projects
+
+
 ## 11-30-2021
 #### :art: UI/UX
 * Finished implementing Add/Remove Task Dependencies

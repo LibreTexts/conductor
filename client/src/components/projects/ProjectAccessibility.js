@@ -32,6 +32,7 @@ import { MentionsInput, Mention } from 'react-mentions';
 import {
     isEmptyString,
 } from '../util/HelperFunctions.js';
+import { checkCanViewProjectDetails } from '../util/ProjectHelpers.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -102,22 +103,8 @@ const ProjectAccessibility = (props) => {
      * their identity and the project data is available.
      */
     useEffect(() => {
-        if (user.uuid && user.uuid !== '') {
-            if (project.owner?.uuid === user.uuid || project.owner === user.uuid) {
-                setCanViewDetails(true);
-            } else {
-                if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-                    let foundCollab = project.collaborators.find((item) => {
-                        if (typeof(item) === 'string') {
-                            return item === user.uuid;
-                        } else if (typeof(item) === 'object') {
-                            return item.uuid === user.uuid;
-                        }
-                        return false;
-                    });
-                    if (foundCollab !== undefined) setCanViewDetails(true);
-                }
-            }
+        if (typeof(user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
+            setCanViewDetails(checkCanViewProjectDetails(project, user));
         }
     }, [project, user, setCanViewDetails]);
 

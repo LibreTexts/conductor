@@ -133,6 +133,36 @@ body {
     vertical-align: top;
 }
 
+.hiddensection {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.hiddensection > .header-container {
+    flex-basis: 75%;
+}
+
+.hiddensection > .button-container {
+    flex-basis: 25%;
+}
+
+.hideablesection {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.hideablesection > .button-container {
+    flex-basis: 25%;
+}
+
+.hideablesection > .header {
+    margin: 0;
+    flex-basis: 75%;
+}
+
 .text-center {
     text-align: center;
 }
@@ -427,4 +457,13 @@ code {
 .ui.modal.fullscreen {
     left: 0 !important;
     right: 0 !important;
+}
+
+/* Hotfix for loaders in modals */
+.ui.dimmer .ui.modal .ui.loader:before {
+    border-color: rgba(0,0,0,.1);
+}
+            
+.ui.dimmer .ui.modal .ui.loader:after {
+    border-color: #767676 transparent transparent;
 }

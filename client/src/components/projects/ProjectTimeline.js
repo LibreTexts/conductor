@@ -29,7 +29,7 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
 
-import { checkCanViewProjectDetails } from '../util/ProjectOptions.js';
+import { checkCanViewProjectDetails } from '../util/ProjectHelpers.js';
 import { roadmapSteps } from '../util/RoadmapOptions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
@@ -187,9 +187,8 @@ const ProjectTimeline = (props) => {
      * their identity and the project data is available.
      */
     useEffect(() => {
-        if (user.uuid && user.uuid !== '') {
-            let canView = checkCanViewProjectDetails(project, user);
-            setCanViewDetails(canView);
+        if (typeof(user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
+            setCanViewDetails(checkCanViewProjectDetails(project, user));
         }
     }, [project, user, setCanViewDetails]);
 

@@ -226,6 +226,9 @@ router.route('/commons/book/summary').get(booksAPI.validate('getBookSummary'),
 router.route('/commons/book/toc').get(booksAPI.validate('getBookTOC'),
     middleware.checkValidationErrors, booksAPI.getBookTOC);
 
+router.route('/commons/book/licensereport').get(booksAPI.validate('getLicenseReport'),
+    middleware.checkValidationErrors, booksAPI.getLicenseReport);
+
 router.route('/commons/filters').get(booksAPI.getCatalogFilterOptions);
 
 router.route('/commons/catalogs/addresource').put(authAPI.verifyRequest,
@@ -372,26 +375,29 @@ router.route('/project/alert').post(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('setProjectAlert'),
     middleware.checkValidationErrors, projectsAPI.setProjectAlert);
 
-router.route('/project/complete').put(authAPI.verifyRequest,
-    projectsAPI.validate('completeProject'),
-    middleware.checkValidationErrors,
-    projectsAPI.completeProject);
-
-router.route('/project/collabs/addable').get(authAPI.verifyRequest,
+router.route('/project/team/addable').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('getAddableCollaborators'),
+    projectsAPI.validate('getAddableMembers'),
     middleware.checkValidationErrors,
-    projectsAPI.getAddableCollaborators);
+    projectsAPI.getAddableMembers);
 
-router.route('/project/collabs/add').put(authAPI.verifyRequest,
-    projectsAPI.validate('addCollaboratorToProject'),
+router.route('/project/team/add').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('addMemberToProject'),
     middleware.checkValidationErrors,
-    projectsAPI.addCollaboratorToProject);
+    projectsAPI.addMemberToProject);
 
-router.route('/project/collabs/remove').put(authAPI.verifyRequest,
-    projectsAPI.validate('removeCollaboratorFromProject'),
+router.route('/project/team/role').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('changeMemberRole'),
     middleware.checkValidationErrors,
-    projectsAPI.removeCollaboratorFromProject);
+    projectsAPI.changeMemberRole);
+
+router.route('/project/team/remove').put(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('removeMemberFromProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.removeMemberFromProject);
 
 router.route('/project/threads').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,

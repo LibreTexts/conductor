@@ -11,7 +11,8 @@ const projectClassifications = [
     'technology',
     'librefest',
     'coursereport',
-    'adoptionrequest'
+    'adoptionrequest',
+    'miscellaneous'
 ];
 
 const constrRoadmapSteps = [
@@ -24,7 +25,6 @@ const constrRoadmapSteps = [
  * pre-defined, acceptable classifications.
  * @param {String} classification  - the classification string to test
  * @returns {Boolean} true if valid classification, false otherwise
- *
  */
 const validateProjectClassification = (classification) => {
     return projectClassifications.includes(classification);

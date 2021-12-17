@@ -48,7 +48,8 @@ import {
     isEmptyString,
     capitalizeFirstLetter,
     normalizeURL,
-    truncateString
+    truncateString,
+    sortUsersByName
 } from '../util/HelperFunctions.js';
 import {
     libraryOptions,
@@ -59,12 +60,15 @@ import {
     statusOptions,
     createTaskOptions,
     classificationOptions,
+    projectRoleOptions,
     getTaskStatusText,
     getClassificationText,
     getFlagGroupName,
     constructProjectTeam,
-    checkCanViewProjectDetails
-} from '../util/ProjectOptions.js';
+    checkCanViewProjectDetails,
+    checkProjectAdminPermission,
+    checkProjectMemberPermission
+} from '../util/ProjectHelpers.js';
 import {
     licenseOptions,
     getLicenseText
@@ -95,6 +99,8 @@ const ProjectView = (props) => {
 
     // Project Permissions
     const [canViewDetails, setCanViewDetails] = useState(false);
+    const [userProjectAdmin, setUserProjectAdmin] = useState(false);
+    const [userProjectMember, setUserProjectMember] = useState(false);
 
     // Edit Information Modal
     const [showEditModal, setShowEditModal] = useState(false);
@@ -122,12 +128,12 @@ const ProjectView = (props) => {
     const [tagOptions, setTagOptions] = useState([]);
     const [loadedTags, setLoadedTags] = useState(false);
 
-    // Manage Collaborators Modal
-    const [showCollabsModal, setShowCollabsModal] = useState(false);
-    const [collabsUserOptions, setCollabsUserOptions] = useState([]);
-    const [collabsUserOptsLoading, setCollabsUserOptsLoading] = useState(false);
-    const [collabsUserToAdd, setCollabsUserToAdd] = useState('');
-    const [collabsModalLoading, setCollabsModalLoading] = useState(false);
+    // Manage Team Modal
+    const [showTeamModal, setShowTeamModal] = useState(false);
+    const [teamUserOptions, setTeamUserOptions] = useState([]);
+    const [teamUserOptsLoading, setTeamUserOptsLoading] = useState(false);
+    const [teamUserToAdd, setTeamUserToAdd] = useState('');
+    const [teamModalLoading, setTeamModalLoading] = useState(false);
 
     // Delete Project Modal
     const [showDeleteProjModal, setShowDeleteProjModal] = useState(false);
@@ -295,15 +301,24 @@ const ProjectView = (props) => {
 
 
     /*
-     * Update the user's permission to view Project restricted details when
+     * Update state with user's permissions within the project when
      * their identity and the project data is available.
      */
     useEffect(() => {
-        if (user.uuid && user.uuid !== '') {
-            let canView = checkCanViewProjectDetails(project, user);
-            setCanViewDetails(canView);
+        if (typeof(user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
+            let adminPermissions = checkProjectAdminPermission(project, user);
+            if (adminPermissions) {
+                setUserProjectAdmin(true);
+                setUserProjectMember(true);
+                setCanViewDetails(true);
+            } else if (checkProjectMemberPermission(project, user)) {
+                setUserProjectMember(true);
+                setCanViewDetails(true);
+            } else {
+                setCanViewDetails(checkCanViewProjectDetails(project, user));
+            }
         }
-    }, [project, user, setCanViewDetails]);
+    }, [project, user, setUserProjectAdmin, setUserProjectMember, setCanViewDetails]);
 
 
     /*
@@ -652,12 +667,12 @@ const ProjectView = (props) => {
 
 
     /**
-     * Retrieves a list of users that can be added as collaborators to the
+     * Retrieves a list of users that can be added as team members to the
      * project, then processes and sets them in state.
      */
-    const getCollabsUserOptions = () => {
-        setCollabsUserOptsLoading(true);
-        axios.get('/project/collabs/addable', {
+    const getTeamUserOptions = () => {
+        setTeamUserOptsLoading(true);
+        axios.get('/project/team/addable', {
             params: {
                 projectID: props.match.params.id
             }
@@ -688,43 +703,71 @@ const ProjectView = (props) => {
                         return 0;
                     });
                     newOptions.unshift({ key: 'empty', text: 'Clear...', value: '' });
-                    setCollabsUserOptions(newOptions);
+                    setTeamUserOptions(newOptions);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
             }
-            setCollabsUserOptsLoading(false);
+            setTeamUserOptsLoading(false);
         }).catch((err) => {
             handleGlobalError(err);
-            setCollabsUserOptsLoading(false);
+            setTeamUserOptsLoading(false);
         });
     };
 
 
     /**
      * Submits a PUT request to the server to add the user
-     * in state (collabsUserToAdd) to the project's collaborators list,
-     * then refreshes the project data and Addable Collaborators options.
+     * in state (teamUserToAdd) to the project's team, then
+     * refreshes the project data and Addable Users options.
      */
-    const submitAddCollaborator = () => {
-        if (!isEmptyString(collabsUserToAdd)) {
-            setCollabsModalLoading(true);
-            axios.put('/project/collabs/add', {
+    const submitAddTeamMember = () => {
+        if (!isEmptyString(teamUserToAdd)) {
+            setTeamModalLoading(true);
+            axios.put('/project/team/add', {
                 projectID: props.match.params.id,
-                uuid: collabsUserToAdd
+                uuid: teamUserToAdd
             }).then((res) => {
                 if (!res.data.err) {
-                    setCollabsModalLoading(false);
-                    getCollabsUserOptions();
+                    setTeamModalLoading(false);
+                    getTeamUserOptions();
                     getProject();
-                    closeCollabsModal();
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
-                setCollabsModalLoading(false);
+                setTeamModalLoading(false);
             }).catch((err) => {
                 handleGlobalError(err);
-                setCollabsModalLoading(false);
+                setTeamModalLoading(false);
+            });
+        }
+    };
+
+
+    /**
+     * Submits a PUT request to the server to update the team member's
+     * role in the project, then refreshes the project data.
+     * @param {String} memberUUID - the UUID of the team member to update
+     * @param {String} newRole - the new role setting
+     */
+    const submitChangeTeamMemberRole = (memberUUID, newRole) => {
+        if (!isEmptyString(memberUUID) && !isEmptyString(newRole)) {
+            setTeamModalLoading(true);
+            axios.put('/project/team/role', {
+                projectID: props.match.params.id,
+                uuid: memberUUID,
+                newRole: newRole
+            }).then((res) => {
+                if (!res.data.err) {
+                    setTeamModalLoading(false);
+                    getProject();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setTeamModalLoading(false);
+            }).catch((err) => {
+                handleGlobalError(err);
+                setTeamModalLoading(false);
             });
         }
     };
@@ -732,58 +775,57 @@ const ProjectView = (props) => {
 
     /**
      * Submits a PUT request to the server to remove the specified user
-     * from the project's collaborators list, then refreshes the
-     * project data and Addable Collaborators options.
-     * @param  {string} collabUUID  - the uuid of the user to remove
+     * from the project's team, then refreshes the
+     * project data and Addable Users options.
+     * @param  {String} memberUUID  - the uuid of the user to remove
      */
-    const submitRemoveCollaborator = (collabUUID) => {
-        if (!isEmptyString(collabUUID)) {
-            setCollabsModalLoading(true);
-            axios.put('/project/collabs/remove', {
+    const submitRemoveTeamMember = (memberUUID) => {
+        if (!isEmptyString(memberUUID)) {
+            setTeamModalLoading(true);
+            axios.put('/project/team/remove', {
                 projectID: props.match.params.id,
-                uuid: collabUUID
+                uuid: memberUUID
             }).then((res) => {
                 if (!res.data.err) {
-                    setCollabsModalLoading(false);
-                    getCollabsUserOptions();
+                    setTeamModalLoading(false);
+                    getTeamUserOptions();
                     getProject();
-                    closeCollabsModal();
                 } else {
                     handleGlobalError(res.data.errMsg);
                 }
-                setCollabsModalLoading(false);
+                setTeamModalLoading(false);
             }).catch((err) => {
                 handleGlobalError(err);
-                setCollabsModalLoading(false);
+                setTeamModalLoading(false);
             });
         }
     };
 
 
     /**
-     * Opens the Manage Collaborators Modal and sets the fields to their
+     * Opens the Manage Team Modal and sets the fields to their
      * default values, then triggers the function to retrieve the list of
-     * Addable Collaborators.
+     * addable users.
      */
-    const openCollabsModal = () => {
-        setCollabsModalLoading(false);
-        setCollabsUserOptions([]);
-        setCollabsUserToAdd('');
-        getCollabsUserOptions();
-        setShowCollabsModal(true);
+    const openTeamModal = () => {
+        setTeamModalLoading(false);
+        setTeamUserOptions([]);
+        setTeamUserToAdd('');
+        getTeamUserOptions();
+        setShowTeamModal(true);
     };
 
 
     /**
-     * Closes the Manage Collaborators Modal and resets the fields
+     * Closes the Manage Team Modal and resets the fields
      * to their default values.
      */
-    const closeCollabsModal = () => {
-        setShowCollabsModal(false);
-        setCollabsUserOptions([]);
-        setCollabsUserToAdd('');
-        setCollabsUserOptsLoading(false);
-        setCollabsModalLoading(false);
+    const closeTeamModal = () => {
+        setShowTeamModal(false);
+        setTeamUserOptions([]);
+        setTeamUserToAdd('');
+        setTeamUserOptsLoading(false);
+        setTeamModalLoading(false);
     };
 
 
@@ -1724,6 +1766,100 @@ const ProjectView = (props) => {
         }
     };
 
+    const renderTeamList = (projData) => {
+        const renderListItem = (item, role, idx) => {
+            return (
+                <List.Item key={`${role}-${idx}`}>
+                    <Image avatar src={item.avatar} />
+                    <List.Content>{item.firstName} {item.lastName} <span className='muted-text'>({role})</span></List.Content>
+                </List.Item>
+            );
+        };
+        return (
+            <List divided verticalAlign='middle'>
+                {(projData.hasOwnProperty('leads') && Array.isArray(projData.leads)) &&
+                    sortUsersByName(project.leads).map((item, idx) => renderListItem(item, 'Lead', idx))
+                }
+                {(projData.hasOwnProperty('liaisons') && Array.isArray(projData.liaisons)) &&
+                    sortUsersByName(project.liaisons).map((item, idx) => renderListItem(item, 'Liaison', idx))
+                }
+                {(projData.hasOwnProperty('members') && Array.isArray(projData.members)) &&
+                    sortUsersByName(project.members).map((item, idx) => renderListItem(item, 'Member', idx))
+                }
+                {(projData.hasOwnProperty('auditors') && Array.isArray(projData.auditors)) &&
+                    sortUsersByName(project.auditors).map((item, idx) => renderListItem(item, 'Auditor', idx))
+                }
+            </List>
+        )
+    };
+
+
+    const renderTeamModalList = (projData) => {
+        let projTeam = [];
+        if (projData.leads && Array.isArray(projData.leads)) {
+            projData.leads.forEach((item) => {
+                projTeam.push({ ...item, role: 'lead', roleDisplay: 'Lead' });
+            });
+        }
+        if (projData.liaisons && Array.isArray(projData.liaisons)) {
+            projData.liaisons.forEach((item) => {
+                projTeam.push({ ...item, role: 'liaison', roleDisplay: 'Liaison' });
+            });
+        }
+        if (projData.members && Array.isArray(projData.members)) {
+            projData.members.forEach((item) => {
+                projTeam.push({ ...item, role: 'member', roleDisplay: 'Member' });
+            });
+        }
+        if (projData.auditors && Array.isArray(projData.auditors)) {
+            projData.auditors.forEach((item) => {
+                projTeam.push({ ...item, role: 'auditor', roleDisplay: 'Auditor' });
+            });
+        }
+        projTeam = sortUsersByName(projTeam);
+        return (
+            <List divided verticalAlign='middle' className='mb-4p'>
+                {projTeam.map((item, idx) => {
+                    return (
+                        <List.Item key={`team-${idx}`}>
+                            <div className='flex-row-div'>
+                                <div className='left-flex'>
+                                    <Image avatar src={item.avatar} />
+                                    <List.Content className='ml-1p'>{item.firstName} {item.lastName}</List.Content>
+                                </div>
+                                <div className='right-flex'>
+                                    <Dropdown
+                                        placeholder='Change role...'
+                                        selection
+                                        options={projectRoleOptions}
+                                        value={item.role}
+                                        loading={teamModalLoading}
+                                        onChange={(_e, { value }) => submitChangeTeamMemberRole(item.uuid, value)}
+                                    />
+                                    <Popup
+                                        position='top center'
+                                        trigger={
+                                            <Button
+                                                color='red'
+                                                className='ml-1p'
+                                                onClick={() => { submitRemoveTeamMember(item.uuid)}}
+                                                icon
+                                            >
+                                                <Icon name='remove circle' />
+                                            </Button>
+                                        }
+                                        content='Remove from project'
+                                    />
+                                </div>
+                            </div>
+                        </List.Item>
+                    )
+                })}
+            </List>
+        )
+    };
+
+
     return(
         <Grid className='component-container'>
             <Grid.Row>
@@ -1820,21 +1956,25 @@ const ProjectView = (props) => {
                                 <Grid.Row>
                                     <Grid.Column>
                                         <Button.Group fluid>
-                                            <Button
-                                                color='blue'
-                                                loading={editModalLoading}
-                                                onClick={openEditInfoModal}
-                                            >
-                                                <Icon name='edit' />
-                                                Edit Properties
-                                            </Button>
-                                            <Button
-                                                color='violet'
-                                                onClick={openCollabsModal}
-                                            >
-                                                <Icon name='users' />
-                                                Manage Team
-                                            </Button>
+                                            {userProjectMember &&
+                                                <Button
+                                                    color='blue'
+                                                    loading={editModalLoading}
+                                                    onClick={openEditInfoModal}
+                                                >
+                                                    <Icon name='edit' />
+                                                    Edit Properties
+                                                </Button>
+                                            }
+                                            {userProjectAdmin &&
+                                                <Button
+                                                    color='violet'
+                                                    onClick={openTeamModal}
+                                                >
+                                                    <Icon name='users' />
+                                                    Manage Team
+                                                </Button>
+                                            }
                                             <Button
                                                 color='olive'
                                                 as={Link}
@@ -1861,38 +2001,45 @@ const ProjectView = (props) => {
                                             </Button>
                                             <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                                                 <Dropdown.Menu>
-                                                    <Dropdown.Item
-                                                        icon={libreAlertEnabled
-                                                            ? (
-                                                                <Icon.Group className='icon'>
-                                                                    <Icon name='alarm' />
-                                                                    <Icon corner name='x' />
-                                                                </Icon.Group>
-                                                            )
-                                                            : <Icon name='alarm' />
-                                                        }
-                                                        text={libreAlertEnabled ? 'Disable LibreTexts Alert' : 'Enable LibreTexts Alert'}
-                                                        onClick={() => {
-                                                            if (libreAlertEnabled) openAlertModal('disable')
-                                                            else openAlertModal('enable')
-                                                        }}
-                                                    />
-                                                    <Dropdown.Item
-                                                        icon={hasFlag
-                                                            ? (
-                                                                <Icon.Group className='icon'>
-                                                                    <Icon name='attention' />
-                                                                    <Icon corner name='x' />
-                                                                </Icon.Group>
-                                                            )
-                                                            : <Icon name='attention' />
-                                                        }
-                                                        text={hasFlag ? 'Clear flag' : 'Flag Project'}
-                                                        onClick={() => {
-                                                            if (hasFlag) openFlagModal('clear')
-                                                            else openFlagModal('set')
-                                                        }}
-                                                    />
+                                                    {userProjectMember &&
+                                                        <Dropdown.Item
+                                                            icon={libreAlertEnabled
+                                                                ? (
+                                                                    <Icon.Group className='icon'>
+                                                                        <Icon name='alarm' />
+                                                                        <Icon corner name='x' />
+                                                                    </Icon.Group>
+                                                                )
+                                                                : <Icon name='alarm' />
+                                                            }
+                                                            text={libreAlertEnabled ? 'Disable LibreTexts Alert' : 'Enable LibreTexts Alert'}
+                                                            onClick={() => {
+                                                                if (libreAlertEnabled) openAlertModal('disable')
+                                                                else openAlertModal('enable')
+                                                            }}
+                                                        />
+                                                    }
+                                                    {userProjectMember &&
+                                                        <Dropdown.Item
+                                                            icon={hasFlag
+                                                                ? (
+                                                                    <Icon.Group className='icon'>
+                                                                        <Icon name='attention' />
+                                                                        <Icon corner name='x' />
+                                                                    </Icon.Group>
+                                                                )
+                                                                : <Icon name='attention' />
+                                                            }
+                                                            text={hasFlag ? 'Clear flag' : 'Flag Project'}
+                                                            onClick={() => {
+                                                                if (hasFlag) openFlagModal('clear')
+                                                                else openFlagModal('set')
+                                                            }}
+                                                        />
+                                                    }
+                                                    {!userProjectMember &&
+                                                        <Dropdown.Item text={<span><em>No actions available.</em></span>} />
+                                                    }
                                                 </Dropdown.Menu>
                                             </Dropdown>
                                         </Button.Group>
@@ -2068,22 +2215,9 @@ const ProjectView = (props) => {
                                                 }
                                                 <Grid.Column>
                                                     <Header as='h3' dividing>Team</Header>
-                                                    <List divided verticalAlign='middle'>
-                                                        <List.Item key={project.owner?.uuid || 'owner'}>
-                                                            <Image avatar src={project.owner?.avatar || '/mini_logo.png'} />
-                                                            <List.Content>
-                                                                {project.owner?.firstName} {project.owner?.lastName} (<em>Lead</em>)
-                                                            </List.Content>
-                                                        </List.Item>
-                                                        {(hasCollabs && project.collaborators.map((item, idx) => {
-                                                            return (
-                                                                <List.Item key={idx}>
-                                                                    <Image avatar src={item.avatar} />
-                                                                    <List.Content>{item.firstName} {item.lastName}</List.Content>
-                                                                </List.Item>
-                                                            )
-                                                        }))}
-                                                    </List>
+                                                    {(Object.keys(project).length > 0) &&
+                                                        renderTeamList(project)
+                                                    }
                                                 </Grid.Column>
                                             </Grid.Row>
                                         </Grid>
@@ -2187,6 +2321,7 @@ const ProjectView = (props) => {
                                                                 </Button>
                                                                 <Button
                                                                     color='purple'
+                                                                    disabled={!userProjectMember}
                                                                     onClick={openBatchModal}
                                                                 >
                                                                     <Icon name='add circle' />
@@ -2196,6 +2331,7 @@ const ProjectView = (props) => {
                                                                     color='green'
                                                                     loading={mngTaskLoading}
                                                                     onClick={() => openManageTaskModal('add')}
+                                                                    disabled={!userProjectMember}
                                                                 >
                                                                     <Icon name='add' />
                                                                     Add Task
@@ -2274,6 +2410,7 @@ const ProjectView = (props) => {
                                                                                                 onClick={() => openManageTaskModal('add', null, item.taskID)}
                                                                                                 icon='add'
                                                                                                 color='green'
+                                                                                                disabled={!userProjectMember}
                                                                                             />
                                                                                         }
                                                                                         position='top center'
@@ -2632,10 +2769,10 @@ const ProjectView = (props) => {
                             </Button>
                         </Modal.Actions>
                     </Modal>
-                    {/* Manage Collaborators Modal */}
+                    {/* Manage Team Modal */}
                     <Modal
-                        open={showCollabsModal}
-                        onClose={closeCollabsModal}
+                        open={showTeamModal}
+                        onClose={closeTeamModal}
                         size='large'
                         closeIcon
                     >
@@ -2645,51 +2782,31 @@ const ProjectView = (props) => {
                                 <Form.Select
                                     search
                                     label='Add Team Member'
-                                    placeholder='Choose...'
-                                    options={collabsUserOptions}
+                                    placeholder='Choose or start typing to search...'
+                                    options={teamUserOptions}
                                     onChange={(_e, { value }) => {
-                                        setCollabsUserToAdd(value);
+                                        setTeamUserToAdd(value);
                                     }}
-                                    value={collabsUserToAdd}
-                                    loading={collabsUserOptsLoading}
-                                    disabled={collabsUserOptsLoading}
+                                    value={teamUserToAdd}
+                                    loading={teamUserOptsLoading}
+                                    disabled={teamUserOptsLoading}
                                 />
                                 <Button
                                     fluid
-                                    disabled={isEmptyString(collabsUserToAdd)}
+                                    disabled={isEmptyString(teamUserToAdd)}
                                     color='green'
-                                    loading={collabsModalLoading}
-                                    onClick={submitAddCollaborator}
+                                    loading={teamModalLoading}
+                                    onClick={submitAddTeamMember}
                                 >
                                     <Icon name='add user' />
                                     Add Team Member
                                 </Button>
                             </Form>
                             <Divider />
-                            <List divided verticalAlign='middle'>
-                                <List.Item key={project.owner?.uuid || 'owner'}>
-                                    <Image avatar src={project.owner?.avatar || '/mini_logo.png'} />
-                                    <List.Content>
-                                        {project.owner?.firstName} {project.owner?.lastName} (<em>Lead</em>)
-                                    </List.Content>
-                                </List.Item>
-                                {(hasCollabs && project.collaborators.map((item, idx) => {
-                                    return (
-                                        <List.Item key={idx}>
-                                            <List.Content floated='right'>
-                                                <Button
-                                                    color='red'
-                                                    onClick={() => submitRemoveCollaborator(item.uuid)}
-                                                >
-                                                    Remove
-                                                </Button>
-                                            </List.Content>
-                                            <Image avatar src={item.avatar} />
-                                            <List.Content>{item.firstName} {item.lastName}</List.Content>
-                                        </List.Item>
-                                    )
-                                }))}
-                            </List>
+                            {!teamModalLoading
+                                ? (Object.keys(project).length > 0 && renderTeamModalList(project))
+                                : <Loader active inline='centered' />
+                            }
                         </Modal.Content>
                     </Modal>
                     {/* Confirm Delete Modal */}
@@ -2840,7 +2957,6 @@ const ProjectView = (props) => {
                             }
                         </Modal.Header>
                         <Modal.Content scrolling id='task-view-content'>
-                            <Loader active={viewTaskLoading} />
                             <div className='flex-col-div'>
                                 <div className='flex-row-div' id='project-task-header'>
                                     <div className='task-detail-div'>
@@ -2852,6 +2968,7 @@ const ProjectView = (props) => {
                                             value={viewTaskData.status}
                                             loading={viewTaskStatusLoading}
                                             onChange={submitTaskStatus}
+                                            disabled={!userProjectMember}
                                         />
                                     </div>
                                     <div className='task-detail-div'>
@@ -2874,9 +2991,10 @@ const ProjectView = (props) => {
                                                     }
                                                     <Icon
                                                         name='pencil'
-                                                        className='pl-4p cursor-pointer'
+                                                        className={`pl-4p ${userProjectMember && 'cursor-pointer'}`}
                                                         onClick={() => editTaskDate('start')}
                                                         color='grey'
+                                                        disabled={!userProjectMember}
                                                     />
                                                 </p>
                                             </div>
@@ -2914,9 +3032,10 @@ const ProjectView = (props) => {
                                                     }
                                                     <Icon
                                                         name='pencil'
-                                                        className='pl-4p cursor-pointer'
+                                                        className={`pl-4p ${userProjectMember && 'cursor-pointer'}`}
                                                         onClick={() => editTaskDate('end')}
                                                         color='grey'
+                                                        disabled={!userProjectMember}
                                                     />
                                                 </p>
                                             </div>
@@ -2972,6 +3091,7 @@ const ProjectView = (props) => {
                                                         icon='add'
                                                         color='green'
                                                         onClick={() => openATAModal(viewTaskData)}
+                                                        disabled={!userProjectMember}
                                                     />
                                                 }
                                                 header={<span><em>Add Assignee</em></span>}
@@ -2987,11 +3107,17 @@ const ProjectView = (props) => {
                                             direction='left'
                                         >
                                             <Dropdown.Menu>
-                                                <Dropdown.Item onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}>
+                                                <Dropdown.Item
+                                                    onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}
+                                                    disabled={!userProjectMember}
+                                                >
                                                     <Icon name='edit' />
                                                     Edit Task
                                                 </Dropdown.Item>
-                                                <Dropdown.Item onClick={() => openDeleteTaskModal(viewTaskData.taskID)}>
+                                                <Dropdown.Item
+                                                    onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
+                                                    disabled={!userProjectMember}
+                                                >
                                                     <Icon name='trash' />
                                                     Delete Task
                                                 </Dropdown.Item>
@@ -3028,6 +3154,7 @@ const ProjectView = (props) => {
                                                                 icon
                                                                 onClick={openATDModal}
                                                                 loading={atdLoading}
+                                                                disabled={!userProjectMember}
                                                             >
                                                                 <Icon name='add' />
                                                             </Button>
@@ -3055,6 +3182,7 @@ const ProjectView = (props) => {
                                                                                     onClick={() => openRTDModal(depend)}
                                                                                     icon='remove circle'
                                                                                     color='red'
+                                                                                    disabled={!userProjectMember}
                                                                                   />
                                                                               }
                                                                               position='top center'
@@ -3134,6 +3262,7 @@ const ProjectView = (props) => {
                                                                     color='green'
                                                                     icon
                                                                     onClick={() => openManageTaskModal('add', null, viewTaskData.taskID)}
+                                                                    disabled={!userProjectMember}
                                                                 >
                                                                     <Icon name='add' />
                                                                 </Button>
@@ -3559,12 +3688,12 @@ const ProjectView = (props) => {
                                                 value: 'campusadmin'
                                             }, {
                                                 key: 'liaison',
-                                                text: 'Project Liaison',
+                                                text: 'Project Liaison(s)',
                                                 value: 'liaison',
-                                                disabled: true
+                                                disabled: (!project.liaisons || project.liaisons && Array.isArray(project.liaisons) && project.liaisons.length === 0)
                                             }, {
                                                 key: 'lead',
-                                                text: 'Project Lead',
+                                                text: 'Project Lead(s)',
                                                 value: 'lead'
                                             }]}
                                             value={flagOption}

@@ -19,7 +19,10 @@ import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
-import { getClassificationText } from '../util/ProjectOptions.js';
+import {
+    getClassificationText,
+    getVisibilityText
+} from '../util/ProjectHelpers.js';
 import { truncateString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -191,22 +194,28 @@ const ProjectsPortal = (props) => {
                             <Table celled>
                                 <Table.Header>
                                     <Table.Row>
-                                        <Table.HeaderCell width={7}><Header sub>Title</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={6}><Header sub>Title</Header></Table.HeaderCell>
                                         <Table.HeaderCell width={2}><Header sub>Progress (C/PR/A11Y)</Header></Table.HeaderCell>
                                         <Table.HeaderCell width={2}><Header sub>Classification</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={2}><Header sub>Visibility</Header></Table.HeaderCell>
                                         <Table.HeaderCell width={2}><Header sub>Lead</Header></Table.HeaderCell>
-                                        <Table.HeaderCell width={3}><Header sub>Last Updated</Header></Table.HeaderCell>
+                                        <Table.HeaderCell width={2}><Header sub>Last Updated</Header></Table.HeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
                                     {(displayProjects.length > 0) &&
                                         displayProjects.map((item, index) => {
                                             const itemDate = new Date(item.updatedAt);
-                                            item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
+                                            item.updatedDate = date.format(itemDate, 'MM/DD/YY');
                                             item.updatedTime = date.format(itemDate, 'h:mm A');
-                                            let projectOwner = 'Unknown User';
-                                            if (item.owner?.firstName && item.owner?.lastName) {
-                                                projectOwner = item.owner.firstName + ' ' + item.owner.lastName;
+                                            let projectLead = 'Unknown';
+                                            if (item.leads && Array.isArray(item.leads)) {
+                                                item.leads.forEach((lead, leadIdx) => {
+                                                    if (lead.firstName && lead.lastName) {
+                                                        if (leadIdx > 0) projectLead += `, ${lead.firstName} ${lead.lastName}`;
+                                                        else if (leadIdx === 0) projectLead = `${lead.firstName} ${lead.lastName}`;
+                                                    }
+                                                });
                                             }
                                             if (!item.hasOwnProperty('peerProgress')) item.peerProgress = 0;
                                             if (!item.hasOwnProperty('a11yProgress')) item.a11yProgress = 0;
@@ -235,13 +244,19 @@ const ProjectsPortal = (props) => {
                                                         </div>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        {(!item.classification || item.classification === '')
-                                                            ? <p><em>Unclassified</em></p>
-                                                            : <p>{getClassificationText(item.classification)}</p>
+                                                        {(typeof(item.classification) === 'string' && item.classification !== '')
+                                                            ? <p>{getClassificationText(item.classification)}</p>
+                                                            : <p><em>Unclassified</em></p>
                                                         }
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <p>{projectOwner}</p>
+                                                        {(typeof(item.visibility) === 'string' && item.visibility !== '')
+                                                            ? <p>{getVisibilityText(item.visibility)}</p>
+                                                            : <p><em>Unknown</em></p>
+                                                        }
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <p>{truncateString(projectLead, 50)}</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <p>{item.updatedDate} at {item.updatedTime}</p>
@@ -252,7 +267,7 @@ const ProjectsPortal = (props) => {
                                     }
                                     {(displayProjects.length === 0) &&
                                         <Table.Row>
-                                            <Table.Cell colSpan={5}>
+                                            <Table.Cell colSpan={6}>
                                                 <p className='text-center'><em>No results found.</em></p>
                                             </Table.Cell>
                                         </Table.Row>

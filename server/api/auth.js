@@ -15,6 +15,7 @@ const { isEmptyString } = require('../util/helpers.js');
 
 const mailAPI = require('./mail.js');
 const axios = require('axios');
+const { match } = require('assert');
 
 
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
@@ -638,39 +639,36 @@ const getCampusAdmins = (campus) => {
 
 
 /**
- * Retrieves either a single object or an array of an object of a user's
- * information with email, uuid, firstName, and lastName.
+ * Retrieves users(s) information with email, uuid, firstName, and lastName.
  * INTERNAL USE ONLY.
- * @param {String}  uuid        - the user's uuid to lookup by
- * @param {Boolean} asArray     - return as object (false) or array (true)
- * @returns {Object|Object[]} a single object or single-object array of the
- *  user's information
+ * @param {String|String[]}  uuid - the user uuid(s) to lookup by
+ * @returns {Object[]} an array of user objects
  */
-const getUserBasicWithEmail = (uuid, asArray) => {
+const getUserBasicWithEmail = (uuid) => {
     return new Promise((resolve, reject) => {
-        if (uuid && !isEmptyString(uuid)) {
-            resolve(User.aggregate([{
-                $match: {
-                    uuid: uuid
-                }
-            }, {
-                $project: {
-                    _id: 0,
-                    uuid: 1,
-                    email: 1,
-                    firstName: 1,
-                    lastName: 1
-                }
-            }]));
-        } else {
-            reject('missinguuid');
-        }
+        /* Validate argument and build match object */
+        let matchObj = {};
+        if (typeof(uuid) === 'string') {
+            matchObj.uuid = uuid;
+        } else if (typeof(uuid) === 'object' && Array.isArray(uuid)) {
+            matchObj.uuid = {
+                $in: uuid
+            };
+        } else reject('missingarg');
+        /* Lookup user(s) */
+        resolve(User.aggregate([{
+            $match: matchObj
+        }, {
+            $project: {
+                _id: 0,
+                uuid: 1,
+                email: 1,
+                firstName: 1,
+                lastName: 1
+            }
+        }]));
     }).then((users) => {
-        if (asArray !== null & asArray === true) {
-            return users;
-        } else {
-            return users[0];
-        }
+        return users;
     }).catch((err) => {
         throw(err);
     });

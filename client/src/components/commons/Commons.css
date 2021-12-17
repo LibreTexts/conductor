@@ -436,6 +436,45 @@
     font-size: 1.07em;
 }
 
+.commons-book-clr-pie {
+    width: 100%;
+    max-height: 250px;
+}
+
+.commons-book-clr-lic-legend {
+    margin: 0 0 0.5em;
+}
+
+.commons-book-clr-overview-flex {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    margin-bottom: 0.5em;
+}
+
+.commons-book-clr-overview-flex > * {
+    flex-grow: 1;
+}
+
+.commons-book-clr-overview-flex > .right {
+    display: flex;
+    justify-content: end;
+}
+
+.commons-book-clr-row:first-child {
+    padding-top: 0.75em !important;
+    padding-bottom: 0 !important;
+}
+
+.commons-book-clr-row:last-child {
+    padding-top: 0 !important;
+}
+
+.commons-book-clr-grid {
+    margin-left: 0.5rem !important;
+}
+
+
 
 /* Powered By (for Campus Commons) */
 #commons-poweredby-tagline {

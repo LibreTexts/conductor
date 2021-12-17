@@ -47,6 +47,10 @@ const ProjectSchema = new Schema({
         type: String,
         enum: ['', ...projectClassifications]
     },
+    leads: [String],            // project leads (privileged) (UUIDs)
+    liaisons: [String],         // project liaisons (campus admins, privileged) (UUIDs)
+    members: [String],          // project team members (semi-privileged) (UUIDs)
+    auditors: [String],         // users with access to view (low-privileged) (UUIDs)
     libreLibrary: String,       // the corresponding LibreText's library
     libreCoverID: String,       // the corresponding LibreText's Coverpage ID
     author: String,             // resource author (if applicable)
@@ -54,10 +58,8 @@ const ProjectSchema = new Schema({
     license: String,            // resource license (if applicable)
     resourceURL: String,        // resource original URL (if applicable)
     projectURL: String,         // the URL where the project exists (if applicable)
-    collaborators: [String],    // all users with access to the project (UUIDs)
     tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
-    owner: String,              // the user who created the project (UUID),
     rdmpReqRemix: Boolean,      // whether the Construction Roadmap indicates remixing is required
     rdmpCurrentStep: String,    // the project's current step in the Construction Roadmap,
     a11yReview: [               // the text section accessibility reviews

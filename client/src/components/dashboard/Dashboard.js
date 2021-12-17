@@ -590,6 +590,13 @@ const Dashboard = (props) => {
                             </Menu.Item>
                         }
                         <Menu.Item
+                            as={Link}
+                            to='/'
+                        >
+                            Commons
+                            <Icon name='handshake' />
+                        </Menu.Item>
+                        <Menu.Item
                             href='https://commons.libretexts.org/harvestrequest'
                             target='_blank'
                             rel='noopener noreferrer'

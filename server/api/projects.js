@@ -34,12 +34,15 @@ const projectListingProjection = {
     currentProgress: 1,
     a11yProgress: 1,
     peerProgress: 1,
-    owner: 1,
     createdAt: 1,
     updatedAt: 1,
     classification: 1,
     flag: 1,
-    flagDescrip: 1
+    flagDescrip: 1,
+    leads: 1,
+    liaisons: 1,
+    members: 1,
+    auditors: 1
 };
 
 
@@ -69,10 +72,12 @@ const createProject = (req, res) => {
         license: '',
         resourceURL: '',
         projectURL: '',
-        collaborators: [],
+        leads: [req.decoded.uuid],
+        liaisons: [],
+        members: [],
+        auditors: [], 
         tags: [],
-        notes: '',
-        owner: req.decoded.uuid
+        notes: ''
     };
     // Apply user values if present
     if (req.body.hasOwnProperty('visibility')) newProjData.visibility = req.body.visibility;
@@ -176,9 +181,9 @@ const createProject = (req, res) => {
 const deleteProject = (req, res) => {
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
-            if ((req.user?.decoded?.uuid === project.owner)) {
+            if (checkProjectAdminPermission(project, req.user)) {
                 return Project.deleteOne({
                     projectID: req.body.projectID
                 });
@@ -260,42 +265,13 @@ const getProject = (req, res) => {
             $lookup: {
                 from: 'users',
                 let: {
-                    collabs: '$collaborators'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $and: [
-                                {
-                                    $expr: {
-                                        $in: ['$uuid', '$$collabs']
-                                    }
-                                }
-                            ]
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'collaborators'
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    owner: '$owner'
+                    members: '$members'
                 },
                 pipeline: [
                     {
                         $match: {
                             $expr: {
-                                $eq: ['$uuid', '$$owner']
+                                $in: ['$uuid', '$$members']
                             }
                         }
                     }, {
@@ -308,17 +284,86 @@ const getProject = (req, res) => {
                         }
                     }
                 ],
-                as: 'owner'
+                as: 'members'
+            }
+        }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    leads: '$leads'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: ['$uuid', '$$leads']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'leads'
+            }
+        }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    liaisons: '$liaisons'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: ['$uuid', '$$liaisons']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'liaisons'
+            }
+        }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    auditors: '$auditors'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: ['$uuid', '$$auditors']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'auditors'
             }
         }, {
             $project: {
                 _id: 0
-            }
-        }, {
-            $set: {
-                owner: {
-                    $arrayElemAt: ['$owner', 0]
-                }
             }
         }
     ]).then((projects) => {
@@ -358,60 +403,11 @@ const getProject = (req, res) => {
 
 
 /**
- * Marks the Project identified by the projectID in the request body as
- * completed.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'completeProject'
- * @param  {object} req  - the express.js request object
- * @param  {[object} res - the express.js response object
- *
- * TODO: Deprecated
- */
-const completeProject = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).then((project) => {
-        if (project) {
-            if ((req.decoded.uuid === project.owner)) {
-                return Project.updateOne({
-                    projectID: req.body.projectID
-                }, {
-                    status: 'completed'
-                });
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Successfully marked project as completed.'
-            });
-        } else {
-            throw(new Error('updatefail')); // handle as generic error below
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: false,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
  * Updates the Project identified by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getProject'
- * @param  {object} req  - the express.js request object
- * @param  {[object} res - the express.js response object
+ * @param  {Object} req - the express.js request object
+ * @param  {Object} res - the express.js response object
  */
 const updateProject = (req, res) => {
     var updateObj = {};
@@ -420,7 +416,7 @@ const updateProject = (req, res) => {
     var sendAlert = false;
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
             if (checkProjectMemberPermission(project, req.user)) {
                 // determine if there are changes to save
@@ -599,8 +595,10 @@ const getUserProjects = (req, res) => {
                 $and: [
                     {
                         $or: [
-                            { owner: req.decoded.uuid },
-                            { collaborators: req.decoded.uuid }
+                            { leads: req.decoded.uuid },
+                            { liaisons: req.decoded.uuid},
+                            { members: req.decoded.uuid },
+                            { auditors: req.decoded.uuid }
                         ]
                     }, {
                         status: {
@@ -613,13 +611,13 @@ const getUserProjects = (req, res) => {
             $lookup: {
                 from: 'users',
                 let: {
-                    owner: '$owner'
+                    leads: '$leads'
                 },
                 pipeline: [
                     {
                         $match: {
                             $expr: {
-                                $eq: ['$uuid', '$$owner']
+                                $in: ['$uuid', '$$leads']
                             }
                         }
                     }, {
@@ -632,13 +630,7 @@ const getUserProjects = (req, res) => {
                         }
                     }
                 ],
-                as: 'owner'
-            }
-        }, {
-            $set: {
-                owner: {
-                    $arrayElemAt: ['$owner', 0]
-                }
+                as: 'leads'
             }
         }, {
             $sort: {
@@ -685,7 +677,7 @@ const getUserFlaggedProjects = (req, res) => {
     }];
     User.findOne({
         uuid: req.decoded.uuid
-    }).then((user) => {
+    }).lean().then((user) => {
         if (user) {
             if (user.roles && Array.isArray(user.roles)) {
                 user.roles.forEach((item) => {
@@ -722,13 +714,13 @@ const getUserFlaggedProjects = (req, res) => {
                     $lookup: {
                         from: 'users',
                         let: {
-                            owner: '$owner'
+                            leads: '$leads'
                         },
                         pipeline: [
                             {
                                 $match: {
                                     $expr: {
-                                        $eq: ['$uuid', '$$owner']
+                                        $in: ['$uuid', '$$leads']
                                     }
                                 }
                             }, {
@@ -741,13 +733,7 @@ const getUserFlaggedProjects = (req, res) => {
                                 }
                             }
                         ],
-                        as: 'owner'
-                    }
-                }, {
-                    $set: {
-                        owner: {
-                            $arrayElemAt: ['$owner', 0]
-                        }
+                        as: 'leads'
                     }
                 }, {
                     $sort: {
@@ -787,8 +773,10 @@ const getRecentProjects = (req, res) => {
                 $and: [
                     {
                         $or: [
-                            { owner: req.decoded.uuid },
-                            { collaborators: req.decoded.uuid }
+                            { leads: req.decoded.uuid },
+                            { liaisons: req.decoded.uuid},
+                            { members: req.decoded.uuid },
+                            { auditors: req.decoded.uuid }
                         ]
                     }, {
                         status: {
@@ -843,13 +831,13 @@ const getAvailableProjects = (req, res) => {
             $lookup: {
                 from: 'users',
                 let: {
-                    owner: '$owner'
+                    leads: '$leads'
                 },
                 pipeline: [
                     {
                         $match: {
                             $expr: {
-                                $eq: ['$uuid', '$$owner']
+                                $in: ['$uuid', '$$leads']
                             }
                         }
                     }, {
@@ -862,13 +850,7 @@ const getAvailableProjects = (req, res) => {
                         }
                     }
                 ],
-                as: 'owner'
-            }
-        }, {
-            $set: {
-                owner: {
-                    $arrayElemAt: ['$owner', 0]
-                }
+                as: 'leads'
             }
         }, {
             $sort: {
@@ -908,11 +890,10 @@ const getCompletedProjects = (req, res) => {
                         status: 'completed'
                     }, {
                         $or: [
-                            {
-                                owner: req.decoded.uuid
-                            }, {
-                                collaborators: req.decoded.uuid
-                            }
+                            { leads: req.decoded.uuid },
+                            { liaisons: req.decoded.uuid },
+                            { members: req.decoded.uuid },
+                            { auditors: req.decoded.uuid }
                         ]
                     }
                 ]
@@ -921,13 +902,13 @@ const getCompletedProjects = (req, res) => {
             $lookup: {
                 from: 'users',
                 let: {
-                    owner: '$owner'
+                    leads: '$leads'
                 },
                 pipeline: [
                     {
                         $match: {
                             $expr: {
-                                $eq: ['$uuid', '$$owner']
+                                $in: ['$uuid', '$$leads']
                             }
                         }
                     }, {
@@ -940,13 +921,7 @@ const getCompletedProjects = (req, res) => {
                         }
                     }
                 ],
-                as: 'owner'
-            }
-        }, {
-            $set: {
-                owner: {
-                    $arrayElemAt: ['$owner', 0]
-                }
+                as: 'leads'
             }
         }, {
             $sort: {
@@ -971,20 +946,21 @@ const getCompletedProjects = (req, res) => {
 
 
 /**
- * Retrieves a list of the Users that can be added to the collaborators list
- * of the project identified by the projectID in the request query.
+ * Retrieves a list of the Users that can be added to the team of the
+ * project identified in the request query.
  * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getAddableCollaborators'
+ * VALIDATION: 'getAddableMembers'
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const getAddableCollaborators = (req, res) => {
+const getAddableMembers = (req, res) => {
     Project.findOne({
         projectID: req.query.projectID
     }).lean().then((project) => {
         if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                var unadd = [project.owner, ...project.collaborators]
+            // check user has permission to add team members
+            if (checkProjectAdminPermission(project, req.user)) {
+                var unadd = constructProjectTeam(project); // can't add existing users
                 return User.aggregate([
                     {
                         $match: {
@@ -1031,25 +1007,25 @@ const getAddableCollaborators = (req, res) => {
 
 
 /**
- * Adds a User to the collaborators list of the project identified
+ * Adds a User to the members list of the project identified
  * by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'addCollaboratorToProject'
+ * VALIDATION: 'addMemberToProject'
  * @param {Object} req - the express.js request object
  * @param {Object} res - the express.js response object
  */
-const addCollaboratorToProject = (req, res) => {
+const addMemberToProject = (req, res) => {
     var userData = {};
     var projectData = {};
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
             projectData = project;
-            // check user has permission to add collaborators
-            if (project.owner === req.user?.decoded?.uuid) {
+            // check user has permission to add members
+            if (checkProjectAdminPermission(project, req.user)) {
                 // check user is not attempting to add themself
-                if (req.body.uuid !== project.owner) {
+                if (req.body.uuid !== req.user?.decoded?.uuid) {
                     // lookup user being added
                     return User.findOne({ uuid: req.body.uuid }).lean();
                 } else {
@@ -1064,12 +1040,12 @@ const addCollaboratorToProject = (req, res) => {
     }).then((user) => {
         if (user) {
             userData = user;
-            // update the project's collaborators list
+            // update the project's members list
             return Project.updateOne({
                 projectID: projectData.projectID
             }, {
                 $addToSet: {
-                    collaborators: userData.uuid
+                    members: userData.uuid
                 }
             });
         } else {
@@ -1086,7 +1062,7 @@ const addCollaboratorToProject = (req, res) => {
         // ignore return value of Mailgun call
         return res.send({
             err: false,
-            msg: 'Successfully added user as collaborator.'
+            msg: 'Successfully added user as team member.'
         });
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1103,27 +1079,59 @@ const addCollaboratorToProject = (req, res) => {
 
 
 /**
- * Adds a User to the collaborators list of the project identified
- * by the projectID in the request body.
+ * Changes a User's role within the team of the Project identified
+ * in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'removeCollaboratorFromProject'
  * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
+ * @param {Object} res - the express.js request object
  */
-const removeCollaboratorFromProject = (req, res) => {
+const changeMemberRole = (req, res) => {
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
-            // check user has permission to remove collaborators
-            if (project.owner === req.user?.decoded?.uuid) {
-                // update the project's collaborators list
+            // check user has permission to manage team members
+            if (checkProjectAdminPermission(project, req.user)) {
+                /* Construct current role listings, remove user, then add user to new role */
+                let projLeads = [];
+                let projLiaisons = [];
+                let projMembers = [];
+                let projAuditors = [];
+                if (project.leads && Array.isArray(project.leads)) projLeads = project.leads;
+                if (project.liaisons && Array.isArray(project.liaisons)) projLiaisons = project.liaisons;
+                if (project.members && Array.isArray(project.members)) projMembers = project.members;
+                if (project.auditors && Array.isArray(project.auditors)) projAuditors = project.auditors;
+                projLeads = projLeads.filter(item => item !== req.body.uuid);
+                projLiaisons = projLiaisons.filter(item => item !== req.body.uuid);
+                projMembers = projMembers.filter(item => item !== req.body.uuid);
+                projAuditors = projAuditors.filter(item => item !== req.body.uuid);
+                switch (req.body.newRole) {
+                    case 'lead':
+                        projLeads.push(req.body.uuid);
+                        break;
+                    case 'liaison':
+                        projLiaisons.push(req.body.uuid);
+                        break;
+                    case 'member':
+                        projMembers.push(req.body.uuid);
+                        break;
+                    case 'auditor':
+                        projAuditors.push(req.body.uuid);
+                        break;
+                    default:
+                        throw(new Error('invalidarg'));
+                };
+                if (projLeads.length === 0) {
+                    throw(new Error('nolead')); // at least one lead must be specified
+                }
+                /* Send update to DB */
                 return Project.updateOne({
                     projectID: project.projectID
                 }, {
-                    $pull: {
-                        collaborators: req.body.uuid
-                    }
+                    leads: projLeads,
+                    liaisons: projLiaisons,
+                    members: projMembers,
+                    auditors: projAuditors
                 });
             } else {
                 throw(new Error('unauth'));
@@ -1135,7 +1143,7 @@ const removeCollaboratorFromProject = (req, res) => {
         if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
-                msg: 'Successfully removed user as collaborator.'
+                msg: 'Successfully removed user from project team.'
             });
         } else {
             throw(new Error('updatefailed')); // handle as generic error below
@@ -1144,6 +1152,74 @@ const removeCollaboratorFromProject = (req, res) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'nolead') errMsg = conductorErrors.err44;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Removes a User from the team of the Project identified in the
+ * request body.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'removeMemberFromProject'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
+ */
+const removeMemberFromProject = (req, res) => {
+    Project.findOne({
+        projectID: req.body.projectID
+    }).lean().then((project) => {
+        if (project) {
+            // check user has permission to remove team members
+            if (checkProjectAdminPermission(project, req.user)) {
+                // update the project's members list
+                let projLeads = [];
+                let projLiaisons = [];
+                let projMembers = [];
+                let projAuditors = [];
+                if (project.leads && Array.isArray(project.leads)) projLeads = project.leads;
+                if (project.liaisons && Array.isArray(project.liaisons)) projLiaisons = project.liaisons;
+                if (project.members && Array.isArray(project.members)) projMembers = project.members;
+                if (project.auditors && Array.isArray(project.auditors)) projAuditors = project.auditors;
+                projLeads = projLeads.filter(item => item !== req.body.uuid);
+                projLiaisons = projLiaisons.filter(item => item !== req.body.uuid);
+                projMembers = projMembers.filter(item => item !== req.body.uuid);
+                projAuditors = projAuditors.filter(item => item !== req.body.uuid);
+                if (projLeads.length === 0) {
+                    throw(new Error('nolead')); // at least one lead must be specified
+                }
+                return Project.updateOne({
+                    projectID: project.projectID
+                }, {
+                    leads: projLeads,
+                    liaisons: projLiaisons,
+                    members: projMembers,
+                    auditors: projAuditors
+                });
+            } else {
+                throw(new Error('unauth'));
+            }
+        } else {
+            throw(new Error('notfound'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Successfully removed user from project team.'
+            });
+        } else {
+            throw(new Error('updatefailed')); // handle as generic error below
+        }
+    }).catch((err) => {
+        var errMsg = conductorErrors.err6;
+        if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
+        else if (err.message === 'nolead') errMsg = conductorErrors.err44;
         return res.send({
             err: true,
             errMsg: errMsg
@@ -1165,14 +1241,10 @@ const flagProject = (req, res) => {
     let flagGroupTitle = null;
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
             projectData = project;
             if (checkProjectMemberPermission(project, req.user)) {
-                // check there is a liaison specified if option is chosen
-                if (req.body.flagOption === 'liaison' && (!project.liaison || isEmptyString(project.liaison))) {
-                    throw(new Error('noliaison'));
-                }
                 if (!req.body.hasOwnProperty('flagDescrip')) {
                     req.body.flagDescrip = '';
                 }
@@ -1191,13 +1263,6 @@ const flagProject = (req, res) => {
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
-            const userProjectOptions = {
-                _id: 0,
-                uuid: 1,
-                email: 1,
-                firstName: 1,
-                lastName: 1
-            };
             switch (req.body.flagOption) {
                 case 'libretexts':
                     flagGroupTitle = 'LibreTexts Administrators';
@@ -1206,11 +1271,11 @@ const flagProject = (req, res) => {
                     flagGroupTitle = 'Campus Administrators';
                     return authAPI.getCampusAdmins(projectData.orgID);
                 case 'liaison':
-                    flagGroupTitle = 'Project Liaison';
-                    return authAPI.getUserBasicWithEmail(projectData.liaison, true);
+                    flagGroupTitle = 'Project Liaisons';
+                    return authAPI.getUserBasicWithEmail(projectData.liaisons);
                 case 'lead':
-                    flagGroupTitle = 'Project Lead';
-                    return authAPI.getUserBasicWithEmail(projectData.owner, true);
+                    flagGroupTitle = 'Project Leads';
+                    return authAPI.getUserBasicWithEmail(projectData.leads);
                 default:
                     throw(new Error('flagoption'));
             }
@@ -1258,7 +1323,7 @@ const clearProjectFlag = (req, res) => {
     let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
             projectData = project;
             if (checkProjectMemberPermission(project, req.user)) {
@@ -1310,10 +1375,10 @@ const setProjectAlert = (req, res) => {
     let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
-    }).then((project) => {
+    }).lean().then((project) => {
         if (project) {
             projectData = project;
-            if (req.user?.decoded?.uuid && checkProjectMemberPermission(project, req.user)) {
+            if (checkProjectMemberPermission(project, req.user)) {
                 let updateObj = {};
                 if (req.body.mode === 'enable') {
                     updateObj['$addToSet'] = {
@@ -1756,19 +1821,8 @@ const createThreadMessage = (req, res) => {
             sentMessage = true;
             sentMsgData = newMsg;
             if (allowNotif) {
-                // construct team members to lookup
-                let projectTeam = [];
-                if (projectData.collaborators && Array.isArray(projectData.collaborators)) {
-                    projectTeam = [...projectData.collaborators];
-                }
-                if (projectData.owner && !isEmptyString(projectData.owner) && uuidValidate(projectData.owner)) {
-                    projectTeam.push(projectData.owner);
-                }
-                if (projectData.liaison && !isEmptyString(projectData.liaison) && uuidValidate(projectData.owner)) {
-                    projectTeam.push(projectData.liaison);
-                }
-                // don't lookup/notify the message author
-                projectTeam = projectTeam.filter(item => item !== req.decoded.uuid);
+                // construct team members to lookup, exclude the author
+                let projectTeam = constructProjectTeam(project, req.user);
                 if (projectTeam.length > 0) {
                     return User.aggregate([
                         {
@@ -1864,7 +1918,7 @@ const deleteThreadMessage = (req, res) => {
                 || (authAPI.checkHasRole(req.user, 'libretexts', 'superadmin'))) {
                     return Message.deleteOne({
                         messageID: req.body.messageID
-                    })
+                    });
             } else {
                 throw(new Error('unauth'));
             }
@@ -2311,31 +2365,33 @@ const importA11YSectionsFromTOC = (req, res) => {
  * @return {Boolean} true if user has permission, false otherwise
  */
 const checkProjectGeneralPermission = (project, user) => {
-    // check if project is public/available, or if the user is the owner or a
-    // collaborator
-    let projMembers = [];
+    /* Get Project Team and extract user UUID */
+    let projTeam = constructProjectTeam(project);
     let userUUID = '';
     if (typeof(user) === 'string') userUUID = user;
     else if (typeof(user) === 'object') {
         if (user.uuid !== undefined) userUUID = user.uuid;
         else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid
     }
-    if (project.hasOwnProperty('owner')) {
-        if (typeof(project.owner) === 'string') projMembers.push(project.owner);
-        else if (typeof(project.owner) === 'object') {
-            if (project.owner?.uuid !== undefined) projMembers.push(project.owner.uuid);
+    /* Check user has permission */
+    if (project.visibility === 'public' || project.status === 'available') {
+        return true; // project is public
+    }
+    if (userUUID !== '') {
+        let foundUser = projTeam.find((item) => {
+            if (typeof(item) === 'string') {
+                return item === userUUID;
+            } else if (typeof(item) === 'object') {
+                return item.uuid === userUUID;
+            }
+            return false;
+        });
+        if (foundUser !== undefined) {
+            return true; // user is in the project team
+        } else {
+            // check if user is a SuperAdmin
+            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
         }
-    }
-    if (project.hasOwnProperty('collaborators') && Array.isArray(project.collaborators)) {
-        projMembers = [projMembers, ...project.collaborators];
-    }
-    if (project.visibility === 'public'
-        || project.status === 'available'
-        || projMembers.push(userUUID)) {
-            return true;
-    } else {
-        // check if user is a SuperAdmin
-        return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
     }
     return false;
 };
@@ -2348,19 +2404,72 @@ const checkProjectGeneralPermission = (project, user) => {
  * @return {Boolean} true if user has permission, false otherwise
  */
 const checkProjectMemberPermission = (project, user) => {
-    // check if the user is the owner or a collaborator
-    let projMembers = constructProjectTeam(project);
+    /* Get Project Team and extract user UUID */
+    let projTeam = constructProjectTeam(project);
     let userUUID = '';
     if (typeof(user) === 'string') userUUID = user;
     else if (typeof(user) === 'object') {
         if (user.uuid !== undefined) userUUID = user.uuid;
         else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
     }
-    if (projMembers.includes(userUUID)) {
-        return true;
-    } else {
-        // check if user is a SuperAdmin
-        return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+    /* Check user has permission */
+    if (userUUID !== '') {
+        let foundUser = projTeam.find((item) => {
+            if (typeof(item) === 'string') {
+                return item === userUUID;
+            } else if (typeof(item) === 'object') {
+                return item.uuid === userUUID;
+            }
+            return false;
+        });
+        if (foundUser !== undefined) {
+            return true; // user is in the project team
+        } else {
+            // check if user is a SuperAdmin
+            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+        }
+    }
+    return false;
+};
+
+
+/**
+ * Checks if a user has permission to perform high-level actions on a Project.
+ * @param {Object} project - the project data object
+ * @param {Object|String} user - the current user context 
+ * @returns {Boolean} true if user has permission, false otherwise
+ */
+const checkProjectAdminPermission = (project, user) => {
+    /* Construct Project Admins and extract user UUID */
+    let projAdmins = [];
+    let userUUID = '';
+    if (typeof(user) === 'string') userUUID = user;
+    else if (typeof(user) === 'object') {
+        if (user.uuid !== undefined) userUUID = user.uuid;
+        else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
+    }
+    if (typeof(project.leads) !== 'undefined' && Array.isArray(project.leads)) {
+        projAdmins = [...projAdmins, ...project.leads];
+    }
+    if (typeof(project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
+        projAdmins = [...projAdmins, ...project.liaisons];
+    }
+    /* Check user has permission */
+    if (userUUID !== '') {
+        let foundUser = projAdmins.find((item) => {
+            if (typeof(item) === 'string') {
+                return item === userUUID;
+            } else if (typeof(item) === 'object') {
+                return item.uuid === userUUID;
+            }
+            return false;
+        });
+        if (foundUser !== undefined) {
+            return true; // user is a project admin
+        } else {
+            // check if user is a SuperAdmin
+            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
+        }
     }
     return false;
 };
@@ -2373,24 +2482,38 @@ const checkProjectMemberPermission = (project, user) => {
  * @returns {String[]} the UUIDs of the project team members
  */
 const constructProjectTeam = (project, exclude) => {
-    let projectTeam = [];
-    if (project.collaborators && Array.isArray(project.collaborators)) {
-        projectTeam = [...project.collaborators];
+    let projTeam = [];
+    if (typeof(project.leads) !== 'undefined' && Array.isArray(project.leads)) {
+        projTeam = [...projTeam, ...project.leads];
     }
-    if (project.owner && !isEmptyString(project.owner) && uuidValidate(project.owner)) {
-        projectTeam.push(project.owner);
+    if (typeof(project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
+        projTeam = [...projTeam, ...project.liaisons];
     }
-    if (project.liaison && !isEmptyString(project.liaison) && uuidValidate(project.owner)) {
-        projectTeam.push(project.liaison);
+    if (typeof(project.members) !== 'undefined' && Array.isArray(project.members)) {
+        projTeam = [...projTeam, ...project.members];
     }
-    if (exclude !== null) {
-        if (typeof(exclude) === 'string') {
-            projectTeam = projectTeam.filter(item => item !== exclude);
-        } else if (typeof(exclude) === 'object' && Array.isArray(exclude) && exclude.length > 0) {
-            projectTeam = projectTeam.filter(item => !exclude.includes(item));
-        }
+    if (typeof(project.auditors) !== 'undefined' && Array.isArray(project.auditors)) {
+        projTeam = [...projTeam, ...project.auditors];
     }
-    return projectTeam;
+    if (typeof(exclude) !== 'undefined') {
+        projTeam = projTeam.filter((item) => {
+            if (typeof(exclude) === 'string') {
+                if (typeof(item) === 'string') {
+                    return item !== exclude;
+                } else if (typeof(item) === 'object') {
+                    return item.uuid !== exclude;
+                }
+            } else if (typeof(exclude) === 'object' && Array.isArray(exclude)) {
+                if (typeof(item) === 'string') {
+                    return !exclude.includes(item);
+                } else if (typeof(item) === 'object' && typeof(item.uuid) !== 'undefined') {
+                    return !exclude.includes(item.uuid);
+                }
+            }
+            return false;
+        });
+    }
+    return projTeam;
 };
 
 
@@ -2470,6 +2593,19 @@ const validateAlertMode = (mode) => {
 
 
 /**
+ * Validate a provided Project role title.
+ * @param {String} role 
+ * @returns {Boolean} true if valid role, false otherwise.
+ */
+const validateProjectRole = (role) => {
+    if (typeof(role) === 'string' && role.length > 0) {
+        return ['lead', 'liaison', 'member', 'auditor'].includes(role);
+    }
+    return false;
+};
+
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -2520,20 +2656,22 @@ const validate = (method) => {
             return [
                 query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
             ]
-        case 'completeProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-            ]
-        case 'getAddableCollaborators':
+        case 'getAddableMembers':
             return [
                 query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
             ]
-        case 'addCollaboratorToProject':
+        case 'addMemberToProject':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
             ]
-        case 'removeCollaboratorFromProject':
+        case 'changeMemberRole':
+            return [
+                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+                body('uuid', conductorErrors.err1).exists().isString().isUUID(),
+                body('newRole', conductorErrors.err1).exists().isString().custom(validateProjectRole)
+            ]
+        case 'removeMemberFromProject':
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('uuid', conductorErrors.err1).exists().isString().isUUID()
@@ -2585,16 +2723,16 @@ module.exports = {
     createProject,
     deleteProject,
     getProject,
-    completeProject,
     updateProject,
     getUserProjects,
     getUserFlaggedProjects,
     getRecentProjects,
     getAvailableProjects,
     getCompletedProjects,
-    getAddableCollaborators,
-    addCollaboratorToProject,
-    removeCollaboratorFromProject,
+    getAddableMembers,
+    addMemberToProject,
+    changeMemberRole,
+    removeMemberFromProject,
     flagProject,
     clearProjectFlag,
     setProjectAlert,

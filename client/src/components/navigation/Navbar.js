@@ -301,23 +301,6 @@ const Navbar = (_props) => {
                         <Image src={`${user.avatar}`} avatar />
                         <Dropdown inline text={user.firstName + ' ' + user.lastName}>
                             <Dropdown.Menu>
-                                {(user.isCampusAdmin || user.isSuperAdmin) &&
-                                    <Dropdown.Item as={Link} to='/controlpanel'>
-                                        <Icon name='dashboard' />
-                                        Control Panel
-                                    </Dropdown.Item>
-                                }
-                                {(user.isCampusAdmin || user.isSuperAdmin) &&
-                                    <Dropdown.Divider />
-                                }
-                                <Dropdown.Item as={Link} to='/' >
-                                    <Icon name='handshake' />
-                                    {(process.env.REACT_APP_ORG_ID === 'libretexts')
-                                        ? 'LibreCommons'
-                                        : 'Campus Commons'
-                                    }
-                                </Dropdown.Item>
-                                <Dropdown.Divider />
                                 <Dropdown.Item as={Link} to='/account' >
                                     <Icon name='settings' />
                                     Settings

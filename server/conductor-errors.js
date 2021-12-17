@@ -37,7 +37,8 @@ const conductorErrors = {
     'err30': "A task can't be marked completed until its subtasks are completed.",
     'err31': "A task cannot be dependent on itself.",
     'err32': "Oops, this project does not have a Project Liaison specified.",
-    'err33': "A task's end date cannot be before its start date."
+    'err33': "A task's end date cannot be before its start date.",
+    'err44': "Oops, at least one team member must be a Project Lead."
 };
 
 module.exports = conductorErrors;

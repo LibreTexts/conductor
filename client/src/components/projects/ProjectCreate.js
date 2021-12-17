@@ -22,7 +22,7 @@ import {
     visibilityOptions,
     statusOptions,
     classificationOptions
-} from '../util/ProjectOptions.js';
+} from '../util/ProjectHelpers.js';
 import { licenseOptions } from '../util/LicenseOptions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';

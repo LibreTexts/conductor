@@ -12,7 +12,7 @@ import { isEmptyString } from './HelperFunctions.js';
  *  TRUE: @lib and @pageID are valid,
  *  FALSE: @lib or @pageID has errors.
  */
-const validateLinkGenArguments = (lib, pageID) => {
+export const validateLinkGenArguments = (lib, pageID) => {
     if ((lib === undefined) || (lib === null) || (isEmptyString(lib)) || (pageID === undefined) ||
         (pageID === null) || (isEmptyString(pageID))) {
         return false;
@@ -28,7 +28,7 @@ const validateLinkGenArguments = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genThumbnailLink = (lib, pageID) => {
+export const genThumbnailLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/files/=mindtouch.page%2523thumbnail`;
     } else {
@@ -44,7 +44,7 @@ const genThumbnailLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genPDFLink = (lib, pageID) => {
+export const genPDFLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Full.pdf`;
     } else {
@@ -60,7 +60,7 @@ const genPDFLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genBookstoreLink = (lib, pageID) => {
+export const genBookstoreLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://libretexts.org/bookstore/single.html?${lib}-${pageID}`;
     } else {
@@ -76,7 +76,7 @@ const genBookstoreLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genZIPLink = (lib, pageID) => {
+export const genZIPLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Individual.zip`;
     } else {
@@ -92,7 +92,7 @@ const genZIPLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genPubFilesLink = (lib, pageID) => {
+export const genPubFilesLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Publication.zip`;
     } else {
@@ -108,7 +108,7 @@ const genPubFilesLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-const genLMSFileLink = (lib, pageID) => {
+export const genLMSFileLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/LibreText.imscc`;
     } else {
@@ -125,7 +125,7 @@ const genLMSFileLink = (lib, pageID) => {
  * live-library link as an optional
  * parameter, @onlineLink.
  */
-const genLinkSet = (lib, pageID, onlineLink) => {
+export const genLinkSet = (lib, pageID, onlineLink) => {
     var linkSet = {};
     if ((onlineLink !== undefined) && (onlineLink !== null)) {
         linkSet.online = onlineLink;
@@ -139,14 +139,32 @@ const genLinkSet = (lib, pageID, onlineLink) => {
         lms: genLMSFileLink(lib, pageID)
     }
     return linkSet;
-}
+};
 
-module.exports = {
-    genThumbnailLink,
-    genPDFLink,
-    genBookstoreLink,
-    genZIPLink,
-    genPubFilesLink,
-    genLMSFileLink,
-    genLinkSet
-}
+/**
+ * Returns the hex color code for a given content license.
+ * @param {String} license - the license to lookup
+ * @returns {String} the license's hex color code
+ */
+ export const getLicenseColor = (license) => {
+    let licenseColors = {
+        arr:          '#981b1e',
+        ccbyncnd:     '#e31c3d',
+        ccbynd:       '#001F3F',
+        ccbyncsa:     '#205493',
+        ccbync:       '#4773aa',
+        ccbysa:       '#0066B2',
+        ccby:         '#2E2787',
+        gnu:          '#4B0082',
+        gnufdl:       '#6F00FF',
+        gnudsl:       '#85144B',
+        publicdomain: '#2e8540',
+        notset:       '#134f5c'
+    };
+    if (typeof(license) === 'string') {
+        if (licenseColors.hasOwnProperty(license)) {
+            return licenseColors[license];
+        }
+    }
+    return '';
+};

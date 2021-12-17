@@ -30,12 +30,14 @@ const {
     genLMSFileLink,
 } = require('../util/bookutils.js');
 const { getBrowserKeyForLib } = require('../util/mtkeys.js');
+const { response } = require('express');
 
 
 /**
- * Accepts a string, @lib, and returns
- * the LibreTexts API URL for the current
+ * Accepts a string, @lib, and returns the LibreTexts API URL for the current
  * Bookshelves listings in that library.
+ * @param {String} lib - the standard shortened library identifier
+ * @returns {String} the URL of the library's Bookshelves listings
  */
 const generateBookshelvesURL = (lib) => {
     if (lib !== 'espanol') {
@@ -46,14 +48,21 @@ const generateBookshelvesURL = (lib) => {
 };
 
 /**
- * Accepts a string, @lib, and returns
- * the LibreTexts API URL for the current
+ * Accepts a string, @lib, and returns the LibreTexts API URL for the current
  * Courses listings in that library.
+ * @param {String} lib - the standard shortened library identifier
+ * @returns {String} the URL of the library's Courses listings
  */
 const generateCoursesURL = (lib) => {
     return `https://api.libretexts.org/DownloadsCenter/${lib}/Courses.json`;
 };
 
+/**
+ * Sorts two strings after normalizing them to contain only letters.
+ * @param {String} a 
+ * @param {String} b 
+ * @returns {Number} the sort order of the two strings
+ */
 const normalizedSort = (a, b) => {
     var normalizedA = String(a).toLowerCase().replace(/[^a-zA-Z]/gm, '');
     var normalizedB = String(b).toLowerCase().replace(/[^a-zA-Z]/gm, '');
@@ -67,9 +76,11 @@ const normalizedSort = (a, b) => {
 };
 
 /**
- * Accepts an array of Books (@books) and
- * a string with the @sortChoice and
+ * Accepts an array of Books and the sorting choice and
  * returns the sorted array.
+ * @param {Object[]} books - the array of Book objects to sort
+ * @param {String}   sortChoice - the sort choice, either 'author' or 'title'
+ * @returns {Object[]} the sorted array of Books
  */
 const sortBooks = (books, sortChoice) => {
     if (Array.isArray(books) && !isEmptyString(sortChoice)) {
@@ -1190,6 +1201,37 @@ const getBookTOCFromLib = (bookID) => {
 
 
 /**
+ * Retrieves a Book's Content Licensing Report from the LibreTexts API
+ * Server and returns the data, if it exists.
+ * @param {Object} req - the Express.js request object
+ * @param {Object} res - the Express.js response object
+ */
+const getLicenseReport = (req, res) => {
+    let notFoundResponse = {
+        err: false,
+        found: false,
+        msg: "Couldn't find a Content Licensing Report for that resource."
+    };
+    axios.get(`https://api.libretexts.org/licensereports/${req.query.bookID}.json`).then((axiosRes) => {
+        if (axiosRes.data?.id) {
+            return res.send({
+                err: false,
+                found: true,
+                msg: `Found Content Licensing Report for ${req.query.bookID}.`,
+                data: axiosRes.data
+            });
+        } else return res.send(notFoundResponse);
+    }).catch((err) => {
+        if (err.response?.status === 404) return res.send(notFoundResponse);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+
+/**
  * Sets up the validation chain(s) for methods in this file.
  */
 const validate = (method) => {
@@ -1231,6 +1273,10 @@ const validate = (method) => {
             return [
                 query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
+        case 'getLicenseReport':
+            return [
+                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
     }
 };
 
@@ -1245,5 +1291,6 @@ module.exports = {
     getBookSummary,
     getBookTOC,
     getBookTOCFromLib,
+    getLicenseReport,
     validate
 };
