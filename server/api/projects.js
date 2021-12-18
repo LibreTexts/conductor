@@ -791,7 +791,7 @@ const getRecentProjects = (req, res) => {
                 title: -1
             }
         }, {
-            $limit: 3
+            $limit: 6
         }, {
             $project: projectListingProjection
         }

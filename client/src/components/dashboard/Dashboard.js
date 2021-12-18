@@ -4,19 +4,23 @@ import {
     Grid,
     Header,
     Menu,
-    List,
     Image,
     Segment,
-    Divider,
     Message,
     Icon,
     Button,
     Modal,
     Form,
-    Feed
+    Loader,
+    Card,
+    Popup
 } from 'semantic-ui-react';
+import {
+    CircularProgressbar,
+    buildStyles
+} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -42,17 +46,11 @@ const Dashboard = (props) => {
 
     /* Data */
     const [announcements, setAnnouncements] = useState([]);
-    const [recentAnnouncement, setRecentAnnouncement] = useState({});
     const [projects, setProjects] = useState([]);
-    const [recentProjects, setRecentProjects] = useState([]);
 
     /* UI */
-    const [currentView, setCurrentView] = useState('home');
     const [loadedAllAnnouncements, setLoadedAllAnnouncements] = useState(false);
-    const [loadedRecentAnnouncement, setLoadedRecentAnnouncement] = useState(false);
     const [loadedAllProjects, setLoadedAllProjects] = useState(false);
-    const [loadedRecentProjects, setLoadedRecentProjects] = useState(false);
-    const [hasRecentAnnouncement, setHasRecentAnnouncement] = useState(false);
     const [showNASuccess, setShowNASuccess] = useState(false);
 
     // New Announcement Modal
@@ -71,113 +69,21 @@ const Dashboard = (props) => {
     // New Member Modal
     const [showNMModal, setShowNMModal] = useState(false);
 
+    /**
+     * Check for query string values and update UI if necessary.
+     */
     useEffect(() => {
         const queryValues = queryString.parse(props.location.search);
         if (queryValues.newmember === 'true') {
             setShowNMModal(true);
         }
-    }, [props.location.search]);
+    }, [props.location.search, setShowNMModal]);
 
     /**
-     * Setup page & title on load and
-     * load recent data.
+     * Loads the 5 most recent announcements via GET
+     * request and updates the UI accordingly.
      */
-    useEffect(() => {
-        document.title = "LibreTexts Conductor | Dashboard";
-        date.plugin(ordinal);
-        // Hook to force message links to open in new window
-        DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-          if ('target' in node) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer')
-          }
-        });
-        getRecentAnnouncement();
-        getRecentProjects();
-    }, []);
-
-    /**
-     * Change the current Dashboard View
-     */
-    useEffect(() => {
-        switch(currentView) {
-            case 'announcements':
-                getAnnouncements();
-                break;
-            case 'projects':
-                getProjects();
-                break;
-            default:
-                break; // silence React warning
-        }
-    }, [currentView]);
-
-    /**
-     * Accepts a standard ISO 8601 @dateInput
-     * and parses the date and time to
-     * human-readable format.
-     */
-    const parseDateAndTime = (dateInput) => {
-        const dateInstance = new Date(dateInput);
-        return {
-            date: date.format(dateInstance, 'ddd, MMM DDD, YYYY'),
-            time: date.format(dateInstance, 'h:mm A')
-        }
-    };
-
-    /**
-     * Load the most recent announcement via GET
-     * request and update the UI accordingly.
-     */
-    const getRecentAnnouncement = () => {
-        axios.get('/announcements/recent').then((res) => {
-            if (!res.data.err) {
-                if (res.data.announcement !== null) {
-                    const { date, time } = parseDateAndTime(res.data.announcement.createdAt);
-                    setRecentAnnouncement({
-                        ...res.data.announcement,
-                        date: date,
-                        time: time
-                    });
-                    setHasRecentAnnouncement(true);
-                } else {
-                    setHasRecentAnnouncement(false);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setLoadedRecentAnnouncement(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setLoadedRecentAnnouncement(true);
-        });
-    };
-
-    /**
-     * Load the most recent project via GET
-     * request and update the UI accordingly.
-     */
-    const getRecentProjects = () => {
-        axios.get('/projects/recent').then((res) => {
-            if (!res.data.err) {
-                if (res.data.projects && Array.isArray(res.data.projects)) {
-                    setRecentProjects(res.data.projects);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setLoadedRecentProjects(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setLoadedRecentProjects(true);
-        });
-    };
-
-    /**
-     * Load the 50 most recent announcements via GET
-     * request and update the UI accordingly.
-     */
-    const getAnnouncements = () => {
+     const getAnnouncements = useCallback(() => {
         axios.get('/announcements/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.announcements && Array.isArray(res.data.announcements)) {
@@ -207,14 +113,14 @@ const Dashboard = (props) => {
             handleGlobalError(err);
             setLoadedAllAnnouncements(true);
         });
-    };
+    }, [setAnnouncements, setLoadedAllAnnouncements, handleGlobalError]);
 
     /**
      * Load the user's active projects via GET
      * request and update the UI accordingly.
      */
-    const getProjects = () => {
-        axios.get('/projects/all').then((res) => {
+    const getProjects = useCallback(() => {
+        axios.get('/projects/recent').then((res) => {
             if (!res.data.err) {
                 if (res.data.projects && Array.isArray(res.data.projects)) {
                     setProjects(res.data.projects);
@@ -227,6 +133,38 @@ const Dashboard = (props) => {
             handleGlobalError(err);
             setLoadedAllProjects(true);
         });
+    }, [setProjects, setLoadedAllProjects, handleGlobalError]);
+
+    /**
+     * Setup page & title on load and
+     * load recent data.
+     */
+    useEffect(() => {
+        document.title = "LibreTexts Conductor | Dashboard";
+        date.plugin(ordinal);
+        // Hook to force message links to open in new window
+        DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+          if ('target' in node) {
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer')
+          }
+        });
+        getProjects();
+        getAnnouncements();
+    }, [getProjects, getAnnouncements]);
+
+    /**
+     * Accepts a standard ISO 8601 date or date-string
+     * and parses the date and time to human-readable format.
+     * @param {String|Date} dateInput - the date to parse
+     * @returns {Object} object with formatted date and time
+     */
+    const parseDateAndTime = (dateInput) => {
+        const dateInstance = new Date(dateInput);
+        return {
+            date: date.format(dateInstance, 'MM/DD/YY'),
+            time: date.format(dateInstance, 'h:mm A')
+        }
     };
 
     /**
@@ -296,7 +234,6 @@ const Dashboard = (props) => {
                 if (!res.data.err) {
                     setShowNASuccess(true);
                     closeNAModal();
-                    getRecentAnnouncement();
                     getAnnouncements();
                 } else {
                     throw(res.data.errMsg);
@@ -357,188 +294,10 @@ const Dashboard = (props) => {
         }
     };
 
-    /**
-     * Render the appropriate Dashboard View
-     * according to the current selected view
-     * in state.
-     */
-    const View = (props) => {
-        switch(currentView) {
-            case 'announcements':
-                return (
-                    <Segment>
-                        <Grid verticalAlign='middle'>
-                            <Grid.Row columns={2}>
-                                <Grid.Column>
-                                    <Header as='h2' className='announcements-header'>
-                                        Announcements <span className='gray-span'>(50 most recent)</span>
-                                    </Header>
-                                </Grid.Column>
-                                <Grid.Column>
-                                    {((user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true) ||
-                                        (user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true)) &&
-                                        <Button color='green' floated='right' onClick={openNAModal}>
-                                            <Icon name='add' />
-                                            New
-                                        </Button>
-                                    }
-                                </Grid.Column>
-                            </Grid.Row>
-                        </Grid>
-                        <Divider />
-                        {showNASuccess &&
-                            <Message
-                                onDismiss={() => setShowNASuccess(false)}
-                                header='Announcement Successfully Posted!'
-                                icon='check circle outline'
-                                positive
-                            />
-                        }
-                        <Segment
-                            basic
-                            className='announcements-segment'
-                            loading={!loadedAllAnnouncements}
-                        >
-                            <Feed>
-                            {announcements.map((item, index) => {
-                                return (
-                                    <Feed.Event key={index} onClick={() => openAVModal(index)} className='announcement'>
-                                        <Feed.Label image={`${item.author.avatar}`} />
-                                        <Feed.Content className='announcement-content'>
-                                            <Feed.Summary>
-                                                {item.title}
-                                                <Feed.Date className='announcement-details'>by {item.author.firstName} {item.author.lastName} on {item.date} at {item.time} </Feed.Date>
-                                            </Feed.Summary>
-                                            <p className='announcement-text' dangerouslySetInnerHTML={{
-                                                __html: DOMPurify.sanitize(marked(truncateString(item.message, 250)))
-                                            }}></p>
-                                        </Feed.Content>
-                                    </Feed.Event>
-                                );
-                            })}
-                            </Feed>
-                            {announcements.length === 0 &&
-                                <p>No recent announcements.</p>
-                            }
-                        </Segment>
-                    </Segment>
-                );
-            case 'projects':
-                return (
-                    <Segment>
-                        <Header as='h2'>Your Projects</Header>
-                        <Divider />
-                        <Segment
-                            basic
-                            loading={!loadedAllProjects}
-                        >
-                            <List
-                                divided
-                                size='large'
-                                relaxed='very'
-                            >
-                            {(projects.length > 0) &&
-                                projects.map((item) => {
-                                    const itemDate = new Date(item.updatedAt);
-                                    item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                                    item.updatedTime = date.format(itemDate, 'h:mm A');
-                                    return (
-                                        <List.Item key={item.projectID} className='dashboard-list-item'>
-                                            <List.Icon name='folder' size='large' verticalAlign='middle' />
-                                            <List.Content>
-                                                <List.Header as={Link} to={`/projects/${item.projectID}`}>
-                                                    {item.title}
-                                                </List.Header>
-                                                <List.Description>
-                                                    <span className='project-meta gray-span'>
-                                                        Last updated on {item.updatedDate} at {item.updatedTime}
-                                                    </span>
-                                                </List.Description>
-                                            </List.Content>
-                                        </List.Item>
-                                    );
-                                })
-                            }
-                            {(projects.length === 0) &&
-                                <p>You don't have any projects right now.</p>
-                            }
-                            </List>
-                        </Segment>
-                    </Segment>
-                );
-            default: // Home
-                return (
-                    <Segment>
-                        <Header as='h2'>Home</Header>
-                        <Divider />
-                        <Segment basic>
-                            <Header size='medium' onClick={() => setCurrentView('announcements')} className='pointer-hover'>
-                                Announcements <span className='gray-span'>(most recent)</span>
-                            </Header>
-                            {!loadedRecentAnnouncement &&
-                                <p><em>Loading...</em></p>
-                            }
-                            {(loadedRecentAnnouncement && hasRecentAnnouncement) &&
-                                <Message icon>
-                                    <Icon name='announcement' circular fitted className='recent-announcement-icon' />
-                                    <Message.Content className='recent-announcement-content'>
-                                        <Message.Header className="recent-announcement-title">{recentAnnouncement.title}</Message.Header>
-                                        <p dangerouslySetInnerHTML={{
-                                            __html: DOMPurify.sanitize(marked(truncateString(recentAnnouncement.message, 250)))
-                                        }}></p>
-                                        <p className='recent-announcement-meta gray-span'>by {recentAnnouncement.author?.firstName} {recentAnnouncement.author?.lastName} on {recentAnnouncement.date} at {recentAnnouncement.time}</p>
-                                    </Message.Content>
-                                </Message>
-                            }
-                            {(loadedRecentAnnouncement && !hasRecentAnnouncement) &&
-                                <p>There are no recent announcements right now.</p>
-                            }
-                        </Segment>
-                        <Divider />
-                        <Segment basic>
-                            <Header size='medium' onClick={() => setCurrentView('projects')} className='pointer-hover'>
-                                Your Projects <span className='gray-span'>(overview)</span>
-                            </Header>
-                            <List divided size='large' relaxed='very'>
-                                {!loadedRecentProjects &&
-                                    <p><em>Loading...</em></p>
-                                }
-                                {(loadedRecentProjects && recentProjects.length > 0) &&
-                                    recentProjects.map((item) => {
-                                        const itemDate = new Date(item.updatedAt);
-                                        item.updatedDate = date.format(itemDate, 'MMM DDD, YYYY');
-                                        item.updatedTime = date.format(itemDate, 'h:mm A');
-                                        return (
-                                            <List.Item key={item.projectID}>
-                                              <List.Icon name='folder' size='large' verticalAlign='middle' />
-                                              <List.Content>
-                                                <List.Header as={Link} to={`/projects/${item.projectID}`}>
-                                                    {item.title}
-                                                </List.Header>
-                                                <List.Description>
-                                                    <span className='project-meta gray-span'>
-                                                        Last updated on {item.updatedDate} at {item.updatedTime}
-                                                    </span>
-                                                </List.Description>
-                                              </List.Content>
-                                            </List.Item>
-                                        );
-                                    })
-                                }
-                                {(loadedRecentProjects && recentProjects.length === 0) &&
-                                    <p>You have no recent projects right now.</p>
-                                }
-                            </List>
-                        </Segment>
-                    </Segment>
-                );
-        }
-    };
-
     return (
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
-                <Grid.Column width={16}>
+                <Grid.Column>
                     <Header className='component-header'>Dashboard</Header>
                 </Grid.Column>
             </Grid.Row>
@@ -552,32 +311,6 @@ const Dashboard = (props) => {
                                 Welcome,<br/>
                                 {user.firstName}
                             </Header>
-                        </Menu.Item>
-                        <Menu.Item
-                            name='home'
-                            onClick={() => setCurrentView('home')}
-                            active={currentView === 'home'}
-                            color={currentView === 'home' ? 'blue' : 'black'}
-                        >
-                            Home
-                        </Menu.Item>
-                        <Menu.Item
-                            name='announcements'
-                            onClick={() => setCurrentView('announcements')}
-                            active={currentView === 'announcements'}
-                            color={currentView === 'announcements' ? 'blue' : 'black'}
-                        >
-                            Announcements
-                        </Menu.Item>
-                        <Menu.Item
-                            name='projects'
-                            onClick={() => setCurrentView('projects')}
-                            active={currentView === 'projects'}
-                            color={currentView === 'projects' ? 'blue' : 'black'}
-                        >
-                            Your Projects
-                        </Menu.Item>
-                        <Menu.Item>&nbsp;
                         </Menu.Item>
                         {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
                             (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
@@ -613,7 +346,9 @@ const Dashboard = (props) => {
                             <Icon name='clipboard check' />
                         </Menu.Item>
                         <Menu.Item
-                            disabled
+                            href='https://commons.libretexts.org/accountrequest'
+                            target='_blank'
+                            rel='noopener noreferrer'
                         >
                             Account Request
                             <Icon name='share alternate' />
@@ -628,10 +363,142 @@ const Dashboard = (props) => {
                         </Menu.Item>
                     </Menu>
                 </Grid.Column>
-                <Grid.Column width={13}>
-                    <View />
+                <Grid.Column width={8}>
+                    <Segment padded>
+                        <div className='dividing-header-custom'>
+                            <h3>Your Projects <span className='gray-span'>(recently updated)</span></h3>
+                            <div className='right-flex'>
+                                    <Popup
+                                        content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}
+                                        trigger={
+                                            <Icon name='info circle' className='cursor-pointer' />
+                                        }
+                                        position='top center'
+                                    />
+                                </div>
+                        </div>
+                        <Segment
+                            basic
+                            loading={!loadedAllProjects}
+                        >
+                            <Card.Group itemsPerRow={2}>
+                                {(projects.length > 0) &&
+                                    projects.map((item) => {
+                                        const itemDate = new Date(item.updatedAt);
+                                        item.updatedDate = date.format(itemDate, 'MM/DD/YY');
+                                        item.updatedTime = date.format(itemDate, 'h:mm A');
+                                        return (
+                                            <Card key={item.projectID} raised>
+                                                <div className='flex-col-div project-card-content'>
+                                                    <Link as='h4' className='project-card-title' to={`/projects/${item.projectID}`}>{truncateString(item.title, 100)}</Link>
+                                                    <span className='muted-text project-card-lastupdate'>Last updated {item.updatedDate} at {item.updatedTime}</span>
+                                                    <div className='flex-row-div'>
+                                                        <div className='project-card-progress-container'>
+                                                            <CircularProgressbar
+                                                                value={item.currentProgress || 0}
+                                                                strokeWidth={5}
+                                                                circleRatio={0.75}
+                                                                styles={buildStyles({
+                                                                    rotation: 1 / 2 + 1 / 8,
+                                                                    pathColor: '#127BC4',
+                                                                    textColor: '#127BC4',
+                                                                    strokeLinecap: 'butt'
+                                                                })}
+                                                            />
+                                                        </div>
+                                                        <div className='project-card-progress-container'>
+                                                            <CircularProgressbar
+                                                                value={item.peerProgress || 0}
+                                                                strokeWidth={5}
+                                                                circleRatio={0.75}
+                                                                styles={buildStyles({
+                                                                    rotation: 1 / 2 + 1 / 8,
+                                                                    pathColor: '#f2711c',
+                                                                    textColor: '#f2711c',
+                                                                    strokeLinecap: 'butt'
+                                                                })}
+                                                            />
+                                                        </div>
+                                                        <div className='project-card-progress-container'>
+                                                            <CircularProgressbar
+                                                                value={item.a11yProgress || 0}
+                                                                strokeWidth={5}
+                                                                circleRatio={0.75}
+                                                                styles={buildStyles({
+                                                                    rotation: 1 / 2 + 1 / 8,
+                                                                    pathColor: '#00b5ad',
+                                                                    textColor: '#00b5ad',
+                                                                    strokeLinecap: 'butt'
+                                                                })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        );
+                                    })
+                                }
+                                {(projects.length === 0) &&
+                                    <p>You don't have any projects right now.</p>
+                                }
+                            </Card.Group>
+                        </Segment>
+                    </Segment>
+                </Grid.Column>
+                <Grid.Column width={5}>
+                    <Segment padded>
+                        <div className='dividing-header-custom'>
+                            <h3>Announcements <span className='gray-span'>(most recent)</span></h3>
+                            {(user.isCampusAdmin === true || user.isSuperAdmin === true) &&
+                                <div className='right-flex'>
+                                    <Popup
+                                        content='New Announcement'
+                                        trigger={
+                                            <Button color='green' onClick={openNAModal} icon circular>
+                                                <Icon name='add' />
+                                            </Button>
+                                        }
+                                        position='top center'
+                                    />
+                                </div>
+                            }
+                        </div>
+                        {showNASuccess &&
+                            <Message
+                                onDismiss={() => setShowNASuccess(false)}
+                                header='Announcement Successfully Posted!'
+                                icon='check circle outline'
+                                positive
+                            />
+                        }
+                        <div className='announcements-list'>
+                            <Loader active={!loadedAllAnnouncements} inline='centered' className='mt-4p' />
+                            {announcements.map((item, index) => {
+                                return (
+                                    <div className='flex-col-div announcement' key={index} onClick={() => openAVModal(index)}>
+                                        <div className='flex-row-div'>
+                                            <div className='announcement-avatar-container'>
+                                                <Image src={item.author.avatar} size='mini' avatar />
+                                            </div>
+                                            <div className='flex-col-div announcement-meta-container'>
+                                                <span className='announcement-meta-title'>{item.title}</span>
+                                                <span className='muted-text announcement-meta-date'><em>{item.author.firstName} {item.author.lastName}</em> &bull; {item.date} at {item.time}</span>
+                                            </div>
+                                        </div>
+                                        <p className='announcement-text' dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(marked(truncateString(item.message, 200)))
+                                        }}></p>
+                                    </div>
+                                );
+                            })}
+                            {(loadedAllAnnouncements && announcements.length === 0) &&
+                                <p className='text-center mt-4p'>No recent announcements.</p>
+                            }
+                        </div>
+                    </Segment>
                 </Grid.Column>
             </Grid.Row>
+            {/* New Announcement Modal */}
             <Modal
                 onClose={closeNAModal}
                 open={showNAModal}

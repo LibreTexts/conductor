@@ -98,10 +98,28 @@ const threePartDateStringToDate = (value) => {
 };
 
 
+/**
+ * Returns an array of strings with duplicates filtered out.
+ * @param {String[]} arr - the array to filter.
+ * @returns {String[]} the unique array of strings
+ */
+const ensureUniqueStringArray = (arr) => {
+    if (Array.isArray(arr)) {
+        let uniqueValues = [];
+        arr.forEach((item) => {
+            if (!uniqueValues.includes(item)) uniqueValues.push(item);
+        });
+        return uniqueValues;
+    }
+    return [];
+};
+
+
 module.exports = {
     isEmptyString,
     truncateString,
     buildOrgArray,
     validateUUIDArray,
-    threePartDateStringToDate
+    threePartDateStringToDate,
+    ensureUniqueStringArray
 };

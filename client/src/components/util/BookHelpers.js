@@ -142,29 +142,29 @@ export const genLinkSet = (lib, pageID, onlineLink) => {
 };
 
 /**
- * Returns the hex color code for a given content license.
- * @param {String} license - the license to lookup
+ * Returns the hex color code for UI presentation of a given content license.
+ * @param {String} license - the license identifier to lookup
  * @returns {String} the license's hex color code
  */
  export const getLicenseColor = (license) => {
+    // Colors are (at least) WCAG AA compliant on a pure white background
     let licenseColors = {
-        arr:          '#981b1e',
-        ccbyncnd:     '#e31c3d',
-        ccbynd:       '#001F3F',
-        ccbyncsa:     '#205493',
-        ccbync:       '#4773aa',
-        ccbysa:       '#0066B2',
-        ccby:         '#2E2787',
-        gnu:          '#4B0082',
-        gnufdl:       '#6F00FF',
-        gnudsl:       '#85144B',
-        publicdomain: '#2e8540',
-        notset:       '#134f5c'
+        arr:            '#e52107',
+        ccbyncnd:       '#92348c',
+        ccbynd:         '#d82d79',
+        ccbyncsa:       '#0a7fa0',
+        ccbync:         '#b21e38',
+        ccbysa:         '#0051d8',
+        ccby:           '#9255de',
+        gnu:            '#6a7d00',
+        gnufdl:         '#008480',
+        gnudsl:         '#4865ff',
+        publicdomain:   '#018715',
+        fairuse:        '#CF4900',
+        notset:         '#001F3F'
     };
-    if (typeof(license) === 'string') {
-        if (licenseColors.hasOwnProperty(license)) {
-            return licenseColors[license];
-        }
+    if (typeof(license) === 'string' && licenseColors.hasOwnProperty(license)) {
+        return licenseColors[license];
     }
     return '';
 };

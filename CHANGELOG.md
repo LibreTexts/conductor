@@ -1,5 +1,19 @@
 # Changelog
 
+## 12-18-2021
+#### :art: UI/UX
+* Upgraded Book Licensing UI in Commons
+    * New colors, styling, page counts, and Applicable Restrictions
+* Library shelf listings in Commons now also link to the library itself
+* Fixed date presentation in messaging interfaces
+* Updated breadcrumb navigation in Commons to be more consistent
+* Revamped the Dashboard UI
+* Implemented the UI for Instructor Account(s) Requests
+
+#### :satellite: Server
+* Implemented logic for submitting and managing Instructor Account(s) Requests
+
+
 ## 12-15-2021
 #### :art: UI/UX
 * Implemented Book Licensing UI in Commons

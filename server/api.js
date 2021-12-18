@@ -13,6 +13,7 @@ const middleware = require('./middleware.js');
 const authAPI = require('./api/auth.js');
 const usersAPI = require('./api/users.js');
 const orgsAPI = require('./api/organizations.js');
+const accountRequestsAPI = require('./api/accountrequests.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
@@ -118,19 +119,21 @@ router.route('/translationfeedback/export').get(middleware.checkLibreCommons,
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)
 router.route('/harvestingrequest')
-    .post(authAPI.optionalVerifyRequest,
-        middleware.checkLibreCommons,
+    .post(middleware.checkLibreCommons,
+        authAPI.optionalVerifyRequest,
         harvestingRequestsAPI.validate('addRequest'),
         middleware.checkValidationErrors,
         harvestingRequestsAPI.addRequest)
-    .delete(authAPI.verifyRequest,
+    .delete(middleware.checkLibreCommons,
+        authAPI.verifyRequest,
         authAPI.getUserAttributes,
         authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
         harvestingRequestsAPI.validate('deleteRequest'),
         middleware.checkValidationErrors,
         harvestingRequestsAPI.deleteRequest);
 
-router.route('/harvestingrequest/convert').post(authAPI.verifyRequest,
+router.route('/harvestingrequest/convert').post(middleware.checkLibreCommons,
+    authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     harvestingRequestsAPI.validate('convertRequest'),
@@ -138,10 +141,46 @@ router.route('/harvestingrequest/convert').post(authAPI.verifyRequest,
     harvestingRequestsAPI.convertRequest);
 
 router.route('/harvestingrequests').get(middleware.checkLibreCommons,
-    authAPI.verifyRequest, authAPI.getUserAttributes,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     harvestingRequestsAPI.validate('getRequests'),
-    middleware.checkValidationErrors, harvestingRequestsAPI.getRequests);
+    middleware.checkValidationErrors,
+    harvestingRequestsAPI.getRequests);
+
+
+/* Library/Service Account Requests */
+// (submission route can be anonymous)
+router.route('/accountrequest')
+    .post(middleware.checkLibreCommons,
+        authAPI.optionalVerifyRequest,
+        accountRequestsAPI.validate('submitRequest'),
+        middleware.checkValidationErrors,
+        accountRequestsAPI.submitRequest)
+    .delete(middleware.checkLibreCommons,
+        authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+        accountRequestsAPI.validate('deleteRequest'),
+        middleware.checkValidationErrors,
+        accountRequestsAPI.deleteRequest);
+
+router.route('/accountrequest/complete').put(middleware.checkLibreCommons,
+        authAPI.verifyRequest,
+        authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+        accountRequestsAPI.validate('completeRequest'),
+        middleware.checkValidationErrors,
+        accountRequestsAPI.completeRequest);
+
+router.route('/accountrequests').get(middleware.checkLibreCommons,
+        authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+        middleware.checkValidationErrors,
+        accountRequestsAPI.getRequests);
+
 
 
 /* Commons Collections */

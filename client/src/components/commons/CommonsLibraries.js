@@ -131,17 +131,6 @@ const CommonsLibraries = (_props) => {
                 <Grid.Column>
                     <Segment.Group raised>
                         <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section active>
-                                    <span>
-                                        <span className='muted-text'>You are on: </span>
-                                        Libraries
-                                    </span>
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
                             <Breakpoint name='tabletOrDesktop'>
                                 <div className='commons-content-pagemenu'>
                                     <div className='commons-content-pagemenu-left'>

@@ -8,6 +8,7 @@ const libraries = [
         key: 'bio',
         name: 'Biology',
         thumbnail: '/libicons/bio.png',
+        link: 'https://bio.libretexts.org',
         shelves: [
             {
             	name: 'Biotechnology',
@@ -59,6 +60,7 @@ const libraries = [
         key: 'biz',
         name: 'Business',
         thumbnail: '/libicons/biz.png',
+        link: 'https://biz.libretexts.org',
         shelves: [
             {
             	name: 'Accounting',
@@ -90,6 +92,7 @@ const libraries = [
         key: 'chem',
         name: 'Chemistry',
         thumbnail: '/libicons/chem.png',
+        link: 'https://chem.libretexts.org',
         shelves: [
             {
             	name: 'Analytical',
@@ -129,6 +132,7 @@ const libraries = [
         key: 'eng',
         name: 'Engineering',
         thumbnail: '/libicons/eng.png',
+        link: 'https://eng.libretexts.org',
         shelves: [
             {
             	name: 'Aerospace',
@@ -180,6 +184,7 @@ const libraries = [
         key: 'espanol',
         name: 'Español',
         thumbnail: '/libicons/espanol.png',
+        link: 'https://espanol.libretexts.org',
         shelves: [
             {
                 name: 'Ciencias Sociales',
@@ -223,6 +228,7 @@ const libraries = [
         key: 'geo',
         name: 'Geosciences',
         thumbnail: '/libicons/geo.png',
+        link: 'https://geo.libretexts.org',
         shelves: [
             {
             	name: 'Geography',
@@ -258,6 +264,7 @@ const libraries = [
         key: 'human',
         name: 'Humanities',
         thumbnail: '/libicons/human.png',
+        link: 'https://human.libretexts.org',
         shelves: [
             {
             	name: 'Art',
@@ -313,6 +320,7 @@ const libraries = [
         key: 'k12',
         name: 'K12 Education',
         thumbnail: '/libicons/k12.png',
+        link: 'https://k12.libretexts.org',
         shelves: [
             {
             	name: 'Composition',
@@ -372,6 +380,7 @@ const libraries = [
         key: 'math',
         name: 'Mathematics',
         thumbnail: '/libicons/math.png',
+        link: 'https://math.libretexts.org',
         shelves: [
             {
             	name: 'Abstract & Geometric Algebra',
@@ -435,6 +444,7 @@ const libraries = [
         key: 'med',
         name: 'Medicine',
         thumbnail: '/libicons/med.png',
+        link: 'https://med.libretexts.org',
         shelves: [
             {
             	name: 'Allied Health',
@@ -474,6 +484,7 @@ const libraries = [
         key: 'phys',
         name: 'Physics',
         thumbnail: '/libicons/phys.png',
+        link: 'https://phys.libretexts.org',
         shelves: [
             {
             	name: 'Astronomy & Cosmoloogy',
@@ -537,6 +548,7 @@ const libraries = [
         key: 'socialsci',
         name: 'Social Sciences',
         thumbnail: '/libicons/socialsci.png',
+        link: 'https://socialsci.libretexts.org',
         shelves: [
             {
             	name: 'Anthropology',
@@ -592,6 +604,7 @@ const libraries = [
         key: 'stats',
         name: 'Statistics',
         thumbnail: '/libicons/stats.png',
+        link: 'https://stats.libretexts.org',
         shelves: [
             {
             	name: 'Applied Statistics',
@@ -619,6 +632,7 @@ const libraries = [
         key: 'workforce',
         name: 'Workforce',
         thumbnail: '/libicons/workforce.png',
+        link: 'https://workforce.libretexts.org',
         shelves: [
             {
             	name: 'Allied Health',

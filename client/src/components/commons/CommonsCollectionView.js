@@ -9,7 +9,8 @@ import {
     Input,
     Card,
     Table,
-    Header
+    Header,
+    Breadcrumb
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -295,6 +296,20 @@ const CommonsCollectionView = (props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/collections'>
+                                    <span>
+                                        <span className='muted-text'>You are on: </span>
+                                        Collections
+                                    </span>
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    {collName}
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
                         <Segment>
                             <Breakpoint name='desktop'>
                                 <Header size='large' as='h2'>{collName}</Header>

@@ -55,6 +55,18 @@ const ControlPanel = () => {
                                         <List relaxed='very' divided selection>
                                             <List.Item
                                                 as={Link}
+                                                to='/controlpanel/accountrequests'
+                                            >
+                                                <Icon name='user plus' />
+                                                <List.Content>
+                                                    <List.Header>Account Requests</List.Header>
+                                                    <List.Description>
+                                                        View Account Requests submitted to the Conductor platform
+                                                    </List.Description>
+                                                </List.Content>
+                                            </List.Item>
+                                            <List.Item
+                                                as={Link}
                                                 to='/controlpanel/adoptionreports'
                                             >
                                                 <Icon name='chart line' />

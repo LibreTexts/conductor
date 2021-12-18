@@ -166,10 +166,8 @@ const ConductorChatUI = ({
                                 const itemDate = new Date(item.createdAt);
                                 if (today.getDate() === itemDate.getDate()) { // today
                                     item.date = 'Today';
-                                } else if ((today.getDate() - itemDate.getDate()) >= 7) { // a week ago
+                                } else {
                                     item.date = date.format(itemDate, 'MMM DDD, YYYY')
-                                } else { // this week
-                                    item.date = date.format(itemDate, 'dddd');
                                 }
                                 item.time = date.format(itemDate, 'h:mm A');
                                 const readyMsgBody = {

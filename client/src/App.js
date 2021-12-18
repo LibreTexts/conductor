@@ -22,6 +22,7 @@ import ResetPassword from './components/auth/ResetPassword.js';
 import Commons from './components/commons/Commons.js';
 import AdoptionReportPage from './components/adoptionreport/AdoptionReportPage.js';
 import HarvestRequest from './components/harvestrequest/HarvestRequest.js';
+import AccountRequest from './components/accountrequest/AccountRequest.js';
 
 /* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
@@ -31,6 +32,7 @@ import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
 
 import ControlPanel from './components/controlpanel/ControlPanel.js';
+import AccountRequests from './components/controlpanel/AccountRequests.js';
 import AdoptionReports from './components/controlpanel/AdoptionReports.js';
 import BooksManager from './components/controlpanel/BooksManager.js';
 import CampusSettings from './components/controlpanel/CampusSettings.js';
@@ -104,6 +106,7 @@ function App() {
                     <PrivateRoute exact path = '/account' component={AccountSettings} />
 
                     <PrivateRoute exact path = '/controlpanel' component={ControlPanel} />
+                        <PrivateRoute exact path = '/controlpanel/accountrequests' component={AccountRequests} />
                         <PrivateRoute exact path = '/controlpanel/adoptionreports' component={AdoptionReports} />
                         <PrivateRoute exact path = '/controlpanel/booksmanager' component={BooksManager} />
                         <PrivateRoute exact path = '/controlpanel/campussettings' component={CampusSettings} />
@@ -115,6 +118,9 @@ function App() {
 
                     {process.env.REACT_APP_ORG_ID === 'libretexts' &&
                         <Route exact path = '/harvestrequest' component={HarvestRequest} />
+                    }
+                    {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                        <Route exact path = '/accountrequest' component={AccountRequest} />
                     }
 
                     {/* 404 */}

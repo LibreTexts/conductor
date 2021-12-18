@@ -175,6 +175,11 @@ body {
     cursor: pointer;
 }
 
+/** padding-top **/
+.pt-2p {
+    padding-top: 2% !important;
+}
+
 /** padding-left **/
 .pl-4p {
     padding-left: 4% !important;
@@ -183,6 +188,10 @@ body {
 /** margin-top **/
 .mt-05p {
     margin-top: 0.5% !important;
+}
+
+.mt-1e {
+    margin-top: 1em !important;
 }
 
 .mt-1p {

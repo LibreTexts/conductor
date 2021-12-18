@@ -1,57 +1,82 @@
+/* Welcome Menu */
 .menu-avatar {
     margin-bottom: 2%;
     height: 4em !important;
     width: 4em !important;
 }
 
-.recent-announcement-content {
-    margin-left: 1% !important;
+/* Your Projects */
+.project-card-title {
+    font-size: 1.15em !important;
+    color: rgba(0,0,0,.85);
+    font-weight: 600;
 }
 
-.recent-announcement-title {
-    margin-bottom: 1% !important;
+.project-card-lastupdate {
+    font-size: 0.9em !important;
+    margin-top: 0.2em;
+    margin-bottom: 1em;
 }
 
-.recent-announcement-meta {
-    display: block;
-    margin-top: 1%;
+.project-card-content {
+    padding: 1em;
+    flex-grow: 1;
 }
 
-.announcements-header {
-    display: inline-block !important;
+.project-card-content > div {
+    flex: 1;
 }
 
-.announcements-segment {
-    padding-top: 0 !important;
+.project-card-progress-container {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: center;
+    justify-content: end;
+    padding-left: 4%;
+    padding-right: 4%;
 }
 
-.dashboard-list-item {
-    cursor: pointer !important;
-}
-
-.announcement {
-    border-bottom: 1px solid rgba(34,36,38,.15);
-    padding: 0.5em 0 0.5em 0 !important;
-    margin-bottom: 0.5em !important;
-}
+/* Announcements */
 
 .announcement:hover {
     cursor: pointer !important;
 }
 
-.announcement-content {
-    margin-top: 0 !important;
+.announcement:not(:last-child) {
+    border-bottom: 1px solid rgba(34,36,38,.15);
+}
+
+.announcement:not(:first-child) {
+    margin-top: 4%;
 }
 
 .announcement-text {
     margin-top: 0.5em;
 }
 
-.announcement-details {
-    display: block !important;
-    margin: 0 !important;
-}
-
 .announcement-view-text {
     margin: 1em 0 1em 0;
+}
+
+.announcement-avatar-container {
+    display: flex;
+    align-items: start;
+}
+
+.announcement-meta-container {
+    margin-left: 2%;
+}
+
+.announcement-meta-title {
+    font-size: 1em;
+    font-weight: 650;
+}
+
+.announcement-meta-date {
+    font-size: .85714286em;
+}
+
+.announcements-list {
+    padding: 0.5em 1em 0.5em;
 }

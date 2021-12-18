@@ -304,10 +304,10 @@ const convertRequest = (req, res) => {
             msg: 'OER Integration Request successfully converted to project.'
         });
     }).catch((err) => {
-        console.log(err);
+        debugError(err);
         let errMsg = conductorErrors.err6;
         if (err.msg === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.msg === 'createfail' || err.msg === 'updateFail') errrMsg = conductorErrors.err3;
+        else if (err.msg === 'createfail' || err.msg === 'updateFail') errMsg = conductorErrors.err3;
         return res.send({
             err: false,
             errMsg: errMsg

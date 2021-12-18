@@ -33,14 +33,13 @@ const checkValidationErrors = (req, res, next) => {
 /**
  * Checks that the route is being run on a LibreCommons server,
  * verified via an environment variable.
- * @param {Object} req    - the route request object
- * @param {Object} res    - the route response object
- * @param {function} next - the route's next middleware function to be ran
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ * @param {Object} next - the next function in the middleware chain.
  */
 const checkLibreCommons = (_req, res, next) => {
-    if (process.env.ORG_ID === 'libretexts') {
-            next();
-    } else {
+    if (process.env.ORG_ID === 'libretexts') return next();
+    else {
         return res.status(403).send({
             err: true,
             msg: conductorErrors.err4

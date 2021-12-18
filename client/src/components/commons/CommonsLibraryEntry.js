@@ -23,6 +23,7 @@ const CommonsLibraryEntry = (props) => {
 
     // Data
     const [libName, setLibName] = useState('');
+    const [libLink, setLibLink] = useState('');
     const [libShelves, setLibShelves] = useState([]);
 
     /** UI **/
@@ -58,6 +59,9 @@ const CommonsLibraryEntry = (props) => {
                 if (res.data.libName) {
                     setLibName(res.data.libName);
                 }
+                if (res.data.libLink) {
+                    setLibLink(res.data.libLink);
+                }
                 if (res.data.shelves && Array.isArray(res.data.shelves)) {
                     setLibShelves(res.data.shelves);
                 }
@@ -79,7 +83,10 @@ const CommonsLibraryEntry = (props) => {
                         <Segment>
                             <Breadcrumb>
                                 <Breadcrumb.Section as={Link} to='/libraries'>
-                                    Libraries
+                                    <span>
+                                        <span className='muted-text'>You are on: </span>
+                                        Libraries
+                                    </span>
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                                 <Breadcrumb.Section active>
@@ -89,10 +96,10 @@ const CommonsLibraryEntry = (props) => {
                         </Segment>
                         <Segment>
                             <Breakpoint name='desktop'>
-                                <Header size='large' as='h2'>{libName}</Header>
+                                <Header size='large' as='h2'><a href={libLink} target='_blank' rel='noopener noreferrer'>{libName}</a></Header>
                             </Breakpoint>
                             <Breakpoint name='mobileOrTablet'>
-                                <Header size='large' textAlign='center'>{libName}</Header>
+                                <Header size='large' textAlign='center'><a href={libLink} target='_blank' rel='noopener noreferrer'>{libName}</a></Header>
                             </Breakpoint>
                         </Segment>
                         <Segment loading={!loadedData}>

@@ -702,8 +702,11 @@ const verifyRequest = (req, res, next) => {
 
 
 /**
- * Middleware to optionally verify a request if
- * authorization headers are present.
+ * Middleware to optionally verify a request if authorization
+ * headers are present.
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ * @param {Object} next - the next function in the middleware chain.
  */
 const optionalVerifyRequest = (req, res, next) => {
     if (req.headers.authorization) return verifyRequest(req, res, next);

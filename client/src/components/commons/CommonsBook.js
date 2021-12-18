@@ -1,5 +1,6 @@
 import './Commons.css';
 
+import { Link } from 'react-router-dom';
 import {
     Grid,
     Image,
@@ -7,9 +8,9 @@ import {
     Segment,
     Header,
     Button,
-    Accordion,
     List,
-    Popup
+    Breadcrumb,
+    Accordion
 } from 'semantic-ui-react';
 import { PieChart } from 'react-minimal-pie-chart';
 import React, { useEffect, useState } from 'react';
@@ -80,10 +81,13 @@ const CommonsBook = (props) => {
             }
         }).then((res) => {
             if (!res.data.err) {
-                setBook(res.data.book);
-                getBookSummary();
-                getBookTOC();
-                getBookLicenseReport();
+                if (res.data.book) {
+                    res.data.book.license = ''; // hotfix for new license infrastructure
+                    setBook(res.data.book);
+                    getBookSummary();
+                    getBookTOC();
+                    getBookLicenseReport();
+                }
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -213,7 +217,7 @@ const CommonsBook = (props) => {
 
 
     /**
-     * Attempts to retrieve the resource's Content Licensing Report
+     * Attempts to retrieve the resource's Licensing Report
      * from the server and inserts it into the UI if found.
      */
     const getBookLicenseReport = () => {
@@ -229,17 +233,30 @@ const CommonsBook = (props) => {
                     setCLRData(licenseReport);
                     let pieChart = [];
                     if (licenseReport.meta?.licenses && Array.isArray(licenseReport.meta.licenses)) {
-                        let totalPercent = 0;
+                        if (licenseReport.meta.licenses.length > 1) {
+                            setBook({
+                                ...book,
+                                license: 'Mixed Licenses'
+                            });
+                        } else if (licenseReport.meta.licenses.length === 1) {
+                            let singleLicense = licenseReport.meta.licenses[0];
+                            if (typeof(singleLicense.label) === 'string') {
+                                setBook({
+                                    ...book,
+                                    license: singleLicense.label
+                                });
+                            }
+                        }
                         licenseReport.meta.licenses.forEach((item) => {
                             let title = item.label;
                             let percent = parseFloat(item.percent);
                             if (item.version) title += ` ${item.version}`;
                             if (!isNaN(percent)) {
-                                totalPercent += percent;
                                 pieChart.push({
                                     title: title,
                                     value: percent,
-                                    color: getLicenseColor(item.raw)
+                                    color: getLicenseColor(item.raw),
+                                    raw: item.raw
                                 });
                             }
                         });
@@ -248,7 +265,9 @@ const CommonsBook = (props) => {
                     if (licenseReport.text?.children && Array.isArray(licenseReport.text.children)) {
                         let chapterPanels = [];
                         licenseReport.text.children.forEach((item, idx) => {
-                            var chapterPages = null;
+                            let chapterPages = null;
+                            let chapterLicColor = '#000000';
+                            if (item.license?.raw) chapterLicColor = getLicenseColor(item.license.raw);
                             if (item.children && Array.isArray(item.children)) {
                                 chapterPages = (
                                     <List
@@ -256,17 +275,19 @@ const CommonsBook = (props) => {
                                         className='commons-toc-pagelist'
                                     >
                                         {item.children.map((secItem, idx) => {
+                                            let licColor = '#000000';
+                                            if (secItem.license?.raw) licColor = getLicenseColor(secItem.license.raw);
                                             return (
                                                 <List.Item
                                                     key={idx}
                                                 >
                                                     <List.Header>
-                                                        <a href={secItem.url} target='_blank' rel='noopener noreferrer'>{secItem.title}</a>
+                                                        <a href={secItem.url} target='_blank' rel='noopener noreferrer' style={{color: licColor}}>{secItem.title}</a>
                                                         {(secItem.license?.link && secItem.license.link !== '#') &&
-                                                            <span> — <a href={secItem.license.link} target='_blank' rel='noopener noreferrer'>{secItem.license.label} {secItem.license.version}</a></span>
+                                                            <span> — <a href={secItem.license.link} target='_blank' rel='noopener noreferrer' style={{color: licColor}}>{secItem.license.label} {secItem.license.version}</a></span>
                                                         }
                                                         {(secItem.license?.link && secItem.license.link === '#') &&
-                                                            <span> — {secItem.license.label}</span>
+                                                            <span> — <span style={{color: licColor}}>{secItem.license.label}</span></span>
                                                         }
                                                     </List.Header>
                                                 </List.Item>
@@ -280,12 +301,12 @@ const CommonsBook = (props) => {
                                 title: {
                                     content: (
                                         <span>
-                                            <a href={item.url} target='_blank' rel='noopener noreferrer'>{item.title}</a>
+                                            <a href={item.url} target='_blank' rel='noopener noreferrer' style={{color: chapterLicColor}}>{item.title}</a>
                                             {(item.license?.link && item.license.link !== '#') &&
-                                                <span> — <a href={item.license.link} target='_blank' rel='noopener noreferrer'>{item.license.label} {item.license.version}</a></span>
+                                                <span> — <a href={item.license.link} target='_blank' rel='noopener noreferrer' style={{color: chapterLicColor}}>{item.license.label} {item.license.version}</a></span>
                                             }
                                             {(item.license?.link && item.license.link === '#') &&
-                                                <span> — {item.license.label}</span>
+                                                <span> — <span style={{color: chapterLicColor}}>{item.license.label}</span></span>
                                             }
                                         </span>
                                     )
@@ -351,470 +372,505 @@ const CommonsBook = (props) => {
         return null;
     };
 
+    const renderLicenseSpecialRestrictions = (specialRestrictions) => {
+        if (Array.isArray(specialRestrictions)) {
+            let restrString = '';
+            let restrCount = 0;
+            if (specialRestrictions.includes('noncommercial')) {
+                if (restrCount > 0) restrString += `, `;
+                restrString += `Noncommercial`;
+                restrCount++;
+            }
+            if (specialRestrictions.includes('noderivatives')) {
+                if (restrCount > 0) restrString += `, `;
+                restrString += `No Derivatives`;
+                restrCount++;
+            }
+            if (specialRestrictions.includes('fairuse')) {
+                if (restrCount > 0) restrString += `, `;
+                restrString += `Fair Use`;
+                restrCount++;
+            }
+            return restrString;
+        }
+        return '';
+    };
+
     return (
         <Grid className='commons-container'>
             <Grid.Row>
                 <Grid.Column>
-                    <Segment loading={!loadedData}>
-                        <Breakpoint name='tabletOrDesktop'>
-                            <Grid divided>
-                                <Grid.Row>
-                                    <Grid.Column width={4}>
-                                        <Image
-                                            id='commons-book-image'
-                                            src={book.thumbnail}
-                                            aria-hidden='true'
-                                        />
-                                        <div id='commons-book-details'>
-                                            {(book.author && !isEmptyString(book.author)) &&
-                                                <p><Icon name='user'/> {book.author}</p>
-                                            }
-                                            <p>
-                                                <Image
-                                                    src={getLibGlyphURL(book.library)}
-                                                    className='library-glyph'
-                                                    inline
-                                                    aria-hidden='true'
-                                                />
-                                                {getLibraryName(book.library)}
-                                            </p>
-                                            {(book.license && !isEmptyString(book.license)) &&
-                                                <p><Icon name='shield' /> {getLicenseText(book.license)}</p>
-                                            }
-                                            {(book.affiliation && !isEmptyString(book.affiliation)) &&
-                                                <p><Icon name='university' /> {book.affiliation}</p>
-                                            }
-                                            {(book.course && !isEmptyString(book.course)) &&
-                                                <p><Icon name='sitemap' /> {book.course}</p>
-                                            }
-                                            <ThumbnailAttribution />
-                                        </div>
-                                        {(book.hasOwnProperty('adaptID') && book.adaptID !== '') &&
-                                            <Button
-                                                icon='tasks'
-                                                content='View Homework on ADAPT'
-                                                color='teal'
-                                                fluid
-                                                as='a'
-                                                href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
-                                                target='_blank'
-                                                rel='noopener noreferrer'
-                                                className='mb-2p'
+                    <Segment.Group raised>
+                        <Segment>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/catalog'>
+                                    <span>
+                                        <span className='muted-text'>You are on: </span>
+                                        Catalog
+                                    </span>
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    {book.title}
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
+                        </Segment>
+                        <Segment loading={!loadedData} className='pt-2p'>
+                            <Breakpoint name='tabletOrDesktop'>
+                                <Grid divided>
+                                    <Grid.Row>
+                                        <Grid.Column width={4}>
+                                            <Image
+                                                id='commons-book-image'
+                                                src={book.thumbnail}
+                                                aria-hidden='true'
                                             />
-                                        }
-                                        <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
-                                        <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
-                                            <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
-                                            <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
-                                            <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
-                                            <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
-                                            <Button icon='book' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
-                                            <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
-                                        </Button.Group>
-                                    </Grid.Column>
-                                    <Grid.Column width={12}>
-                                        <Header as='h2'>{book.title}</Header>
-                                        <Segment loading={!loadedSummary}>
-                                            <Header as='h3' dividing>Summary</Header>
-                                            {(bookSummary !== '')
-                                                ? (<p className='commons-book-summary'>{bookSummary}</p>)
-                                                : (<p className='commons-book-summary'><em>No summary available.</em></p>)
-                                            }
-                                        </Segment>
-                                        {showTOC
-                                            ? (
-                                                <Segment loading={!loadedTOC}>
-                                                    <div className='ui dividing header'>
-                                                        <div className='hideablesection'>
-                                                            <h3 className='header'>
-                                                                Table of Contents
-                                                            </h3>
-                                                            <div className='button-container'>
-                                                                <Button
-                                                                        compact
-                                                                        floated='right'
-                                                                        onClick={handleChangeTOCVis}
-                                                                    >
-                                                                        Hide
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {(bookChapters.length > 0)
-                                                        ? (<Accordion fluid panels={bookChapters} className='commons-book-toc' />)
-                                                        : (<p className='commons-book-toc'><em>Table of contents unavailable.</em></p>)
-                                                    }
-                                                </Segment>
-                                            )
-                                            : (
-                                                <Segment>
-                                                    <div className='hiddensection'>
-                                                        <div className='header-container'>
-                                                            <Header as='h3'>Table of Contents</Header>
-                                                        </div>
-                                                        <div className='button-container'>
-                                                            <Button
-                                                                floated='right'
-                                                                onClick={handleChangeTOCVis}
-                                                            >
-                                                                Show
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </Segment>
-                                            )
-                                        }
-                                        {foundCLR &&
-                                            showLicensing
-                                            ? (
-                                                <Segment>
-                                                    <div className='ui dividing header'>
-                                                        <div className='hideablesection'>
-                                                            <h3 className='header'>
-                                                                Licensing
-                                                            </h3>
-                                                            <div className='button-container'>
-                                                                <Button
-                                                                        compact
-                                                                        floated='right'
-                                                                        onClick={handleChangeLicensingVis}
-                                                                    >
-                                                                        Hide
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Grid className='commons-book-clr-grid'>
-                                                        <Grid.Row className='commons-book-clr-row'>
-                                                                <Grid.Column width={10}>
-                                                                    <Header as='h4' className='mt-2p' dividing>Overview</Header>
-                                                                    <div className='commons-book-clr-overview-flex'>
-                                                                        <span><strong>Total Pages: </strong></span>
-                                                                        <span className='right'>{clrData.text?.totalPages || 'Unknown'}</span>
-                                                                    </div>
-                                                                    <div className='commons-book-clr-overview-flex'>
-                                                                        <span>
-                                                                            <strong>Most Restrictive License: </strong>
-                                                                        </span>
-                                                                        <span className='right'>
-                                                                            {renderLicenseLink(clrData.meta?.mostRestrictiveLicense)}
-                                                                            <Popup
-                                                                                position='top center'
-                                                                                content={<span>Usage of this resource <strong>as a whole</strong> is governed by the most restrictive license found within it.</span>}
-                                                                                trigger={<Icon name='info circle' className='ml-1p' />}
-                                                                            />
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className='commons-book-clr-overview-flex'>
-                                                                        <span>
-                                                                            <strong>All licenses:</strong>
-                                                                        </span>
-                                                                    </div>
-                                                                    {(pieChartData.length > 0) &&
-                                                                        <ul>
-                                                                            {pieChartData.map((pieItem, idx) => {
-                                                                                let licItem = null;
-                                                                                if (clrData.meta?.licenses && Array.isArray(clrData.meta.licenses)) {
-                                                                                    licItem = clrData.meta.licenses.find(findItem => pieItem.value === findItem.percent);
-                                                                                }
-                                                                                if (licItem !== null && licItem !== undefined) {
-                                                                                    return (
-                                                                                        <li key={`pie-${idx}`}>
-                                                                                            <div className='commons-book-clr-overview-flex'>
-                                                                                                <span>{renderLicenseLink(licItem)}</span>
-                                                                                                <span className='right'>{licItem.percent}% <Icon name='square full' style={{color: pieItem.color}} className='ml-2p'></Icon></span>
-                                                                                            </div>
-                                                                                        </li>
-                                                                                    )
-                                                                                } else return null;
-                                                                            })}
-                                                                        </ul>
-                                                                    }
-                                                                </Grid.Column>
-                                                            <Grid.Column width={6}>
-                                                                {(pieChartData.length > 0) &&
-                                                                    <PieChart
-                                                                        data={pieChartData}
-                                                                        label={({ dataEntry }) => `${dataEntry.value.toFixed(1)}%`}
-                                                                        labelStyle={(index) => ({
-                                                                            fill: pieChartData[index].color,
-                                                                            fontSize: '5px'
-                                                                        })}
-                                                                        animate
-                                                                        style={{
-                                                                            maxHeight: '250px'
-                                                                        }}
-                                                                        radius={42}
-                                                                        labelPosition={112}
-                                                                    />
-                                                                }
-                                                            </Grid.Column>
-                                                        </Grid.Row>
-                                                        <Grid.Row className='commons-book-clr-row'>
-                                                            <Grid.Column>
-                                                                <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
-                                                                {(clrChapters.length > 0)
-                                                                    ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' />)
-                                                                    : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
-                                                                }
-                                                            </Grid.Column>
-                                                        </Grid.Row>
-                                                    </Grid>
-                                                </Segment>
-                                            )
-                                            : (
-                                                <Segment>
-                                                    <div className='hiddensection'>
-                                                        <div className='header-container'>
-                                                            <Header as='h3'>Licensing</Header>
-                                                        </div>
-                                                        <div className='button-container'>
-                                                            <Button
-                                                                floated='right'
-                                                                onClick={handleChangeLicensingVis}
-                                                            >
-                                                                Show
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </Segment>
-                                            )
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Breakpoint>
-                        <Breakpoint name='mobile'>
-                            <Grid divided='vertically'>
-                                <Grid.Row>
-                                    <Grid.Column>
-                                        <Image id='commons-book-mobile-image' src={book.thumbnail} centered />
-                                        <Header as='h2' textAlign='center'>{book.title}</Header>
-                                        <div id='commons-book-mobiledetails'>
-                                            {(book.author && !isEmptyString(book.author)) &&
-                                                <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
-                                            }
-                                            <p className='commons-book-mobile-detail'>
-                                                <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
-                                                {getLibraryName(book.library)}
-                                            </p>
-                                            {(book.license && !isEmptyString(book.license)) &&
-                                                <p className='commons-book-mobile-detail'><Icon name='shield'/> {getLicenseText(book.license)}</p>
-                                            }
-                                            {(book.affiliation && !isEmptyString(book.affiliation)) &&
-                                                <p className='commons-book-mobile-detail'><Icon name='university'/> {book.affiliation}</p>
-                                            }
-                                            {(book.course && !isEmptyString(book.course)) &&
-                                                <p className='commons-book-mobile-detail'><Icon name='sitemap'/> {book.course}</p>
-                                            }
-                                            <ThumbnailAttribution />
-                                        </div>
-                                    </Grid.Column>
-                                </Grid.Row>
-                                <Grid.Row>
-                                    <Grid.Column>
-                                        <Button.Group fluid vertical>
+                                            <div id='commons-book-details'>
+                                                {(book.author && !isEmptyString(book.author)) &&
+                                                    <p><Icon name='user'/> {book.author}</p>
+                                                }
+                                                <p>
+                                                    <Image
+                                                        src={getLibGlyphURL(book.library)}
+                                                        className='library-glyph'
+                                                        inline
+                                                        aria-hidden='true'
+                                                    />
+                                                    {getLibraryName(book.library)}
+                                                </p>
+                                                {(book.license && !isEmptyString(book.license)) &&
+                                                    <p><Icon name='shield' /> {book.license}</p>
+                                                }
+                                                {(book.affiliation && !isEmptyString(book.affiliation)) &&
+                                                    <p><Icon name='university' /> {book.affiliation}</p>
+                                                }
+                                                {(book.course && !isEmptyString(book.course)) &&
+                                                    <p><Icon name='sitemap' /> {book.course}</p>
+                                                }
+                                                <ThumbnailAttribution />
+                                            </div>
                                             {(book.hasOwnProperty('adaptID') && book.adaptID !== '') &&
                                                 <Button
                                                     icon='tasks'
                                                     content='View Homework on ADAPT'
                                                     color='teal'
-                                                    labelPosition='right'
                                                     fluid
                                                     as='a'
                                                     href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
                                                     target='_blank'
                                                     rel='noopener noreferrer'
+                                                    className='mb-2p'
                                                 />
                                             }
-                                            <Button icon='hand paper' labelPosition='right' content='Submit an Adoption Report' color='green' onClick={() => { setShowAdoptionReport(true) }} />
-                                            <Button icon={(showMobileReadingOpts) ? 'angle up' : 'angle down'} labelPosition='right' content='See Reading Options' color='blue' onClick={() => { setShowMobileReadingOpts(!showMobileReadingOpts) }} />
-                                            {(showMobileReadingOpts) &&
-                                                <div id='commons-book-mobile-readoptions'>
-                                                    <Button icon='linkify' labelPosition='left' color='blue' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
-                                                    <Button icon='file pdf' labelPosition='left' color='blue' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
-                                                    <Button icon='shopping cart' labelPosition='left' color='blue' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
-                                                    <Button icon='zip' labelPosition='left' color='blue' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
-                                                    <Button icon='book' labelPosition='left' color='blue' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
-                                                    <Button icon='graduation cap' labelPosition='left' color='blue' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
-                                                </div>
-                                            }
-                                        </Button.Group>
-                                        <Segment loading={!loadedSummary}>
-                                            <Header as='h3' dividing>Summary</Header>
-                                            {(bookSummary !== '')
-                                                ? (<p>{bookSummary}</p>)
-                                                : (<p><em>No summary available.</em></p>)
-                                            }
-                                        </Segment>
-                                        {showTOC
-                                            ? (
-                                                <Segment loading={!loadedTOC}>
-                                                    <div className='ui dividing header'>
-                                                        <div className='hideablesection'>
-                                                            <h3 className='header'>
-                                                                Table of Contents
-                                                            </h3>
-                                                            <div className='button-container'>
-                                                                <Button
-                                                                        compact
-                                                                        floated='right'
-                                                                        onClick={handleChangeTOCVis}
-                                                                    >
-                                                                        Hide
-                                                                </Button>
+                                            <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
+                                            <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
+                                                <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
+                                                <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='book' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
+                                            </Button.Group>
+                                        </Grid.Column>
+                                        <Grid.Column width={12}>
+                                            <Header as='h2'>{book.title}</Header>
+                                            <Segment loading={!loadedSummary}>
+                                                <Header as='h3' dividing>Summary</Header>
+                                                {(bookSummary !== '')
+                                                    ? (<p className='commons-book-summary'>{bookSummary}</p>)
+                                                    : (<p className='commons-book-summary'><em>No summary available.</em></p>)
+                                                }
+                                            </Segment>
+                                            {showTOC
+                                                ? (
+                                                    <Segment loading={!loadedTOC}>
+                                                        <div className='ui dividing header'>
+                                                            <div className='hideablesection'>
+                                                                <h3 className='header'>
+                                                                    Table of Contents
+                                                                </h3>
+                                                                <div className='button-container'>
+                                                                    <Button
+                                                                            compact
+                                                                            floated='right'
+                                                                            onClick={handleChangeTOCVis}
+                                                                        >
+                                                                            Hide
+                                                                    </Button>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    {(bookChapters.length > 0)
-                                                        ? (<Accordion fluid panels={bookChapters} />)
-                                                        : (<p><em>Table of contents unavailable.</em></p>)
-                                                    }
-                                                </Segment>
-                                            )
-                                            : (
-                                                <Segment>
-                                                    <div className='hiddensection'>
-                                                        <div className='header-container'>
-                                                            <Header as='h3'>Table of Contents</Header>
-                                                        </div>
-                                                        <div className='button-container'>
-                                                            <Button
-                                                                floated='right'
-                                                                onClick={handleChangeTOCVis}
-                                                            >
-                                                                Show
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </Segment>
-                                            )
-                                        }
-                                        {foundCLR &&
-                                            showLicensing
-                                            ? (
-                                                <Segment>
-                                                    <div className='ui dividing header'>
-                                                        <div className='hideablesection'>
-                                                            <h3 className='header'>
-                                                                Licensing
-                                                            </h3>
-                                                            <div className='button-container'>
-                                                                <Button
-                                                                    compact
-                                                                    floated='right'
-                                                                    onClick={handleChangeLicensingVis}
-                                                                    className=''
-                                                                >
-                                                                    Hide
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Grid>
-                                                        {(pieChartData.length > 0) &&
-                                                            <Grid.Row>
-                                                                <Grid.Column>
-                                                                    <PieChart
-                                                                        data={pieChartData}
-                                                                        label={({ dataEntry }) => `${dataEntry.value.toFixed(1)}%`}
-                                                                        labelStyle={(index) => ({
-                                                                            fill: pieChartData[index].color,
-                                                                            fontSize: '5px'
-                                                                        })}
-                                                                        animate
-                                                                        style={{
-                                                                        maxHeight: '250px'
-                                                                        }}
-                                                                        radius={42}
-                                                                        labelPosition={112}
-                                                                    />
-                                                                </Grid.Column>
-                                                            </Grid.Row>
+                                                        {(bookChapters.length > 0)
+                                                            ? (<Accordion fluid panels={bookChapters} className='commons-book-toc' exclusive={false} />)
+                                                            : (<p className='commons-book-toc'><em>Table of contents unavailable.</em></p>)
                                                         }
-                                                        <Grid.Row>
-                                                            <Grid.Column>
-                                                                <Header as='h4' className='mt-2p' dividing>Overview</Header>
-                                                                <div className='commons-book-clr-overview-flex'>
-                                                                    <span><strong>Total Pages: </strong></span>
-                                                                    <span className='right'>{clrData.text?.totalPages || 'Unknown'}</span>
+                                                    </Segment>
+                                                )
+                                                : (
+                                                    <Segment>
+                                                        <div className='hiddensection'>
+                                                            <div className='header-container'>
+                                                                <Header as='h3'>Table of Contents</Header>
+                                                            </div>
+                                                            <div className='button-container'>
+                                                                <Button
+                                                                    floated='right'
+                                                                    onClick={handleChangeTOCVis}
+                                                                >
+                                                                    Show
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </Segment>
+                                                )
+                                            }
+                                            {foundCLR &&
+                                                (showLicensing
+                                                    ? (
+                                                        <Segment>
+                                                            <div className='ui dividing header'>
+                                                                <div className='hideablesection'>
+                                                                    <h3 className='header'>
+                                                                        Licensing
+                                                                    </h3>
+                                                                    <div className='button-container'>
+                                                                        <Button
+                                                                                compact
+                                                                                floated='right'
+                                                                                onClick={handleChangeLicensingVis}
+                                                                            >
+                                                                                Hide
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
-                                                                <div className='commons-book-clr-overview-flex'>
-                                                                    <span>
-                                                                        <strong>Most Restrictive License: </strong>
-                                                                    </span>
-                                                                    <span className='right'>
-                                                                        {renderLicenseLink(clrData.meta?.mostRestrictiveLicense)}
-                                                                        <Popup
-                                                                            position='top center'
-                                                                            content={<span>Usage of this resource <strong>as a whole</strong> is governed by the most restrictive license found within it.</span>}
-                                                                            trigger={<Icon name='info circle' className='ml-1p' />}
-                                                                        />
-                                                                    </span>
-                                                                </div>
-                                                                <div className='commons-book-clr-overview-flex'>
-                                                                    <span>
-                                                                        <strong>All licenses:</strong>
-                                                                    </span>
-                                                                </div>
-                                                                {(pieChartData.length > 0) &&
-                                                                    <ul>
-                                                                        {pieChartData.map((pieItem, idx) => {
-                                                                            let licItem = null;
-                                                                            if (clrData.meta?.licenses && Array.isArray(clrData.meta.licenses)) {
-                                                                                licItem = clrData.meta.licenses.find(findItem => pieItem.value === findItem.percent);
+                                                            </div>
+                                                            <Grid className='commons-book-clr-grid'>
+                                                                <Grid.Row className='commons-book-clr-row'>
+                                                                        <Grid.Column width={10}>
+                                                                            <Header as='h4' className='mt-2p' dividing>Overview</Header>
+                                                                            <div className='commons-book-clr-overview-flex'>
+                                                                                <span><strong>Webpages: </strong></span>
+                                                                                <span className='right'>{clrData.text?.totalPages || 'Unknown'}</span>
+                                                                            </div>
+                                                                            {(Array.isArray(clrData.meta?.specialRestrictions) && clrData.meta?.specialRestrictions.length > 0) &&
+                                                                                <div className='commons-book-clr-overview-flex'>
+                                                                                    <span>
+                                                                                        <strong>Applicable Restrictions:</strong>
+                                                                                    </span>
+                                                                                    <span className='right'>{renderLicenseSpecialRestrictions(clrData.meta.specialRestrictions)}</span>
+                                                                                </div>
                                                                             }
-                                                                            if (licItem !== null && licItem !== undefined) {
-                                                                                console.log(licItem);
-                                                                                return (
-                                                                                    <li key={`pie-${idx}`}>
-                                                                                        <div className='commons-book-clr-overview-flex'>
-                                                                                            <span>{renderLicenseLink(licItem)}</span>
-                                                                                            <span className='right'>{licItem.percent}% <Icon name='square full' style={{color: pieItem.color}} className='ml-2p'></Icon></span>
-                                                                                        </div>
-                                                                                    </li>
-                                                                                )
-                                                                            } else return null;
-                                                                        })}
-                                                                    </ul>
-                                                                }
-                                                            </Grid.Column>
-                                                        </Grid.Row>
-                                                        <Grid.Row className='commons-book-clr-row'>
-                                                            <Grid.Column>
-                                                                <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
-                                                                {(clrChapters.length > 0)
-                                                                    ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' />)
-                                                                    : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
-                                                                }
-                                                            </Grid.Column>
-                                                        </Grid.Row>
-                                                    </Grid>
-                                                </Segment>
-                                            )
-                                            : (
-                                                <Segment>
-                                                    <div className='hiddensection'>
-                                                        <div className='header-container'>
-                                                            <Header as='h3'>Licensing</Header>
-                                                        </div>
-                                                        <div className='button-container'>
-                                                            <Button
-                                                                floated='right'
-                                                                onClick={handleChangeLicensingVis}
-                                                            >
-                                                                Show
-                                                            </Button>
-                                                        </div>
+                                                                            <div className='commons-book-clr-overview-flex'>
+                                                                                <span>
+                                                                                    <strong>All licenses:</strong>
+                                                                                </span>
+                                                                            </div>
+                                                                            {(pieChartData.length > 0) &&
+                                                                                <ul>
+                                                                                    {pieChartData.map((pieItem, idx) => {
+                                                                                        let licItem = null;
+                                                                                        if (clrData.meta?.licenses && Array.isArray(clrData.meta.licenses)) {
+                                                                                            licItem = clrData.meta.licenses.find(findItem => pieItem.value === findItem.percent && pieItem.raw === findItem.raw);
+                                                                                        }
+                                                                                        if (licItem !== null && licItem !== undefined) {
+                                                                                            let licPercent = licItem.percent;
+                                                                                            if (typeof(licPercent) === 'number') licPercent = licPercent.toFixed(1);
+                                                                                            return (
+                                                                                                <li key={`pie-${idx}`}>
+                                                                                                    <div className='commons-book-clr-overview-flex'>
+                                                                                                        <span>{renderLicenseLink(licItem)}</span>
+                                                                                                        <span className='right'>({licItem.count} {licItem.count > 1 ? 'pages' : 'page'}) {licPercent}% <Icon name='square full' style={{color: pieItem.color}} className='ml-2p'></Icon></span>
+                                                                                                    </div>
+                                                                                                </li>
+                                                                                            )
+                                                                                        } else return null;
+                                                                                    })}
+                                                                                </ul>
+                                                                            }
+                                                                        </Grid.Column>
+                                                                    <Grid.Column width={6}>
+                                                                        {(pieChartData.length > 0) &&
+                                                                            <PieChart
+                                                                                data={pieChartData}
+                                                                                label={({ dataEntry }) => `${dataEntry.value.toFixed(1)}%`}
+                                                                                labelStyle={(index) => ({
+                                                                                    fill: pieChartData[index].color,
+                                                                                    fontSize: '5px'
+                                                                                })}
+                                                                                animate
+                                                                                style={{
+                                                                                    maxHeight: '250px'
+                                                                                }}
+                                                                                radius={42}
+                                                                                labelPosition={112}
+                                                                            />
+                                                                        }
+                                                                    </Grid.Column>
+                                                                </Grid.Row>
+                                                                <Grid.Row className='commons-book-clr-row'>
+                                                                    <Grid.Column>
+                                                                        <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
+                                                                        {(clrChapters.length > 0)
+                                                                            ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' exclusive={false} />)
+                                                                            : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
+                                                                        }
+                                                                    </Grid.Column>
+                                                                </Grid.Row>
+                                                            </Grid>
+                                                        </Segment>
+                                                    )
+                                                    : (
+                                                        <Segment>
+                                                            <div className='hiddensection'>
+                                                                <div className='header-container'>
+                                                                    <Header as='h3'>Licensing</Header>
+                                                                </div>
+                                                                <div className='button-container'>
+                                                                    <Button
+                                                                        floated='right'
+                                                                        onClick={handleChangeLicensingVis}
+                                                                    >
+                                                                        Show
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </Segment>
+                                                    )
+                                                )
+                                            }
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                            <Breakpoint name='mobile'>
+                                <Grid divided='vertically'>
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Image id='commons-book-mobile-image' src={book.thumbnail} centered />
+                                            <Header as='h2' textAlign='center'>{book.title}</Header>
+                                            <div id='commons-book-mobiledetails'>
+                                                {(book.author && !isEmptyString(book.author)) &&
+                                                    <p className='commons-book-mobile-detail'><Icon name='user'/> {book.author}</p>
+                                                }
+                                                <p className='commons-book-mobile-detail'>
+                                                    <Image src={getLibGlyphURL(book.library)} className='library-glyph' inline/>
+                                                    {getLibraryName(book.library)}
+                                                </p>
+                                                {(book.license && !isEmptyString(book.license)) &&
+                                                    <p className='commons-book-mobile-detail'><Icon name='shield'/> {getLicenseText(book.license)}</p>
+                                                }
+                                                {(book.affiliation && !isEmptyString(book.affiliation)) &&
+                                                    <p className='commons-book-mobile-detail'><Icon name='university'/> {book.affiliation}</p>
+                                                }
+                                                {(book.course && !isEmptyString(book.course)) &&
+                                                    <p className='commons-book-mobile-detail'><Icon name='sitemap'/> {book.course}</p>
+                                                }
+                                                <ThumbnailAttribution />
+                                            </div>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                    <Grid.Row>
+                                        <Grid.Column>
+                                            <Button.Group fluid vertical>
+                                                {(book.hasOwnProperty('adaptID') && book.adaptID !== '') &&
+                                                    <Button
+                                                        icon='tasks'
+                                                        content='View Homework on ADAPT'
+                                                        color='teal'
+                                                        labelPosition='right'
+                                                        fluid
+                                                        as='a'
+                                                        href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
+                                                        target='_blank'
+                                                        rel='noopener noreferrer'
+                                                    />
+                                                }
+                                                <Button icon='hand paper' labelPosition='right' content='Submit an Adoption Report' color='green' onClick={() => { setShowAdoptionReport(true) }} />
+                                                <Button icon={(showMobileReadingOpts) ? 'angle up' : 'angle down'} labelPosition='right' content='See Reading Options' color='blue' onClick={() => { setShowMobileReadingOpts(!showMobileReadingOpts) }} />
+                                                {(showMobileReadingOpts) &&
+                                                    <div id='commons-book-mobile-readoptions'>
+                                                        <Button icon='linkify' labelPosition='left' color='blue' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
+                                                        <Button icon='file pdf' labelPosition='left' color='blue' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
+                                                        <Button icon='shopping cart' labelPosition='left' color='blue' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
+                                                        <Button icon='zip' labelPosition='left' color='blue' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
+                                                        <Button icon='book' labelPosition='left' color='blue' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
+                                                        <Button icon='graduation cap' labelPosition='left' color='blue' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
                                                     </div>
-                                                </Segment>
-                                            )
-                                        }
-                                    </Grid.Column>
-                                </Grid.Row>
-                            </Grid>
-                        </Breakpoint>
-                    </Segment>
+                                                }
+                                            </Button.Group>
+                                            <Segment loading={!loadedSummary}>
+                                                <Header as='h3' dividing>Summary</Header>
+                                                {(bookSummary !== '')
+                                                    ? (<p>{bookSummary}</p>)
+                                                    : (<p><em>No summary available.</em></p>)
+                                                }
+                                            </Segment>
+                                            {showTOC
+                                                ? (
+                                                    <Segment loading={!loadedTOC}>
+                                                        <div className='ui dividing header'>
+                                                            <div className='hideablesection'>
+                                                                <h3 className='header'>
+                                                                    Table of Contents
+                                                                </h3>
+                                                                <div className='button-container'>
+                                                                    <Button
+                                                                            compact
+                                                                            floated='right'
+                                                                            onClick={handleChangeTOCVis}
+                                                                        >
+                                                                            Hide
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {(bookChapters.length > 0)
+                                                            ? (<Accordion fluid panels={bookChapters} exclusive={false} />)
+                                                            : (<p><em>Table of contents unavailable.</em></p>)
+                                                        }
+                                                    </Segment>
+                                                )
+                                                : (
+                                                    <Segment>
+                                                        <div className='hiddensection'>
+                                                            <div className='header-container'>
+                                                                <Header as='h3'>Table of Contents</Header>
+                                                            </div>
+                                                            <div className='button-container'>
+                                                                <Button
+                                                                    floated='right'
+                                                                    onClick={handleChangeTOCVis}
+                                                                >
+                                                                    Show
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </Segment>
+                                                )
+                                            }
+                                            {foundCLR &&
+                                                (showLicensing
+                                                    ? (
+                                                        <Segment>
+                                                            <div className='ui dividing header'>
+                                                                <div className='hideablesection'>
+                                                                    <h3 className='header'>
+                                                                        Licensing
+                                                                    </h3>
+                                                                    <div className='button-container'>
+                                                                        <Button
+                                                                            compact
+                                                                            floated='right'
+                                                                            onClick={handleChangeLicensingVis}
+                                                                            className=''
+                                                                        >
+                                                                            Hide
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <Grid>
+                                                                {(pieChartData.length > 0) &&
+                                                                    <Grid.Row>
+                                                                        <Grid.Column>
+                                                                            <PieChart
+                                                                                data={pieChartData}
+                                                                                label={({ dataEntry }) => `${dataEntry.value.toFixed(1)}%`}
+                                                                                labelStyle={(index) => ({
+                                                                                    fill: pieChartData[index].color,
+                                                                                    fontSize: '5px'
+                                                                                })}
+                                                                                animate
+                                                                                style={{
+                                                                                maxHeight: '250px'
+                                                                                }}
+                                                                                radius={42}
+                                                                                labelPosition={112}
+                                                                            />
+                                                                        </Grid.Column>
+                                                                    </Grid.Row>
+                                                                }
+                                                                <Grid.Row>
+                                                                    <Grid.Column>
+                                                                        <Header as='h4' className='mt-2p' dividing>Overview</Header>
+                                                                        <div className='commons-book-clr-overview-flex'>
+                                                                            <span><strong>Webpages: </strong></span>
+                                                                            <span className='right'>{clrData.text?.totalPages || 'Unknown'}</span>
+                                                                        </div>
+                                                                        {(Array.isArray(clrData.meta?.specialRestrictions) && clrData.meta?.specialRestrictions.length > 0) &&
+                                                                            <div className='commons-book-clr-overview-flex'>
+                                                                                <span>
+                                                                                    <strong>Applicable Restrictions:</strong>
+                                                                                </span>
+                                                                                <span className='right'>{renderLicenseSpecialRestrictions(clrData.meta.specialRestrictions)}</span>
+                                                                            </div>
+                                                                        }
+                                                                        <div className='commons-book-clr-overview-flex'>
+                                                                            <span>
+                                                                                <strong>All licenses:</strong>
+                                                                            </span>
+                                                                        </div>
+                                                                        {(pieChartData.length > 0) &&
+                                                                            <ul>
+                                                                                {pieChartData.map((pieItem, idx) => {
+                                                                                    let licItem = null;
+                                                                                    if (clrData.meta?.licenses && Array.isArray(clrData.meta.licenses)) {
+                                                                                        licItem = clrData.meta.licenses.find(findItem => pieItem.value === findItem.percent && pieItem.raw === findItem.raw);
+                                                                                    }
+                                                                                    if (licItem !== null && licItem !== undefined) {
+                                                                                        let licPercent = licItem.percent;
+                                                                                        if (typeof(licPercent) === 'number') licPercent = licPercent.toFixed(1);
+                                                                                        return (
+                                                                                            <li key={`pie-${idx}`}>
+                                                                                                <div className='commons-book-clr-overview-flex'>
+                                                                                                    <span>{renderLicenseLink(licItem)}</span>
+                                                                                                    <span className='right'>({licItem.count} {licItem.count > 1 ? 'pages' : 'page'}) {licPercent}% <Icon name='square full' style={{color: pieItem.color}} className='ml-2p'></Icon></span>
+                                                                                                </div>
+                                                                                            </li>
+                                                                                        )
+                                                                                    } else return null;
+                                                                                })}
+                                                                            </ul>
+                                                                        }
+                                                                    </Grid.Column>
+                                                                </Grid.Row>
+                                                                <Grid.Row className='commons-book-clr-row'>
+                                                                    <Grid.Column>
+                                                                        <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
+                                                                        {(clrChapters.length > 0)
+                                                                            ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' exclusive={false} />)
+                                                                            : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
+                                                                        }
+                                                                    </Grid.Column>
+                                                                </Grid.Row>
+                                                            </Grid>
+                                                        </Segment>
+                                                    )
+                                                    : (
+                                                        <Segment>
+                                                            <div className='hiddensection'>
+                                                                <div className='header-container'>
+                                                                    <Header as='h3'>Licensing</Header>
+                                                                </div>
+                                                                <div className='button-container'>
+                                                                    <Button
+                                                                        floated='right'
+                                                                        onClick={handleChangeLicensingVis}
+                                                                    >
+                                                                        Show
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </Segment>
+                                                    )
+                                                )
+                                            }
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                </Grid>
+                            </Breakpoint>
+                        </Segment>
+                    </Segment.Group>
                     <AdoptionReport
                         open={showAdoptionReport}
                         onClose={() => { setShowAdoptionReport(false) }}

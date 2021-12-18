@@ -19,21 +19,22 @@ const isEmptyString = (str) => {
 
 
 /**
- * Accepts a string and returns it truncated to the
- * specified length. If the string is already shorter
- * than specified length, the original string is returned.
- * @param {string} str - the string to truncate
- * @param {number} len - the integer specifying the number
- *                       of characters to allow before truncation
- * @returns {string} the truncated (if applicable) string
+ * Accepts a string and returns it truncated to the specified length.
+ * If the string is already shorter than specified length, the original string is returned.
+ * @param {String} str - the string to truncate.
+ * @param {Number} len - integer specifying the number of characters to allow before truncation.
+ * @returns {String} the truncated (if applicable) string.
  */
 const truncateString = (str, len) => {
-    if (str.length > len) {
-        let subString = str.substring(0, len);
-        return subString + "...";
-    } else {
-        return str;
+    if (typeof(str) === 'string') {
+        if (str.length > len) {
+            let subString = str.substring(0, len);
+            return subString + "...";
+        } else {
+            return str;
+        }
     }
+    return '';
 };
 
 

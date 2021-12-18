@@ -197,8 +197,8 @@ const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitl
         textToSend += ', ';
         htmlToSend += ',</p>';
     }
-    textToSend += `LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project in our Conductor system. If you were logged-in to Conductor at the time of your request, you should have been automatically added to the project which can be found in the "Projects" tab. Otherwise, contact LibreTexts at info@libretexts.org for help accessing Conductor if you'd like to track the progress as it changes. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project in our Conductor system.</p><p>If you were logged-in to Conductor at the time of your request, you should have been automatically added to the project which can be found in the <em>Projects</em> tab. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=Conductor Access' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for help accessing Conductor if you'd like to track the progress as it changes.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    textToSend += `LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform. If you were logged-in to Conductor at the time of your request, you should have been automatically added to the project which can be found in the "Projects" tab. Otherwise, contact LibreTexts at info@libretexts.org for help accessing Conductor if you'd like to track the progress as it changes. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    htmlToSend += `<p>LibreTexts has approved your OER Integration Request for "${resourceTitle}" and has converted it to a project on our Conductor platform.</p><p>If you were logged-in to Conductor at the time of your request, you should have been automatically added to the project which can be found in the <em>Projects</em> tab. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=Conductor Access' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for help accessing Conductor if you'd like to track the progress as it changes.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
@@ -326,6 +326,67 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
 };
 
 
+/**
+ * Sends a standard Account(s) Request Confirmation notification to the requester via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} requesterName - the requesting user's name (null, or 'firstName' or 'firstName lastName').
+ * @param {String} recipientAddress - the requesting user's email.
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+ const sendAccountRequestConfirmation = (requesterName, recipientAddress) => {
+    let textToSend = `Hi ${requesterName}, LibreTexts has received your Instructor Account(s) Request. You should receive an email when we have reviewed your request. If you have any questions, please contact us at info@libretexts.org. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has received your Instructor Account(s) Request. You should receive an email when we have reviewed your request. If you have any questions, please contact us at <a href='mailto:info@libretexts.org?subject=Instructor Accounts Request Questions' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: 'LibreTexts Instructor Account(s) Request Received',
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
+/**
+ * Sends a standard New Account(s) Request notification to the LibreTexts team via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+ const sendAccountRequestAdminNotif = () => {
+    let textToSend = `Attention: A user has submitted a new Instructor Account(s) Request for LibreTexts libraries access. This request is available in Conductor.` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>A user has submitted a new Instructor Account(s) Request for LibreTexts libraries access.</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: ['info@libretexts.org'],
+        subject: 'New Instructor Account(s) Request',
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
+/**
+ * Sends a standard Account(s) Request Approval notification to the requester via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
+ * @param {String} recipientAddress  - the requesting user's email
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+ const sendAccountRequestApprovalNotification = (requesterName, recipientAddress) => {
+    let textToSend = `Hi ${requesterName}, LibreTexts has approved your Instructor Account(s) Request. You should have received seperate emails with information about your new account(s). Please check your spam/junk folder if you have not received them. Otherwise, contact LibreTexts at info@libretexts.org for assistance. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has approved your Instructor Account(s) Request.</p><p>You should have received seperate emails with information about your new account(s).</p><p><em>Please check your spam/junk folder if you have not received them. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=New Instructor Accounts' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for assistance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `LibreTexts Instructor Account(s) Request Approved`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
 module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -338,5 +399,8 @@ module.exports = {
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
     sendProjectCompletedAlert,
-    sendAssignedToTaskNotification
+    sendAssignedToTaskNotification,
+    sendAccountRequestConfirmation,
+    sendAccountRequestAdminNotif,
+    sendAccountRequestApprovalNotification
 }
