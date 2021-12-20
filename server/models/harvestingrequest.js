@@ -29,7 +29,8 @@ const HarvestingRequestSchema = new Schema({
     resourceUse: String,
     dateIntegrate: Date,
     comments: String,
-    submitter: String       // user's uuid if submitter was authenticated
+    submitter: String,      // user's uuid if submitter was authenticated,
+    addToProject: Boolean   // if user was authenticated, choice to be added to project team upon conversion
 }, {
     timestamps: true
 });

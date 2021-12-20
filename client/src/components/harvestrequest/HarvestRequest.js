@@ -45,6 +45,7 @@ const HarvestRequest = (props) => {
     const [institution, setInstitution] = useState('');
     const [resourceUse, setResourceUse] = useState('');
     const [dateIntegrate, setDateIntegrate] = useState('');
+    const [addToProject, setAddToProject] = useState(true);
     const [comments, setComments] = useState('');
 
     // Form Validation
@@ -163,7 +164,8 @@ const HarvestRequest = (props) => {
                 institution: institution,
                 resourceUse: resourceUse,
                 dateIntegrate: dateString,
-                comments: comments
+                comments: comments,
+                addToProject: addToProject
             };
             axios.post('/harvestingrequest', requestData).then((res) => {
                 if (!res.data.err) {
@@ -312,6 +314,20 @@ const HarvestRequest = (props) => {
                                 </em>
                             </p>
                             <Divider />
+                            {user.isAuthenticated &&
+                                <Form.Select
+                                    id='addToProject'
+                                    fluid
+                                    label='Do you want to be added to the project to observe and/or participate in the harvesting efforts?'
+                                    options={[
+                                        { key: 'yes',   text: 'Yes',    value: true },
+                                        { key: 'no',    text: 'No',     value: false }
+                                    ]}
+                                    placeholder='Choose...'
+                                    onChange={(_e, { value }) => setAddToProject(value)}
+                                    value={addToProject}
+                                />
+                            }
                             <Form.Field>
                                 <label htmlFor='comments'>Comments</label>
                                 <Input fluid={true} id='comments' type='text' name='comments' placeholder='Comments' required={false} value={comments} onChange={onChange} icon='comment alternate' iconPosition='left' />

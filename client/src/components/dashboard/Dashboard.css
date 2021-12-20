@@ -5,6 +5,18 @@
     width: 4em !important;
 }
 
+.dashboard-mobile-welcome {
+    align-items: center;
+}
+
+.dashboard-mobile-welcome > .menu-avatar {
+    margin: 0;
+}
+
+.dashboard-mobile-welcome > h1 {
+    margin: 0 0 0 0.5em !important;
+}
+
 /* Your Projects */
 .project-card-title {
     font-size: 1.15em !important;
@@ -52,7 +64,7 @@
 }
 
 .announcement-text {
-    margin-top: 0.5em;
+    padding: 0.75em;
 }
 
 .announcement-view-text {

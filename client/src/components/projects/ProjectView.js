@@ -2117,7 +2117,7 @@ const ProjectView = (props) => {
                                             </Grid.Row>
                                             <Grid.Row columns='equal'>
                                                 <Grid.Column>
-                                                    <Header as='h3' dividing>Overview</Header>
+                                                    <Header as='h3' dividing>Project Properties</Header>
                                                     <div className='mb-1p'>
                                                         <Header as='span' sub>Status: </Header>
                                                         <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
@@ -2136,12 +2136,6 @@ const ProjectView = (props) => {
                                                         <div className='mb-1p'>
                                                             <Header as='span' sub>Construction Step: </Header>
                                                             <span><em>{getRoadmapStepName(project.rdmpCurrentStep)}</em></span>
-                                                        </div>
-                                                    }
-                                                    {(project.projectURL && !isEmptyString(project.projectURL)) &&
-                                                        <div className='mb-1p'>
-                                                            <Header as='span' sub>URL: </Header>
-                                                            <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>{truncateString(project.projectURL, 100)}</a>
                                                         </div>
                                                     }
                                                     {(project.libreLibrary && !isEmptyString(project.libreLibrary)) &&
@@ -2173,10 +2167,15 @@ const ProjectView = (props) => {
                                                             </Label.Group>
                                                         </div>
                                                     }
+                                                    {(project.projectURL && !isEmptyString(project.projectURL)) &&
+                                                        <div className='mb-1p'>
+                                                            <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Project Link<Icon name='external' className='ml-1p' /></a>
+                                                        </div>
+                                                    }
                                                 </Grid.Column>
                                                 {hasResourceInfo &&
                                                     <Grid.Column>
-                                                        <Header as='h3' dividing>Resource</Header>
+                                                        <Header as='h3' dividing>Source Properties</Header>
                                                         {(project.author && !isEmptyString(project.author)) &&
                                                             <div className='mb-1p'>
                                                                 <Header as='span' sub>Author: </Header>
@@ -2197,8 +2196,7 @@ const ProjectView = (props) => {
                                                         }
                                                         {(project.resourceURL && !isEmptyString(project.resourceURL)) &&
                                                             <div className='mt-1p'>
-                                                                <Header as='span' sub>URL: </Header>
-                                                                <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>{project.resourceURL}</a>
+                                                                <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
                                                             </div>
                                                         }
                                                     </Grid.Column>
@@ -2531,7 +2529,7 @@ const ProjectView = (props) => {
                         <Modal.Header>Edit Project Properties</Modal.Header>
                         <Modal.Content scrolling>
                             <Form noValidate>
-                                <Header as='h3'>Project Overview</Header>
+                                <Header as='h3'>Project Properties</Header>
                                 <Form.Field
                                     required
                                     error={projTitleErr}
@@ -2672,7 +2670,7 @@ const ProjectView = (props) => {
                                     </Form.Field>
                                 </Form.Group>
                                 <Divider />
-                                <Header as='h3'>Resource Information</Header>
+                                <Header as='h3'>Source Properties</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
                                 <Form.Group widths='equal'>
                                     <Form.Field>

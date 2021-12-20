@@ -74,7 +74,6 @@ const HarvestingRequests = (props) => {
     // Convert Project Modal
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [convertLoading, setConvertLoading] = useState(false);
-    const [convertAddSubmitter, setConvertAddSubmitter] = useState(false);
 
 
     const sortOptions = [
@@ -268,13 +267,11 @@ const HarvestingRequests = (props) => {
 
     const openConvertModal = () => {
         setConvertLoading(false);
-        setConvertAddSubmitter(false);
         setShowConvertModal(true);
     };
 
     const closeConvertModal = () => {
         setShowConvertModal(false);
-        setConvertAddSubmitter(false);
         setConvertLoading(false);
     };
 
@@ -282,8 +279,7 @@ const HarvestingRequests = (props) => {
         if (currentRequest._id && !isEmptyString(currentRequest._id)) {
             setConvertLoading(true);
             axios.post('/harvestingrequest/convert', {
-                requestID: currentRequest._id,
-                addSubmitter: convertAddSubmitter
+                requestID: currentRequest._id
             }).then((res) => {
                 if (!res.data.err) {
                     if (res.data.projectID) {
@@ -475,6 +471,7 @@ const HarvestingRequests = (props) => {
                             </Table>
                         </Segment>
                     </Segment.Group>
+                    {/* View Harvesting Request Modal */}
                     <Modal
                         onClose={closeHRVModal}
                         open={showHRVModal}
@@ -626,13 +623,9 @@ const HarvestingRequests = (props) => {
                         <Modal.Header>Convert Request to Project</Modal.Header>
                         <Modal.Content>
                             <p>Are you sure you want to convert this request to a new "available" project? The requester will be notified via email.</p>
-                            {(currentRequest.submitter && !isEmptyString(currentRequest.submitter)) &&
-                                <Checkbox
-                                    toggle
-                                    label={<label><em>The requester is a Conductor user. Add them to the new project?</em></label>}
-                                    onChange={(_e, data) => setConvertAddSubmitter(data.checked)}
-                                    checked={convertAddSubmitter}
-                                />
+                            {(currentRequest.submitter && !isEmptyString(currentRequest.submitter))
+                                && currentRequest.hasOwnProperty('addToProject') && currentRequest.addToProject === true &&
+                                <p><em>The requester is a Conductor user and will be automatically added to the new project.</em></p>
                             }
                         </Modal.Content>
                         <Modal.Actions>

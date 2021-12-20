@@ -1,5 +1,17 @@
 # Changelog
 
+## 12-21-2021
+#### :art: UI/UX
+* Fixed a bug where new Tasks could not be assigned
+* Minimized links in Project Properties and Source Properties
+* Added a new option in OER Integration Request for authenticated users to be added to the new project, if approved
+* Started a responsive implementation of the Dashboard and Navbar
+* Fixed a bug with Commons Book information display when a Licensing Report is available
+
+#### :satellite: Server
+* Fixed a bug where converting OER Integration Requests did not add the user(s) to the new project
+
+
 ## 12-18-2021
 #### :art: UI/UX
 * Upgraded Book Licensing UI in Commons

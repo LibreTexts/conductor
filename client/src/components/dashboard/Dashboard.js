@@ -13,7 +13,8 @@ import {
     Form,
     Loader,
     Card,
-    Popup
+    Popup,
+    Dropdown
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -29,6 +30,7 @@ import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import marked from 'marked';
 
+import Breakpoint from '../util/Breakpoints.js';
 import ConductorTextArea from '../util/ConductorTextArea';
 
 import {
@@ -295,7 +297,7 @@ const Dashboard = (props) => {
     };
 
     return (
-        <Grid className='component-container' divided='vertically'>
+        <Grid className='component-container' divided='vertically' stackable>
             <Grid.Row>
                 <Grid.Column>
                     <Header className='component-header'>Dashboard</Header>
@@ -303,70 +305,145 @@ const Dashboard = (props) => {
             </Grid.Row>
             <Grid.Row>
                 <Grid.Column width={3}>
-                    <Menu vertical fluid>
-                        <Menu.Item>
-                            <Header as='h1'>
-                                <Image circular src={`${user.avatar}`} className='menu-avatar' />
-                                <br />
-                                Welcome,<br/>
-                                {user.firstName}
-                            </Header>
-                        </Menu.Item>
-                        {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
-                            (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
+                    <Breakpoint name='tabletOrDesktop'>
+                        <Menu vertical fluid>
+                            <Menu.Item>
+                                <Header as='h1'>
+                                    <Image circular src={`${user.avatar}`} className='menu-avatar' />
+                                    <br />
+                                    Welcome,<br/>
+                                    {user.firstName}
+                                </Header>
+                            </Menu.Item>
+                            {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
+                                (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
+                                <Menu.Item
+                                    as={Link}
+                                    to='/controlpanel'
+                                >
+                                    Control Panel
+                                    <Icon name='dashboard' />
+                                </Menu.Item>
+                            }
                             <Menu.Item
                                 as={Link}
-                                to='/controlpanel'
+                                to='/'
                             >
-                                Control Panel
-                                <Icon name='dashboard' />
+                                Commons
+                                <Icon name='handshake' />
                             </Menu.Item>
-                        }
-                        <Menu.Item
-                            as={Link}
-                            to='/'
-                        >
-                            Commons
-                            <Icon name='handshake' />
-                        </Menu.Item>
-                        <Menu.Item
-                            href='https://commons.libretexts.org/harvestrequest'
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            Harvesting Request
-                            <Icon name='plus' />
-                        </Menu.Item>
-                        <Menu.Item
-                            href='https://commons.libretexts.org/adopt'
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            Adoption Report
-                            <Icon name='clipboard check' />
-                        </Menu.Item>
-                        <Menu.Item
-                            href='https://commons.libretexts.org/accountrequest'
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            Account Request
-                            <Icon name='share alternate' />
-                        </Menu.Item>
-                        <Menu.Item
-                            href='https://libretexts.org'
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            LibreTexts.org
-                            <Icon name='external' />
-                        </Menu.Item>
-                    </Menu>
+                            <Menu.Item
+                                href='https://commons.libretexts.org/harvestrequest'
+                                target='_blank'
+                                rel='noopener noreferrer'
+                            >
+                                Harvesting Request
+                                <Icon name='plus' />
+                            </Menu.Item>
+                            <Menu.Item
+                                href='https://commons.libretexts.org/adopt'
+                                target='_blank'
+                                rel='noopener noreferrer'
+                            >
+                                Adoption Report
+                                <Icon name='clipboard check' />
+                            </Menu.Item>
+                            <Menu.Item
+                                href='https://commons.libretexts.org/accountrequest'
+                                target='_blank'
+                                rel='noopener noreferrer'
+                            >
+                                Account Request
+                                <Icon name='share alternate' />
+                            </Menu.Item>
+                            <Menu.Item
+                                href='https://libretexts.org'
+                                target='_blank'
+                                rel='noopener noreferrer'
+                            >
+                                LibreTexts.org
+                                <Icon name='external' />
+                            </Menu.Item>
+                        </Menu>
+                    </Breakpoint>
+                    <Breakpoint name='mobile'>
+                        <Segment>
+                            <div className='flex-row-div dashboard-mobile-welcome'>
+                                <Image circular src={`${user.avatar}`} className='menu-avatar' />
+                                <Header as='h1'>Welcome, {user.firstName}</Header>
+                                <div className='right-flex'>
+                                    <Dropdown
+                                        as={Button}
+                                        className='icon'
+                                        icon='align justify'
+                                        labeled
+                                        labelPosition='right'
+                                        text='Quick Links'
+                                        direction='left'
+                                        upward={false}
+                                        color='blue'
+                                    >
+                                        <Dropdown.Menu>
+                                            {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
+                                                (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
+                                                <Dropdown.Item
+                                                    as={Link}
+                                                    to='/controlpanel'
+                                                >
+                                                    <Icon name='dashboard' />
+                                                    Control Panel
+                                                </Dropdown.Item>
+                                            }
+                                            <Dropdown.Item
+                                                as={Link}
+                                                to='/'
+                                            >
+                                                <Icon name='handshake' />
+                                                Commons
+                                            </Dropdown.Item>
+                                            <Dropdown.Item
+                                                href='https://commons.libretexts.org/harvestrequest'
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                            >
+                                                <Icon name='plus' />
+                                                Harvesting Request
+                                            </Dropdown.Item>
+                                            <Dropdown.Item
+                                                href='https://commons.libretexts.org/adopt'
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                            >
+                                                <Icon name='clipboard check' />
+                                                Adoption Report 
+                                            </Dropdown.Item>
+                                            <Dropdown.Item
+                                                href='https://commons.libretexts.org/accountrequest'
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                            >
+                                                <Icon name='share alternate' />
+                                                Account Request      
+                                            </Dropdown.Item>
+                                            <Dropdown.Item
+                                                href='https://libretexts.org'
+                                                target='_blank'
+                                                rel='noopener noreferrer'
+                                            >
+                                                <Icon name='external' />
+                                                LibreTexts.org
+                                            </Dropdown.Item>
+                                        </Dropdown.Menu>
+                                    </Dropdown>
+                                </div>
+                            </div>
+                        </Segment>
+                    </Breakpoint>
                 </Grid.Column>
                 <Grid.Column width={8}>
                     <Segment padded>
                         <div className='dividing-header-custom'>
-                            <h3>Your Projects <span className='gray-span'>(recently updated)</span></h3>
+                            <h3>Your Projects <span className='gray-span'>(recently edited)</span></h3>
                             <div className='right-flex'>
                                     <Popup
                                         content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}

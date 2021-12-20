@@ -16,6 +16,7 @@ const licenses = [
     { key: 'gnufdl',        text: 'GNU FDL',                value: 'gnufdl' },
     { key: 'gnugpl',        text: 'GNU GPL',                value: 'gnugpl' },
     { key: 'publicdomain',  text: 'Public Domain',          value: 'publicdomain' },
+    { key: 'mixed',         text: 'Mixed Licenses',         value: 'mixed' }
 ];
 
 const licenseOptions = [

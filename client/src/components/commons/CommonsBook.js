@@ -62,6 +62,7 @@ const CommonsBook = (props) => {
     const [loadedData, setLoadedData] = useState(false);
     const [loadedSummary, setLoadedSummary] = useState(false);
     const [loadedTOC, setLoadedTOC] = useState(false);
+    const [loadedLicensing, setLoadedLicensing] = useState(false);
     const [showTOC, setShowTOC] = useState(false);
     const [showLicensing, setShowLicensing] = useState(false);
 
@@ -86,7 +87,6 @@ const CommonsBook = (props) => {
                     setBook(res.data.book);
                     getBookSummary();
                     getBookTOC();
-                    getBookLicenseReport();
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -104,6 +104,14 @@ const CommonsBook = (props) => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+
+    /**
+     * Only load licensing once main information has been loaded.
+     */
+    useEffect(() => {
+        if (loadedData && !loadedLicensing) getBookLicenseReport();
+    }, [loadedData])
 
 
     /**
@@ -236,14 +244,14 @@ const CommonsBook = (props) => {
                         if (licenseReport.meta.licenses.length > 1) {
                             setBook({
                                 ...book,
-                                license: 'Mixed Licenses'
+                                license: 'mixed'
                             });
                         } else if (licenseReport.meta.licenses.length === 1) {
                             let singleLicense = licenseReport.meta.licenses[0];
-                            if (typeof(singleLicense.label) === 'string') {
+                            if (typeof(singleLicense.raw) === 'string') {
                                 setBook({
                                     ...book,
-                                    license: singleLicense.label
+                                    license: singleLicense.raw
                                 });
                             }
                         }
@@ -318,6 +326,7 @@ const CommonsBook = (props) => {
                         });
                         setCLRChapters(chapterPanels);
                     }
+                    setLoadedLicensing(true);
                 }
             } else {
                 throw(res.data.errMsg);
@@ -439,7 +448,7 @@ const CommonsBook = (props) => {
                                                     {getLibraryName(book.library)}
                                                 </p>
                                                 {(book.license && !isEmptyString(book.license)) &&
-                                                    <p><Icon name='shield' /> {book.license}</p>
+                                                    <p><Icon name='shield' /> {getLicenseText(book.license)}</p>
                                                 }
                                                 {(book.affiliation && !isEmptyString(book.affiliation)) &&
                                                     <p><Icon name='university' /> {book.affiliation}</p>
@@ -464,12 +473,12 @@ const CommonsBook = (props) => {
                                             }
                                             <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
                                             <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
-                                                <Button icon='linkify' content='Read Online' as='a' href={book.links.online} target='_blank' rel='noopener noreferrer' />
-                                                <Button icon='file pdf' content='Download PDF' as='a' href={book.links.pdf} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links.buy} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links.zip} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='book' content='Download Print Files' as='a' href={book.links.files} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links.lms} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='linkify' content='Read Online' as='a' href={book.links?.online} target='_blank' rel='noopener noreferrer' />
+                                                <Button icon='file pdf' content='Download PDF' as='a' href={book.links?.pdf} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links?.buy} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links?.zip} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='book' content='Download Print Files' as='a' href={book.links?.files} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links?.lms} target='_blank' rel='noopener noreferrer'/>
                                             </Button.Group>
                                         </Grid.Column>
                                         <Grid.Column width={12}>

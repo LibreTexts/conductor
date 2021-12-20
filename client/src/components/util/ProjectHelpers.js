@@ -137,7 +137,7 @@ export const constructProjectTeam = (project, exclude) => {
     if (project.hasOwnProperty('auditors') && Array.isArray(project.auditors)) {
         projTeam = [...projTeam, ...project.auditors];
     }
-    if (typeof(exclude) !== 'undefined') {
+    if (typeof(exclude) !== 'undefined' && exclude !== null) {
         projTeam = projTeam.filter((item) => {
             if (typeof(exclude) === 'string') {
                 if (typeof(item) === 'string') {

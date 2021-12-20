@@ -62,6 +62,9 @@ const addRequest = (req, res) => {
                 req.body.name = user.firstName + ' ' + user.lastName;
                 userFirst = user.firstName;
             }
+            if (typeof(req.body.addToProject) !== 'undefined' && req.body.addToProject === true) {
+                req.body.addToProject = true;
+            } else req.body.addToProject = false;
         }
         req.body.status = 'open';
         return new HarvestingRequest(req.body).save();
@@ -213,7 +216,7 @@ const convertRequest = (req, res) => {
     let userLookup = false;
     HarvestingRequest.findOne({
         _id: req.body.requestID
-    }).then((harvestData) => {
+    }).lean().then((harvestData) => {
         if (harvestData) {
             harvestReq = harvestData;
             projectData = {
@@ -229,7 +232,10 @@ const convertRequest = (req, res) => {
                 collaborators: [],
                 tags: [],
                 notes: '',
-                owner: req.decoded.uuid,
+                leads: [req.decoded.uuid],
+                liaisons: [],
+                members: [],
+                auditors: [],
                 libreLibrary: harvestReq.library,
                 license: harvestReq.license,
                 harvestReqID: harvestReq._id
@@ -252,10 +258,7 @@ const convertRequest = (req, res) => {
                 notes += `*Comments:* ${harvestReq.comments}`;
             }
             projectData.notes = notes;
-            if (req.body.hasOwnProperty('addSubmitter')
-                && req.body.addSubmitter === true
-                && harvestReq.submitter && uuidValidate(harvestReq.submitter)
-                && harvestReq.submitter !== req.decoded.uuid) {
+            if (harvestReq.submitter && uuidValidate(harvestReq.submitter) && harvestReq.submitter !== req.decoded.uuid) {
                 userLookup = true;
                 return User.findOne({
                     uuid: harvestReq.submitter
@@ -268,7 +271,9 @@ const convertRequest = (req, res) => {
         }
     }).then((user) => {
         if (userLookup && Object.keys(user).length > 0) {
-            projectData.collaborators = [user.uuid];
+            if (typeof(harvestReq.addToProject) !== 'undefined' && harvestReq.addToProject === true) {
+                projectData.members = [user.uuid];
+            }
             userData = user;
         }
         return new Project(projectData).save();
@@ -324,7 +329,8 @@ const validate = (method) => {
                 body('title', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('library', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('license', conductorErrors.err1).exists().isLength({ min: 1 }),
-                body('dateIntegrate').optional({ checkFalsy: true }).custom(threePartDateStringValidator)
+                body('dateIntegrate').optional({ checkFalsy: true }).custom(threePartDateStringValidator),
+                body('addToProject').optional({ checkFalsy: true }).isBoolean().toBoolean()
             ]
         case 'getRequests':
             return [
@@ -337,8 +343,7 @@ const validate = (method) => {
             ]
         case 'convertRequest':
             return [
-                body('requestID', conductorErrors.err1).exists().isMongoId(),
-                body('addSubmitter', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
+                body('requestID', conductorErrors.err1).exists().isMongoId()
             ]
     }
 };

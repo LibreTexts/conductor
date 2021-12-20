@@ -13,10 +13,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
+import Breakpoint from '../util/Breakpoints.js';
 
-import {
-    getLibGlyphURL,
-} from '../util/LibraryOptions.js';
+import { getLibGlyphURL } from '../util/LibraryOptions.js';
 import AuthHelper from '../util/AuthHelper.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
@@ -149,7 +148,7 @@ const Navbar = (_props) => {
 
     if (user.isAuthenticated) {
         return (
-            <Menu className='nav-menu' secondary >
+            <Menu className='nav-menu' secondary>
                 <Menu.Item
                     as={Link}
                     to='/dashboard'
@@ -184,135 +183,153 @@ const Navbar = (_props) => {
                         setActiveItem(data.name);
                     }}
                 />
-                <Menu.Menu position='right'>
-                    <Menu.Item>
-                        <Input
-                            disabled // TODO: implement search
-                            type='text'
-                            placeholder='Search...'
-                            action={
-                                <Button basic icon='search' />
-                            }
-                        />
-                    </Menu.Item>
-                    <Menu.Item>
-                        <Icon name='book' />
-                        <Dropdown inline text='Libraries'>
+                <Breakpoint name='desktop'>
+                    <Menu.Menu position='right'>
+                        <Menu.Item>
+                            <Input
+                                disabled // TODO: implement search
+                                type='text'
+                                placeholder='Search...'
+                                action={
+                                    <Button basic icon='search' />
+                                }
+                            />
+                        </Menu.Item>
+                        <Menu.Item>
+                            <Icon name='book' />
+                            <Dropdown inline text='Libraries'>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item as='a' href='https://bio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('bio')} className='nav-lib-glyph' />
+                                        Biology
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://biz.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('biz')} className='nav-lib-glyph' />
+                                        Business
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://chem.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('chem')} className='nav-lib-glyph' />
+                                        Chemistry
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://eng.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('eng')} className='nav-lib-glyph' />
+                                        Engineering
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://espanol.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('espanol')} className='nav-lib-glyph' />
+                                        Español
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://geo.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('geo')} className='nav-lib-glyph' />
+                                        Geosciences
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://human.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('human')} className='nav-lib-glyph' />
+                                        Humanities
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://k12.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('k12')} className='nav-lib-glyph' />
+                                        K12 Education
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://math.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('math')} className='nav-lib-glyph' />
+                                        Mathematics
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://med.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('med')} className='nav-lib-glyph' />
+                                        Medicine
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://phys.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('phys')} className='nav-lib-glyph' />
+                                        Physics
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://socialsci.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('socialsci')} className='nav-lib-glyph' />
+                                        Social Science
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://stats.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('stats')} className='nav-lib-glyph' />
+                                        Statistics
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://workforce.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Image src={getLibGlyphURL('workforce')} className='nav-lib-glyph' />
+                                        Workforce
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        </Menu.Item>
+                        <Menu.Item>
+                            <Icon name='wrench' />
+                            <Dropdown inline text='Tools'>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item as='a' href='https://adapt.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='pencil' />
+                                        ADAPT Homework System
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://groups.io/g/Libretexts-ConstructionForum' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='rss' />
+                                        Construction Forum
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://commons.libretexts.org/harvestrequest' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='plus' />
+                                        Harvesting Request
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://imathas.libretexts.org/imathas/' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='percent' />
+                                        IMathAS
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://jupyter.libretexts.org/hub/login' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='server' />
+                                        JupyterHub
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://libremaps.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='map' />
+                                        LibreMaps
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://studio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='puzzle' />
+                                        LibreStudio
+                                    </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://webwork.libretexts.org/webwork2' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='laptop' />
+                                        WeBWorK
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        </Menu.Item>
+                        <Menu.Item>
+                            <Image src={`${user.avatar}`} avatar />
+                            <Dropdown inline text={user.firstName + ' ' + user.lastName}>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item as={Link} to='/account' >
+                                        <Icon name='settings' />
+                                        Settings
+                                    </Dropdown.Item>
+                                    <Dropdown.Item onClick={logOut}>
+                                        <Icon name='log out' />
+                                        Log out
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        </Menu.Item>
+                    </Menu.Menu>
+                </Breakpoint>
+                <Breakpoint name='mobileOrTablet'>
+                    <Menu.Menu position='right'>
+                        <Dropdown
+                            item
+                            as={Button}
+                            icon='align justify'
+                            className='icon'
+                            upward={false}
+                            size='medium'
+                        >
                             <Dropdown.Menu>
-                                <Dropdown.Item as='a' href='https://bio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('bio')} className='nav-lib-glyph' />
-                                    Biology
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://biz.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('biz')} className='nav-lib-glyph' />
-                                    Business
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://chem.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('chem')} className='nav-lib-glyph' />
-                                    Chemistry
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://eng.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('eng')} className='nav-lib-glyph' />
-                                    Engineering
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://espanol.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('espanol')} className='nav-lib-glyph' />
-                                    Español
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://geo.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('geo')} className='nav-lib-glyph' />
-                                    Geosciences
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://human.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('human')} className='nav-lib-glyph' />
-                                    Humanities
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://k12.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('k12')} className='nav-lib-glyph' />
-                                    K12 Education
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://math.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('math')} className='nav-lib-glyph' />
-                                    Mathematics
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://med.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('med')} className='nav-lib-glyph' />
-                                    Medicine
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://phys.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('phys')} className='nav-lib-glyph' />
-                                    Physics
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://socialsci.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('socialsci')} className='nav-lib-glyph' />
-                                    Social Science
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://stats.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('stats')} className='nav-lib-glyph' />
-                                    Statistics
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://workforce.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Image src={getLibGlyphURL('workforce')} className='nav-lib-glyph' />
-                                    Workforce
-                                </Dropdown.Item>
+                                {/* TODO: Finish mobile menu */}
                             </Dropdown.Menu>
                         </Dropdown>
-                    </Menu.Item>
-                    <Menu.Item>
-                        <Icon name='wrench' />
-                        <Dropdown inline text='Tools'>
-                            <Dropdown.Menu>
-                                <Dropdown.Item as='a' href='https://adapt.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='pencil' />
-                                    ADAPT Homework System
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://groups.io/g/Libretexts-ConstructionForum' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='rss' />
-                                    Construction Forum
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://commons.libretexts.org/harvestrequest' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='plus' />
-                                    Harvesting Request
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://imathas.libretexts.org/imathas/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='percent' />
-                                    IMathAS
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://jupyter.libretexts.org/hub/login' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='server' />
-                                    JupyterHub
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://libremaps.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='map' />
-                                    LibreMaps
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://studio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='puzzle' />
-                                    LibreStudio
-                                </Dropdown.Item>
-                                <Dropdown.Item as='a' href='https://webwork.libretexts.org/webwork2' target='_blank' rel='noopener noreferrer'>
-                                    <Icon name='laptop' />
-                                    WeBWorK
-                                </Dropdown.Item>
-                            </Dropdown.Menu>
-                        </Dropdown>
-                    </Menu.Item>
-                    <Menu.Item>
-                        <Image src={`${user.avatar}`} avatar />
-                        <Dropdown inline text={user.firstName + ' ' + user.lastName}>
-                            <Dropdown.Menu>
-                                <Dropdown.Item as={Link} to='/account' >
-                                    <Icon name='settings' />
-                                    Settings
-                                </Dropdown.Item>
-                                <Dropdown.Item onClick={logOut}>
-                                    <Icon name='log out' />
-                                    Log out
-                                </Dropdown.Item>
-                            </Dropdown.Menu>
-                        </Dropdown>
-                    </Menu.Item>
-                </Menu.Menu>
+                    </Menu.Menu>
+                </Breakpoint>
             </Menu>
         )
     } else {
