@@ -95,7 +95,7 @@ const AccountRequest = (props) => {
             valid = false;
             setPurposeErr(true);
         }
-        if (!Array.isArray(libs) || libs.length === 0) {
+        if (purpose === 'oer' && (!Array.isArray(libs) || libs.length === 0)) {
             valid = false;
             setLibsErr(true);
         }
@@ -137,9 +137,9 @@ const AccountRequest = (props) => {
                 name: name,
                 institution: institution,
                 purpose: purpose,
-                facultyURL: url,
-                libraries: libs,
+                facultyURL: url
             };
+            if (purpose === 'oer') requestData.libraries = libs;
             if (moreInfo !== '' && moreInfo === 'true') requestData.moreInfo = true;
             else if (moreInfo !== '' && moreInfo === 'false') requestData.moreInfo = false;
             axios.post('/accountrequest', requestData).then((res) => {
@@ -249,7 +249,7 @@ const AccountRequest = (props) => {
                                 error={purposeErr}
                             />
                             <Form.Select
-                                required
+                                required={purpose === 'oer'}
                                 id='library'
                                 fluid
                                 label='Which libraries do you need accounts on?'

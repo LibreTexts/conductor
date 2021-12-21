@@ -443,7 +443,7 @@ const Dashboard = (props) => {
                 <Grid.Column width={8}>
                     <Segment padded>
                         <div className='dividing-header-custom'>
-                            <h3>Your Projects <span className='gray-span'>(recently edited)</span></h3>
+                            <h3>Recently Edited Projects</h3>
                             <div className='right-flex'>
                                     <Popup
                                         content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}

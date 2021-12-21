@@ -34,6 +34,9 @@ const submitRequest = (req, res) => {
         status: 'open'
     };
     new Promise((resolve, reject) => {
+        if (req.body.purpose === 'oer' && !Array.isArray(req.body.libraries)) {
+            reject(new Error('missingfield')); // libraries are required for OER account purpose
+        }
         if (req.user?.decoded?.uuid) { // user is logged in
             userLookup = true;
             resolve(User.findOne({
@@ -73,9 +76,11 @@ const submitRequest = (req, res) => {
         });
     }).catch((err) => {
         debugError(err);
+        let errMsg = conductorErrors.err6;
+        if (err.msg === 'missingfield') errMsg = conductorErrors.err1;
         return res.status(500).send({
             err: true,
-            errMsg: conductorErrors.err6
+            errMsg: errMsg
         });
     });
 };
@@ -89,10 +94,6 @@ const submitRequest = (req, res) => {
 const getRequests = (_req, res) => {
     AccountRequest.aggregate([
         {
-            $match: {
-                status: 'open'
-            }
-        }, {
             $lookup: {
                 from: 'users',
                 let: { requester: '$requester' },
@@ -117,7 +118,7 @@ const getRequests = (_req, res) => {
             }
         }, {
             $sort: {
-                createdAt: 1
+                createdAt: -1
             }
         }
     ]).then((requests) => {
@@ -211,7 +212,7 @@ const deleteRequest = (req, res) => {
  * @returns {Boolean} true if valid purpose, false otherwise.
  */
 const validateRequestPurpose = (purpose) => {
-    let validPurposes = ['contribute', 'else'];
+    let validPurposes = ['oer', 'h5p', 'adapt'];
     if (typeof(purpose) === 'string') return validPurposes.includes(purpose);
     return false;
 };
@@ -253,7 +254,7 @@ const validate = (method) => {
                 body('institution', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 }),
                 body('purpose', conductorErrors.err1).exists().isString().custom(validateRequestPurpose),
                 body('facultyURL', conductorErrors.err1).exists().isString().isURL(),
-                body('libraries', conductorErrors.err1).exists().custom(validateRequestLibraries).customSanitizer(ensureUniqueStringArray),
+                body('libraries', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateRequestLibraries).customSanitizer(ensureUniqueStringArray),
                 body('moreInfo', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
             ]
         case 'completeRequest':

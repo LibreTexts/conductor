@@ -27,16 +27,13 @@ const AccountRequestSchema = new Schema({
     purpose: {
         type: String,
         required: true,
-        enum: ['contribute', 'else']
+        enum: ['oer', 'h5p', 'adapt']
     },
     facultyURL: {
         type: String,
         required: true
     },
-    libraries: {
-        type: [String],
-        required: true
-    },
+    libraries: [String],
     moreInfo: Boolean,
     requester: String       // user's uuid if requester was authenticated
 }, {

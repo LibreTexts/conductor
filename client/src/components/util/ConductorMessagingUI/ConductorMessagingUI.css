@@ -11,6 +11,7 @@
 #project-discussion-threads {
     flex-basis: 25%;
     border-right: 1px solid rgba(34,36,38,.22);
+    flex-shrink: 0;
 }
 
 #project-threads-container {

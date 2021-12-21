@@ -4,8 +4,9 @@
 //
 
 const purposeOptions = [
-    { key: 'contribute',    text: 'Create, contribute, or customize content on LibreTexts', value: 'contribute' },
-    { key: 'else',          text: 'Something else',                                         value: 'else' }
+    { key: 'oer',   text: 'Create, contribute, or customize OER content on the LibreTexts Libraries',   value: 'oer' },
+    { key: 'h5p',   text: 'Create, contribute, or customize H5P assessments on the LibreStudio',        value: 'h5p' },
+    { key: 'adapt', text: 'Create, contribute, or customize homework assignments on ADAPT',             value: 'adapt' }
 ];
 
 

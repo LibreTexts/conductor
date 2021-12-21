@@ -2055,7 +2055,7 @@ const ProjectView = (props) => {
                                                         <div>
                                                             <p><strong>Reason for flagging:</strong></p>
                                                             <div className='ui message' dangerouslySetInnerHTML={{
-                                                                __html: DOMPurify.sanitize(marked(project.flagDescrip, { breaks: true }))
+                                                                __html: DOMPurify.sanitize(marked(project.flagDescrip))
                                                             }} />
                                                         </div>
                                                     }
@@ -2207,7 +2207,7 @@ const ProjectView = (props) => {
                                                     <Grid.Column>
                                                         <Header as='h3' dividing>Notes</Header>
                                                         <p dangerouslySetInnerHTML={{
-                                                            __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
+                                                            __html: DOMPurify.sanitize(marked(project.notes))
                                                         }}></p>
                                                     </Grid.Column>
                                                 }
@@ -2418,7 +2418,7 @@ const ProjectView = (props) => {
                                                                                         trigger={
                                                                                             <Button
                                                                                               onClick={() => openViewTaskModal(item.taskID)}
-                                                                                              icon='expand'
+                                                                                              icon='eye'
                                                                                               color='blue'
                                                                                             />
                                                                                         }
@@ -2469,7 +2469,7 @@ const ProjectView = (props) => {
                                                                                                                   trigger={
                                                                                                                       <Button
                                                                                                                         onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                                                        icon='expand'
+                                                                                                                        icon='eye'
                                                                                                                         color='blue'
                                                                                                                       />
                                                                                                                   }
@@ -3129,7 +3129,7 @@ const ProjectView = (props) => {
                                             <div className='mt-1p mb-4p'>
                                                 <Header as='h3' dividing>Description</Header>
                                                 <p dangerouslySetInnerHTML={{
-                                                    __html: DOMPurify.sanitize(marked(viewTaskData.description, { breaks: true }))
+                                                    __html: DOMPurify.sanitize(marked(viewTaskData.description))
                                                 }}></p>
                                             </div>
                                         }
@@ -3190,7 +3190,7 @@ const ProjectView = (props) => {
                                                                               trigger={
                                                                                   <Button
                                                                                     onClick={() => openViewTaskModal(depend.taskID)}
-                                                                                    icon='expand'
+                                                                                    icon='eye'
                                                                                     color='blue'
                                                                                   />
                                                                               }
@@ -3234,7 +3234,7 @@ const ProjectView = (props) => {
                                                                           trigger={
                                                                               <Button
                                                                                 onClick={() => openViewTaskModal(block.taskID)}
-                                                                                icon='expand'
+                                                                                icon='eye'
                                                                                 color='blue'
                                                                               />
                                                                           }
@@ -3286,7 +3286,7 @@ const ProjectView = (props) => {
                                                                                   trigger={
                                                                                       <Button
                                                                                         onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                        icon='expand'
+                                                                                        icon='eye'
                                                                                         color='blue'
                                                                                       />
                                                                                   }

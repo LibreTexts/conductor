@@ -419,6 +419,7 @@ code {
     font-size: 85%;
     background-color: rgba(175,184,193,0.2);
     border-radius: 20px;
+    white-space: pre-wrap;
 }
 
 .form-normallabel {

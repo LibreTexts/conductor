@@ -165,9 +165,10 @@ const AccountRequests = () => {
                             </Segment>
                         }
                         <Segment>
-                            <Table striped celled fixed>
+                            <Table striped celled definition>
                                 <Table.Header>
                                     <Table.Row>
+                                        <Table.HeaderCell/>
                                         <Table.HeaderCell><span>Date</span></Table.HeaderCell>
                                         <Table.HeaderCell><span>Name</span></Table.HeaderCell>
                                         <Table.HeaderCell><span>Institution</span></Table.HeaderCell>
@@ -177,8 +178,13 @@ const AccountRequests = () => {
                                 <Table.Body>
                                     {(accountRequests.length > 0) &&
                                         accountRequests.map((item, idx) => {
+                                            let completedRow = false;
+                                            if (item.status === 'completed') completedRow = true;
                                             return (
                                                 <Table.Row key={idx}>
+                                                    <Table.Cell textAlign='center'>
+                                                        {completedRow && <Icon name='checkmark' color='green' size='large' className='float-right' />}
+                                                    </Table.Cell>
                                                     <Table.Cell>
                                                         <span className='text-link' onClick={() => { openARVModal(idx) }}>
                                                             {item.hasOwnProperty('createdAt')
@@ -187,13 +193,13 @@ const AccountRequests = () => {
                                                             }
                                                         </span>
                                                     </Table.Cell>
-                                                    <Table.Cell>
+                                                    <Table.Cell disabled={completedRow}>
                                                         <span>{item.name}</span>
                                                     </Table.Cell>
-                                                    <Table.Cell>
+                                                    <Table.Cell disabled={completedRow}>
                                                         <span>{item.institution}</span>
                                                     </Table.Cell>
-                                                    <Table.Cell>
+                                                    <Table.Cell disabled={completedRow}>
                                                         {item.hasOwnProperty('moreInfo')
                                                             ? (item.moreInfo === true
                                                                 ? <span><strong>Yes</strong></span>
@@ -259,18 +265,20 @@ const AccountRequests = () => {
                                         }
                                     </Grid.Column>
                                 </Grid.Row>
-                                <Grid.Row columns={1}>
-                                    <Grid.Column>
-                                        <Header sub>Libraries Requested</Header>
-                                        <ul>
-                                            {Array.isArray(currentRequest.libraries) &&
-                                                currentRequest.libraries.map((item, idx) => {
-                                                    return <li key={idx}><Image src={getLibGlyphURL(item)} className='library-glyph' /><span>{getLibraryName(item)}</span></li>
-                                                })
-                                            }
-                                        </ul>
-                                    </Grid.Column>
-                                </Grid.Row>
+                                {currentRequest.purpose === 'oer' &&
+                                    <Grid.Row columns={1}>
+                                        <Grid.Column>
+                                            <Header sub>Libraries Requested</Header>
+                                            <ul>
+                                                {Array.isArray(currentRequest.libraries) &&
+                                                    currentRequest.libraries.map((item, idx) => {
+                                                        return <li key={idx}><Image src={getLibGlyphURL(item)} className='library-glyph' /><span>{getLibraryName(item)}</span></li>
+                                                    })
+                                                }
+                                            </ul>
+                                        </Grid.Column>
+                                    </Grid.Row>
+                                }
                             </Grid>
                         </Modal.Content>
                         <Modal.Actions>

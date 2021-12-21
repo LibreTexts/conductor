@@ -352,7 +352,7 @@ const ProjectAccessibility = (props) => {
                                 <Grid.Row>
                                     {canViewDetails &&
                                         <Grid.Column>
-                                            <Header as='h2' dividing className='mt-1p'>Accessibility Review Matrix</Header>
+                                            <Header as='h2' dividing className='mt-1p'>Accessibility Compliance Review Matrix</Header>
                                             <Segment className='flex-row-div mt-1p'>
                                                 <div className='left-flex'>
                                                     <p id='project-accessibility-score-header'>
@@ -698,13 +698,13 @@ const ProjectAccessibility = (props) => {
                                     }
                                     {!canViewDetails &&
                                         <Grid.Column>
-                                            <Header as='h2' dividing>Accessibility Review Matrix</Header>
+                                            <Header as='h2' dividing>Accessibility Compliance Review Matrix</Header>
                                             <Segment
                                                 size='large'
                                                 raised
                                                 className='mb-2p'
                                             >
-                                                <p><em>You don't have permission to view this project's Accessibility Review Matrix yet.</em></p>
+                                                <p><em>You don't have permission to view this project's Accessibility Compliance Review Matrix yet.</em></p>
                                             </Segment>
                                         </Grid.Column>
                                     }
@@ -752,7 +752,7 @@ const ProjectAccessibility = (props) => {
                     >
                         <Modal.Header>Sync Table of Contents</Modal.Header>
                         <Modal.Content>
-                            <p><strong>Import Mode:</strong> Imports your LibreText's table of contents and <strong><em>overwrites</em></strong> all existing entries in the Accessibility Review Matrix.</p>
+                            <p><strong>Import Mode:</strong> Imports your LibreText's table of contents and <strong><em>overwrites</em></strong> all existing entries in the Accessibility Compliance Review Matrix.</p>
                             <p><strong>Import & Merge Mode:</strong> Imports your LibreText's table of contents and attempts to merge existing entries with new entries in the TOC. <strong><em>Section/page names are case- and character-sensitive. Unmatchable names may be overwritten.</em></strong></p>
                             <Button.Group fluid>
                                 <Button

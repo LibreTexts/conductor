@@ -2,6 +2,13 @@
 
 ## 12-21-2021
 #### :art: UI/UX
+* Added new Account Purpose options to Account Requests
+* Renamed the Accessibility Compliance Review Matrix
+* Addressed a display bug with lengthy Discussion messages
+
+
+## 12-20-2021
+#### :art: UI/UX
 * Fixed a bug where new Tasks could not be assigned
 * Minimized links in Project Properties and Source Properties
 * Added a new option in OER Integration Request for authenticated users to be added to the new project, if approved
