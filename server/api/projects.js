@@ -16,13 +16,19 @@ const { validate: uuidValidate } = require('uuid');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
 const { isValidLicense, isValidLibrary } = require('../util/bookutils.js');
-const { validateProjectClassification, validateRoadmapStep } = require('../util/projectutils.js');
+const {
+    validateProjectClassification,
+    validateRoadmapStep,
+    getLibreTextInformation
+} = require('../util/projectutils.js');
 const { validateA11YReviewSectionItem } = require('../util/a11yreviewutils.js');
 const { isEmptyString } = require('../util/helpers.js');
+const { libraryNameKeys } = require('../util/librariesmap.js');
 
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
 const bookAPI = require('./books.js');
+const { default: axios } = require('axios');
 
 const projectListingProjection = {
     _id: 0,
@@ -412,6 +418,9 @@ const getProject = (req, res) => {
 const updateProject = (req, res) => {
     var updateObj = {};
     var checkTags = false;
+    var checkProjURL = false;
+    let libNames = [];
+    let libreURLRegex = null;
     var newTagTitles = []; // titles of the project's tags to be returned with the updated document
     var sendAlert = false;
     Project.findOne({
@@ -446,6 +455,10 @@ const updateProject = (req, res) => {
                     updateObj.classification = req.body.classification;
                 }
                 if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
+                    /* If the Project URL is a LibreTexts link, flag it to gather more information */
+                    libNames = libraryNameKeys.join('|');
+                    libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
+                    if (libreURLRegex.test(req.body.projectURL)) checkProjURL = true;
                     updateObj.projectURL = req.body.projectURL;
                 }
                 if (req.body.hasOwnProperty('author') && req.body.author !== project.author) {
@@ -468,12 +481,6 @@ const updateProject = (req, res) => {
                 }
                 if (req.body.hasOwnProperty('rdmpCurrentStep') && req.body.rdmpCurrentStep !== project.rdmpCurrentStep) {
                     updateObj.rdmpCurrentStep = req.body.rdmpCurrentStep;
-                }
-                if (req.body.hasOwnProperty('libreLibrary') && req.body.libreLibrary !== project.libreLibrary) {
-                    updateObj.libreLibrary = req.body.libreLibrary;
-                }
-                if (req.body.hasOwnProperty('libreCoverID') && req.body.libreCoverID !== project.libreCoverID) {
-                    updateObj.libreCoverID = req.body.libreCoverID;
                 }
                 if (req.body.hasOwnProperty('tags') && Array.isArray(req.body.tags)) {
                     checkTags = true;
@@ -545,14 +552,23 @@ const updateProject = (req, res) => {
         // no new tags to insert
         return {};
     }).then((_bulkRes) => {
+        // optionally lookup LibreText information if a LibreTexts URL was provided
+        if (checkProjURL) return getLibreTextInformation(updateObj.projectURL);
+        return {};
+    }).then((projURLInfo) => {
+        if (checkProjURL) {
+            if (projURLInfo.hasOwnProperty('lib') && projURLInfo.lib !== '') updateObj.libreLibrary = projURLInfo.lib;
+            if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') updateObj.libreCoverID = projURLInfo.id;
+            if (projURLInfo.hasOwnProperty('shelf') && projURLInfo.shelf !== '') updateObj.libreShelf = projURLInfo.shelf;
+            else if (projURLInfo.hasOwnProperty('campus') && projURLInfo.campus !== '') updateObj.libreCampus = projURLInfo.campus;
+        }
         if (Object.keys(updateObj).length > 0) {
             // check if an update needs to be submitted
             return Project.updateOne({
                 projectID: req.body.projectID
             }, updateObj);
-        } else {
-            return {};
         }
+        return {};
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             if (sendAlert) {
@@ -1526,521 +1542,6 @@ const getOrgTags = (_req, res) => {
 
 
 /**
- * Creates a new Discussion Thread within a Project.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'createThread'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const createDiscussionThread = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                const thread = new Thread({
-                    threadID: b62(14),
-                    project: project.projectID,
-                    title: req.body.title,
-                    kind: req.body.kind,
-                    createdBy: req.user.decoded.uuid
-                });
-                return thread.save();
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((newThread) => {
-        if (newThread) {
-            return res.send({
-                err: false,
-                msg: 'New thread created successfully.',
-                threadID: newThread.threadID
-            });
-        } else {
-            throw(new Error('createfail'));
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'createfail') errMsg = conductorErrors.err3;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Deletes a Discussion Thread and its messages within a Project.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'deleteThread'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const deleteDiscussionThread = (req, res) => {
-    Thread.findOne({
-        threadID: req.body.threadID
-    }).lean().then((thread) => {
-        if (thread) {
-            return Project.findOne({
-                projectID: thread.project
-            }).lean();
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                return Thread.deleteOne({
-                    threadID: req.body.threadID
-                });
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((threadDeleteRes) => {
-        if (threadDeleteRes.deletedCount === 1) {
-            return Message.deleteMany({
-                thread: req.body.threadID
-            });
-        } else {
-            throw(new Error('deletefail'));
-        }
-    }).then((_msgDeleteRes) => {
-        return res.send({
-            err: false,
-            msg: 'Thread and messages successfully deleted.'
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Retrives all Discussion Threads within a Project and their most recent message.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getThreads'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const getProjectThreads = (req, res) => {
-    let threadKind = 'project';
-    if (req.query.kind) {
-        threadKind = req.query.kind;
-    }
-    Project.findOne({
-        projectID: req.query.projectID
-    }).lean().then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                return Thread.aggregate([
-                    {
-                        $match: {
-                            project: req.query.projectID,
-                            kind: threadKind
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            __v: 0
-                        }
-                    }, {
-                        $lookup: {
-                            from: 'messages',
-                            let: {
-                                threadID: '$threadID'
-                            },
-                            pipeline: [
-                                {
-                                    $match: {
-                                        $expr: {
-                                            $eq: ['$thread', '$$threadID']
-                                        }
-                                    }
-                                }, {
-                                    $sort: {
-                                        createdAt: -1
-                                    }
-                                }, {
-                                    $limit: 1
-                                }, {
-                                    $project: {
-                                        _id: 0,
-                                        __v: 0
-                                    }
-                                }
-                            ],
-                            as: 'lastMessage'
-                        }
-                    }, {
-                        $addFields: {
-                            lastMessage: {
-                                $arrayElemAt: ['$lastMessage', 0]
-                            }
-                        }
-                    }, {
-                        $lookup: {
-                            from: 'users',
-                            let: {
-                                author: '$lastMessage.author'
-                            },
-                            pipeline: [
-                                {
-                                    $match: {
-                                        $expr: {
-                                            $eq: ['$uuid', '$$author']
-                                        }
-                                    }
-                                }, {
-                                    $project: {
-                                        _id: 0,
-                                        uuid: 1,
-                                        firstName: 1,
-                                        lastName: 1
-                                    }
-                                }
-                            ],
-                            as: 'lastMessage.author'
-                        }
-                    }, {
-                        $addFields: {
-                            'lastMessage.author': {
-                                $arrayElemAt: ['$lastMessage.author', 0]
-                            }
-                        }
-                    }, {
-                        $sort: {
-                            'lastMessage.createdAt': -1
-                        }
-                    }
-                ]);
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((threads) => {
-        return res.send({
-            err: false,
-            projectID: req.query.projectID,
-            threads: threads
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Creates a new Message within a Project Thread.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'createMessage'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const createThreadMessage = (req, res) => {
-    let discussionKind = null;
-    let threadTitle = null;
-    let projectData = {};
-    let sentMessage = false;
-    let sentMsgData = {};
-    let allowNotif = true;
-    let sentNotif = false;
-    const currentTime = new Date();
-    Thread.findOne({
-        threadID: req.body.threadID
-    }).lean().then((thread) => {
-        if (thread) {
-            if (thread.hasOwnProperty('lastNotifSent')) {
-                // rate limit email notifications
-                const lastNotifTime = new Date(thread.lastNotifSent);
-                const minutesSince = (currentTime - lastNotifTime) / (1000 * 60);
-                if (minutesSince < 15) {
-                    allowNotif = false;
-                }
-            }
-            threadTitle = thread.title;
-            switch (thread.kind) {
-                case 'peerreview':
-                    discussionKind = 'Peer Review';
-                    break;
-                case 'a11y':
-                    discussionKind = 'accessibility';
-                    break;
-                default:
-                    discussionKind = 'Project';
-            }
-            return Project.findOne({
-                projectID: thread.project
-            }).lean();
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((project) => {
-        if (project) {
-            projectData = project;
-            if (checkProjectMemberPermission(project, req.user)) {
-                const message = new Message({
-                    messageID: b62(15),
-                    thread: req.body.threadID,
-                    body: req.body.message,
-                    author: req.decoded.uuid
-                });
-                return message.save();
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((newMsg) => {
-        if (newMsg) {
-            sentMessage = true;
-            sentMsgData = newMsg;
-            if (allowNotif) {
-                // construct team members to lookup, exclude the author
-                let projectTeam = constructProjectTeam(project, req.user);
-                if (projectTeam.length > 0) {
-                    return User.aggregate([
-                        {
-                            $match: {
-                                uuid: {
-                                    $in: projectTeam
-                                }
-                            }
-                        }, {
-                            $project: {
-                                _id: 0,
-                                uuid: 1,
-                                email: 1
-                            }
-                        }
-                    ]);
-                } else {
-                    return [];
-                }
-            } else {
-                return [];
-            }
-        } else {
-            throw(new Error('createfail'));
-        }
-    }).then((team) => {
-        if (allowNotif && Array.isArray(team) && team.length > 0) {
-            let teamEmails = team.map((item) => {
-                if (item.hasOwnProperty('email')) return item.email;
-                else return null;
-            }).filter(item => item !== null);
-            // send email notifications
-            sentNotif = true;
-            return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
-                projectData.title, projectData.orgID, discussionKind, threadTitle, sentMsgData.body);
-        } else {
-            return {};
-        }
-    }).then(() => {
-        // ignore return value of Mailgun call
-        if (sentNotif) {
-            return Thread.updateOne({
-                threadID: req.body.threadID
-            }, {
-                lastNotifSent: currentTime
-            });
-        } else {
-            return {};
-        }
-    }).then(() => {
-        // ignore return value of update
-        return res.send({
-            err: false,
-            msg: 'Message successfully sent.',
-            messageID: sentMsgData.messageID
-        });
-    }).catch((err) => {
-        // return success as long as message was sent, ignoring notification failures
-        if (sentMessage) {
-            return res.send({
-                err: false,
-                msg: 'Message successfully sent.',
-                messageID: sentMsgData.messageID
-            });
-        } else {
-            debugError(err);
-            var errMsg = conductorErrors.err6;
-            if (err.message === 'notfound') errMsg = conductorErrors.err11;
-            else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-            else if (err.message === 'createfail') errMsg = conductorErrors.err3;
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
-        }
-    });
-};
-
-
-/**
- * Deletes a Message within a Project Thread.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'deleteMessage'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const deleteThreadMessage = (req, res) => {
-    Message.findOne({
-        messageID: req.body.messageID
-    }).lean().then((message) => {
-        if (message) {
-            if ((message.author === req.user?.decoded?.uuid)
-                || (authAPI.checkHasRole(req.user, 'libretexts', 'superadmin'))) {
-                    return Message.deleteOne({
-                        messageID: req.body.messageID
-                    });
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((msgDeleteRes) => {
-        if (msgDeleteRes.deletedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Message successfully deleted.'
-            });
-        } else {
-            throw(new Error('deletefail'));
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Retrieves all Messages within a Project Thread.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getMessages'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const getThreadMessages = (req, res) => {
-    Thread.findOne({
-        threadID: req.query.threadID
-    }).lean().then((thread) => {
-        if (thread) {
-            return Project.findOne({
-                projectID: thread.project
-            }).lean();
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                return Message.aggregate([
-                    {
-                        $match: {
-                            thread: req.query.threadID
-                        }
-                    }, {
-                        $lookup: {
-                            from: 'users',
-                            let: {
-                                author: '$author'
-                            },
-                            pipeline: [
-                                {
-                                    $match: {
-                                        $expr: {
-                                            $eq: ['$uuid', '$$author']
-                                        }
-                                    }
-                                }, {
-                                    $project: {
-                                        _id: 0,
-                                        uuid: 1,
-                                        firstName: 1,
-                                        lastName: 1,
-                                        avatar: 1
-                                    }
-                                }
-                            ],
-                            as: 'author'
-                        }
-                    }, {
-                        $addFields: {
-                            author: {
-                                $arrayElemAt: ['$author', 0]
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            __v: 0
-                        }
-                    }, {
-                        $sort: {
-                            createdAt: 1
-                        }
-                    }
-                ]);
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((messages) => {
-        return res.send({
-            err: false,
-            threadID: req.query.threadID,
-            messages: messages
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
  * Sends an email via the Mailgun API to the LibreTexts team requesting
  * publishing of the Project identified by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -2245,6 +1746,23 @@ const updateA11YReviewSectionItem = (req, res) => {
 
 
 const importA11YSectionsFromTOC = (req, res) => {
+
+    const recurseBuildPagesArray = (pages) => {
+        if (Array.isArray(pages)) {
+            let processed = [];
+            pages.forEach((item) => {
+                let children = item.children;
+                delete item.children;
+                processed.push(item);
+                if (Array.isArray(children) && children.length > 0) {
+                    processed = [...processed, ...recurseBuildPagesArray(children)];
+                }
+            });
+            return processed;
+        }
+        return [];
+    };
+
     let projectData = {};
     Project.findOne({
         projectID: req.body.projectID
@@ -2253,12 +1771,12 @@ const importA11YSectionsFromTOC = (req, res) => {
             projectData = project;
             // check user has permission to import TOC
             if (checkProjectMemberPermission(projectData, req.user)) {
-                if (projectData.libreLibrary && projectData.libreCoverID
-                    && !isEmptyString(projectData.libreLibrary) && !isEmptyString(projectData.libreCoverID)) {
-                        return bookAPI.getBookTOCFromLib(`${projectData.libreLibrary}-${projectData.libreCoverID}`);
-                } else {
-                    throw(new Error('bookid'));
-                }
+                if (
+                    !isEmptyString(projectData.libreLibrary)
+                    && !isEmptyString(projectData.libreCoverID)
+                    && !isEmptyString(projectData.projectURL)
+                ) return bookAPI.getBookTOCFromAPI(null, projectData.projectURL);
+                else throw(new Error('bookid'));
             } else {
                 throw(new Error('unauth'));
             }
@@ -2267,47 +1785,34 @@ const importA11YSectionsFromTOC = (req, res) => {
         }
     }).then((toc) => {
         if (toc) {
-            let pages = [];
-            toc.forEach((chapter) => {
-                if (chapter.title && !isEmptyString(chapter.title)) {
-                    pages.push(chapter.title);
-                    if (chapter.pages && Array.isArray(chapter.pages)) {
-                        chapter.pages.forEach((page) => {
-                            if (page.title && !isEmptyString(page.title)) {
-                                pages.push(page.title);
-                            }
-                        });
-                    }
-                }
-            });
+            let pages = recurseBuildPagesArray(toc.children);
             let pageObjs = pages.map((page) => {
                 return {
-                    sectionTitle: page
+                    sectionTitle: page.title,
+                    sectionURL: page.url
                 }
             });
             if (pageObjs.length > 0) {
-                if (req.body.merge === true) {
-                    if (projectData.a11yReview && Array.isArray(projectData.a11yReview)) {
-                        let currentState = projectData.a11yReview;
-                        pageObjs = pageObjs.map((page) => {
-                            let foundIndex = -1;
-                            let foundExisting = projectData.a11yReview.find((existing, index) => {
-                                if (existing.sectionTitle === page.sectionTitle) {
-                                    foundIndex = index;
-                                    return existing;
-                                }
-                                return null;
-                            });
-                            if (foundExisting !== undefined) {
-                                if (foundIndex !== -1) {
-                                    currentState.splice(foundIndex, 1);
-                                }
-                                return foundExisting;
-                            } else {
-                                return page;
+                if (req.body.merge === true && Array.isArray(projectData.a11yReview)) {
+                    let currentState = projectData.a11yReview;
+                    pageObjs = pageObjs.map((page) => {
+                        let foundIndex = -1;
+                        let foundExisting = projectData.a11yReview.find((existing, index) => {
+                            if (existing.sectionTitle === page.sectionTitle) {
+                                foundIndex = index;
+                                return existing;
                             }
+                            return null;
                         });
-                    }
+                        if (foundExisting !== undefined) {
+                            if (foundIndex !== -1) {
+                                currentState.splice(foundIndex, 1);
+                            }
+                            return foundExisting;
+                        } else {
+                            return page;
+                        }
+                    });
                 }
                 // need to update project
                 return Project.updateOne({
@@ -2324,7 +1829,6 @@ const importA11YSectionsFromTOC = (req, res) => {
         } else {
             throw(new Error('notoc')); // handle as generic error below
         }
-        return {};
     }).then((updateRes) => {
         let resMsg = 'No pages found to import.';
         if (Object.keys(updateRes).length > 0) { // update performed
@@ -2344,11 +1848,13 @@ const importA11YSectionsFromTOC = (req, res) => {
             msg: resMsg
         });
     }).catch((err) => {
+        debugError(err);
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'bookid') errMsg = conductorErrors.err28;
         else if (err.message === 'privateresource') errMsg = conductorErrors.err29;
+        else if (err.message === 'tocretrieve') errMsg = conductorErrors.err22;
         return res.send({
             err: true,
             errMsg: errMsg
@@ -2648,9 +2154,7 @@ const validate = (method) => {
                 body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
                 body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-                body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
-                body('libreLibrary', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLibrary),
-                body('libreCoverID', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 4, max: 6}),
+                body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep)
             ]
         case 'getProject':
             return [

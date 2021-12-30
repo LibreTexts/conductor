@@ -7,15 +7,13 @@ const { validate: uuidValidate } = require('uuid');
 
 
 /**
- * Checks that the provided argument @str is a string
- * with a (whitespace-removed) length greater than 0.
+ * Checks that a string has a (trimmed) length greater than 0.
+ * @param {String} str - The string to validate.
+ * @returns {Boolean} false if the string is non-empty, true otherwise. 
  */
 const isEmptyString = (str) => {
-    if (typeof str === 'string') {
-        return (!str || str.trim().length === 0 );
-    } else {
-        return false;
-    }
+    if (typeof(str) === 'string') return (!str || str.trim().length === 0);
+    return false;
 };
 
 
@@ -115,11 +113,52 @@ const ensureUniqueStringArray = (arr) => {
 };
 
 
+/**
+ * Check if a string contains any of the substrings in the provided array.
+ * @param {String} str - the string to check.
+ * @param {String[]} arr - the array of substrings to look for.
+ * @param {Boolean} [returnStr] - return the first found substring as part of an object (optional).
+ * @returns {Boolean|Object} Boolean of search result, or an object with the result boolean and the first matched substring.
+ */
+const stringContainsOneOfSubstring = (str, arr, returnStr) => {
+    let contains = false;
+    let foundSubstring = '';
+    if (typeof(str) === 'string' && Array.isArray(arr)) {
+        arr.forEach((item) => {
+            if (!contains && typeof(item) === 'string' && str.includes(item)) {
+                contains = true;
+                foundSubstring = item;
+            }
+        });
+    }
+    if (typeof(returnStr) === 'boolean' && returnStr === true) {
+        return {
+            result: contains,
+            substr: foundSubstring
+        };
+    }
+    return contains;
+};
+
+
+/**
+ * Returns the production URL set in the server's environment variables.
+ * @returns {String} the first production URL or an empty string if not found.
+ */
+const getProductionURL = () => {
+    let prodURLs = String(process.env.PRODUCTIONURLS).split(',');
+    if (Array.isArray(prodURLs) && prodURLs.length > 0) return prodURLs[0];
+    return '';
+};
+
+
 module.exports = {
     isEmptyString,
     truncateString,
     buildOrgArray,
     validateUUIDArray,
     threePartDateStringToDate,
-    ensureUniqueStringArray
+    ensureUniqueStringArray,
+    stringContainsOneOfSubstring,
+    getProductionURL
 };

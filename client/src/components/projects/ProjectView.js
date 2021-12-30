@@ -114,8 +114,6 @@ const ProjectView = (props) => {
     const [projA11YProgress, setProjA11YProgress] = useState(0);
     const [projURL, setProjURL] = useState('');
     const [projTags, setProjTags] = useState([]);
-    const [projLibreLibrary, setProjLibreLibrary] = useState('');
-    const [projLibreCoverID, setProjLibreCoverID] = useState('');
     const [projResAuthor, setProjResAuthor] = useState('');
     const [projResEmail, setProjResEmail] = useState('');
     const [projResLicense, setProjResLicense] = useState('');
@@ -469,8 +467,6 @@ const ProjectView = (props) => {
         if (project.classification) setProjClassification(project.classification);
         if (project.projectURL) setProjURL(project.projectURL);
         if (project.tags) setProjTags(project.tags);
-        if (project.libreLibrary) setProjLibreLibrary(project.libreLibrary);
-        if (project.libreCoverID) setProjLibreCoverID(project.libreCoverID);
         if (project.author) setProjResAuthor(project.author);
         if (project.authorEmail) setProjResEmail(project.authorEmail);
         if (project.license) setProjResLicense(project.license);
@@ -497,8 +493,6 @@ const ProjectView = (props) => {
         setProjClassification('');
         setProjURL('');
         setProjTags([]);
-        setProjLibreLibrary('');
-        setProjLibreCoverID('');
         setProjResAuthor('');
         setProjResEmail('');
         setProjResLicense('');
@@ -623,12 +617,6 @@ const ProjectView = (props) => {
             }
             if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
                 projData.projectURL = projURL;
-            }
-            if ((project.libreLibrary && project.libreLibrary !== projLibreLibrary) || !project.libreLibrary) {
-                projData.libreLibrary = projLibreLibrary;
-            }
-            if ((project.libreCoverID && project.libreCoverID !== projLibreCoverID) || !project.libreCoverID) {
-                projData.libreCoverID = projLibreCoverID;
             }
             if ((project.author && project.author !== projResAuthor) || !project.author) {
                 projData.author = projResAuthor;
@@ -2141,20 +2129,28 @@ const ProjectView = (props) => {
                                                     {(project.libreLibrary && !isEmptyString(project.libreLibrary)) &&
                                                         <div className='mb-1p'>
                                                             <Header as='span' sub>Library: </Header>
-                                                            {(project.libreCoverID && !isEmptyString(project.libreCoverID))
-                                                                ?   <a
-                                                                        target='_blank'
-                                                                        rel='noopener noreferrer'
-                                                                        href={`https://${project.libreLibrary}.libretexts.org/@go/page/${project.libreCoverID}`}
-                                                                        className='mr-1r'
-                                                                    >
-                                                                        {getLibraryName(project.libreLibrary)}
-                                                                        <Icon name='external' className='ml-1p'/>
-                                                                    </a>
-                                                                : <span>{getLibraryName(project.libreLibrary)}</span>
-                                                            }
+                                                            <span>{getLibraryName(project.libreLibrary)}</span>
                                                         </div>
                                                     }
+                                                    {(project.libreShelf && !isEmptyString(project.libreShelf)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Bookshelf: </Header>
+                                                            <span>{project.libreShelf}</span>
+                                                        </div>
+                                                    }
+                                                    {(project.libreCampus && !isEmptyString(project.libreCampus)) &&
+                                                        <div className='mb-1p'>
+                                                            <Header as='span' sub>Campus: </Header>
+                                                            <span>{project.libreCampus}</span>
+                                                        </div>
+                                                    }
+                                                    <div className='mb-1p'>
+                                                        <Header as='span' sub>Project Link: </Header>
+                                                        {(project.projectURL && !isEmptyString(project.projectURL))
+                                                            ? <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Open <Icon name='external'/></a>  
+                                                            : <span><em>Unlinked</em></span>
+                                                        }                    
+                                                    </div>
                                                     {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
                                                         <div>
                                                             <Header as='span' sub>Tags: </Header>
@@ -2165,11 +2161,6 @@ const ProjectView = (props) => {
                                                                     )
                                                                 })}
                                                             </Label.Group>
-                                                        </div>
-                                                    }
-                                                    {(project.projectURL && !isEmptyString(project.projectURL)) &&
-                                                        <div className='mb-1p'>
-                                                            <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Project Link<Icon name='external' className='ml-1p' /></a>
                                                         </div>
                                                     }
                                                 </Grid.Column>
@@ -2609,13 +2600,25 @@ const ProjectView = (props) => {
                                     onChange={(_e, { value }) => setProjVisibility(value)}
                                 />
                                 <Form.Field>
-                                    <label>Project URL <span className='muted-text'>(if applicable)</span></label>
+                                    <label htmlFor='projectURL'>
+                                        <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
+                                        <Popup
+                                            trigger={<Icon name='info circle' />}
+                                            position='top center'
+                                            content={
+                                                <span className='text-center'>
+                                                    If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
+                                                </span>
+                                            }
+                                        />
+                                    </label>
                                     <Form.Input
                                         name='projectURL'
                                         type='url'
                                         placeholder='Enter project URL...'
                                         onChange={(e) => setProjURL(e.target.value)}
                                         value={projURL}
+                                        id='projectURL'
                                     />
                                 </Form.Field>
                                 <Form.Dropdown
@@ -2636,39 +2639,6 @@ const ProjectView = (props) => {
                                     })}
                                     value={projTags}
                                 />
-                                <Divider />
-                                <Header as='h3'>LibreText Information</Header>
-                                <p><em>Use this section if your project pertains to an existing LibreText on the live libraries.</em></p>
-                                <Form.Group widths='equal'>
-                                    <Form.Select
-                                        fluid
-                                        label='Library'
-                                        placeholder='Library...'
-                                        options={libraryOptions}
-                                        onChange={(_e, { value }) => setProjLibreLibrary(value)}
-                                        value={projLibreLibrary}
-                                    />
-                                    <Form.Field>
-                                        <label htmlFor='coverpageID'>
-                                            <span className='mr-1p'>Coverpage ID</span>
-                                            <Popup
-                                                content={
-                                                    <span>
-                                                        This is the 'Page ID' of the <strong>topmost</strong> page of your LibreText (typically the chapter listing). It is visible when logged into a library with editing privileges.
-                                                    </span>
-                                                }
-                                                trigger={<Icon name='info circle' />}
-                                            />
-                                        </label>
-                                        <Form.Input
-                                            name='coverpageID'
-                                            type='text'
-                                            placeholder='Enter Coverpage ID...'
-                                            onChange={(e) => setProjLibreCoverID(e.target.value)}
-                                            value={projLibreCoverID}
-                                        />
-                                    </Form.Field>
-                                </Form.Group>
                                 <Divider />
                                 <Header as='h3'>Source Properties</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>

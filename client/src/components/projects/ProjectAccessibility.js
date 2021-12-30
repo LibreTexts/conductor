@@ -361,8 +361,10 @@ const ProjectAccessibility = (props) => {
                                                     </p>
                                                 </div>
                                                 <div className='right-flex'>
-                                                    {(project.libreLibrary && project.libreCoverID && !isEmptyString(project.libreLibrary) && !isEmptyString(project.libreCoverID))
-                                                        ? (
+                                                    {(!isEmptyString(project.projectURL)
+                                                        && !isEmptyString(project.libreLibrary)
+                                                        && !isEmptyString(project.libreCoverID)
+                                                        ) ? (
                                                             <Button
                                                                 color='blue'
                                                                 onClick={openSyncTOCModal}
@@ -370,10 +372,9 @@ const ProjectAccessibility = (props) => {
                                                                 <Icon name='sync' />
                                                                 Sync TOC from LibreTexts
                                                             </Button>
-                                                        )
-                                                        : (
+                                                        ) : (
                                                             <Popup
-                                                                content="Save your LibreText's library and coverpage ID in Edit Properties to use this feature."
+                                                                content="Save your project's libretexts.org URL in Edit Properties to use this feature."
                                                                 trigger={
                                                                     <Button
                                                                         color='blue'
@@ -559,7 +560,11 @@ const ProjectAccessibility = (props) => {
                                                                     return (
                                                                         <Table.Row verticalAlign='middle' key={item._id}>
                                                                             <Table.Cell>
-                                                                                <span><strong>{item.sectionTitle}</strong></span>
+                                                                                {!isEmptyString(item.sectionURL) ? (
+                                                                                    <a href={item.sectionURL} target='_blank' rel='noopener noreferrer'><strong>{item.sectionTitle}</strong></a>
+                                                                                ) : (
+                                                                                    <span><strong>{item.sectionTitle}</strong></span>
+                                                                                )}
                                                                             </Table.Cell>
                                                                             {/* NAV */}
                                                                             <Table.Cell className='access-table-cell' textAlign='center'>

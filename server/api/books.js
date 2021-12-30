@@ -10,7 +10,7 @@ const Organization = require('../models/organization.js');
 const CustomCatalog = require('../models/customcatalog.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString } = require('../util/helpers.js');
+const { isEmptyString, getProductionURL } = require('../util/helpers.js');
 const { debugError, debugCommonsSync, debugObject } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
@@ -30,7 +30,6 @@ const {
     genLMSFileLink,
 } = require('../util/bookutils.js');
 const { getBrowserKeyForLib } = require('../util/mtkeys.js');
-const { response } = require('express');
 
 
 /**
@@ -1032,31 +1031,22 @@ const getBookSummary = (req, res) => {
 
 
 /**
- * Given a standard shortened LibreTexts Library
- * identifier, @lib, and a @pageID, returns the
- * URI to retrieve the page's subpages from the
- * MindTouch API.
- * INTERNAL USE ONLY.
- */
-const buildSubpageRequestURL = (lib, pageID) => {
-    return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/subpages?dream.out.format=json`;
-};
-
-
-/**
  * Retrieves a Book's Table of Contents via an internal
- * call to its respective library.
+ * call to the LibreTexts API.
  * NOTE: This function should only be called AFTER
  *  the validation chain.
  * VALIDATION: 'getBookTOC'
+ * @param {Object} req - the express.js request object
+ * @param {Object} res - the express.js response object
  */
 const getBookTOC = (req, res) => {
-    getBookTOCFromLib(req.query.bookID).then((toc) => {
+    getBookTOCFromAPI(req.query.bookID).then((toc) => {
         return res.send({
             err: false,
             toc: toc
         });
     }).catch((err) => {
+        debugError(err);
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
@@ -1066,136 +1056,40 @@ const getBookTOC = (req, res) => {
 
 
 /**
- * Makes a request to a Book's respective library
- * to build a Book's Table of Contents using list(s)
- * of its subpages.
+ * Makes a request to the LibreTexts API server to build
+ * an object consisting of the Book's Table of Contents.
  * INTERNAL USE ONLY
  * NOTE: This function should NOT be called directly from
  * an API route.
- * @param {String} bookID  - a standard lib-coverpageID LibreTexts identifier
+ * @param {String} [bookID] - A standard `lib-coverID` LibreTexts identifier.
+ * @param {String} [bookURL] - The URL of the LibreText to lookup.
  * @returns {Promise<Object|Error>}
  */
-const getBookTOCFromLib = (bookID) => {
-    let chapters = [];
-    let subpageRequests = [];
-    let lib = '';
-    let pageID = '';
-    let browserKey = ''
-    let reqConfig = {};
+const getBookTOCFromAPI = (bookID, bookURL) => {
+    let bookLookup = false;
     return new Promise((resolve, reject) => {
-        if (bookID && !isEmptyString(bookID)) {
-            [lib, pageID] = getLibraryAndPageFromBookID(bookID);
-            browserKey = getBrowserKeyForLib(lib);
-            if ((browserKey !== '') && (browserKey !== 'err')) {
-                reqConfig = {
-                    headers: {
-                        "X-Requested-With": "XMLHttpRequest",
-                        "x-deki-token": browserKey
-                    }
-                };
-                // Start by retrieving the Book chapters
-                resolve(axios.get(buildSubpageRequestURL(lib, pageID), reqConfig));
-            } else {
-                // missing browserkey — can't authorize request to MindTouch
-                debugError(new Error('Book TOC — browserkey'));
-                reject('browserkey');
-            }
+        if (typeof(bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
+            bookLookup = true;
+            resolve(Book.findOne({ bookID: bookID }).lean());
+        } else if (typeof(bookURL) === 'string' && !isEmptyString(bookURL)) {
+            resolve({});
+        }
+        reject(new Error('tocretrieve'));
+    }).then((commonsBook) => {
+        let bookAddr = '';
+        if (bookLookup && typeof(commonsBook) === 'object' && typeof(commonsBook.links?.online) === 'string') {
+            bookAddr = commonsBook.links.online;
+        } else if (!bookLookup && typeof(bookURL) === 'string') {
+            bookAddr = bookURL;
         } else {
-            reject('bookID');
+            throw(new Error('tocretrieve'));
         }
-    }).then((axiosRes) => {
-        const subpageData = axiosRes.data;
-        if (subpageData['page.subpage']) {
-            const subpages = subpageData['page.subpage'];
-            // process chapter pages
-            if (Array.isArray(subpages)) {
-                subpages.forEach((page, idx) => {
-                    var title = '';
-                    var link = '';
-                    var sPageID = '';
-                    if ((page.title) && (typeof(title) === 'string')) {
-                        title = page.title;
-                    }
-                    if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
-                        link = page['uri.ui'];
-                    }
-                    if ((page['@id']) && (typeof(page['@id']) === 'string')) {
-                        sPageID = page['@id'];
-                    }
-                    chapters.push({
-                        idx: idx,
-                        title: title,
-                        link: link,
-                        pageID: sPageID,
-                        pages: []
-                    });
-                    if (sPageID !== '') {
-                        // queue request to get chapter's subpages
-                        subpageRequests.push(axios.get(buildSubpageRequestURL(lib, sPageID), reqConfig));
-                    }
-                });
-            }
-        }
-        if (subpageRequests.length > 0) {
-            return Promise.all(subpageRequests);
-        } else {
-            return [];
-        }
-    }).then((subRes) => {
-        if (subRes.length > 0) {
-            // If subpages were found and retrieved, process them
-            subRes.forEach((sRes) => {
-                if (sRes.data) {
-                    const subpageData = sRes.data;
-                    // find the associated parent chapter
-                    var chapterIdx = chapters.findIndex((item) => {
-                        if (subpageData['@href'] && item.pageID) {
-                            var hrefString = String(subpageData['@href']);
-                            if (hrefString.includes(item.pageID)) {
-                                return item;
-                            }
-                        }
-                        return null;
-                    });
-                    if ((chapterIdx !== -1) && (subpageData['page.subpage'])) {
-                        const subpages = subpageData['page.subpage'];
-                        if (Array.isArray(subpages)) {
-                            subpages.forEach((page, idx) => {
-                                // process each subpage and add it to the chapter's list of pages
-                                var title = '';
-                                var link = '';
-                                var sPageID = '';
-                                if ((page.title) && (typeof(title) === 'string')) {
-                                    title = page.title;
-                                }
-                                if ((page['uri.ui']) && (typeof(page['uri.ui']) === 'string')) {
-                                    link = page['uri.ui'];
-                                }
-                                if ((page['@id']) && (typeof(page['@id']) === 'string')) {
-                                    sPageID = page['@id'];
-                                }
-                                chapters[chapterIdx].pages.push({
-                                    idx: idx,
-                                    title: title,
-                                    link: link,
-                                    pageID: sPageID
-                                });
-                            });
-                        }
-                    }
-                }
-            });
-        }
-        return chapters;
-    }).catch((axiosErr) => {
-        if (axiosErr.response?.data?.exception === 'MindTouch.Deki.Exceptions.PermissionsDeniedException') {
-            // book is likely private/sandboxed
-            throw(new Error('privateresource'));
-        } else {
-            // error requesting data from MindTouch
-            debugError(new Error('Book TOC — axiosErr'));
-            throw(new Error('axioserr'));
-        }
+        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${bookAddr}`, {
+            headers: { 'Origin': getProductionURL() }
+        });
+    }).then((tocRes) => {
+        if (tocRes.data && tocRes.data.toc) return tocRes.data.toc;
+        else throw(new Error('tocretrieve'));
     });
 };
 
@@ -1290,7 +1184,7 @@ module.exports = {
     removeBookFromCustomCatalog,
     getBookSummary,
     getBookTOC,
-    getBookTOCFromLib,
+    getBookTOCFromAPI,
     getLicenseReport,
     validate
 };

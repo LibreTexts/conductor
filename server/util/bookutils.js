@@ -41,14 +41,16 @@ const sortChoices = [
     'author'
 ];
 
+
+/**
+ * Validates a string follows the internal LibreTexts `lib-coverID` Book ID format.
+ * @param {String} bookID - The string to validate as a bookID
+ * @returns {Boolean} True if valid, false otherwise.
+ */
 const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
         const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/g);
-        if (match.length === 1) {
-            if (match[0] == bookID) {
-                return true;
-            }
-        }
+        if (match.length === 1 && match[0] === bookID) return true;
     }
     return false;
 }

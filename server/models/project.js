@@ -52,12 +52,14 @@ const ProjectSchema = new Schema({
     members: [String],          // project team members (semi-privileged) (UUIDs)
     auditors: [String],         // users with access to view (low-privileged) (UUIDs)
     libreLibrary: String,       // the corresponding LibreText's library
-    libreCoverID: String,       // the corresponding LibreText's Coverpage ID
+    libreCoverID: String,       // the corresponding LibreText's Coverpage ID,
+    libreShelf: String,         // the 'Bookshelf' if the LibreText is not a campus text
+    libreCampus: String,        // the 'Campus' if the LibreText is a campus text
     author: String,             // resource author (if applicable)
     authorEmail: String,        // resource author's email (if applicable)
     license: String,            // resource license (if applicable)
     resourceURL: String,        // resource original URL (if applicable)
-    projectURL: String,         // the URL where the project exists (if applicable)
+    projectURL: String,         // the URL where the project exists (if applicable, typically a LibreTexts lib link)
     tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
     rdmpReqRemix: Boolean,      // whether the Construction Roadmap indicates remixing is required

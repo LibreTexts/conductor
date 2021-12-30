@@ -4,6 +4,7 @@
 //
 const a11ySectionReviewSchema = {
     sectionTitle: String,
+    sectionURL: String,
     navKeyboard: Boolean,
     imgAltText: Boolean,
     imgDecorative: Boolean,
@@ -43,6 +44,7 @@ const a11ySectionReviewSchema = {
 
 const a11ySectionReviewItems = [
     'sectionTitle',
+    'sectionURL',
     'navKeyboard',
     'imgAltText',
     'imgDecorative',

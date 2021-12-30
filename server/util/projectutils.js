@@ -2,7 +2,9 @@
 // LibreTexts Conductor
 // projectutils.js
 //
-const { isEmptyString } = require('./helpers.js');
+const { stringContainsOneOfSubstring, getProductionURL } = require('./helpers.js');
+const { libraryNameKeys } = require('./librariesmap.js');
+const axios = require('axios');
 
 const projectClassifications = [
     'harvesting',
@@ -61,11 +63,79 @@ const getTextUse = (use) => {
     }
 };
 
+
+/**
+ * Retrieves basic information about a LibreText and its location via the LibreTexts API.
+ * @param {String} url - The LibreTexts url to retrieve information about.
+ * @returns {Object} An object with information about the LibreText (lib, id, shelf, campus).
+ */
+const getLibreTextInformation = (url) => {
+    let textInfo = {
+        lib: '',
+        id: '',
+        shelf: '',
+        campus: ''
+    }
+    return new Promise((resolve, reject) => {
+        if (typeof(url) === 'string') {
+            let subdomainSearch = stringContainsOneOfSubstring(url, libraryNameKeys, true);
+            if (subdomainSearch.hasOwnProperty('substr') && subdomainSearch.substr !== '') {
+                textInfo.lib = subdomainSearch.substr;
+                let libNames = libraryNameKeys.join('|');
+                let libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
+                let path = url.replace(libreURLRegex, '');
+                resolve(axios.put('https://api.libretexts.org/endpoint/info', {
+                    subdomain: subdomainSearch.substr,
+                    path: path,
+                    dreamformat: 'json'
+                }, { headers: { 'Origin': getProductionURL() }}));
+            }
+        }
+        reject();
+    }).then((axiosRes) => {
+        if (axiosRes.data) {
+            let apiData = axiosRes.data;
+            if (apiData.hasOwnProperty('@id') && typeof(apiData['@id']) === 'string') {
+                textInfo.id = apiData['@id'];
+            }
+            if (apiData.hasOwnProperty('path') && typeof(apiData.path) === 'object') {
+                if (apiData.path.hasOwnProperty('#text') && typeof(apiData.path['#text'] === 'string')) {
+                    let foundPath = apiData.path['#text'];
+                    let bookshelfRegex = new RegExp('Bookshelves\/', 'i');
+                    let courseRegex = new RegExp('Courses\/', 'i');
+                    if (bookshelfRegex.test(foundPath)) {
+                        let intraShelfPath = foundPath.replace(bookshelfRegex, '');
+                        let pathComponents = intraShelfPath.split('/');
+                        if (Array.isArray(pathComponents) && pathComponents.length > 1) {
+                            let mainShelf = decodeURIComponent(pathComponents[0]).replace(/_/g, ' ');
+                            if (pathComponents.length > 2) {
+                                mainShelf += `/${decodeURIComponent(pathComponents[1]).replace(/_/g, ' ')}`;
+                            }
+                            textInfo.shelf = mainShelf;
+                        }
+                    } else if (courseRegex.test(foundPath)) {
+                        let intraShelfPath = foundPath.replace(courseRegex, '');
+                        let pathComponents = intraShelfPath.split('/');
+                        if (Array.isArray(pathComponents) && pathComponents.length > 0) {
+                            textInfo.campus = decodeURIComponent(pathComponents[0]).replace(/_/g, ' ');
+                        }
+                    }
+                }
+            }
+
+        }
+        return textInfo;
+    }).catch((_err) => {
+        return textInfo;
+    });
+};
+
 module.exports = {
     projectClassifications,
     constrRoadmapSteps,
     validateProjectClassification,
     validateRoadmapStep,
     textUseOptions,
-    getTextUse
+    getTextUse,
+    getLibreTextInformation
 }

@@ -10,7 +10,7 @@ const { body } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString, ensureUniqueStringArray } = require('../util/helpers.js');
 const { debugError } = require('../debug.js');
-const LibrariesMap = require('../util/librariesmap.js');
+const LibrariesMap = require('../util/librariesmap.js').default;
 
 const mailAPI = require('./mail.js');
 

@@ -27,6 +27,7 @@ import { isEmptyString } from '../util/HelperFunctions.js';
 import { getLicenseColor } from '../util/BookHelpers.js';
 
 import AdoptionReport from '../adoptionreport/AdoptionReport.js';
+import ConductorTreeView from '../util/ConductorTreeView';
 
 const CommonsBook = (props) => {
 
@@ -54,7 +55,7 @@ const CommonsBook = (props) => {
         adaptID: ''
     });
     const [bookSummary, setBookSummary] = useState('');
-    const [bookChapters, setBookChapters] = useState([]);
+    const [bookTOC, setBookTOC] = useState([]);
 
     // UI
     const [showMobileReadingOpts, setShowMobileReadingOpts] = useState(false);
@@ -123,6 +124,8 @@ const CommonsBook = (props) => {
         }
     }, [book]);
 
+    //useEffect(() => console.log(clrChapters), [clrChapters]);
+
     /**
      * Retrieve the book summary from
      * the server.
@@ -163,55 +166,10 @@ const CommonsBook = (props) => {
             }
         }).then((res) => {
             if (!res.data.err) {
-                if (res.data.toc && Array.isArray(res.data.toc)) {
-                    var chapterPanels = [];
-                    res.data.toc.forEach((chapter) => {
-                        var chapterPages = null;
-                        if (chapter.pages && Array.isArray(chapter.pages)) {
-                            chapterPages = (
-                                <List
-                                    selection
-                                    verticalAlign='middle'
-                                    className='commons-toc-pagelist'
-                                >
-                                    {chapter.pages.map((item, idx) => {
-                                        return (
-                                            <List.Item
-                                                key={idx}
-                                            >
-                                                <List.Header
-                                                    as='a'
-                                                    href={item.link}
-                                                    target='_blank'
-                                                    rel='noopener noreferrer'
-                                                >
-                                                    {item.title}
-                                                </List.Header>
-                                            </List.Item>
-                                        )
-                                    })}
-                                </List>
-                            )
-                        }
-                        chapterPanels.push({
-                            key: `panel-c${chapter.idx}`,
-                            title: {
-                                content: (
-                                    <a
-                                        href={chapter.link}
-                                        target='_blank'
-                                        rel='noopener noreferrer'
-                                    >
-                                        {chapter.title}
-                                    </a>
-                                )
-                            },
-                            content: {
-                                content: chapterPages
-                            }
-                        })
-                    });
-                    setBookChapters(chapterPanels);
+                if (res.data.toc && typeof(res.data.toc) === 'object') {
+                    if (Array.isArray(res.data.toc.children)) { // skip first level
+                        setBookTOC(res.data.toc.children);
+                    }
                 }
             } else {
                 console.log(res.data.errMsg);
@@ -221,6 +179,25 @@ const CommonsBook = (props) => {
             console.log(err); // fail silently
             setLoadedTOC(true);
         });
+    };
+
+
+    const processLicensingTOCRecursive = (pages) => {
+        if (Array.isArray(pages)) {
+            return pages.map((item) => {
+                let processedItem = {...item};
+                if (item.license?.raw) processedItem.color = getLicenseColor(item.license.raw);
+                if (item.license?.link && item.license.link !== '#') {
+                    processedItem.metaLink = {
+                        url: item.license.link,
+                        text: `${item.license.label} ${item.license.version}`
+                    };
+                } else processedItem.meta = { text: item.license.label };
+                if (Array.isArray(item.children)) processedItem.children = processLicensingTOCRecursive(item.children);
+                return processedItem;
+            });
+        }
+        return [];
     };
 
 
@@ -271,60 +248,7 @@ const CommonsBook = (props) => {
                     }
                     setPieChartData(pieChart);
                     if (licenseReport.text?.children && Array.isArray(licenseReport.text.children)) {
-                        let chapterPanels = [];
-                        licenseReport.text.children.forEach((item, idx) => {
-                            let chapterPages = null;
-                            let chapterLicColor = '#000000';
-                            if (item.license?.raw) chapterLicColor = getLicenseColor(item.license.raw);
-                            if (item.children && Array.isArray(item.children)) {
-                                chapterPages = (
-                                    <List
-                                        verticalAlign='middle'
-                                        className='commons-toc-pagelist'
-                                    >
-                                        {item.children.map((secItem, idx) => {
-                                            let licColor = '#000000';
-                                            if (secItem.license?.raw) licColor = getLicenseColor(secItem.license.raw);
-                                            return (
-                                                <List.Item
-                                                    key={idx}
-                                                >
-                                                    <List.Header>
-                                                        <a href={secItem.url} target='_blank' rel='noopener noreferrer' style={{color: licColor}}>{secItem.title}</a>
-                                                        {(secItem.license?.link && secItem.license.link !== '#') &&
-                                                            <span> — <a href={secItem.license.link} target='_blank' rel='noopener noreferrer' style={{color: licColor}}>{secItem.license.label} {secItem.license.version}</a></span>
-                                                        }
-                                                        {(secItem.license?.link && secItem.license.link === '#') &&
-                                                            <span> — <span style={{color: licColor}}>{secItem.license.label}</span></span>
-                                                        }
-                                                    </List.Header>
-                                                </List.Item>
-                                            )
-                                        })}
-                                    </List>
-                                );
-                            }
-                            chapterPanels.push({
-                                key: `clr-panel-c${idx}`,
-                                title: {
-                                    content: (
-                                        <span>
-                                            <a href={item.url} target='_blank' rel='noopener noreferrer' style={{color: chapterLicColor}}>{item.title}</a>
-                                            {(item.license?.link && item.license.link !== '#') &&
-                                                <span> — <a href={item.license.link} target='_blank' rel='noopener noreferrer' style={{color: chapterLicColor}}>{item.license.label} {item.license.version}</a></span>
-                                            }
-                                            {(item.license?.link && item.license.link === '#') &&
-                                                <span> — <span style={{color: chapterLicColor}}>{item.license.label}</span></span>
-                                            }
-                                        </span>
-                                    )
-                                },
-                                content: {
-                                    content: chapterPages
-                                }
-                            });
-                        });
-                        setCLRChapters(chapterPanels);
+                        setCLRChapters(processLicensingTOCRecursive(licenseReport.text.children));
                     }
                     setLoadedLicensing(true);
                 }
@@ -473,12 +397,12 @@ const CommonsBook = (props) => {
                                             }
                                             <Button icon='hand paper' content='Submit an Adoption Report' color='green' fluid onClick={() => { setShowAdoptionReport(true) }} />
                                             <Button.Group id='commons-book-actions' vertical labeled icon fluid color='blue'>
-                                                <Button icon='linkify' content='Read Online' as='a' href={book.links?.online} target='_blank' rel='noopener noreferrer' />
-                                                <Button icon='file pdf' content='Download PDF' as='a' href={book.links?.pdf} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links?.buy} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links?.zip} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='book' content='Download Print Files' as='a' href={book.links?.files} target='_blank' rel='noopener noreferrer'/>
-                                                <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links?.lms} target='_blank' rel='noopener noreferrer'/>
+                                                <Button icon='linkify' content='Read Online' as='a' href={book.links?.online} target='_blank' rel='noopener noreferrer' tabIndex={0} />
+                                                <Button icon='file pdf' content='Download PDF' as='a' href={book.links?.pdf} target='_blank' rel='noopener noreferrer' tabIndex={0} />
+                                                <Button icon='shopping cart' content='Buy Print Copy' as='a' href={book.links?.buy} target='_blank' rel='noopener noreferrer' tabIndex={0} />
+                                                <Button icon='zip' content='Download Pages ZIP' as='a' href={book.links?.zip} target='_blank' rel='noopener noreferrer' tabIndex={0} />
+                                                <Button icon='book' content='Download Print Files' as='a' href={book.links?.files} target='_blank' rel='noopener noreferrer' tabIndex={0} />
+                                                <Button icon='graduation cap' content='Download LMS File' as='a' href={book.links?.lms} target='_blank' rel='noopener noreferrer' tabIndex={0} />
                                             </Button.Group>
                                         </Grid.Column>
                                         <Grid.Column width={12}>
@@ -509,8 +433,15 @@ const CommonsBook = (props) => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        {(bookChapters.length > 0)
-                                                            ? (<Accordion fluid panels={bookChapters} className='commons-book-toc' exclusive={false} />)
+                                                        {(bookTOC.length > 0)
+                                                            ? (
+                                                                <ConductorTreeView
+                                                                    items={bookTOC}
+                                                                    asLinks={true}
+                                                                    hrefKey='url'
+                                                                    textKey='title'
+                                                                />
+                                                            )
                                                             : (<p className='commons-book-toc'><em>Table of contents unavailable.</em></p>)
                                                         }
                                                     </Segment>
@@ -620,7 +551,14 @@ const CommonsBook = (props) => {
                                                                     <Grid.Column>
                                                                         <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
                                                                         {(clrChapters.length > 0)
-                                                                            ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' exclusive={false} />)
+                                                                            ? (
+                                                                                <ConductorTreeView
+                                                                                    items={clrChapters}
+                                                                                    asLinks={true}
+                                                                                    hrefKey='url'
+                                                                                    textKey='title'
+                                                                                />
+                                                                            )
                                                                             : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
                                                                         }
                                                                     </Grid.Column>
@@ -733,8 +671,15 @@ const CommonsBook = (props) => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        {(bookChapters.length > 0)
-                                                            ? (<Accordion fluid panels={bookChapters} exclusive={false} />)
+                                                        {(bookTOC.length > 0)
+                                                            ? (
+                                                                <ConductorTreeView
+                                                                    items={bookTOC}
+                                                                    asLinks={true}
+                                                                    hrefKey='url'
+                                                                    textKey='title'
+                                                                />
+                                                            )
                                                             : (<p><em>Table of contents unavailable.</em></p>)
                                                         }
                                                     </Segment>
@@ -847,7 +792,14 @@ const CommonsBook = (props) => {
                                                                     <Grid.Column>
                                                                         <Header as='h4' className='mt-2p' dividing>Breakdown</Header> 
                                                                         {(clrChapters.length > 0)
-                                                                            ? (<Accordion fluid panels={clrChapters} className='commons-book-toc' exclusive={false} />)
+                                                                            ? (
+                                                                                <ConductorTreeView
+                                                                                    items={clrChapters}
+                                                                                    asLinks={true}
+                                                                                    hrefKey='url'
+                                                                                    textKey='title'
+                                                                                />
+                                                                            )
                                                                             : (<p className='commons-book-toc'><em>Licensing breakdown unavailable.</em></p>)
                                                                         }
                                                                     </Grid.Column>

@@ -7,7 +7,7 @@
 const { query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 
-const LibrariesMap = require('../util/librariesmap.js');
+const LibrariesMap = require('../util/librariesmap.js').default;
 
 /**
  * Returns the full map of Libraries.

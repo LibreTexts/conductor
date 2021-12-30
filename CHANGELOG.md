@@ -1,5 +1,19 @@
 # Changelog
 
+## 12-29-2021
+#### :art: UI/UX
+* Removed the 'LibreText Information' section in Edit Project Properties
+* Introduced the ConductorTreeView for TOCs and similar data
+    * Supports deep-nesting
+* Added links to the Accessibility Compliance Review Matrix to respective sections
+* Removed the beta testing message from Tasks
+
+#### :satellite: Server
+* Implemented Book TOC retrieval via the LibreTexts API
+    * Improved accuracy and deep-nesting support
+* Updated Accessibility TOC Import to use new retrieval method
+
+
 ## 12-21-2021
 #### :art: UI/UX
 * Added new Account Purpose options to Account Requests

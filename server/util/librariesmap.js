@@ -678,4 +678,24 @@ const libraries = [
     }
 ];
 
-module.exports = libraries;
+const libraryNameKeys = [
+    'bio',
+    'biz',
+    'chem',
+    'eng',
+    'espanol',
+    'geo',
+    'human',
+    'k12',
+    'math',
+    'med',
+    'phys',
+    'socialsci',
+    'stats',
+    'workforce'
+];
+
+module.exports = {
+    default: libraries,
+    libraryNameKeys
+}
