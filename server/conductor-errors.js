@@ -38,7 +38,9 @@ const conductorErrors = {
     'err31': "A task cannot be dependent on itself.",
     'err32': "Oops, this project does not have a Project Liaison specified.",
     'err33': "A task's end date cannot be before its start date.",
-    'err44': "Oops, at least one team member must be a Project Lead."
+    'err44': "Oops, at least one team member must be a Project Lead.",
+    'err45': "Sorry, we're having trouble retrieving or generating this data export.",
+    'err46': "Oops, an account with this email has already been registered using traditional authentication."
 };
 
 module.exports = conductorErrors;

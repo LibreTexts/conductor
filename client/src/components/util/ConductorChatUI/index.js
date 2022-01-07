@@ -13,7 +13,8 @@ import {
     Modal,
     Icon,
     Loader,
-    Comment
+    Comment,
+    Image
 } from 'semantic-ui-react';
 import React, { useEffect, useState, memo } from 'react';
 import ConductorTextArea from '../ConductorTextArea';
@@ -143,76 +144,72 @@ const ConductorChatUI = ({
 
 
     return (
-        <div id='project-discussion-messages'>
-            <div className='flex-col-div' id='project-messages-container'>
-                <div className='flex-row-div' id='project-messages-header-container'>
-                    <div className='left-flex'>
-                        <Header as='h3'>
-                            {(activeThreadTitle !== '')
-                                ? <em>{activeThreadTitle}</em>
-                                : <span>Messages</span>
-                            }
-                        </Header>
-                    </div>
-                    <div className='right-flex' id='project-messages-header-options'>
-
-                    </div>
+        <div id='conductor-chat'>
+            <div id='conductor-chat-msgs-header-container'>
+                <div className='left-flex'>
+                    <Header as='h3'>
+                        {(activeThreadTitle !== '')
+                            ? <em>{activeThreadTitle}</em>
+                            : <span>Messages</span>
+                        }
+                    </Header>
                 </div>
-                <div id='project-messages-chat-container'>
-                    {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
-                        <Comment.Group id='project-messages-chat-list'>
-                            {activeThreadMsgs.map((item, idx) => {
-                                const today = new Date();
-                                const itemDate = new Date(item.createdAt);
-                                if (today.getDate() === itemDate.getDate()) { // today
-                                    item.date = 'Today';
-                                } else {
-                                    item.date = date.format(itemDate, 'MMM DDD, YYYY')
-                                }
-                                item.time = date.format(itemDate, 'h:mm A');
-                                const readyMsgBody = {
-                                    __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
-                                };
-                                return (
-                                    <Comment className='project-messages-message' key={item.messageID}>
-                                      <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
-                                      <Comment.Content>
+                <div className='right-flex' id='conductor-chat-msgs-header-options'></div>
+            </div>
+            <div id='conductor-chat-window'>
+                {(loadedThreadMsgs && activeThreadMsgs.length > 0) &&
+                    <Comment.Group id='conductor-chat-msgs'>
+                        {activeThreadMsgs.map((item, idx) => {
+                            const today = new Date();
+                            const itemDate = new Date(item.createdAt);
+                            if (today.getDate() === itemDate.getDate()) { // today
+                                item.date = 'Today';
+                            } else {
+                                item.date = date.format(itemDate, 'MMM DDD, YYYY')
+                            }
+                            item.time = date.format(itemDate, 'h:mm A');
+                            const readyMsgBody = {
+                                __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
+                            };
+                            return (
+                                <Comment className='conductor-chat-msg' key={item.messageID}>
+                                    <Comment.Avatar src={item.author?.avatar || '/mini_logo.png'} />
+                                    <Comment.Content>
                                         <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
                                         <Comment.Metadata>
                                           <div>{item.date} at {item.time}</div>
                                         </Comment.Metadata>
-                                        <Comment.Text dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
+                                        <Comment.Text className='conductor-chat-msg-body' dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
                                         {(item.author?.uuid === user.uuid) &&
                                             <Comment.Actions>
                                                 <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
                                             </Comment.Actions>
                                         }
                                       </Comment.Content>
-                                    </Comment>
-                                )
-                            })}
-                        </Comment.Group>
-                    }
-                    {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
-                        <p className='text-center muted-text mt-4r'><em>No messages yet. Send one below!</em></p>
-                    }
-                    {(!loadedThreadMsgs && activeThread !== '') &&
-                        <Loader active inline='centered' className='mt-4r' />
-                    }
-                    {(activeThread === '' && activeThreadMsgs.length === 0) &&
-                        <p className='text-center muted-text mt-4r'><em>{mode === 'standalone' ? 'No chat identifier specified!' : 'No thread selected. Select one from the list on the left or create one using the + button!'}</em></p>
-                    }
-                </div>
-                <div id='project-messages-reply-container'>
-                    <ConductorTextArea
-                        placeholder='Send a message...'
-                        textValue={messageCompose}
-                        onTextChange={(value) => setMessageCompose(value)}
-                        disableSend={(activeThread === '') || (messageCompose === '')}
-                        sendLoading={messageSending}
-                        onSendClick={sendMessage}
-                    />
-                </div>
+                                </Comment>
+                            )
+                        })}
+                    </Comment.Group>
+                }
+                {(loadedThreadMsgs && activeThreadMsgs.length === 0) &&
+                    <p className='text-center muted-text mt-4r'><em>No messages yet. Send one below!</em></p>
+                }
+                {(!loadedThreadMsgs && activeThread !== '') &&
+                    <Loader active inline='centered' className='mt-4r' />
+                }
+                {(activeThread === '' && activeThreadMsgs.length === 0) &&
+                    <p className='text-center muted-text mt-4r'><em>{mode === 'standalone' ? 'No chat identifier specified!' : 'No thread selected. Select one from the list on the left or create one using the + button!'}</em></p>
+                }
+            </div>
+            <div id='conductor-chat-reply-container'>
+                <ConductorTextArea
+                    placeholder='Send a message...'
+                    textValue={messageCompose}
+                    onTextChange={(value) => setMessageCompose(value)}
+                    disableSend={(activeThread === '') || (messageCompose === '')}
+                    sendLoading={messageSending}
+                    onSendClick={sendMessage}
+                />
             </div>
             {/* Delete Discussion Message Modal */}
             <Modal

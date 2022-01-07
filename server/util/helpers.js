@@ -9,7 +9,7 @@ const { validate: uuidValidate } = require('uuid');
 /**
  * Checks that a string has a (trimmed) length greater than 0.
  * @param {String} str - The string to validate.
- * @returns {Boolean} false if the string is non-empty, true otherwise. 
+ * @returns {Boolean} True if non-empty or not a string, false otherwise.
  */
 const isEmptyString = (str) => {
     if (typeof(str) === 'string') return (!str || str.trim().length === 0);

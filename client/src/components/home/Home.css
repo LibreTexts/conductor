@@ -5,15 +5,15 @@
     width: 4em !important;
 }
 
-.dashboard-mobile-welcome {
+.home-mobile-welcome {
     align-items: center;
 }
 
-.dashboard-mobile-welcome > .menu-avatar {
+.home-mobile-welcome > .menu-avatar {
     margin: 0;
 }
 
-.dashboard-mobile-welcome > h1 {
+.home-mobile-welcome > h1 {
     margin: 0 0 0 0.5em !important;
 }
 

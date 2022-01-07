@@ -24,7 +24,8 @@ import ConductorDateInput from '../util/ConductorDateInput';
 import {
     isEmptyString,
     truncateString,
-    capitalizeFirstLetter
+    capitalizeFirstLetter,
+    normalizeURL
 } from '../util/HelperFunctions.js';
 import {
     datePickerPopperOptions
@@ -438,7 +439,7 @@ const AdoptionReports = (props) => {
                                     <Grid.Row columns={1}>
                                         <Grid.Column>
                                             <Header sub>Resource Link</Header>
-                                            <a href={currentReport.resource.link} target='_blank' rel='noopener noreferrer'>{truncateString(currentReport.resource.link, 75)}</a>
+                                            <a href={normalizeURL(currentReport.resource.link)} target='_blank' rel='noopener noreferrer'>{truncateString(currentReport.resource.link, 75)}</a>
                                         </Grid.Column>
                                     </Grid.Row>
                                 }

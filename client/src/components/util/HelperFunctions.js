@@ -92,8 +92,8 @@ const validatePassword = (passInput) => {
 /**
  * Accepts a string containing a URL and attempts to normalize it
  * to include protocol.
- * @param {string} url - the URL to normalize.
- * @returns {string} the normalized URL
+ * @param {String} url - the URL to normalize.
+ * @returns {String} the normalized URL
  */
 const normalizeURL = (url) => {
     if (typeof(url) === 'string') {
@@ -101,9 +101,8 @@ const normalizeURL = (url) => {
             return 'https://' + url;
         }
         return url;
-    } else {
-        return '';
     }
+    return '';
 };
 
 

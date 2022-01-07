@@ -29,3 +29,6 @@ build
 
 # Sensitive Files
 config/
+
+# Runtime-generated Files
+server/public

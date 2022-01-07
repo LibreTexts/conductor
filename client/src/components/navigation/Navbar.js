@@ -113,8 +113,8 @@ const Navbar = (_props) => {
      */
     useEffect(() => {
         const currentPath = location.pathname;
-        if (currentPath.includes('/dashboard')) {
-            setActiveItem('dashboard');
+        if (currentPath.includes('/home')) {
+            setActiveItem('home');
         } else if (currentPath.includes('/harvesting')) {
             setActiveItem('harvesting');
         } else if (currentPath.includes('/projects')) {
@@ -151,9 +151,9 @@ const Navbar = (_props) => {
             <Menu className='nav-menu' secondary>
                 <Menu.Item
                     as={Link}
-                    to='/dashboard'
+                    to='/home'
                     header
-                    name='dashboard'
+                    name='home'
                     id='nav-logo-item'
                     onClick={(_e, data) => {
                         setActiveItem(data.name);
@@ -166,10 +166,10 @@ const Navbar = (_props) => {
                     }
                 </Menu.Item>
                 <Menu.Item
-                    name='dashboard'
+                    name='home'
                     as={Link}
-                    to='/dashboard'
-                    active={activeItem === 'dashboard'}
+                    to='/home'
+                    active={activeItem === 'home'}
                     onClick={(_e, data) => {
                         setActiveItem(data.name);
                     }}

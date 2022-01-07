@@ -48,15 +48,15 @@ const ConductorMessagingUI = ({ projectID, user, kind }) => {
     const [delThreadLoading, setDelThreadLoading] = useState(false);
 
     // Discussion
-    const [projectThreads, setProjectThreads] = useState([]);
-    const [loadedProjThreads, setLoadedProjThreads] = useState(false);
+    const [threads, setThreads] = useState([]);
+    const [loadedThreads, setLoadedThreads] = useState(false);
     const [activeThread, setActiveThread] = useState('');
     const [activeThreadTitle, setActiveThreadTitle] = useState('');
     const [activeThreadMsgs, setActiveThreadMsgs] = useState([]);
     const [loadedThreadMsgs, setLoadedThreadMsgs] = useState(false);
 
     const getDiscussionThreads = useCallback(() => {
-        setLoadedProjThreads(false);
+        setLoadedThreads(false);
         axios.get('/project/threads', {
             params: {
                 projectID: projectID,
@@ -65,15 +65,15 @@ const ConductorMessagingUI = ({ projectID, user, kind }) => {
         }).then((res) => {
             if (!res.data.err) {
                 if (res.data.threads && Array.isArray(res.data.threads)) {
-                    setProjectThreads(res.data.threads);
+                    setThreads(res.data.threads);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
             }
-            setLoadedProjThreads(true);
+            setLoadedThreads(true);
         }).catch((err) => {
             handleGlobalError(err);
-            setLoadedProjThreads(true);
+            setLoadedThreads(true);
         });
     }, [projectID, handleGlobalError, kind]);
 
@@ -204,68 +204,66 @@ const ConductorMessagingUI = ({ projectID, user, kind }) => {
 
 
     return (
-        <div id='project-discussion-container'>
-            <div id='project-discussion-threads'>
-                <div className='flex-col-div' id='project-threads-container'>
-                    <div className='flex-row-div' id='project-threads-header-container'>
-                        <div className='left-flex'>
-                            <Header as='h3'>Threads</Header>
-                        </div>
-                        <div className='right-flex'>
-                            <Button
-                                circular
-                                icon='trash'
-                                color='red'
-                                disabled={activeThread === ''}
-                                onClick={openDelThreadModal}
-                                className='mr-2p'
-                            />
-                            <Button
-                                circular
-                                icon='plus'
-                                color='olive'
-                                onClick={openNewThreadModal}
-                            />
-                        </div>
+        <div id='conductor-messaging-container'>
+            <div id='conductor-messaging-threads'>
+                <div className='flex-row-div' id='conductor-messaging-threads-header-container'>
+                    <div className='left-flex'>
+                        <Header as='h3'>Threads</Header>
                     </div>
-                    <div className='flex-col-div' id='project-threads-list-container'>
-                        {(loadedProjThreads && projectThreads.length > 0) &&
-                            projectThreads.map((item, idx) => {
-                                let lastMessage = '*No messages yet*';
-                                if (item.lastMessage && item.lastMessage.body) {
-                                    lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
-                                }
-                                const readyLastMsg = {
-                                    __html: DOMPurify.sanitize(marked.parseInline(lastMessage))
-                                };
-                                return (
-                                    <div
+                    <div className='right-flex'>
+                        <Button
+                            icon='trash'
+                            color='red'         
+                            onClick={openDelThreadModal}
+                            disabled={activeThread === ''}
+                            className='mr-2p'
+                        />
+                        <Button
+                            color='olive'
+                            onClick={openNewThreadModal}
+                        >
+                            <Icon name='plus' />
+                            New
+                        </Button>
+                    </div>
+                </div>
+                <div className='flex-col-div' id='conductor-messaging-threads-list-container'>
+                    {(loadedThreads && threads.length > 0) &&
+                        threads.map((item, idx) => {
+                            let lastMessage = '*No messages yet*';
+                            if (item.lastMessage && item.lastMessage.body) {
+                                lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
+                            }
+                            const readyLastMsg = {
+                                __html: DOMPurify.sanitize(marked.parseInline(lastMessage))
+                            };
+                            return (
+                                <div
+                                    className={activeThread === item.threadID
+                                        ? 'conductor-messaging-threads-list-item active'
+                                        : 'conductor-messaging-threads-list-item'}
+                                    key={item.threadID}
+                                    onClick={() => activateThread(item)}
+                                >
+                                    <p
                                         className={activeThread === item.threadID
-                                            ? 'project-threads-list-item active'
-                                            : 'project-threads-list-item'}
-                                        key={item.threadID}
-                                        onClick={() => activateThread(item)}
+                                            ? 'conductor-messaging-threads-list-title active'
+                                            : 'conductor-messaging-threads-list-title'}
                                     >
-                                        <p
-                                            className={activeThread === item.threadID
-                                                ? 'project-threads-list-title active'
-                                                : 'project-threads-list-title'}
-                                        >
-                                            {item.title}
-                                        </p>
-                                        <p className='project-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
-                                        </p>
-                                    </div>
-                                )
-                            })
-                        }
-                        {(loadedProjThreads && projectThreads.length === 0) &&
-                            <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
-                        }
-                        {(!loadedProjThreads) &&
-                            <Loader active inline='centered' className='mt-4r' />
-                        }
-                    </div>
+                                        {item.title}
+                                    </p>
+                                    <p className='conductor-messaging-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
+                                    </p>
+                                </div>
+                            )
+                        })
+                    }
+                    {(loadedThreads && threads.length === 0) &&
+                        <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
+                    }
+                    {(!loadedThreads) &&
+                        <Loader active inline='centered' className='mt-4r' />
+                    }
                 </div>
             </div>
             <ConductorChatUI

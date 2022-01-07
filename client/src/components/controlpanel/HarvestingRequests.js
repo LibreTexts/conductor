@@ -25,6 +25,7 @@ import ConductorDateInput from '../util/ConductorDateInput';
 
 import {
     isEmptyString,
+    normalizeURL
 } from '../util/HelperFunctions.js';
 import {
     getLibGlyphURL,
@@ -502,7 +503,7 @@ const HarvestingRequests = (props) => {
                                     <Grid.Column>
                                         <Header sub>Resource URL</Header>
                                         {!isEmptyString(currentRequest.url)
-                                            ? <p>{currentRequest.url}</p>
+                                            ? <a href={normalizeURL(currentRequest.url)} target='_blank' rel='noopener noreferrer'>{currentRequest.url}</a>
                                             :<p className='muted-text'><em>N/A</em></p>
                                         }
                                     </Grid.Column>

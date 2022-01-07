@@ -29,6 +29,7 @@ const BookSchema = new Schema({
     program: String,            // the OER program the book is part of
     license: String,            // the book license
     thumbnail: String,          // the URL of the book's thumbnail
+    summary: String,            // the book's overview/description/summary
     links: {                    // links to access the book in different formats
         online: String,         //      read book online
         pdf: String,            //      download book PDF

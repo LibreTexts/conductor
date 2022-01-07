@@ -160,11 +160,11 @@ const AccountRequest = (props) => {
 
     /**
      * Called when the Succes Modal is closed. Redirects user
-     * to Dashboard or home page.
+     * to Home or main page.
      */
     const successModalClosed = () => {
         setSuccessModal(false);
-        if (user.isAuthenticated) props.history.push('/dashboard');
+        if (user.isAuthenticated) props.history.push('/home');
         else props.history.push('/');
     };
 

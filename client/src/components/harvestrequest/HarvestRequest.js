@@ -191,7 +191,7 @@ const HarvestRequest = (props) => {
     const successModalClosed = () => {
         setSuccessModal(false);
         if (user.isAuthenticated) {
-            props.history.push('/dashboard');
+            props.history.push('/home');
         } else {
             props.history.push('/');
         }

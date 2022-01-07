@@ -15,7 +15,6 @@ const { isEmptyString } = require('../util/helpers.js');
 
 const mailAPI = require('./mail.js');
 const axios = require('axios');
-const { match } = require('assert');
 
 
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
@@ -26,8 +25,8 @@ const profileURL = 'https://sso.libretexts.org/cas/oauth2.0/profile';
 
 /**
  * Creates (Access & Signature) Conductor cookies given a JWT.
- * @param {string} token  - the full JWT
- * @returns {string[]} the generated cookies
+ * @param {String} token  - the full JWT
+ * @returns {String[]} the generated cookies
  */
 const createTokenCookies = (token) => {
     const splitToken = token.split('.');
@@ -45,6 +44,8 @@ const createTokenCookies = (token) => {
 /**
  * Redirects the browser to the SSO authorization
  * flow initialization URI.
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
  */
 const initSSO = (_req, res) => {
     return res.redirect(
@@ -54,19 +55,22 @@ const initSSO = (_req, res) => {
 
 
 /**
- * Accepts an authorization code from the
- * request's query string and exchanges it
- * via POST to CAS for an access token. The
- * access token is then used to retrieve the
- * the user's IdP profile and then locate or
- * create the user internally. Finally, a
- * standard Conductor authorization token
- * is issued.
+ * Accepts an authorization code from the request's query string and exchanges it
+ * via POST to CAS for an access token. The access token is then used to retrieve the
+ * the user's IdP profile and then locate or create the user internally. Finally, a
+ * standard Conductor authorization token is issued.
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
  */
 const oauthCallback = (req, res) => {
-    var isNewMember = false;
-    var payload = {};
-    new Promise((resolve) => {
+    let payload = {};
+    let ssoAttr = null;
+    let doCreate = false;
+    let isNewMember = true;
+    let avatar = '/mini_logo.png';
+    let user = {};
+    let formattedEmail = '';
+    return new Promise((resolve, reject) => {
         if (req.query.code) {
             // get token from CAS using auth code
             resolve(axios.post(tokenURL, {}, {
@@ -78,9 +82,8 @@ const oauthCallback = (req, res) => {
                     'redirect_uri': callbackURL
                 }
             }));
-        } else {
-            throw(new Error('nocode'));
         }
+        reject(new Error('nocode'));
     }).then((axiosRes) => {
         if (axiosRes.data.access_token) {
             // get user profile from CAS using access token
@@ -89,55 +92,57 @@ const oauthCallback = (req, res) => {
                     'access_token': axiosRes.data.access_token
                 }
             });
-        } else {
-            throw(new Error('tokenfail'));
         }
+        throw(new Error('tokenfail'));
     }).then((axiosRes) => {
-        if (axiosRes.data && axiosRes.data.attributes) {
-            const attr = axiosRes.data.attributes;
-            let avatar = '/mini_logo.png';
-            if (attr.hasOwnProperty('picture') && attr.picture !== '') {
-                avatar = attr.picture;
+        ssoAttr = axiosRes.data?.attributes;
+        if (typeof (ssoAttr) === 'object' && typeof (ssoAttr.principalID) === 'string') {
+            if (ssoAttr.hasOwnProperty('picture') && !isEmptyString(ssoAttr.picture)) {
+                avatar = ssoAttr.picture;
             }
-            // find the user or create them if they do not exist yet
-            return User.findOneAndUpdate({
-                $and: [
-                    { email: attr.principalID },
-                    { authType: 'sso' }
-                ]
-            }, {
-                $setOnInsert: {
-                    uuid: uuidv4(),
-                    firstName: attr.given_name,
-                    lastName: attr.family_name,
-                    email: attr.principalID,
-                    avatar: avatar,
-                    hash: '',
-                    salt: '',
-                    roles: [],
-                    authType: 'sso'
-                }
-            }, {
-                new: true,
-                upsert: true
-            });
-        } else {
-            throw(new Error('profilefail'));
+            // Check if user already exists
+            formattedEmail = String(ssoAttr.principalID).toLowerCase();
+            return User.findOne({ email: formattedEmail }).lean(); // TODO: use 'sub' field as principal key
         }
-    }).then((user) => {
-        if (user) {
-            payload.uuid = user.uuid;
+        throw(new Error('profilefail'));
+    }).then((userData) => {
+        if (userData) { // user exists
+            if (userData.authType === 'sso') {
+                user = userData;
+                payload.uuid = userData.uuid;
+                // sync info
+                return User.updateOne({ uuid: userData.uuid }, {
+                    firstName: ssoAttr.given_name,
+                    lastName: ssoAttr.family_name,
+                    avatar: avatar,
+                    authSub: ssoAttr.sub
+                });
+            }
+            throw(new Error('authtype'));
+        } else { // create user
+            let newUUID = uuidv4();
+            user.uuid = newUUID;
+            let newUser = new User({
+                uuid: newUUID,
+                firstName: ssoAttr.given_name,
+                lastName: ssoAttr.family_name,
+                email: formattedEmail,
+                avatar: avatar,
+                hash: '',
+                salt: '',
+                roles: [],
+                authType: 'sso',
+                authSub: ssoAttr.sub
+            });
+            doCreate = true;
+            return newUser.save();
+        }
+    }).then((userRes) => {
+        if ((!doCreate && userRes.matchedCount === 1) || (doCreate && typeof(userRes) === 'object')) {
             // check if user is new organization member, update roles if so
             if (Array.isArray(user.roles)) {
-                var foundRole = user.roles.find((item) => {
-                    if (item.org === process.env.ORG_ID) {
-                        return item;
-                    }
-                    return null;
-                });
-                if (foundRole === undefined) {
-                    isNewMember = true;
-                }
+                let foundRole = user.roles.find(item => item.org === process.env.ORG_ID);
+                if (typeof(foundRole) !== undefined) isNewMember = false;
             }
             if (isNewMember) {
                 return User.updateOne({ uuid: user.uuid }, {
@@ -148,40 +153,36 @@ const oauthCallback = (req, res) => {
                         }
                     }
                 });
-            } else {
-                return {};
             }
-        } else {
-            throw(new Error('userretrieve'));
+            return {};
         }
+        throw(new Error('userupdatecreate'));
     }).then((_updateRes) => {
         // issue auth token and return to login for entry
-        jwt.sign(payload, process.env.SECRETKEY, {
-            expiresIn: 86400
-        },(err, token) => {
-            if (!err && token !== null) {
-                const cookiesToSet = createTokenCookies(token);
-                res.setHeader('Set-Cookie', cookiesToSet);
-                var redirectURL = '/dashboard';
-                if (req.cookies.conductor_sso_redirect) {
-                    redirectURL = req.cookies.conductor_sso_redirect + '/dashboard';
-                }
-                if (isNewMember) redirectURL = redirectURL + '?newmember=true';
-                return res.redirect(redirectURL);
-            } else {
-                throw(err);
+        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: 86400 });
+        if (typeof(token) === 'string') {
+            res.setHeader('Set-Cookie', createTokenCookies(token));
+            let redirectURL = '/home';
+            if (req.cookies.conductor_sso_redirect) {
+                redirectURL = req.cookies.conductor_sso_redirect + '/home';
             }
-        });
+            if (isNewMember) redirectURL = redirectURL + '?newmember=true';
+            return res.redirect(redirectURL);
+        }
+        throw(new Error('tokensign'));
     }).catch((err) => {
         var ssoDebug = 'SSO authentication failed — ';
-        if (err.message === 'tokenfail' || err.message === 'profilefail' || err.message === 'userretrieve') {
+        if (err.message === 'tokenfail' || err.message === 'profilefail'
+            || err.message === 'userretrieve' || err.message === 'userupdatecreate') {
             debugError(ssoDebug + err.message);
             return res.redirect('/login?ssofail=true');
         } else {
             debugError(err);
+            let errMsg = conductorErrors.err6;
+            if (err.message === 'authtype') errMsg = conductorErrors;
             return res.send({
                 err: false,
-                msg: conductorErrors.err6
+                msg: errMsg
             });
         }
     });
@@ -197,28 +198,18 @@ const oauthCallback = (req, res) => {
  * VALIDATION: 'login'
  */
 const login = (req, res, _next) => {
-    var isNewMember = false;
+    var isNewMember = true;
     var payload = {};
     const formattedEmail = String(req.body.email).toLowerCase();
     User.findOne({ email: formattedEmail }).then((user) => {
-        if (user) {
-            return Promise.all([bcrypt.compare(req.body.password, user.hash), user]);
-        } else {
-            throw(new Error('emailorpassword'));
-        }
+        if (user) return Promise.all([bcrypt.compare(req.body.password, user.hash), user]);
+        throw(new Error('emailorpassword'));
     }).then(([isMatch, user]) => {
         payload.uuid = user.uuid;
         if (isMatch) {
             if (Array.isArray(user.roles)) {
-                var foundRole = user.roles.find((item) => {
-                    if (item.org === process.env.ORG_ID) {
-                        return item;
-                    }
-                    return null;
-                });
-                if (foundRole === undefined) {
-                    isNewMember = true;
-                }
+                let foundRole = user.roles.find(item => item.org === process.env.ORG_ID);
+                if (foundRole !== undefined) isNewMember = false;
             }
             if (isNewMember) {
                 return User.updateOne({ uuid: user.uuid }, {
@@ -229,29 +220,22 @@ const login = (req, res, _next) => {
                         }
                     }
                 });
-            } else {
-                return {};
             }
-        } else {
-            throw(new Error('emailorpassword'));
+            return {};
         }
+        throw(new Error('emailorpassword'));
     }).then((_updateRes) => {
-        jwt.sign(payload, process.env.SECRETKEY, {
-            expiresIn: 86400
-        },(err, token) => {
-            if (!err && token !== null) {
-                const cookiesToSet = createTokenCookies(token);
-                res.setHeader('Set-Cookie', cookiesToSet);
-                return res.send({
-                    err: false,
-                    isNewMember: isNewMember
-                });
-            } else {
-                throw(err);
-            }
-        });
+        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: 86400 });
+        if (typeof(token) === 'string') {
+            res.setHeader('Set-Cookie', createTokenCookies(token));
+            return res.send({
+                err: false,
+                isNewMember: isNewMember
+            });
+        }
+        throw(new Error('tokensign'))
     }).catch((err) => {
-        var errMsg = '';
+        var errMsg = conductorErrors.err6;
         if (err.message === 'emailorpassword') {
             errMsg = conductorErrors.err12;
         } else {
@@ -296,11 +280,8 @@ const register = (req, res) => {
         var readyUser = new User(newUser);
         return readyUser.save();
     }).then((doc) => {
-        if (doc) {
-            return mailAPI.sendRegistrationConfirmation(doc.email, doc.firstName);
-        } else {
-            throw(new Error('notcreated'));
-        }
+        if (doc) return mailAPI.sendRegistrationConfirmation(doc.email, doc.firstName);
+        throw (new Error('notcreated'));
     }).then(() => {
         // ignore return value of Mailgun call
         return res.send({
@@ -344,7 +325,7 @@ const resetPassword = (req, res) => {
     }).then((user) => {
         if (user) {
             if (user.authType !== 'traditional') { // cannot reset passwords for SSO users
-                throw(new Error('authtype'));
+                throw (new Error('authtype'));
             }
             const currentTime = new Date();
             var allowedAttempt = true;
@@ -357,7 +338,7 @@ const resetPassword = (req, res) => {
             }
             if (allowedAttempt) {
                 userEmail = user.email,
-                userFirstName = user.firstName;
+                    userFirstName = user.firstName;
                 const cryptoBuf = randomBytes(16);
                 resetToken = cryptoBuf.toString('hex');
                 const tokenExpiry = new Date(currentTime.getTime() + (30 * 60000)); // token expires after 30 minutes
@@ -369,27 +350,25 @@ const resetPassword = (req, res) => {
                     tokenExpiry: tokenExpiry
                 });
             } else {
-                throw(new Error('ratelimit'));
+                throw (new Error('ratelimit'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             const resetLink = `https://commons.libretexts.org/resetpassword?token=${resetToken}`;
             return mailAPI.sendPasswordReset(userEmail, userFirstName, resetLink);
-        } else {
-            throw(new Error('updatefailed')); // handle as generic internal error below
         }
+        throw (new Error('updatefailed')); // handle as generic internal error below
     }).then((msg) => {
         if (msg) {
             return res.send({
                 err: false,
                 msg: "Password reset email has been sent."
             });
-        } else {
-            throw(new Error('msgfailed'));
         }
+        throw (new Error('msgfailed'));
     }).catch((err) => {
         var errMsg = '';
         if (err.message === 'notfound') {
@@ -433,15 +412,12 @@ const completeResetPassword = (req, res) => {
                 if (expiryDate > currentTime) {
                     userUUID = user.uuid;
                     return bcrypt.genSalt(10);
-                } else {
-                    throw(new Error('expired'));
                 }
-            } else {
-                throw(new Error('notoken'));
+                throw (new Error('expired'));
             }
-        } else {
-            throw(new Error('notfound'));
+            throw (new Error('notoken'));
         }
+        throw (new Error('notfound'));
     }).then((salt) => {
         newSalt = salt;
         return bcrypt.hash(req.body.password, salt);
@@ -459,9 +435,8 @@ const completeResetPassword = (req, res) => {
                 err: false,
                 msg: "Password updated successfully."
             });
-        } else {
-            throw(new Error('updatefailed')); // handle as generic internal error below
         }
+        throw (new Error('updatefailed')); // handle as generic internal error below
     }).catch((err) => {
         var errMsg = '';
         if (err.message === 'notfound') { // couldn't find user via token, likely already used
@@ -502,15 +477,11 @@ const changePassword = (req, res) => {
             userEmail = user.email;
             userFirstName = user.firstName;
             return bcrypt.compare(req.body.currentPassword, user.hash);
-        } else {
-            throw(new Error('notfound'));
         }
+        throw (new Error('notfound'));
     }).then((isMatch) => {
-        if (isMatch) {
-            return bcrypt.genSalt(10);
-        } else {
-            throw(new Error('currentpass'));
-        }
+        if (isMatch) return bcrypt.genSalt(10);
+        throw (new Error('currentpass'));
     }).then((salt) => {
         newSalt = salt;
         return bcrypt.hash(req.body.newPassword, salt);
@@ -522,9 +493,8 @@ const changePassword = (req, res) => {
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             return mailAPI.sendPasswordChangeNotification(userEmail, userFirstName);
-        } else {
-            throw(new Error('updatefailed')) // handle as generic error below
         }
+        throw (new Error('updatefailed')) // handle as generic error below
     }).then(() => {
         // ignore return value of Mailgun call
         return res.send({
@@ -591,7 +561,7 @@ const getLibreTextsAdmins = () => {
     }]).then((admins) => {
         return admins;
     }).catch((err) => {
-        throw(err);
+        throw (err);
     });
 };
 
@@ -633,7 +603,7 @@ const getCampusAdmins = (campus) => {
     }).then((admins) => {
         return admins;
     }).catch((err) => {
-        throw(err);
+        throw (err);
     });
 };
 
@@ -648,9 +618,9 @@ const getUserBasicWithEmail = (uuid) => {
     return new Promise((resolve, reject) => {
         /* Validate argument and build match object */
         let matchObj = {};
-        if (typeof(uuid) === 'string') {
+        if (typeof (uuid) === 'string') {
             matchObj.uuid = uuid;
-        } else if (typeof(uuid) === 'object' && Array.isArray(uuid)) {
+        } else if (typeof (uuid) === 'object' && Array.isArray(uuid)) {
             matchObj.uuid = {
                 $in: uuid
             };
@@ -670,7 +640,7 @@ const getUserBasicWithEmail = (uuid) => {
     }).then((users) => {
         return users;
     }).catch((err) => {
-        throw(err);
+        throw (err);
     });
 };
 
@@ -731,9 +701,8 @@ const getUserAttributes = (req, res, next) => {
                     req.user.roles = user.roles;
                 }
                 return next();
-            } else {
-                throw(new Error('nouser'));
             }
+            throw (new Error('nouser'));
         }).catch((err) => {
             if (err.message === 'nouser') {
                 return res.send(401).send({
@@ -780,11 +749,8 @@ const checkHasRole = (user, org, role) => {
             }
             return null;
         });
-        if (foundRole !== undefined) {
-            return true;
-        } else {
-            return false;
-        }
+        if (foundRole !== undefined) return true;
+        return false;
     } else {
         debugError(conductorErrors.err9);
         return false;
@@ -801,7 +767,7 @@ const checkHasRole = (user, org, role) => {
 const checkHasRoleMiddleware = (org, role) => {
     return (req, res, next) => {
         if ((req.user.roles !== undefined) && (Array.isArray(req.user.roles))) {
-            var foundRole = req.user.roles.find((element) => {
+            let foundRole = req.user.roles.find((element) => {
                 if (element.org && element.role) {
                     if ((element.org === org) && (element.role === role)) {
                         return element;
@@ -843,7 +809,7 @@ const checkHasRoleMiddleware = (org, role) => {
  *         or is not a string
  */
 const passwordValidator = (password) => {
-    if (typeof(password) === 'string') {
+    if (typeof (password) === 'string') {
         if (password.length > 8) { // password should be 8 characters or longer
             if (/\d/.test(password)) { // password should contain at least one number
                 return true;
@@ -870,7 +836,7 @@ const validate = (method) => {
                 body('email', conductorErrors.err1).exists().isEmail(),
                 body('password', conductorErrors.err1).exists().isString().custom(passwordValidator),
                 body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
-                body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100})
+                body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100 })
             ]
         case 'resetPassword':
             return [

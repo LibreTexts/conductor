@@ -622,7 +622,7 @@ const ProjectView = (props) => {
                 projData.author = projResAuthor;
             }
             if ((project.authorEmail && project.authorEmail !== projResEmail) || !project.authorEmail) {
-                projData.authorEmail = projResEmail;
+                projData.authorEmail = projResEmail.trim();
             }
             if ((project.license && project.license !== projResLicense) || !project.license) {
                 projData.license = projResLicense;
@@ -2271,9 +2271,6 @@ const ProjectView = (props) => {
                                     {canViewDetails &&
                                         <Grid.Column>
                                             <Header as='h2' dividing>Tasks</Header>
-                                            <Message info>
-                                                <p>Tasks are now in beta testing. <strong>Data integrity is not guaranteed.</strong> If you believe you've encountered a bug, please contact <a href='mailto:info@libretexts.org?subject=Conductor Bug Report' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p>
-                                            </Message>
                                             <Segment.Group size='large' raised className='mb-4p'>
                                                 <Segment>
                                                     <div className='flex-row-div'>

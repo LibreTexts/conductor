@@ -48,6 +48,7 @@ const ConductorTextArea = ({
                     }
                 }}
                 rows={1}
+                className={showSendInternal ? 'has-send-button' : ''}
             ></textarea>
             <div id='textarea-attached'>
                 <div className='left-flex'>

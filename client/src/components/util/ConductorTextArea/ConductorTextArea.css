@@ -23,6 +23,10 @@
     max-height: 300px;
 }
 
+#textarea-input.has-send-button {
+    max-height: calc(100% - 45px);
+}
+
 #textarea-input:focus {
     color: rgba(0,0,0,.95);
     background: #fff;

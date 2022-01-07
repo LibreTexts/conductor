@@ -9,7 +9,8 @@ import {
   Icon,
   Button,
   Form,
-  Breadcrumb
+  Breadcrumb,
+  Popup
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
@@ -145,7 +146,7 @@ const ProjectCreate = (props) => {
             if (!isEmptyString(projURL)) projData.projectURL = projURL;
             if (projTags.length > 0) projData.tags = projTags;
             if (!isEmptyString(projResAuthor)) projData.author = projResAuthor;
-            if (!isEmptyString(projResEmail)) projData.authorEmail = projResEmail;
+            if (!isEmptyString(projResEmail.trim())) projData.authorEmail = projResEmail.trim();
             if (!isEmptyString(projResLicense)) projData.license = projResLicense;
             if (!isEmptyString(projResURL)) projData.resourceURL = projResURL;
             if (!isEmptyString(projNotes)) projData.notes = projNotes;
@@ -256,7 +257,18 @@ const ProjectCreate = (props) => {
                                     />
                                 </Form.Group>
                                 <Form.Field>
-                                    <label>Project URL <span className='muted-text'>(if applicable)</span></label>
+                                    <label>
+                                        <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
+                                        <Popup
+                                            trigger={<Icon name='info circle' />}
+                                            position='top center'
+                                            content={
+                                                <span className='text-center'>
+                                                    If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
+                                                </span>
+                                            }
+                                        />
+                                        </label>
                                     <Form.Input
                                         name='projectURL'
                                         type='url'
@@ -284,7 +296,7 @@ const ProjectCreate = (props) => {
                                     value={projTags}
                                 />
                                 <Divider />
-                                <Header as='h3'>Resource Information</Header>
+                                <Header as='h3'>Source Properties</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
                                 <Form.Group widths='equal'>
                                     <Form.Field>

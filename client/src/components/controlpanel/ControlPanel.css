@@ -19,7 +19,7 @@
     margin-top: 1%;
 }
 
-.dashboard-header-link:hover {
+.home-header-link:hover {
     cursor: pointer !important;
 }
 
@@ -27,7 +27,7 @@
     display: inline-block !important;
 }
 
-.dashboard-list-item {
+.home-list-item {
     cursor: pointer !important;
 }
 

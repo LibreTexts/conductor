@@ -1,4 +1,4 @@
-import './Dashboard.css';
+import './Home.css';
 
 import {
     Grid,
@@ -40,7 +40,7 @@ import {
 } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
-const Dashboard = (props) => {
+const Home = (props) => {
 
     const { handleGlobalError } = useGlobalError();
     const user = useSelector((state) => state.user);
@@ -142,7 +142,7 @@ const Dashboard = (props) => {
      * load recent data.
      */
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Dashboard";
+        document.title = "LibreTexts Conductor | Home";
         date.plugin(ordinal);
         // Hook to force message links to open in new window
         DOMPurify.addHook('afterSanitizeAttributes', function (node) {
@@ -300,7 +300,7 @@ const Dashboard = (props) => {
         <Grid className='component-container' divided='vertically' stackable>
             <Grid.Row>
                 <Grid.Column>
-                    <Header className='component-header'>Dashboard</Header>
+                    <Header className='component-header'>Home</Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -368,7 +368,7 @@ const Dashboard = (props) => {
                     </Breakpoint>
                     <Breakpoint name='mobile'>
                         <Segment>
-                            <div className='flex-row-div dashboard-mobile-welcome'>
+                            <div className='flex-row-div home-mobile-welcome'>
                                 <Image circular src={`${user.avatar}`} className='menu-avatar' />
                                 <Header as='h1'>Welcome, {user.firstName}</Header>
                                 <div className='right-flex'>
@@ -725,4 +725,4 @@ const Dashboard = (props) => {
     )
 };
 
-export default Dashboard;
+export default Home;

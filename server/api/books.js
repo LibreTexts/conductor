@@ -14,8 +14,8 @@ const { isEmptyString, getProductionURL } = require('../util/helpers.js');
 const { debugError, debugCommonsSync, debugObject } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
+const fs = require('fs-extra');
 const {
-    libraries,
     checkBookIDFormat,
     extractLibFromID,
     getLibraryAndPageFromBookID,
@@ -28,12 +28,14 @@ const {
     genZIPLink,
     genPubFilesLink,
     genLMSFileLink,
+    genPermalink,
 } = require('../util/bookutils.js');
+const { libraryNameKeys } = require('../util/librariesmap.js');
 const { getBrowserKeyForLib } = require('../util/mtkeys.js');
 
 
 /**
- * Accepts a string, @lib, and returns the LibreTexts API URL for the current
+ * Accepts a library shortname and returns the LibreTexts API URL for the current
  * Bookshelves listings in that library.
  * @param {String} lib - the standard shortened library identifier
  * @returns {String} the URL of the library's Bookshelves listings
@@ -47,7 +49,7 @@ const generateBookshelvesURL = (lib) => {
 };
 
 /**
- * Accepts a string, @lib, and returns the LibreTexts API URL for the current
+ * Accepts a library shortname and returns the LibreTexts API URL for the current
  * Courses listings in that library.
  * @param {String} lib - the standard shortened library identifier
  * @returns {String} the URL of the library's Courses listings
@@ -157,6 +159,7 @@ const checkValidImport = (book) => {
  * ROUTE'S API CALL CHAIN.
  */
 const autoGenerateCollections = (res, programListings, programDetails, nMatched) => {
+    let msg = '';
     return new Promise((resolve, _reject) => {
         var collOps = [];
         if (Object.keys(programListings).length > 0) {
@@ -192,9 +195,14 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
             resolve({});
         }
     }).then((collsRes) => {
-        var msg = `Imported ${nMatched} books from the Libraries.`;
-        if (collsRes.modifiedCount) {
-            msg += ` ${collsRes.modifiedCount} auto-generated collections updated.`;
+        msg = `Imported ${nMatched} books from the Libraries.`;
+        if (collsRes.modifiedCount) msg += ` ${collsRes.modifiedCount} auto-generated collections updated.`;
+        return generateKBExport();
+    }).then((generated) => {
+        if (generated === true) {
+            msg += ` Successfully generated export files for 3rd-party content services.`;
+        } else {
+            msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
         }
         return res.send({
             err: false,
@@ -217,21 +225,21 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
  * database for use in Commons.
  */
  const syncWithLibraries = (_req, res) => {
-     var shelvesRequests = [];   // requests from Bookshelves
-     var coursesRequests = [];   // requests from Campus Bookshelves
-     var allRequests = [];       // all requests to be made
-     var allBooks = [];          // all books returned from LT API
-     var bookOps = [];           // update/insert operations to perform with Mongoose
-     var bookIDs = [];           // all (unique) bookIDs
-     var approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
-     var programDetails = {
+     let shelvesRequests = [];   // requests from Bookshelves
+     let coursesRequests = [];   // requests from Campus Bookshelves
+     let allRequests = [];       // all requests to be made
+     let allBooks = [];          // all books returned from LT API
+     let bookOps = [];           // update/insert operations to perform with Mongoose
+     let bookIDs = [];           // all (unique) bookIDs
+     let approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
+     let programDetails = {
          openrn: 'OpenRN',
          openstax: 'OpenStax',
          mitocw: 'MIT OpenCourseWare',
          opensuny: 'OpenSUNY',
          oeri: 'ASCCC OERI'
      };
-     var programListings = {};
+     let programListings = {};
      if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
          approvedPrograms.forEach((program) => {
              if (!Object.keys(programListings).includes(program)) {
@@ -240,7 +248,7 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
          });
      }
      // Build list(s) of HTTP requests to be performed
-     libraries.forEach((lib) => {
+     libraryNameKeys.forEach((lib) => {
          shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
          coursesRequests.push(axios.get(generateCoursesURL(lib)));
      });
@@ -256,38 +264,40 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
              // check if book is valid & unique, otherwise ignore
              if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
                  bookIDs.push(book.zipFilename); // duplicate mitigation
-                 var link = ''
-                 var author = '';
-                 var affiliation = '';
-                 var license = '';
-                 var subject = '';
-                 var course = '';
-                 var location = '';
-                 var program = '';
+                 let link = ''
+                 let author = '';
+                 let affiliation = '';
+                 let license = '';
+                 let summary = '';
+                 let subject = '';
+                 let course = '';
+                 let location = '';
+                 let program = '';
                  if (book.link) {
                      link = book.link;
                      if (String(book.link).includes('/Bookshelves/')) {
                          location = 'central';
-                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
-                         var isolated = String(book.link).replace(baseURL, '');
-                         var splitURL = isolated.split('/');
+                         let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
+                         let isolated = String(book.link).replace(baseURL, '');
+                         let splitURL = isolated.split('/');
                          if (splitURL.length > 0) {
-                             var shelfRaw = splitURL[0];
+                            let shelfRaw = splitURL[0];
                              subject = shelfRaw.replace(/_/g, ' ');
                          }
                      }
                      if (String(book.link).includes('/Courses/')) {
                          location = 'campus';
-                         var baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
-                         var isolated = String(book.link).replace(baseURL, '');
-                         var splitURL = isolated.split('/');
+                         let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
+                         let isolated = String(book.link).replace(baseURL, '');
+                         let splitURL = isolated.split('/');
                          if (splitURL.length > 0) {
-                             var courseRaw = splitURL[0];
+                            let courseRaw = splitURL[0];
                              course = courseRaw.replace(/_/g, ' ');
                          }
                      }
                  }
                  if (book.author) author = book.author;
+                 if (typeof(book.summary) === 'string') summary = book.summary;
                  if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
                  if (book.tags && Array.isArray(book.tags)) {
                      book.tags.forEach((tag) => {
@@ -328,6 +338,7 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
                                  program: program,
                                  license: license,
                                  thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
+                                 summary: summary,
                                  links: {
                                      online: link,
                                      pdf: genPDFLink(book.zipFilename),
@@ -1125,6 +1136,110 @@ const getLicenseReport = (req, res) => {
 };
 
 
+const generateKBExport = () => {
+    let kbExport = {
+        date: new Date().toISOString(),
+        titles: []
+    };
+    return new Promise((resolve, _reject) => {
+        resolve(Book.aggregate([
+            {
+                $project: {
+                    _id: 0,
+                    bookID: 1,
+                    title: 1,
+                    author: 1,
+                    library: 1,
+                    license: 1,
+                    summary: 1,
+                    thumbnail: 1
+                }
+            }
+        ]));
+    }).then((commonsBooks) => {
+        if (Array.isArray(commonsBooks)) {
+            kbExport.expected = commonsBooks.length;
+            commonsBooks.forEach((item) => {
+                let bookOut = {
+                    publication_title: String(item.title).trim().replace(/\\n/ig, ' ').replace('Book: ', ''),
+                    title_id: item.bookID,
+                    title_url: genPermalink(item.bookID),
+                    coverage_depth: 'fulltext',
+                    access_type: 'F',
+                    publisher_name: 'LibreTexts'
+                };
+                if (typeof(item.thumbnail) === 'string' && !isEmptyString(item.thumbnail)) {
+                    bookOut.thumbnail_url = item.thumbnail;
+                }
+                if (typeof(item.license) === 'string' && !isEmptyString(item.license)) {
+                    bookOut.license = item.license;
+                }
+                if (typeof(item.summary) === 'string' && !isEmptyString(item.summary)) {
+                    bookOut.description = item.summary;
+                }
+                if (item.library === 'espanol') {
+                    bookOut.language = 'spanish';
+                } else {
+                    bookOut.language = 'english';
+                }
+                if (typeof(item.author) === 'string' && !isEmptyString(item.author)) {
+                    let itemAuthors = [];
+                    let textmapMatch = item.author.match(/textmap/ig);
+                    if (textmapMatch === null) { // not a textmap, try to parse authors
+                        let authorsString = item.author.replace(/(&|\band\b)/ig, ',');
+                        let authors = authorsString.split(/,/ig);
+                        if (authors.length > 0) {
+                            authors.forEach((author) => {
+                                let authorProcess = author.trim();
+                                if (authorProcess.toLowerCase() !== 'no attribution by request' && authorProcess.length > 0) {
+                                    itemAuthors.push(authorProcess);
+                                }
+                            });
+                        }
+                    } else { // textmap, mark author as LibreTexts
+                        itemAuthors.push('LibreTexts');
+                    }
+                    if (itemAuthors.length > 0) bookOut.authors = itemAuthors;
+                }
+                kbExport.titles.push(bookOut);
+            });
+            return fs.ensureDir('./public');
+        } else throw(new Error('notarray'));
+    })
+    .then(() => fs.writeJson('./public/kbexport.json', kbExport))
+    .then(() => true)
+    .catch((err) => {
+        debugError(err);
+        return false;
+    });
+};
+
+
+/**
+ * Attempts to retrieve the Knowledge Base export file(s) if available or generate them
+ * immediately if not found.
+ * @param {Object} req - The Express.js request object.
+ * @param {Object} res - The Express.js response object.
+ */
+const retrieveKBExport = (_req, res) => {
+    fs.pathExists('./public/kbexport.json').then((exists) => {
+        if (exists === true) return true;
+        else return generateKBExport(); // try to generate on-the-fly
+    }).then((generated) => {
+        if (generated === true) {
+            return res.status(200).sendFile('./public/kbexport.json', { root: '.' });
+        }
+        throw(new Error('kbexport-notfound'));
+    }).catch((err) => {
+        debugError(err);
+        return res.status(500).send({
+            err: true,
+            msg: conductorErrors.err45
+        });
+    });
+};
+
+
 /**
  * Sets up the validation chain(s) for methods in this file.
  */
@@ -1186,5 +1301,6 @@ module.exports = {
     getBookTOC,
     getBookTOCFromAPI,
     getLicenseReport,
+    retrieveKBExport,
     validate
 };

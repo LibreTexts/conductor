@@ -105,7 +105,7 @@ const Login = (props) => {
     /**
      * Submit data via POST to the server, then
      * check cookie return and redirect
-     * to dashboard.
+     * to Home.
      */
     const submitLogin = () => {
         setSubmitLoading(true);
@@ -128,10 +128,10 @@ const Login = (props) => {
                         if (redirectURI !== '') { // redirect to the page the user tried to visit directly
                             props.history.push(redirectURI);
                         } else {
-                            if (res.data.isNewMember) { // default, direct to dashboard
-                                props.history.push('/dashboard?newmember=true');
+                            if (res.data.isNewMember) { // default, direct to Home
+                                props.history.push('/home?newmember=true');
                             } else {
-                                props.history.push('/dashboard');
+                                props.history.push('/home');
                             }
                         }
                     } else {
@@ -167,12 +167,11 @@ const Login = (props) => {
     };
 
     const initSSOLogin = () => {
-        if (process.env.REACT_APP_ORG_ID !== 'libretexts') {
-            if (process.env.NODE_ENV === 'production') {
-                Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: '.libretexts.org', sameSite: 'lax'});
-            } else {
-                Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});
-            }
+        if (process.env.NODE_ENV === 'production') {
+            let domains = String(process.env.REACT_APP_PRODUCTION_URLS).split(',');
+            Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: domains[0], sameSite: 'lax'});
+        } else {
+            Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});
         }
         window.location.assign('http://commons.libretexts.org/api/v1/auth/initsso');
     };

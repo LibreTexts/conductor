@@ -1,5 +1,20 @@
 # Changelog
 
+# 01-07-2022
+#### :art: UI/UX
+* Behind-the-scenes updates for ConductorMessagingUI display semantics
+* Fixed an issue with long URLs in ConductorChatUI overflowing the container
+* Small UI updates in ConductorMessagingUI
+* Updated global link coloring for A11Y compliance
+* Fixed a URL base issue in Control Panel/Account Requests
+* Renamed 'Dashboard' to 'Home'
+
+#### :satellite: Server
+* Introduced the first version of Commons Knowledge Base Export for 3rd-party usage
+* Book summaries are now retrieved during libraries sync instead of on-the-fly
+* SSO fixes and error mitigation
+
+
 ## 12-29-2021
 #### :art: UI/UX
 * Removed the 'LibreText Information' section in Edit Project Properties

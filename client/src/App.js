@@ -27,7 +27,7 @@ import AccountRequest from './components/accountrequest/AccountRequest.js';
 /* Conductor */
 import AccountSettings from './components/auth/AccountSettings.js';
 
-import Dashboard from './components/dashboard/Dashboard.js';
+import Home from './components/home/Home.js';
 import Navbar from './components/navigation/Navbar.js';
 import Search from './components/search/Search.js';
 
@@ -91,7 +91,7 @@ function App() {
                     <AnonRoute exact path = '/login' component={Login} />
                     <AnonRoute exact path = '/register' component={Register} />
                     <AnonRoute exact path = '/resetpassword' component={ResetPassword} />
-                    <PrivateRoute exact path = '/dashboard' component={Dashboard} />
+                    <PrivateRoute exact path = '/home' component={Home} />
                     <PrivateRoute exact path = '/search' component={Search} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
                         <PrivateRoute exact path = '/projects/available' component={ProjectsAvailable} />

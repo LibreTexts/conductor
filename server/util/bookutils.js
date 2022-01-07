@@ -3,23 +3,7 @@
 // bookutils.js
 //
 const { isEmptyString } = require('./helpers.js');
-
-const libraries = [
-    'bio',
-    'biz',
-    'chem',
-    'eng',
-    'espanol',
-    'geo',
-    'human',
-    'k12',
-    'math',
-    'med',
-    'phys',
-    'socialsci',
-    'stats',
-    'workforce'
-];
+const { libraryNameKeys } = require('./librariesmap.js');
 
 const licenses = [
     'arr',
@@ -44,188 +28,180 @@ const sortChoices = [
 
 /**
  * Validates a string follows the internal LibreTexts `lib-coverID` Book ID format.
- * @param {String} bookID - The string to validate as a bookID
+ * @param {String} bookID - The string to validate as a Book ID.
  * @returns {Boolean} True if valid, false otherwise.
  */
 const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
-        const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/g);
+        const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/ig);
         if (match.length === 1 && match[0] === bookID) return true;
     }
     return false;
 }
 
-const extractLibFromID = (resID) => {
-    if ((resID !== undefined) && (resID !== null) && (typeof(resID) === 'string')) {
-        const splitID = resID.split('-');
-        if (splitID.length === 2) {
-            return splitID[0];
-        }
+
+/**
+ * Extracts the internal LibreTexts library shortname from a `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The library shortname, or an empty string if not found.
+ */
+const extractLibFromID = (bookID) => {
+    if (typeof(bookID) === 'string' && bookID !== '') {
+        const splitID = bookID.split('-');
+        if (splitID.length === 2) return splitID[0];
     }
     return '';
 };
 
+
+/**
+ * Returns a 2-tuple of the internal LibreTexts library shortname and the coverpage ID from `lib-coverID`
+ * format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String[]} A pair of strings in the order [lib, coverID].
+ */
 const getLibraryAndPageFromBookID = (bookID) => {
-    if (bookID) {
+    if (typeof(bookID) === 'string') {
         const splitID = String(bookID).split('-');
-        if (splitID.length > 1) {
-            return [splitID[0], splitID[1]];
-        }
+        if (splitID.length > 1) return [splitID[0], splitID[1]];
     }
     return ['', ''];
 };
 
+
+/**
+ * Verifies that a provided library shortname is a valid LibreTexts library identifier.
+ * @param {String} lib - The library shortname to validate. 
+ * @returns {Boolean} True if valid identifier, false otherwise.
+ */
 const isValidLibrary = (lib) => {
-    var foundLib = libraries.find((item) => {
-        if (item === lib) {
-            return item;
-        }
-        return null;
-    });
-    if (foundLib !== undefined) {
-        return true;
-    } else {
-        return false;
-    }
-};
-
-const isValidLicense = (lic) => {
-    var foundLic = licenses.find((item) => {
-        if (item === lic) {
-            return item;
-        }
-        return null;
-    });
-    if (foundLic !== undefined) {
-        return true;
-    } else {
-        return false;
-    }
-};
-
-const isValidSort = (sort) => {
-    var foundSort = sortChoices.find((item) => {
-        if (item === sort) {
-            return item;
-        }
-        return null;
-    });
-    if (foundSort !== undefined) {
-        return true;
-    } else {
-        return false;
-    }
+    let foundLib = libraryNameKeys.find(item => item === lib);
+    if (foundLib !== undefined) return true;
+    return false;
 };
 
 
 /**
- * Validates that @lib and @pageID are not
- * empty and returns a Boolean:
- *  TRUE: @lib and @pageID are valid,
- *  FALSE: @lib or @pageID has errors.
+ * Verifies that a provided license identifier is valid and LibreTexts-recognized.
+ * @param {String} lic - The license identifier to validate. 
+ * @returns {Boolean} True if valid identifier, false otherwise.
+ */
+const isValidLicense = (lic) => {
+    let foundLic = licenses.find(item => item === lic);
+    if (foundLic !== undefined) return true;
+    return false;
+};
+
+
+/**
+ * Verifies that a requested sorting method is valid and implemented.
+ * @param {String} sort - The sorting method name to validate. 
+ * @returns {Boolean} True if valid method, false otherwise.
+ */
+const isValidSort = (sort) => {
+    let foundSort = sortChoices.find(item => item === sort);
+    if (foundSort !== undefined) return true;
+    return false;
+};
+
+
+/**
+ * Validates that a provided LibreTexts library shortname and pageID are not empty in order to generate
+ * links for a resource's properties/supplements.
+ * @param {String} lib - The internal LibreTexts library shortname to check.
+ * @param {String} pageID - The pageID of the resource to check.
+ * @returns {Boolean} True if both are valid, false otherwise.
  */
 const validateLinkGenArguments = (lib, pageID) => {
-    if ((lib === undefined) || (lib === null) || (isEmptyString(lib)) || (pageID === undefined) ||
-        (pageID === null) || (isEmptyString(pageID))) {
-        return false;
-    }
-    return true;
+    return (typeof(lib) === 'string' && typeof(pageID) === 'string' && !isEmptyString(lib) && !isEmptyString(pageID));
 };
 
+
 /**
- * Generates the URL for the resource
- * thumbnail given a @lib (standard LibreTexts
- * shortened-format string) and @pageID
- * (integer or string).
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the thumbnail a LibreTexts library resource.
+ * @param {String} lib - The internal LibreTexts library shortname.
+ * @param {String} pageID - The pageID of the resource on the library.
+ * @returns {String} The link to the the thumbnail, or an empty string if invalid arguments provided.
  */
 const genThumbnailLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/files/=mindtouch.page%2523thumbnail`;
-    } else {
-        return '';
     }
+    return '';
 };
 
+
 /**
- * Generates the URL for the resource
- * PDF download given a standard LibreTexts
- * `lib-pageID` format @bookID.
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the PDF download of a resource given its LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The link to the PDF download, or an empty string if invalid arguments provided.
  */
 const genPDFLink = (bookID) => {
-    if ((bookID !== null) && (bookID !== undefined) && (!isEmptyString(bookID))) {
-        return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Full.pdf`;
-    } else {
-        return '';
-    }
+    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Full.pdf`;
+    return '';
 };
 
+
 /**
- * Generates the URL for the resource
- * in the LibreTexts bookstore given
- * a standard LibreTexts `lib-pageID`
- * format @bookID.
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the LibreTexts Bookstore page of a resource given its LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The link to the Bookstore page, or an empty string if invalid arguments provided.
  */
 const genBookstoreLink = (bookID) => {
-    if ((bookID !== null) && (bookID !== undefined) && (!isEmptyString(bookID))) {
-        return `https://libretexts.org/bookstore/single.html?${bookID}`;
-    } else {
-        return '';
-    }
+    if (checkBookIDFormat(bookID)) return `https://libretexts.org/bookstore/single.html?${bookID}`;
+    return '';
 };
 
+
 /**
- * Generates the URL for the resource
- * ZIP download given a standard LibreTexts
- * `lib-pageID` format @bookID.
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the ZIP download of a resource given its LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The link to the ZIP download, or an empty string if invalid arguments provided.
  */
 const genZIPLink = (bookID) => {
-    if ((bookID !== null) && (bookID !== undefined) && (!isEmptyString(bookID))) {
-        return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Individual.zip`;
-    } else {
-        return '';
-    }
+    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Individual.zip`;
+    return '';
 };
 
+
 /**
- * Generates the URL for the resource
- * print files download given a standard
- * LibreTexts `lib-pageID` format @bookID.
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the publication files download of a resource given its LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The link to the publication files download, or an empty string if invalid arguments provided.
  */
 const genPubFilesLink = (bookID) => {
-    if ((bookID !== null) && (bookID !== undefined) && (!isEmptyString(bookID))) {
-        return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Publication.zip`;
-    } else {
-        return '';
-    }
+    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Publication.zip`;
+    return '';
 };
+
 
 /**
- * Generates the URL for the resource
- * LMS import file given a standard
- * LibreTexts `lib-pageID` format @bookID.
- * If argument validation fails, an empty
- * string is returned.
+ * Generates the URL for the LMS import file download of a resource given its LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The link to the LMS import file download, or an empty string if invalid arguments provided.
  */
 const genLMSFileLink = (bookID) => {
-    if ((bookID !== null) && (bookID !== undefined) && (!isEmptyString(bookID))) {
-        return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/LibreText.imscc`;
-    } else {
-        return '';
-    }
+    if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/LibreText.imscc`;
+    return '';
 };
 
+
+/**
+ * Generates the permalink to a LibreTexts library page given a LibreTexts `lib-coverID` format Book ID.
+ * @param {String} bookID - The resource/Book ID to work on.
+ * @returns {String} The permalink to the resource, or an empty string if invalid arguments provided.
+ */
+const genPermalink = (bookID) => {
+    if (checkBookIDFormat(bookID)) {
+        let [lib, pageID] = getLibraryAndPageFromBookID(bookID);
+        if (!isEmptyString(lib) && !isEmptyString(pageID)) return `https://${lib}.libretexts.org/@go/page/${pageID}`;
+    }
+    return '';
+}
+
+
+
 module.exports = {
-    libraries,
     checkBookIDFormat,
     extractLibFromID,
     getLibraryAndPageFromBookID,
@@ -237,5 +213,6 @@ module.exports = {
     genBookstoreLink,
     genZIPLink,
     genPubFilesLink,
-    genLMSFileLink
+    genLMSFileLink,
+    genPermalink
 }

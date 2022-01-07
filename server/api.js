@@ -38,7 +38,7 @@ var router = express.Router();
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
 
 router.use(middleware.middlewareFilter(ssoRoutes, middleware.corsHelper));
-router.use(middleware.middlewareFilter(ssoRoutes, middleware.authSanitizer));
+router.use(middleware.middlewareFilter([...ssoRoutes, '/commons/kbexport'], middleware.authSanitizer));
 
 
 /* Auth */
@@ -226,6 +226,10 @@ router.route('/commons/collection/removeresource').put(authAPI.verifyRequest,
     collectionsAPI.validate('remCollResource'),
     middleware.checkValidationErrors,
     collectionsAPI.removeResourceFromCollection);
+
+// Data export endpoint for 3rd-party content hosts
+router.route('/commons/kbexport').get(middleware.checkLibreCommons,
+    booksAPI.retrieveKBExport); 
 
 
 /* Libraries Directory */

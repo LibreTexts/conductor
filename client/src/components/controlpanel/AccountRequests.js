@@ -18,7 +18,11 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
-import { isEmptyString, truncateString } from '../util/HelperFunctions.js';
+import {
+    isEmptyString,
+    truncateString,
+    normalizeURL
+} from '../util/HelperFunctions.js';
 import {
     getLibGlyphURL,
     getLibraryName
@@ -252,7 +256,7 @@ const AccountRequests = () => {
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Verification URL</Header>
-                                        <a href={currentRequest.facultyURL} target='_blank' rel='noopener noreferrer'>{truncateString(currentRequest.facultyURL, 75)}</a>
+                                        <a href={normalizeURL(currentRequest.facultyURL)} target='_blank' rel='noopener noreferrer'>{truncateString(currentRequest.facultyURL, 75)}</a>
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Requests LibreNet Info</Header>

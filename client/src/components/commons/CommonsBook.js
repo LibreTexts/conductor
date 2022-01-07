@@ -8,9 +8,7 @@ import {
     Segment,
     Header,
     Button,
-    List,
-    Breadcrumb,
-    Accordion
+    Breadcrumb
 } from 'semantic-ui-react';
 import { PieChart } from 'react-minimal-pie-chart';
 import React, { useEffect, useState } from 'react';
@@ -44,6 +42,7 @@ const CommonsBook = (props) => {
         course: '',
         license: '',
         thumbnail: '',
+        summary: '',
         links: {
             online: '',
             pdf: '',
@@ -54,14 +53,12 @@ const CommonsBook = (props) => {
         },
         adaptID: ''
     });
-    const [bookSummary, setBookSummary] = useState('');
     const [bookTOC, setBookTOC] = useState([]);
 
     // UI
     const [showMobileReadingOpts, setShowMobileReadingOpts] = useState(false);
     const [showAdoptionReport, setShowAdoptionReport] = useState(false);
     const [loadedData, setLoadedData] = useState(false);
-    const [loadedSummary, setLoadedSummary] = useState(false);
     const [loadedTOC, setLoadedTOC] = useState(false);
     const [loadedLicensing, setLoadedLicensing] = useState(false);
     const [showTOC, setShowTOC] = useState(false);
@@ -86,7 +83,6 @@ const CommonsBook = (props) => {
                 if (res.data.book) {
                     res.data.book.license = ''; // hotfix for new license infrastructure
                     setBook(res.data.book);
-                    getBookSummary();
                     getBookTOC();
                 }
             } else {
@@ -124,35 +120,6 @@ const CommonsBook = (props) => {
         }
     }, [book]);
 
-    //useEffect(() => console.log(clrChapters), [clrChapters]);
-
-    /**
-     * Retrieve the book summary from
-     * the server.
-     */
-    const getBookSummary = () => {
-        axios.get('/commons/book/summary', {
-            params: {
-                bookID: props.match.params.id
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.summary) {
-                    var summary = String(res.data.summary);
-                    if (summary[summary.length - 1] !== '.') {
-                        summary = summary.slice(0, summary.length-1) + "...";
-                    }
-                    setBookSummary(summary);
-                }
-            } else {
-                console.log(res.data.errMsg);
-            }
-            setLoadedSummary(true);
-        }).catch((err) => {
-            console.log(err); // fail silently
-            setLoadedSummary(true);
-        });
-    };
 
     /**
      * Retrieve the book's Table of Contents
@@ -407,13 +374,12 @@ const CommonsBook = (props) => {
                                         </Grid.Column>
                                         <Grid.Column width={12}>
                                             <Header as='h2'>{book.title}</Header>
-                                            <Segment loading={!loadedSummary}>
-                                                <Header as='h3' dividing>Summary</Header>
-                                                {(bookSummary !== '')
-                                                    ? (<p className='commons-book-summary'>{bookSummary}</p>)
-                                                    : (<p className='commons-book-summary'><em>No summary available.</em></p>)
-                                                }
-                                            </Segment>
+                                            {(book.summary && !isEmptyString(book.summary)) &&
+                                                <Segment>
+                                                    <Header as='h3' dividing>Summary</Header>
+                                                    <p className='commons-book-summary'>{book.summary}</p>
+                                                </Segment>
+                                            }
                                             {showTOC
                                                 ? (
                                                     <Segment loading={!loadedTOC}>
@@ -645,13 +611,12 @@ const CommonsBook = (props) => {
                                                     </div>
                                                 }
                                             </Button.Group>
-                                            <Segment loading={!loadedSummary}>
-                                                <Header as='h3' dividing>Summary</Header>
-                                                {(bookSummary !== '')
-                                                    ? (<p>{bookSummary}</p>)
-                                                    : (<p><em>No summary available.</em></p>)
-                                                }
-                                            </Segment>
+                                            {(book.summary && !isEmptyString(book.summary)) &&
+                                                <Segment>
+                                                    <Header as='h3' dividing>Summary</Header>
+                                                    <p>{book.summary}</p>
+                                                </Segment>
+                                            }
                                             {showTOC
                                                 ? (
                                                     <Segment loading={!loadedTOC}>
