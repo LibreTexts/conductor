@@ -13,6 +13,7 @@
 * Introduced the first version of Commons Knowledge Base Export for 3rd-party usage
 * Book summaries are now retrieved during libraries sync instead of on-the-fly
 * SSO fixes and error mitigation
+* Fixed bug(s) allowing duplicate account creation
 
 
 ## 12-29-2021

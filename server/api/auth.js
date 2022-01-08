@@ -122,6 +122,7 @@ const oauthCallback = (req, res) => {
         } else { // create user
             let newUUID = uuidv4();
             user.uuid = newUUID;
+            payload.uuid = newUUID;
             let newUser = new User({
                 uuid: newUUID,
                 firstName: ssoAttr.given_name,
@@ -179,7 +180,7 @@ const oauthCallback = (req, res) => {
         } else {
             debugError(err);
             let errMsg = conductorErrors.err6;
-            if (err.message === 'authtype') errMsg = conductorErrors;
+            if (err.message === 'authtype') errMsg = conductorErrors.err46;
             return res.send({
                 err: false,
                 msg: errMsg
@@ -272,7 +273,10 @@ const register = (req, res) => {
         roles: [],
         authType: 'traditional'
     };
-    bcrypt.genSalt(10).then((salt) => {
+    User.findOne({ email: formattedEmail }).lean().then((existUser) => {
+        if (existUser) throw(new Error('userexists'));
+        return bcrypt.genSalt(10)
+    }).then((salt) => {
         newUser.salt = salt;
         return bcrypt.hash(req.body.password, salt);
     }).then((hash) => {
@@ -295,11 +299,14 @@ const register = (req, res) => {
                 err: false,
                 msg: successMsg
             });
-        } else { // generic internal error
+        } else { // other internal error
+            let errMsg = conductorErrors.err6;
+            if (err.message === 'notcreated') errMsg = conductorErrors.err3;
+            else if (err.message === 'userexists') errMsg = conductorErrors.err47;
             debugError(err);
             return res.send({
                 err: true,
-                errMsg: conductorErrors.err6
+                errMsg: errMsg
             });
         }
     });
