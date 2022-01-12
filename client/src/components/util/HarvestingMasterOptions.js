@@ -635,7 +635,7 @@ const getTextUse = (use) => {
     }
 };
 
-module.exports = {
+export {
     licenseOptions,
     textUseOptions,
     libraryOptions,

@@ -13,6 +13,6 @@ const datePickerPopperOptions = [
     }
 ];
 
-module.exports = {
+export {
     datePickerPopperOptions
 }

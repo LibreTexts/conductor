@@ -41,7 +41,7 @@ const getLicenseText = (license) => {
     }
 };
 
-module.exports = {
+export {
     licenses,
     licenseOptions,
     getLicenseText

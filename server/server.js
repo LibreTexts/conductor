@@ -84,16 +84,6 @@ app.use(helmet.contentSecurityPolicy({
     }
 }));
 
-if (process.env.NODE_ENV === 'production') {
-    app.use((req, res, next) => {
-        /*
-        if (!req.secure && req.get('x-forwarded-proto') !== 'https') {
-            return res.redirect('https://' + req.get('host') + req.url);
-        }
-        */
-        next();
-    });
-}
 
 // Serve API Docs
 app.use(
@@ -113,11 +103,12 @@ cliRouter.route('*').get((_req, res) => {
 app.use('/', cliRouter);
 
 app.listen(port, (err) => {
-    if (err) {
-        debugServer(err);
+    let startupMsg = '';
+    if (err) debugServer(err);
+    if (process.env.ORG_ID === 'libretexts') {
+        startupMsg = `Conductor is listening on ${port}`;
+    } else {
+        startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
     }
-    var startupMsg = '';
-    if (process.env.ORG_ID === 'libretexts') startupMsg = `Conductor is listening on ${port}`;
-    else startupMsg = `Conductor (${process.env.ORG_ID}) is listening on ${port}`;
     debugServer(startupMsg);
 });

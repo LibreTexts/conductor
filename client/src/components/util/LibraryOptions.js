@@ -109,7 +109,7 @@ const getLibraryName = (lib) => {
     }
 }
 
-module.exports = {
+export {
     libraries,
     libraryOptions,
     getLibGlyphURL,

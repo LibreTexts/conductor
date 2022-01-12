@@ -12,7 +12,7 @@ import { isEmptyString } from './HelperFunctions.js';
  *  TRUE: @lib and @pageID are valid,
  *  FALSE: @lib or @pageID has errors.
  */
-export const validateLinkGenArguments = (lib, pageID) => {
+const validateLinkGenArguments = (lib, pageID) => {
     if ((lib === undefined) || (lib === null) || (isEmptyString(lib)) || (pageID === undefined) ||
         (pageID === null) || (isEmptyString(pageID))) {
         return false;
@@ -28,7 +28,7 @@ export const validateLinkGenArguments = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genThumbnailLink = (lib, pageID) => {
+const genThumbnailLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/files/=mindtouch.page%2523thumbnail`;
     } else {
@@ -44,7 +44,7 @@ export const genThumbnailLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genPDFLink = (lib, pageID) => {
+const genPDFLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Full.pdf`;
     } else {
@@ -60,7 +60,7 @@ export const genPDFLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genBookstoreLink = (lib, pageID) => {
+const genBookstoreLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://libretexts.org/bookstore/single.html?${lib}-${pageID}`;
     } else {
@@ -76,7 +76,7 @@ export const genBookstoreLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genZIPLink = (lib, pageID) => {
+const genZIPLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Individual.zip`;
     } else {
@@ -92,7 +92,7 @@ export const genZIPLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genPubFilesLink = (lib, pageID) => {
+const genPubFilesLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/Publication.zip`;
     } else {
@@ -108,7 +108,7 @@ export const genPubFilesLink = (lib, pageID) => {
  * If argument validation fails, an empty
  * string is returned.
  */
-export const genLMSFileLink = (lib, pageID) => {
+const genLMSFileLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://batch.libretexts.org/print/Letter/Finished/${lib}-${pageID}/LibreText.imscc`;
     } else {
@@ -125,7 +125,7 @@ export const genLMSFileLink = (lib, pageID) => {
  * live-library link as an optional
  * parameter, @onlineLink.
  */
-export const genLinkSet = (lib, pageID, onlineLink) => {
+const genLinkSet = (lib, pageID, onlineLink) => {
     var linkSet = {};
     if ((onlineLink !== undefined) && (onlineLink !== null)) {
         linkSet.online = onlineLink;
@@ -146,7 +146,7 @@ export const genLinkSet = (lib, pageID, onlineLink) => {
  * @param {String} license - the license identifier to lookup
  * @returns {String} the license's hex color code
  */
- export const getLicenseColor = (license) => {
+const getLicenseColor = (license) => {
     // Colors are (at least) WCAG AA compliant on a pure white background
     let licenseColors = {
         arr:            '#e52107',
@@ -168,3 +168,15 @@ export const genLinkSet = (lib, pageID, onlineLink) => {
     }
     return '';
 };
+
+export {
+    validateLinkGenArguments,
+    genThumbnailLink,
+    genPDFLink,
+    genBookstoreLink,
+    genZIPLink,
+    genPubFilesLink,
+    genLMSFileLink,
+    genLinkSet,
+    getLicenseColor
+}

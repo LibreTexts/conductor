@@ -103,7 +103,7 @@ const buildAccessMethodsList = (accessOptions) => {
     return accessString;
 }
 
-module.exports = {
+export {
     iAmOptions,
     libreNetOptions,
     studentUseOptions,

@@ -3,25 +3,25 @@
 // ProjectHelpers.js
 //
 
-export const visibilityOptions = [
+const visibilityOptions = [
     { key: 'private',   text: 'Private (only collaborators)',   value: 'private' },
     { key: 'public',    text: 'Public (within Conductor)',      value: 'public' }
 ];
 
-export const statusOptions = [
+const statusOptions = [
     { key: 'empty',     text: 'Clear...',           value: '' },
     { key: 'available', text: 'Available',          value: 'available' },
     { key: 'open',      text: 'Open/In Progress',   value: 'open' },
     { key: 'completed', text: 'Completed',          value: 'completed' }
 ];
 
-export const createTaskOptions = [
+const createTaskOptions = [
     { key: 'available',     text: 'Available',      value: 'available' },
     { key: 'inprogress',    text: 'In Progress',    value: 'inprogress' },
     { key: 'completed',     text: 'Completed',      value: 'completed' },
 ];
 
-export const classificationOptions = [
+const classificationOptions = [
     { key: 'empty',             text: 'Clear...',           value: '' },
     { key: 'harvesting',        text: 'Harvesting',         value: 'harvesting' },
     { key: 'curation',          text: 'Curation',           value: 'curation' },
@@ -33,7 +33,7 @@ export const classificationOptions = [
     { key: 'miscellaneous',     text: 'Miscellaneous',      value: 'miscellaneous' }
 ];
 
-export const projectRoleOptions = [
+const projectRoleOptions = [
     { key: 'lead',      text: 'Team Lead',          value: 'lead' },
     { key: 'liaison',   text: 'Project Liaison',    value: 'liaison' },
     { key: 'member',    text: 'Team Member',        value: 'member' },
@@ -47,7 +47,7 @@ export const projectRoleOptions = [
  * @param {String} status  - the status value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-export const getTaskStatusText = (status) => {
+const getTaskStatusText = (status) => {
     switch (status) {
         case 'completed':
             return 'Completed';
@@ -67,7 +67,7 @@ export const getTaskStatusText = (status) => {
  * @param {String} classification  - the classification value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-export const getClassificationText = (classification) => {
+const getClassificationText = (classification) => {
     let foundClassification = classificationOptions.find(item => item.key === classification);
     if (foundClassification !== undefined) {
         return foundClassification.text;
@@ -83,7 +83,7 @@ export const getClassificationText = (classification) => {
  * @param {String} visibility  - the visibility value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-export const getVisibilityText = (visibility) => {
+const getVisibilityText = (visibility) => {
     switch (visibility) {
         case 'private':
             return 'Private';
@@ -101,7 +101,7 @@ export const getVisibilityText = (visibility) => {
  * @param {String} group  - the flagging group name to find UI text for
  * @returns {String} the UI-ready string representation
  */
-export const getFlagGroupName = (group) => {
+const getFlagGroupName = (group) => {
     switch (group) {
         case 'libretexts':
             return 'LibreTexts Administrators';
@@ -123,7 +123,7 @@ export const getFlagGroupName = (group) => {
  * @param {String|String[]} [exclude] - the UUID(s) to exclude from the array. OPTIONAL.
  * @returns {Object[]} basic information about each project member
  */
-export const constructProjectTeam = (project, exclude) => {
+const constructProjectTeam = (project, exclude) => {
     let projTeam = [];
     if (project.hasOwnProperty('leads') && Array.isArray(project.leads)) {
         projTeam = [...projTeam, ...project.leads];
@@ -188,7 +188,7 @@ const checkUserInArray = (arr, uuid) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if can view details, false otherwise
  */
-export const checkCanViewProjectDetails = (project, user) => {
+const checkCanViewProjectDetails = (project, user) => {
     let setCanView = false;
     if (typeof(project) !== 'object' || typeof(user) !== 'object') return false;
     if (typeof(user.uuid) === 'string' && user.uuid !== '') {
@@ -215,7 +215,7 @@ export const checkCanViewProjectDetails = (project, user) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if has admin permissions, false otherwise
  */
-export const checkProjectAdminPermission = (project, user) => {
+const checkProjectAdminPermission = (project, user) => {
     /* Construct Project Admins and extract user UUID */
     let projAdmins = [];
     let userUUID = '';
@@ -245,7 +245,7 @@ export const checkProjectAdminPermission = (project, user) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if has team member permissions, false otherwise
  */
-export const checkProjectMemberPermission = (project, user) => {
+const checkProjectMemberPermission = (project, user) => {
     /* Construct Project Team and extract user UUID */
     //let projTeam = constructProjectTeam(project);
     let projTeam = [];
@@ -271,3 +271,19 @@ export const checkProjectMemberPermission = (project, user) => {
     }
     return false;
 };
+
+export {
+    visibilityOptions,
+    statusOptions,
+    createTaskOptions,
+    classificationOptions,
+    projectRoleOptions,
+    getTaskStatusText,
+    getClassificationText,
+    getVisibilityText,
+    getFlagGroupName,
+    constructProjectTeam,
+    checkCanViewProjectDetails,
+    checkProjectAdminPermission,
+    checkProjectMemberPermission
+}

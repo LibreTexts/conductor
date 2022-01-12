@@ -128,7 +128,7 @@ const sortUsersByName = (users) => {
 };
 
 
-module.exports = {
+export {
     isEmptyString,
     truncateString,
     capitalizeFirstLetter,

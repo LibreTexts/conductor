@@ -18,7 +18,7 @@ const catalogItemsPerPageOptions = [
 ];
 
 
-module.exports = {
+export {
     itemsPerPageOptions,
     catalogItemsPerPageOptions
 }

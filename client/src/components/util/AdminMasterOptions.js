@@ -5,6 +5,6 @@ const statusOptions = [
     { key: 'review', text: 'Needs further review', value: 'review' }
 ];
 
-module.exports = {
+export {
     statusOptions
 }

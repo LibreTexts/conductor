@@ -24,7 +24,7 @@ const getPurposeText = (purpose) => {
 };
 
 
-module.exports = {
+export {
     purposeOptions,
     getPurposeText
 }

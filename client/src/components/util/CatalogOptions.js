@@ -9,7 +9,7 @@ const catalogLocationOptions = [
     { key: 'learning', text: 'Learning Objects', value: 'learning', disabled: true }
 ];
 
-module.exports = {
+export {
     catalogDisplayOptions,
     catalogLocationOptions
 }
