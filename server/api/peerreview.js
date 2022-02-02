@@ -4,6 +4,7 @@
 //
 
 'use strict';
+var Promise = require('bluebird');
 const User = require('../models/user.js');
 const Project = require('../models/project.js');
 const PeerReviewRubric = require('../models/peerreviewrubric.js');
@@ -39,13 +40,16 @@ const getPeerReviewRubricInternal = (rubricID, doResolution = true) => {
     let foundRubric = null;
     let didOrgLookup = false;
     let didLibreLookup = false;
-    return new Promise((resolve, reject) => {
+    return new Promise.try(() => {
         if (typeof (rubricID) === 'string' && rubricID.length > 0) {
             if (rubricID === process.env.ORG_ID) didOrgLookup = true;
             if (rubricID === 'libretexts') didLibreLookup = true;
-            resolve(PeerReviewRubric.findOne({ rubricID: rubricID }, { _id: 0, __v: 0 }).lean());
+            return PeerReviewRubric.findOne({
+                rubricID: rubricID
+            }, { _id: 0, __v: 0 }).lean();
+        } else {
+            throw (new Error('rubricnotfound'));
         }
-        reject(new Error('rubricnotfound'));
     }).then((rubric) => {
         if (rubric) { // store to send and move on
             foundRubric = rubric;
@@ -483,7 +487,9 @@ const createPeerReview = (req, res) => {
                 }
             }
             let rubricID = project.orgID;
-            if (!isEmptyString(project.preferredPRRubric)) rubricID = project.preferredPRRubric;
+            if (typeof(project.preferredPRRubric) === 'string' && project.preferredPRRubric.length > 0) {
+                rubricID = project.preferredPRRubric;
+            }
             if (allowSubmit) return getPeerReviewRubricInternal(rubricID);
             throw (new Error('unauth'));
         }
@@ -626,10 +632,12 @@ const createPeerReview = (req, res) => {
                     newReview.responses = responses;
                     return new PeerReview(newReview).save();
                 }
+            } else {
+                throw (new Error('noresponses'));
             }
-            throw (new Error('noresponses'));
+        } else {
+            throw (new Error('rubricnotfound')); // couldn't find any form config to use
         }
-        throw (new Error('rubricnotfound')); // couldn't find any form config to use
     }).then((createRes) => {
         if (createRes) {
             return updateProjectAverageRating(project.projectID);
@@ -706,7 +714,7 @@ const deletePeerReview = (req, res) => {
         throw (new Error('notfound'));
     }).then((deleteRes) => {
         if (deleteRes.deletedCount === 1) {
-            return updateProjectAverageRating(project.projectData);
+            return updateProjectAverageRating(project.projectID);
         }
         throw (new Error('deletefail'));
     }).then((ratingUpdateRes) => {
