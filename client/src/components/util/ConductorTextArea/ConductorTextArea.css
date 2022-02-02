@@ -49,3 +49,12 @@
     font-size: 0.75em;
     padding-left: 0.5em;
 }
+
+.textarea-error {
+    border-color: #e0b4b4 !important;
+}
+
+.textarea-error > #textarea-input {
+    background-color: #fff6f6;
+    color: #9f3a38;
+}

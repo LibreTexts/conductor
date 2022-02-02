@@ -10,7 +10,7 @@ const conductorErrors = {
     'err3': "An error occured saving information to the database.",
     'err4': "This tool is not available to this organization.",
     'err5': "Invalid authorization token. Try signing out and in again.",
-    'err6': "Oops, we seemed to have encountered an internal error.",
+    'err6': "Sorry, we seemed to have encountered an internal error.",
     'err7': "Couldn't find a user with that identifier.",
     'err8': "Sorry, you aren't authorized to perform that action.",
     'err9': "Unable to verify user attribute(s).",
@@ -41,7 +41,12 @@ const conductorErrors = {
     'err44': "Oops, at least one team member must be a Project Lead.",
     'err45': "Sorry, we're having trouble retrieving or generating this data export.",
     'err46': "Oops, an account with this email has already been registered using traditional authentication.",
-    'err47': "Oops, a user with that email already exists."
+    'err47': "Oops, a user with that email already exists.",
+    'err48': "Sorry, we're having trouble finding a Peer Review Rubric to use.",
+    'err49': "Oops, this review is missing required responses.",
+    'err50': "Oops, Peer Reviews must have at least one response to be saved.",
+    'err51': "Oops, a Dropdown Prompt requires at least one response option.",
+    'err52': "Oops, this Project's settings do not allow reviews from non-team members."
 };
 
 module.exports = conductorErrors;

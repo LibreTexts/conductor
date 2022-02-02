@@ -7,7 +7,7 @@ const Mailgun = require('mailgun.js');
 const formData = require('form-data');
 const { debugError } = require('../debug.js');
 const conductorErrors = require('../conductor-errors.js');
-const marked = require('marked');
+const { marked } = require('marked');
 const { isEmptyString, truncateString } = require('../util/helpers.js');
 
 const mgInstance = new Mailgun(formData);
@@ -223,7 +223,7 @@ const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitl
  */
 const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, projectOrg, flaggingGroup, flagDescrip) => {
     let textToSend = `Attention: A team member of the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor has flagged their project and requested that you (${flaggingGroup}) review it.`;
-    let htmlToSend = `<p>Attention:</p><p>A team member of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor has flagged their project and requested that you (<em>${flaggingGroup}</em>) review it.</p>`;
+    let htmlToSend = `<p>Attention:</p><p>A team member of the <a href="https://commons.libretexts.org/projects/${projectID}" target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor has flagged their project and requested that you (<em>${flaggingGroup}</em>) review it.</p>`;
     if (!isEmptyString(flagDescrip)) {
         let truncDescrip = truncateString(flagDescrip, 500);
         textToSend += `Reason for flagging (full description available on Conductor): ${truncDescrip}.`;
@@ -387,6 +387,91 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
 };
 
 
+/**
+ * Sends a standard Invitation to Review notification to the specified email via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} inviterName - The name of the user sending the invite.
+ * @param {String} recipientAddress - The email address to send the invite to.
+ * @param {String} projectID - The internal identifier of the project to review.
+ * @param {String} projectTitle - The title of the project to review.
+ * @param {String} [projectURL] - The project's resource URL, if applicable.
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+ const sendPeerReviewInvitation = (inviterName, recipientAddress, projectID, projectTitle, projectURL) => {
+    let reviewLink = `https://commons.libretexts.org/peerreview/${projectID}`;
+    let textToSend = `Hello! ${inviterName} has invited you to review their project, ${projectTitle}, on the LibreTexts Conductor platform.`;
+    let htmlToSend = `<p>Hello!</p><p>${inviterName} has invited you to review their project, <em>${projectTitle}</em>, on the LibreTexts Conductor platform.</p>`;
+    if (typeof(projectURL) === 'string' && projectURL.length > 0) {
+        textToSend += ` You can view their project's resource at ${projectURL}.`
+        htmlToSend += `<p>You can view their project's resource <a href="${projectURL}" target="_blank" rel="noopener noreferrer">here.</a></p>`;
+    }
+    textToSend += `You can access the Peer Review form for the project at: ${reviewLink}. Sincerely, The LibreTexts team.` + autoGenNoticeText;
+    htmlToSend += `<p>You can access the Peer Review form for the project <a href="${reviewLink}" target="_blank" rel="noopener noreferrer">here</a>.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `Invitation to Review: ${projectTitle}`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
+/**
+ * Sends a standard New Peer Review notification to the specified recipient emails via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String[]} recipients - The email address(es) to send the notification to.
+ * @param {String} projectID - The internal identifier of the reviewed project.
+ * @param {String} projectTitle - The title of the reviewed project.
+ * @param {String} projectOrg - The Project's organization.
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+ const sendPeerReviewNotification = (recipients, projectID, projectTitle, projectOrg) => {
+    let textToSend = `Attention: A new Peer Review has been submitted to the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor. You can view this Peer Review by visiting the Project's page and selecting 'Peer Review' from the top menu bar.` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>A new Peer Review has been submitted to the <a href="https://commons.libretexts.org/projects/${projectID}" target="_blank" rel="noopener noreferrer">${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor.</p><p>You can view this Peer Review by visiting the Project's page and selecting <a href="https://commons.libretexts.org/projects/${projectID}/peerreview" target="_blank" rel="noopener noreferrer">'Peer Review'</a> from the top menu bar.</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: recipients,
+        subject: `New Peer Review for ${projectTitle}`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
+/**
+ * Sends a standard New Autogenerated Projects notification to a Default Project Lead's email via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} recipient - The email address to send the notification to.
+ * @param {Object[]} projects - An array of Project information objects.
+ * @returns {Promise<Object|Error>} A Mailgun API Promise.
+ */
+const sendAutogeneratedProjectsNotification = (recipient, projects) => {
+    console.log("RECIPIENT", recipient);
+    console.log("PROJECTS", projects.length);
+    let htmlToSend = `<p>Attention:</p><p>New Conductor projects were created during a Commons-Libraries sync.</p><p>You have been automatically added to the following autogenerated projects:</p>`;
+    if (Array.isArray(projects) && projects.length > 0) {
+        let listString = '';
+        projects.forEach((item) => {
+            if (typeof (item.projectID) === 'string' && typeof (item.title) === 'string') {
+                listString += `<li><a href="https://commons.libretexts.org/projects/${item.projectID}" target="_blank" rel="noopener noreferrer">${item.title}</a></li>`;
+            }
+        });
+        htmlToSend += `<ul>${listString}</ul>`;
+    }
+    htmlToSend += autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipient],
+        subject: 'New Autogenerated Projects Available',
+        html: htmlToSend
+    });
+};
+
+
 module.exports = {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -402,5 +487,8 @@ module.exports = {
     sendAssignedToTaskNotification,
     sendAccountRequestConfirmation,
     sendAccountRequestAdminNotif,
-    sendAccountRequestApprovalNotification
+    sendAccountRequestApprovalNotification,
+    sendPeerReviewInvitation,
+    sendPeerReviewNotification,
+    sendAutogeneratedProjectsNotification
 }

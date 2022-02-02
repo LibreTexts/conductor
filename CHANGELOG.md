@@ -1,5 +1,39 @@
 # Changelog
 
+# 02-01-2022
+#### :art: UI/UX
+* Fixed a bug where users with elevated permissions could not see certain portions of a Project
+* Minor UI updates in Control Panel
+* Introduced the ability for Administrators to view a list of a User's Projects
+* Added an optional error state to ConductorTextArea
+* Updated list of Academic Terms in Adoption Reports
+* Introduced the Peer Review system
+    * Peer Review component
+    * Peer Review View component
+    * Star Rating component
+    * Peer Review Rubrics manager in Control Panel
+    * Peer Review Rubric editor in Control Panel
+    * Average Rating in Commons Book pages, if applicable
+    * Publicly-accessible Peer Review listings and submission, if applicable
+* Minor improvements in Projects Portal
+
+#### :satellite: Server
+* Fixed a bug in which adding a Project URL during Project creation would not trigger information sync
+* Introduced logic for Peer Reviews
+* Introduced logic for Peer Review Rubrics
+* Improved Commons-Libraries sync
+    * Added Project autogeneration
+
+#### :wrench: Codebase Maintenance & Upkeep
+* Resolved a security vulnerability by updating dependencies (`marked` package)
+* Added additional code documentation in several files throughout the codebase
+* Removed deprecated API files and endpoints
+
+
+# 01-11-2022
+#### :wrench: Codebase Maintenance & Upkeep
+* Renamed and refactored several files in the client application to match React/ES6 standards (no functionality changes)
+
 # 01-07-2022
 #### :art: UI/UX
 * Behind-the-scenes updates for ConductorMessagingUI display semantics

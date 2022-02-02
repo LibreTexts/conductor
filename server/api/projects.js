@@ -4,12 +4,12 @@
 //
 
 'use strict';
+var Promise = require('bluebird');
 const User = require('../models/user.js');
 const Project = require('../models/project.js');
 const Tag = require('../models/tag.js');
-const Thread = require('../models/thread.js');
-const Message = require('../models/message.js');
 const HarvestingRequest = require('../models/harvestingrequest.js');
+const Organization = require('../models/organization.js');
 const { body, query } = require('express-validator');
 const b62 = require('base62-random');
 const { validate: uuidValidate } = require('uuid');
@@ -28,7 +28,6 @@ const { libraryNameKeys } = require('../util/librariesmap.js');
 const authAPI = require('./auth.js');
 const mailAPI = require('./mail.js');
 const bookAPI = require('./books.js');
-const { default: axios } = require('axios');
 
 const projectListingProjection = {
     _id: 0,
@@ -48,7 +47,8 @@ const projectListingProjection = {
     leads: 1,
     liaisons: 1,
     members: 1,
-    auditors: 1
+    auditors: 1,
+    rating: 1
 };
 
 
@@ -61,9 +61,12 @@ const projectListingProjection = {
  * @param {Object} res - the express.js response object.
  */
 const createProject = (req, res) => {
-    var hasTags = false;
+    let hasTags = false;
+    let checkProjURL = false;
+    let libNames = [];
+    let libreURLRegex = null;
     // Setup project with defaults
-    var newProjData = {
+    let newProjData = {
         orgID: process.env.ORG_ID,
         projectID: b62(10),
         title: req.body.title,
@@ -81,7 +84,7 @@ const createProject = (req, res) => {
         leads: [req.decoded.uuid],
         liaisons: [],
         members: [],
-        auditors: [], 
+        auditors: [],
         tags: [],
         notes: ''
     };
@@ -90,6 +93,13 @@ const createProject = (req, res) => {
     if (req.body.hasOwnProperty('status')) newProjData.status = req.body.status;
     if (req.body.hasOwnProperty('progress')) newProjData.currentProgress = req.body.progress;
     if (req.body.hasOwnProperty('classification')) newProjData.classification = req.body.classification;
+    if (req.body.hasOwnProperty('projectURL')) {
+        /* If the Project URL is a LibreTexts link, flag it to gather more information */
+        libNames = libraryNameKeys.join('|');
+        libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
+        if (libreURLRegex.test(req.body.projectURL)) checkProjURL = true;
+        newProjData.projectURL = req.body.projectURL;
+    }
     if (req.body.hasOwnProperty('projectURL')) newProjData.projectURL = req.body.projectURL;
     if (req.body.hasOwnProperty('author')) newProjData.author = req.body.author;
     if (req.body.hasOwnProperty('authorEmail')) newProjData.authorEmail = req.body.authorEmail;
@@ -152,9 +162,18 @@ const createProject = (req, res) => {
         // no new tags to insert
         return {};
     }).then((_bulkRes) => {
+        // optionally lookup LibreText information if a LibreTexts URL was provided
+        if (checkProjURL) return getLibreTextInformation(newProjData.projectURL);
+        return {};
+    }).then((projURLInfo) => {
+        if (checkProjURL) {
+            if (projURLInfo.hasOwnProperty('lib') && projURLInfo.lib !== '') newProjData.libreLibrary = projURLInfo.lib;
+            if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') newProjData.libreCoverID = projURLInfo.id;
+            if (projURLInfo.hasOwnProperty('shelf') && projURLInfo.shelf !== '') newProjData.libreShelf = projURLInfo.shelf;
+            else if (projURLInfo.hasOwnProperty('campus') && projURLInfo.campus !== '') newProjData.libreCampus = projURLInfo.campus;
+        }
         // save formatted project to DB
-        var newProject = new Project(newProjData);
-        return newProject.save();
+        return new Project(newProjData).save();
     }).then((newDoc) => {
         if (newDoc) {
             return res.send({
@@ -163,7 +182,7 @@ const createProject = (req, res) => {
                 projectID: newDoc.projectID
             });
         } else {
-            throw(new Error('createfail'));
+            throw (new Error('createfail'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -194,10 +213,10 @@ const deleteProject = (req, res) => {
                     projectID: req.body.projectID
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((deleteRes) => {
         if (deleteRes.deletedCount === 1) {
@@ -207,7 +226,7 @@ const deleteProject = (req, res) => {
                 msg: 'Successfully deleted project.'
             });
         } else {
-            throw(new Error('deletefail')); // handle as generic error below
+            throw (new Error('deletefail')); // handle as generic error below
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -231,7 +250,7 @@ const deleteProject = (req, res) => {
  * @param {Object} res - the express.js response object.
  */
 const getProject = (req, res) => {
-    Project.aggregate([
+    return Project.aggregate([
         {
             $match: {
                 projectID: req.query.projectID
@@ -390,10 +409,10 @@ const getProject = (req, res) => {
                     project: projResult
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -461,6 +480,12 @@ const updateProject = (req, res) => {
                     if (libreURLRegex.test(req.body.projectURL)) checkProjURL = true;
                     updateObj.projectURL = req.body.projectURL;
                 }
+                if (req.body.hasOwnProperty('allowAnonPR') && req.body.allowAnonPR !== project.allowAnonPR) {
+                    updateObj.allowAnonPR = req.body.allowAnonPR;
+                }
+                if (req.body.hasOwnProperty('preferredPRRubric') && req.body.preferredPRRubric !== project.preferredPRRubric) {
+                    updateObj.preferredPRRubric = req.body.preferredPRRubric;
+                }
                 if (req.body.hasOwnProperty('author') && req.body.author !== project.author) {
                     updateObj.author = req.body.author;
                 }
@@ -505,10 +530,10 @@ const updateProject = (req, res) => {
                 // don't need to modify or resolve tags
                 return [];
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((allOrgTags) => {
         var tagBulkOps = [];
@@ -584,7 +609,7 @@ const updateProject = (req, res) => {
                 msg: 'No changes to save.'
             });
         } else {
-            throw(new Error('updatefailed'));
+            throw (new Error('updatefailed'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -612,7 +637,7 @@ const getUserProjects = (req, res) => {
                     {
                         $or: [
                             { leads: req.decoded.uuid },
-                            { liaisons: req.decoded.uuid},
+                            { liaisons: req.decoded.uuid },
                             { members: req.decoded.uuid },
                             { auditors: req.decoded.uuid }
                         ]
@@ -666,7 +691,79 @@ const getUserProjects = (req, res) => {
             err: false,
             errMsg: conductorErrors.err6
         });
-    })
+    });
+};
+
+
+/**
+ * Retrieves a list of a specified User's Projects, for Admin usage.
+ * @param {Object} req - The Express.js request object.
+ * @param {Object} res - The Express.js response object.
+ */
+const getUserProjectsAdmin = (req, res) => {
+    Project.aggregate([
+        {
+            $match: {
+                $and: [
+                    {
+                        $or: [
+                            { leads: req.query.uuid },
+                            { liaisons: req.query.uuid },
+                            { members: req.query.uuid },
+                            { auditors: req.query.uuid }
+                        ]
+                    }, {
+                        status: {
+                            $ne: 'completed'
+                        }
+                    }
+                ]
+            }
+        }, {
+            $lookup: {
+                from: 'users',
+                let: {
+                    leads: '$leads'
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: ['$uuid', '$$leads']
+                            }
+                        }
+                    }, {
+                        $project: {
+                            _id: 0,
+                            uuid: 1,
+                            firstName: 1,
+                            lastName: 1,
+                            avatar: 1
+                        }
+                    }
+                ],
+                as: 'leads'
+            }
+        }, {
+            $sort: {
+                title: -1
+            }
+        }, {
+            $project: projectListingProjection
+        }
+    ]).then((projects) => {
+        return res.send({
+            err: false,
+            uuid: req.query.uuid,
+            projects: projects
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: false,
+            errMsg: conductorErrors.err6
+        });
+    });
 };
 
 
@@ -760,7 +857,7 @@ const getUserFlaggedProjects = (req, res) => {
                 }
             ]);
         } else {
-            throw(new Error('user'));
+            throw (new Error('user'));
         }
     }).then((projects) => {
         return res.send({
@@ -790,7 +887,7 @@ const getRecentProjects = (req, res) => {
                     {
                         $or: [
                             { leads: req.decoded.uuid },
-                            { liaisons: req.decoded.uuid},
+                            { liaisons: req.decoded.uuid },
                             { members: req.decoded.uuid },
                             { auditors: req.decoded.uuid }
                         ]
@@ -999,10 +1096,10 @@ const getAddableMembers = (req, res) => {
                     }
                 ]);
             } else {
-                throw(new Error('unauth'))
+                throw (new Error('unauth'))
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((users) => {
         return res.send({
@@ -1045,13 +1142,13 @@ const addMemberToProject = (req, res) => {
                     // lookup user being added
                     return User.findOne({ uuid: req.body.uuid }).lean();
                 } else {
-                    throw(new Error('invalid'));
+                    throw (new Error('invalid'));
                 }
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((user) => {
         if (user) {
@@ -1065,14 +1162,14 @@ const addMemberToProject = (req, res) => {
                 }
             });
         } else {
-            throw(new Error('usernotfound'));
+            throw (new Error('usernotfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
             return mailAPI.sendAddedAsMemberNotification(userData.email, userData.firstName,
                 projectData.projectID, projectData.title);
         } else {
-            throw(new Error('updatefailed')); // handle as generic error below
+            throw (new Error('updatefailed')); // handle as generic error below
         }
     }).then(() => {
         // ignore return value of Mailgun call
@@ -1135,10 +1232,10 @@ const changeMemberRole = (req, res) => {
                         projAuditors.push(req.body.uuid);
                         break;
                     default:
-                        throw(new Error('invalidarg'));
+                        throw (new Error('invalidarg'));
                 };
                 if (projLeads.length === 0) {
-                    throw(new Error('nolead')); // at least one lead must be specified
+                    throw (new Error('nolead')); // at least one lead must be specified
                 }
                 /* Send update to DB */
                 return Project.updateOne({
@@ -1150,10 +1247,10 @@ const changeMemberRole = (req, res) => {
                     auditors: projAuditors
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1162,7 +1259,7 @@ const changeMemberRole = (req, res) => {
                 msg: 'Successfully removed user from project team.'
             });
         } else {
-            throw(new Error('updatefailed')); // handle as generic error below
+            throw (new Error('updatefailed')); // handle as generic error below
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1206,7 +1303,7 @@ const removeMemberFromProject = (req, res) => {
                 projMembers = projMembers.filter(item => item !== req.body.uuid);
                 projAuditors = projAuditors.filter(item => item !== req.body.uuid);
                 if (projLeads.length === 0) {
-                    throw(new Error('nolead')); // at least one lead must be specified
+                    throw (new Error('nolead')); // at least one lead must be specified
                 }
                 return Project.updateOne({
                     projectID: project.projectID
@@ -1217,10 +1314,10 @@ const removeMemberFromProject = (req, res) => {
                     auditors: projAuditors
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1229,7 +1326,7 @@ const removeMemberFromProject = (req, res) => {
                 msg: 'Successfully removed user from project team.'
             });
         } else {
-            throw(new Error('updatefailed')); // handle as generic error below
+            throw (new Error('updatefailed')); // handle as generic error below
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1272,10 +1369,10 @@ const flagProject = (req, res) => {
                     flagDescrip: req.body.flagDescrip
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1293,10 +1390,10 @@ const flagProject = (req, res) => {
                     flagGroupTitle = 'Project Leads';
                     return authAPI.getUserBasicWithEmail(projectData.leads);
                 default:
-                    throw(new Error('flagoption'));
+                    throw (new Error('flagoption'));
             }
         } else {
-            throw(new Error('updatefail'));
+            throw (new Error('updatefail'));
         }
     }).then((flaggingGroup) => {
         const recipients = flaggingGroup.map((item) => {
@@ -1351,10 +1448,10 @@ const clearProjectFlag = (req, res) => {
                     flagDescrip: ''
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1363,7 +1460,7 @@ const clearProjectFlag = (req, res) => {
                 msg: 'Project successfully unflagged.'
             });
         } else {
-            throw(new Error('updatefail'));
+            throw (new Error('updatefail'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1410,10 +1507,10 @@ const setProjectAlert = (req, res) => {
                     projectID: req.body.projectID
                 }, updateObj);
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1422,7 +1519,7 @@ const setProjectAlert = (req, res) => {
                 msg: 'Project alert successfully set.'
             });
         } else {
-            throw(new Error('updatefail'));
+            throw (new Error('updatefail'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1562,13 +1659,13 @@ const requestProjectPublishing = (req, res) => {
                 if (req.user?.decoded?.uuid) {
                     return User.findOne({ uuid: req.user.decoded.uuid }).lean();
                 } else {
-                    throw(new Error('unauth'));
+                    throw (new Error('unauth'));
                 }
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((user) => {
         if (user) {
@@ -1584,7 +1681,7 @@ const requestProjectPublishing = (req, res) => {
             return mailAPI.sendPublishingRequestedNotification(userName, projectData.projectID,
                 projectData.title, projLib, projCoverID);
         } else {
-            throw(new Error('usernotfound'));
+            throw (new Error('usernotfound'));
         }
     }).then(() => {
         // ignore return value of Mailgun call
@@ -1631,10 +1728,10 @@ const createA11YReviewSection = (req, res) => {
                     }
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1643,7 +1740,7 @@ const createA11YReviewSection = (req, res) => {
                 msg: 'Successfully added accessibility review section.'
             });
         } else {
-            throw(new Error('updatefailed')); // handle as generic error below
+            throw (new Error('updatefailed')); // handle as generic error below
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1678,10 +1775,10 @@ const getA11YReviewSections = (req, res) => {
                     a11yReview: project.a11yReview
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1719,10 +1816,10 @@ const updateA11YReviewSectionItem = (req, res) => {
                     $set: toSet
                 });
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((updateRes) => {
         if (updateRes.modifiedCount === 1) {
@@ -1731,7 +1828,7 @@ const updateA11YReviewSectionItem = (req, res) => {
                 msg: 'Successfully updated review section item'
             });
         } else {
-            throw(new Error('updatefailed')) // handle as generic error below
+            throw (new Error('updatefailed')) // handle as generic error below
         }
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
@@ -1776,12 +1873,12 @@ const importA11YSectionsFromTOC = (req, res) => {
                     && !isEmptyString(projectData.libreCoverID)
                     && !isEmptyString(projectData.projectURL)
                 ) return bookAPI.getBookTOCFromAPI(null, projectData.projectURL);
-                else throw(new Error('bookid'));
+                else throw (new Error('bookid'));
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('unauth'));
             }
         } else {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         }
     }).then((toc) => {
         if (toc) {
@@ -1827,7 +1924,7 @@ const importA11YSectionsFromTOC = (req, res) => {
                 return {};
             }
         } else {
-            throw(new Error('notoc')); // handle as generic error below
+            throw (new Error('notoc')); // handle as generic error below
         }
     }).then((updateRes) => {
         let resMsg = 'No pages found to import.';
@@ -1839,7 +1936,7 @@ const importA11YSectionsFromTOC = (req, res) => {
                     resMsg = 'LibreText sections successfully imported.';
                 }
             } else {
-                throw(new Error('updatefail')); // handle as generic error below
+                throw (new Error('updatefail')); // handle as generic error below
             }
         }
         return res.send({
@@ -1864,18 +1961,120 @@ const importA11YSectionsFromTOC = (req, res) => {
 
 
 /**
+ * Generates new Projects from a batch of Books, typically newly-imported.
+ * @param {Object[]} newBooks - The newly imported Book information objects.
+ * @returns {Promise<Number|Boolean>} Number of newly created Projects, or false if error encountered.
+ */
+const autoGenerateProjects = (newBooks) => {
+    let projLead = '';
+    let numCreated = 0;
+    let newProjects = [];
+    return Promise.try(() => {
+        if (Array.isArray(newBooks) && newBooks.length > 0) {
+            return Organization.findOne({ orgID: 'libretexts' }, {
+                _id: 0,
+                defaultProjectLead: 1
+            }).lean();
+        } else {
+            throw (new Error('nobooks'));
+        }
+    }).then((libreOrg) => {
+        if (
+            libreOrg
+            && typeof (libreOrg.defaultProjectLead) === 'string'
+            && libreOrg.defaultProjectLead.length > 0
+        ) {
+            projLead = libreOrg.defaultProjectLead;
+            let infoRequests = [];
+            newBooks.forEach((book) => {
+                if (typeof (book.url) === 'string' && book.url.length > 0) {
+                    infoRequests.push(getLibreTextInformation(book.url));
+                }
+            });
+            return Promise.all(infoRequests);
+        } else {
+            throw (new Error('leadnotfound'));
+        }
+    }).then((bookInfoRes) => {
+        newBooks.forEach((book) => {
+            let newProj = {
+                orgID: 'libretexts',
+                projectID: b62(10),
+                title: book.title,
+                status: 'open',
+                visibility: 'private',
+                classification: 'curation',
+                projectURL: book.url,
+                leads: [projLead],
+                liaisons: [],
+                members: [],
+                auditors: [],
+                tags: [],
+                libreLibrary: book.library,
+                libreCoverID: book.coverID
+            };
+            if (Array.isArray(bookInfoRes)) {
+                let foundInfo = bookInfoRes.find((infoObj) => (
+                    infoObj.lib === book.library && infoObj.id === book.coverID
+                ));
+                if (foundInfo !== undefined) {
+                    if (foundInfo.hasOwnProperty('shelf') && foundInfo.shelf !== '') {
+                        newProj.libreShelf = foundInfo.shelf;
+                    } else if (foundInfo.hasOwnProperty('campus') && foundInfo.campus !== '') {
+                        newProj.libreCampus = foundInfo.campus;
+                    }
+                }
+            }
+            newProjects.push(newProj);
+        });
+        return Project.insertMany(newProjects, {
+            ordered: false,
+            rawResult: true
+        });
+    }).then((createRes) => {
+        if (createRes) {
+            if (typeof (createRes.insertedCount) === 'number') numCreated = createRes.insertedCount;
+            return authAPI.getUserBasicWithEmail(projLead); // get Default Lead's email
+        } else {
+            throw (new Error('createfail'));
+        }
+    }).then((defaultLeadInfo) => {
+        /** Send email to Default Project Lead */
+        if (Array.isArray(defaultLeadInfo) && defaultLeadInfo.length === 1) {
+            if (typeof (defaultLeadInfo[0].email) === 'string') {
+                return mailAPI.sendAutogeneratedProjectsNotification(defaultLeadInfo[0].email, newProjects);
+            }
+        }
+        return null; // don't fail as long as projects were created
+    }).then(() => {
+        // ignore return value of MailAPI call
+        return numCreated;
+    }).catch((err) => {
+        debugError(err);
+        if (err.message === 'nobooks') {
+            return 0;
+        } else if (err.status === 400) {
+            // MailAPI error
+            return numCreated;
+        }
+        return false;
+    });
+};
+
+
+/**
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
  * @param {Object} user             - the current user context
- * @return {Boolean} true if user has permission, false otherwise
+ * @returns {Boolean} true if user has permission, false otherwise
  */
 const checkProjectGeneralPermission = (project, user) => {
     /* Get Project Team and extract user UUID */
     let projTeam = constructProjectTeam(project);
     let userUUID = '';
-    if (typeof(user) === 'string') userUUID = user;
-    else if (typeof(user) === 'object') {
+    if (typeof (user) === 'string') userUUID = user;
+    else if (typeof (user) === 'object') {
         if (user.uuid !== undefined) userUUID = user.uuid;
         else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid
     }
@@ -1885,9 +2084,9 @@ const checkProjectGeneralPermission = (project, user) => {
     }
     if (userUUID !== '') {
         let foundUser = projTeam.find((item) => {
-            if (typeof(item) === 'string') {
+            if (typeof (item) === 'string') {
                 return item === userUUID;
-            } else if (typeof(item) === 'object') {
+            } else if (typeof (item) === 'object') {
                 return item.uuid === userUUID;
             }
             return false;
@@ -1913,17 +2112,17 @@ const checkProjectMemberPermission = (project, user) => {
     /* Get Project Team and extract user UUID */
     let projTeam = constructProjectTeam(project);
     let userUUID = '';
-    if (typeof(user) === 'string') userUUID = user;
-    else if (typeof(user) === 'object') {
+    if (typeof (user) === 'string') userUUID = user;
+    else if (typeof (user) === 'object') {
         if (user.uuid !== undefined) userUUID = user.uuid;
         else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
     }
     /* Check user has permission */
     if (userUUID !== '') {
         let foundUser = projTeam.find((item) => {
-            if (typeof(item) === 'string') {
+            if (typeof (item) === 'string') {
                 return item === userUUID;
-            } else if (typeof(item) === 'object') {
+            } else if (typeof (item) === 'object') {
                 return item.uuid === userUUID;
             }
             return false;
@@ -1949,23 +2148,23 @@ const checkProjectAdminPermission = (project, user) => {
     /* Construct Project Admins and extract user UUID */
     let projAdmins = [];
     let userUUID = '';
-    if (typeof(user) === 'string') userUUID = user;
-    else if (typeof(user) === 'object') {
+    if (typeof (user) === 'string') userUUID = user;
+    else if (typeof (user) === 'object') {
         if (user.uuid !== undefined) userUUID = user.uuid;
         else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
     }
-    if (typeof(project.leads) !== 'undefined' && Array.isArray(project.leads)) {
+    if (typeof (project.leads) !== 'undefined' && Array.isArray(project.leads)) {
         projAdmins = [...projAdmins, ...project.leads];
     }
-    if (typeof(project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
+    if (typeof (project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
         projAdmins = [...projAdmins, ...project.liaisons];
     }
     /* Check user has permission */
     if (userUUID !== '') {
         let foundUser = projAdmins.find((item) => {
-            if (typeof(item) === 'string') {
+            if (typeof (item) === 'string') {
                 return item === userUUID;
-            } else if (typeof(item) === 'object') {
+            } else if (typeof (item) === 'object') {
                 return item.uuid === userUUID;
             }
             return false;
@@ -1983,36 +2182,36 @@ const checkProjectAdminPermission = (project, user) => {
 
 /**
  * Construct an array of users in a project's team, with optional exclusion(s).
- * @param {Object} project  - the project data object
- * @param {String|String[]} [exclude] - the UUID(s) to exclude from the array. OPTIONAL.
- * @returns {String[]} the UUIDs of the project team members
+ * @param {Object} project - The Project data object.
+ * @param {String|String[]} [exclude] - The UUID(s) to exclude from the array.
+ * @returns {String[]} The UUIDs of the project team members.
  */
 const constructProjectTeam = (project, exclude) => {
     let projTeam = [];
-    if (typeof(project.leads) !== 'undefined' && Array.isArray(project.leads)) {
+    if (typeof (project.leads) !== 'undefined' && Array.isArray(project.leads)) {
         projTeam = [...projTeam, ...project.leads];
     }
-    if (typeof(project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
+    if (typeof (project.liaisons) !== 'undefined' && Array.isArray(project.liaisons)) {
         projTeam = [...projTeam, ...project.liaisons];
     }
-    if (typeof(project.members) !== 'undefined' && Array.isArray(project.members)) {
+    if (typeof (project.members) !== 'undefined' && Array.isArray(project.members)) {
         projTeam = [...projTeam, ...project.members];
     }
-    if (typeof(project.auditors) !== 'undefined' && Array.isArray(project.auditors)) {
+    if (typeof (project.auditors) !== 'undefined' && Array.isArray(project.auditors)) {
         projTeam = [...projTeam, ...project.auditors];
     }
-    if (typeof(exclude) !== 'undefined') {
+    if (typeof (exclude) !== 'undefined') {
         projTeam = projTeam.filter((item) => {
-            if (typeof(exclude) === 'string') {
-                if (typeof(item) === 'string') {
+            if (typeof (exclude) === 'string') {
+                if (typeof (item) === 'string') {
                     return item !== exclude;
-                } else if (typeof(item) === 'object') {
+                } else if (typeof (item) === 'object') {
                     return item.uuid !== exclude;
                 }
-            } else if (typeof(exclude) === 'object' && Array.isArray(exclude)) {
-                if (typeof(item) === 'string') {
+            } else if (typeof (exclude) === 'object' && Array.isArray(exclude)) {
+                if (typeof (item) === 'string') {
                     return !exclude.includes(item);
-                } else if (typeof(item) === 'object' && typeof(item.uuid) !== 'undefined') {
+                } else if (typeof (item) === 'object' && typeof (item.uuid) !== 'undefined') {
                     return !exclude.includes(item.uuid);
                 }
             }
@@ -2035,6 +2234,7 @@ const validateVisibility = (visibility) => {
 
 /**
  * Validate a provided Project Status option during creation.
+ * @deprecated
  * @returns {Boolean} true if valid option, false otherwise.
  */
 const validateCreateStatus = (status) => {
@@ -2064,6 +2264,7 @@ const validateProjectStatus = (status) => {
 
 /**
  * Validate a provided Thread Kind.
+ * @deprecated
  * @returns {Boolean} true if valid Kind, false otherwise.
  */
 const validateThreadKind = (kind) => {
@@ -2104,7 +2305,7 @@ const validateAlertMode = (mode) => {
  * @returns {Boolean} true if valid role, false otherwise.
  */
 const validateProjectRole = (role) => {
-    if (typeof(role) === 'string' && role.length > 0) {
+    if (typeof (role) === 'string' && role.length > 0) {
         return ['lead', 'liaison', 'member', 'auditor'].includes(role);
     }
     return false;
@@ -2148,6 +2349,8 @@ const validate = (method) => {
                 body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
                 body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
                 body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+                body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+                body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
                 body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
                 body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
@@ -2159,6 +2362,10 @@ const validate = (method) => {
         case 'getProject':
             return [
                 query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+            ]
+        case 'getUserProjectsAdmin':
+            return [
+                query('uuid', conductorErrors.err1).exists().isString().isUUID()
             ]
         case 'getAddableMembers':
             return [
@@ -2229,6 +2436,7 @@ module.exports = {
     getProject,
     updateProject,
     getUserProjects,
+    getUserProjectsAdmin,
     getUserFlaggedProjects,
     getRecentProjects,
     getAvailableProjects,
@@ -2247,8 +2455,10 @@ module.exports = {
     getA11YReviewSections,
     updateA11YReviewSectionItem,
     importA11YSectionsFromTOC,
+    autoGenerateProjects,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
+    checkProjectAdminPermission,
     constructProjectTeam,
     validate
 };

@@ -20,55 +20,44 @@ const userInitialState = {
     isSuperAdmin: false
 };
 
+
 /**
- * Accepts an array of the User's @roles and
- * returns true if the user is a CampusAdmin
- * in the current instance, false otherwise.
+ * Checks if the User is a Campus Administrator in the current instance.
+ * @param {Object[]} roles - An array of the user's Role objects.
+ * @returns {Boolean} True if user is a Campus Administrator in the instance, false otherwise.
  */
 const checkCampusAdmin = (roles) => {
     if ((roles !== undefined) && (Array.isArray(roles)) && !isEmptyString(process.env.REACT_APP_ORG_ID)) {
-        var foundCampusAdmin = roles.find((element) => {
-            if (element.org && element.role) {
-                if ((element.org === process.env.REACT_APP_ORG_ID) && (element.role === 'campusadmin')) {
-                    return element;
-                }
+        let foundCampusAdmin = roles.find((element) => {
+            if ((element.org === process.env.REACT_APP_ORG_ID) && (element.role === 'campusadmin')) {
+                return element;
             }
             return null;
         });
-        if (foundCampusAdmin !== undefined) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false
+        if (foundCampusAdmin !== undefined) return true;
     }
+    return false;
 };
 
+
 /**
- * Accepts an array of the User's @roles and
- * returns true if the user is a SuperAdmin
- * in Conductor, false otherwise.
+ * Checks if the User is a Super Administrator in Conductor.
+ * @param {Object[]} roles - An array of the user's Role objects.
+ * @returns {Boolean} True if user is a Super Administrator, false otherwise.
  */
 const checkSuperAdmin = (roles) => {
     if ((roles !== undefined) && (Array.isArray(roles))) {
-        var foundCampusAdmin = roles.find((element) => {
-            if (element.org && element.role) {
-                if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
-                    return element;
-                }
+        let foundCampusAdmin = roles.find((element) => {
+            if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
+                return element;
             }
             return null;
         });
-        if (foundCampusAdmin !== undefined) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false
+        if (foundCampusAdmin !== undefined) return true;
     }
+    return false;
 };
+
 
 export default function userReducer(state = userInitialState, action) {
     switch(action.type) {

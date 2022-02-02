@@ -35,3 +35,29 @@
     display: flex;
     flex-direction: row;
 }
+
+.peerreview-rubricedit-placeholder {
+    margin-top: 4%;
+    box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
+    background: #f9fafb;
+    padding: 1%;
+    border: 1px solid rgba(34,36,38,.15);
+    border-radius: .28571429rem;
+}
+
+.peerreview-rubricedit-container {
+    margin: 2% 0.5% 0;
+    padding: 2% 1% 2%;
+    background: #fbfcfc;
+    box-shadow: 0 2px 25px 0 rgb(34 36 38 / 2%) inset;
+    border-radius: .28571429rem;
+    border: 1px solid rgba(34,36,38,.1);
+}
+
+.peerreview-rubricedit-editblockbtn {
+    width: 175px;
+}
+
+.peerreview-rubricedit-label {
+    padding: 0.05em 1em 0.05em 0.05em !important;
+}

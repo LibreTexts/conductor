@@ -62,6 +62,11 @@ const ProjectSchema = new Schema({
     projectURL: String,         // the URL where the project exists (if applicable, typically a LibreTexts lib link)
     tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
+    rating: {                   // the overall quality, rated on a scale of 0-5, updated via Peer Reviews
+        type: Number,
+        min: 0,
+        max: 5
+    },
     rdmpReqRemix: Boolean,      // whether the Construction Roadmap indicates remixing is required
     rdmpCurrentStep: String,    // the project's current step in the Construction Roadmap,
     a11yReview: [               // the text section accessibility reviews
@@ -70,7 +75,12 @@ const ProjectSchema = new Schema({
     harvestReqID: String,       // the _id of the Harvesting Request the project was converted from (if applicable)
     flag: String,               // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
     flagDescrip: String,        // a description of the reason for flagging
-    libreAlerts: [String]       // array of uuids of users who have a LibreTexts Alert enabled on the project
+    libreAlerts: [String],      // array of uuids of users who have a LibreTexts Alert enabled on the project
+    allowAnonPR: {              // allow 'anonymous' Peer Reviews (if Project is public)
+        type: Boolean,
+        default: true
+    },
+    preferredPRRubric: String   // the rubricID of the preferred Peer Review Rubric
 }, {
     timestamps: true
 });

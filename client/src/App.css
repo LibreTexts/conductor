@@ -88,6 +88,14 @@ body {
     cursor: pointer;
 }
 
+.cursor-default:hover {
+    cursor: default;
+}
+
+.cursor-notallowed:hover {
+    cursor: not-allowed;
+}
+
 .bkgrd-gray {
     background-color: #F9F9F9 !important;
 }
@@ -131,6 +139,15 @@ body {
     color: #db2828;
     display: inline-block;
     vertical-align: top;
+}
+
+.form-field-label {
+    font-size: .92857143em !important;
+    font-weight: 700;
+}
+
+.form-error-label {
+    color: #9f3a38 !important;
 }
 
 .hiddensection {
@@ -183,6 +200,10 @@ body {
 /** padding-left **/
 .pl-4p {
     padding-left: 4% !important;
+}
+
+.margin-none {
+    margin: 0;
 }
 
 /** margin-top **/
@@ -476,4 +497,9 @@ code {
             
 .ui.dimmer .ui.modal .ui.loader:after {
     border-color: #767676 transparent transparent;
+}
+
+/* Accessibility Overrides */
+.ui.orange {
+    background-color: #CD4D12 !important;
 }

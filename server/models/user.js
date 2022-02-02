@@ -22,7 +22,8 @@ const UserSchema = new Schema({
     },
     email: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     avatar: String,
     hash: String,

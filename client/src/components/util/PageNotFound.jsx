@@ -19,7 +19,23 @@ const PageNotFound = (_props) => {
                             <div className='text-center'>
                                 <h1 className='notfound-header'>404</h1>
                                 <p>Oops, the page you're looking for does not exist.</p>
-                                <p id='notfound-links-container'><Link to='/' className='notfound-links'>Home</Link> / <a href='https://libretexts.org' className='notfound-links' target='_blank' rel='noopener noreferrer'>Main Site</a></p>
+                                <p id='notfound-links-container'>
+                                    <Link
+                                        to='/'
+                                        className='notfound-links'
+                                    >
+                                        Home
+                                    </Link>
+                                    <span> / </span>
+                                    <a
+                                        href='https://libretexts.org'
+                                        className='notfound-links'
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                    >
+                                        Main Site
+                                    </a>
+                                </p>
                             </div>
                         </Grid.Column>
                 </Grid>

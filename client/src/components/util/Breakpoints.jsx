@@ -10,11 +10,6 @@ const breakpoints = {
     mobileOrTablet: '(max-width: 1024px)'
 };
 
-React.propTypes = {
-    name: PropTypes.string,
-    children: PropTypes.object,
-}
-
 const Breakpoint = (props) => {
     const breakpoint = breakpoints[props.name] || breakpoints.desktop;
     return (
@@ -24,4 +19,9 @@ const Breakpoint = (props) => {
     );
 }
 
-export default Breakpoint
+Breakpoint.propTypes = {
+    name: PropTypes.string,
+    children: PropTypes.node,
+};
+
+export default Breakpoint;

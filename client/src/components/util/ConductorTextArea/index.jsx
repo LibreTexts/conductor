@@ -8,10 +8,11 @@
 import './ConductorTextArea.css';
 
 import {
-  Icon,
-  Button
+    Icon,
+    Button
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import PropTypes from 'prop-types';
 
 const ConductorTextArea = ({
     placeholder,
@@ -21,58 +22,76 @@ const ConductorTextArea = ({
     sendLoading,
     onSendClick,
     inputType,
-    showSendButton
+    showSendButton,
+    hideAttached,
+    error
 }) => {
 
-    const [inputTypeInternal, setInputTypeInternal] = useState('message');
-    const [showSendInternal, setShowSendInternal] = useState(true);
-
-    useEffect(() => {
-        if ((inputType !== undefined) && (inputType !== null)) {
-            setInputTypeInternal(inputType);
-        }
-        if ((showSendButton !== undefined) && (showSendButton !== null)) {
-            setShowSendInternal(showSendButton);
-        }
-    }, [inputType, setInputTypeInternal, showSendButton, setShowSendInternal]);
-
     return (
-        <div id='textarea-input-container'>
+        <div id='textarea-input-container' className={error ? 'textarea-error' : ''}>
             <textarea
                 id='textarea-input'
                 placeholder={placeholder}
                 value={textValue}
                 onChange={(e) => {
                     if (onTextChange !== undefined) {
-                        onTextChange(e.target.value)
+                        onTextChange(e.target.value);
                     }
                 }}
                 rows={1}
-                className={showSendInternal ? 'has-send-button' : ''}
+                className={showSendButton ? 'has-send-button' : ''}
             ></textarea>
-            <div id='textarea-attached'>
-                <div className='left-flex'>
-                    <span id='textarea-helptext'>
-                        You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {inputTypeInternal}!
-                    </span>
-                </div>
-                {showSendInternal &&
-                    <div className='right-flex'>
-                        <Button
-                            disabled={disableSend}
-                            loading={sendLoading}
-                            onClick={onSendClick}
-                            color='blue'
-                            floated='right'
-                        >
-                            <Icon name='send' />
-                            Send
-                        </Button>
+            {!hideAttached && (
+                <div id='textarea-attached'>
+                    <div className='left-flex'>
+                        <span id='textarea-helptext'>
+                            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {inputType}!
+                        </span>
                     </div>
-                }
-            </div>
+                    {showSendButton &&
+                        <div className='right-flex'>
+                            <Button
+                                disabled={disableSend}
+                                loading={sendLoading}
+                                onClick={onSendClick}
+                                color='blue'
+                                floated='right'
+                            >
+                                <Icon name='send' />
+                                Send
+                            </Button>
+                        </div>
+                    }
+                </div>
+            )}
         </div>
     )
+};
+
+ConductorTextArea.defaultProps = {
+    placeholder: 'Enter text here...',
+    textValue: '',
+    onTextChange: () => {},
+    disableSend: false,
+    sendLoading: false,
+    onSendClick: () => {},
+    inputType: 'message',
+    showSendButton: true,
+    hideAttached: false,
+    error: false
+};
+
+ConductorTextArea.propTypes = {
+    placeholder: PropTypes.string,
+    textValue: PropTypes.string,
+    onTextChange: PropTypes.func,
+    disableSend: PropTypes.bool,
+    sendLoading: PropTypes.bool,
+    onSendClick: PropTypes.func,
+    inputType: PropTypes.string,
+    showSendButton: PropTypes.bool,
+    hideAttached: PropTypes.bool,
+    error: PropTypes.bool
 };
 
 export default ConductorTextArea;

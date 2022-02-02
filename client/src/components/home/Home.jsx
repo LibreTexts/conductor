@@ -28,7 +28,7 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import queryString from 'query-string';
 import DOMPurify from 'dompurify';
-import marked from 'marked';
+import { marked } from 'marked';
 
 import Breakpoint from '../util/Breakpoints.jsx';
 import ConductorTextArea from '../util/ConductorTextArea';
@@ -490,8 +490,8 @@ const Home = (props) => {
                                                                 circleRatio={0.75}
                                                                 styles={buildStyles({
                                                                     rotation: 1 / 2 + 1 / 8,
-                                                                    pathColor: '#f2711c',
-                                                                    textColor: '#f2711c',
+                                                                    pathColor: '#CD4D12',
+                                                                    textColor: '#CD4D12',
                                                                     strokeLinecap: 'butt'
                                                                 })}
                                                             />

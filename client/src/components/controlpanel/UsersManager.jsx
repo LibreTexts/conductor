@@ -518,6 +518,14 @@ const UsersManager = () => {
                                                                 <span>Manage Roles</span>
                                                             </Button>
                                                             <Button
+                                                                color='teal'
+                                                                as={Link}
+                                                                to={`/controlpanel/usersmanager/${item.uuid}`}
+                                                            >
+                                                                <Icon name='list ul' />
+                                                                <span>View Projects</span>
+                                                            </Button>
+                                                            <Button
                                                                 disabled={!isSuperAdmin}
                                                                 color='red'
                                                                 onClick={() => { openDelUserModal(item.uuid, item.firstName, item.lastName) }}
@@ -566,9 +574,9 @@ const UsersManager = () => {
                                                         if (item.org.shortName) orgText = item.org.shortName;
                                                         else if (item.org.name) orgText = item.org.name;
                                                     }
-                                                    if (item.role) roleVal = item.role;
-                                                    if (item.roleText) roleText = item.roleText;
-                                                    var ActionButton;
+                                                    if (typeof(item.roleInternal) === 'string') roleVal = item.roleInternal;
+                                                    if (typeof(item.role)) roleText = item.role;
+                                                    let ActionButton = null;
                                                     switch (roleVal) {
                                                         case 'superadmin':
                                                             ActionButton = (

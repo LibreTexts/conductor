@@ -96,10 +96,6 @@
 }
 
 
-#access-table-body {
-
-}
-
 #access-add-section-btn {
     width: 150px;
     margin: 0;
@@ -315,34 +311,8 @@
 
 
 /** Peer Review **/
-
 .project-peerreview-subheader {
     font-size: 1.25rem !important;
-}
-
-.likert-row {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: center;
-    align-items: center;
-}
-
-.likert-option {
-    margin-left: 2%;
-    margin-right: 2%;
-}
-
-.likert-option input {
-    display: block;
-    position: relative;
-    top: 0;
-    left: 50%;
-    margin-left: -6px;
-}
-
-.likert-option label {
-    font-weight: 500;
 }
 
 
@@ -437,4 +407,9 @@
 
 #project-task-header {
     margin: 1.5rem;
+}
+
+.project-peerreview-stats {
+    font-size: .9em;
+    padding-top: 0.5em;
 }

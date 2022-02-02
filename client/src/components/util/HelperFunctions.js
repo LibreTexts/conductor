@@ -5,9 +5,8 @@
 
 /**
  * Accepts a string and checks if it is empty.
- * @param {string} str - the string to check
- * @returns {boolean} true if the string is empty,
- *                    false if non-empty or not a string
+ * @param {String} str - The string to check.
+ * @returns {Boolean} True if the string is empty, false if non-empty or not a string.
  */
 const isEmptyString = (str) => {
     if (typeof str === 'string') {
@@ -19,11 +18,11 @@ const isEmptyString = (str) => {
 
 
 /**
- * Accepts a string and returns it truncated to the specified length.
- * If the string is already shorter than specified length, the original string is returned.
- * @param {String} str - the string to truncate.
- * @param {Number} len - integer specifying the number of characters to allow before truncation.
- * @returns {String} the truncated (if applicable) string.
+ * Accepts a string and returns it truncated to the specified length. If the string is already shorter
+ * than specified length, the original string is returned.
+ * @param {String} str - The string to truncate.
+ * @param {Number} len - Integer specifying the number of characters to allow before truncation.
+ * @returns {String} The truncated (if applicable) string.
  */
 const truncateString = (str, len) => {
     if (typeof(str) === 'string') {
@@ -39,10 +38,9 @@ const truncateString = (str, len) => {
 
 
 /**
- * Accepts a string and returns the same string
- * with the first letter capitalized.
- * @param {string} str - the string to modify
- * @returns {string} the modified string
+ * Accepts a string and returns the same string with the first letter capitalized.
+ * @param {String} str - The string to modify.
+ * @returns {String} The modified string.
  */
 const capitalizeFirstLetter = (str) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -50,12 +48,11 @@ const capitalizeFirstLetter = (str) => {
 
 
 /**
- * Accepts a URL or URL search string and updates
- * or inserts the a URL paramter with the a new value.
- * @param {string} url   - the full URL or search string to modify
- * @param {string} param - the name of the parameter to update
- * @param {string} value - the new value to set for the URL parameter
- * @returns {string} the updated URL
+ * Accepts a URL or URL search string and updates or inserts the a URL paramter with the a new value.
+ * @param {String} url   - The full URL or search string to modify.
+ * @param {String} param - The name of the parameter to update.
+ * @param {String} value - The new value to set for the URL parameter.
+ * @returns {String} The updated URL.
  */
 const updateParams = (url, param, value) => {
     var i = url.indexOf('#');
@@ -74,10 +71,9 @@ const updateParams = (url, param, value) => {
 
 
 /**
- * Accepts a password string and validates it against Conductor
- * password standards.
- * @param {string} passInput - the password to validate
- * @returns {boolean} true if password is valid, false otherwise
+ * Accepts a password string and validates it against Conductor password standards.
+ * @param {String} passInput - The password to validate.
+ * @returns {Boolean} True if password is valid, false otherwise.
  */
 const validatePassword = (passInput) => {
     if (typeof(passInput) === 'string') {
@@ -90,10 +86,9 @@ const validatePassword = (passInput) => {
 
 
 /**
- * Accepts a string containing a URL and attempts to normalize it
- * to include protocol.
- * @param {String} url - the URL to normalize.
- * @returns {String} the normalized URL
+ * Accepts a string containing a URL and attempts to normalize it to include protocol.
+ * @param {String} url - The URL to normalize.
+ * @returns {String} The normalized URL.
  */
 const normalizeURL = (url) => {
     if (typeof(url) === 'string') {
@@ -108,8 +103,8 @@ const normalizeURL = (url) => {
 
 /**
  * Sort an array of user objects by first and lastname.
- * @param {Object[]} users - the array to sort
- * @returns {Object[]} the sorted array
+ * @param {Object[]} users - The array to sort.
+ * @returns {Object[]} The sorted array.
  */
 const sortUsersByName = (users) => {
     if (typeof(users) === 'object' && Array.isArray(users)) {

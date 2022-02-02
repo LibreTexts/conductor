@@ -40,8 +40,12 @@ import CollectionsManager from './components/controlpanel/CollectionsManager.jsx
 import HarvestingRequests from './components/controlpanel/HarvestingRequests.jsx';
 import HomeworkManager from './components/controlpanel/HomeworkManager.jsx';
 import OrganizationsManager from './components/controlpanel/OrganizationsManager.jsx';
+import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics.jsx';
+import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage.jsx';
+import UserDetails from './components/controlpanel/UserDetails.jsx';
 import UsersManager from './components/controlpanel/UsersManager.jsx';
 
+import PeerReviewPage from './components/peerreview/PeerReviewPage.jsx';
 import ProjectsPortal from './components/projects/ProjectsPortal.jsx';
 import ProjectsAvailable from './components/projects/ProjectsAvailable.jsx';
 import ProjectsCompleted from './components/projects/ProjectsCompleted.jsx';
@@ -111,14 +115,15 @@ function App() {
                         <PrivateRoute exact path = '/controlpanel/harvestingrequests' component={HarvestingRequests} />
                         <PrivateRoute exact path = '/controlpanel/homeworkmanager' component={HomeworkManager} />
                         <PrivateRoute exact path = '/controlpanel/orgsmanager' component={OrganizationsManager} />
+                        <PrivateRoute exact path = '/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
+                            <PrivateRoute exact path = '/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
                         <PrivateRoute exact path = '/controlpanel/usersmanager' component={UsersManager} />
+                            <PrivateRoute exact path = '/controlpanel/usersmanager/:uuid' component={UserDetails} />
 
-                    {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                        <Route exact path = '/harvestrequest' component={HarvestRequest} />
-                    }
-                    {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                        <Route exact path = '/accountrequest' component={AccountRequest} />
-                    }
+                    {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/harvestrequest' component={HarvestRequest} />}
+                    {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/accountrequest' component={AccountRequest} />}
+
+                    <Route exact path = '/peerreview/:id' component={PeerReviewPage} />
 
                     {/* 404 */}
                     <Route component={PageNotFound} />
@@ -138,25 +143,13 @@ function App() {
                         <Route exact path = '/collections' component={Commons} />
                         <Route exact path = '/collection/:id' component={Commons} />
                         <Route exact path = '/book/:id' component={Commons} />
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/homework' component={Commons} />
-                        }
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/libraries' component={Commons} />
-                        }
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/libraries/:lib' component={Commons} />
-                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/homework' component={Commons} />}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/libraries' component={Commons} />}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/libraries/:lib' component={Commons} />}
                         {/* Standalone */}
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/adopt' component={AdoptionReportPage} />
-                        }
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/accessibility' component={AccessibilityStatement} />
-                        }
-                        {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                            <Route exact path = '/translationfeedbackexport' component={TranslationFeedbackExport} />
-                        }
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/adopt' component={AdoptionReportPage} />}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/accessibility' component={AccessibilityStatement} />}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/translationfeedbackexport' component={TranslationFeedbackExport} />}
                         {/* Conductor and Rest of Render Tree */}
                         <Route component={Conductor} />
                     </Switch>

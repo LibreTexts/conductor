@@ -13,14 +13,13 @@ import {
     Modal,
     Icon,
     Loader,
-    Comment,
-    Image
+    Comment
 } from 'semantic-ui-react';
 import React, { useEffect, useState, memo } from 'react';
 import ConductorTextArea from '../ConductorTextArea';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
-import marked from 'marked';
+import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';

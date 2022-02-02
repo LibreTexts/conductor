@@ -40,6 +40,44 @@ const projectRoleOptions = [
     { key: 'auditor',   text: 'Project Auditor',    value: 'auditor' }
 ];
 
+const peerReviewPromptTypes = [
+    { key: '3-likert',  text: '3-Point Likert', value: '3-likert' },
+    { key: '5-likert',  text: '5-Point Likert', value: '5-likert' },
+    { key: '7-likert',  text: '7-Point Likert', value: '7-likert' },
+    { key: 'text',      text: 'Text Response',  value: 'text' },
+    { key: 'dropdown',  text: 'Dropdown',       value: 'dropdown' },
+    { key: 'checkbox',  text: 'Checkbox',       value: 'checkbox' }
+];
+
+const peerReviewAuthorTypes = [
+    { key:  'student',      text: 'Student',    value: 'student' },
+    { key:  'instructor',   text: 'Instructor', value: 'instructor' }
+];
+
+const peerReviewThreePointLikertOptions = [
+    'Disagree',
+    'Neutral',
+    'Agree'
+];
+
+const peerReviewFivePointLikertOptions = [
+    'Strongly Disagree',
+    'Disagree',
+    'Neutral',
+    'Agree',
+    'Strongly Agree'
+];
+
+const peerReviewSevenPointLikertOptions = [
+    'Strongly Disagree',
+    'Disagree',
+    'Somewhat Disagree',
+    'Neutral',
+    'Somewhat Agree',
+    'Agree',
+    'Strongly Agree'
+];
+
 
 /**
  * Accepts an internal Task status value and attempts to return the UI-ready
@@ -92,6 +130,40 @@ const getVisibilityText = (visibility) => {
         default:
             return 'Unknown';
     }
+};
+
+
+/**
+ * Retrieves the UI-ready representation of Peer Review Author type.
+ * @param {String} authorType - The internal author type identifier.
+ * @returns {String} The UI-ready representation, or an empty string if not found.
+ */
+const getPeerReviewAuthorText = (authorType) => {
+    if (typeof(authorType) === 'string' && authorType !== '') {
+        let foundType = peerReviewAuthorTypes.find((item) => item.value === authorType);
+        if (foundType !== undefined) return foundType.text;
+    }
+    return '';
+};
+
+
+/**
+ * Retrieves the UI-ready representation of a Peer Review Likert Scale point value.
+ * @param {Number} point - The 1-based point value.
+ * @param {Number} totalPoints - The number of total points in the scale.
+ * @returns {String} The UI-ready representation, or an empty string if not found.
+ */
+const getPeerReviewLikertPointText = (point, totalPoints) => {
+    if (typeof(point) === 'number' && point > 0) {
+        if (totalPoints === 3 && point < 4) {
+            return peerReviewThreePointLikertOptions[point-1];
+        } else if (totalPoints === 5 && point < 6) {
+            return peerReviewFivePointLikertOptions[point-1];
+        } else if (totalPoints === 7 && point < 8) {
+            return peerReviewSevenPointLikertOptions[point-1];
+        }
+    }
+    return '';
 };
 
 
@@ -278,9 +350,16 @@ export {
     createTaskOptions,
     classificationOptions,
     projectRoleOptions,
+    peerReviewPromptTypes,
+    peerReviewAuthorTypes,
+    peerReviewThreePointLikertOptions,
+    peerReviewFivePointLikertOptions,
+    peerReviewSevenPointLikertOptions,
     getTaskStatusText,
     getClassificationText,
     getVisibilityText,
+    getPeerReviewAuthorText,
+    getPeerReviewLikertPointText,
     getFlagGroupName,
     constructProjectTeam,
     checkCanViewProjectDetails,

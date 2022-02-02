@@ -20,7 +20,7 @@ import React, { useEffect, useState, useCallback, memo } from 'react';
 import ConductorChatUI from '../ConductorChatUI';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
-import marked from 'marked';
+import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';

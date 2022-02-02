@@ -32,7 +32,11 @@ import { MentionsInput, Mention } from 'react-mentions';
 import {
     isEmptyString,
 } from '../util/HelperFunctions.js';
-import { checkCanViewProjectDetails } from '../util/ProjectHelpers.js';
+import {
+    checkCanViewProjectDetails,
+    checkProjectAdminPermission,
+    checkProjectMemberPermission
+} from '../util/ProjectHelpers.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
@@ -99,12 +103,19 @@ const ProjectAccessibility = (props) => {
 
 
     /*
-     * Update the user's permission to view Project restricted details when
+     * Update state with user's permissions within the project when
      * their identity and the project data is available.
      */
     useEffect(() => {
         if (typeof(user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
-            setCanViewDetails(checkCanViewProjectDetails(project, user));
+            let adminPermissions = checkProjectAdminPermission(project, user);
+            if (adminPermissions) {
+                setCanViewDetails(true);
+            } else if (checkProjectMemberPermission(project, user)) {
+                setCanViewDetails(true);
+            } else {
+                setCanViewDetails(checkCanViewProjectDetails(project, user));
+            }
         }
     }, [project, user, setCanViewDetails]);
 

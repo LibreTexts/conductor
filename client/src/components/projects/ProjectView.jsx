@@ -2,26 +2,26 @@ import './Projects.css'
 import 'react-circular-progressbar/dist/styles.css';
 
 import {
-  Grid,
-  Header,
-  Segment,
-  Divider,
-  Message,
-  Icon,
-  Button,
-  Form,
-  Breadcrumb,
-  Modal,
-  Label,
-  List,
-  Image,
-  Accordion,
-  Input,
-  Loader,
-  Search,
-  Popup,
-  Dropdown,
-  Checkbox
+    Grid,
+    Header,
+    Segment,
+    Divider,
+    Message,
+    Icon,
+    Button,
+    Form,
+    Breadcrumb,
+    Modal,
+    Label,
+    List,
+    Image,
+    Accordion,
+    Input,
+    Loader,
+    Search,
+    Popup,
+    Dropdown,
+    Checkbox
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -36,7 +36,7 @@ import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 import queryString from 'query-string';
 import DOMPurify from 'dompurify';
-import marked from 'marked';
+import { marked } from 'marked';
 
 import ConductorTextArea from '../util/ConductorTextArea';
 import ConductorMessagingUI from '../util/ConductorMessagingUI';
@@ -260,10 +260,10 @@ const ProjectView = (props) => {
         date.plugin(day_of_week);
         // Hook to force message links to open in new window
         DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-          if ('target' in node) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer')
-          }
+            if ('target' in node) {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer')
+            }
         });
         getProject();
         if (localStorage.getItem('conductor_show_projectdiscussion') !== null) {
@@ -303,7 +303,7 @@ const ProjectView = (props) => {
      * their identity and the project data is available.
      */
     useEffect(() => {
-        if (typeof(user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
+        if (typeof (user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
             let adminPermissions = checkProjectAdminPermission(project, user);
             if (adminPermissions) {
                 setUserProjectAdmin(true);
@@ -398,7 +398,7 @@ const ProjectView = (props) => {
                     tasks.forEach(item => {
                         if (item.subtasks && item.subtasks.length > 0) {
                             item.subtasks = parseTaskDates(item.subtasks);
-                            item.subtasks.sort((a,b) => {
+                            item.subtasks.sort((a, b) => {
                                 if (a.title < b.title) return -1;
                                 if (a.title > b.title) return 1;
                                 return 0;
@@ -906,7 +906,7 @@ const ProjectView = (props) => {
     const openManageTaskModal = (mode, taskID, parent) => {
         let canOpen = false;
         setMngTaskLoading(true);
-        if (mode === 'edit' && (typeof(taskID) === 'string' && taskID !== null)) {
+        if (mode === 'edit' && (typeof (taskID) === 'string' && taskID !== null)) {
             setMngTaskMode('edit');
             let foundTask = allProjTasks.find(item => item.taskID === taskID);
             if (foundTask !== undefined) {
@@ -926,7 +926,7 @@ const ProjectView = (props) => {
             setMngTaskTitle('');
             setMngTaskDescrip('');
             setMngTaskStatus('available');
-            if (parent !== null && typeof(parent) === 'string') {
+            if (parent !== null && typeof (parent) === 'string') {
                 setMngTaskSubtask(true);
                 setMngTaskParent(parent);
             }
@@ -1186,7 +1186,7 @@ const ProjectView = (props) => {
 
     const openATAModal = (task) => {
         if (task.taskID !== null && !isEmptyString(task.taskID)
-            && typeof(task) === 'object') {
+            && typeof (task) === 'object') {
             setATAUsers([]);
             setATAUUID('');
             setATASubtasks(false);
@@ -1198,8 +1198,8 @@ const ProjectView = (props) => {
                 && task.assignees.length > 0) {
                 currentAssignees = [];
                 task.assignees.forEach((item) => {
-                    if (typeof(item) === 'string') currentAssignees.push(item);
-                    else if (typeof(item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
+                    if (typeof (item) === 'string') currentAssignees.push(item);
+                    else if (typeof (item) === 'object' && item.uuid && !isEmptyString(item.uuid)) {
                         currentAssignees.push(item.uuid);
                     }
                 });
@@ -1269,8 +1269,8 @@ const ProjectView = (props) => {
     const openRMTAModal = (name, uuid) => {
         if (viewTaskData.taskID !== null
             && !isEmptyString(viewTaskData.taskID)
-            && typeof(name) === 'string'
-            && typeof(uuid) === 'string'
+            && typeof (name) === 'string'
+            && typeof (uuid) === 'string'
             && !isEmptyString(uuid)) {
             setRMTAName(name);
             setRMTAUUID(uuid);
@@ -1328,9 +1328,9 @@ const ProjectView = (props) => {
                     // don't include existing dependencies
                     if (viewTaskData.hasOwnProperty('dependencies') && Array.isArray(viewTaskData.dependencies)) {
                         let foundTask = viewTaskData.dependencies.find((existingDep) => {
-                            if (typeof(existingDep) === 'string') {
+                            if (typeof (existingDep) === 'string') {
                                 return existingDep === item.taskID;
-                            } else if (typeof(existingDep) === 'object') {
+                            } else if (typeof (existingDep) === 'object') {
                                 return existingDep.taskID === item.taskID;
                             }
                             return false;
@@ -1338,9 +1338,9 @@ const ProjectView = (props) => {
                         if (foundTask !== undefined) return false;
                     }
                     // don't include the parent task
-                    if (viewTaskData.hasOwnProperty('parent') && typeof(viewTaskData.parent) === 'string') {
+                    if (viewTaskData.hasOwnProperty('parent') && typeof (viewTaskData.parent) === 'string') {
                         if (viewTaskData.parent === item.taskID) return false;
-                    } else if (viewTaskData.hasOwnProperty('parent') && typeof(viewTaskData.parent) === 'object' && viewTaskData.parent !== null) {
+                    } else if (viewTaskData.hasOwnProperty('parent') && typeof (viewTaskData.parent) === 'object' && viewTaskData.parent !== null) {
                         if (viewTaskData.parent?.taskID === item.taskID) return false;
                     }
                     return true;
@@ -1365,8 +1365,8 @@ const ProjectView = (props) => {
                 let depsToSend = [];
                 if (viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies)) {
                     depsToSend = viewTaskData.dependencies.map((item) => {
-                        if (typeof(item) === 'string') return item;
-                        else if (typeof(item) === 'object') {
+                        if (typeof (item) === 'string') return item;
+                        else if (typeof (item) === 'object') {
                             if (item.hasOwnProperty('taskID')) return item.taskID;
                         }
                         return null;
@@ -1421,8 +1421,8 @@ const ProjectView = (props) => {
             let depsToSend = [];
             if (viewTaskData.dependencies && Array.isArray(viewTaskData.dependencies)) {
                 depsToSend = viewTaskData.dependencies.map((item) => {
-                    if (typeof(item) === 'string') return item;
-                    else if (typeof(item) === 'object') {
+                    if (typeof (item) === 'string') return item;
+                    else if (typeof (item) === 'object') {
                         if (item.hasOwnProperty('taskID')) return item.taskID;
                     }
                     return null;
@@ -1701,7 +1701,6 @@ const ProjectView = (props) => {
     // Rendering Helper Booleans
     let hasResourceInfo = project.author || project.license || project.resourceURL;
     let hasNotes = project.notes && !isEmptyString(project.notes);
-    let hasCollabs = project.collaborators && Array.isArray(project.collaborators) && project.collaborators.length > 0;
     let hasFlag = project.flag && !isEmptyString(project.flag);
     let flagCrumbEnabled = hasFlag && showReviewerCrumb;
     let libreAlertEnabled = project.libreAlerts && Array.isArray(project.libreAlerts) && user.uuid && project.libreAlerts.includes(user.uuid);
@@ -1830,7 +1829,7 @@ const ProjectView = (props) => {
                                             <Button
                                                 color='red'
                                                 className='ml-1p'
-                                                onClick={() => { submitRemoveTeamMember(item.uuid)}}
+                                                onClick={() => { submitRemoveTeamMember(item.uuid) }}
                                                 icon
                                             >
                                                 <Icon name='remove circle' />
@@ -1848,7 +1847,7 @@ const ProjectView = (props) => {
     };
 
 
-    return(
+    return (
         <Grid className='component-container'>
             <Grid.Row>
                 <Grid.Column width={16}>
@@ -1976,7 +1975,7 @@ const ProjectView = (props) => {
                                                 as={Link}
                                                 to={`${props.match.url}/peerreview`}
                                             >
-                                                <Icon name='clipboard outline' />
+                                                <Icon name='clipboard list' />
                                                 Peer Review
                                             </Button>
                                             <Button
@@ -2081,8 +2080,8 @@ const ProjectView = (props) => {
                                                         circleRatio={0.75}
                                                         styles={buildStyles({
                                                             rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#f2711c',
-                                                            textColor: '#f2711c',
+                                                            pathColor: '#CD4D12',
+                                                            textColor: '#CD4D12',
                                                             strokeLinecap: 'butt'
                                                         })}
                                                     />
@@ -2147,9 +2146,9 @@ const ProjectView = (props) => {
                                                     <div className='mb-1p'>
                                                         <Header as='span' sub>Project Link: </Header>
                                                         {(project.projectURL && !isEmptyString(project.projectURL))
-                                                            ? <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Open <Icon name='external'/></a>  
+                                                            ? <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Open <Icon name='external' /></a>
                                                             : <span><em>Unlinked</em></span>
-                                                        }                    
+                                                        }
                                                     </div>
                                                     {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
                                                         <div>
@@ -2365,54 +2364,54 @@ const ProjectView = (props) => {
                                                                                             <Label color='red' className='ml-2p'>OVERDUE</Label>
                                                                                         }
                                                                                     </div>
-                                                                                  <div className='right-flex'>
-                                                                                      <div className='task-assignees-row'>
-                                                                                          {(item.hasOwnProperty('assignees') && item.assignees.length > 0) &&
-                                                                                              (item.assignees.map((assignee, assignIdx) => {
-                                                                                                  if (assignee.uuid && assignee.firstName && assignee.lastName) {
-                                                                                                      return (
-                                                                                                          <Popup
-                                                                                                              key={assignIdx}
-                                                                                                              trigger={
-                                                                                                                  <Image
-                                                                                                                      className='cursor-pointer'
-                                                                                                                      src={assignee.avatar || '/mini_logo.png'}
-                                                                                                                      avatar
-                                                                                                                      key={assignee.uuid}
-                                                                                                                  />
-                                                                                                              }
-                                                                                                              header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
-                                                                                                              position='top center'
-                                                                                                          />
-                                                                                                      )
-                                                                                                  } else return null;
-                                                                                              }))
-                                                                                          }
-                                                                                      </div>
-                                                                                    <Popup
-                                                                                        content='Add Subtask'
-                                                                                        trigger={
-                                                                                            <Button
-                                                                                                onClick={() => openManageTaskModal('add', null, item.taskID)}
-                                                                                                icon='add'
-                                                                                                color='green'
-                                                                                                disabled={!userProjectMember}
-                                                                                            />
-                                                                                        }
-                                                                                        position='top center'
-                                                                                    />
-                                                                                    <Popup
-                                                                                        content='View Task'
-                                                                                        trigger={
-                                                                                            <Button
-                                                                                              onClick={() => openViewTaskModal(item.taskID)}
-                                                                                              icon='eye'
-                                                                                              color='blue'
-                                                                                            />
-                                                                                        }
-                                                                                        position='top center'
-                                                                                    />
-                                                                                  </div>
+                                                                                    <div className='right-flex'>
+                                                                                        <div className='task-assignees-row'>
+                                                                                            {(item.hasOwnProperty('assignees') && item.assignees.length > 0) &&
+                                                                                                (item.assignees.map((assignee, assignIdx) => {
+                                                                                                    if (assignee.uuid && assignee.firstName && assignee.lastName) {
+                                                                                                        return (
+                                                                                                            <Popup
+                                                                                                                key={assignIdx}
+                                                                                                                trigger={
+                                                                                                                    <Image
+                                                                                                                        className='cursor-pointer'
+                                                                                                                        src={assignee.avatar || '/mini_logo.png'}
+                                                                                                                        avatar
+                                                                                                                        key={assignee.uuid}
+                                                                                                                    />
+                                                                                                                }
+                                                                                                                header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
+                                                                                                                position='top center'
+                                                                                                            />
+                                                                                                        )
+                                                                                                    } else return null;
+                                                                                                }))
+                                                                                            }
+                                                                                        </div>
+                                                                                        <Popup
+                                                                                            content='Add Subtask'
+                                                                                            trigger={
+                                                                                                <Button
+                                                                                                    onClick={() => openManageTaskModal('add', null, item.taskID)}
+                                                                                                    icon='add'
+                                                                                                    color='green'
+                                                                                                    disabled={!userProjectMember}
+                                                                                                />
+                                                                                            }
+                                                                                            position='top center'
+                                                                                        />
+                                                                                        <Popup
+                                                                                            content='View Task'
+                                                                                            trigger={
+                                                                                                <Button
+                                                                                                    onClick={() => openViewTaskModal(item.taskID)}
+                                                                                                    icon='eye'
+                                                                                                    color='blue'
+                                                                                                />
+                                                                                            }
+                                                                                            position='top center'
+                                                                                        />
+                                                                                    </div>
                                                                                 </div>
                                                                                 <div className={item.uiOpen ? 'project-task-detail' : 'project-task-detail hidden'}>
                                                                                     <List divided verticalAlign='middle'>
@@ -2428,42 +2427,42 @@ const ProjectView = (props) => {
                                                                                                                     <Label color='red' className='ml-2p'>OVERDUE</Label>
                                                                                                                 }
                                                                                                             </div>
-                                                                                                          <div className='right-flex'>
-                                                                                                            <div className='task-assignees-row'>
-                                                                                                              {(subtask.hasOwnProperty('assignees') && subtask.assignees.length > 0) &&
-                                                                                                                  (subtask.assignees.map((assignee, assignIdx) => {
-                                                                                                                      if (assignee.uuid && assignee.firstName && assignee.lastName) {
-                                                                                                                          return (
-                                                                                                                              <Popup
-                                                                                                                                  key={assignIdx}
-                                                                                                                                  trigger={
-                                                                                                                                      <Image
-                                                                                                                                          className='cursor-pointer'
-                                                                                                                                          src={assignee.avatar || '/mini_logo.png'}
-                                                                                                                                          avatar
-                                                                                                                                          key={assignee.uuid}
-                                                                                                                                      />
-                                                                                                                                  }
-                                                                                                                                  header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
-                                                                                                                                  position='top center'
-                                                                                                                              />
-                                                                                                                          )
-                                                                                                                      } else return null;
-                                                                                                                  }))
-                                                                                                              }
-                                                                                                              </div>
-                                                                                                              <Popup
-                                                                                                                  content='View Subtask'
-                                                                                                                  trigger={
-                                                                                                                      <Button
-                                                                                                                        onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                                                        icon='eye'
-                                                                                                                        color='blue'
-                                                                                                                      />
-                                                                                                                  }
-                                                                                                                  position='top center'
-                                                                                                              />
-                                                                                                          </div>
+                                                                                                            <div className='right-flex'>
+                                                                                                                <div className='task-assignees-row'>
+                                                                                                                    {(subtask.hasOwnProperty('assignees') && subtask.assignees.length > 0) &&
+                                                                                                                        (subtask.assignees.map((assignee, assignIdx) => {
+                                                                                                                            if (assignee.uuid && assignee.firstName && assignee.lastName) {
+                                                                                                                                return (
+                                                                                                                                    <Popup
+                                                                                                                                        key={assignIdx}
+                                                                                                                                        trigger={
+                                                                                                                                            <Image
+                                                                                                                                                className='cursor-pointer'
+                                                                                                                                                src={assignee.avatar || '/mini_logo.png'}
+                                                                                                                                                avatar
+                                                                                                                                                key={assignee.uuid}
+                                                                                                                                            />
+                                                                                                                                        }
+                                                                                                                                        header={<span><strong>{`${assignee.firstName} ${assignee.lastName}`}</strong></span>}
+                                                                                                                                        position='top center'
+                                                                                                                                    />
+                                                                                                                                )
+                                                                                                                            } else return null;
+                                                                                                                        }))
+                                                                                                                    }
+                                                                                                                </div>
+                                                                                                                <Popup
+                                                                                                                    content='View Subtask'
+                                                                                                                    trigger={
+                                                                                                                        <Button
+                                                                                                                            onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                                                            icon='eye'
+                                                                                                                            color='blue'
+                                                                                                                        />
+                                                                                                                    }
+                                                                                                                    position='top center'
+                                                                                                                />
+                                                                                                            </div>
                                                                                                         </div>
                                                                                                     </List.Item>
                                                                                                 )
@@ -2512,7 +2511,7 @@ const ProjectView = (props) => {
                     <Modal
                         open={showEditModal}
                         closeOnDimmerClick={false}
-                        size='large'
+                        size='fullscreen'
                     >
                         <Modal.Header>Edit Project Properties</Modal.Header>
                         <Modal.Content scrolling>
@@ -2602,11 +2601,11 @@ const ProjectView = (props) => {
                                         <Popup
                                             trigger={<Icon name='info circle' />}
                                             position='top center'
-                                            content={
+                                            content={(
                                                 <span className='text-center'>
                                                     If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
                                                 </span>
-                                            }
+                                            )}
                                         />
                                     </label>
                                     <Form.Input
@@ -2636,6 +2635,7 @@ const ProjectView = (props) => {
                                     })}
                                     value={projTags}
                                 />
+                                <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
                                 <Divider />
                                 <Header as='h3'>Source Properties</Header>
                                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
@@ -2888,7 +2888,7 @@ const ProjectView = (props) => {
                             >
                                 <Icon name={(mngTaskMode === 'add') ? 'add' : 'save'} />
                                 {(mngTaskMode === 'add')
-                                    ? (mngTaskSubtask ? 'Add Subtask': 'Add Task')
+                                    ? (mngTaskSubtask ? 'Add Subtask' : 'Add Task')
                                     : 'Save Changes'
                                 }
                             </Button>
@@ -3038,7 +3038,7 @@ const ProjectView = (props) => {
                                                                     src={item.avatar}
                                                                     avatar
                                                                     key={item.uuid}
-                                                                    onClick={() => { openRMTAModal(`${item.firstName} ${item.lastName}`, item.uuid)}}
+                                                                    onClick={() => { openRMTAModal(`${item.firstName} ${item.lastName}`, item.uuid) }}
                                                                 />
                                                             }
                                                             header={<span><strong>{`${item.firstName} ${item.lastName}`}</strong> <span className='color-semanticred'>(click to remove)</span></span>}
@@ -3107,8 +3107,8 @@ const ProjectView = (props) => {
                                                     trigger={<Icon className='ml-05p' name='info circle' />}
                                                     position='top center'
                                                     content={<span className='text-center'>Tasks that must be completed before <em>{(viewTaskData.parent && viewTaskData.parent !== '')
-                                                                ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
-                                                                : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em>.</span>}
+                                                        ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
+                                                        : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em>.</span>}
                                                 />
                                                 <div className='right-flex'>
                                                     <Popup
@@ -3139,31 +3139,31 @@ const ProjectView = (props) => {
                                                                             <span className='project-task-title'>{depend.title}</span>
                                                                             {renderStatusIndicator(depend.status)}
                                                                         </div>
-                                                                      <div className='right-flex'>
-                                                                          <Popup
-                                                                              content='Remove as dependency'
-                                                                              trigger={
-                                                                                  <Button
-                                                                                    onClick={() => openRTDModal(depend)}
-                                                                                    icon='remove circle'
-                                                                                    color='red'
-                                                                                    disabled={!userProjectMember}
-                                                                                  />
-                                                                              }
-                                                                              position='top center'
-                                                                          />
-                                                                          <Popup
-                                                                              content='View dependency'
-                                                                              trigger={
-                                                                                  <Button
-                                                                                    onClick={() => openViewTaskModal(depend.taskID)}
-                                                                                    icon='eye'
-                                                                                    color='blue'
-                                                                                  />
-                                                                              }
-                                                                              position='top center'
-                                                                          />
-                                                                      </div>
+                                                                        <div className='right-flex'>
+                                                                            <Popup
+                                                                                content='Remove as dependency'
+                                                                                trigger={
+                                                                                    <Button
+                                                                                        onClick={() => openRTDModal(depend)}
+                                                                                        icon='remove circle'
+                                                                                        color='red'
+                                                                                        disabled={!userProjectMember}
+                                                                                    />
+                                                                                }
+                                                                                position='top center'
+                                                                            />
+                                                                            <Popup
+                                                                                content='View dependency'
+                                                                                trigger={
+                                                                                    <Button
+                                                                                        onClick={() => openViewTaskModal(depend.taskID)}
+                                                                                        icon='eye'
+                                                                                        color='blue'
+                                                                                    />
+                                                                                }
+                                                                                position='top center'
+                                                                            />
+                                                                        </div>
                                                                     </div>
                                                                 </List.Item>
                                                             )
@@ -3182,8 +3182,8 @@ const ProjectView = (props) => {
                                                         trigger={<Icon className='ml-05p' name='info circle' />}
                                                         position='top center'
                                                         content={<span className='text-center'><em>{(viewTaskData.parent && viewTaskData.parent !== '')
-                                                                    ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
-                                                                    : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em> must be completed before these tasks.</span>}
+                                                            ? `${getParentTaskName(viewTaskData.parent)} > ${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`
+                                                            : `${viewTaskData.hasOwnProperty('title') ? viewTaskData.title : 'Loading...'}`}</em> must be completed before these tasks.</span>}
                                                     />
                                                 </div>
                                                 <List divided verticalAlign='middle' className='project-task-list'>
@@ -3195,19 +3195,19 @@ const ProjectView = (props) => {
                                                                         <span className='project-task-title'>{block.title}</span>
                                                                         {renderStatusIndicator(block.status)}
                                                                     </div>
-                                                                  <div className='right-flex'>
-                                                                      <Popup
-                                                                          content='View blocked task'
-                                                                          trigger={
-                                                                              <Button
-                                                                                onClick={() => openViewTaskModal(block.taskID)}
-                                                                                icon='eye'
-                                                                                color='blue'
-                                                                              />
-                                                                          }
-                                                                          position='top center'
-                                                                      />
-                                                                  </div>
+                                                                    <div className='right-flex'>
+                                                                        <Popup
+                                                                            content='View blocked task'
+                                                                            trigger={
+                                                                                <Button
+                                                                                    onClick={() => openViewTaskModal(block.taskID)}
+                                                                                    icon='eye'
+                                                                                    color='blue'
+                                                                                />
+                                                                            }
+                                                                            position='top center'
+                                                                        />
+                                                                    </div>
                                                                 </div>
                                                             </List.Item>
                                                         )
@@ -3247,19 +3247,19 @@ const ProjectView = (props) => {
                                                                                 <span className='project-task-title'>{subtask.title}</span>
                                                                                 {renderStatusIndicator(subtask.status)}
                                                                             </div>
-                                                                          <div className='right-flex'>
-                                                                              <Popup
-                                                                                  content='View subtask'
-                                                                                  trigger={
-                                                                                      <Button
-                                                                                        onClick={() => openViewTaskModal(subtask.taskID)}
-                                                                                        icon='eye'
-                                                                                        color='blue'
-                                                                                      />
-                                                                                  }
-                                                                                  position='top center'
-                                                                              />
-                                                                          </div>
+                                                                            <div className='right-flex'>
+                                                                                <Popup
+                                                                                    content='View subtask'
+                                                                                    trigger={
+                                                                                        <Button
+                                                                                            onClick={() => openViewTaskModal(subtask.taskID)}
+                                                                                            icon='eye'
+                                                                                            color='blue'
+                                                                                        />
+                                                                                    }
+                                                                                    position='top center'
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     </List.Item>
                                                                 )
@@ -3454,7 +3454,7 @@ const ProjectView = (props) => {
                                 loading={atdLoading}
                                 onClick={submitAddTaskDependency}
                             >
-                                <Icon name='add'/> Add Dependency
+                                <Icon name='add' /> Add Dependency
                             </Button>
                         </Modal.Actions>
                     </Modal>
@@ -3544,7 +3544,7 @@ const ProjectView = (props) => {
                             >
                                 <Icon name='trash' />
                                 Delete
-                                {(delTaskSubtask ? ' Subtask': ' Task')}
+                                {(delTaskSubtask ? ' Subtask' : ' Task')}
                             </Button>
                         </Modal.Actions>
                     </Modal>
@@ -3655,7 +3655,7 @@ const ProjectView = (props) => {
                                                 key: 'liaison',
                                                 text: 'Project Liaison(s)',
                                                 value: 'liaison',
-                                                disabled: (!project.liaisons || project.liaisons && Array.isArray(project.liaisons) && project.liaisons.length === 0)
+                                                disabled: (!project.liaisons || (Array.isArray(project.liaisons) && project.liaisons.length === 0))
                                             }, {
                                                 key: 'lead',
                                                 text: 'Project Lead(s)',
@@ -3727,7 +3727,7 @@ const ProjectView = (props) => {
                                 Cancel
                             </Button>
                             <Button
-                                color={libreAlertEnabled ? 'red': 'blue'}
+                                color={libreAlertEnabled ? 'red' : 'blue'}
                                 loading={alertLoading}
                                 onClick={submitLibreTextsAlert}
                             >

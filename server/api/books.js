@@ -4,10 +4,13 @@
 //
 
 'use strict';
+var Promise = require('bluebird');
 const Book = require('../models/book.js');
 const Collection = require('../models/collection.js');
 const Organization = require('../models/organization.js');
 const CustomCatalog = require('../models/customcatalog.js');
+const Project = require('../models/project.js');
+const PeerReview = require('../models/peerreview.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString, getProductionURL } = require('../util/helpers.js');
@@ -30,8 +33,13 @@ const {
     genLMSFileLink,
     genPermalink,
 } = require('../util/bookutils.js');
+const {
+    buildPeerReviewAggregation,
+} = require('../util/peerreviewutils.js');
 const { libraryNameKeys } = require('../util/librariesmap.js');
 const { getBrowserKeyForLib } = require('../util/mtkeys.js');
+
+const projectAPI = require('./projects.js');
 
 
 /**
@@ -110,13 +118,11 @@ const sortBooks = (books, sortChoice) => {
     }
 };
 
+
 /**
- * Accepts a @book object and checks
- * it has the required fields to be
- * imported. Returns a boolean:
- *  TRUE: if book is ready for import
- *  FALSE: book is missing required
- *         fields (logged)
+ * Checks that a new book object has the required fields to be imported.
+ * @param {Object} book - The information about the book to be imported.
+ * @returns {Boolean} True if ready for import, false otherwise (logged).
  */
 const checkValidImport = (book) => {
     var isValidImport = true;
@@ -145,23 +151,18 @@ const checkValidImport = (book) => {
     return isValidImport;
 };
 
+
 /**
- * Generates Collections for pre-specified
- * OER programs given an Express response
- * object (@res), an object contaning each
- * program's respective Books (@programListings),
- * an object containing details about each
- * program (@programDetails), and the number of
- * Books updated by the previous function,
- * syncWithLibraries().
- * METHOD SHOULD ONLY BE CALLED FROM WITHIN
- * syncWithLibraries(). METHOD FINISHES THE
- * ROUTE'S API CALL CHAIN.
+ * Generates or updates Collections for pre-specified OER programs given listings of each Program's
+ * books and information about each program.
+ * NOTE: Method should be used in a wrapper Promise chain. No error handler is included.
+ * @param {Object} programListings - An object containing each Program's book listings.
+ * @param {Object} programDetails - An object containing information about each Program.
+ * @returns {Number} The number of Collections updated.
  */
-const autoGenerateCollections = (res, programListings, programDetails, nMatched) => {
-    let msg = '';
-    return new Promise((resolve, _reject) => {
-        var collOps = [];
+const autoGenerateCollections = (programListings, programDetails) => {
+    return Promise.try(() => {
+        let collOps = [];
         if (Object.keys(programListings).length > 0) {
             Object.entries(programListings).forEach(([progName, progList]) => {
                 collOps.push({
@@ -188,21 +189,288 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
                     }
                 });
             });
-            resolve(Collection.bulkWrite(collOps, {
+            return Collection.bulkWrite(collOps, {
                 ordered: false
-            }));
-        } else {
-            resolve({});
+            });
         }
+        return {};
     }).then((collsRes) => {
-        msg = `Imported ${nMatched} books from the Libraries.`;
-        if (collsRes.modifiedCount) msg += ` ${collsRes.modifiedCount} auto-generated collections updated.`;
+        if (typeof (collsRes.nModified) === 'number') return collsRes.nModified;
+        return 0;
+    });
+};
+
+
+/**
+ * Retrieve prepared books from the LibreTexts API and process &
+ * import them to the Conductor database for use in Commons.
+ * @param {Object} req - The Express.js request object.
+ * @param {Object} res - The Express.js response object.
+ */
+const syncWithLibraries = (_req, res) => {
+    let importCount = 0;        // final count of imported books
+    let collsCount = 0;         // number of updated Program Collections
+    let didGenExports = false;  // If KB Export files were generated
+    let shelvesRequests = [];   // requests from Bookshelves
+    let coursesRequests = [];   // requests from Campus Bookshelves
+    let allRequests = [];       // all requests to be made
+    let allBooks = [];          // all books returned from LT API
+    let processedBooks = [];    // all books processed for DB save
+    let bookOps = [];           // update/insert operations to perform with Mongoose
+    let existingBooks = [];     // existing books in the DB
+    let existingProjects = [];  // existing projects (tied to books) in the DB
+    let bookIDs = [];           // all (unique) bookIDs returned from LT API
+    let projectsToCreate = [];  // projects to be created to track books from LT API
+    let approvedPrograms = ['openrn', 'openstax', 'mitocw', 'opensuny', 'oeri'];
+    let programDetails = {
+        openrn: 'OpenRN',
+        openstax: 'OpenStax',
+        mitocw: 'MIT OpenCourseWare',
+        opensuny: 'OpenSUNY',
+        oeri: 'ASCCC OERI'
+    };
+    let programListings = {};
+    if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
+        approvedPrograms.forEach((program) => {
+            if (!Object.keys(programListings).includes(program)) {
+                programListings[program] = [];
+            }
+        });
+    }
+    // Build list(s) of HTTP requests to be performed
+    libraryNameKeys.forEach((lib) => {
+        shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
+        coursesRequests.push(axios.get(generateCoursesURL(lib)));
+    });
+    allRequests = shelvesRequests.concat(coursesRequests);
+    // Execute requests
+    Promise.all(allRequests).then((booksRes) => {
+        // Extract books from responses
+        booksRes.forEach((axiosRes) => {
+            allBooks = allBooks.concat(axiosRes.data.items);
+        });
+        // Process books and prepare for DB save
+        allBooks.forEach((book) => {
+            // check if book is valid & unique, otherwise ignore
+            if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
+                bookIDs.push(book.zipFilename); // duplicate mitigation
+                let link = ''
+                let author = '';
+                let affiliation = '';
+                let license = '';
+                let summary = '';
+                let subject = '';
+                let course = '';
+                let location = '';
+                let program = '';
+                if (book.link) {
+                    link = book.link;
+                    if (String(book.link).includes('/Bookshelves/')) {
+                        location = 'central';
+                        let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
+                        let isolated = String(book.link).replace(baseURL, '');
+                        let splitURL = isolated.split('/');
+                        if (splitURL.length > 0) {
+                            let shelfRaw = splitURL[0];
+                            subject = shelfRaw.replace(/_/g, ' ');
+                        }
+                    }
+                    if (String(book.link).includes('/Courses/')) {
+                        location = 'campus';
+                        let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
+                        let isolated = String(book.link).replace(baseURL, '');
+                        let splitURL = isolated.split('/');
+                        if (splitURL.length > 0) {
+                            let courseRaw = splitURL[0];
+                            course = courseRaw.replace(/_/g, ' ');
+                        }
+                    }
+                }
+                if (book.author) author = book.author;
+                if (typeof (book.summary) === 'string') summary = book.summary;
+                if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
+                if (book.tags && Array.isArray(book.tags)) {
+                    book.tags.forEach((tag) => {
+                        if (tag.includes('license:')) {
+                            license = tag.replace('license:', '');
+                        }
+                        if (tag.includes('program:')) {
+                            program = tag.replace('program:', '');
+                            if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
+                                if (Object.keys(programListings).includes(program)) {
+                                    if (location === 'central') { // don't add from both locations — duplicates
+                                        if (!programListings[program].includes(book.zipFilename)) {
+                                            programListings[program].push(book.zipFilename);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                processedBooks.push({
+                    author,
+                    affiliation,
+                    subject,        // TODO: Improve algorithm
+                    location,
+                    course,         // TODO: Improve algorithm
+                    program,
+                    license,
+                    summary,
+                    bookID: book.zipFilename,
+                    title: book.title,
+                    library: extractLibFromID(book.zipFilename),
+                    thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
+                    links: {
+                        online: link,
+                        pdf: genPDFLink(book.zipFilename),
+                        buy: genBookstoreLink(book.zipFilename),
+                        zip: genZIPLink(book.zipFilename),
+                        files: genPubFilesLink(book.zipFilename),
+                        lms: genLMSFileLink(book.zipFilename)
+                    }
+                });
+            }
+        });
+        let booksQuery = Book.aggregate([
+            {
+                $project: {
+                    _id: 0,
+                    bookID: 1
+                }
+            }
+        ]);
+        let projsQuery = Project.aggregate([
+            {
+                $match: {
+                    $and: [
+                        { projectURL: { $ne: null } },
+                        { libreLibrary: { $ne: null } },
+                        { libreCoverID: { $ne: null } }
+                    ]
+                }
+            }, {
+                $project: {
+                    _id: 0,
+                    projectID: 1,
+                    projectURL: 1,
+                    libreLibrary: 1,
+                    libreCoverID: 1
+                }
+            }
+        ]);
+        return Promise.all([booksQuery, projsQuery]);
+    }).then((queryResults) => {
+        if (queryResults.length === 2) {
+            if (Array.isArray(queryResults[0])) {
+                existingBooks = queryResults[0].map((existBook) => {
+                    if (typeof (existBook).bookID === 'string') return existBook.bookID;
+                    return null;
+                }).filter((item) => item !== null);
+            }
+            if (Array.isArray(queryResults[1])) existingProjects = queryResults[1];
+        }
+        processedBooks.forEach((book) => {
+            /* check if project needs to be created */
+            let [bookLib, bookCoverID] = getLibraryAndPageFromBookID(book.bookID);
+            if (typeof (bookLib) === 'string' && typeof (bookCoverID) === 'string') {
+                let foundProject = existingProjects.find((project) => {
+                    if (project.libreLibrary === bookLib && project.libreCoverID === bookCoverID) {
+                        return project;
+                    }
+                    return null;
+                });
+                if (foundProject === undefined) {
+                    projectsToCreate.push({
+                        title: book.title,
+                        library: bookLib,
+                        coverID: bookCoverID,
+                        url: book.links?.online
+                    });
+                }
+            }
+            /* insert or update books */
+            bookOps.push({
+                updateOne: {
+                    filter: {
+                        bookID: book.bookID
+                    },
+                    update: {
+                        $setOnInsert: {
+                            bookID: book.bookID
+                        },
+                        $set: {
+                            title: book.title,
+                            author: book.author,
+                            affiliation: book.affiliation,
+                            library: book.library,
+                            subject: book.subject,
+                            location: book.location,
+                            course: book.course,
+                            program: book.program,
+                            license: book.license,
+                            thumbnail: book.thumbnail,
+                            summary: book.summary,
+                            links: book.links
+                        }
+                    },
+                    upsert: true
+                }
+            })
+        });
+        existingBooks.forEach((book) => {
+            /* check if book needs to be deleted */
+            let foundProcessed = processedBooks.find((processed) => book === processed.bookID);
+            if (foundProcessed === undefined) {
+                // book not found in new batch, needs to be deleted
+                bookOps.push({
+                    deleteOne: {
+                        filter: {
+                            bookID: book
+                        }
+                    }
+                });
+            }
+        });
+        return Book.bulkWrite(bookOps, {
+            ordered: false
+        });
+    }).catch((writeErr) => {
+        /* Catch intermediate errors with bulkWrite, try to recover */
+        if (writeErr.result?.nMatched > 0) {
+            // Some imports failed (silent)
+            debugCommonsSync(`Updated only ${writeErr.result.nMatched} books when ${allBooks.length} books were expected.`);
+            return null; // Continue to auto-generate Program Collections
+        } else { // All imports failed
+            throw (new Error('bulkwrite'));
+        }
+    }).then((writeRes) => {
+        if (typeof (writeRes.result?.nMatched) === 'number') importCount = writeRes.result.nMatched;
+        // All imports succeeded, continue to autogenerate Program Collections
+        return autoGenerateCollections(programListings, programDetails);
+    }).then((collectionsUpdate) => {
+        if (typeof (collectionsUpdate) === 'number') collsCount = collectionsUpdate;
+        // Program Collections updated, continue to generate KB Export files
         return generateKBExport();
     }).then((generated) => {
-        if (generated === true) {
+        if (generated === true) didGenExports = true;
+        if (projectsToCreate.length > 0) {
+            // Continue to autogenerate new Projects
+            return projectAPI.autoGenerateProjects(projectsToCreate);
+        }
+        debugCommonsSync('No new projects to create.');
+        return 0;
+    }).then((projectsGen) => {
+        let msg = `Imported ${importCount} books from the Libraries. ${collsCount} autogenerated Collections updated.`;
+        if (didGenExports) {
             msg += ` Successfully generated export files for 3rd-party content services.`;
         } else {
             msg += ` FAILED to generate export files for 3rd-party content services. Check server logs.`;
+        }
+        if (typeof (projectsGen) === 'number') {
+            msg += ` ${projectsGen} new Projects were autogenerated.`;   
+        } else if (typeof (projectsGen) === 'boolean' && !projectsGen) {
+            msg += ` FAILED to autogenerate new Projects. Check server logs.`;
         }
         return res.send({
             err: false,
@@ -210,197 +478,40 @@ const autoGenerateCollections = (res, programListings, programDetails, nMatched)
         });
     }).catch((err) => {
         debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+        if (err.message === 'bulkwrite') {
+            // all imports failed
+            return res.send({
+                err: true,
+                msg: conductorErrors.err13
+            });
+        } else if (err.code === 'ENOTFOUND') { // issues connecting to LT API
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err16
+            });
+        } else { // other errors
+            debugError(err);
+            return res.send({
+                err: true,
+                errMsg: conductorErrors.err6
+            });
+        }
     });
 };
 
 
 /**
- * Retrieve prepared books from the
- * LibreTexts API and process &
- * import them to the Conductor
- * database for use in Commons.
- */
- const syncWithLibraries = (_req, res) => {
-     let shelvesRequests = [];   // requests from Bookshelves
-     let coursesRequests = [];   // requests from Campus Bookshelves
-     let allRequests = [];       // all requests to be made
-     let allBooks = [];          // all books returned from LT API
-     let bookOps = [];           // update/insert operations to perform with Mongoose
-     let bookIDs = [];           // all (unique) bookIDs
-     let approvedPrograms = ['openrn', 'openstax' , 'mitocw', 'opensuny', 'oeri'];
-     let programDetails = {
-         openrn: 'OpenRN',
-         openstax: 'OpenStax',
-         mitocw: 'MIT OpenCourseWare',
-         opensuny: 'OpenSUNY',
-         oeri: 'ASCCC OERI'
-     };
-     let programListings = {};
-     if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
-         approvedPrograms.forEach((program) => {
-             if (!Object.keys(programListings).includes(program)) {
-                 programListings[program] = [];
-             }
-         });
-     }
-     // Build list(s) of HTTP requests to be performed
-     libraryNameKeys.forEach((lib) => {
-         shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
-         coursesRequests.push(axios.get(generateCoursesURL(lib)));
-     });
-     allRequests = shelvesRequests.concat(coursesRequests);
-     // Execute requests
-     Promise.all(allRequests).then((booksRes) => {
-         // Extract books from responses
-         booksRes.forEach((axiosRes) => {
-             allBooks = allBooks.concat(axiosRes.data.items);
-         });
-         // Process books and prepare for DB save
-         allBooks.forEach((book) => {
-             // check if book is valid & unique, otherwise ignore
-             if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
-                 bookIDs.push(book.zipFilename); // duplicate mitigation
-                 let link = ''
-                 let author = '';
-                 let affiliation = '';
-                 let license = '';
-                 let summary = '';
-                 let subject = '';
-                 let course = '';
-                 let location = '';
-                 let program = '';
-                 if (book.link) {
-                     link = book.link;
-                     if (String(book.link).includes('/Bookshelves/')) {
-                         location = 'central';
-                         let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Bookshelves/`;
-                         let isolated = String(book.link).replace(baseURL, '');
-                         let splitURL = isolated.split('/');
-                         if (splitURL.length > 0) {
-                            let shelfRaw = splitURL[0];
-                             subject = shelfRaw.replace(/_/g, ' ');
-                         }
-                     }
-                     if (String(book.link).includes('/Courses/')) {
-                         location = 'campus';
-                         let baseURL = `https://${extractLibFromID(book.zipFilename)}.libretexts.org/Courses/`;
-                         let isolated = String(book.link).replace(baseURL, '');
-                         let splitURL = isolated.split('/');
-                         if (splitURL.length > 0) {
-                            let courseRaw = splitURL[0];
-                             course = courseRaw.replace(/_/g, ' ');
-                         }
-                     }
-                 }
-                 if (book.author) author = book.author;
-                 if (typeof(book.summary) === 'string') summary = book.summary;
-                 if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
-                 if (book.tags && Array.isArray(book.tags)) {
-                     book.tags.forEach((tag) => {
-                         if (tag.includes('license:')) {
-                             license = tag.replace('license:', '');
-                         }
-                         if (tag.includes('program:')) {
-                             program = tag.replace('program:', '');
-                             if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
-                                 if (Object.keys(programListings).includes(program)) {
-                                     if (location === 'central') { // don't add from both locations — duplicates
-                                         if (!programListings[program].includes(book.zipFilename)) {
-                                             programListings[program].push(book.zipFilename);
-                                         }
-                                     }
-                                 }
-                             }
-                         }
-                     });
-                 }
-                 bookOps.push({
-                     updateOne: {
-                         filter: {
-                             bookID: book.zipFilename
-                         },
-                         update: {
-                             $setOnInsert: {
-                                 bookID: book.zipFilename
-                             },
-                             $set: {
-                                 title: book.title,
-                                 author: author,
-                                 affiliation: affiliation,
-                                 library: extractLibFromID(book.zipFilename),
-                                 subject: subject, // TODO: Improve algorithm
-                                 location: location,
-                                 course: course, // TODO: Improve algorithm
-                                 program: program,
-                                 license: license,
-                                 thumbnail: genThumbnailLink(extractLibFromID(book.zipFilename), book.id),
-                                 summary: summary,
-                                 links: {
-                                     online: link,
-                                     pdf: genPDFLink(book.zipFilename),
-                                     buy: genBookstoreLink(book.zipFilename),
-                                     zip: genZIPLink(book.zipFilename),
-                                     files: genPubFilesLink(book.zipFilename),
-                                     lms: genLMSFileLink(book.zipFilename)
-                                 }
-                             }
-                         },
-                         upsert: true
-                     }
-                 });
-             }
-         });
-         return Book.bulkWrite(bookOps, {
-             ordered: false
-         });
-     }).then((writeRes) => {
-         // All imports succeeded, continue to auto-generate Program Collections
-         return autoGenerateCollections(res, programListings, programDetails, writeRes.result.nMatched);
-     }).catch((err) => {
-         debugError(err);
-         if (err.result) { // bulkWrite error(s)
-             if (err.result.nMatched > 0) { // Some imports failed (silent)
-                 debugCommonsSync(`Updated only ${err.result.nMatched} books when ${allBooks.length} books were expected.`);
-                 // Continue to auto-generate Program Collections
-                 return autoGenerateCollections(res, programListings, programDetails, err.result.nMatched);
-             } else { // All imports failed
-                 return res.send({
-                     err: true,
-                     msg: conductorErrors.err13
-                 });
-             }
-         } else if (err.code && err.code === 'ENOTFOUND') { // issues connecting to LT API
-             return res.send({
-                 err: true,
-                 errMsg: conductorErrors.err16
-             });
-         } else { // other errors
-             debugError(err);
-             return res.send({
-                 err: true,
-                 errMsg: conductorErrors.err6
-             });
-         }
-     });
- };
-
-
-/**
- * Accepts a standard Organization-model object
- * and generates an array of strings of all
- * known variations of the Organization's name,
- * including full, short, abbreviation, and
+ * Accepts a standard Organization-model object and generates an array of strings of all
+ * known variations of the Organization's name, including full, short, abbreviation, and
  * possible aliases.
  * INTERNAL USE ONLY.
+ * @param {Object} orgData - An Organization information object.
+ * @returns {String[]} An array of known Organization names.
  */
 const buildOrganizationNamesList = (orgData) => {
     if (orgData) {
-        var campusNames = []; // stores all variations of the organization name
-        var normNames = []; // temporarily stores the normalized variations
+        let campusNames = []; // stores all variations of the organization name
+        let normNames = []; // temporarily stores the normalized variations
         if (orgData.name && !isEmptyString(orgData.name)) {
             if (!campusNames.includes(orgData.name)) {
                 campusNames.push(orgData.name);
@@ -421,11 +532,11 @@ const buildOrganizationNamesList = (orgData) => {
         }
         // Normalize the names to remove common punctuation, then add to campusNames list
         campusNames.forEach((name) => {
-            var normed = String(name).replace(/,/g, '').replace(/-/g, '').replace(/:/g, '').replace(/'/g, '');
+            let normed = String(name).replace(/,/g, '').replace(/-/g, '').replace(/:/g, '').replace(/'/g, '');
             if (!normNames.includes(normed) && !campusNames.includes(normed)) {
                 normNames.push(normed);
             }
-            var lowerNormed = String(normed).toLowerCase();
+            let lowerNormed = String(normed).toLowerCase();
             if (!normNames.includes(lowerNormed) && !campusNames.includes(lowerNormed)) {
                 normNames.push(lowerNormed);
             }
@@ -542,7 +653,7 @@ const getCommonsCatalog = (req, res) => {
             if (customCatalogRes && Object.keys(customCatalogRes).length > 0) {
                 if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources) &&
                     customCatalogRes.resources.length > 0) {
-                        hasCustomEntries = true;
+                    hasCustomEntries = true;
                 }
             }
             if (hasCustomEntries) {
@@ -847,10 +958,11 @@ const getCatalogFilterOptions = (_req, res) => {
 
 
 /**
- * Returns the Book object given a book ID.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
+ * Returns a Book object given a book ID.
+ * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookDetail'
+ * @param {Object} req - The Express.js request object.
+ * @param {Object} res - The Express.js response object.
  */
 const getBookDetail = (req, res) => {
     Book.aggregate([
@@ -888,6 +1000,62 @@ const getBookDetail = (req, res) => {
 };
 
 
+
+/**
+ * Checks if a Book has an associated Project, if it allows anonymous Peer Reviews, and the current Peer Reviews available.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getBookPeerReviews'
+ * @param {Object} req - The Express.js request object.
+ * @param {Object} res - The Express.js response object.
+ */
+const getBookPeerReviews = (req, res) => {
+    let allowsAnon = true;
+    let projectID = '';
+    return new Promise((resolve, reject) => {
+        const [lib, coverID] = getLibraryAndPageFromBookID(req.query.bookID);
+        if (!isEmptyString(lib) && !isEmptyString(coverID)) {
+            resolve(Project.findOne({
+                $and: [
+                    { libreLibrary: lib },
+                    { libreCoverID: coverID },
+                    { visibility: 'public' }
+                ]
+            }).lean());
+        }
+        reject(new Error('notfound'));
+    }).then((project) => {
+        if (project) {
+            projectID = project.projectID;
+            if (project.allowAnonPR === false) allowsAnon = false; // true by default
+            return PeerReview.aggregate(buildPeerReviewAggregation(project.projectID));
+        }
+        throw (new Error('noproject'));
+    }).then((peerReviews) => {
+        return res.send({
+            err: false,
+            projectID: projectID,
+            allowsAnon: allowsAnon,
+            reviews: peerReviews
+        });
+    }).catch((err) => {
+        if (err.message === 'noproject') {
+            return res.send({
+                err: false,
+                msg: 'No Projects associated with this resource.'
+            });
+        } else {
+            debugError(err);
+            let errMsg = conductorErrors.err6;
+            if (err.message === 'notfound') errMsg = conductorErrors.err11;
+            return res.send({
+                err: true,
+                errMsg: errMsg
+            });
+        }
+    });
+};
+
+
 /**
  * Adds the Book specified by @bookID in the request
  * body to the Custom Catalog for the organization
@@ -917,9 +1085,9 @@ const addBookToCustomCatalog = (req, res) => {
                 msg: "Resource successfully added to Catalog."
             });
         } else if (catalogRes.n === 0) {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         } else {
-            throw(new Error('updatefailed'));
+            throw (new Error('updatefailed'));
         }
     }).catch((err) => {
         if (err.message === 'notfound') {
@@ -961,9 +1129,9 @@ const removeBookFromCustomCatalog = (req, res) => {
                 msg: "Resource successfully removed from Catalog."
             });
         } else if (catalogRes.n === 0) {
-            throw(new Error('notfound'));
+            throw (new Error('notfound'));
         } else {
-            throw(new Error('updatefailed'));
+            throw (new Error('updatefailed'));
         }
     }).catch((err) => {
         if (err.message === 'notfound') {
@@ -1079,28 +1247,28 @@ const getBookTOC = (req, res) => {
 const getBookTOCFromAPI = (bookID, bookURL) => {
     let bookLookup = false;
     return new Promise((resolve, reject) => {
-        if (typeof(bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
+        if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
             bookLookup = true;
             resolve(Book.findOne({ bookID: bookID }).lean());
-        } else if (typeof(bookURL) === 'string' && !isEmptyString(bookURL)) {
+        } else if (typeof (bookURL) === 'string' && !isEmptyString(bookURL)) {
             resolve({});
         }
         reject(new Error('tocretrieve'));
     }).then((commonsBook) => {
         let bookAddr = '';
-        if (bookLookup && typeof(commonsBook) === 'object' && typeof(commonsBook.links?.online) === 'string') {
+        if (bookLookup && typeof (commonsBook) === 'object' && typeof (commonsBook.links?.online) === 'string') {
             bookAddr = commonsBook.links.online;
-        } else if (!bookLookup && typeof(bookURL) === 'string') {
+        } else if (!bookLookup && typeof (bookURL) === 'string') {
             bookAddr = bookURL;
         } else {
-            throw(new Error('tocretrieve'));
+            throw (new Error('tocretrieve'));
         }
         return axios.get(`https://api.libretexts.org/endpoint/getTOC/${bookAddr}`, {
             headers: { 'Origin': getProductionURL() }
         });
     }).then((tocRes) => {
         if (tocRes.data && tocRes.data.toc) return tocRes.data.toc;
-        else throw(new Error('tocretrieve'));
+        else throw (new Error('tocretrieve'));
     });
 };
 
@@ -1168,13 +1336,13 @@ const generateKBExport = () => {
                     access_type: 'F',
                     publisher_name: 'LibreTexts'
                 };
-                if (typeof(item.thumbnail) === 'string' && !isEmptyString(item.thumbnail)) {
+                if (typeof (item.thumbnail) === 'string' && !isEmptyString(item.thumbnail)) {
                     bookOut.thumbnail_url = item.thumbnail;
                 }
-                if (typeof(item.license) === 'string' && !isEmptyString(item.license)) {
+                if (typeof (item.license) === 'string' && !isEmptyString(item.license)) {
                     bookOut.license = item.license;
                 }
-                if (typeof(item.summary) === 'string' && !isEmptyString(item.summary)) {
+                if (typeof (item.summary) === 'string' && !isEmptyString(item.summary)) {
                     bookOut.description = item.summary;
                 }
                 if (item.library === 'espanol') {
@@ -1182,7 +1350,7 @@ const generateKBExport = () => {
                 } else {
                     bookOut.language = 'english';
                 }
-                if (typeof(item.author) === 'string' && !isEmptyString(item.author)) {
+                if (typeof (item.author) === 'string' && !isEmptyString(item.author)) {
                     let itemAuthors = [];
                     let textmapMatch = item.author.match(/textmap/ig);
                     if (textmapMatch === null) { // not a textmap, try to parse authors
@@ -1204,14 +1372,14 @@ const generateKBExport = () => {
                 kbExport.titles.push(bookOut);
             });
             return fs.ensureDir('./public');
-        } else throw(new Error('notarray'));
+        } else throw (new Error('notarray'));
     })
-    .then(() => fs.writeJson('./public/kbexport.json', kbExport))
-    .then(() => true)
-    .catch((err) => {
-        debugError(err);
-        return false;
-    });
+        .then(() => fs.writeJson('./public/kbexport.json', kbExport))
+        .then(() => true)
+        .catch((err) => {
+            debugError(err);
+            return false;
+        });
 };
 
 
@@ -1229,7 +1397,7 @@ const retrieveKBExport = (_req, res) => {
         if (generated === true) {
             return res.status(200).sendFile('./public/kbexport.json', { root: '.' });
         }
-        throw(new Error('kbexport-notfound'));
+        throw (new Error('kbexport-notfound'));
     }).catch((err) => {
         debugError(err);
         return res.status(500).send({
@@ -1249,7 +1417,7 @@ const validate = (method) => {
             return [
                 query('sort', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidSort),
                 query('library', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLibrary),
-                query('subject', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1}),
+                query('subject', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('author', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
                 query('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
                 query('affiliation', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
@@ -1263,6 +1431,10 @@ const validate = (method) => {
                 query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
             ]
         case 'getBookDetail':
+            return [
+                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+            ]
+        case 'getBookPeerReviews':
             return [
                 query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
@@ -1294,6 +1466,7 @@ module.exports = {
     getCommonsCatalog,
     getMasterCatalog,
     getBookDetail,
+    getBookPeerReviews,
     getCatalogFilterOptions,
     addBookToCustomCatalog,
     removeBookFromCustomCatalog,

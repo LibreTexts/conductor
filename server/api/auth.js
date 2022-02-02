@@ -262,7 +262,7 @@ const login = (req, res, _next) => {
 const register = (req, res) => {
     const successMsg = "Succesfully registered user.";
     const formattedEmail = String(req.body.email).toLowerCase();
-    var newUser = {
+    let newUser = {
         uuid: uuidv4(),
         firstName: req.body.firstName,
         lastName: req.body.lastName,
@@ -273,15 +273,12 @@ const register = (req, res) => {
         roles: [],
         authType: 'traditional'
     };
-    User.findOne({ email: formattedEmail }).lean().then((existUser) => {
-        if (existUser) throw(new Error('userexists'));
-        return bcrypt.genSalt(10)
-    }).then((salt) => {
+    bcrypt.genSalt(10).then((salt) => {
         newUser.salt = salt;
         return bcrypt.hash(req.body.password, salt);
     }).then((hash) => {
         newUser.hash = hash;
-        var readyUser = new User(newUser);
+        let readyUser = new User(newUser);
         return readyUser.save();
     }).then((doc) => {
         if (doc) return mailAPI.sendRegistrationConfirmation(doc.email, doc.firstName);
@@ -299,16 +296,16 @@ const register = (req, res) => {
                 err: false,
                 msg: successMsg
             });
-        } else { // other internal error
-            let errMsg = conductorErrors.err6;
-            if (err.message === 'notcreated') errMsg = conductorErrors.err3;
-            else if (err.message === 'userexists') errMsg = conductorErrors.err47;
-            debugError(err);
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
         }
+        // other internal errors
+        let errMsg = conductorErrors.err6;
+        if (err.message === 'notcreated') errMsg = conductorErrors.err3;
+        else if (err.code === 11000) errMsg = conductorErrors.err47;
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
     });
 };
 
@@ -657,7 +654,7 @@ const getUserBasicWithEmail = (uuid) => {
  * request's Authorization header.
  */
 const verifyRequest = (req, res, next) => {
-    var token = req.headers.authorization;
+    let token = req.headers.authorization;
     try {
         const decoded = jwt.verify(token, process.env.SECRETKEY);
         req.user = {
@@ -666,13 +663,11 @@ const verifyRequest = (req, res, next) => {
         req.decoded = decoded; // TODO: REMOVE AND UPDATE OTHER LOGIC
         return next();
     } catch (err) {
-        var response = {
+        let response = {
             err: true,
             errMsg: conductorErrors.err5
         };
-        if (err.name === 'TokenExpiredError') {
-            response.tokenExpired = true;
-        }
+        if (err.name === 'TokenExpiredError') response.tokenExpired = true;
         return res.status(401).send(response);
     }
 };
@@ -734,15 +729,16 @@ const getUserAttributes = (req, res, next) => {
 
 
 /**
- * Checks that the user has the role
- * specified in the @role parameter for
- * this organization.
- * NOTE: This method should NOT be used as
- *  middleware.
+ * Checks that the user has a certain role within the specified Organization.
+ * NOTE: This method should NOT be used as middleware.
+ * @param {Object} user - The user data object.
+ * @param {String} org - The Organization identifier.
+ * @param {String} role - The role identifier.
+ * @returns {Boolean} True if user has role/permission, false otherwise.
  */
 const checkHasRole = (user, org, role) => {
     if ((user.roles !== undefined) && (Array.isArray(user.roles))) {
-        var foundRole = user.roles.find((element) => {
+        let foundRole = user.roles.find((element) => {
             if (element.org && element.role) {
                 if ((element.org === org) && (element.role === role)) {
                     return element;
@@ -753,23 +749,23 @@ const checkHasRole = (user, org, role) => {
                     // OVERRIDE: CampusAdmins always have permission in their own instance
                     return element;
                 }
+                return null;
             }
-            return null;
         });
         if (foundRole !== undefined) return true;
         return false;
-    } else {
-        debugError(conductorErrors.err9);
-        return false;
     }
+    debugError(conductorErrors.err9);
+    return false;
 };
 
 
 /**
- * Checks that the user has the role
- * specified in the @role parameter.
- * Method should only be called AFTER the 'getUserAttributes'
- * method in a routing chain.
+ * Checks that the user has a certain role within the specified Organization.
+ * Method should only be called AFTER the 'getUserAttributes' method in a routing chain.
+ * @param {String} org - The Organization identifier.
+ * @param {String} role - The role identifier.
+ * @returns {Function} An Express.js middleware function.
  */
 const checkHasRoleMiddleware = (org, role) => {
     return (req, res, next) => {
@@ -788,21 +784,17 @@ const checkHasRoleMiddleware = (org, role) => {
                 }
                 return null;
             });
-            if (foundRole !== undefined) {
-                next();
-            } else {
-                return res.status(401).send({
-                    err: true,
-                    errMsg: conductorErrors.err8
-                });
-            }
-        } else {
-            debugError(conductorErrors.err9);
-            return res.status(400).send({
+            if (foundRole !== undefined) return next();
+            return res.status(401).send({
                 err: true,
-                errMsg: conductorErrors.err9
+                errMsg: conductorErrors.err8
             });
         }
+        debugError(conductorErrors.err9);
+        return res.status(400).send({
+            err: true,
+            errMsg: conductorErrors.err9
+        });
     }
 };
 

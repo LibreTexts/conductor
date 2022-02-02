@@ -174,6 +174,7 @@ const AccountRequests = () => {
                                     <Table.Row>
                                         <Table.HeaderCell/>
                                         <Table.HeaderCell><span>Date</span></Table.HeaderCell>
+                                        <Table.HeaderCell><span>Email</span></Table.HeaderCell>
                                         <Table.HeaderCell><span>Name</span></Table.HeaderCell>
                                         <Table.HeaderCell><span>Institution</span></Table.HeaderCell>
                                         <Table.HeaderCell><span>Requests LibreNet Info</span></Table.HeaderCell>
@@ -196,6 +197,9 @@ const AccountRequests = () => {
                                                                 : <span><em>Unknown</em></span>
                                                             }
                                                         </span>
+                                                    </Table.Cell>
+                                                    <Table.Cell disabled={completedRow}>
+                                                        <span>{item.email}</span>
                                                     </Table.Cell>
                                                     <Table.Cell disabled={completedRow}>
                                                         <span>{item.name}</span>

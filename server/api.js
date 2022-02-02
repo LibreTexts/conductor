@@ -23,17 +23,14 @@ const librariesAPI = require('./api/libraries.js');
 //const mailAPI = require('./api/mail.js'); // (enable for development only)
 //const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
+const peerReviewAPI = require('./api/peerreview.js');
 const projectsAPI = require('./api/projects.js');
 const tasksAPI = require('./api/tasks.js');
 const msgAPI = require('./api/messaging.js');
 const transFeedbackAPI = require('./api/translationfeedback.js');
 
-/* TODO: Deprecated */
-const harvestingTargetsAPI = require('./api/harvestingtargets.js');
-const harvestingProjectsAPI = require('./api/harvestingprojects.js');
 
-
-var router = express.Router();
+let router = express.Router();
 
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
 
@@ -67,6 +64,11 @@ router.route('/auth/initsso').get(authAPI.initSSO);
 
 
 /* Organizations */
+router.route('/orgs').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    orgsAPI.getAllOrganizations);
+
 router.route('/org/info')
     .get(orgsAPI.validate('getinfo'),
         middleware.checkValidationErrors,
@@ -77,11 +79,6 @@ router.route('/org/info')
         orgsAPI.validate('updateinfo'),
         middleware.checkValidationErrors,
         orgsAPI.updateOrganizationInfo);
-
-router.route('/orgs').get(authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-    orgsAPI.getAllOrganizations);
 
 
 /* Adoption Reports */
@@ -184,8 +181,7 @@ router.route('/accountrequests').get(middleware.checkLibreCommons,
 
 
 /* Commons Collections */
-router.route('/commons/collections').get(
-    collectionsAPI.getCommonsCollections);
+router.route('/commons/collections').get(collectionsAPI.getCommonsCollections);
 
 router.route('/commons/collections/all').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,
@@ -272,6 +268,12 @@ router.route('/commons/book/toc').get(booksAPI.validate('getBookTOC'),
 router.route('/commons/book/licensereport').get(booksAPI.validate('getLicenseReport'),
     middleware.checkValidationErrors, booksAPI.getLicenseReport);
 
+router.route('/commons/book/peerreviews').get(
+    booksAPI.validate('getBookPeerReviews'),
+    middleware.checkValidationErrors,
+    booksAPI.getBookPeerReviews
+);
+
 router.route('/commons/filters').get(booksAPI.getCatalogFilterOptions);
 
 router.route('/commons/catalogs/addresource').put(authAPI.verifyRequest,
@@ -307,14 +309,21 @@ router.route('/commons/homework/syncadapt').post(authAPI.verifyRequest,
 
 /* Users */
 router.route('/user/basicinfo').get(authAPI.verifyRequest,
-    usersAPI.basicUserInfo);
+    usersAPI.getBasicUserInfo);
 
 router.route('/user/accountinfo').get(authAPI.verifyRequest,
-    usersAPI.basicAccountInfo);
+    usersAPI.getBasicAccountInfo);
+
+router.route('/user/admininfo').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    usersAPI.validate('getUserInfoAdmin'),
+    middleware.checkValidationErrors,
+    usersAPI.getUserInfoAdmin);
 
 router.route('/user/name').put(authAPI.verifyRequest,
     usersAPI.validate('editUserName'), middleware.checkValidationErrors,
-    usersAPI.editUserName);
+    usersAPI.updateUserName);
 
 router.route('/user/email').put(authAPI.verifyRequest,
     usersAPI.validate('updateUserEmail'), middleware.checkValidationErrors,
@@ -337,6 +346,13 @@ router.route('/user/delete').put(authAPI.verifyRequest,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     usersAPI.validate('deleteUser'), middleware.checkValidationErrors,
     usersAPI.deleteUser);
+
+router.route('/user/projects').get(authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+    projectsAPI.validate('getUserProjectsAdmin'),
+    middleware.checkValidationErrors,
+    projectsAPI.getUserProjectsAdmin);
 
 router.route('/users').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,
@@ -367,7 +383,78 @@ router.route('/announcements/recent').get(authAPI.verifyRequest,
     announcementAPI.getRecentAnnouncement);
 
 
-/* Projects (General) */
+/* Peer Review */
+router.route('/peerreview')
+    .get(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        peerReviewAPI.validate('getPeerReview'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.getPeerReview)
+    .post(authAPI.optionalVerifyRequest,
+        peerReviewAPI.validate('createPeerReview'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.createPeerReview)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        peerReviewAPI.validate('deletePeerReview'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.deletePeerReview);
+
+router.route('/peerreview/access').get(
+    authAPI.optionalVerifyRequest,
+    peerReviewAPI.validate('getProjectPeerReviewAccess'),
+    middleware.checkValidationErrors,
+    peerReviewAPI.getProjectPeerReviewAccess
+);
+
+router.route('/peerreview/invite').post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    peerReviewAPI.validate('sendPeerReviewInvite'),
+    middleware.checkValidationErrors,
+    peerReviewAPI.sendPeerReviewInvite
+);
+
+router.route('/peerreview/projectrubric').get(
+    peerReviewAPI.validate('getProjectPeerReviewRubric'),
+    middleware.checkValidationErrors,
+    peerReviewAPI.getProjectPeerReviewRubric
+);
+
+router.route('/peerreview/rubric')
+    .get(authAPI.optionalVerifyRequest,
+        peerReviewAPI.validate('getPeerReviewRubric'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.getPeerReviewRubric)
+    .put(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+        peerReviewAPI.validate('updatePeerReviewRubric'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.updatePeerReviewRubric)
+    .delete(authAPI.verifyRequest,
+        authAPI.getUserAttributes,
+        peerReviewAPI.validate('deletePeerReviewRubric'),
+        middleware.checkValidationErrors,
+        peerReviewAPI.deletePeerReviewRubric);
+
+router.route('/peerreview/rubric/orgdefault').get(
+    authAPI.verifyRequest,
+    peerReviewAPI.checkOrgDefaultRubric
+);
+
+router.route('/peerreview/rubrics').get(peerReviewAPI.getAllPeerReviewRubrics);
+
+router.route('/peerreviews').get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    peerReviewAPI.validate('getProjectPeerReviews'),
+    middleware.checkValidationErrors,
+    peerReviewAPI.getProjectPeerReviews
+);
+
+
+/* Projects */
 router.route('/projects/all').get(authAPI.verifyRequest,
     projectsAPI.getUserProjects);
 
@@ -551,55 +638,5 @@ router.route('/project/accessibility/section/item').put(authAPI.verifyRequest,
     projectsAPI.validate('updateA11YReviewSectionItem'),
     middleware.checkValidationErrors, projectsAPI.updateA11YReviewSectionItem);
 
-
-/* Harvesting */
-
-// Targetlist
-router.route('/harvesting/targetlist/all').get(authAPI.verifyRequest,
-    harvestingTargetsAPI.getAllTargets);
-router.route('/harvesting/targetlist/add').post(authAPI.verifyRequest,
-    harvestingTargetsAPI.addTarget);
-router.route('/harvesting/targetlist/targets/detail').get(
-    authAPI.verifyRequest, harvestingTargetsAPI.getTargetDetail);
-router.route('/harvesting/targetlist/targets/update').post(
-    authAPI.verifyRequest, harvestingTargetsAPI.updateTarget);
-router.route('/harvesting/targetlist/targets/delete').post(
-    authAPI.verifyRequest, harvestingTargetsAPI.deleteTarget);
-
-// Projects
-router.route('/harvesting/projects/addexisting').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.addExistingProject);
-router.route('/harvesting/projects/newfromtarget').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.newProjectFromTarget);
-router.route('/harvesting/projects/newforassignee').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.newProjectForAssignee);
-router.route('/harvesting/projects/detail').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getProjectDetail);
-router.route('/harvesting/projects/update').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.updateProject);
-router.route('/harvesting/projects/flag').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.flagProject);
-router.route('/harvesting/projects/unflag').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.unflagProject);
-router.route('/harvesting/projects/markcompleted').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.markProjectCompleted);
-router.route('/harvesting/projects/delete').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.deleteProject);
-router.route('/harvesting/projects/current').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getCurrentProjects);
-router.route('/harvesting/projects/flagged').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getFlaggedProjects);
-router.route('/harvesting/projects/recentlycompleted').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getRecentlyCompletedProjects);
-router.route('/harvesting/projects/completed').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getAllCompletedProjects);
-router.route('/harvesting/projects/updates/all').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getAllProgressUpdates);
-router.route('/harvesting/projects/updates/new').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.addProgressUpdate);
-router.route('/harvesting/projects/updates/delete').post(
-    authAPI.verifyRequest, harvestingProjectsAPI.deleteProgressUpdate);
-router.route('/harvesting/projects/updates/feed').get(
-    authAPI.verifyRequest, harvestingProjectsAPI.getUpdatesFeed);
 
 module.exports = router;

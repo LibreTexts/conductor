@@ -1,24 +1,19 @@
-import './Projects.css';
+import './ControlPanel.css';
 
 import {
-  Grid,
-  Header,
-  Menu,
-  Input,
-  Segment,
-  Message,
-  Icon,
-  Button,
-  Table,
-  Loader
+    Grid,
+    Header,
+    Segment,
+    Table,
+    Breadcrumb,
+    Image
 } from 'semantic-ui-react';
-import { Link } from 'react-router-dom';
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import { Link } from 'react-router-dom';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+import axios from 'axios';
 
-import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
     getClassificationText,
     getVisibilityText
@@ -26,156 +21,166 @@ import {
 import { truncateString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks.js';
 
-const ProjectsPortal = (props) => {
+const UserDetails = (props) => {
 
-    // Global Error Handling
+    // Global State
     const { handleGlobalError } = useGlobalError();
 
-    // UI
-    const [loadedProjects, setLoadedProjects] = useState(false);
-    const [searchString, setSearchString] = useState('');
-    const [sortChoice, setSortChoice] = useState('title');
-    const [projectCreated, setProjectCreated] = useState(false);
-    const [projectDeleted, setProjectDeleted] = useState(false);
+    // Data
+    const [userData, setUserData] = useState({});
+    const [userProjects, setUserProjects] = useState([]);
 
-    // Projects Data
-    const [projects, setProjects] = useState([]);
-    const [displayProjects, setDisplayProjects] = useState([]);
+    // UI
+    const [loadedData, setLoadedData] = useState(false);
 
 
     /**
-     * Retrieve user's projects from the server and save them to state.
+     * Retrieves a list of the user's Projects from the server.
      */
     const getUserProjects = useCallback(() => {
-        axios.get('/projects/all').then((res) => {
+        setLoadedData(false);
+        axios.get('/user/projects', {
+            params: {
+                uuid: props.match.params.uuid
+            }
+        }).then((res) => {
             if (!res.data.err) {
-                if (res.data.projects && Array.isArray(res.data.projects)) {
-                    setProjects(res.data.projects);
+                if (Array.isArray(res.data.projects)) {
+                    let sorted = res.data.projects.sort((a, b) => {
+                        let aNormal = a.title.toLowerCase();
+                        let bNormal = b.title.toLowerCase();
+                        if (aNormal < bNormal) {
+                            return -1;
+                        }
+                        if (aNormal > bNormal) {
+                            return 1;
+                        }
+                        return 0;
+                    });
+                    setUserProjects(sorted);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
             }
-            setLoadedProjects(true);
+            setLoadedData(true);
         }).catch((err) => {
+            setLoadedData(true);
             handleGlobalError(err);
-            setLoadedProjects(true);
         });
-    }, [setProjects, setLoadedProjects, handleGlobalError]);
+    }, [props.match, setLoadedData, handleGlobalError]);
 
 
     /**
-     * Initialize plugins and UI state, then get user's projects.
+     * Retrieve the user's basic information from the server.
      */
-    useEffect(() => {
-        date.plugin(ordinal);
-        document.title = "LibreTexts Conductor | Projects";
-        if (typeof (props.location?.search) !== 'undefined') {
-            let urlParams = new URLSearchParams(props.location.search);
-            let createdFlag = urlParams.get('projectCreated');
-            let deletedFlag = urlParams.get('projectDeleted');
-            if (createdFlag === 'true') setProjectCreated(true);
-            if (deletedFlag === 'true') setProjectDeleted(true);
-        }
-        getUserProjects();
-    }, [props.location, getUserProjects, setProjectCreated, setProjectDeleted]);
-
-
-    /**
-     * Track changes to the number of projects loaded
-     * and the selected itemsPerPage and update the
-     * set of projects to display.
-     */
-     /*
-    useEffect(() => {
-        setTotalPages(Math.ceil(displayProjects.length/itemsPerPage));
-        setPageProjects(displayProjects.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
-    }, [itemsPerPage, displayProjects, activePage]);
-    */
-
-
-    /**
-     * Filter and sort projects according to
-     * current filters and sort choice.
-     */
-    useEffect(() => {
-        let filtered = projects.filter((proj) => {
-            let descripString = String(proj.title).toLowerCase();
-            if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
-                // doesn't match search string, don't include
-                return false;
-            }
-            return proj;
-        });
-        if (sortChoice === 'title') {
-            const sorted = [...filtered].sort((a, b) => {
-                let normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                let normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                if (normalA < normalB) return -1;
-                if (normalA > normalB) return 1;
-                return 0;
+    const getUser = useCallback(() => {
+        if (typeof(props.match?.params?.uuid) === 'string' && props.match?.params?.uuid.length > 0) {
+            setLoadedData(false);
+            axios.get('/user/admininfo', {
+                params: {
+                    uuid: props.match.params.uuid
+                }
+            }).then((res) => {
+                if (!res.data.err) {
+                    if (typeof(res.data.user) === 'object') {
+                        const createdDate = new Date(res.data.user.createdAt);
+                        setUserData({
+                            ...res.data.user,
+                            createdAt: createdDate.toDateString()
+                        });
+                        getUserProjects();
+                    }
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                }
+                setLoadedData(true);
+            }).catch((err) => {
+                setLoadedData(true);
+                handleGlobalError(err);
             });
-            setDisplayProjects(sorted);
         }
-    }, [projects, sortChoice, searchString, setDisplayProjects]);
+    }, [props.match, setLoadedData, setUserData, getUserProjects, handleGlobalError]);
 
 
-    return(
-        <Grid className='component-container' divided='vertically'>
+    /**
+     * Set page title and retrieve user information on initial load.
+     */
+    useEffect(() => {
+        document.title = "LibreTexts Conductor | User Details";
+        date.plugin(ordinal);
+        getUser();
+    }, [getUser]);
+
+
+    return (
+        <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Projects</Header>
+                    <Header className='component-header'>User Details</Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    {projectCreated &&
-                        <Message floating icon success>
-                            <Icon name='check' />
-                            <Message.Content>
-                                <Message.Header>Project successfully created!</Message.Header>
-                            </Message.Content>
-                        </Message>
-                    }
-                    {projectDeleted &&
-                        <Message floating icon info>
-                            <Icon name='delete' />
-                            <Message.Content>
-                                <Message.Header>Project successfully deleted.</Message.Header>
-                            </Message.Content>
-                        </Message>
-                    }
-                    <Menu widths={3}>
-                        <Menu.Item as={Link} to='/projects/available' name='availableprojects' icon='folder open' content={<p>Available Projects</p>} />
-                        <Menu.Item as={Link} to='/projects/completed' name='completedprojects' icon='check' content={<p>Completed Projects</p>} />
-                        <Menu.Item as={Link} to='/projects/flagged' name='flaggedprojects' icon='attention' content={<p>Flagged Projects</p>} />
-                    </Menu>
                     <Segment.Group>
                         <Segment>
-                            <Input
-                                icon='search'
-                                iconPosition='left'
-                                placeholder='Search current projects...'
-                                onChange={(e) => { setSearchString(e.target.value) }}
-                                value={searchString}
-                            />
-                            <Loader
-                                active={!loadedProjects}
-                                className='ml-2p'
-                                inline
-                            />
-                            <Button
-                                as={Link}
-                                to='/projects/create'
-                                floated='right'
-                                color='green'
-                            >
-                                <Button.Content>
-                                    <Icon name='add' />
-                                    Create a Project
-                                </Button.Content>
-                            </Button>
+                            <Breadcrumb>
+                                <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                    Control Panel
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section as={Link} to='/controlpanel/usersmanager'>
+                                    Users Manager
+                                </Breadcrumb.Section>
+                                <Breadcrumb.Divider icon='right chevron' />
+                                <Breadcrumb.Section active>
+                                    User Details
+                                </Breadcrumb.Section>
+                            </Breadcrumb>
                         </Segment>
-                        <Segment>
+                        <Segment loading={!loadedData}>
+                            <Grid divided='vertically' verticalAlign='middle'>
+                                <Grid.Row>
+                                    <Grid.Column width={2}>
+                                        <Image
+                                            src={userData.avatar || '/mini_logo.png'}
+                                            size='medium'
+                                            circular
+                                        />
+                                    </Grid.Column>
+                                    <Grid.Column width={14}>
+                                        <Header as='h2'>
+                                            {userData.firstName} {userData.lastName}
+                                        </Header>
+                                        <Grid>
+                                            <Grid.Row columns='equal'>
+                                                <Grid.Column>
+                                                    <Header sub>Email</Header>
+                                                    {(userData.email)
+                                                        ? (<p>{userData.email}</p>)
+                                                        : (<p><em>Unknown</em></p>)
+                                                    }
+                                                </Grid.Column>
+                                                <Grid.Column>
+                                                    <Header sub>Authentication Method</Header>
+                                                    {(userData.authMethod)
+                                                        ? (<p>{userData.authMethod}</p>)
+                                                        : (<p><em>Unknown</em></p>)
+                                                    }
+                                                </Grid.Column>
+                                                <Grid.Column>
+
+                                                    <Header sub>Account Creation Date</Header>
+                                                    {(userData.createdAt)
+                                                        ? (<p>{userData.createdAt}</p>)
+                                                        : (<p><em>Unknown</em></p>)
+                                                    }
+                                                </Grid.Column>
+                                            </Grid.Row>
+                                        </Grid>
+                                    </Grid.Column>
+                                </Grid.Row>
+                            </Grid>
+                            <Header as='h3' dividing>User Projects</Header>
                             <Table celled>
                                 <Table.Header>
                                     <Table.Row>
@@ -188,8 +193,8 @@ const ProjectsPortal = (props) => {
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
-                                    {(displayProjects.length > 0) &&
-                                        displayProjects.map((item, index) => {
+                                    {(userProjects.length > 0) &&
+                                        userProjects.map((item, index) => {
                                             const itemDate = new Date(item.updatedAt);
                                             item.updatedDate = date.format(itemDate, 'MM/DD/YY');
                                             item.updatedTime = date.format(itemDate, 'h:mm A');
@@ -250,7 +255,7 @@ const ProjectsPortal = (props) => {
                                             )
                                         })
                                     }
-                                    {(loadedProjects && displayProjects.length === 0) &&
+                                    {(userProjects.length === 0) &&
                                         <Table.Row>
                                             <Table.Cell colSpan={6}>
                                                 <p className='text-center'><em>No results found.</em></p>
@@ -264,8 +269,8 @@ const ProjectsPortal = (props) => {
                 </Grid.Column>
             </Grid.Row>
         </Grid>
-    );
+    )
 
-};
+}
 
-export default ProjectsPortal;
+export default UserDetails;
