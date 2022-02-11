@@ -32,3 +32,6 @@ config/
 
 # Runtime-generated Files
 server/public
+
+# IDE Files
+.vscode

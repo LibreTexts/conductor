@@ -1,5 +1,10 @@
 # Changelog
 
+# 02-10-2022
+#### :satellite: Server
+* Project autogeneration during Commons-Libraries sync now includes more information from the Book source
+
+
 # 02-01-2022
 #### :art: UI/UX
 * Fixed a bug where users with elevated permissions could not see certain portions of a Project

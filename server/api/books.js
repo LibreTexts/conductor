@@ -385,7 +385,8 @@ const syncWithLibraries = (_req, res) => {
                         title: book.title,
                         library: bookLib,
                         coverID: bookCoverID,
-                        url: book.links?.online
+                        url: book.links?.online,
+                        author: book.author
                     });
                 }
             }

@@ -2001,8 +2001,9 @@ const autoGenerateProjects = (newBooks) => {
                 orgID: 'libretexts',
                 projectID: b62(10),
                 title: book.title,
-                status: 'open',
-                visibility: 'private',
+                status: 'completed',
+                visibility: 'public',
+                currentProgress: 100,
                 classification: 'curation',
                 projectURL: book.url,
                 leads: [projLead],
@@ -2013,6 +2014,7 @@ const autoGenerateProjects = (newBooks) => {
                 libreLibrary: book.library,
                 libreCoverID: book.coverID
             };
+            if (typeof (book.author) === 'string' && book.author.length > 0) newProj.author = book.author;
             if (Array.isArray(bookInfoRes)) {
                 let foundInfo = bookInfoRes.find((infoObj) => (
                     infoObj.lib === book.library && infoObj.id === book.coverID
