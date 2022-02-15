@@ -395,7 +395,7 @@ const createTaskMessage = (req, res) => {
         if (taskData) {
             task = taskData;
             return Project.findOne({
-                taskID: task.projectID
+                projectID: task.projectID
             }).lean();
         } else {
             throw(new Error('notfound'));

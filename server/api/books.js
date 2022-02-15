@@ -455,7 +455,7 @@ const syncWithLibraries = (_req, res) => {
         return generateKBExport();
     }).then((generated) => {
         if (generated === true) didGenExports = true;
-        if (projectsToCreate.length > 0) {
+        if (projectsToCreate.length > 0 && process.env.NODE_ENV === 'production') {
             // Continue to autogenerate new Projects
             return projectAPI.autoGenerateProjects(projectsToCreate);
         }

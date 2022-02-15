@@ -49,6 +49,7 @@ const CommonsBook = (props) => {
         subject: '',
         course: '',
         license: '',
+        licenseVersion: null,
         thumbnail: '',
         summary: '',
         rating: 0,
@@ -192,7 +193,7 @@ const CommonsBook = (props) => {
                 if (item.license?.link && item.license.link !== '#') {
                     processedItem.metaLink = {
                         url: item.license.link,
-                        text: `${item.license.label} ${item.license.version}`
+                        text: `${item.license.label} ${item.license.version ? item.license.version : ''}`
                     };
                 } else processedItem.meta = { text: item.license.label };
                 if (Array.isArray(item.children)) processedItem.children = processLicensingTOCRecursive(item.children);
@@ -220,17 +221,20 @@ const CommonsBook = (props) => {
                     setCLRData(licenseReport);
                     let pieChart = [];
                     if (licenseReport.meta?.licenses && Array.isArray(licenseReport.meta.licenses)) {
-                        if (licenseReport.meta.licenses.length > 1) {
+                        let nonUnclassedLicenses = licenseReport.meta.licenses.filter((item) => item.raw !== 'notset');
+                        if (nonUnclassedLicenses.length > 1) {
                             setBook({
                                 ...book,
-                                license: 'mixed'
+                                license: 'mixed',
+                                licenseVersion: null
                             });
-                        } else if (licenseReport.meta.licenses.length === 1) {
+                        } else if (nonUnclassedLicenses.length === 1) {
                             let singleLicense = licenseReport.meta.licenses[0];
                             if (typeof (singleLicense.raw) === 'string') {
                                 setBook({
                                     ...book,
-                                    license: singleLicense.raw
+                                    license: singleLicense.raw,
+                                    licenseVersion: singleLicense.version
                                 });
                             }
                         }
@@ -513,7 +517,7 @@ const CommonsBook = (props) => {
                                                     {getLibraryName(book.library)}
                                                 </p>
                                                 {(book.license && !isEmptyString(book.license)) &&
-                                                    <p><Icon name='shield' /> {getLicenseText(book.license)}</p>
+                                                    <p><Icon name='shield' /> {getLicenseText(book.license, book.licenseVersion)}</p>
                                                 }
                                                 {(book.affiliation && !isEmptyString(book.affiliation)) &&
                                                     <p><Icon name='university' /> {book.affiliation}</p>
@@ -769,7 +773,7 @@ const CommonsBook = (props) => {
                                                     {getLibraryName(book.library)}
                                                 </p>
                                                 {(book.license && !isEmptyString(book.license)) &&
-                                                    <p className='commons-book-mobile-detail'><Icon name='shield' /> {getLicenseText(book.license)}</p>
+                                                    <p className='commons-book-mobile-detail'><Icon name='shield' /> {getLicenseText(book.license, book.licenseVersion)}</p>
                                                 }
                                                 {(book.affiliation && !isEmptyString(book.affiliation)) &&
                                                     <p className='commons-book-mobile-detail'><Icon name='university' /> {book.affiliation}</p>

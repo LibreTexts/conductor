@@ -159,6 +159,7 @@ const getLicenseColor = (license) => {
         gnu:            '#6a7d00',
         gnufdl:         '#008480',
         gnudsl:         '#4865ff',
+        ck12:           '#a4684d',
         publicdomain:   '#018715',
         fairuse:        '#CF4900',
         notset:         '#001F3F'

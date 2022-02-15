@@ -1,5 +1,15 @@
 # Changelog
 
+# 02-15-2022
+#### :art: UI/UX
+* Updated logic for determining homogeneity of Book licensing
+* Added support for new license in Book Licensing
+
+#### :satellite: Server
+* Fixed a bug with permissions when attempting to send a Task message
+* Updated `axios` package to resolve security vulnerabilities
+
+
 # 02-10-2022
 #### :satellite: Server
 * Project autogeneration during Commons-Libraries sync now includes more information from the Book source

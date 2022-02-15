@@ -17,7 +17,8 @@ const licenses = [
     'gnudsl',
     'gnufdl',
     'gnugpl',
-    'publicdomain'
+    'ck12',
+    'publicdomain',
 ];
 
 const sortChoices = [
