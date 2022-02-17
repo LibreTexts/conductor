@@ -214,6 +214,7 @@ const genPermalink = (bookID) => {
  * @returns {Promise<Object|Error>} The Book's TOC object, or throws an error.
  */
  const getBookTOCFromAPI = (bookID, bookURL) => {
+    let bookLookup = false;
     return Promise.try(() => {
         if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
             bookLookup = true;
