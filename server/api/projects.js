@@ -21,6 +21,7 @@ const {
     validateRoadmapStep,
     getLibreTextInformation
 } = require('../util/projectutils.js');
+const { getBookTOCFromAPI } = require('../util/bookutils.js');
 const { validateA11YReviewSectionItem } = require('../util/a11yreviewutils.js');
 const { isEmptyString } = require('../util/helpers.js');
 const { libraryNameKeys } = require('../util/librariesmap.js');
@@ -1843,7 +1844,6 @@ const updateA11YReviewSectionItem = (req, res) => {
 
 
 const importA11YSectionsFromTOC = (req, res) => {
-
     const recurseBuildPagesArray = (pages) => {
         if (Array.isArray(pages)) {
             let processed = [];
@@ -1872,7 +1872,7 @@ const importA11YSectionsFromTOC = (req, res) => {
                     !isEmptyString(projectData.libreLibrary)
                     && !isEmptyString(projectData.libreCoverID)
                     && !isEmptyString(projectData.projectURL)
-                ) return bookAPI.getBookTOCFromAPI(null, projectData.projectURL);
+                ) return getBookTOCFromAPI(null, projectData.projectURL);
                 else throw (new Error('bookid'));
             } else {
                 throw (new Error('unauth'));

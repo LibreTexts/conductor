@@ -32,6 +32,7 @@ const {
     genPubFilesLink,
     genLMSFileLink,
     genPermalink,
+    getBookTOCFromAPI,
 } = require('../util/bookutils.js');
 const {
     buildPeerReviewAggregation,
@@ -87,9 +88,9 @@ const normalizedSort = (a, b) => {
 /**
  * Accepts an array of Books and the sorting choice and
  * returns the sorted array.
- * @param {Object[]} books - the array of Book objects to sort
- * @param {String}   sortChoice - the sort choice, either 'author' or 'title'
- * @returns {Object[]} the sorted array of Books
+ * @param {object[]} books - The array of Book objects to sort
+ * @param {string} [sortChoice] - The sort choice, either 'author' or 'title' (default).
+ * @returns {object[]} The sorted array of Books.
  */
 const sortBooks = (books, sortChoice) => {
     if (Array.isArray(books) && !isEmptyString(sortChoice)) {
@@ -564,7 +565,7 @@ const getCommonsCatalog = (req, res) => {
     var sortChoice = 'title'; // default to Sort by Title
     const matchObj = {};
     var hasSearchParams = false;
-    new Promise((resolve, _reject) => {
+    return new Promise((resolve, _reject) => {
         if (process.env.ORG_ID === 'libretexts') {
             // LibreCommons — no need to lookup Organization info
             resolve({});
@@ -1220,7 +1221,7 @@ const getBookSummary = (req, res) => {
  * @param {Object} res - the express.js response object
  */
 const getBookTOC = (req, res) => {
-    getBookTOCFromAPI(req.query.bookID).then((toc) => {
+    return getBookTOCFromAPI(req.query.bookID).then((toc) => {
         return res.send({
             err: false,
             toc: toc
@@ -1231,45 +1232,6 @@ const getBookTOC = (req, res) => {
             err: true,
             errMsg: conductorErrors.err6
         })
-    });
-};
-
-
-/**
- * Makes a request to the LibreTexts API server to build
- * an object consisting of the Book's Table of Contents.
- * INTERNAL USE ONLY
- * NOTE: This function should NOT be called directly from
- * an API route.
- * @param {String} [bookID] - A standard `lib-coverID` LibreTexts identifier.
- * @param {String} [bookURL] - The URL of the LibreText to lookup.
- * @returns {Promise<Object|Error>}
- */
-const getBookTOCFromAPI = (bookID, bookURL) => {
-    let bookLookup = false;
-    return new Promise((resolve, reject) => {
-        if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
-            bookLookup = true;
-            resolve(Book.findOne({ bookID: bookID }).lean());
-        } else if (typeof (bookURL) === 'string' && !isEmptyString(bookURL)) {
-            resolve({});
-        }
-        reject(new Error('tocretrieve'));
-    }).then((commonsBook) => {
-        let bookAddr = '';
-        if (bookLookup && typeof (commonsBook) === 'object' && typeof (commonsBook.links?.online) === 'string') {
-            bookAddr = commonsBook.links.online;
-        } else if (!bookLookup && typeof (bookURL) === 'string') {
-            bookAddr = bookURL;
-        } else {
-            throw (new Error('tocretrieve'));
-        }
-        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${bookAddr}`, {
-            headers: { 'Origin': getProductionURL() }
-        });
-    }).then((tocRes) => {
-        if (tocRes.data && tocRes.data.toc) return tocRes.data.toc;
-        else throw (new Error('tocretrieve'));
     });
 };
 
@@ -1473,7 +1435,6 @@ module.exports = {
     removeBookFromCustomCatalog,
     getBookSummary,
     getBookTOC,
-    getBookTOCFromAPI,
     getLicenseReport,
     retrieveKBExport,
     validate

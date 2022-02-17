@@ -2,8 +2,12 @@
 // LibreTexts Conductor
 // bookutils.js
 //
+var Promise = require('bluebird');
 const { isEmptyString } = require('./helpers.js');
 const { libraryNameKeys } = require('./librariesmap.js');
+const Book = require('../models/book.js');
+const axios = require('axios');
+const { getProductionURL } = require('./helpers.js');
 
 const licenses = [
     'arr',
@@ -200,6 +204,42 @@ const genPermalink = (bookID) => {
     return '';
 }
 
+/**
+ * Makes a request to the LibreTexts API server to build an object consisting of the
+ * Book's Table of Contents.
+ * INTERNAL USE ONLY.
+ * NOTE: This function should NOT be called directly from an API route.
+ * @param {String} [bookID] - A standard `lib-coverID` LibreTexts identifier.
+ * @param {String} [bookURL] - The URL of the LibreText to lookup.
+ * @returns {Promise<Object|Error>} The Book's TOC object, or throws an error.
+ */
+ const getBookTOCFromAPI = (bookID, bookURL) => {
+    return Promise.try(() => {
+        if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
+            bookLookup = true;
+            return Book.findOne({ bookID: bookID }).lean();
+        } else if (typeof (bookURL) === 'string' && !isEmptyString(bookURL)) {
+            return {};
+        }
+        throw (new Error('tocretrieve'));
+    }).then((commonsBook) => {
+        let bookAddr = '';
+        if (bookLookup && typeof (commonsBook) === 'object' && typeof (commonsBook.links?.online) === 'string') {
+            bookAddr = commonsBook.links.online;
+        } else if (!bookLookup && typeof (bookURL) === 'string') {
+            bookAddr = bookURL;
+        } else {
+            throw (new Error('tocretrieve'));
+        }
+        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${bookAddr}`, {
+            headers: { 'Origin': getProductionURL() }
+        });
+    }).then((tocRes) => {
+        if (tocRes.data && tocRes.data.toc) return tocRes.data.toc;
+        else throw (new Error('tocretrieve'));
+    });
+};
+
 
 
 module.exports = {
@@ -215,5 +255,6 @@ module.exports = {
     genZIPLink,
     genPubFilesLink,
     genLMSFileLink,
-    genPermalink
+    genPermalink,
+    getBookTOCFromAPI
 }

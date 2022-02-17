@@ -1,5 +1,10 @@
 # Changelog
 
+# 02-17-2021
+#### :satellite: Server
+* Patched a bug preventing TOC syncing in Accessibility CRMs
+
+
 # 02-15-2022
 #### :art: UI/UX
 * Updated logic for determining homogeneity of Book licensing
