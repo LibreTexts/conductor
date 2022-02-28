@@ -198,8 +198,17 @@ body {
 }
 
 /** padding-left **/
+.pl-2p {
+    padding-left: 2% !important;
+}
+
 .pl-4p {
     padding-left: 4% !important;
+}
+
+/** padding-right **/
+.pr-2p {
+    padding-right: 2% !important;
 }
 
 .margin-none {

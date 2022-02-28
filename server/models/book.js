@@ -43,7 +43,8 @@ const BookSchema = new Schema({
         files: String,          //      download publication/print files
         lms: String             //      download the LMS import file
     },
-    adaptID: String             // the complementary ADAPT course ID (if applicable)
+    adaptID: String,            // the complementary ADAPT course ID (if applicable)
+    lastUpdated: String         // the timestamp of the most recent (page-level) update within the book
 }, {
     timestamps: true
 });

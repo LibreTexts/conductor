@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
 import Breakpoint from '../util/Breakpoints.jsx';
+import withUserStateDependency from '../util/withUserStateDependency.jsx';
 
 import { getLibGlyphURL } from '../util/LibraryOptions.js';
 import AuthHelper from '../util/AuthHelper.js';
@@ -29,54 +30,9 @@ const Navbar = (_props) => {
     const org = useSelector((state) => state.org);
     const { handleGlobalError } = useGlobalError();
 
-    // Data fetch flags
-    const loadedUser = useRef(false);
-
     // UI
     const [activeItem, setActiveItem] = useState('');
     //const [searchInput, setSearchInput] = useState('');
-
-    /**
-     * Check if the browser has an auth token.
-     * (Updates global state var 'isAuthenticated')
-     */
-    useEffect(() => {
-        dispatch({
-            type: 'CHECK_AUTH'
-        });
-    }, [dispatch]);
-
-    /**
-     * Check if user is authenticated and if
-     * user information has NOT been fetched,
-     * retrieve it via GET request.
-     */
-    useEffect(() => {
-        if (user.isAuthenticated && !loadedUser.current) {
-            axios.get('/user/basicinfo').then((res) => {
-                if (!res.data.err && res.data.user !== null) {
-                    dispatch({
-                        type: 'SET_USER_INFO',
-                        payload: {
-                            uuid: res.data.user.uuid,
-                            authType: res.data.user.authType,
-                            firstName: res.data.user.firstName,
-                            lastName: res.data.user.lastName,
-                            avatar: res.data.user.avatar,
-                            roles: res.data.user.roles
-                        }
-                    });
-                    loadedUser.current = true;
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-            }).catch((err) => {
-                if (err.response?.data?.tokenExpired !== true) {
-                    handleGlobalError("Oops, we encountered an error.");
-                }
-            });
-        }
-    }, [user.isAuthenticated, dispatch, handleGlobalError]);
 
     /**
      * Check if Organization info is already
@@ -115,8 +71,6 @@ const Navbar = (_props) => {
         const currentPath = location.pathname;
         if (currentPath.includes('/home')) {
             setActiveItem('home');
-        } else if (currentPath.includes('/harvesting')) {
-            setActiveItem('harvesting');
         } else if (currentPath.includes('/projects')) {
             setActiveItem('projects');
         } else {
@@ -337,4 +291,4 @@ const Navbar = (_props) => {
     }
 }
 
-export default Navbar;
+export default withUserStateDependency(Navbar);

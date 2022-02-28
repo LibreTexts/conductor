@@ -13,7 +13,11 @@ const Project = require('../models/project.js');
 const PeerReview = require('../models/peerreview.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString, getProductionURL } = require('../util/helpers.js');
+const {
+    isEmptyString,
+    getProductionURL,
+    isValidDateObject,
+} = require('../util/helpers.js');
 const { debugError, debugCommonsSync, debugObject } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
@@ -264,6 +268,7 @@ const syncWithLibraries = (_req, res) => {
                 let course = '';
                 let location = '';
                 let program = '';
+                let lastUpdated = '';
                 if (book.link) {
                     link = book.link;
                     if (String(book.link).includes('/Bookshelves/')) {
@@ -309,6 +314,7 @@ const syncWithLibraries = (_req, res) => {
                         }
                     });
                 }
+                if (typeof (book.lastModified) === 'string') lastUpdated = book.lastModified;
                 processedBooks.push({
                     author,
                     affiliation,
@@ -329,7 +335,8 @@ const syncWithLibraries = (_req, res) => {
                         zip: genZIPLink(book.zipFilename),
                         files: genPubFilesLink(book.zipFilename),
                         lms: genLMSFileLink(book.zipFilename)
-                    }
+                    },
+                    lastUpdated,
                 });
             }
         });
@@ -413,7 +420,8 @@ const syncWithLibraries = (_req, res) => {
                             license: book.license,
                             thumbnail: book.thumbnail,
                             summary: book.summary,
-                            links: book.links
+                            links: book.links,
+                            lastUpdated: book.lastUpdated
                         }
                     },
                     upsert: true
@@ -1283,7 +1291,8 @@ const generateKBExport = () => {
                     library: 1,
                     license: 1,
                     summary: 1,
-                    thumbnail: 1
+                    thumbnail: 1,
+                    lastUpdated: 1
                 }
             }
         ]));
@@ -1304,6 +1313,12 @@ const generateKBExport = () => {
                 }
                 if (typeof (item.license) === 'string' && !isEmptyString(item.license)) {
                     bookOut.license = item.license;
+                }
+                if (typeof (item.lastUpdated) === 'string') {
+                    const lastUpdateDate = new Date(item.lastUpdated);
+                    if (isValidDateObject(lastUpdateDate)) {
+                        bookOut.date_last_updated = item.lastUpdated;
+                    }
                 }
                 if (typeof (item.summary) === 'string' && !isEmptyString(item.summary)) {
                     bookOut.description = item.summary;
@@ -1337,12 +1352,12 @@ const generateKBExport = () => {
             return fs.ensureDir('./public');
         } else throw (new Error('notarray'));
     })
-        .then(() => fs.writeJson('./public/kbexport.json', kbExport))
-        .then(() => true)
-        .catch((err) => {
-            debugError(err);
-            return false;
-        });
+    .then(() => fs.writeJson('./public/kbexport.json', kbExport))
+    .then(() => true)
+    .catch((err) => {
+        debugError(err);
+        return false;
+    });
 };
 
 
@@ -1354,8 +1369,22 @@ const generateKBExport = () => {
  */
 const retrieveKBExport = (_req, res) => {
     fs.pathExists('./public/kbexport.json').then((exists) => {
-        if (exists === true) return true;
-        else return generateKBExport(); // try to generate on-the-fly
+        if (exists === true) {
+            const currentExport = fs.readJSONSync('./public/kbexport.json', { throws: false });
+            if (currentExport !== null && typeof (currentExport.date) === 'string') {
+                const currentExportDate = new Date(currentExport.date);
+                const today = new Date();
+                if (
+                    isValidDateObject(currentExportDate)
+                    && (Math.abs(currentExportDate - today) < (60 * 60 * 24 * 1000))
+                ) {
+                    // Export is less than a day old
+                    return true;
+                }
+            }   
+        }
+        // generate on-the-fly
+        return generateKBExport();
     }).then((generated) => {
         if (generated === true) {
             return res.status(200).sendFile('./public/kbexport.json', { root: '.' });

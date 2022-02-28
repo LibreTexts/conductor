@@ -1,5 +1,13 @@
 # Changelog
 
+# 02-28-2021
+#### :art: UI/UX
+* Added current user context to the Commons navbar
+
+#### :satellite: Server
+* Add 'Date Last Updated' to Commons Knowledge Base Export
+
+
 # 02-17-2021
 #### :satellite: Server
 * Patched a bug preventing TOC syncing in Accessibility CRMs

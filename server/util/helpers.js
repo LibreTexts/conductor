@@ -142,6 +142,15 @@ const stringContainsOneOfSubstring = (str, arr, returnStr) => {
 
 
 /**
+ * Checks if a native Date is properly instantiated.
+ * @param {Object} date - The Date object to validate.
+ */
+const isValidDateObject = (date) => {
+    return date instanceof Date && !isNaN(date);
+};
+
+
+/**
  * Returns the production URL set in the server's environment variables.
  * @returns {String} the first production URL or an empty string if not found.
  */
@@ -160,5 +169,6 @@ module.exports = {
     threePartDateStringToDate,
     ensureUniqueStringArray,
     stringContainsOneOfSubstring,
+    isValidDateObject,
     getProductionURL
 };

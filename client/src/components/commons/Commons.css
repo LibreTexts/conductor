@@ -52,6 +52,12 @@
     margin-left: 0.25em;
 }
 
+#commons-nav-mobileavatar {
+    height: 20px;
+    width: 20px;
+    margin: 0;
+}
+
 #commons-mobilenav {
     z-index: 100; /* Layer over jumbotron */
     position: relative;

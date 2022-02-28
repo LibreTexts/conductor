@@ -1,16 +1,21 @@
 import './Commons.css';
 
 import { Link } from 'react-router-dom';
-import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
-import React, { useState } from 'react';
+import { Menu, Image, Dropdown, Icon, Button, } from 'semantic-ui-react';
+import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 
 import Breakpoint from '../util/Breakpoints.jsx';
+import withUserStateDependency from '../util/withUserStateDependency.jsx';
+
+import useGlobalError from '../error/ErrorHooks.js';
 
 const CommonsNavbar = (_props) => {
 
-    // Global State
+    // Global State and Error Handling
     const org = useSelector((state) => state.org);
+    const user = useSelector((state) => state.user);
+    const { handleGlobalError } = useGlobalError();
 
     // UI
     const [displayMobileMenu, setDisplayMobileMenu] = useState(false);
@@ -91,13 +96,26 @@ const CommonsNavbar = (_props) => {
                                 </Dropdown.Menu>
                             </Dropdown>
                         }
-                        <Menu.Item
-                            as={Link}
-                            to='/login'
-                            className='commons-nav-link'
-                        >
-                            Login to Conductor <Icon name='lightning' className='no-margin' />
-                        </Menu.Item>
+                        {user.isAuthenticated ? (
+                            <Menu.Item
+                                as={Link}
+                                to='/home'
+                                className='commons-nav-link'
+                                style={{ padding: '.4em' }}
+                                aria-label='Back to Conductor'
+                            >
+                                <Image src={`${user.avatar}`} avatar />
+                                <span><strong>Conductor</strong></span>
+                            </Menu.Item>
+                        ) : (
+                            <Menu.Item
+                                as={Link}
+                                to='/login'
+                                className='commons-nav-link'
+                            >
+                                Login to Conductor <Icon name='lightning' className='no-margin' />
+                            </Menu.Item>
+                        )}
                     </Menu.Menu>
                 </Menu>
             </Breakpoint>
@@ -181,14 +199,31 @@ const CommonsNavbar = (_props) => {
                                 </Menu.Item>
                             </Menu.Menu>
                         }
-                        <Menu.Item
-                            as={Link}
-                            to='/login'
-                            className='commons-nav-link'
-                        >
-                            Login to Conductor
-                            <Icon name='lightning' className='float-right' />
-                        </Menu.Item>
+                        {user.isAuthenticated ? (
+                            <Menu.Item
+                                as={Link}
+                                to='/home'
+                                className='commons-nav-link'
+                                aria-label='Back to Conductor'
+                            >
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <span><strong>Conductor</strong></span>
+                                    </div>
+                                    <div className='right-flex'>
+                                        <Image src={`${user.avatar}`} avatar id='commons-nav-mobileavatar' />
+                                    </div>
+                                </div>
+                            </Menu.Item>
+                        ) : (
+                            <Menu.Item
+                                as={Link}
+                                to='/login'
+                                className='commons-nav-link'
+                            >
+                                Login to Conductor <Icon name='lightning' className='float-right' />
+                            </Menu.Item>
+                        )}
                     </Menu>
                 }
             </Breakpoint>
@@ -196,7 +231,7 @@ const CommonsNavbar = (_props) => {
     )
 }
 
-export default CommonsNavbar;
+export default withUserStateDependency(CommonsNavbar);
 
 /*
 <Menu.Item onClick={() => { setShowMobileLibs(!showMobileLibs) }}>
