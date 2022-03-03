@@ -33,9 +33,9 @@ const checkValidationErrors = (req, res, next) => {
 /**
  * Checks that the route is being run on a LibreCommons server,
  * verified via an environment variable.
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- * @param {Object} next - the next function in the middleware chain.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ * @param {function} next - The next function in the middleware chain.
  */
 const checkLibreCommons = (_req, res, next) => {
     if (process.env.ORG_ID === 'libretexts') return next();
@@ -49,14 +49,33 @@ const checkLibreCommons = (_req, res, next) => {
 
 
 /**
+ * Verifies that a request has provided a valid key from the LibreTexts API.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ * @param {function} next - The next function in the middleware chain.
+ */
+const checkLibreAPIKey = (req, res, next) => {
+    if (typeof (req.headers?.authorization) === 'string') {
+        const foundToken = req.headers.authorization.replace('Bearer ', '');
+        if (!process.env.LIBRE_API_KEY || process.env.LIBRE_API_KEY.length === 0) {
+            return res.status(500).send({ errMsg: conductorErrors.err6 });
+        }
+        if (process.env.LIBRE_API_KEY === foundToken) return next();
+    }
+    return res.status(401).send({ errMsg: conductorErrors.err5 });
+};
+
+
+/**
  * Verifies CORS properties (all routes).
- * @param {Object} req    - the route request object
- * @param {Object} res    - the route response object
- * @param {function} next - the route's next middleware function to be ran
+ * 
+ * @param {object} req - The route request object.
+ * @param {object} res - The route response object.
+ * @param {function} next - The route's next middleware function to be ran.
  */
 const corsHelper = (req, res, next) => {
-    var allowedOrigins = [];
-    var origin = req.headers.origin;
+    let allowedOrigins = [];
+    let origin = req.headers.origin;
     if (process.env.NODE_ENV === 'production') {
         allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
     } else if (process.env.NODE_ENV === 'development') {
@@ -78,11 +97,12 @@ const corsHelper = (req, res, next) => {
 
 
 /**
- * Performs security header checks and reconstructs the
- * Authorization header from cookies/credentials (all routes).
- * @param {Object} req    - the route request object
- * @param {Object} res    - the route response object
- * @param {function} next - the route's next middleware function to be ran
+ * Performs security header checks and reconstructs the Authorization header from
+ * cookies/credentials (all routes).
+ * 
+ * @param {object} req - The route request object.
+ * @param {object} res - The route response object.
+ * @param {function} next - The route's next middleware function to be ran.
  */
 const authSanitizer = (req, res, next) => {
     if (req.method !== 'OPTIONS') {
@@ -120,6 +140,7 @@ const middlewareFilter = (paths, middleware) => {
 module.exports = {
     checkValidationErrors,
     checkLibreCommons,
+    checkLibreAPIKey,
     corsHelper,
     authSanitizer,
     middlewareFilter

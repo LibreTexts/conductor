@@ -246,6 +246,8 @@ router.route('/commons/syncwithlibs').post(authAPI.verifyRequest,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     booksAPI.syncWithLibraries);
 
+router.route('/commons/syncwithlibs/automated').put(middleware.checkLibreAPIKey, booksAPI.runAutomatedSyncWithLibraries);
+
 
 /* Commons Books/Catalogs */
 router.route('/commons/catalog').get(
@@ -297,10 +299,12 @@ router.route('/commons/homework/all').get(homeworkAPI.getAllHomework);
 router.route('/commons/homework/adapt').get(homeworkAPI.getADAPTCatalog);
 
 
-router.route('/commons/homework/syncadapt').post(authAPI.verifyRequest,
+router.route('/commons/homework/sync').post(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-    homeworkAPI.syncADAPTCommons);
+    homeworkAPI.syncHomework);
+
+router.route('/commons/homework/sync/automated').put(middleware.checkLibreAPIKey, homeworkAPI.runAutomatedHomeworkSync);
 
 
 /* Search */

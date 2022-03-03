@@ -166,7 +166,7 @@ const HomeworkManager = (_props) => {
      */
     const syncWithProviders = () => {
         setSyncInProgress(true);
-        axios.post('/commons/homework/syncadapt').then((res) => {
+        axios.post('/commons/homework/sync').then((res) => {
             if (!res.data.err) {
                 setSyncResponse(res.data.msg);
                 getHomework();
@@ -285,7 +285,7 @@ const HomeworkManager = (_props) => {
                                             onClick={openSyncModal}
                                         >
                                             <Icon name='sync alternate' />
-                                            Sync Homework with ADAPT
+                                            Sync Homework Systems
                                         </Button>
                                     }
                                 </div>
@@ -377,14 +377,14 @@ const HomeworkManager = (_props) => {
                             </Table>
                         </Segment>
                     </Segment.Group>
-                    {/* ADAPT Sync Modal */}
+                    {/* Homework Systems Sync Modal */}
                     <Modal
                         open={showSyncModal}
                         closeOnDimmerClick={false}
                     >
-                        <Modal.Header>ADAPT Sync</Modal.Header>
+                        <Modal.Header>Homework Systems Sync</Modal.Header>
                         <Modal.Content>
-                            <p><strong>Caution:</strong> you are about to manually sync Homework with the ADAPT Commons. This operation is resource-intensive and should not be performed often.</p>
+                            <p><strong>Caution:</strong> you are about to manually sync Homework with: <em>ADAPT Commons</em>. This operation is resource-intensive and should not be performed often.</p>
                             <p><em>This may result in a brief service interruption while the database is updated.</em></p>
                             {!syncFinished &&
                                 <Button
@@ -394,7 +394,7 @@ const HomeworkManager = (_props) => {
                                     loading={syncInProgress}
                                 >
                                     <Icon name='sync alternate' />
-                                    Sync Homework with ADAPT
+                                    Sync Homework Systems
                                 </Button>
                             }
                             {(syncInProgress) &&

@@ -4,11 +4,12 @@
 //
 
 'use strict';
+let Promise = require('bluebird');
 const Homework = require('../models/homework.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { isEmptyString } = require('../util/helpers.js');
-const { debugError, debugObject, debugADAPTSync } = require('../debug.js');
+const { debugError, debugObject, debugADAPTSync, debugServer } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
 
@@ -46,8 +47,7 @@ const getAllHomework = (_req, res) => {
 };
 
 /**
- * Get Homework resources originating
- * from the ADAPT servers.
+ * Get Homework resources originating from the ADAPT servers.
  */
 const getADAPTCatalog = (_req, res) => {
     Homework.aggregate([
@@ -83,22 +83,21 @@ const getADAPTCatalog = (_req, res) => {
 
 
 /**
- * Queries the ADAPT server for ADAPT
- * Commons courses and their assignments,
- * then upserts them into the Homework
- * collection (as kind: 'adapt').
+ * Queries the ADAPT server for ADAPT Commons courses and their assignments,
+ * then upserts them into the Homework collection (as kind: 'adapt').
+ * 
  */
-const syncADAPTCommons = (_req, res) => {
-    var assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/commons/';
-    var adaptCourses = [];
-    var assgnRequests = [];
-    axios.get('https://adapt.libretexts.org/api/courses/commons').then((acRes) => {
+const syncADAPTCommons = () => {
+    let assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/commons/';
+    let adaptCourses = [];
+    let assgnRequests = [];
+    return axios.get('https://adapt.libretexts.org/api/courses/commons').then((acRes) => {
         if (acRes.data && acRes.data.type === 'success') {
             if (acRes.data.commons_courses && Array.isArray(acRes.data.commons_courses) &&
                 acRes.data.commons_courses.length > 0) {
                     acRes.data.commons_courses.forEach((course) => {
                         if (course.id && !isNaN(course.id)) {
-                            var isOpen = false;
+                            let isOpen = false;
                             if (course.hasOwnProperty('anonymous_users') && course.anonymous_users === 1) {
                                 isOpen = true;
                             }
@@ -123,16 +122,16 @@ const syncADAPTCommons = (_req, res) => {
             throw(new Error('adaptcommons'));
         }
     }).then((assgnRes) => {
-        var adaptOps = [];
+        let adaptOps = [];
         assgnRes.forEach((axiosRes) => {
             if (axiosRes.data && axiosRes.data.type === 'success') {
-                var courseID = String(axiosRes.config.url).replace(assgnBaseURL, '');
+                let courseID = String(axiosRes.config.url).replace(assgnBaseURL, '');
                 if (axiosRes.data.assignments && Array.isArray(axiosRes.data.assignments)) {
                     adaptCourses.forEach((course, idx, origArray) => {
                         if (course.externalID === courseID) {
-                            var adaptAssgns = [];
+                            let adaptAssgns = [];
                             axiosRes.data.assignments.forEach((assgn) => {
-                                var descrip = '';
+                                let descrip = '';
                                 if (assgn.description && !isEmptyString(assgn.description)) {
                                     descrip = assgn.description;
                                 }
@@ -186,41 +185,76 @@ const syncADAPTCommons = (_req, res) => {
         if (adaptRes.modifiedCount) {
             msg += ` ${adaptRes.modifiedCount} courses updated.`
         }
-        return res.send({
+        return {
             err: false,
             msg: msg
-        });
+        };
     }).catch((err) => {
         if (err.result) { // bulkWrite errors
             if (err.result.nInserted > 0) { // Some succeeded
                 debugADAPTSync(`Inserted only ${err.results.nInserted} courses when ${adaptCourses.length} were expected.`);
-                return res.send({
+                return {
                     err: false,
                     msg: `Imported ${err.results.nInserted} courses and their assignments from ADAPT.`
-                });
+                };
             } else {
-                return res.send({
+                return {
                     err: true,
                     errMsg: conductorErrors.err15
-                });
+                };
             }
         } else if (err.message && err.message === 'adaptcommons') { // get request error
-            return res.send({
+            return {
                 err: true,
                 errMsg: conductorErrors.err14
-            });
+            };
         } else { // other errors
             debugError(err);
-            return res.send({
+            return {
                 err: true,
                 errMsg: conductorErrors.err6
-            });
+            };
         }
     });
+};
+
+
+/**
+ * Triggers syncs with all applicable, connected Homework systems.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ */
+const syncHomework = (_req, res) => {
+    /* Use Promise chain to add other Homework systems later */
+    return syncADAPTCommons().then((adaptResponse) => {
+        if (typeof (adaptResponse) === 'object') {
+            return res.send(adaptResponse);
+        } else {
+            throw (new Error('internalerror'));
+        }
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
+
+/**
+ * Runs the Homework system(s) sync job(s) via on trigger from an automated requester (e.g. schedule service).
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ */
+const runAutomatedHomeworkSync = (req, res) => {
+    debugServer(`Received automated request to sync Commons with Homework systems ${new Date().toLocaleString()}`);
+    return syncHomework(req, res);
 };
 
 module.exports = {
     getAllHomework,
     getADAPTCatalog,
-    syncADAPTCommons
+    syncHomework,
+    runAutomatedHomeworkSync
 }

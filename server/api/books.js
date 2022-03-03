@@ -18,7 +18,7 @@ const {
     getProductionURL,
     isValidDateObject,
 } = require('../util/helpers.js');
-const { debugError, debugCommonsSync, debugObject } = require('../debug.js');
+const { debugError, debugCommonsSync, debugObject, debugServer } = require('../debug.js');
 const b62 = require('base62-random');
 const axios = require('axios');
 const fs = require('fs-extra');
@@ -482,6 +482,7 @@ const syncWithLibraries = (_req, res) => {
         } else if (typeof (projectsGen) === 'boolean' && !projectsGen) {
             msg += ` FAILED to autogenerate new Projects. Check server logs.`;
         }
+        debugCommonsSync(msg);
         return res.send({
             err: false,
             msg: msg
@@ -507,6 +508,17 @@ const syncWithLibraries = (_req, res) => {
             });
         }
     });
+};
+
+
+/**
+ * Runs the Sync with Libraries job via on trigger from an automated requester (e.g. schedule service).
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ */
+const runAutomatedSyncWithLibraries = (req, res) => {
+    debugServer(`Received automated request to sync Commons with Libraries ${new Date().toLocaleString()}`);
+    return syncWithLibraries(req, res);
 };
 
 
@@ -1455,6 +1467,7 @@ const validate = (method) => {
 
 module.exports = {
     syncWithLibraries,
+    runAutomatedSyncWithLibraries,
     getCommonsCatalog,
     getMasterCatalog,
     getBookDetail,

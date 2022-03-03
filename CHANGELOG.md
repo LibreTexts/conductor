@@ -1,5 +1,10 @@
 # Changelog
 
+# 03-02-2021
+#### :satellite: Server
+* Introduced automated/scheduled Commons Libraries & Homework syncing
+
+
 # 02-28-2021
 #### :art: UI/UX
 * Added current user context to the Commons navbar
