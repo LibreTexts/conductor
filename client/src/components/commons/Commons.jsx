@@ -236,12 +236,16 @@ const Commons = (_props) => {
                 <Route exact path='/catalog' component={CommonsCatalog} />
                 <Route exact path='/collections' component={CommonsCollections} />
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <>
-                        <Route exact path='/homework' component={CommonsHomework} />
-                        <Route exact path='/libraries' component={CommonsLibraries} />
-                        <Route exact path='/libraries/:lib' component={CommonsLibraryEntry} />
-                        <Route exact path='/underdevelopment' component={CommonsUnderDevelopment} />
-                    </>
+                    <Route exact path='/homework' component={CommonsHomework} />
+                }
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/libraries' component={CommonsLibraries} />
+                }
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/libraries/:lib' component={CommonsLibraryEntry} />
+                }
+                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
+                    <Route exact path='/underdevelopment' component={CommonsUnderDevelopment} />
                 }
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />
