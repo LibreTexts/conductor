@@ -33,6 +33,21 @@ const classificationOptions = [
     { key: 'miscellaneous',     text: 'Miscellaneous',      value: 'miscellaneous' }
 ];
 
+const classificationDescriptions = [
+    {
+        key: 'harvesting',
+        description: 'Harvesting projects center around existing OER content that LibreTexts content developers are gathering from other sources and adapting to the LibreTexts platform.'
+    },
+    {
+        key: 'construction',
+        description: 'Construction projects typically enclose brand-new OER content being written on the LibreTexts platform by the community.'
+    },
+    {
+        key: 'adoptionrequest',
+        description: 'Adoption Request projects describe an effort to adapt existing OER content to the LibreTexts platform as requested by a member of the community.'
+    }
+];
+
 const projectRoleOptions = [
     { key: 'lead',      text: 'Team Lead',          value: 'lead' },
     { key: 'liaison',   text: 'Project Liaison',    value: 'liaison' },
@@ -112,6 +127,21 @@ const getClassificationText = (classification) => {
     } else {
         return 'Unknown';
     }
+};
+
+
+/**
+ * Accepts an internal Project classification value and attempts to return the
+ * UI-ready string description.
+ * @param {string} classification - The classification value to find UI description text for.
+ * @returns {string} The UI-ready string description, or an empty string.
+ */
+ const getClassificationDescription = (classification) => {
+    let foundClassification = classificationDescriptions.find(item => item.key === classification);
+    if (foundClassification !== undefined) {
+        return foundClassification.description;
+    }
+    return '';
 };
 
 
@@ -349,6 +379,7 @@ export {
     statusOptions,
     createTaskOptions,
     classificationOptions,
+    classificationDescriptions,
     projectRoleOptions,
     peerReviewPromptTypes,
     peerReviewAuthorTypes,
@@ -357,6 +388,7 @@ export {
     peerReviewSevenPointLikertOptions,
     getTaskStatusText,
     getClassificationText,
+    getClassificationDescription,
     getVisibilityText,
     getPeerReviewAuthorText,
     getPeerReviewLikertPointText,

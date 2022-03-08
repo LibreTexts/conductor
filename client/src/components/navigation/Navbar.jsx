@@ -1,15 +1,15 @@
 import './Navbar.css';
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useHistory } from 'react-router-dom';
 import {
     Menu,
     Image,
     Dropdown,
     Icon,
     Button,
-    Input
+    Form
 } from 'semantic-ui-react';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
@@ -24,15 +24,16 @@ import useGlobalError from '../error/ErrorHooks.js';
 const Navbar = (_props) => {
 
     // Global State, Location, and Error Handling
-    const location = useLocation();
     const dispatch = useDispatch();
+    const location = useLocation();
+    const history = useHistory();
     const user = useSelector((state) => state.user);
     const org = useSelector((state) => state.org);
     const { handleGlobalError } = useGlobalError();
 
     // UI
     const [activeItem, setActiveItem] = useState('');
-    //const [searchInput, setSearchInput] = useState('');
+    const [searchInput, setSearchInput] = useState('');
 
     /**
      * Check if Organization info is already
@@ -73,10 +74,19 @@ const Navbar = (_props) => {
             setActiveItem('home');
         } else if (currentPath.includes('/projects')) {
             setActiveItem('projects');
+        } else if (currentPath.includes('/search')) {
+            // Set the search query in the UI if the URL was visited directly
+            if (searchInput === '') {
+                const urlParams = new URLSearchParams(location.search);
+                const urlQuery = urlParams.get('query');
+                if (typeof (urlQuery) === 'string' && urlQuery.length > 0) {
+                    setSearchInput(urlQuery);
+                }
+            }
         } else {
             setActiveItem('');
         }
-    }, [location.pathname]);
+    }, [location, setActiveItem, setSearchInput]);
 
     /**
      * Clear user information from the
@@ -88,17 +98,14 @@ const Navbar = (_props) => {
         AuthHelper.logout(user);
     };
 
-    /*
-    const handleSearchClick = (e, data) => {
+    /**
+     * Process the search string and, if non-empty, navigate to the Search Results page.
+     */
+    const handlePerformSearch = () => {
         if (searchInput.trim() !== '') {
-            history.push('/search?query=' + encodeURIComponent(searchInput.trim()));
+            history.push(`/search?query=${encodeURIComponent(searchInput.trim())}`);
         }
     };
-
-    const handleSearchInputChange = (e, data, props) => {
-        setSearchInput(data.value);
-    };
-    */
 
     if (user.isAuthenticated) {
         return (
@@ -140,14 +147,36 @@ const Navbar = (_props) => {
                 <Breakpoint name='desktop'>
                     <Menu.Menu position='right'>
                         <Menu.Item>
-                            <Input
-                                disabled // TODO: implement search
-                                type='text'
-                                placeholder='Search...'
-                                action={
-                                    <Button basic icon='search' />
-                                }
-                            />
+                            <Form onSubmit={handlePerformSearch} className='nav-search-form'>
+                                <Form.Input
+                                    type='text'
+                                    placeholder='Search...'
+                                    onChange={(_e, { value }) => setSearchInput(value)}
+                                    value={searchInput}
+                                    action
+                                    className='nav-search-input'
+                                >
+                                    <input />
+                                    {(searchInput.length > 0) && (
+                                        <Button
+                                            icon
+                                            type='reset'
+                                            onClick={() => setSearchInput('')}
+                                            aria-label='Clear Search Input'
+                                        >
+                                            <Icon name='x' />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type='submit'
+                                        color='blue'
+                                        icon
+                                        aria-label='Perform Search'
+                                    >
+                                        <Icon name='search' />
+                                    </Button>
+                                </Form.Input>
+                            </Form>
                         </Menu.Item>
                         <Menu.Item>
                             <Icon name='book' />

@@ -163,11 +163,9 @@
 
 /* Commons Menu */
 #commons-menu {
-    display: flex;
     margin: 0;
     background-color: #127BC4;
     width: 100%;
-    height: 50px;
     -webkit-box-shadow: 2px 2px 3px 0px #999999;
     box-shadow: 2px 2px 3px 0px #999999;
 }
@@ -178,30 +176,6 @@
     font-size: 1.1em;
 }
 
-#commons-menu-left {
-    display: flex;
-    flex: 1;
-    justify-content: flex-start;
-    align-items: center;
-}
-
-#commons-menu-center {
-    display: flex;
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-}
-
-#commons-menu-right {
-    display: flex;
-    flex: 1;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-#commons-menu-pointing {
-    height: 50px;
-}
 
 #commons-mobilelinks {
     margin: 0;

@@ -48,19 +48,19 @@ const capitalizeFirstLetter = (str) => {
 
 
 /**
- * Accepts a URL or URL search string and updates or inserts the a URL paramter with the a new value.
+ * Accepts a URL or URL search string and updates or inserts the a URL parameter with the a new value.
  * @param {String} url   - The full URL or search string to modify.
  * @param {String} param - The name of the parameter to update.
  * @param {String} value - The new value to set for the URL parameter.
  * @returns {String} The updated URL.
  */
 const updateParams = (url, param, value) => {
-    var i = url.indexOf('#');
-    var hash = i === -1 ? ''  : url.substr(i);
+    let i = url.indexOf('#');
+    let hash = i === -1 ? ''  : url.substr(i);
          url = i === -1 ? url : url.substr(0, i);
 
-    var re = new RegExp("([?&])" + param + "=.*?(&|$)", "i");
-    var separator = url.indexOf('?') !== -1 ? "&" : "?";
+    let re = new RegExp("([?&])" + param + "=.*?(&|$)", "i");
+    let separator = url.indexOf('?') !== -1 ? "&" : "?";
     if (url.match(re)) {
         url = url.replace(re, '$1' + param + "=" + value + '$2');
     } else {

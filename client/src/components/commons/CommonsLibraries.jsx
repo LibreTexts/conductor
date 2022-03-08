@@ -40,7 +40,6 @@ const CommonsLibraries = (_props) => {
     const getLibraries = () => {
         axios.get('/commons/libraries/main').then((res) => {
             if (!res.data.err) {
-                console.log(res.data);
                 if (res.data.libs && Array.isArray(res.data.libs)) {
                     setLibraries(res.data.libs);
                 }

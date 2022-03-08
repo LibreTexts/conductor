@@ -34,7 +34,6 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
-import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
@@ -91,8 +90,7 @@ const ProjectView = (props) => {
     const [showProjectCreated, setShowProjectCreated] = useState(false);
     const [showDiscussion, setShowDiscussion] = useState(true);
     const [showReviewerCrumb, setShowReviewerCrumb] = useState(false);
-    const [showAlertEnabled, setShowAlertEnabled] = useState(false);
-    const [showAlertDisabled, setShowAlertDisabled] = useState(false);
+    const [showJoinComingSoon, setShowJoinComingSoon] = useState(false);
 
     // Project Data
     const [project, setProject] = useState({});
@@ -245,12 +243,6 @@ const ProjectView = (props) => {
     // TODO: Finish flagDescripErr implementation
 
 
-    // LibreTexts Alert Modal
-    const [showLibreAlertModal, setShowLibreAlertModal] = useState(false);
-    const [alertMode, setAlertMode] = useState('enable');
-    const [alertLoading, setAlertLoading] = useState(false);
-
-
     /**
      * Set page title and load Project information on initial load.
      */
@@ -278,14 +270,17 @@ const ProjectView = (props) => {
      * Read URL params and update UI accordingly.
      */
     useEffect(() => {
-        const queryValues = queryString.parse(props.location.search);
-        if (queryValues.projectCreated === 'true') {
+        const urlParams = new URLSearchParams(props.location.search);
+        if (urlParams.get('projectCreated') === 'true') {
             setShowProjectCreated(true);
         }
-        if (queryValues.reviewer === 'true') {
+        if (urlParams.get('reviewer') === 'true') {
             setShowReviewerCrumb(true);
         }
-    }, [props.location.search]);
+        if (urlParams.get('src') === 'underdevelopment') {
+            setShowJoinComingSoon(true);
+        }
+    }, [props.location.search, setShowProjectCreated, setShowReviewerCrumb, setShowJoinComingSoon]);
 
 
     /**
@@ -1659,44 +1654,6 @@ const ProjectView = (props) => {
         }
     };
 
-    const openAlertModal = (mode = 'enable') => {
-        setAlertMode(mode);
-        setAlertLoading(false);
-        setShowLibreAlertModal(true);
-    };
-
-    const closeAlertModal = () => {
-        setAlertMode('enable');
-        setAlertLoading(false);
-        setShowLibreAlertModal(false);
-    };
-
-    const submitLibreTextsAlert = () => {
-        setAlertLoading(true);
-        axios.post('/project/alert', {
-            projectID: props.match.params.id,
-            mode: alertMode
-        }).then((res) => {
-            if (!res.data.err) {
-                if (alertMode === 'enable') {
-                    setShowAlertEnabled(true);
-                    setShowAlertDisabled(false);
-                } else if (alertMode === 'disable') {
-                    setShowAlertDisabled(true);
-                    setShowAlertEnabled(false);
-                }
-                getProject();
-                closeAlertModal();
-            } else {
-                handleGlobalError(res.data.errMsg);
-                setAlertLoading(false);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-            setAlertLoading(false);
-        });
-    };
-
 
     // Rendering Helper Booleans
     let hasResourceInfo = project.author || project.license || project.resourceURL;
@@ -1903,39 +1860,11 @@ const ProjectView = (props) => {
                                         </Grid.Column>
                                     </Grid.Row>
                                 }
-                                {showAlertEnabled &&
+                                {showJoinComingSoon &&
                                     <Grid.Row>
                                         <Grid.Column width={16}>
-                                            <Message
-                                                floating
-                                                icon
-                                                success
-                                                onDismiss={() => setShowAlertEnabled(false)}
-                                            >
-                                                <Icon name='alarm' />
-                                                <Message.Content>
-                                                    <Message.Header>LibreTexts Alert successfully enabled!</Message.Header>
-                                                </Message.Content>
-                                            </Message>
-                                        </Grid.Column>
-                                    </Grid.Row>
-                                }
-                                {showAlertDisabled &&
-                                    <Grid.Row>
-                                        <Grid.Column width={16}>
-                                            <Message
-                                                floating
-                                                icon
-                                                info
-                                                onDismiss={() => setShowAlertDisabled(false)}
-                                            >
-                                                <Icon.Group className='icon'>
-                                                    <Icon name='alarm' />
-                                                    <Icon corner name='x' />
-                                                </Icon.Group>
-                                                <Message.Content>
-                                                    <Message.Header>LibreTexts Alert disabled.</Message.Header>
-                                                </Message.Content>
+                                            <Message floating color='blue'>
+                                                <span><Icon name='users' /> <strong>Coming Soon: </strong> Request to join an existing project and get involved!</span>
                                             </Message>
                                         </Grid.Column>
                                     </Grid.Row>
@@ -1990,24 +1919,6 @@ const ProjectView = (props) => {
                                                 <Dropdown.Menu>
                                                     {userProjectMember &&
                                                         <Dropdown.Item
-                                                            icon={libreAlertEnabled
-                                                                ? (
-                                                                    <Icon.Group className='icon'>
-                                                                        <Icon name='alarm' />
-                                                                        <Icon corner name='x' />
-                                                                    </Icon.Group>
-                                                                )
-                                                                : <Icon name='alarm' />
-                                                            }
-                                                            text={libreAlertEnabled ? 'Disable LibreTexts Alert' : 'Enable LibreTexts Alert'}
-                                                            onClick={() => {
-                                                                if (libreAlertEnabled) openAlertModal('disable')
-                                                                else openAlertModal('enable')
-                                                            }}
-                                                        />
-                                                    }
-                                                    {userProjectMember &&
-                                                        <Dropdown.Item
                                                             icon={hasFlag
                                                                 ? (
                                                                     <Icon.Group className='icon'>
@@ -2035,12 +1946,12 @@ const ProjectView = (props) => {
                                 {hasFlag &&
                                     <Grid.Row>
                                         <Grid.Column>
-                                            <Message color='orange'>
+                                            <Message color='orange' className='project-flag-message'>
                                                 <Message.Content>
-                                                    <p><Icon name='attention' /> This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</p>
+                                                    <p className='project-flag-message-text'><Icon name='attention' /> This project has an active flag for <em>{getFlagGroupName(project.flag)}</em>. It can be cleared under <strong>More Tools</strong>.</p>
                                                     {(project.flagDescrip && !isEmptyString(project.flagDescrip)) &&
                                                         <div>
-                                                            <p><strong>Reason for flagging:</strong></p>
+                                                            <p className='project-flag-message-text'><strong>Reason for flagging:</strong></p>
                                                             <div className='ui message' dangerouslySetInnerHTML={{
                                                                 __html: DOMPurify.sanitize(marked(project.flagDescrip))
                                                             }} />
@@ -2529,72 +2440,76 @@ const ProjectView = (props) => {
                                         value={projTitle}
                                     />
                                 </Form.Field>
-                                <Form.Field
-                                    error={projProgressErr}
-                                >
-                                    <label>Current Progress</label>
-                                    <Form.Input
-                                        name='currentProgress'
-                                        type='number'
-                                        placeholder='Enter current estimated progress...'
-                                        min='0'
-                                        max='100'
-                                        onChange={(e) => setProjProgress(e.target.value)}
-                                        value={projProgress}
+                                <Form.Group widths='equal'>
+                                    <Form.Field
+                                        error={projProgressErr}
+                                    >
+                                        <label>Current Progress</label>
+                                        <Form.Input
+                                            name='currentProgress'
+                                            type='number'
+                                            placeholder='Enter current estimated progress...'
+                                            min='0'
+                                            max='100'
+                                            onChange={(e) => setProjProgress(e.target.value)}
+                                            value={projProgress}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field
+                                        error={projPRProgressErr}
+                                    >
+                                        <label>Peer Review Progress</label>
+                                        <Form.Input
+                                            name='peerreviewprogress'
+                                            type='number'
+                                            placeholder='Enter current estimated progress...'
+                                            min='0'
+                                            max='100'
+                                            onChange={(e) => setProjPRProgress(e.target.value)}
+                                            value={projPRProgress}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field
+                                        error={projA11YProgressErr}
+                                    >
+                                        <label>Accessibility Progress</label>
+                                        <Form.Input
+                                            name='a11yprogress'
+                                            type='number'
+                                            placeholder='Enter current estimated progress...'
+                                            min='0'
+                                            max='100'
+                                            onChange={(e) => setProjA11YProgress(e.target.value)}
+                                            value={projA11YProgress}
+                                        />
+                                    </Form.Field>
+                                </Form.Group>
+                                <Form.Group widths='equal'>
+                                    <Form.Select
+                                        fluid
+                                        label={<label>Status</label>}
+                                        placeholder='Status...'
+                                        options={statusOptions}
+                                        onChange={(_e, { value }) => setProjStatus(value)}
+                                        value={projStatus}
                                     />
-                                </Form.Field>
-                                <Form.Field
-                                    error={projPRProgressErr}
-                                >
-                                    <label>Peer Review Progress</label>
-                                    <Form.Input
-                                        name='peerreviewprogress'
-                                        type='number'
-                                        placeholder='Enter current estimated progress...'
-                                        min='0'
-                                        max='100'
-                                        onChange={(e) => setProjPRProgress(e.target.value)}
-                                        value={projPRProgress}
+                                    <Form.Select
+                                        fluid
+                                        label={<label>Classification</label>}
+                                        placeholder='Classification...'
+                                        options={classificationOptions}
+                                        onChange={(_e, { value }) => setProjClassification(value)}
+                                        value={projClassification}
                                     />
-                                </Form.Field>
-                                <Form.Field
-                                    error={projA11YProgressErr}
-                                >
-                                    <label>Accessibility Progress</label>
-                                    <Form.Input
-                                        name='a11yprogress'
-                                        type='number'
-                                        placeholder='Enter current estimated progress...'
-                                        min='0'
-                                        max='100'
-                                        onChange={(e) => setProjA11YProgress(e.target.value)}
-                                        value={projA11YProgress}
+                                    <Form.Select
+                                        fluid
+                                        label={<label>Visibility</label>}
+                                        selection
+                                        options={visibilityOptions}
+                                        value={projVisibility}
+                                        onChange={(_e, { value }) => setProjVisibility(value)}
                                     />
-                                </Form.Field>
-                                <Form.Select
-                                    fluid
-                                    label={<label>Status</label>}
-                                    placeholder='Status...'
-                                    options={statusOptions}
-                                    onChange={(_e, { value }) => setProjStatus(value)}
-                                    value={projStatus}
-                                />
-                                <Form.Select
-                                    fluid
-                                    label={<label>Classification</label>}
-                                    placeholder='Classification...'
-                                    options={classificationOptions}
-                                    onChange={(_e, { value }) => setProjClassification(value)}
-                                    value={projClassification}
-                                />
-                                <Form.Select
-                                    fluid
-                                    label={<label>Visibility</label>}
-                                    selection
-                                    options={visibilityOptions}
-                                    value={projVisibility}
-                                    onChange={(_e, { value }) => setProjVisibility(value)}
-                                />
+                                </Form.Group>
                                 <Form.Field>
                                     <label htmlFor='projectURL'>
                                         <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
@@ -3696,48 +3611,6 @@ const ProjectView = (props) => {
                                 {flagMode === 'set'
                                     ? 'Flag Project'
                                     : 'Clear Flag'
-                                }
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
-                    {/* LibreTexts Alert Modal */}
-                    <Modal
-                        open={showLibreAlertModal}
-                        onClose={closeAlertModal}
-                    >
-                        <Modal.Header>{alertMode === 'enable' ? 'Enable LibreTexts Alert' : 'Disable LibreTexts Alert'}</Modal.Header>
-                        <Modal.Content>
-                            {(alertMode === 'enable') &&
-                                <div>
-                                    <p>Are you sure you want to enable a LibreTexts Alert for this project? You'll receive a notification when this project is marked complete.</p>
-                                    <p><em>If this project was converted from an OER Integration Request, the submitter will receive a notification by default.</em></p>
-                                </div>
-                            }
-                            {(alertMode === 'disable') &&
-                                <div>
-                                    <p>Are you sure you want to disable your LibreTexts Alert for this project? You will no longer receive a notification when this project is marked complete.</p>
-                                    <p><em>If this project was converted from an OER Integration Request, the submitter will still receive a notification by default.</em></p>
-                                </div>
-                            }
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={closeAlertModal}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color={libreAlertEnabled ? 'red' : 'blue'}
-                                loading={alertLoading}
-                                onClick={submitLibreTextsAlert}
-                            >
-                                {alertMode === 'enable'
-                                    ? <Icon name='alarm' />
-                                    : <Icon name='x' />
-                                }
-                                {alertMode === 'enable'
-                                    ? 'Enable Alert'
-                                    : 'Disable Alert'
                                 }
                             </Button>
                         </Modal.Actions>

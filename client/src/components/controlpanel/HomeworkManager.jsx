@@ -1,18 +1,18 @@
 import './ControlPanel.css';
 
 import {
-  Grid,
-  Header,
-  Segment,
-  Table,
-  Modal,
-  Button,
-  Dropdown,
-  Icon,
-  Pagination,
-  Input,
-  Breadcrumb,
-  List
+    Grid,
+    Header,
+    Segment,
+    Table,
+    Modal,
+    Button,
+    Dropdown,
+    Icon,
+    Pagination,
+    Input,
+    Breadcrumb,
+    List
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -71,7 +71,7 @@ const HomeworkManager = (_props) => {
 
 
     useEffect(() => {
-        setTotalPages(Math.ceil(displayHw.length/itemsPerPage));
+        setTotalPages(Math.ceil(displayHw.length / itemsPerPage));
         setPageHw(displayHw.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
     }, [itemsPerPage, displayHw, activePage]);
 
@@ -262,21 +262,7 @@ const HomeworkManager = (_props) => {
                         <Segment>
                             <div className='flex-row-div'>
                                 <div className='left-flex'>
-                                    <Dropdown
-                                        placeholder='Sort by...'
-                                        floating
-                                        selection
-                                        button
-                                        options={sortOptions}
-                                        onChange={(_e, { value }) => { setSortChoice(value) }}
-                                        value={sortChoice}
-                                    />
-                                    <Input
-                                        icon='search'
-                                        placeholder='Search results...'
-                                        onChange={(e) => { setSearchString(e.target.value) }}
-                                        value={searchString}
-                                    />
+                                    <span className='ml-1p'><strong>Sync Schedule:</strong> Daily at 12:30 AM PST</span>
                                 </div>
                                 <div className='right-flex'>
                                     {isSuperAdmin &&
@@ -288,6 +274,29 @@ const HomeworkManager = (_props) => {
                                             Sync Homework Systems
                                         </Button>
                                     }
+                                </div>
+                            </div>
+                        </Segment>
+                        <Segment>
+                            <div className='flex-row-div'>
+                                <div className='left-flex'>
+                                    <Dropdown
+                                        placeholder='Sort by...'
+                                        floating
+                                        selection
+                                        button
+                                        options={sortOptions}
+                                        onChange={(_e, { value }) => { setSortChoice(value) }}
+                                        value={sortChoice}
+                                    />
+                                </div>
+                                <div className='right-flex'>
+                                    <Input
+                                        icon='search'
+                                        placeholder='Search results...'
+                                        onChange={(e) => { setSearchString(e.target.value) }}
+                                        value={searchString}
+                                    />
                                 </div>
                             </div>
                         </Segment>

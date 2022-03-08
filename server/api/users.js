@@ -520,8 +520,8 @@ const updateUserRole = (req, res) => {
 /**
  * Returns an array of strings containing the email addresses of the requested users.
  * INTERNAL USE ONLY.
- * @param {String[]} users  - an array of UUIDs to lookup users by
- * @returns {Promise<String[]|Error>} the array of email addresses
+ * @param {string[]} users - An array of UUIDs to lookup users by.
+ * @returns {Promise<string[]|Error>} The array of email addresses.
  */
 const getUserEmails = (users) => {
     return new Promise((resolve, reject) => {

@@ -353,8 +353,7 @@ const BooksManager = (props) => {
                         <Segment>
                             <div className='flex-row-div'>
                                 <div className='left-flex'>
-                                    <span className='mr-1p'><strong>Last Sync:</strong> Today</span>
-                                    <span className='ml-1p'><strong>Next Sync:</strong> Today</span>
+                                    <span className='ml-1p'><strong>Sync Schedule:</strong> Daily at 6:30 AM PST</span>
                                 </div>
                                 <div className='right-flex'>
                                     {(isSuperAdmin && process.env.REACT_APP_ORG_ID === 'libretexts') &&

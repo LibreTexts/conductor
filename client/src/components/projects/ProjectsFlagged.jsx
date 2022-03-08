@@ -222,7 +222,7 @@ const ProjectsFlagged = (props) => {
                                             return (
                                                 <Table.Row key={index}>
                                                     <Table.Cell>
-                                                        <p><strong><Link to={`/projects/${item.projectID}`}>{truncateString(item.title, 100)}</Link></strong></p>
+                                                        <p><strong><Link to={`/projects/${item.projectID}?reviewer=true`}>{truncateString(item.title, 100)}</Link></strong></p>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <div className='flex-row-div projectprotal-progress-row'>

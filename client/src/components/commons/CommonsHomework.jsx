@@ -152,7 +152,7 @@ const CommonsHomework = (_props) => {
      * set of courses to display.
      */
     useEffect(() => {
-        setTotalPages(Math.ceil(adaptCourses.length/itemsPerPage));
+        setTotalPages(Math.ceil(adaptCourses.length / itemsPerPage));
         setPageCourses(adaptCourses.slice((activePage - 1) * itemsPerPage, activePage * itemsPerPage));
         if (itemsPerPage > adaptCourses.length) {
             dispatch({
@@ -273,6 +273,14 @@ const CommonsHomework = (_props) => {
             <Grid.Row>
                 <Grid.Column>
                     <Segment.Group raised>
+                        <Segment>
+                            <Breakpoint name='tabletOrDesktop'>
+                                <Header as='h2'>Homework</Header>
+                            </Breakpoint>
+                            <Breakpoint name='mobile'>
+                                <Header as='h2' textAlign='center'>Homework</Header>
+                            </Breakpoint>
+                        </Segment>
                         <Segment>
                             <Breakpoint name='desktop'>
                                 <Grid>

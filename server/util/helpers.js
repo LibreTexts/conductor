@@ -151,6 +151,33 @@ const isValidDateObject = (date) => {
 
 
 /**
+ * Computes the difference (in milliseconds) between two dates.
+ * @param {Date} date1 - The first date object.
+ * @param {Date} date2 - The second date object.
+ * @returns {number} The difference in milliseconds.
+ */
+const computeDateDifference = (date1, date2) => {
+    if (isValidDateObject(date1) && isValidDateObject(date2)) {
+        return Math.abs(date2 - date1);
+    }
+    return 0;
+};
+
+
+/**
+ * Creates and validates a new Date from a provided date string.
+ * @param {string} dateString - The date string to use in instantiation.
+ * @returns {Date|null} A date object if successfully created, null otherwise.
+ */
+const createAndValidateDateObject = (dateString) => {
+    let newDate = null;
+    const dateObj = new Date(dateString);
+    if (isValidDateObject(dateObj)) newDate = dateObj;
+    return newDate;
+};
+
+
+/**
  * Returns the production URL set in the server's environment variables.
  * @returns {String} the first production URL or an empty string if not found.
  */
@@ -170,5 +197,7 @@ module.exports = {
     ensureUniqueStringArray,
     stringContainsOneOfSubstring,
     isValidDateObject,
+    computeDateDifference,
+    createAndValidateDateObject,
     getProductionURL
 };

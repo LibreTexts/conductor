@@ -35,6 +35,11 @@ const filtersInitialState = {
         subject: '',
         author: '',
         license: ''
+    },
+    underDev: {
+        mode: 'visual',
+        itemsPerPage: 12,
+        activePage: 1, // not used as URL param
     }
 };
 
@@ -222,6 +227,30 @@ export default function filterReducer(state = filtersInitialState, action) {
                 collectionView: {
                     ...state.collectionView,
                     license: action.payload
+                }
+            }
+        case 'SET_UNDERDEV_MODE':
+            return {
+                ...state,
+                underDev: {
+                    ...state.underDev,
+                    mode: action.payload
+                }
+            }
+        case 'SET_UNDERDEV_ITEMS':
+            return {
+                ...state,
+                underDev: {
+                    ...state.underDev,
+                    itemsPerPage: action.payload
+                }
+            }
+        case 'SET_UNDERDEV_PAGE':
+            return {
+                ...state,
+                underDev: {
+                    ...state.underDev,
+                    activePage: action.payload
                 }
             }
         default:

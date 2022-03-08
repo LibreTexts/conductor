@@ -13,6 +13,8 @@ const { debugError, debugObject, debugADAPTSync, debugServer } = require('../deb
 const b62 = require('base62-random');
 const axios = require('axios');
 
+const alertsAPI = require('./alerts.js');
+
 /**
  * Get all Homework resources.
  */
@@ -91,6 +93,7 @@ const syncADAPTCommons = () => {
     let assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/commons/';
     let adaptCourses = [];
     let assgnRequests = [];
+    let updatedCount = 0;
     return axios.get('https://adapt.libretexts.org/api/courses/commons').then((acRes) => {
         if (acRes.data && acRes.data.type === 'success') {
             if (acRes.data.commons_courses && Array.isArray(acRes.data.commons_courses) &&
@@ -181,10 +184,19 @@ const syncADAPTCommons = () => {
             return {};
         }
     }).then((adaptRes) => {
-        var msg = 'Succesfully synced ADAPT courses & assignments.';
-        if (adaptRes.modifiedCount) {
-            msg += ` ${adaptRes.modifiedCount} courses updated.`
+        let upsertedIds = [];
+        if (typeof (adaptRes.upsertedIds) === 'object') {
+            Object.keys(adaptRes.upsertedIds).forEach((key) => {
+                upsertedIds.push(adaptRes.upsertedIds[key]);
+            });
         }
+        if (adaptRes.modifiedCount) updatedCount = adaptRes.modifiedCount;
+        if (upsertedIds.length > 0) return alertsAPI.processInstantHomeworkAlerts(upsertedIds);
+        return true;
+    }).then(() => {
+        // ignore return value of processing Alerts
+        let msg = 'Succesfully synced ADAPT courses & assignments.';
+        if (updatedCount > 0) msg += ` ${updatedCount} courses updated.`;
         return {
             err: false,
             msg: msg

@@ -45,6 +45,8 @@ import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricMa
 import UserDetails from './components/controlpanel/UserDetails.jsx';
 import UsersManager from './components/controlpanel/UsersManager.jsx';
 
+import MyAlerts from './components/alerts/MyAlerts.jsx';
+
 import PeerReviewPage from './components/peerreview/PeerReviewPage.jsx';
 import ProjectsPortal from './components/projects/ProjectsPortal.jsx';
 import ProjectsAvailable from './components/projects/ProjectsAvailable.jsx';
@@ -79,7 +81,7 @@ function App() {
         return res;
     }, (err) => {
         if (err.response?.status === 401 && err.response?.data?.tokenExpired === true) {
-            AuthHelper.logout(null, true);
+            AuthHelper.logout(null, true, window.location);
         }
         return Promise.reject(err);
     });
@@ -94,6 +96,7 @@ function App() {
                     <AnonRoute exact path = '/resetpassword' component={ResetPassword} />
                     <PrivateRoute exact path = '/home' component={Home} />
                     <PrivateRoute exact path = '/search' component={Search} />
+                    <PrivateRoute exact path = '/alerts' component={MyAlerts} />
                     <PrivateRoute exact path = '/projects' component={ProjectsPortal} />
                         <PrivateRoute exact path = '/projects/available' component={ProjectsAvailable} />
                         <PrivateRoute exact path = '/projects/create' component={ProjectCreate} />
@@ -146,6 +149,7 @@ function App() {
                         {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/homework' component={Commons} />}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/libraries' component={Commons} />}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/libraries/:lib' component={Commons} />}
+                        {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/underdevelopment' component={Commons} />}
                         {/* Standalone */}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/adopt' component={AdoptionReportPage} />}
                         {process.env.REACT_APP_ORG_ID === 'libretexts' && <Route exact path = '/accessibility' component={AccessibilityStatement} />}

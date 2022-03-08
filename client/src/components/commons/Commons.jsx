@@ -25,6 +25,7 @@ import CommonsBook from './CommonsBook.jsx';
 import CommonsHomework from './CommonsHomework.jsx';
 import CommonsLibraries from './CommonsLibraries.jsx';
 import CommonsLibraryEntry from './CommonsLibraryEntry.jsx';
+import CommonsUnderDevelopment from './CommonsUnderDevelopment.jsx';
 
 const Commons = (_props) => {
 
@@ -100,6 +101,8 @@ const Commons = (_props) => {
             setActiveItem('homework');
         } else if (currentPath.includes('/libraries')) {
             setActiveItem('libraries');
+        } else if (currentPath.includes('/underdevelopment')) {
+            setActiveItem('underdev');
         } else {
             setActiveItem('catalog');
         }
@@ -131,6 +134,76 @@ const Commons = (_props) => {
         }
     };
 
+    const menuContent = (
+        <>
+            <Menu.Item
+                name='catalog'
+                active={activeItem === 'catalog'}
+                className='commons-menu-item'
+                as={Link}
+                to='/catalog'
+            >
+                Catalog
+            </Menu.Item>
+            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                <Menu.Item
+                    name='libraries'
+                    active={activeItem === 'libraries'}
+                    className='commons-menu-item'
+                    as={Link}
+                    to='/libraries'
+                >
+                    Libraries
+                </Menu.Item>
+            }
+            <Menu.Item
+                name='collections'
+                active={activeItem === 'collections'}
+                className='commons-menu-item'
+                as={Link}
+                to='/collections'
+            >
+                Collections
+            </Menu.Item>
+            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
+                <>
+                    <Menu.Item
+                        name='homework'
+                        active={activeItem === 'homework'}
+                        className='commons-menu-item'
+                        as={Link}
+                        to='/homework'
+                    >
+                        Homework
+                    </Menu.Item>
+                    <Menu.Item
+                        name='underdev'
+                        active={activeItem === 'underdev'}
+                        className='commons-menu-item'
+                        as={Link}
+                        to='/underdevelopment'
+                    >
+                        Under Development
+                    </Menu.Item>
+                </>
+            }
+        </>
+    );
+
+    const menuProps = {
+        secondary: true,
+        pointing: true,
+        fluid: true,
+        widths: (process.env.REACT_APP_ORG_ID === 'libretexts') ? 5 : 2,
+        id: 'commons-menu',
+        stackable: true
+    };
+
+    const mobileMenuProps = {
+        ...menuProps,
+        pointing: false
+    };
+
     return (
         <div className='commons'>
             <CommonsNavbar />
@@ -138,95 +211,13 @@ const Commons = (_props) => {
                 <Jumbotron />
             </div>
             <Breakpoint name='tabletOrDesktop'>
-                <div id='commons-menu'>
-                    <div id='commons-menu-center'>
-                        <Menu secondary pointing fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 2} id='commons-menu-pointing'>
-                            <Menu.Item
-                                name='catalog'
-                                active={activeItem === 'catalog'}
-                                className='commons-menu-item'
-                                as={Link}
-                                to='/catalog'
-                            >
-                                Catalog
-                            </Menu.Item>
-                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                <Menu.Item
-                                    name='libraries'
-                                    active={activeItem === 'libraries'}
-                                    className='commons-menu-item'
-                                    as={Link}
-                                    to='/libraries'
-                                >
-                                    Libraries
-                                </Menu.Item>
-                            }
-                            <Menu.Item
-                                name='collections'
-                                active={activeItem === 'collections'}
-                                className='commons-menu-item'
-                                as={Link}
-                                to='/collections'
-                            >
-                                Collections
-                            </Menu.Item>
-                            {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                <Menu.Item
-                                    name='homework'
-                                    active={activeItem === 'homework'}
-                                    className='commons-menu-item'
-                                    as={Link}
-                                    to='/homework'
-                                >
-                                    Homework
-                                </Menu.Item>
-                            }
-                        </Menu>
-                    </div>
-                </div>
+                <Menu {...menuProps}>
+                    {menuContent}
+                </Menu>
             </Breakpoint>
             <Breakpoint name='mobile'>
-                <Menu id='commons-mobilemenu' pointing secondary labeled='icon' fluid widths={(process.env.REACT_APP_ORG_ID === 'libretexts') ? 4 : 2}>
-                    <Menu.Item
-                        name='catalog'
-                        active={activeItem === 'catalog'}
-                        className='commons-menu-item'
-                        as={Link}
-                        to='/catalog'
-                    >
-                        Catalog
-                    </Menu.Item>
-                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                        <Menu.Item
-                            name='libraries'
-                            active={activeItem === 'libraries'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/libraries'
-                        >
-                            Libraries
-                        </Menu.Item>
-                    }
-                    <Menu.Item
-                        name='collections'
-                        active={activeItem === 'collections'}
-                        className='commons-menu-item'
-                        as={Link}
-                        to='/collections'
-                    >
-                        Collections
-                    </Menu.Item>
-                    {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                        <Menu.Item
-                            name='homework'
-                            active={activeItem === 'homework'}
-                            className='commons-menu-item'
-                            as={Link}
-                            to='/homework'
-                        >
-                            Homework
-                        </Menu.Item>
-                    }
+                <Menu {...mobileMenuProps}>
+                    {menuContent}
                 </Menu>
             </Breakpoint>
             {(process.env.REACT_APP_INT_MAINT === 'true') &&
@@ -245,13 +236,12 @@ const Commons = (_props) => {
                 <Route exact path='/catalog' component={CommonsCatalog} />
                 <Route exact path='/collections' component={CommonsCollections} />
                 {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/homework' component={CommonsHomework} />
-                }
-                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/libraries' component={CommonsLibraries} />
-                }
-                {process.env.REACT_APP_ORG_ID === 'libretexts' &&
-                    <Route exact path='/libraries/:lib' component={CommonsLibraryEntry} />
+                    <>
+                        <Route exact path='/homework' component={CommonsHomework} />
+                        <Route exact path='/libraries' component={CommonsLibraries} />
+                        <Route exact path='/libraries/:lib' component={CommonsLibraryEntry} />
+                        <Route exact path='/underdevelopment' component={CommonsUnderDevelopment} />
+                    </>
                 }
                 <Route exact path='/collection/:id' component={CommonsCollectionView} />
                 <Route exact path='/book/:id' component={CommonsBook} />

@@ -14,6 +14,7 @@ const authAPI = require('./api/auth.js');
 const usersAPI = require('./api/users.js');
 const orgsAPI = require('./api/organizations.js');
 const accountRequestsAPI = require('./api/accountrequests.js');
+const alertsAPI = require('./api/alerts.js');
 const adoptionReportAPI = require('./api/adoptionreports.js');
 const harvestingRequestsAPI = require('./api/harvestingrequests.js');
 const collectionsAPI = require('./api/collections.js');
@@ -21,7 +22,7 @@ const booksAPI = require('./api/books.js');
 const homeworkAPI = require('./api/homework.js');
 const librariesAPI = require('./api/libraries.js');
 //const mailAPI = require('./api/mail.js'); // (enable for development only)
-//const searchAPI = require('./api/search.js');
+const searchAPI = require('./api/search.js');
 const announcementAPI = require('./api/announcements.js');
 const peerReviewAPI = require('./api/peerreview.js');
 const projectsAPI = require('./api/projects.js');
@@ -308,7 +309,10 @@ router.route('/commons/homework/sync/automated').put(middleware.checkLibreAPIKey
 
 
 /* Search */
-//router.route('/search').get(authAPI.verifyRequest, searchAPI.performSearch);
+router.route('/search').get(authAPI.verifyRequest,
+    searchAPI.validate('performSearch'),
+    middleware.checkValidationErrors,
+    searchAPI.performSearch);
 
 
 /* Users */
@@ -387,6 +391,29 @@ router.route('/announcements/recent').get(authAPI.verifyRequest,
     announcementAPI.getRecentAnnouncement);
 
 
+/* Alerts */
+router.route('/alert')
+    .get(authAPI.verifyRequest,
+        alertsAPI.validate('getAlert'),
+        middleware.checkValidationErrors,
+        alertsAPI.getAlert)
+    .post(authAPI.verifyRequest,
+        alertsAPI.validate('createAlert'),
+        middleware.checkValidationErrors,
+        alertsAPI.createAlert)
+    .delete(authAPI.verifyRequest,
+        alertsAPI.validate('deleteAlert'),
+        middleware.checkValidationErrors,
+        alertsAPI.deleteAlert);
+
+router.route('/alerts').get(authAPI.verifyRequest,
+    alertsAPI.validate('getUserAlerts'),
+    middleware.checkValidationErrors,
+    alertsAPI.getUserAlerts);
+
+router.route('/alerts/processdaily').put(middleware.checkLibreAPIKey, alertsAPI.processDailyAlerts);
+
+
 /* Peer Review */
 router.route('/peerreview')
     .get(authAPI.verifyRequest,
@@ -462,6 +489,8 @@ router.route('/peerreviews').get(
 router.route('/projects/all').get(authAPI.verifyRequest,
     projectsAPI.getUserProjects);
 
+router.route('/projects/underdevelopment').get(projectsAPI.getProjectsUnderDevelopment);
+
 router.route('/projects/flagged').get(authAPI.verifyRequest,
     projectsAPI.getUserFlaggedProjects);
 
@@ -504,10 +533,6 @@ router.route('/project/flag').put(authAPI.verifyRequest,
 router.route('/project/flag/clear').put(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('clearProjectFlag'),
     middleware.checkValidationErrors, projectsAPI.clearProjectFlag);
-
-router.route('/project/alert').post(authAPI.verifyRequest,
-    authAPI.getUserAttributes, projectsAPI.validate('setProjectAlert'),
-    middleware.checkValidationErrors, projectsAPI.setProjectAlert);
 
 router.route('/project/team/addable').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,

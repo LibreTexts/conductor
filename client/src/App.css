@@ -384,6 +384,10 @@ body {
     flex-direction: column;
 }
 
+.flex-row-verticalcenter {
+    align-items: center;
+}
+
 .left-flex {
     display: flex;
     flex: 1;

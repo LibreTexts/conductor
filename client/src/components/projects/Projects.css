@@ -44,6 +44,10 @@
     padding-right: 5% !important;
 }
 
+.project-flag-message-text {
+    color: white;
+}
+
 .access-table-outer {
     display: flex;
     flex-direction: row;

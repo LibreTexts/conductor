@@ -332,6 +332,13 @@ const Home = (props) => {
                                 Commons
                                 <Icon name='handshake' />
                             </Menu.Item>
+                            <Dropdown.Item
+                                as={Link}
+                                to='/alerts'
+                            >
+                                <Icon name='alarm' />
+                                My Alerts
+                            </Dropdown.Item>
                             <Menu.Item
                                 href='https://commons.libretexts.org/harvestrequest'
                                 target='_blank'
@@ -400,6 +407,13 @@ const Home = (props) => {
                                             >
                                                 <Icon name='handshake' />
                                                 Commons
+                                            </Dropdown.Item>
+                                            <Dropdown.Item
+                                                as={Link}
+                                                to='/alerts'
+                                            >
+                                                <Icon name='alarm' />
+                                                My Alerts
                                             </Dropdown.Item>
                                             <Dropdown.Item
                                                 href='https://commons.libretexts.org/harvestrequest'

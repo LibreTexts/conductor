@@ -55,9 +55,9 @@ function useGlobalError() {
      * the global error modal
      */
     const handleGlobalError = useCallback((err) => {
-        console.log(err);
-        var message = "";
-        if (err.response) {
+        console.error(err);
+        let message = "";
+        if (typeof (err.response) === 'object') {
             if (err.response.data) {
                 if (err.response.data.errMsg !== undefined) {
                     message = err.response.data.errMsg;
@@ -82,7 +82,7 @@ function useGlobalError() {
             } else {
                 message = "Error processing request.";
             }
-        } else if (err.name && err.message) {
+        } else if (typeof (err.message) === 'string') {
             message = err.message;
         } else if (typeof(err) === 'string') {
             message = err;

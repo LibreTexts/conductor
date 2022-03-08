@@ -75,7 +75,6 @@ const ProjectSchema = new Schema({
     harvestReqID: String,       // the _id of the Harvesting Request the project was converted from (if applicable)
     flag: String,               // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
     flagDescrip: String,        // a description of the reason for flagging
-    libreAlerts: [String],      // array of uuids of users who have a LibreTexts Alert enabled on the project
     allowAnonPR: {              // allow 'anonymous' Peer Reviews (if Project is public)
         type: Boolean,
         default: true

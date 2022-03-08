@@ -46,3 +46,11 @@
     display: inline-block;
     margin-right: 0.5rem !important;
 }
+
+.nav-search-form {
+    min-width: 400px;
+}
+
+.nav-search-input input::placeholder {
+    color: rgba(0,0,0,.85) !important;
+}

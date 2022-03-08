@@ -16,7 +16,7 @@ const { isEmptyString } = require('../util/helpers.js');
 const mailAPI = require('./mail.js');
 const axios = require('axios');
 
-
+const tokenTime = 86400;
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
 const tokenURL = 'https://sso.libretexts.org/cas/oauth2.0/accessToken';
 const callbackURL = 'https://commons.libretexts.org/api/v1/oauth/libretexts';
@@ -160,7 +160,7 @@ const oauthCallback = (req, res) => {
         throw(new Error('userupdatecreate'));
     }).then((_updateRes) => {
         // issue auth token and return to login for entry
-        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: 86400 });
+        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: tokenTime });
         if (typeof(token) === 'string') {
             res.setHeader('Set-Cookie', createTokenCookies(token));
             let redirectURL = '/home';
@@ -226,7 +226,7 @@ const login = (req, res, _next) => {
         }
         throw(new Error('emailorpassword'));
     }).then((_updateRes) => {
-        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: 86400 });
+        let token = jwt.sign(payload, process.env.SECRETKEY, { expiresIn: tokenTime });
         if (typeof(token) === 'string') {
             res.setHeader('Set-Cookie', createTokenCookies(token));
             return res.send({
@@ -535,22 +535,29 @@ const changePassword = (req, res) => {
  * Retrieves an array of LibreTexts Super/Campus Admins, with each administrator
  * as their own object with email, uuid, firstName, and lastName.
  * INTERNAL USE ONLY.
- * @returns {Object[]} an array of the administrators and their information
+ * @param {boolean} [superAdmins=false] - Restrict search to SuperAdmins only.
+ * @returns {object[]} An array of the administrators and their information.
  */
-const getLibreTextsAdmins = () => {
+const getLibreTextsAdmins = (superAdmins = false) => {
+    let roleMatch = {};
+    if (!superAdmins) {
+        roleMatch = {
+            $or: [
+                { role: 'superadmin' },
+                { role: 'campusadmin' }
+            ]
+        };
+    } else {
+        roleMatch = { role: 'superadmin' }; 
+    }
     return User.aggregate([{
         $match: {
             roles: {
                 $elemMatch: {
-                    $and: [{
-                        org: 'libretexts'
-                    }, {
-                        $or: [{
-                            role: 'superadmin'
-                        }, {
-                            role: 'campusadmin'
-                        }]
-                    }]
+                    $and: [
+                        { org: 'libretexts' },
+                        { ...roleMatch }
+                    ]
                 }
             }
         }

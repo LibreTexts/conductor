@@ -1,1 +1,5 @@
-
+.search-itemsperpage-dropdown {
+  margin-left: 1rem;
+  margin-right: 1rem;
+  min-width: 5em !important;
+}
