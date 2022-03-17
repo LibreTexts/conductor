@@ -782,13 +782,13 @@ const getUserFlaggedProjects = (req, res) => {
         $and: [{
             flag: 'liaison'
         }, {
-            liaison: req.decoded.uuid
+            liaisons: req.decoded.uuid
         }]
     }, {
         $and: [{
             flag: 'lead'
         }, {
-            owner: req.decoded.uuid
+            leads: req.decoded.uuid
         }]
     }];
     User.findOne({

@@ -4,6 +4,9 @@
 #### :art: UI/UX
 * Added links to the Libraries and ADAPT ACRs on the Accessibility Statement page
 
+#### :satellite: Server
+* Fixed a bug in retrieving a user's list of flagged projects
+
 
 # 03-08-2022
 #### :art: UI/UX
