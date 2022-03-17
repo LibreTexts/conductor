@@ -1,6 +1,11 @@
 # Changelog
 
-# 03-08-2021
+# 03-16-2022
+#### :art: UI/UX
+* Added links to the Libraries and ADAPT ACRs on the Accessibility Statement page
+
+
+# 03-08-2022
 #### :art: UI/UX
 * Authentication Expired flow now redirects to the originating page
 * Introduced the Under Development catalog in LibreCommons
@@ -14,12 +19,12 @@
 * Implemented backend logic for Alerts
 
 
-# 03-02-2021
+# 03-02-2022
 #### :satellite: Server
 * Introduced automated/scheduled Commons Libraries & Homework syncing
 
 
-# 02-28-2021
+# 02-28-2022
 #### :art: UI/UX
 * Added current user context to the Commons navbar
 
@@ -27,7 +32,7 @@
 * Add 'Date Last Updated' to Commons Knowledge Base Export
 
 
-# 02-17-2021
+# 02-17-2022
 #### :satellite: Server
 * Patched a bug preventing TOC syncing in Accessibility CRMs
 

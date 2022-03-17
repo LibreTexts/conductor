@@ -31,7 +31,7 @@ const AccessibilityStatement = (props) => {
                                     onClick={() => {
                                         window.open('https://libretexts.org', '_blank', 'noopener');
                                     }}
-                                    alt="LibreTexts logo"
+                                    alt="LibreTexts"
                                 />
                             </Grid.Column>
                         </Grid.Row>
@@ -51,8 +51,24 @@ const AccessibilityStatement = (props) => {
                         <Header as='h2'>Accessibility Conformance Reports</Header>
                         <p>LibreTexts will report the accessibility conformance for each feature of the LibreTexts platform using an Accessibility Conformance Report (ACR).</p>
                         <ul>
-                            <li>ADAPT ACR (coming in October 2021)</li>
-                            <li>LibreCommons ACR (coming in October 2021)</li>
+                            <li>
+                                <a
+                                    href='https://chem.libretexts.org/Sandboxes/atconsultantnc_at_gmail.com/LibreTexts_Libraries_Accessibility_Conformance_Report/ADAPT_for_Students_Accessibility_Conformance_Report'
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                >
+                                    ADAPT ACR
+                                </a>
+                            </li>
+                            <li>
+                                <a
+                                    href='https://chem.libretexts.org/Sandboxes/atconsultantnc_at_gmail.com/LibreTexts_Libraries_Accessibility_Conformance_Report'
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                >
+                                    LibreTexts Libraries ACR
+                                </a>
+                            </li>
                         </ul>
                         <p>Additional information is under development.  Please check back soon.</p>
                         <Header as='h2'>Product Roadmaps</Header>
