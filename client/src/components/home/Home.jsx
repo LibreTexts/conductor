@@ -55,6 +55,10 @@ const Home = (props) => {
     const [loadedAllProjects, setLoadedAllProjects] = useState(false);
     const [showNASuccess, setShowNASuccess] = useState(false);
 
+    // System Announcement Message
+    const [showSystemAnnouncement, setShowSystemAnnouncement] = useState(false);
+    const [systemAnnouncementData, setSystemAnnouncementData] = useState({});
+
     // New Announcement Modal
     const [showNAModal, setShowNAModal] = useState(false);
     const [naTitle, setNATitle] = useState('');
@@ -81,11 +85,31 @@ const Home = (props) => {
         }
     }, [props.location.search, setShowNMModal]);
 
+
+    /**
+     * Checks if a System Announcement is available and updates the UI accordingly if so.
+     */
+    const getSystemAnnouncement = useCallback(() => {
+        axios.get('/announcements/system').then((res) => {
+            if (!res.data.err) {
+                if (res.data.sysAnnouncement !== null) {
+                    setShowSystemAnnouncement(true);
+                    setSystemAnnouncementData(res.data.sysAnnouncement);
+                }
+            } else {
+                console.error(res.data.errMsg); // fail silently
+            }
+        }).catch((err) => {
+            console.error(err); // fail silently
+        });
+    }, [setShowSystemAnnouncement, setSystemAnnouncementData]);
+
+
     /**
      * Loads the 5 most recent announcements via GET
      * request and updates the UI accordingly.
      */
-     const getAnnouncements = useCallback(() => {
+    const getAnnouncements = useCallback(() => {
         axios.get('/announcements/all').then((res) => {
             if (!res.data.err) {
                 if (res.data.announcements && Array.isArray(res.data.announcements)) {
@@ -146,14 +170,15 @@ const Home = (props) => {
         date.plugin(ordinal);
         // Hook to force message links to open in new window
         DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-          if ('target' in node) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer')
-          }
+            if ('target' in node) {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer')
+            }
         });
         getProjects();
+        getSystemAnnouncement();
         getAnnouncements();
-    }, [getProjects, getAnnouncements]);
+    }, [getProjects, getSystemAnnouncement, getAnnouncements]);
 
     /**
      * Accepts a standard ISO 8601 date or date-string
@@ -238,7 +263,7 @@ const Home = (props) => {
                     closeNAModal();
                     getAnnouncements();
                 } else {
-                    throw(res.data.errMsg);
+                    throw (res.data.errMsg);
                 }
             }).catch((err) => {
                 handleGlobalError(err);
@@ -304,6 +329,18 @@ const Home = (props) => {
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
+                {showSystemAnnouncement && (
+                    <Grid.Column width={16}>
+                        <Message icon info>
+                            <Icon name='info circle' />
+                            <Message.Content>
+                                <Message.Header>{systemAnnouncementData.title}</Message.Header>
+                                <p>{systemAnnouncementData.message}</p>
+                            </Message.Content>
+                        </Message>
+
+                    </Grid.Column>
+                )}
                 <Grid.Column width={3}>
                     <Breakpoint name='tabletOrDesktop'>
                         <Menu vertical fluid>
@@ -311,7 +348,7 @@ const Home = (props) => {
                                 <Header as='h1'>
                                     <Image circular src={`${user.avatar}`} className='menu-avatar' />
                                     <br />
-                                    Welcome,<br/>
+                                    Welcome,<br />
                                     {user.firstName}
                                 </Header>
                             </Menu.Item>
@@ -429,7 +466,7 @@ const Home = (props) => {
                                                 rel='noopener noreferrer'
                                             >
                                                 <Icon name='clipboard check' />
-                                                Adoption Report 
+                                                Adoption Report
                                             </Dropdown.Item>
                                             <Dropdown.Item
                                                 href='https://commons.libretexts.org/accountrequest'
@@ -437,7 +474,7 @@ const Home = (props) => {
                                                 rel='noopener noreferrer'
                                             >
                                                 <Icon name='share alternate' />
-                                                Account Request      
+                                                Account Request
                                             </Dropdown.Item>
                                             <Dropdown.Item
                                                 href='https://libretexts.org'
@@ -459,14 +496,14 @@ const Home = (props) => {
                         <div className='dividing-header-custom'>
                             <h3>Recently Edited Projects</h3>
                             <div className='right-flex'>
-                                    <Popup
-                                        content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}
-                                        trigger={
-                                            <Icon name='info circle' className='cursor-pointer' />
-                                        }
-                                        position='top center'
-                                    />
-                                </div>
+                                <Popup
+                                    content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}
+                                    trigger={
+                                        <Icon name='info circle' className='cursor-pointer' />
+                                    }
+                                    position='top center'
+                                />
+                            </div>
                         </div>
                         <Segment
                             basic
@@ -641,10 +678,10 @@ const Home = (props) => {
                     </Form>
                     <span>
                         <em>This announcement will be available to
-                        {naGlobal
-                            ? ' all Conductor users (global).'
-                            : ` all members of ${org.shortName}.`
-                        }
+                            {naGlobal
+                                ? ' all Conductor users (global).'
+                                : ` all members of ${org.shortName}.`
+                            }
                         </em>
                     </span>
                 </Modal.Content>

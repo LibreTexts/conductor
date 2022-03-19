@@ -20,10 +20,11 @@ const AnnouncementSchema = new Schema({
         type: String,
         required: true
     },
-    org: {                      // announcement target Organization ('global' or <ORGID>)
+    org: {                      // announcement target Organization, one of: ['global', <ORGID>, 'system']
         type: String,
         required: true
-    }
+    },
+    expires: Date               // announcement expiration date (system announcements only)
 }, {
     timestamps: true
 });

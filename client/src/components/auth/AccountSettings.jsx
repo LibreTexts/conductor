@@ -11,9 +11,10 @@ import {
     Button,
     List,
     Icon,
-    Modal
+    Modal,
+    Loader,
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
@@ -26,7 +27,7 @@ import {
 
 import useGlobalError from '../error/ErrorHooks.js';
 
-const AccountSettings = (_props) => {
+const AccountSettings = (props) => {
 
     // Global State and Error Handling
     const dispatch = useDispatch();
@@ -44,6 +45,10 @@ const AccountSettings = (_props) => {
     const [enFirstErr, setENFirstErr] = useState(false);
     const [enLastErr, setENLastErr] = useState(false);
     const [enLoading, setENLoading] = useState(false);
+
+    // Edit Avatar
+    const avatarUploadRef = useRef(null);
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
 
     // Security Pane
     const [email, setEmail] = useState('');
@@ -289,7 +294,54 @@ const AccountSettings = (_props) => {
         }
     };
 
-    return(
+
+    /**
+     * Open the file input dialog when the 'Edit Avatar' button is clicked.
+     */
+    const handleUploadAvatar = () => {
+        if (avatarUploadRef.current) avatarUploadRef.current.click();
+    };
+
+
+    /**
+     * Process the uploaded avatar and send it to the server.
+     * @param {object} event - The browser input event.
+     */
+    const handleAvatarUploadFileChange = (event) => {
+        const validFileTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (event.target && typeof (event.target.files) === 'object') {
+            if (event.target.files.length === 1) {
+                let newAvatar = event.target.files[0];
+                if (newAvatar instanceof File && validFileTypes.includes(newAvatar.type)) {
+                    let formData = new FormData();
+                    formData.append('avatarFile', newAvatar);
+                    setShowAvatarModal(true);
+                    axios.post('/user/avatar', formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    }).then((res) => {
+                        setShowAvatarModal(false);
+                        if (!res.data.err) {
+                            window.location.reload();
+                        } else {
+                            handleGlobalError(res.data.errMsg); 
+                        }
+                    }).catch((err) => {
+                        setShowAvatarModal(false);
+                        handleGlobalError(err);
+                    });
+                } else {
+                    handleGlobalError('Sorry, that file type is not supported.');
+                }
+            } else if (event.target.files.length > 1) {
+                handleGlobalError('Only one file can be uploaded at a time.');
+            }
+        }
+    };
+
+
+    return (
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
@@ -299,6 +351,7 @@ const AccountSettings = (_props) => {
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Segment>
+
                         <Grid>
                             <Grid.Row>
                                 <Grid.Column width={4}>
@@ -318,88 +371,98 @@ const AccountSettings = (_props) => {
                                 <Grid.Column stretched width={12}>
                                     {(activeItem === 'overview') &&
                                         <Segment basic className='pane-segment' loading={!loadedData}>
-                                                <h2>Account Overview</h2>
-                                                <Divider />
-                                                <Grid divided='vertically'>
-                                                    <Grid.Row>
-                                                        <Grid.Column width={4}>
-                                                            <Image
-                                                                src={`${accountData.avatar}`}
-                                                                size='medium'
-                                                                circular
-                                                            />
+                                            <h2>Account Overview</h2>
+                                            <Divider />
+                                            <Grid divided='vertically'>
+                                                <Grid.Row>
+                                                    <Grid.Column width={4}>
+                                                        <Image
+                                                            src={`${accountData.avatar}`}
+                                                            size='medium'
+                                                            circular
+                                                        />
+                                                        <input
+                                                            type='file'
+                                                            accept='image/jpeg,image/png,image/gif'
+                                                            id='conductor-userprofile-avatar-upload'
+                                                            hidden
+                                                            ref={avatarUploadRef}
+                                                            onChange={handleAvatarUploadFileChange}
+                                                        />
+                                                        <Button.Group
+                                                            color='blue'
+                                                            vertical
+                                                            labeled
+                                                            icon
+                                                            fluid
+                                                            className='mt-2r'
+                                                        >
                                                             <Button
-                                                                basic
-                                                                size='small'
                                                                 fluid
-                                                                className='mt-1r'
                                                                 disabled={accountData.authMethod !== 'Traditional'}
                                                                 onClick={openEditNameModal}
-                                                            >
-                                                                <Icon name='pencil' />
-                                                                Edit Name
-                                                            </Button>
+                                                                icon='male'
+                                                                content='Edit Name'
+                                                            />
                                                             <Button
-                                                                basic
-                                                                disabled
-                                                                size='small'
                                                                 fluid
-                                                                className='mt-2p'
-                                                            >
-                                                                <Icon name='pencil' />
-                                                                Edit Avatar
-                                                            </Button>
-                                                        </Grid.Column>
-                                                        <Grid.Column width={12}>
-                                                            <Header as='h2'>
-                                                                {accountData.firstName} {accountData.lastName}
-                                                            </Header>
-                                                            <Header sub>Email</Header>
-                                                            {(accountData.email)
-                                                                ? (<p>{accountData.email}</p>)
-                                                                : (<p><em>Unknown</em></p>)
-                                                            }
-                                                            <Header sub>Authentication Method</Header>
-                                                            {(accountData.authMethod)
-                                                                ? (<p>{accountData.authMethod}</p>)
-                                                                : (<p><em>Unknown</em></p>)
-                                                            }
-                                                            <Header sub>Account Creation Date</Header>
-                                                            {(accountData.createdAt)
-                                                                ? (<p>{accountData.createdAt}</p>)
-                                                                : (<p><em>Unknown</em></p>)
-                                                            }
-                                                            <Header sub>Roles</Header>
-                                                            {(accountData.roles && accountData.roles.length > 0)
-                                                                ? (
-                                                                    <List verticalAlign='middle' celled relaxed>
-                                                                        {accountData.roles.map((item, idx) => {
-                                                                            var org = 'Unknown Organization';
-                                                                            var role = 'Unknown Role';
-                                                                            if (item.org) {
-                                                                                if (item.org.shortName) org = item.org.shortName;
-                                                                                else if (item.org.name) org = item.org.name;
-                                                                            }
-                                                                            if (item.role) role = item.role;
-                                                                            return (
-                                                                                <List.Item key={idx}>
-                                                                                    <List.Icon name='building' />
-                                                                                    <List.Content>
-                                                                                        <List.Header>{org}</List.Header>
-                                                                                        <List.Description>
-                                                                                            {role}
-                                                                                        </List.Description>
-                                                                                    </List.Content>
-                                                                                </List.Item>
-                                                                            )
-                                                                        })}
-                                                                    </List>
-                                                                )
-                                                                : (<p><em>No roles available.</em></p>)
-                                                            }
-                                                        </Grid.Column>
-                                                    </Grid.Row>
-                                                </Grid>
+                                                                onClick={handleUploadAvatar}
+                                                                icon='image'
+                                                                content='Edit Avatar'
+                                                            />
+                                                        </Button.Group>
+                                                        <span className='muted-text small-text'>Max file size: 5 MB</span>
+                                                    </Grid.Column>
+                                                    <Grid.Column width={12}>
+                                                        <Header as='h2'>
+                                                            {accountData.firstName} {accountData.lastName}
+                                                        </Header>
+                                                        <Header sub>Email</Header>
+                                                        {(accountData.email)
+                                                            ? (<p>{accountData.email}</p>)
+                                                            : (<p><em>Unknown</em></p>)
+                                                        }
+                                                        <Header sub>Authentication Method</Header>
+                                                        {(accountData.authMethod)
+                                                            ? (<p>{accountData.authMethod}</p>)
+                                                            : (<p><em>Unknown</em></p>)
+                                                        }
+                                                        <Header sub>Account Creation Date</Header>
+                                                        {(accountData.createdAt)
+                                                            ? (<p>{accountData.createdAt}</p>)
+                                                            : (<p><em>Unknown</em></p>)
+                                                        }
+                                                        <Header sub>Roles</Header>
+                                                        {(accountData.roles && accountData.roles.length > 0)
+                                                            ? (
+                                                                <List verticalAlign='middle' celled relaxed>
+                                                                    {accountData.roles.map((item, idx) => {
+                                                                        var org = 'Unknown Organization';
+                                                                        var role = 'Unknown Role';
+                                                                        if (item.org) {
+                                                                            if (item.org.shortName) org = item.org.shortName;
+                                                                            else if (item.org.name) org = item.org.name;
+                                                                        }
+                                                                        if (item.role) role = item.role;
+                                                                        return (
+                                                                            <List.Item key={idx}>
+                                                                                <List.Icon name='building' />
+                                                                                <List.Content>
+                                                                                    <List.Header>{org}</List.Header>
+                                                                                    <List.Description>
+                                                                                        {role}
+                                                                                    </List.Description>
+                                                                                </List.Content>
+                                                                            </List.Item>
+                                                                        )
+                                                                    })}
+                                                                </List>
+                                                            )
+                                                            : (<p><em>No roles available.</em></p>)
+                                                        }
+                                                    </Grid.Column>
+                                                </Grid.Row>
+                                            </Grid>
                                         </Segment>
                                     }
                                     {(activeItem === 'security') &&
@@ -588,6 +651,16 @@ const AccountSettings = (_props) => {
                                 Done
                             </Button>
                         </Modal.Actions>
+                    </Modal>
+                    {/* Uploading Avatar Modal */}
+                    <Modal
+                        open={showAvatarModal}
+                        onClose={() => setShowAvatarModal(false)}
+                        basic
+                    >
+                        <Modal.Content>
+                            <Loader active inline='centered'>Uploading Avatar</Loader>
+                        </Modal.Content>
                     </Modal>
                 </Grid.Column>
             </Grid.Row>

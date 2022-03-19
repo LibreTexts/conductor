@@ -7,7 +7,49 @@ const User = require('../models/user.js');
 const { body, query } = require('express-validator');
 const conductorErrors = require('../conductor-errors.js');
 const { debugError, debugObject } = require('../debug.js');
+const multer = require('multer');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const sharp = require('sharp');
+
+const avatarStorage = multer.memoryStorage();
+
 const authAPI = require('./auth.js');
+
+
+/**
+ * Returns a Multer handler to process and validate user avatar image uploads.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ * @param {function} next - The next middleware function to call.
+ * @returns {function} The avatar upload handler.
+ */
+const avatarUploadHandler = (req, res, next) => {
+    const avatarUploadConfig = multer({
+        storage: avatarStorage,
+        fileFilter: (_req, file, cb) => {
+            const validFileTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (validFileTypes.includes(file.mimetype)) return cb(null, true);
+            return cb(null, false);
+        },
+        limits: {
+            files: 1,
+            fileSize: 5242880
+        }
+    }).single('avatarFile');
+    return avatarUploadConfig(req, res, (err) => {
+        if (err) {
+            let errMsg = conductorErrors.err53;
+            if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+                errMsg = conductorErrors.err54;
+            }
+            return res.send({
+                err: true,
+                errMsg: errMsg
+            });
+        }
+        next();
+    });
+};
 
 
 /**
@@ -180,6 +222,81 @@ const updateUserEmail = (req, res) => {
         let errMsg = conductorErrors.err6;
         if (err.message === 'updatefailed') errMsg = conductorErrors.err3;
         debugError(err);
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    });
+};
+
+
+/**
+ * Uploads the user's new avatar to S3 and updates the User record, if necessary.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ */
+const updateUserAvatar = (req, res) => {
+    let userUUID = null;
+    let fileExtension = null;
+    let fileKey = null;
+    return User.findOne({ uuid: req.decoded.uuid }).lean().then((user) => {
+        if (user && typeof (req.file) === 'object') {
+            userUUID = user.uuid;
+            fileExtension = req.file.mimetype?.split('/')[1];
+            if (typeof (fileExtension) === 'string') {
+                fileKey = `avatars/${userUUID}.${fileExtension}`;
+                return sharp(req.file.buffer).resize({
+                    width: 500,
+                    height: 500
+                }).toBuffer();
+            } else {
+                throw (new Error('filevalidate'));
+            }
+        } else {
+            throw (new Error('nouser'));
+        }
+    }).then((processedImage) => {
+        if (processedImage !== null) {
+            const storageClient = new S3Client({
+                credentials: {
+                    accessKeyId: process.env.AWS_USERDATA_ACCESS_KEY,
+                    secretAccessKey: process.env.AWS_USERDATA_SECRET_KEY
+                },
+                region: process.env.AWS_USERDATA_REGION,
+            });
+            const uploadCommand = new PutObjectCommand({
+                Bucket: process.env.AWS_USERDATA_BUCKET,
+                Key: fileKey,
+                Body: processedImage
+            });
+            return storageClient.send(uploadCommand);
+        } else {
+            throw (new Error('imageprocess'));
+        }
+    }).then((uploadResponse) => {
+        if (uploadResponse['$metadata']?.httpStatusCode === 200) {
+            const avatarURL = `https://${process.env.AWS_USERDATA_DOMAIN}/${fileKey}`;
+            return User.updateOne({ uuid: userUUID }, { avatar: avatarURL });
+        } else {
+            throw (new Error('imageupload'));
+        }
+    }).then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+            return res.send({
+                err: false,
+                msg: 'Successfully updated avatar.'
+            });
+        } else {
+            throw (new Error('updatefail'));
+        }
+    }).catch((err) => {
+        debugError(err);
+        let errMsg = conductorErrors.err6;
+        if (err.message === 'nouser') errMsg = conductorErrors.err7;
+        else if (err.message === 'filevalidate') errMsg = conductorErrors.err55;
+        else if (err.message === 'imageprocess') errMsg = conductorErrors.err56;
+        else if (err.message === 'imageupload') errMsg = conductorErrors.err57;
+        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
         return res.send({
             err: true,
             errMsg: errMsg
@@ -654,10 +771,12 @@ const validate = (method) => {
 
 
 module.exports = {
+    avatarUploadHandler,
     getBasicUserInfo,
     getBasicAccountInfo,
     updateUserName,
     updateUserEmail,
+    updateUserAvatar,
     getUsersList,
     getBasicUsersList,
     getUserInfoAdmin,

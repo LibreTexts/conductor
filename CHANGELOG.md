@@ -1,5 +1,14 @@
 # Changelog
 
+# 03-19-2022
+#### :art: UI/UX
+* Implemented the ability to update user avatar in Account Settings
+
+#### :satellite: Server
+* Implemented user avatar uploads to Conductor image database
+* Added the ability to display system-wide announcements using the Announcements API
+
+
 # 03-16-2022
 #### :art: UI/UX
 * Added links to the Libraries and ADAPT ACRs on the Accessibility Statement page

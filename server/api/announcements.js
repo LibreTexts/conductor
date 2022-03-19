@@ -339,7 +339,57 @@ const getRecentAnnouncement = (_req, res) => {
             errMsg: conductorErrors.err6
         });
     });
-}
+};
+
+
+/**
+ * Returns the most recent active System Announcement, if applicable.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ */
+const getSystemAnnouncement = (req, res) => {
+    const today = new Date();
+    return Announcement.aggregate([
+        {
+            $match: {
+                $and: [
+                    { org: 'system' },
+                    { expires: {
+                        $gt: today
+                    }}
+                ]
+            }
+        }, {
+            $sort: {
+                createdAt: -1
+            }
+        }, {
+            $limit: 1
+        }, {
+            $project: {
+                _id: 0,
+                __v: 0,
+                updatedAt: 0
+            }
+        }
+    ]).then((sysAnnouncements) => {
+        let announcement = null;
+        if (Array.isArray(sysAnnouncements) && sysAnnouncements.length > 0) {
+            announcement = sysAnnouncements[0];
+        }
+        return res.send({
+            err: false,
+            sysAnnouncement: announcement
+        });
+    }).catch((err) => {
+        debugError(err);
+        return res.send({
+            err: true,
+            errMsg: conductorErrors.err6
+        });
+    });
+};
+
 
 /**
  * Sets up the validation chain(s) for methods in this file.
@@ -365,5 +415,6 @@ module.exports = {
     deleteAnnouncement,
     getAllAnnouncements,
     getRecentAnnouncement,
+    getSystemAnnouncement,
     validate
 };

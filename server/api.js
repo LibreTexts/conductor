@@ -337,6 +337,11 @@ router.route('/user/email').put(authAPI.verifyRequest,
     usersAPI.validate('updateUserEmail'), middleware.checkValidationErrors,
     usersAPI.updateUserEmail);
 
+router.route('/user/avatar').post(
+    authAPI.verifyRequest,
+    usersAPI.avatarUploadHandler,
+    usersAPI.updateUserAvatar);
+
 router.route('/user/roles').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
@@ -389,6 +394,8 @@ router.route('/announcements/all').get(authAPI.verifyRequest,
 
 router.route('/announcements/recent').get(authAPI.verifyRequest,
     announcementAPI.getRecentAnnouncement);
+
+router.route('/announcements/system').get(announcementAPI.getSystemAnnouncement);
 
 
 /* Alerts */

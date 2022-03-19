@@ -7,9 +7,10 @@ import {
     Image,
     Modal,
     Button,
-    Message
+    Message,
+    Icon
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
@@ -38,51 +39,70 @@ const Commons = (_props) => {
     const [activeItem, setActiveItem] = useState('');
     const [showNoOrg, setShowNoOrg] = useState(false);
 
-    /**
-     * Verify the application has an ORG_ID
-     * environment variable, show a
-     * warning message otherwise.
-     */
-    useEffect(() => {
-        if (!process.env.REACT_APP_ORG_ID) {
-            setShowNoOrg(true);
-        }
-    }, []);
+    // System Announcement Message
+    const [showSystemAnnouncement, setShowSystemAnnouncement] = useState(false);
+    const [systemAnnouncementData, setSystemAnnouncementData] = useState({});
 
-    /**
-     * Run getOrgInfo() if information is missing.
-     */
-    useEffect(() => {
-        if (org.orgID === '') {
-            getOrgInfo();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [org]);
 
     /**
      * Retrieve information about the environment
      * Organization via GET request.
      */
-    const getOrgInfo = () => {
+    const getOrgInfo = useCallback(() => {
         axios.get('org/info', {
             params: {
                 orgID: process.env.REACT_APP_ORG_ID
             }
         }).then((res) => {
             if (!res.data.err) {
-                var orgData = res.data;
+                let orgData = res.data;
                 delete orgData.err;
+                console.log(orgData);
                 dispatch({
                     type: 'SET_ORG_INFO',
                     payload: orgData
                 });
             } else {
-                console.log(res.data.errMsg);
+                console.error(res.data.errMsg); // fail silently
             }
         }).catch((err) => {
-            console.log(err);
+            console.error(err); // fail silently
         });
-    };
+    }, [dispatch]);
+
+    /**
+     * Checks if a System Announcement is available and updates the UI accordingly if so.
+     */
+    const getSystemAnnouncement = useCallback(() => {
+        axios.get('/announcements/system').then((res) => {
+            if (!res.data.err) {
+                if (res.data.sysAnnouncement !== null) {
+                    setShowSystemAnnouncement(true);
+                    setSystemAnnouncementData(res.data.sysAnnouncement);
+                }
+            } else {
+                console.error(res.data.errMsg); // fail silently
+            }
+        }).catch((err) => {
+            console.error(err); // fail silently
+        });
+    }, [setShowSystemAnnouncement, setSystemAnnouncementData]);
+
+    /**
+     * Initialization: Check that an OrgID is present, and if there are active
+     * system announcements.
+     */
+    useEffect(() => {
+        if (!process.env.REACT_APP_ORG_ID) setShowNoOrg(true);
+        getSystemAnnouncement();
+    }, [setShowNoOrg, getSystemAnnouncement]);
+
+    /**
+     * Retrieve Organization info if it missing.
+     */
+    useEffect(() => {
+        if (org.orgID === '') getOrgInfo();
+    }, [org, getOrgInfo]);
 
     /**
      * Subscribe to changes to location
@@ -220,17 +240,17 @@ const Commons = (_props) => {
                     {menuContent}
                 </Menu>
             </Breakpoint>
-            {(process.env.REACT_APP_INT_MAINT === 'true') &&
-                <Message
-                    info
-                    className='mt-2p ml-1p mr-1p'
-                >
-                    <Message.Header>Maintenance in Progress</Message.Header>
-                    <Message.Content>
-                        <span>This site is currently undergoing background maintenance. You may experience intermittent service interruptions. This message will disappear when maintenance is complete.</span>
-                    </Message.Content>
-                </Message>
-            }
+            {showSystemAnnouncement && (
+                <div className='mt-2p ml-2p mr-2p'>
+                    <Message icon info>
+                        <Icon name='info circle' />
+                        <Message.Content>
+                            <Message.Header>{systemAnnouncementData.title}</Message.Header>
+                            <p>{systemAnnouncementData.message}</p>
+                        </Message.Content>
+                    </Message>
+                </div>
+            )}
             <Switch>
                 <Route exact path='/' component={CommonsCatalog} />
                 <Route exact path='/catalog' component={CommonsCatalog} />
@@ -251,6 +271,7 @@ const Commons = (_props) => {
                 <Route exact path='/book/:id' component={CommonsBook} />
             </Switch>
             <CommonsFooter />
+            {/* No OrgID Modal */}
             <Modal
                 onClose={() => { setShowNoOrg(false) }}
                 open={showNoOrg}

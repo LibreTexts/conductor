@@ -46,7 +46,12 @@ const conductorErrors = {
     'err49': "Oops, this review is missing required responses.",
     'err50': "Oops, Peer Reviews must have at least one response to be saved.",
     'err51': "Oops, a Dropdown Prompt requires at least one response option.",
-    'err52': "Oops, this Project's settings do not allow reviews from non-team members."
+    'err52': "Oops, this Project's settings do not allow reviews from non-team members.",
+    'err53': "Sorry, we encountered an error uploading your file. Please check its format and size.",
+    'err54': "Oops, avatar files must be smaller than 5 MB.",
+    'err55': "Sorry, we're having trouble validating your file.",
+    'err56': "Sorry, we encountered an error while processing your file.",
+    'err57': "Sorry, we're having trouble saving your file."
 };
 
 module.exports = conductorErrors;

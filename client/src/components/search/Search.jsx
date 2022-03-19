@@ -233,7 +233,7 @@ const Search = (_props) => {
         } else {
             handleGlobalError('Oops, please provide a valid search query.');
         }
-    }, [location.search, setSearchQuery, setProjLocationFilter,
+    }, [location.search, performSearch, setSearchQuery, setProjLocationFilter,
         setProjStatusFilter, setProjVisibilityFilter, setProjSort,
         setBookSort, setHwSort, setUserSort, handleGlobalError]);
 
