@@ -1,5 +1,10 @@
 # Changelog
 
+# 03-31-2022
+#### :art: UI/UX
+* Added a link to the Account Request form on LibreCommons and clarified form instructions.
+
+
 # 03-19-2022
 #### :art: UI/UX
 * Implemented the ability to update user avatar in Account Settings

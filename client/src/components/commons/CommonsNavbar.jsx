@@ -39,7 +39,7 @@ const CommonsNavbar = (_props) => {
 
     return (
         <div className='commons-navigation'>
-            <Breakpoint name='tabletOrDesktop'>
+            <Breakpoint name='desktop'>
                 <Menu id='commons-nav' secondary>
                     <Menu.Item as={Link} to='/'>
                         <Image
@@ -53,11 +53,22 @@ const CommonsNavbar = (_props) => {
                             as='a'
                             href={org.aboutLink}
                             target='_blank'
-                            rel='noopener noreferrer'
+                            rel='noopener'
                             className='commons-nav-link'
                         >
                             About {org.shortName}
                         </Menu.Item>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') && (
+                            <Menu.Item
+                                as='a'
+                                href='/accountrequest?src=commons'
+                                target='_blank'
+                                rel='noopener'
+                                className='commons-nav-link'
+                            >
+                                Instructor Account Request
+                            </Menu.Item>
+                        )}
                         {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                             <Dropdown item text='Campus Commons' id='commons-nav-campusdropdown'>
                                 <Dropdown.Menu>
@@ -119,7 +130,7 @@ const CommonsNavbar = (_props) => {
                     </Menu.Menu>
                 </Menu>
             </Breakpoint>
-            <Breakpoint name='mobile'>
+            <Breakpoint name='mobileOrTablet'>
                 <div id='commons-mobilenav'>
                     <div id='commons-mobilenav-left'>
                         <Image
@@ -150,6 +161,18 @@ const CommonsNavbar = (_props) => {
                             About {org.shortName}
                             <Icon name='external' className='float-right' />
                         </Menu.Item>
+                        {(process.env.REACT_APP_ORG_ID === 'libretexts') && (
+                            <Menu.Item
+                                as='a'
+                                href='/accountrequest?src=commons'
+                                target='_blank'
+                                rel='noopener'
+                                className='commons-nav-link'
+                            >
+                                Instructor Account Request
+                                <Icon name='share alternate' className='float-right' />
+                            </Menu.Item>
+                        )}
                         {(process.env.REACT_APP_ORG_ID === 'libretexts') &&
                             <Menu.Item onClick={() => { setShowMobileCommons(!showMobileCommons) }}>
                                 Campus Commons

@@ -12,6 +12,7 @@ import {
     Icon
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 
@@ -23,12 +24,14 @@ import { purposeOptions } from '../util/AccountRequestOptions.js';
 const AccountRequest = (props) => {
 
     // Global State and Error
+    const location = useLocation();
     const { handleGlobalError } = useGlobalError();
     const user = useSelector((state) => state.user);
 
     // UI
     const [showSuccessModal, setSuccessModal] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
+    const [showOpenCommons, setShowOpenCommons] = useState(false);
 
     // Form Data
     const [email, setEmail] = useState('');
@@ -47,7 +50,6 @@ const AccountRequest = (props) => {
     const [instErr, setInstErr] = useState(false);
     const [urlErr, setURLErr] = useState(false);
 
-
     /**
      * Update page title.
      */
@@ -55,6 +57,14 @@ const AccountRequest = (props) => {
         document.title = "LibreTexts Conductor | Account Request";
     }, []);
 
+    /**
+     * Reads URL parameters and updates UI, if necessary.
+     */
+    useEffect(() => {
+        const urlParams = new URLSearchParams(location.search);
+        const refSrc = urlParams.get('src');
+        if (refSrc === 'commons') setShowOpenCommons(true);
+    }, [location.search, setShowOpenCommons]);
 
     /** Form input handlers **/
     const onChange = (e) => {
@@ -75,7 +85,6 @@ const AccountRequest = (props) => {
                 break // silence React warning
         }
     };
-
 
     /**
      * Validate the form data.
@@ -110,7 +119,6 @@ const AccountRequest = (props) => {
         return valid;
     };
 
-
     /**
      * Resets all form error states.
      */
@@ -122,7 +130,6 @@ const AccountRequest = (props) => {
         setInstErr(false);
         setURLErr(false);
     };
-
 
     /**
      * Submit data via POST to the server, then
@@ -156,7 +163,6 @@ const AccountRequest = (props) => {
             });
         }
     };
-
 
     /**
      * Called when the Succes Modal is closed. Redirects user
@@ -193,7 +199,16 @@ const AccountRequest = (props) => {
             <Grid.Row>
                 <Grid.Column mobile={16} computer={10}>
                     <Segment raised className='mb-4r'>
-                        <p className='text-center'>Instructor accounts are for instructors only. Please use your campus email address to facilitate verification of your instructor status. <em>Accounts are issued by MindTouch and access instructions may be routed to your junk or spam folder.</em></p>
+                        {showOpenCommons && (
+                            <Message icon info className='mb-2p'>
+                                <Icon name='lock open' />
+                                <Message.Content>
+                                    <Message.Header>Conductor Is Open to All</Message.Header>
+                                    <p>This form is for instructors to request accounts on <strong>LibreTexts libraries</strong>, the <strong>LibreStudio</strong>, and the <strong>ADAPT homework system</strong>. Conductor is open to all community members without explicit approval. To register for or log in to Conductor, <Link to='/login'>navigate here</Link>.</p>
+                                </Message.Content>
+                            </Message>
+                        )}
+                        <p className='text-center'>Instructor accounts are for instructors only. Please use your campus email address to facilitate verification of your instructor status. <em>Upon approval, you should receive a notification from LibreTexts Conductor. Login details for your requested service(s) will arrive separately. Please check your junk/spam folder if you do not receive them.</em></p>
                         <p className='text-center mt-2p'>Accounts are required to modify content on the LibreTexts libraries including editing pages, uploading content, creating new Course Shells, and remixing customized textbooks. Fill out and submit this form to request an Instructor account.</p>
                         {user.isAuthenticated &&
                             <Message icon positive className='mt-2p'>
