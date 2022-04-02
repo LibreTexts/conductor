@@ -4,6 +4,7 @@
 #### :satellite: Server
 * Fixed a bug causing SSO users' avatars to be overwritten
 * Introduced avatar URL versioning to mitigate cache issues
+* Updated package dependencies to resolve security advisories
 
 
 # 03-31-2022
