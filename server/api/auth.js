@@ -110,13 +110,15 @@ const oauthCallback = (req, res) => {
             if (userData.authType === 'sso') {
                 user = userData;
                 payload.uuid = userData.uuid;
-                // sync info
-                return User.updateOne({ uuid: userData.uuid }, {
+                let updateInfo = {
                     firstName: ssoAttr.given_name,
                     lastName: ssoAttr.family_name,
-                    avatar: avatar,
                     authSub: ssoAttr.sub
-                });
+                };
+                // don't update from IdP if a Conductor-specific avatar is set
+                if (userData.customAvatar !== true) updateInfo.avatar = avatar; 
+                // sync info
+                return User.updateOne({ uuid: userData.uuid }, updateInfo);
             }
             throw(new Error('authtype'));
         } else { // create user

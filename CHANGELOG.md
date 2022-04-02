@@ -1,5 +1,11 @@
 # Changelog
 
+# 04-01-2022
+#### :satellite: Server
+* Fixed a bug causing SSO users' avatars to be overwritten
+* Introduced avatar URL versioning to mitigate cache issues
+
+
 # 03-31-2022
 #### :art: UI/UX
 * Added a link to the Account Request form on LibreCommons and clarified form instructions.

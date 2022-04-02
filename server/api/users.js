@@ -239,10 +239,21 @@ const updateUserAvatar = (req, res) => {
     let userUUID = null;
     let fileExtension = null;
     let fileKey = null;
+    let aviVersion = 1;
+    let avatarURL = '';
     return User.findOne({ uuid: req.decoded.uuid }).lean().then((user) => {
         if (user && typeof (req.file) === 'object') {
             userUUID = user.uuid;
             fileExtension = req.file.mimetype?.split('/')[1];
+            /* Try to use a versioning schema for cache busting */
+            if (user.avatar?.includes(process.env.AWS_USERDATA_DOMAIN)) {
+                const avatarSplit = user.avatar.split('?v=');
+                if (Array.isArray(avatarSplit) && avatarSplit.length > 1) {
+                    const currAviVersion = Number.parseInt(avatarSplit[1]);
+                    if  (!Number.isNaN(currAviVersion)) aviVersion = currAviVersion + 1;
+                }
+            }
+            /* Start image processing */
             if (typeof (fileExtension) === 'string') {
                 fileKey = `avatars/${userUUID}.${fileExtension}`;
                 return sharp(req.file.buffer).resize({
@@ -275,8 +286,8 @@ const updateUserAvatar = (req, res) => {
         }
     }).then((uploadResponse) => {
         if (uploadResponse['$metadata']?.httpStatusCode === 200) {
-            const avatarURL = `https://${process.env.AWS_USERDATA_DOMAIN}/${fileKey}`;
-            return User.updateOne({ uuid: userUUID }, { avatar: avatarURL });
+            avatarURL = `https://${process.env.AWS_USERDATA_DOMAIN}/${fileKey}?v=${aviVersion}`;
+            return User.updateOne({ uuid: userUUID }, { avatar: avatarURL, customAvatar: true });
         } else {
             throw (new Error('imageupload'));
         }
@@ -284,7 +295,8 @@ const updateUserAvatar = (req, res) => {
         if (updateRes.modifiedCount === 1) {
             return res.send({
                 err: false,
-                msg: 'Successfully updated avatar.'
+                msg: 'Successfully updated avatar.',
+                url: avatarURL
             });
         } else {
             throw (new Error('updatefail'));

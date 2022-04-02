@@ -36,7 +36,8 @@ const UserSchema = new Schema({
     authSub: String,            // the 'sub' field from the SSO service
     lastResetAttempt: Date,     // the datetime of the last password reset attempt
     resetToken: String,         // the cryptographically-generated active reset token
-    tokenExpiry: Date           // the datetime that the @resetToken is no longer valid
+    tokenExpiry: Date,          // the datetime that the @resetToken is no longer valid
+    customAvatar: Boolean       // if the user has set their own avatar
 }, {
     timestamps: true
 });
