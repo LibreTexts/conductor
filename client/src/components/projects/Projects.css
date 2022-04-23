@@ -27,6 +27,10 @@
 }
 */
 
+.project-notes-body a {
+    word-break: break-all;
+}
+
 .project-detail-titleheader {
     color: #585858;
 }

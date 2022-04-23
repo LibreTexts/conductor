@@ -2107,9 +2107,12 @@ const ProjectView = (props) => {
                                                 {hasNotes &&
                                                     <Grid.Column>
                                                         <Header as='h3' dividing>Notes</Header>
-                                                        <p dangerouslySetInnerHTML={{
-                                                            __html: DOMPurify.sanitize(marked(project.notes))
-                                                        }}></p>
+                                                        <p
+                                                            className='project-notes-body'
+                                                            dangerouslySetInnerHTML={{
+                                                                __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
+                                                            }}
+                                                        />
                                                     </Grid.Column>
                                                 }
                                                 <Grid.Column>
