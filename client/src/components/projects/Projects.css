@@ -383,7 +383,7 @@
 .task-more-div {
     display: flex;
     align-items: center;
-    justify-content: end;
+    justify-content: flex-end;
 }
 
 .task-view-header-crumbs {

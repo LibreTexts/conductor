@@ -434,7 +434,7 @@
 
 .commons-book-clr-overview-flex > .right {
     display: flex;
-    justify-content: end;
+    justify-content: flex-end;
 }
 
 .commons-book-clr-row:first-child {
