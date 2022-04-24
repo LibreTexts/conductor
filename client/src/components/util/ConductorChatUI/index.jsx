@@ -23,6 +23,7 @@ import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
+import PropTypes from 'prop-types';
 
 import { isEmptyString } from '../HelperFunctions.js';
 
@@ -251,6 +252,19 @@ ConductorChatUI.defaultProps = {
     loadedThreadMsgs: false,
     getThreads: null,
     getMessages: () => {}
+};
+
+ConductorChatUI.propTypes = {
+    projectID: PropTypes.string,
+    user: PropTypes.object.isRequired,
+    mode: PropTypes.string.isRequired,
+    kind: PropTypes.string.isRequired,
+    activeThread: PropTypes.string.isRequired,
+    activeThreadTitle: PropTypes.string.isRequired,
+    activeThreadMsgs: PropTypes.array.isRequired,
+    loadedThreadMsgs: PropTypes.bool.isRequired,
+    getThreads: PropTypes.func,
+    getMessages: PropTypes.func.isRequired,
 };
 
 export default memo(ConductorChatUI);
