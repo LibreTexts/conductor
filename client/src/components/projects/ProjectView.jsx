@@ -2147,6 +2147,7 @@ const ProjectView = (props) => {
                                                     projectID={props.match.params.id}
                                                     user={user}
                                                     kind='project'
+                                                    isProjectAdmin={userProjectAdmin}
                                                 />
                                             </Segment>
                                         </Grid.Column>
@@ -3201,6 +3202,7 @@ const ProjectView = (props) => {
                                                 activeThreadMsgs={viewTaskMsgs}
                                                 loadedThreadMsgs={viewTaskLoadedMsgs}
                                                 getMessages={getTaskMessages}
+                                                isProjectAdmin={userProjectAdmin}
                                             />
                                         </div>
                                     </div>

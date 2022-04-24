@@ -1,5 +1,17 @@
 # Changelog
 
+# 04-23-2022
+#### :art: UI/UX
+* Updated package dependencies to resolve security advisories
+* Use specification-standard values for flexbox alignment in certain CSS files
+* Add default props and prop typechecking in ConductorChatUI and ConductorMessagingUI
+* Wrap longer links in Project notes
+
+#### :satellite: Server
+* Updated package dependencies to resolve security advisories
+* Allow Project admins to delete any message in a given project
+
+
 # 04-01-2022
 #### :satellite: Server
 * Fixed a bug causing SSO users' avatars to be overwritten

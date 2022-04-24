@@ -40,6 +40,7 @@ const ConductorChatUI = ({
     loadedThreadMsgs,
     getThreads,
     getMessages,
+    isProjectAdmin,
 }) => {
 
     // Global State and Eror Handling
@@ -118,9 +119,7 @@ const ConductorChatUI = ({
 
     const submitDeleteMessage = () => {
         setDelMsgLoading(true);
-        let deleteURL;
-        if (kind === 'project') deleteURL = '/project/thread/message';
-        else deleteURL = '/project/task/message'
+        const deleteURL = kind === 'project' ? '/project/thread/message' : '/project/task/message';
         axios.delete(deleteURL, {
             data: {
                 messageID: delMsgID
@@ -180,7 +179,7 @@ const ConductorChatUI = ({
                                           <div>{item.date} at {item.time}</div>
                                         </Comment.Metadata>
                                         <Comment.Text className='conductor-chat-msg-body' dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
-                                        {(item.author?.uuid === user.uuid) &&
+                                        {((item.author?.uuid === user.uuid) || isProjectAdmin) &&
                                             <Comment.Actions>
                                                 <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
                                             </Comment.Actions>
@@ -251,7 +250,8 @@ ConductorChatUI.defaultProps = {
     activeThreadMsgs: [],
     loadedThreadMsgs: false,
     getThreads: null,
-    getMessages: () => {}
+    getMessages: () => {},
+    isProjectAdmin: false,
 };
 
 ConductorChatUI.propTypes = {
@@ -265,6 +265,7 @@ ConductorChatUI.propTypes = {
     loadedThreadMsgs: PropTypes.bool.isRequired,
     getThreads: PropTypes.func,
     getMessages: PropTypes.func.isRequired,
+    isProjectAdmin: PropTypes.bool,
 };
 
 export default memo(ConductorChatUI);

@@ -471,21 +471,41 @@ const createTaskMessage = (req, res) => {
  * @param {Object} res - the express.js response object.
  */
 const deleteMessage = (req, res) => {
+    let message = null;
     Message.findOne({
         messageID: req.body.messageID
-    }).lean().then((message) => {
-        if (message) {
-            if ((message.author === req.user?.decoded?.uuid)
-                || (authAPI.checkHasRole(req.user, 'libretexts', 'superadmin'))) {
-                    return Message.deleteOne({
-                        messageID: req.body.messageID
-                    })
+    }).lean().then((msgData) => {
+        if (msgData) {
+            message = msgData;
+            if (msgData.thread && msgData.thread.length > 0) {
+                return Thread.findOne({ threadID: msgData.thread }).lean();
+            } else if (msgData.task && msgData.task.length > 0) {
+                return Task.findOne({ taskID: msgData.task }).lean();
             } else {
-                throw(new Error('unauth'));
+                throw (new Error('missingparent'));
             }
         } else {
             throw(new Error('notfound'));
         }
+    }).then((parentObj) => {
+        if (parentObj) {
+            const projectID = parentObj.project || parentObj.projectID;
+            if (typeof (projectID) === 'string') {
+                return Project.findOne({ projectID }).lean();
+            }
+        }
+        throw (new Error('missingparent'));
+    }).then((project) => {
+        if (project) {
+            if ((message.author === req.user?.decoded?.uuid)
+                || (projectsAPI.checkProjectAdminPermission(project, req.user))
+            ) {
+                return Message.deleteOne({ messageID: req.body.messageID });
+            } else {
+                throw (new Error('unauth'));
+            }
+        }
+        throw (new Error('missingparent'));
     }).then((msgDeleteRes) => {
         if (msgDeleteRes.deletedCount === 1) {
             return res.send({
@@ -498,6 +518,7 @@ const deleteMessage = (req, res) => {
     }).catch((err) => {
         var errMsg = conductorErrors.err6;
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
+        else if (err.message === 'missingparent') errMsg = conductorErrors.err1;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'deletefail') errMsg = conductorErrors.err3;
         return res.send({

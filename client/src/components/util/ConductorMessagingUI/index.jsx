@@ -34,7 +34,7 @@ import {
 import useGlobalError from '../../error/ErrorHooks.js';
 
 
-const ConductorMessagingUI = ({ projectID, user, kind }) => {
+const ConductorMessagingUI = ({ projectID, user, kind, isProjectAdmin }) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
@@ -277,6 +277,7 @@ const ConductorMessagingUI = ({ projectID, user, kind }) => {
                 loadedThreadMsgs={loadedThreadMsgs}
                 getThreads={getDiscussionThreads}
                 getMessages={getThreadMessages}
+                isProjectAdmin={isProjectAdmin}
             />
             {/* New Discussion Thread Modal */}
             <Modal
@@ -349,12 +350,14 @@ ConductorMessagingUI.defaultProps = {
     projectID: '',
     user: {},
     kind: 'project',
+    isProjectAdmin: false,
 };
 
 ConductorMessagingUI.propTypes = {
     projectID: PropTypes.string.isRequired,
     user: PropTypes.object.isRequired,
     kind: PropTypes.string.isRequired,
+    isProjectAdmin: PropTypes.bool
 };
 
 export default memo(ConductorMessagingUI);
