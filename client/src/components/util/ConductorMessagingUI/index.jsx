@@ -24,6 +24,7 @@ import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
+import PropTypes from 'prop-types';
 
 import {
     isEmptyString,
@@ -342,6 +343,18 @@ const ConductorMessagingUI = ({ projectID, user, kind }) => {
             </Modal>
         </div>
     )
+};
+
+ConductorMessagingUI.defaultProps = {
+    projectID: '',
+    user: {},
+    kind: 'project',
+};
+
+ConductorMessagingUI.propTypes = {
+    projectID: PropTypes.string.isRequired,
+    user: PropTypes.object.isRequired,
+    kind: PropTypes.string.isRequired,
 };
 
 export default memo(ConductorMessagingUI);
