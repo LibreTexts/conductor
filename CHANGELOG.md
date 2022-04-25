@@ -1,5 +1,10 @@
 # Changelog
 
+# 04-24-2022
+#### :art: UI/UX
+* Updated Accessibility Statement
+
+
 # 04-23-2022
 #### :art: UI/UX
 * Updated package dependencies to resolve security advisories
