@@ -13,8 +13,6 @@ const bluebird = require('bluebird');
 const helmet = require('helmet');
 const { exit } = require('process');
 const { debug, debugServer, debugDB } = require('./debug.js');
-const swaggerUI = require('swagger-ui-express');
-const swaggerDocs = require('./docs');
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID || process.env.ORG_ID === '') {
@@ -83,14 +81,6 @@ app.use(helmet.contentSecurityPolicy({
         ]
     }
 }));
-
-
-// Serve API Docs
-app.use(
-    '/api-docs',
-    swaggerUI.serve,
-    swaggerUI.setup(swaggerDocs)
-);
 
 // Serve API
 app.use('/api/v1', api);
