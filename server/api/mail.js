@@ -255,22 +255,19 @@ const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, pro
  * @param {String} messageText      - the recent message text
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle, messageText) => {
-    let textToSend = `Attention: New messages are available in the "${threadTitle}" thread (${messagesKind} Discussion) of the "${projectTitle}" project on Conductor.`;
-    let htmlToSend = `<p>Attention:</p><p>New messages are available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p>`;
+const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle, messageText, authorName) => {
+    let msgAuthor = authorName || 'A Conductor user';
+    let htmlToSend = `<p>A new message is available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p>`;
     if (!isEmptyString(messageText)) {
         let truncMsg = truncateString(messageText, 500);
-        textToSend += `Recent message: ${truncMsg}.`;
-        htmlToSend += `<p><strong>Recent message:<strong></p><p>${marked.parseInline(truncMsg)}</p><br>`;
+        htmlToSend += `<p style="margin-left: 15px;"><strong>${msgAuthor}</strong> said:</p><p style="margin-left: 15px; border-left: 2px solid #ccc; padding-left: 1%;">${marked.parseInline(truncMsg)}</p>`;
     }
-    textToSend += `This project is available in the ${projectOrg} instance. Sincerely, The LibreTexts team` + autoGenNoticeText;
-    htmlToSend += `<p>This project is available in the <strong>${projectOrg}</strong> instance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    htmlToSend += autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: ['conductor@noreply.libretexts.org'],
         bcc: recipients,
         subject: `New Messages in ${projectTitle}`,
-        text: textToSend,
         html: htmlToSend
     });
 };

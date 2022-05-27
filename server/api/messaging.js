@@ -264,6 +264,7 @@ const createThreadMessage = (req, res) => {
     let projectData = {};
     let sentMessage = false;
     let sentMsgData = {};
+    let msgAuthorName = null;
     let sentNotif = false;
     const currentTime = new Date();
     Thread.findOne({
@@ -308,17 +309,23 @@ const createThreadMessage = (req, res) => {
         if (newMsg) {
             sentMessage = true;
             sentMsgData = newMsg;
-            let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
-            return usersAPI.getUserEmails(projectTeam);
+            return User.findOne({ uuid: req.user.decoded.uuid }, { firstName: 1, lastName: 1 }).lean();
         } else {
             throw(new Error('createfail'));
         }
+    }).then((msgAuthor) => {
+      if (msgAuthor) {
+        msgAuthorName = `${msgAuthor.firstName} ${msgAuthor.lastName}`;
+      }
+      let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
+      return usersAPI.getUserEmails(projectTeam);
     }).then((teamEmails) => {
         if (Array.isArray(teamEmails) && teamEmails.length > 0) {
             // send email notifications
             sentNotif = true;
             return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
-                projectData.title, projectData.orgID, discussionKind, threadTitle, sentMsgData.body);
+                projectData.title, projectData.orgID, discussionKind, threadTitle,
+                sentMsgData.body, msgAuthorName);
         } else {
             return {};
         }
@@ -376,6 +383,7 @@ const createTaskMessage = (req, res) => {
     let project = {};
     let sentMessage = false;
     let sentMsgData = {};
+    let msgAuthorName = null;
     Task.findOne({
         taskID: req.body.taskID
     }).lean().then((taskData) => {
@@ -408,15 +416,21 @@ const createTaskMessage = (req, res) => {
         if (newMsg) {
             sentMessage = true;
             sentMsgData = newMsg;
-            let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
-            return usersAPI.getUserEmails(projectTeam);
+            return User.findOne({ uuid: req.user.decoded.uuid }, { firstName: 1, lastName: 1 }).lean();
         } else {
             throw(new Error('createfail'));
         }
+    }).then((msgAuthor) => {
+      if (msgAuthor) {
+        msgAuthorName = `${msgAuthor.firstName} ${msgAuthor.lastName}`;
+      }
+      let projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
+      return usersAPI.getUserEmails(projectTeam);
     }).then((teamEmails) => {
         if (Array.isArray(teamEmails) && teamEmails.length > 0) {
             return mailAPI.sendNewProjectMessagesNotification(teamEmails, project.projectID,
-                project.title, project.orgID, 'Tasks', task.title, sentMsgData.body);
+                project.title, project.orgID, 'Tasks', task.title,
+                sentMsgData.body, msgAuthorName);
         } else {
             return {};
         }
