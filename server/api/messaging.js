@@ -264,21 +264,12 @@ const createThreadMessage = (req, res) => {
     let projectData = {};
     let sentMessage = false;
     let sentMsgData = {};
-    let allowNotif = true;
     let sentNotif = false;
     const currentTime = new Date();
     Thread.findOne({
         threadID: req.body.threadID
     }).lean().then((thread) => {
         if (thread) {
-            if (thread.hasOwnProperty('lastNotifSent')) {
-                // rate limit email notifications
-                const lastNotifTime = new Date(thread.lastNotifSent);
-                const minutesSince = (currentTime - lastNotifTime) / (1000 * 60);
-                if (minutesSince < 15) {
-                    allowNotif = false;
-                }
-            }
             threadTitle = thread.title;
             switch (thread.kind) {
                 case 'peerreview':
@@ -317,17 +308,13 @@ const createThreadMessage = (req, res) => {
         if (newMsg) {
             sentMessage = true;
             sentMsgData = newMsg;
-            if (allowNotif) {
-                let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
-                return usersAPI.getUserEmails(projectTeam);
-            } else {
-                return [];
-            }
+            let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
+            return usersAPI.getUserEmails(projectTeam);
         } else {
             throw(new Error('createfail'));
         }
     }).then((teamEmails) => {
-        if (allowNotif && Array.isArray(teamEmails) && teamEmails.length > 0) {
+        if (Array.isArray(teamEmails) && teamEmails.length > 0) {
             // send email notifications
             sentNotif = true;
             return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
