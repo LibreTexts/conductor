@@ -1,5 +1,11 @@
 # Changelog
 
+# 04-26-2022
+#### :satellite: Server
+* Removed Project message notification rate limiting
+* Added message sender's name in email notifications
+
+
 # 04-24-2022
 #### :art: UI/UX
 * Updated Accessibility Statement
