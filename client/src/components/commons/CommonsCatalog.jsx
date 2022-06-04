@@ -509,11 +509,15 @@ const CommonsCatalog = (_props) => {
                         {((org.commonsHeader && org.commonsHeader !== '') || (org.commonsMessage && org.commonsMessage !== '')) &&
                             <Segment padded>
                                 <Breakpoint name='desktop'>
-                                    <Header id='commons-intro-header' as='h2'>{org.commonsHeader}</Header>
+                                    {(org.commonsHeader && org.commonsHeader !== '') && (
+                                      <Header id='commons-intro-header' as='h2'>{org.commonsHeader}</Header>
+                                    )}
                                     <p id='commons-intro-message'>{org.commonsMessage}</p>
                                 </Breakpoint>
                                 <Breakpoint name='mobileOrTablet'>
-                                    <Header id='commons-intro-header' textAlign='center'>{org.commonsHeader}</Header>
+                                    {(org.commonsHeader && org.commonsHeader !== '') && (
+                                      <Header id='commons-intro-header' textAlign='center' as='h2'>{org.commonsHeader}</Header>
+                                    )}
                                     <p id='commons-intro-message' className='text-center'>{org.commonsMessage}</p>
                                 </Breakpoint>
                             </Segment>
