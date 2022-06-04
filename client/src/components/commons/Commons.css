@@ -115,50 +115,38 @@
 
 /* Jumbotron */
 #commons-jumbotron {
-    /* Background image is set dynamically */
-    z-index: 50; /* Appear underneath jumbotron*/
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 21rem;
-    background-position: center center;
-    background-size: cover;
-    background-repeat: no-repeat;
-}
-
-#commons-jumbotron-logo {
-    max-width: 425px;
-    height: auto;
-}
-
-#commons-jumbotron-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-#commons-header {
-    font-size: 2.5rem;
-    color: #FFFFFF;
-    text-align: center;
-    padding-top: 1.75rem;
+  /* Background image is set dynamically */
+  z-index: 50; /* Appear underneath menu */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 21rem;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 #commons-libreheader {
-    font-size: 3.5rem;
-    color: #FFFFFF;
-    text-align: center;
-    margin: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-#commons-libresubheader {
-    text-align: center;
-    color: #C5C5C5;
-    margin: 0;
-    font-size: 1.75em;
+#commons-libreheader-main {
+  font-size: 3.5rem;
+  line-height: 3.5rem;
+  color: #FFFFFF;
+  text-align: center;
+  margin: 0.5rem 0 0;
+}
+
+#commons-libreheader-sub {
+  text-align: center;
+  color: #FFFFFF;
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.75rem;
 }
 
 /* Commons Menu */

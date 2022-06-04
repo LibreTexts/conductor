@@ -129,29 +129,20 @@ const Commons = (_props) => {
     }, [location.pathname]);
 
     const jumbotronStyle = {
-        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(' + org.coverPhoto + ')'
+        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(' + org.coverPhoto + ')'
     };
 
     const Jumbotron = () => {
-        if (process.env.REACT_APP_ORG_ID !== 'libretexts') {
-            return (
-                <div id='commons-jumbotron-inner'>
-                    <Image id='commons-jumbotron-logo' src={org.largeLogo} centered />
-                    <h1 id='commons-header'>Campus Commons</h1>
-                </div>
-            )
-        } else {
-            return (
-                <Grid>
-                    <Grid.Row>
-                        <Grid.Column>
-                            <h1 id='commons-libresubheader'>Welcome to</h1>
-                            <h1 id='commons-libreheader'>LibreCommons</h1>
-                        </Grid.Column>
-                    </Grid.Row>
-                </Grid>
-            )
-        }
+      const subHeader = process.env.REACT_APP_ORG_ID === 'libretexts' ? 'Welcome to' : org.shortName;
+      const mainHeader = process.env.REACT_APP_ORG_ID === 'libretexts' ? 'LibreCommons' : 'Campus Commons';
+      return (
+        <div>
+          <h1 id='commons-libreheader'>
+            <span id="commons-libreheader-sub">{subHeader}</span>
+            <span id="commons-libreheader-main">{mainHeader}</span>
+          </h1>
+        </div>
+      )
     };
 
     const menuContent = (
