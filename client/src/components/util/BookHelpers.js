@@ -170,6 +170,22 @@ const getLicenseColor = (license) => {
     return '';
 };
 
+/**
+ * Returns the UI-ready name of a library shelving area.
+ *
+ * @param {string} shelves - The internal shelving area identifier. 
+ * @returns {string} The UI-ready shelves name.
+ */
+const getShelvesNameText = (shelves) => {
+  if (typeof (shelves) === 'string') {
+    if (shelves === 'central') {
+      return 'Central Bookshelves';
+    }
+    return 'Campus Bookshelves';
+  }
+  return 'Unknown';
+};
+
 export {
     validateLinkGenArguments,
     genThumbnailLink,
@@ -179,5 +195,6 @@ export {
     genPubFilesLink,
     genLMSFileLink,
     genLinkSet,
-    getLicenseColor
+    getLicenseColor,
+    getShelvesNameText
 }

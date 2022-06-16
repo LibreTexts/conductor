@@ -13,15 +13,17 @@ import {
   Pagination,
   Input,
   Breadcrumb,
-  List
+  List,
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 
+import { getShelvesNameText } from '../util/BookHelpers.js';
 import {
-    isEmptyString,
+  isEmptyString,
+  basicArraysEqual,
 } from '../util/HelperFunctions.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
@@ -46,16 +48,29 @@ const CollectionsManager = () => {
     const [sortChoice, setSortChoice] = useState('title');
 
     // Create/Edit Collection Modal
+    const DEFAULT_COLL_LOCS = [
+      { key: 'central', value: false },
+      { key: 'campus', value: false },
+    ];
+
     const [showEditCollModal, setShowEditCollModal] = useState(false);
     const [editCollCreate, setEditCollCreate] = useState(false);
     const [editCollID, setEditCollID] = useState('');
     const [editCollTitle, setEditCollTitle] = useState('');
     const [editCollPhoto, setEditCollPhoto] = useState('');
     const [editCollPriv, setEditCollPriv] = useState('public');
+    const [editCollAuto, setEditCollAuto] = useState(false);
+    const [editCollProg, setEditCollProg] = useState('');
+    const [editCollLocs, setEditCollLocs] = useState(DEFAULT_COLL_LOCS);
     const [editCollOrigTitle, setEditCollOrigTitle] = useState('');
     const [editCollOrigPhoto, setEditCollOrigPhoto] = useState('');
     const [editCollOrigPriv, setEditCollOrigPriv] = useState('');
+    const [editCollOrigAuto, setEditCollOrigAuto] = useState(false);
+    const [editCollOrigProg, setEditCollOrigProg] = useState('');
+    const [editCollOrigLocs, setEditCollOrigLocs] = useState([]);
     const [editCollTitleErr, setEditCollTitleErr] = useState(false);
+    const [editCollProgErr, setEditCollProgErr] = useState(false);
+    const [editCollLocsErr, setEditCollLocsErr] = useState(false);
     const [editCollLoading, setEditCollLoading] = useState(false);
 
     // Manage Resources Modal
@@ -83,13 +98,34 @@ const CollectionsManager = () => {
 
 
     /**
+     * Retrieve all collections via GET request
+     * to the server.
+     */
+    const getCollections = useCallback(() => {
+      axios.get('/commons/collections/all').then((res) => {
+          if (!res.data.err) {
+              if (Array.isArray(res.data.colls) && res.data.colls.length > 0) {
+                  setCollections(res.data.colls);
+              }
+          } else {
+              handleGlobalError(res.data.errMsg);
+          }
+          setLoadedData(true);
+      }).catch((err) => {
+          handleGlobalError(err);
+          setLoadedData(true);
+      });
+    }, [setCollections, setLoadedData, handleGlobalError]);
+
+
+    /**
      * Set page title and retrieve collections
      * on initial load.
      */
     useEffect(() => {
         document.title = "LibreTexts Conductor | Collections Manager";
         getCollections();
-    }, []);
+    }, [getCollections]);
 
 
     /**
@@ -111,27 +147,6 @@ const CollectionsManager = () => {
         filterAndSortColls();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [collections, searchString, sortChoice]);
-
-
-    /**
-     * Retrieve all collections via GET request
-     * to the server.
-     */
-    const getCollections = () => {
-        axios.get('/commons/collections/all').then((res) => {
-            if (!res.data.err) {
-                if (res.data.colls && Array.isArray(res.data.colls) && res.data.colls.length > 0) {
-                    setCollections(res.data.colls);
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setLoadedData(true);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setLoadedData(true);
-        });
-    };
 
 
     /**
@@ -183,11 +198,31 @@ const CollectionsManager = () => {
 
 
     /**
-     * Reset any form errors in the
-     * Edit Collection Modal.
+     * Resets all fields in the Create/Edit Collection Modal to their default values.
      */
-    const resetEditCollForm = () => {
+    const resetEditCollFormValues = () => {
+      setEditCollTitle('');
+      setEditCollOrigTitle('');
+      setEditCollPhoto('');
+      setEditCollOrigPhoto('');
+      setEditCollPriv('public');
+      setEditCollOrigPriv('');
+      setEditCollAuto(false);
+      setEditCollOrigAuto(false);
+      setEditCollProg('');
+      setEditCollOrigProg('');
+      setEditCollLocs(DEFAULT_COLL_LOCS);
+      setEditCollOrigLocs([]);
+    };
+
+
+    /**
+     * Reset any form errors in the Edit Collection Modal.
+     */
+    const resetEditCollFormErrs = () => {
         setEditCollTitleErr(false);
+        setEditCollProgErr(false);
+        setEditCollLocsErr(false);
     };
 
 
@@ -196,10 +231,21 @@ const CollectionsManager = () => {
      * Modal form.
      */
     const validateEditCollForm = () => {
-        var validForm = true;
+        let validForm = true;
         if (isEmptyString(editCollTitle) || String(editCollTitle).length < 3) {
             validForm = false;
             setEditCollTitleErr(true);
+        }
+        if (editCollAuto) {
+          if (isEmptyString(editCollProg)) {
+            validForm = false;
+            setEditCollProgErr(true);
+          }
+          const checked = editCollLocs.filter((loc) => loc.value === true);
+          if (checked.length < 1) {
+            validForm = false;
+            setEditCollLocsErr(true);
+          }
         }
         return validForm;
     };
@@ -211,11 +257,14 @@ const CollectionsManager = () => {
      * server via POST or PUT request.
      */
     const submitEditCollForm = () => {
-        resetEditCollForm();
+        resetEditCollFormErrs();
         if (validateEditCollForm()) {
             setEditCollLoading(true);
-            var collData = {};
-            var axiosReq;
+            let collData = {};
+            let axiosReq;
+            const selectedLocs = editCollLocs.map((loc) => {
+              return loc.value ? loc.key : null;
+            }).filter((loc) => loc !== null);
             if (editCollCreate) {
                 collData.title = editCollTitle;
                 if (!isEmptyString(editCollPhoto)) {
@@ -224,6 +273,9 @@ const CollectionsManager = () => {
                 if (!isEmptyString(editCollPriv)) {
                     collData.privacy = editCollPriv;
                 }
+                collData.autoManage = editCollAuto;
+                collData.program = editCollProg;
+                collData.locations = selectedLocs;
                 axiosReq = axios.post('/commons/collection/create', collData);
             } else {
                 collData.collID = editCollID;
@@ -235,6 +287,15 @@ const CollectionsManager = () => {
                 }
                 if (editCollPriv !== editCollOrigPriv) {
                     collData.privacy = editCollPriv;
+                }
+                if (editCollAuto !== editCollOrigAuto) {
+                    collData.autoManage = editCollAuto;
+                }
+                if (editCollProg !== editCollOrigProg) {
+                    collData.program = editCollProg;
+                }
+                if (!basicArraysEqual(selectedLocs, editCollOrigLocs)) {
+                    collData.locations = selectedLocs;
                 }
                 axiosReq = axios.put('/commons/collection/edit', collData);
             }
@@ -255,27 +316,22 @@ const CollectionsManager = () => {
 
 
     /**
-     * Open the Create/Edit Collection Modal
-     * in Create mode and reset all fields
+     * Open the Create/Edit Collection Modal in Create mode and reset all fields
      * to their defaults.
      */
     const openCreateCollModal = () => {
         setShowEditCollModal(true);
         setEditCollCreate(true);
-        setEditCollTitle('');
-        setEditCollOrigTitle('');
-        setEditCollPhoto('');
-        setEditCollOrigPhoto('');
-        setEditCollPriv('public');
-        setEditCollOrigPriv('');
-        resetEditCollForm();
+        resetEditCollFormValues();
+        resetEditCollFormErrs();
     };
 
 
     /**
-     * Open the Create/Edit Collection Modal
-     * in Edit mode and set all fields
+     * Open the Create/Edit Collection Modal in Edit mode and set all fields
      * to their existing values.
+     * 
+     * @param {object} coll - The collection to inspect.
      */
     const openEditCollModal = (coll) => {
         setShowEditCollModal(true);
@@ -286,26 +342,55 @@ const CollectionsManager = () => {
         setEditCollPhoto(coll.coverPhoto);
         setEditCollOrigPhoto(coll.coverPhoto);
         setEditCollPriv(coll.privacy);
-        setEditCollOrigPriv(coll.privacy)
-        resetEditCollForm();
+        setEditCollOrigPriv(coll.privacy);
+        if (typeof (coll.autoManage) === 'boolean') {
+          const locsToSet = DEFAULT_COLL_LOCS.map((loc) => {
+            if (Array.isArray(coll.locations) && coll.locations.includes(loc.key)) {
+              return {
+                ...loc,
+                value: true,
+              }
+            }
+            return loc;
+          });
+          setEditCollAuto(coll.autoManage);
+          setEditCollOrigAuto(coll.autoManage);
+          setEditCollProg(coll.program);
+          setEditCollOrigProg(coll.program);
+          setEditCollLocs(locsToSet);
+          setEditCollOrigLocs(coll.locations);
+        }
+        resetEditCollFormErrs();
     };
 
 
     /**
-     * Close the Create/Edit Collection Modal
-     * and reset all fields to their default values.
+     * Close the Create/Edit Collection Modal and reset all fields to their default values.
      */
     const closeEditCollModal = () => {
         setShowEditCollModal(false);
         setEditCollCreate(false);
-        setEditCollID('');
-        setEditCollTitle('');
-        setEditCollOrigTitle('');
-        setEditCollPhoto('');
-        setEditCollOrigPhoto('');
-        setEditCollPriv('public');
-        setEditCollOrigPriv('');
-        resetEditCollForm();
+        resetEditCollFormValues();
+        resetEditCollFormErrs();
+    };
+
+
+    /**
+     * Updates a Collection Search Location choice in the Create/Edit Collection Modal.
+     * 
+     * @param {string} locKey - The key field of the option to toggle.
+     */
+    const handleEditCollLocationsChange = (locKey) => {
+      const updatedLocs = editCollLocs.map((item) => {
+        if (item.key === locKey) {
+          return {
+            ...item,
+            value: !item.value,
+          };
+        }
+        return item;
+      });
+      setEditCollLocs(updatedLocs);
     };
 
 
@@ -651,6 +736,40 @@ const CollectionsManager = () => {
                                     onChange={(_e, { value }) => { setEditCollPriv(value) }}
                                     value={editCollPriv}
                                 />
+                                <Form.Checkbox
+                                  label='Allow Conductor to manage this collection automatically during Commons-Libraries syncs'
+                                  checked={editCollAuto}
+                                  onChange={() => setEditCollAuto(!editCollAuto)}
+                                />
+                                {editCollAuto && (
+                                  <>
+                                    <Form.Field className='mt-2p' error={editCollProgErr}>
+                                      <label>Program Meta-Tag <span className='muted-text'>(used to match resources)</span></label>
+                                      <Input
+                                        icon='tag'
+                                        placeholder='Meta-Tag'
+                                        type='text'
+                                        iconPosition='left'
+                                        onChange={(e) => setEditCollProg(e.target.value)}
+                                        value={editCollProg}
+                                      />
+                                    </Form.Field>
+                                    <Form.Group grouped>
+                                      <label>Locations to Search <span className='muted-text'>(at least one required)</span></label>
+                                      {editCollLocs.map((option) => {
+                                        return (
+                                          <Form.Checkbox
+                                            key={option.key}
+                                            label={getShelvesNameText(option.key)}
+                                            checked={option.value}
+                                            onChange={() => handleEditCollLocationsChange(option.key)}
+                                            error={editCollLocsErr}
+                                          />
+                                        )
+                                      })}
+                                    </Form.Group>
+                                  </>
+                                )}
                             </Form>
                         </Modal.Content>
                         <Modal.Actions>

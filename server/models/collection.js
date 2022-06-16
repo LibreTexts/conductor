@@ -33,11 +33,14 @@ const CollectionSchema = new Schema({
         type: String,
         default: ''
     },
-    locations: {                     // locations to search in, if automatically managed (e.g., 'central', 'campus')
+    locations: {                    // locations to search in, if automatically managed (e.g., 'central', 'campus')
       type: [String],
       default: ['central']
     },
-    autoManage: Boolean,            // allow the system to automatically manage the collection based on 'program' and 'locations'
+    autoManage: {                   // allow the system to automatically manage the collection based on 'program' and 'locations'
+      type: Boolean,
+      default: false,
+    },
 }, {
     timestamps: true
 });

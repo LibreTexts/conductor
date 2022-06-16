@@ -122,6 +122,24 @@ const sortUsersByName = (users) => {
     return [];
 };
 
+/**
+ * Performs a test to check that two arrays contain the same items
+ * and are of the same length. Use only when array members can be compared using
+ * basic equality operators.
+ * 
+ * @param {any[]} a - First array to compare. 
+ * @param {any[]} b - Second array to compare. 
+ * @returns {boolean} True if "equal", false otherwise.
+ */
+const basicArraysEqual = (a, b) => {
+  return (
+    Array.isArray(a)
+    && Array.isArray(b)
+    && a.every((item) => b.includes(item))
+    && a.length === b.length
+  );
+};
+
 
 export {
     isEmptyString,
@@ -130,5 +148,6 @@ export {
     updateParams,
     validatePassword,
     normalizeURL,
-    sortUsersByName
+    sortUsersByName,
+    basicArraysEqual
 };
