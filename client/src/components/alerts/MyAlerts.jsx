@@ -150,11 +150,15 @@ const MyAlerts = (_props) => {
 
   /**
    * Close the Delete Alert Modal, reset its state, and refresh the list of Alerts.
+   * 
+   * @param {boolean} [didDelete=false] - If the alert was deleted and the list should be refreshed.
    */
-  const closeDeleteModal = () => {
+  const closeDeleteModal = (didDelete = false) => {
     setShowDeleteModal(false);
     setDeleteAlertData({});
-    getUserAlerts();
+    if (didDelete) {
+      getUserAlerts();
+    }
   };
 
   /**
@@ -169,11 +173,11 @@ const MyAlerts = (_props) => {
         }
       }).then((res) => {
         if (!res.data.err) {
-          closeDeleteModal();
+          closeDeleteModal(true);
         } else {
-          setDeleteAlertLoading(false);
           handleGlobalError(res.data.errMsg);
         }
+        setDeleteAlertLoading(false);
       }).catch((err) => {
         handleGlobalError(err);
         setDeleteAlertLoading(false);
@@ -271,13 +275,13 @@ const MyAlerts = (_props) => {
             )}
           </Segment>
           {/* Delete Alert Modal */}
-          <Modal open={showDeleteModal} onClose={closeDeleteModal}>
+          <Modal open={showDeleteModal} onClose={() => closeDeleteModal(false)}>
             <Modal.Header>Delete Alert</Modal.Header>
             <Modal.Content>
               <p>Are you sure you want to delete this alert? You will stop receiving notifications for new resources matching its criteria.</p>
             </Modal.Content>
             <Modal.Actions>
-              <Button onClick={closeDeleteModal}>Cancel</Button>
+              <Button onClick={() => closeDeleteModal(false)}>Cancel</Button>
               <Button color='red' onClick={deleteAlert} loading={deleteAlertLoading}>
                 <Icon name='trash' />
                 Delete Alert
