@@ -690,8 +690,10 @@ const verifyRequest = (req, res, next) => {
  * @param {Object} next - the next function in the middleware chain.
  */
 const optionalVerifyRequest = (req, res, next) => {
-    if (req.headers.authorization) return verifyRequest(req, res, next);
-    else return next();
+    if (req.headers.authorization) {
+        return verifyRequest(req, res, next);
+    }
+    return next();
 };
 
 
@@ -704,7 +706,7 @@ const optionalVerifyRequest = (req, res, next) => {
  */
 const getUserAttributes = (req, res, next) => {
     if (req.user.decoded !== undefined) {
-        User.findOne({
+        return User.findOne({
             uuid: req.user.decoded.uuid
         }).then((user) => {
             if (user) {
@@ -728,12 +730,11 @@ const getUserAttributes = (req, res, next) => {
                 });
             }
         });
-    } else {
-        return res.status(400).send({
-            err: true,
-            errMsg: conductorErrors.err5
-        });
     }
+    return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err5
+    });
 };
 
 
@@ -779,7 +780,7 @@ const checkHasRole = (user, org, role) => {
 const checkHasRoleMiddleware = (org, role) => {
     return (req, res, next) => {
         if ((req.user.roles !== undefined) && (Array.isArray(req.user.roles))) {
-            let foundRole = req.user.roles.find((element) => {
+            const foundRole = req.user.roles.find((element) => {
                 if (element.org && element.role) {
                     if ((element.org === org) && (element.role === role)) {
                         return element;
@@ -793,7 +794,9 @@ const checkHasRoleMiddleware = (org, role) => {
                 }
                 return null;
             });
-            if (foundRole !== undefined) return next();
+            if (foundRole !== undefined) {
+                return next();
+            }
             return res.status(401).send({
                 err: true,
                 errMsg: conductorErrors.err8
