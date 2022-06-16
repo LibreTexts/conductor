@@ -11,6 +11,7 @@ import {
   Dropdown,
   Popup,
   Modal,
+  Loader,
 } from 'semantic-ui-react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -218,7 +219,10 @@ const MyAlerts = (_props) => {
               </div>
             </div>
             <Divider />
-            {(alerts.length > 0) && (
+            {!loadedData && (
+              <Loader active />
+            )}
+            {(loadedData && alerts.length > 0) && (
               <List divided verticalAlign='middle' className='mb-2p'>
                 {alerts.map((item, idx) => {
                   const itemDate = new Date(item.createdAt);
@@ -262,7 +266,7 @@ const MyAlerts = (_props) => {
                 })}
               </List>
             )}
-            {(alerts.length === 0) && (
+            {(loadedData && alerts.length === 0) && (
               <p className='mt-2p mb-2p muted-text text-center'>No alerts yet!</p>
             )}
           </Segment>
