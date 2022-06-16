@@ -1,9 +1,38 @@
 # Changelog
 
-# 04-26-2022
+# 06-16-2022
+#### :art: UI/UX
+* Added a loading indicator to My Alerts page
+* Fixed an issue with 'Delete Alert' button state after previously deleting an alert in My Alerts
+* Updated the Collections Manager UI to support system-managed collections
+
+#### :satellite: Server
+* Minor under-the-hood changes for conciseness and code cleanliness
+* Restored the number of Projects generated in the Commons-Libraries sync message
+* Implemented logic to allow Collections to be managed by the system based on OER program information 
+
+
+# 06-03-2022
+#### :art: UI/UX
+* Refactored underlying UI structure for Commons to address multiple accessibility issues
+
+#### :satellite: Server
+* Updated package dependencies to resolve security advisories
+
+
+# 05-26-2022
 #### :satellite: Server
 * Removed Project message notification rate limiting
 * Added message sender's name in email notifications
+
+# 05-01-22
+#### :art: UI/UX
+* Renamed 'Multiple Licenses' to 'Mixed Licenses' in Commons
+
+
+# 04-25-22
+#### :memo: Documentation
+* Removed SwaggerUI API documentation
 
 
 # 04-24-2022
