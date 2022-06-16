@@ -420,11 +420,16 @@ const removeResourceFromCollection = (req, res) => {
     });
 };
 
-const checkValidPrivacy = (privSetting) => {
-    if (privSetting === 'public' || privSetting === 'private' || privSetting === 'campus') {
-        return true;
-    }
-    return false;
+
+/**
+ * Verifies that a specified collection privacy setting is an allowed value.
+ *
+ * @param {string} privSetting - The specified privacy setting.
+ * @returns {boolean} True if valid, false otherwise.
+ */
+ const checkValidPrivacy = (privSetting) => {
+    const allowedPrivacies = ['public', 'private', 'campus'];
+    return allowedPrivacies.includes(privSetting);
 };
 
 
