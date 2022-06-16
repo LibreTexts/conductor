@@ -159,51 +159,89 @@ const checkValidImport = (book) => {
 
 
 /**
- * Generates or updates Collections for pre-specified OER programs given listings of each Program's
- * books and information about each program.
- * NOTE: Method should be used in a wrapper Promise chain. No error handler is included.
- * @param {Object} programListings - An object containing each Program's book listings.
- * @param {Object} programDetails - An object containing information about each Program.
- * @returns {Number} The number of Collections updated.
+ * Updates system-managed Collections for specified OER programs.
+ *
+ * @returns {Promise<number|boolean>} The number of collections updated, or
+ *  false if error encountered.
  */
-const autoGenerateCollections = (programListings, programDetails) => {
-    return Promise.try(() => {
-        let collOps = [];
-        if (Object.keys(programListings).length > 0) {
-            Object.entries(programListings).forEach(([progName, progList]) => {
-                collOps.push({
-                    updateOne: {
-                        filter: {
-                            orgID: 'libretexts',
-                            program: progName
-                        },
-                        update: {
-                            $setOnInsert: {
-                                orgID: 'libretexts',
-                                collID: b62(8),
-                                title: programDetails[progName],
-                                program: progName,
-                                privacy: 'public'
-                            },
-                            $addToSet: {
-                                resources: {
-                                    $each: progList
-                                }
-                            }
-                        },
-                        upsert: true
-                    }
-                });
-            });
-            return Collection.bulkWrite(collOps, {
-                ordered: false
-            });
+const autoGenerateCollections = () => {
+  const bookQueries = [];
+  const collOps = [];
+  let collections = [];
+  return Collection.find(({ autoManage: true })).lean().then((autoColls) => {
+    collections = autoColls;
+    /* Find books for auto-managed program collections */
+    for (let i = 0, n = autoColls.length; i < n; i += 1) {
+      const currColl = autoColls[i];
+      if (typeof (currColl.program) === 'string' && currColl.program.length > 0) {
+        bookQueries.push(Book.aggregate([
+          {
+            $match: {
+              program: currColl.program,
+              location: {
+                $in: currColl.locations
+              },
+            }
+          }, {
+            $project: {
+              _id: 0,
+              bookID: 1,
+              location: 1,
+              program: 1,
+            }
+          },
+        ]));
+      }
+    }
+    return Promise.all(bookQueries);
+  }).then((bookQueryRes) => {
+    /* Sort books into their auto-managed collection */
+    let allBooksFound = [];
+    for (let i = 0, n = bookQueryRes.length; i < n; i += 1) {
+      allBooksFound = [...allBooksFound, ...bookQueryRes[i]];
+    }
+    for (let i = 0, n = allBooksFound.length; i < n; i += 1) {
+      const currBook = allBooksFound[i];
+      const collIdx = collections.findIndex((coll) => coll.program === currBook.program);
+      if (collIdx > -1) {
+        if (!Array.isArray(collections[collIdx].newListings)) {
+          collections[collIdx].newListings = [];
         }
-        return {};
-    }).then((collsRes) => {
-        if (typeof (collsRes.nModified) === 'number') return collsRes.nModified;
-        return 0;
-    });
+        if (!collections[collIdx].resources?.includes(currBook.bookID)) {
+          collections[collIdx].newListings.push(currBook.bookID);
+        }
+      }
+    }
+    /* Assembles updates for collections (if necessary) */
+    for (let i = 0, n = collections.length; i < n; i += 1) {
+      const currColl = collections[i];
+      if (Array.isArray(currColl.newListings) && currColl.newListings.length > 0) {
+        collOps.push({
+          updateOne: {
+            filter: {
+              collID: currColl.collID,
+            },
+            update: {
+              $addToSet: {
+                resources: {
+                  $each: currColl.newListings,
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+    return Collection.bulkWrite(collOps, { ordered: false });
+  }).then((updateRes) => {
+    if (typeof (updateRes.nModified) === 'number') {
+      return updateRes.nModified;
+    }
+    return 0;
+  }).catch((err) => {
+    console.error(err);
+    return false;
+  });
 };
 
 
@@ -215,7 +253,6 @@ const autoGenerateCollections = (programListings, programDetails) => {
  */
 const syncWithLibraries = (_req, res) => {
     let importCount = 0;        // final count of imported books
-    let collsCount = 0;         // number of updated Program Collections
     let didGenExports = false;  // If KB Export files were generated
     let shelvesRequests = [];   // requests from Bookshelves
     let coursesRequests = [];   // requests from Campus Bookshelves
@@ -229,22 +266,7 @@ const syncWithLibraries = (_req, res) => {
     let projectsToCreate = [];  // projects to be created to track books from LT API
     let newBookDBIds = [];      // upserted MongoDb id's
     let generatedProjects = false; // did create new projects
-    let approvedPrograms = ['openrn', 'openstax', 'mitocw', 'opensuny', 'oeri'];
-    let programDetails = {
-        openrn: 'OpenRN',
-        openstax: 'OpenStax',
-        mitocw: 'MIT OpenCourseWare',
-        opensuny: 'OpenSUNY',
-        oeri: 'ASCCC OERI'
-    };
-    let programListings = {};
-    if (approvedPrograms && Array.isArray(approvedPrograms) && approvedPrograms.length > 0) {
-        approvedPrograms.forEach((program) => {
-            if (!Object.keys(programListings).includes(program)) {
-                programListings[program] = [];
-            }
-        });
-    }
+    let updatedCollections = false; // did update auto-managed Collections
     // Build list(s) of HTTP requests to be performed
     libraryNameKeys.forEach((lib) => {
         shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
@@ -305,15 +327,6 @@ const syncWithLibraries = (_req, res) => {
                         }
                         if (tag.includes('program:')) {
                             program = tag.replace('program:', '');
-                            if (approvedPrograms.length > 0 && approvedPrograms.includes(program)) {
-                                if (Object.keys(programListings).includes(program)) {
-                                    if (location === 'central') { // don't add from both locations — duplicates
-                                        if (!programListings[program].includes(book.zipFilename)) {
-                                            programListings[program].push(book.zipFilename);
-                                        }
-                                    }
-                                }
-                            }
                         }
                     });
                 }
@@ -458,20 +471,24 @@ const syncWithLibraries = (_req, res) => {
             throw (new Error('bulkwrite'));
         }
     }).then((writeRes) => {
-        if (typeof (writeRes.result?.nMatched) === 'number') importCount = writeRes.result.nMatched;
+        if (typeof (writeRes.result?.nMatched) === 'number') {
+          importCount = writeRes.result.nMatched;
+        }
         if (typeof (writeRes.upsertedIds) === 'object') {
             Object.keys(writeRes.upsertedIds).forEach((key) => {
                 newBookDBIds.push(writeRes.upsertedIds[key]);
             });
         }
-        // All imports succeeded, continue to autogenerate Program Collections
-        return autoGenerateCollections(programListings, programDetails);
-    }).then((collectionsUpdate) => {
-        if (typeof (collectionsUpdate) === 'number') collsCount = collectionsUpdate;
+        // All imports succeeded, continue to update auto-managed Collections
+        return autoGenerateCollections();
+    }).then((autoCollsRes) => {
+        updatedCollections = autoCollsRes;
         // Program Collections updated, continue to generate KB Export files
         return generateKBExport();
     }).then((generated) => {
-        if (generated === true) didGenExports = true;
+        if (generated === true) {
+          didGenExports = true;
+        }
         if (projectsToCreate.length > 0) {
             // Continue to autogenerate new Projects
             return projectAPI.autoGenerateProjects(projectsToCreate);
@@ -486,7 +503,12 @@ const syncWithLibraries = (_req, res) => {
         return true;
     }).then(() => {
         // ignore return value of processing Alerts
-        let msg = `Imported ${importCount} books from the Libraries. ${collsCount} autogenerated Collections updated.`;
+        let msg = `Imported ${importCount} books from the Libraries.`;
+        if (typeof (updatedCollections) == 'number') {
+          msg += ` ${updatedCollections} system-managed Collections updated.`
+        } else if (typeof (updatedCollections) === 'boolean' && !updatedCollections) {
+          msg += ` FAILED to update system-managed collections. Check server logs.`;
+        }
         if (didGenExports) {
             msg += ` Successfully generated export files for 3rd-party content services.`;
         } else {

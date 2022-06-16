@@ -29,10 +29,15 @@ const CollectionSchema = new Schema({
         default: 'public'
     },
     resources: [String],            // the array of resource IDs included in the collection,
-    program: {                      // the OER program the collection is AUTO-GENERATED for
+    program: {                      // the OER program the collection is automatically managed for
         type: String,
         default: ''
-    }
+    },
+    locations: {                     // locations to search in, if automatically managed (e.g., 'central', 'campus')
+      type: [String],
+      default: ['central']
+    },
+    autoManage: Boolean,            // allow the system to automatically manage the collection based on 'program' and 'locations'
 }, {
     timestamps: true
 });
