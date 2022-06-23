@@ -1,5 +1,10 @@
 # Changelog
 
+# 06-23-2022
+#### :art: UI/UX
+* Updated LibreTexts Libraries Usability Guide link on Accessibility Statement page
+
+
 # 06-16-2022
 #### :art: UI/UX
 * Added a loading indicator to My Alerts page

@@ -80,7 +80,7 @@ const AccessibilityStatement = (props) => {
                         <ul>
                             <li>LibreTexts Libraries
                                 <ul>
-                                    <li><a href='https://chem.libretexts.org/Sandboxes/atconsultantnc_at_gmail.com/H5P_Accessible_Alternative_Examples/Boxes_for_Sidebar_Content' target='_blank' rel='noopener noreferrer'>Boxes for Sidebar Content</a></li>
+                                    <li><a href='https://chem.libretexts.org/Sandboxes/atconsultantnc_at_gmail.com/H5P_Accessible_Alternative_Examples/Container_Boxes_with_Headings' target='_blank' rel='noopener noreferrer'>Container Boxes with Headings</a></li>
                                 </ul>
                             </li>
                             <li>LibreStudio
