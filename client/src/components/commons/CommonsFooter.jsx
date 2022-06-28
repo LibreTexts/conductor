@@ -65,9 +65,10 @@ const CommonsFooter = () => {
                 target="_blank"
                 title={item.title}
                 className="contact-link"
+                key={item.key}
               >
                 {item.icon ? (
-                  <Icon name={item.iconName} aria-hidden={true} />
+                  <Icon name={item.iconName} />
                 ) : (
                   <span aria-hidden={true}>{item.text}</span>
                 )}
