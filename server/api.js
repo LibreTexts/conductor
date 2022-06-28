@@ -501,6 +501,11 @@ router.route('/projects/underdevelopment').get(projectsAPI.getProjectsUnderDevel
 router.route('/projects/flagged').get(authAPI.verifyRequest,
     projectsAPI.getUserFlaggedProjects);
 
+router.route('/projects/pinned').get(
+  authAPI.verifyRequest,
+  projectsAPI.getUserPinnedProjects, 
+);
+
 router.route('/projects/recent').get(authAPI.verifyRequest,
     projectsAPI.getRecentProjects);
 
@@ -540,6 +545,24 @@ router.route('/project/flag').put(authAPI.verifyRequest,
 router.route('/project/flag/clear').put(authAPI.verifyRequest,
     authAPI.getUserAttributes, projectsAPI.validate('clearProjectFlag'),
     middleware.checkValidationErrors, projectsAPI.clearProjectFlag);
+
+router.route('/project/pin')
+  .get(
+    authAPI.verifyRequest,
+    projectsAPI.validate('getProjectPinStatus'),
+    middleware.checkValidationErrors,
+    projectsAPI.getProjectPinStatus,
+  ).put(
+    authAPI.verifyRequest,
+    projectsAPI.validate('pinProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.pinProject,
+  ).delete(
+    authAPI.verifyRequest,
+    projectsAPI.validate('unpinProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.unpinProject,
+  );
 
 router.route('/project/team/addable').get(authAPI.verifyRequest,
     authAPI.getUserAttributes,

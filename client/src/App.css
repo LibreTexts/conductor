@@ -475,6 +475,23 @@ code {
     cursor: pointer;
 }
 
+.header-custom {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  padding-bottom: .21428571rem;
+  align-items: center;
+}
+
+.header-custom h3 {
+  font-size: 1.28571429rem;
+  font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+  font-weight: 700;
+  text-transform: none;
+  color: rgba(0,0,0,.87);
+  margin: 0 !important;
+}
+
 .dividing-header-custom {
     display: flex;
     flex-direction: row;

@@ -94,6 +94,7 @@ const ProjectView = (props) => {
 
     // Project Data
     const [project, setProject] = useState({});
+    const [projectPinned, setProjectPinned] = useState(false);
 
     // Project Permissions
     const [canViewDetails, setCanViewDetails] = useState(false);
@@ -123,6 +124,10 @@ const ProjectView = (props) => {
     const [projA11YProgressErr, setProjA11YProgressErr] = useState(false);
     const [tagOptions, setTagOptions] = useState([]);
     const [loadedTags, setLoadedTags] = useState(false);
+
+    // Project Pin Modal
+    const [showPinnedModal, setShowPinnedModal] = useState(false);
+    const [pinnedModalDidPin, setPinnedModalDidPin] = useState(true);
 
     // Manage Team Modal
     const [showTeamModal, setShowTeamModal] = useState(false);
@@ -323,6 +328,27 @@ const ProjectView = (props) => {
         }
     }, [canViewDetails]);
 
+    /**
+     * Asks the server whether the user has saved the project to their "pinned" list and updates
+     * UI if necessary.
+     */
+    const getProjectPinStatus = () => {
+      axios.get('/project/pin', {
+        params: {
+          projectID: props.match.params.id,
+        }
+      }).then((res) => {
+        if (!res.data.err) {
+          if (typeof (res.data.pinned) === 'boolean') {
+            setProjectPinned(res.data.pinned);
+          }
+        } else {
+          throw (new Error(res.data.errMsg));
+        }
+      }).catch((err) => {
+        console.error(err); // handle silently
+      });
+    };
 
     /**
      * Retrieves the Project information via GET request
@@ -338,6 +364,7 @@ const ProjectView = (props) => {
             if (!res.data.err) {
                 if (res.data.project) {
                     setProject(res.data.project);
+                    getProjectPinStatus();
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -563,6 +590,46 @@ const ProjectView = (props) => {
         return validForm;
     };
 
+    /**
+     * Opens the Pin/Unpin success modal by setting state accordingly.
+     *
+     * @param {boolean} didPin - True if project was pinned, false if unpinned.
+     */
+    const openPinnedModal = (didPin) => {
+      setPinnedModalDidPin(didPin);
+      setShowPinnedModal(true);
+    };
+
+    /**
+     * Closes the Pin/Unpin success modal and resets state.
+     */
+    const closePinnedModal = () => {
+      setShowPinnedModal(false);
+      setPinnedModalDidPin(true);
+    };
+
+    /**
+     * Examines the current status of the user's project "pin" and submits the corresponding
+     * request to the server to toggle the pin. 
+     */
+    const toggleProjectPin = () => {
+      axios({
+        method: projectPinned ? 'DELETE' : 'PUT',
+        url: '/project/pin',
+        data: {
+          projectID: props.match.params.id,
+        },
+      }).then((res) => {
+        if (!res.data.err) {
+          getProjectPinStatus();
+          openPinnedModal(!projectPinned);
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+      }).catch((err) => {
+        handleGlobalError(err);
+      });
+    };
 
     /**
      * Ensure the form data is valid, then submit the
@@ -1917,6 +1984,18 @@ const ProjectView = (props) => {
                                             </Button>
                                             <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                                                 <Dropdown.Menu>
+                                                    <Dropdown.Item
+                                                      icon={projectPinned ? (
+                                                        <Icon.Group className='icon'>
+                                                          <Icon name='pin' />
+                                                          <Icon corner name='x' />
+                                                        </Icon.Group>
+                                                      ) : (
+                                                        <Icon name='pin' />
+                                                      )}
+                                                      text={projectPinned ? 'Unpin Project' : 'Pin Project'}
+                                                      onClick={toggleProjectPin}
+                                                    />
                                                     {userProjectMember &&
                                                         <Dropdown.Item
                                                             icon={hasFlag
@@ -1934,9 +2013,6 @@ const ProjectView = (props) => {
                                                                 else openFlagModal('set')
                                                             }}
                                                         />
-                                                    }
-                                                    {!userProjectMember &&
-                                                        <Dropdown.Item text={<span><em>No actions available.</em></span>} />
                                                     }
                                                 </Dropdown.Menu>
                                             </Dropdown>
@@ -3619,6 +3695,20 @@ const ProjectView = (props) => {
                                 }
                             </Button>
                         </Modal.Actions>
+                    </Modal>
+                    {/* Project Pinned Modal */}
+                    <Modal open={showPinnedModal} onClose={closePinnedModal}>
+                      <Modal.Header>{pinnedModalDidPin ? 'Pinned Project' : 'Unpinned Project'}</Modal.Header>
+                      <Modal.Content>
+                        {pinnedModalDidPin ? (
+                          <p>Successfully added <em>{project.title}</em> to your Pinned Projects! Access it in one click from Home.</p>
+                        ) : (
+                          <p>Successfully removed <em>{project.title}</em> from your Pinned Projects.</p>
+                        )}
+                      </Modal.Content>
+                      <Modal.Actions>
+                        <Button onClick={closePinnedModal} color='blue'>Done</Button>
+                      </Modal.Actions>
                     </Modal>
                 </Grid.Column>
             </Grid.Row>

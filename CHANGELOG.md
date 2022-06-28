@@ -1,5 +1,15 @@
 # Changelog
 
+# 06-28-2022
+#### :art: UI/UX
+* Introduce Pinned Projects in Home
+* Add Pin/Unpin Project option in Project View
+
+#### :satellite: Server
+* Add endpoints for managing pinned Projects
+  * Update User model to save pinned list
+
+
 # 06-23-2022
 #### :art: UI/UX
 * Updated LibreTexts Libraries Usability Guide link on Accessibility Statement page

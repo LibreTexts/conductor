@@ -14,7 +14,9 @@ import {
     Loader,
     Card,
     Popup,
-    Dropdown
+    Dropdown,
+    List,
+    Divider
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -48,11 +50,13 @@ const Home = (props) => {
 
     /* Data */
     const [announcements, setAnnouncements] = useState([]);
-    const [projects, setProjects] = useState([]);
+    const [recentProjects, setRecentProjects] = useState([]);
+    const [pinnedProjects, setPinnedProjects] = useState([]);
 
     /* UI */
     const [loadedAllAnnouncements, setLoadedAllAnnouncements] = useState(false);
-    const [loadedAllProjects, setLoadedAllProjects] = useState(false);
+    const [loadedAllRecents, setLoadedAllRecents] = useState(false);
+    const [loadedAllPinned, setLoadedAllPinned] = useState(false);
     const [showNASuccess, setShowNASuccess] = useState(false);
 
     // System Announcement Message
@@ -74,6 +78,13 @@ const Home = (props) => {
 
     // New Member Modal
     const [showNMModal, setShowNMModal] = useState(false);
+
+    // Edit Pinned Projects Modal
+    const [showPinnedModal, setShowPinnedModal] = useState(false);
+    const [pinProjectsOptions, setPinProjectsOptions] = useState([]);
+    const [pinProjectToPin, setPinProjectToPin] = useState('');
+    const [pinProjectsLoading, setPinProjectsLoading] = useState(false);
+    const [pinModalLoading, setPinModalLoading] = useState(false);
 
     /**
      * Check for query string values and update UI if necessary.
@@ -142,24 +153,43 @@ const Home = (props) => {
     }, [setAnnouncements, setLoadedAllAnnouncements, handleGlobalError]);
 
     /**
-     * Load the user's active projects via GET
-     * request and update the UI accordingly.
+     * Load the user's recent projects and update the UI accordingly.
      */
-    const getProjects = useCallback(() => {
+    const getRecentProjects = useCallback(() => {
         axios.get('/projects/recent').then((res) => {
             if (!res.data.err) {
                 if (res.data.projects && Array.isArray(res.data.projects)) {
-                    setProjects(res.data.projects);
+                    setRecentProjects(res.data.projects);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
             }
-            setLoadedAllProjects(true);
+            setLoadedAllRecents(true);
         }).catch((err) => {
             handleGlobalError(err);
-            setLoadedAllProjects(true);
+            setLoadedAllRecents(true);
         });
-    }, [setProjects, setLoadedAllProjects, handleGlobalError]);
+    }, [setRecentProjects, setLoadedAllRecents, handleGlobalError]);
+
+    /**
+     * Load the users's pinned projects and update the UI accordingly.
+     */
+    const getPinnedProjects = useCallback(() => {
+      setLoadedAllPinned(false);
+      axios.get('/projects/pinned').then((res) => {
+        if (!res.data?.err) {
+          if (Array.isArray(res.data.projects)) {
+            setPinnedProjects(res.data.projects);
+          }
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+        setLoadedAllPinned(true);
+      }).catch((err) => {
+        handleGlobalError(err);
+        setLoadedAllPinned(true);
+      });
+    }, [setPinnedProjects, setLoadedAllPinned, handleGlobalError]);
 
     /**
      * Setup page & title on load and
@@ -175,10 +205,11 @@ const Home = (props) => {
                 node.setAttribute('rel', 'noopener noreferrer')
             }
         });
-        getProjects();
+        getPinnedProjects();
+        getRecentProjects();
         getSystemAnnouncement();
         getAnnouncements();
-    }, [getProjects, getSystemAnnouncement, getAnnouncements]);
+    }, [getPinnedProjects, getRecentProjects, getSystemAnnouncement, getAnnouncements]);
 
     /**
      * Accepts a standard ISO 8601 date or date-string
@@ -295,6 +326,129 @@ const Home = (props) => {
     };
 
     /**
+     * Loads the user's projects from the server, then filters already-pinned projects before
+     * saving the list to state.
+     */
+    const getPinnableProjects = useCallback(() => {
+      setPinProjectsLoading(true);
+      axios.get('/projects/all').then((res) => {
+        if (!res.data.err) {
+          if (Array.isArray(res.data.projects)) {
+            const pinnedFiltered = res.data.projects.filter((item) => {
+              const foundMatch = pinnedProjects.find((pinned) => {
+                return pinned.projectID === item.projectID;
+              });
+              if (foundMatch) {
+                return false;
+              }
+              return true;
+            }).sort((a, b) => {
+              let normalA = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+              let normalB = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
+              if (normalA < normalB) return -1;
+              if (normalA > normalB) return 1;
+              return 0;
+            }).map((item) => {
+              return {
+                key: item.projectID,
+                value: item.projectID,
+                text: item.title,
+              }
+            });
+            setPinProjectsOptions(pinnedFiltered);
+          }
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+        setPinProjectsLoading(false);
+      }).catch((err) => {
+        handleGlobalError(err);
+        setPinProjectsLoading(false);
+      });
+    }, [pinnedProjects, setPinProjectsLoading, setPinProjectsOptions, handleGlobalError]);
+
+    /**
+     * Updates the list of pinnable projects when the Edit Pinned Projects Modal is opened,
+     * or when there is a change in the list of pinned projects.
+     */
+    useEffect(() => {
+      if (showPinnedModal) {
+        console.log(pinnedProjects);
+        getPinnableProjects();
+      }
+    }, [pinnedProjects, getPinnableProjects, showPinnedModal]);
+
+    /**
+     * Opens the Edit Pinned Projects modal.
+     */
+    const openPinnedModal = () => {
+      setShowPinnedModal(true);
+    };
+
+    /**
+     * Closes the Edit Pinned Projects modal.
+     */
+    const closePinnedModal = () => {
+      setShowPinnedModal(false);
+      setPinProjectsOptions([]);
+      setPinProjectsLoading(false);
+      setPinModalLoading(false);
+    };
+
+    /**
+     * Submits a request to the server to pin a project, then resets the selection in
+     * the Edit Pin Projects modal and refreshes the pinned list.
+     */
+    const pinProject = () => {
+      if (isEmptyString(pinProjectToPin)) {
+        return;
+      }
+      setPinModalLoading(true);
+      axios.put('/project/pin', {
+        projectID: pinProjectToPin,
+      }).then((res) => {
+        if (!res.data.err) {
+          setPinProjectToPin('');
+          setPinProjectsOptions([]);
+          getPinnedProjects();
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+        setPinModalLoading(false);
+      }).catch((err) => {
+        handleGlobalError(err);
+        setPinModalLoading(false);
+      });
+    };
+
+    /**
+     * Submits a request to the server to unpin a project, then refreshes the pinned list.
+     *
+     * @param {string} projectID - The identifier of the project to unpin.
+     */
+    const unpinProject = (projectID) => {
+      if (isEmptyString(projectID)) {
+        return;
+      }
+      setPinModalLoading(true);
+      axios.delete('/project/pin', {
+        data: {
+          projectID,
+        }
+      }).then((res) => {
+        if (!res.data.err) {
+          getPinnedProjects();
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+        setPinModalLoading(false);
+      }).catch((err) => {
+        handleGlobalError(err);
+        setPinModalLoading(false);
+      });
+    };
+
+    /**
      * Submit a DELETE request to the server to delete the announcement
      * currently open in the Announcement View Modal, then close
      * the modal and reload announcements on success.
@@ -319,6 +473,67 @@ const Home = (props) => {
                 setAVModalLoading(false);
             });
         }
+    };
+
+    /**
+     * Renders a UI information card for a given project.
+     * 
+     * @param {Object} project - Object with (at least) basic information about the project.
+     * @returns {JSX.Element} The rendered project card.
+     */
+    const renderProjectCard = (project) => {
+      const itemDate = new Date(project.updatedAt);
+      project.updatedDate = date.format(itemDate, 'MM/DD/YY');
+      project.updatedTime = date.format(itemDate, 'h:mm A');
+      return (
+          <Card key={project.projectID} raised>
+              <div className='flex-col-div project-card-content'>
+                  <Link as='h4' className='project-card-title' to={`/projects/${project.projectID}`}>{truncateString(project.title, 100)}</Link>
+                  <span className='muted-text project-card-lastupdate'>Last updated {project.updatedDate} at {project.updatedTime}</span>
+                  <div className='flex-row-div'>
+                      <div className='project-card-progress-container'>
+                          <CircularProgressbar
+                              value={project.currentProgress || 0}
+                              strokeWidth={5}
+                              circleRatio={0.75}
+                              styles={buildStyles({
+                                  rotation: 1 / 2 + 1 / 8,
+                                  pathColor: '#127BC4',
+                                  textColor: '#127BC4',
+                                  strokeLinecap: 'butt'
+                              })}
+                          />
+                      </div>
+                      <div className='project-card-progress-container'>
+                          <CircularProgressbar
+                              value={project.peerProgress || 0}
+                              strokeWidth={5}
+                              circleRatio={0.75}
+                              styles={buildStyles({
+                                  rotation: 1 / 2 + 1 / 8,
+                                  pathColor: '#CD4D12',
+                                  textColor: '#CD4D12',
+                                  strokeLinecap: 'butt'
+                              })}
+                          />
+                      </div>
+                      <div className='project-card-progress-container'>
+                          <CircularProgressbar
+                              value={project.a11yProgress || 0}
+                              strokeWidth={5}
+                              circleRatio={0.75}
+                              styles={buildStyles({
+                                  rotation: 1 / 2 + 1 / 8,
+                                  pathColor: '#00b5ad',
+                                  textColor: '#00b5ad',
+                                  strokeLinecap: 'butt'
+                              })}
+                          />
+                      </div>
+                  </div>
+              </div>
+          </Card>
+      );
     };
 
     return (
@@ -492,14 +707,49 @@ const Home = (props) => {
                     </Breakpoint>
                 </Grid.Column>
                 <Grid.Column width={8}>
+                  <Segment padded={pinnedProjects.length > 0} loading={!loadedAllPinned}>
+                    <div className={pinnedProjects.length > 0 ? 'dividing-header-custom' : 'header-custom'}>
+                      <h3>
+                        <Icon name='pin' />
+                        Pinned Projects
+                      </h3>
+                      <div className='right-flex'>
+                        <Popup
+                          content={<span>Edit Pinned Projects</span>}
+                          trigger={
+                            <Button
+                              color='blue'
+                              onClick={openPinnedModal}
+                              icon
+                              circular
+                              size='tiny'
+                            >
+                              <Icon name='pencil' />
+                            </Button>
+                          }
+                          position='top center'
+                        />
+                      </div>
+                    </div>
+                    {(pinnedProjects.length > 0) && (
+                      <Segment basic loading={!loadedAllPinned}>
+                        <Card.Group itemsPerRow={2}>
+                          {pinnedProjects.map((item) => renderProjectCard(item))}
+                        </Card.Group>
+                      </Segment>
+                    )}
+                  </Segment>
                     <Segment padded>
                         <div className='dividing-header-custom'>
-                            <h3>Recently Edited Projects</h3>
+                            <h3>
+                              <Icon name='clock outline' />
+                              Recently Edited Projects
+                            </h3>
                             <div className='right-flex'>
                                 <Popup
                                     content={<span>To see all of your projects, visit <strong>Projects</strong> in the Navbar.</span>}
                                     trigger={
-                                        <Icon name='info circle' className='cursor-pointer' />
+                                        <Icon name='info circle' />
                                     }
                                     position='top center'
                                 />
@@ -507,66 +757,13 @@ const Home = (props) => {
                         </div>
                         <Segment
                             basic
-                            loading={!loadedAllProjects}
+                            loading={!loadedAllRecents}
                         >
                             <Card.Group itemsPerRow={2}>
-                                {(projects.length > 0) &&
-                                    projects.map((item) => {
-                                        const itemDate = new Date(item.updatedAt);
-                                        item.updatedDate = date.format(itemDate, 'MM/DD/YY');
-                                        item.updatedTime = date.format(itemDate, 'h:mm A');
-                                        return (
-                                            <Card key={item.projectID} raised>
-                                                <div className='flex-col-div project-card-content'>
-                                                    <Link as='h4' className='project-card-title' to={`/projects/${item.projectID}`}>{truncateString(item.title, 100)}</Link>
-                                                    <span className='muted-text project-card-lastupdate'>Last updated {item.updatedDate} at {item.updatedTime}</span>
-                                                    <div className='flex-row-div'>
-                                                        <div className='project-card-progress-container'>
-                                                            <CircularProgressbar
-                                                                value={item.currentProgress || 0}
-                                                                strokeWidth={5}
-                                                                circleRatio={0.75}
-                                                                styles={buildStyles({
-                                                                    rotation: 1 / 2 + 1 / 8,
-                                                                    pathColor: '#127BC4',
-                                                                    textColor: '#127BC4',
-                                                                    strokeLinecap: 'butt'
-                                                                })}
-                                                            />
-                                                        </div>
-                                                        <div className='project-card-progress-container'>
-                                                            <CircularProgressbar
-                                                                value={item.peerProgress || 0}
-                                                                strokeWidth={5}
-                                                                circleRatio={0.75}
-                                                                styles={buildStyles({
-                                                                    rotation: 1 / 2 + 1 / 8,
-                                                                    pathColor: '#CD4D12',
-                                                                    textColor: '#CD4D12',
-                                                                    strokeLinecap: 'butt'
-                                                                })}
-                                                            />
-                                                        </div>
-                                                        <div className='project-card-progress-container'>
-                                                            <CircularProgressbar
-                                                                value={item.a11yProgress || 0}
-                                                                strokeWidth={5}
-                                                                circleRatio={0.75}
-                                                                styles={buildStyles({
-                                                                    rotation: 1 / 2 + 1 / 8,
-                                                                    pathColor: '#00b5ad',
-                                                                    textColor: '#00b5ad',
-                                                                    strokeLinecap: 'butt'
-                                                                })}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </Card>
-                                        );
-                                    })
+                                {(recentProjects.length > 0) &&
+                                    recentProjects.map((item) => renderProjectCard(item))
                                 }
-                                {(projects.length === 0) &&
+                                {(recentProjects.length === 0) &&
                                     <p>You don't have any projects right now.</p>
                                 }
                             </Card.Group>
@@ -771,6 +968,71 @@ const Home = (props) => {
                         Done
                     </Button>
                 </Modal.Actions>
+            </Modal>
+            {/* Edit Pinned Projects Modal */}
+            <Modal open={showPinnedModal} onClose={closePinnedModal} size='fullscreen'>
+              <Modal.Header>Edit Pinned Projects</Modal.Header>
+              <Modal.Content scrolling id='edit-pinned-projects-content'>
+                <Form noValidate>
+                    <Form.Select
+                        search
+                        label='Select from your Projects'
+                        placeholder='Choose or start typing to search...'
+                        options={pinProjectsOptions}
+                        onChange={(_e, { value }) => setPinProjectToPin(value)}
+                        value={pinProjectToPin}
+                        loading={pinProjectsLoading}
+                        disabled={pinProjectsLoading}
+                    />
+                    <Button
+                        fluid
+                        disabled={isEmptyString(pinProjectToPin)}
+                        color='blue'
+                        loading={pinModalLoading}
+                        onClick={pinProject}
+                    >
+                        <Icon name='pin' />
+                        Pin Project
+                    </Button>
+                </Form>
+                <Divider />
+                {(pinModalLoading || !loadedAllPinned) ? (
+                  <Loader active inline='centered' />
+                ) : (
+                  (pinnedProjects.length > 0) ? (
+                    <List divided verticalAlign='middle' className='mb-2p'>
+                        {pinnedProjects.map((item) => {
+                            return (
+                                <List.Item key={item.projectID}>
+                                    <div className='flex-row-div'>
+                                        <div className='left-flex'>
+                                          <Link to={`/projects/${item.projectID}`} target='_blank'>{item.title}</Link>
+                                          <Icon name='external' className='ml-1p' />
+                                        </div>
+                                        <div className='right-flex'>
+                                          <Button
+                                            onClick={() => unpinProject(item.projectID)}
+                                          >
+                                            <Icon.Group className='icon'>
+                                              <Icon name='pin' />
+                                              <Icon corner name='x' />
+                                            </Icon.Group>
+                                            Unpin
+                                          </Button>
+                                        </div>
+                                    </div>
+                                </List.Item>
+                            )
+                        })}
+                    </List>
+                  ) : (
+                    <p className='text-center muted-text'>No pinned projects yet.</p>
+                  )
+                )}
+              </Modal.Content>
+              <Modal.Actions>
+                <Button onClick={closePinnedModal} color='blue'>Done</Button>
+              </Modal.Actions>
             </Modal>
         </Grid>
     )

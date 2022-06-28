@@ -92,3 +92,8 @@
 .announcements-list {
     padding: 0.5em 1em 0.5em;
 }
+
+/* Edit Pinned Projects */
+#edit-pinned-projects-content {
+  min-height: 50vh;
+}
