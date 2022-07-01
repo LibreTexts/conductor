@@ -3,18 +3,17 @@
 // auth.js
 
 'use strict';
-const User = require('../models/user.js');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { body } = require('express-validator');
-const { v4: uuidv4 } = require('uuid');
-const { randomBytes } = require('crypto');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugServer, debugObject } = require('../debug.js');
-const { isEmptyString } = require('../util/helpers.js');
-
-const mailAPI = require('./mail.js');
-const axios = require('axios');
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { body } from 'express-validator';
+import { v4 as uuidv4 } from 'uuid';
+import { randomBytes } from 'crypto';
+import axios from 'axios';
+import User from '../models/user.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError, debugServer } from '../debug.js';
+import { isEmptyString } from '../util/helpers.js';
+import mailAPI from './mail.js';
 
 const tokenTime = 86400;
 const authURL = 'https://sso.libretexts.org/cas/oauth2.0/authorize';
@@ -866,7 +865,7 @@ const validate = (method) => {
     }
 }
 
-module.exports = {
+export default {
     initSSO,
     oauthCallback,
     login,
@@ -883,4 +882,4 @@ module.exports = {
     checkHasRole,
     checkHasRoleMiddleware,
     validate
-};
+}

@@ -4,33 +4,30 @@
 //
 
 'use strict';
-var Promise = require('bluebird');
-const User = require('../models/user.js');
-const Project = require('../models/project.js');
-const Tag = require('../models/tag.js');
-const HarvestingRequest = require('../models/harvestingrequest.js');
-const Organization = require('../models/organization.js');
-const { body, query } = require('express-validator');
-const b62 = require('base62-random');
-const { validate: uuidValidate } = require('uuid');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject, debugCommonsSync } = require('../debug.js');
-const { isValidLicense, isValidLibrary } = require('../util/bookutils.js');
-const {
+import Promise from 'bluebird';
+import { body, query } from 'express-validator';
+import b62 from 'base62-random';
+import User from '../models/user.js';
+import Project from '../models/project.js';
+import Tag from '../models/tag.js';
+import HarvestingRequest from '../models/harvestingrequest.js';
+import Organization from '../models/organization.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError, debugCommonsSync } from '../debug.js';
+import { isValidLicense } from '../util/bookutils.js';
+import {
     validateProjectClassification,
     validateRoadmapStep,
     getLibreTextInformation
-} = require('../util/projectutils.js');
-const { getBookTOCFromAPI } = require('../util/bookutils.js');
-const { validateA11YReviewSectionItem } = require('../util/a11yreviewutils.js');
-const { isEmptyString } = require('../util/helpers.js');
-const { libraryNameKeys } = require('../util/librariesmap.js');
-
-const authAPI = require('./auth.js');
-const mailAPI = require('./mail.js');
-const bookAPI = require('./books.js');
-const usersAPI = require('./users.js');
-const alertsAPI = require('./alerts.js');
+} from '../util/projectutils.js';
+import { getBookTOCFromAPI } from '../util/bookutils.js';
+import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
+import { isEmptyString } from '../util/helpers.js';
+import { libraryNameKeys } from '../util/librariesmap.js';
+import authAPI from './auth.js';
+import mailAPI from './mail.js';
+import usersAPI from './users.js';
+import alertsAPI from './alerts.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -2590,7 +2587,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     projectStatusOptions,
     projectVisibilityOptions,
     createProject,
@@ -2628,4 +2625,4 @@ module.exports = {
     constructProjectTeam,
     constructProjectTeamMemberQuery,
     validate
-};
+}

@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const BookSchema = new Schema({
+const BookSchema = new mongoose.Schema({
     bookID: {                   // the LibreTexts standard text identifier of format `libShort-coverPageID`
         type: String,
         required: true,
@@ -61,4 +60,4 @@ BookSchema.index({
 
 const Book = mongoose.model('Book', BookSchema);
 
-module.exports = Book;
+export default Book;

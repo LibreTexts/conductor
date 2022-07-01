@@ -3,16 +3,18 @@
 // server.js
 //
 
-const dotenv = require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cookieParser = require('cookie-parser');
-const bluebird = require('bluebird');
-const helmet = require('helmet');
-const { exit } = require('process');
-const { debug, debugServer, debugDB } = require('./debug.js');
+import 'dotenv/config';
+import path from 'path';
+import { exit } from 'process';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import mongoose from 'mongoose';
+import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
+import Promise from 'bluebird';
+import helmet from 'helmet';
+import { debug, debugServer, debugDB } from './debug.js';
+import api from './api.js';
 
 // Prevent startup without ORG_ID env variable
 if (!process.env.ORG_ID || process.env.ORG_ID === '') {
@@ -27,12 +29,12 @@ if (!process.env.MAILGUN_API_KEY || process.env.MAILGUN_API_KEY === '' ||
     exit(1);
 }
 
-const api = require('./api.js');
-
 const app = express();
 const port = process.env.PORT || 5000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-mongoose.Promise = bluebird;
+mongoose.Promise = Promise;
 if (process.env.NODE_ENV === 'development') {
     mongoose.set('debug', true);
 }
@@ -86,7 +88,7 @@ app.use(helmet.contentSecurityPolicy({
 app.use('/api/v1', api);
 
 app.use(express.static(path.join(__dirname, '../client/build')));
-var cliRouter = express.Router();
+let cliRouter = express.Router();
 cliRouter.route('*').get((_req, res) => {
     res.sendFile(path.resolve('../client/build/index.html'));
 });

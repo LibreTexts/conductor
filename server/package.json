@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The LibreTexts Conductor platform server.",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },

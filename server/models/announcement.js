@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const AnnouncementSchema = new Schema({
+const AnnouncementSchema = new mongoose.Schema({
     author: {                   // announcement author (UUID)
         type: String,
         required: true
@@ -31,4 +30,4 @@ const AnnouncementSchema = new Schema({
 
 const Announcement = mongoose.model('Announcement', AnnouncementSchema);
 
-module.exports = Announcement;
+export default Announcement;

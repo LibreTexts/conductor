@@ -2,7 +2,7 @@
 // LibreTexts Conductor
 // a11yutils.js
 //
-const a11ySectionReviewSchema = {
+export const a11ySectionReviewSchema = {
     sectionTitle: String,
     sectionURL: String,
     navKeyboard: Boolean,
@@ -88,11 +88,6 @@ const a11ySectionReviewItems = [
  * @param {String} item  - the item name to test
  * @returns {Boolean} true if valid item, false otherwise.
  */
-const validateA11YReviewSectionItem = (item) => {
+export const validateA11YReviewSectionItem = (item) => {
     return a11ySectionReviewItems.includes(item);
-}
-
-module.exports = {
-    a11ySectionReviewSchema,
-    validateA11YReviewSectionItem
 }

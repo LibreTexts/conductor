@@ -54,4 +54,4 @@ const conductorErrors = {
     'err57': "Sorry, we're having trouble saving your file."
 };
 
-module.exports = conductorErrors;
+export default conductorErrors;

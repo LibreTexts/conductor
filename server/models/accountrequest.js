@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const AccountRequestSchema = new Schema({
+const AccountRequestSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['open', 'completed']
@@ -42,4 +41,4 @@ const AccountRequestSchema = new Schema({
 
 const AccountRequest = mongoose.model('AccountRequest', AccountRequestSchema);
 
-module.exports = AccountRequest;
+export default AccountRequest;

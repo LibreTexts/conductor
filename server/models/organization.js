@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const OrganizationSchema = new Schema({
+const OrganizationSchema = new mongoose.Schema({
     orgID: {                        // the organization's internal identifier string
         type: String,
         required: true
@@ -34,4 +33,4 @@ const OrganizationSchema = new Schema({
 
 const Organization = mongoose.model('Organization', OrganizationSchema);
 
-module.exports = Organization;
+export default Organization;

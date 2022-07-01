@@ -4,12 +4,10 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+import { peerReviewAuthorTypes } from '../util/peerreviewutils.js';
 
-const { peerReviewAuthorTypes } = require('../util/projectutils.js');
-
-const PeerReviewSchema = new Schema({
+const PeerReviewSchema = new mongoose.Schema({
     projectID: {                    // the Project the Peer Review submission is for
         type: String,
         required: true
@@ -108,4 +106,4 @@ const PeerReviewSchema = new Schema({
 
 const PeerReview = mongoose.model('PeerReview', PeerReviewSchema);
 
-module.exports = PeerReview;
+export default PeerReview;

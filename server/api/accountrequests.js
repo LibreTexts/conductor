@@ -4,16 +4,14 @@
 //
 
 'use strict';
-const User = require('../models/user.js');
-const AccountRequest = require('../models/accountrequest.js');
-const { body } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString, ensureUniqueStringArray } = require('../util/helpers.js');
-const { debugError } = require('../debug.js');
-const LibrariesMap = require('../util/librariesmap.js').default;
-
-const mailAPI = require('./mail.js');
-
+import { body } from 'express-validator';
+import User from '../models/user.js';
+import AccountRequest from '../models/accountrequest.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString, ensureUniqueStringArray } from '../util/helpers.js';
+import { debugError } from '../debug.js';
+import LibrariesMap from '../util/librariesmap.js';
+import mailAPI from './mail.js';
 
 /**
  * Creates and saves a new AccountRequest with the data
@@ -268,10 +266,10 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     submitRequest,
     getRequests,
     completeRequest,
     deleteRequest,
     validate
-};
+}

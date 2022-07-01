@@ -4,16 +4,14 @@
 //
 
 'use strict';
-let Promise = require('bluebird');
-const Homework = require('../models/homework.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString } = require('../util/helpers.js');
-const { debugError, debugObject, debugADAPTSync, debugServer } = require('../debug.js');
-const b62 = require('base62-random');
-const axios = require('axios');
-
-const alertsAPI = require('./alerts.js');
+import Promise from 'bluebird';
+import b62 from 'base62-random';
+import axios from 'axios';
+import Homework from '../models/homework.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString } from '../util/helpers.js';
+import { debugError, debugADAPTSync, debugServer } from '../debug.js';
+import alertsAPI from './alerts.js';
 
 /**
  * Get all Homework resources.
@@ -264,7 +262,7 @@ const runAutomatedHomeworkSync = (req, res) => {
     return syncHomework(req, res);
 };
 
-module.exports = {
+export default {
     getAllHomework,
     getADAPTCatalog,
     syncHomework,

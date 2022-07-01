@@ -2,11 +2,11 @@
 // LibreTexts Conductor
 // projectutils.js
 //
-const { stringContainsOneOfSubstring, getProductionURL } = require('./helpers.js');
-const { libraryNameKeys } = require('./librariesmap.js');
-const axios = require('axios');
+import axios from 'axios';
+import { stringContainsOneOfSubstring, getProductionURL } from './helpers.js';
+import { libraryNameKeys } from './librariesmap.js';
 
-const projectClassifications = [
+export const projectClassifications = [
     'harvesting',
     'curation',
     'construction',
@@ -17,11 +17,11 @@ const projectClassifications = [
     'miscellaneous'
 ];
 
-const constrRoadmapSteps = [
+export const constrRoadmapSteps = [
     '1', '2', '3', '4', '5a', '5b', '5c', '6', '7', '8', '9', '10', '11', '12'
 ];
 
-const textUseOptions = [
+export const textUseOptions = [
     { key: 'empty', text: 'Clear...', value: '' },
     { key: 'primary', text: 'As the primary textbook', value: 'primary' },
     { key: 'supplement', text: 'As supplementary material', value: 'supplement' },
@@ -36,7 +36,7 @@ const textUseOptions = [
  * @param {String} classification  - the classification string to test
  * @returns {Boolean} true if valid classification, false otherwise
  */
-const validateProjectClassification = (classification) => {
+export const validateProjectClassification = (classification) => {
     return projectClassifications.includes(classification);
 };
 
@@ -47,7 +47,7 @@ const validateProjectClassification = (classification) => {
  * @param {String} step  - the step name to test
  * @returns {Boolean} true if valid step, false otherwise.
  */
-const validateRoadmapStep = (step) => {
+export const validateRoadmapStep = (step) => {
     return constrRoadmapSteps.includes(step);
 };
 
@@ -57,7 +57,7 @@ const validateRoadmapStep = (step) => {
  * @param {String} use - The internal Text Use identifier.
  * @returns {String} The UI-ready representation, or an empty string if not found.
  */
-const getTextUse = (use) => {
+export const getTextUse = (use) => {
     if (use !== '') {
         let foundUse = textUseOptions.find((item) => {
             return item.value === use;
@@ -74,7 +74,7 @@ const getTextUse = (use) => {
  * @param {String} url - The LibreTexts url to retrieve information about.
  * @returns {Object} An object with information about the LibreText (lib, id, shelf, campus).
  */
-const getLibreTextInformation = (url) => {
+export const getLibreTextInformation = (url) => {
     let textInfo = {
         lib: '',
         id: '',
@@ -134,13 +134,3 @@ const getLibreTextInformation = (url) => {
         return textInfo;
     });
 };
-
-module.exports = {
-    projectClassifications,
-    constrRoadmapSteps,
-    textUseOptions,
-    validateProjectClassification,
-    validateRoadmapStep,
-    getTextUse,
-    getLibreTextInformation
-}

@@ -4,12 +4,12 @@
 //
 
 'use strict';
-const AdoptionReport = require('../models/adoptionreport.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { isEmptyString } = require('../util/helpers.js');
-const { debugError } = require('../debug.js');
-const { threePartDateStringValidator } = require('../validators.js');
+import { body, query } from 'express-validator';
+import AdoptionReport from '../models/adoptionreport.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString } from '../util/helpers.js';
+import { debugError } from '../debug.js';
+import { threePartDateStringValidator } from '../validators.js';
 
 /**
  * Creates and saves a new AdoptionReport with
@@ -282,9 +282,9 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     submitReport,
     getReports,
     deleteReport,
     validate
-};
+}

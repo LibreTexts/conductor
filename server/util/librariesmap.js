@@ -695,7 +695,7 @@ const libraryNameKeys = [
     'workforce'
 ];
 
-module.exports = {
-    default: libraries,
-    libraryNameKeys
+export {
+  libraries as default,
+  libraryNameKeys,
 }

@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const AlertSchema = new Schema({
+const AlertSchema = new mongoose.Schema({
     orgID: {                            // the OrgID of the instance the Alert was created in
         type: String,
         required: true
@@ -41,4 +40,4 @@ const AlertSchema = new Schema({
 
 const Alert = mongoose.model('Alert', AlertSchema);
 
-module.exports = Alert;
+export default Alert;

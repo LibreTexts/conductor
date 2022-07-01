@@ -4,11 +4,11 @@
 //
 
 'use strict';
-const Announcement = require('../models/announcement.js');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError } = require('../debug.js');
-const authAPI = require('./auth.js');
-const { body, query } = require('express-validator');
+import { body } from 'express-validator';
+import Announcement from '../models/announcement.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
+import authAPI from './auth.js';
 
 /**
  * Checks that a user has the property authority to post either a campus-wide or global
@@ -410,11 +410,11 @@ const validate = (method) => {
 };
 
 
-module.exports = {
+export default {
     postAnnouncement,
     deleteAnnouncement,
     getAllAnnouncements,
     getRecentAnnouncement,
     getSystemAnnouncement,
     validate
-};
+}

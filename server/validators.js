@@ -1,4 +1,4 @@
-const { isEmptyString } = require('./util/helpers.js');
+import { isEmptyString } from './util/helpers.js';
 
 /**
  * Verifies that a given string is in the format 'MM-DD-YYY' and
@@ -6,7 +6,7 @@ const { isEmptyString } = require('./util/helpers.js');
  * @param {String} value  - the date string to validate
  * @returns {Boolean} true if valid date string, false otherwise
  */
-const threePartDateStringValidator = (value) => {
+export const threePartDateStringValidator = (value) => {
     if (!isEmptyString(value)) { // validate
         const rawDate = String(value).split('-');
         const date = new Date(rawDate[2], rawDate[0]-1, rawDate[1]);
@@ -18,8 +18,4 @@ const threePartDateStringValidator = (value) => {
     } else {
         return false;
     }
-};
-
-module.exports = {
-    threePartDateStringValidator
 };

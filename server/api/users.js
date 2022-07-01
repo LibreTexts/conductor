@@ -3,18 +3,16 @@
 // users.js
 
 'use strict';
-const User = require('../models/user.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject } = require('../debug.js');
-const multer = require('multer');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const sharp = require('sharp');
+import { body, query } from 'express-validator';
+import multer from 'multer';
+import sharp from 'sharp';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { debugError } from '../debug.js';
+import User from '../models/user.js';
+import conductorErrors from '../conductor-errors.js';
+import authAPI from './auth.js';
 
 const avatarStorage = multer.memoryStorage();
-
-const authAPI = require('./auth.js');
-
 
 /**
  * Returns a Multer handler to process and validate user avatar image uploads.
@@ -696,7 +694,7 @@ const getUserEmails = (users) => {
  * @param {Boolean} [isSuperAdmin=false] - If the user is a Super Administrator.
  * @returns {Object[]} An array of objects containing the Organization's info and the User's role in it.
  */
- const processUserRoles = (orgs, roles, safetyCheck = false, isSuperAdmin = false) => {
+const processUserRoles = (orgs, roles, safetyCheck = false, isSuperAdmin = false) => {
     if (Array.isArray(orgs) && Array.isArray(roles)) {
         let userRoles = [];
         orgs.forEach((org) => {
@@ -782,7 +780,7 @@ const validate = (method) => {
 }
 
 
-module.exports = {
+export default {
     avatarUploadHandler,
     getBasicUserInfo,
     getBasicAccountInfo,
@@ -797,4 +795,4 @@ module.exports = {
     updateUserRole,
     getUserEmails,
     validate
-};
+}

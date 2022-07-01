@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const TranslationFeedbackSchema = new Schema({
+const TranslationFeedbackSchema = new mongoose.Schema({
     language: {                         // the target translation lanuage
         type: String,
         required: true
@@ -30,4 +29,4 @@ const TranslationFeedbackSchema = new Schema({
 
 const TranslationFeedback = mongoose.model('TranslationFeedback', TranslationFeedbackSchema);
 
-module.exports = TranslationFeedback;
+export default TranslationFeedback;

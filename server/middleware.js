@@ -4,9 +4,8 @@
 //
 
 'use strict';
-const { validationResult } = require('express-validator');
-const conductorErrors = require('./conductor-errors.js');
-
+import { validationResult } from 'express-validator';
+import conductorErrors from './conductor-errors.js';
 
 /**
  * Checks the results of the validation stage for an API route.
@@ -137,7 +136,7 @@ const middlewareFilter = (paths, middleware) => {
     }
 };
 
-module.exports = {
+export default {
     checkValidationErrors,
     checkLibreCommons,
     checkLibreAPIKey,

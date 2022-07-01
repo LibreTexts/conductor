@@ -4,29 +4,26 @@
 //
 
 'use strict';
-var Promise = require('bluebird');
-const User = require('../models/user.js');
-const Project = require('../models/project.js');
-const PeerReviewRubric = require('../models/peerreviewrubric.js');
-const PeerReview = require('../models/peerreview.js');
-const Book = require('../models/book.js');
-const { body, query } = require('express-validator');
-const b62 = require('base62-random');
-const { validate: uuidValidate } = require('uuid');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject } = require('../debug.js');
-const {
+import Promise from 'bluebird';
+import { body, query } from 'express-validator';
+import b62 from 'base62-random';
+import User from '../models/user.js';
+import Project from '../models/project.js';
+import PeerReview from '../models/peerreview.js';
+import PeerReviewRubric from '../models/peerreviewrubric.js';
+import Book from '../models/book.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
+import  {
     validatePeerReviewPromptType,
     validatePeerReviewAuthorType,
     buildPeerReviewAggregation,
     calculateAveragePeerReviewRating
-} = require('../util/peerreviewutils.js');
-const { isEmptyString } = require('../util/helpers.js');
-
-const authAPI = require('./auth.js');
-const mailAPI = require('./mail.js');
-const projectAPI = require('./projects.js');
-
+} from '../util/peerreviewutils.js';
+import { isEmptyString } from '../util/helpers.js';
+import authAPI from './auth.js';
+import mailAPI from './mail.js';
+import projectAPI from './projects.js';
 
 /**
  * Internal method to retrieve the specified Peer Review Rubric, the Organization's Rubric or
@@ -1097,7 +1094,7 @@ const validate = (method) => {
 };
 
 
-module.exports = {
+export default {
     getPeerReviewRubric,
     getAllPeerReviewRubrics,
     checkOrgDefaultRubric,
@@ -1111,4 +1108,4 @@ module.exports = {
     updatePeerReviewRubric,
     deletePeerReviewRubric,
     validate
-};
+}

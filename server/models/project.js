@@ -4,13 +4,11 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
+import { projectClassifications } from '../util/projectutils.js';
+import { a11ySectionReviewSchema } from '../util/a11yreviewutils.js';
 
-const { projectClassifications } = require('../util/projectutils.js');
-const { a11ySectionReviewSchema } = require('../util/a11yreviewutils.js');
-
-const ProjectSchema = new Schema({
+const ProjectSchema = new mongoose.Schema({
     orgID: {                    // organization identifier string
         type: String,
         required: true
@@ -86,4 +84,4 @@ const ProjectSchema = new Schema({
 
 const Project = mongoose.model('Project', ProjectSchema);
 
-module.exports = Project;
+export default Project;

@@ -4,21 +4,17 @@
 //
 
 'use strict';
-const User = require('../models/user.js');
-const Task = require('../models/task.js');
-const Project = require('../models/project.js');
-const Message = require('../models/message.js');
-const { body, query } = require('express-validator');
-const b62 = require('base62-random');
-const date = require('date-and-time');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject } = require('../debug.js');
-const { validateUUIDArray } = require('../util/helpers.js');
-
-const projectsAPI = require('./projects.js');
-const mailAPI = require('./mail.js');
-const usersAPI = require('./users.js');
-
+import b62 from 'base62-random';
+import date from 'date-and-time';
+import { body, query } from 'express-validator';
+import Task from '../models/task.js';
+import Project from '../models/project.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
+import { validateUUIDArray } from '../util/helpers.js';
+import projectsAPI from './projects.js';
+import mailAPI from './mail.js';
+import usersAPI from './users.js';
 
 /**
  * Creates a new Task within the specified Project using the values specified in the
@@ -1100,7 +1096,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     createTask,
     batchCreateTask,
     updateTask,
@@ -1110,4 +1106,4 @@ module.exports = {
     validate,
     addTaskAssignee,
     removeTaskAssignee
-};
+}

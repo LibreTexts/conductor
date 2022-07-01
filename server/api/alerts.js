@@ -4,24 +4,22 @@
 //
 
 'use strict';
-let Promise = require('bluebird');
-const mongoose = require('mongoose');
-const Alert = require('../models/alert.js');
-const Project = require('../models/project.js');
-const Book = require('../models/book.js');
-const Homework = require('../models/homework.js');
-const { body, query } = require('express-validator');
-const b62 = require('base62-random');
-const { validate: uuidValidate } = require('uuid');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject } = require('../debug.js');
-const {
+import Promise from 'bluebird';
+import mongoose from 'mongoose';
+import { body, query } from 'express-validator';
+import b62 from 'base62-random';
+import Alert from '../models/alert.js';
+import Project from '../models/project.js';
+import Book from '../models/book.js';
+import Homework from '../models/homework.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
+import {
   isValidDateObject,
   computeDateDifference,
-  createAndValidateDateObject
-} = require('../util/helpers.js');
-
-const mailAPI = require('./mail.js');
+  createAndValidateDateObject,
+} from '../util/helpers.js';
+import mailAPI from './mail.js';
 
 const ONE_DAY = 1000 * 60 * 60 * 24;
 
@@ -277,7 +275,7 @@ const deleteAlert = (req, res) => {
  * Processes 'instant' Alerts matching newly created Projects.
  * @param {object[]} newProjectIds - An array containg MongoDB id's of new Projects.
  */
- const processInstantProjectAlerts = (newProjectIds) => {
+const processInstantProjectAlerts = (newProjectIds) => {
   let aggregations = [];
   let mailToSend = [];
   let alertUpdates = [];
@@ -409,7 +407,7 @@ const deleteAlert = (req, res) => {
  * Processes 'instant' Alerts matching newly created Books.
  * @param {object[]} newBookIds - An array containg MongoDB id's of new Books.
  */
- const processInstantBookAlerts = (newBookIds) => {
+const processInstantBookAlerts = (newBookIds) => {
   let aggregations = [];
   let mailToSend = [];
   let alertUpdates = [];
@@ -934,7 +932,7 @@ const validate = (method) => {
   }
 };
 
-module.exports = {
+export default {
   createAlert,
   getUserAlerts,
   getAlert,
@@ -944,4 +942,4 @@ module.exports = {
   processInstantHomeworkAlerts,
   processDailyAlerts,
   validate
-};
+}

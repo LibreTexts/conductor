@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const CollectionSchema = new Schema({
+const CollectionSchema = new mongoose.Schema({
     orgID: {                        // the organization's internal identifier string
         type: String,
         required: true
@@ -47,4 +46,4 @@ const CollectionSchema = new Schema({
 
 const Collection = mongoose.model('Collection', CollectionSchema);
 
-module.exports = Collection;
+export default Collection;

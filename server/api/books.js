@@ -4,25 +4,24 @@
 //
 
 'use strict';
-var Promise = require('bluebird');
-const Book = require('../models/book.js');
-const Collection = require('../models/collection.js');
-const Organization = require('../models/organization.js');
-const CustomCatalog = require('../models/customcatalog.js');
-const Project = require('../models/project.js');
-const PeerReview = require('../models/peerreview.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const {
-    isEmptyString,
-    getProductionURL,
-    isValidDateObject,
-} = require('../util/helpers.js');
-const { debugError, debugCommonsSync, debugObject, debugServer } = require('../debug.js');
-const b62 = require('base62-random');
-const axios = require('axios');
-const fs = require('fs-extra');
-const {
+import Promise from 'bluebird';
+import axios from 'axios';
+import fs from 'fs-extra';
+import { body, query } from 'express-validator';
+import {
+  debugError,
+  debugCommonsSync,
+  debugServer
+} from '../debug.js';
+import Book from '../models/book.js';
+import Collection from '../models/collection.js';
+import Organization from '../models/organization.js';
+import CustomCatalog from '../models/customcatalog.js';
+import Project from '../models/project.js';
+import PeerReview from '../models/peerreview.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString, isValidDateObject } from '../util/helpers.js';
+import {
     checkBookIDFormat,
     extractLibFromID,
     getLibraryAndPageFromBookID,
@@ -37,16 +36,12 @@ const {
     genLMSFileLink,
     genPermalink,
     getBookTOCFromAPI,
-} = require('../util/bookutils.js');
-const {
-    buildPeerReviewAggregation,
-} = require('../util/peerreviewutils.js');
-const { libraryNameKeys } = require('../util/librariesmap.js');
-const { getBrowserKeyForLib } = require('../util/mtkeys.js');
-
-const projectAPI = require('./projects.js');
-const alertsAPI = require('./alerts.js');
-
+} from '../util/bookutils.js';
+import { buildPeerReviewAggregation } from '../util/peerreviewutils.js';
+import { libraryNameKeys } from '../util/librariesmap.js';
+import { getBrowserKeyForLib } from '../util/mtkeys.js';
+import projectsAPI from './projects.js';
+import alertsAPI from './alerts.js';
 
 /**
  * Accepts a library shortname and returns the LibreTexts API URL for the current
@@ -1492,7 +1487,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     syncWithLibraries,
     runAutomatedSyncWithLibraries,
     getCommonsCatalog,
@@ -1507,4 +1502,4 @@ module.exports = {
     getLicenseReport,
     retrieveKBExport,
     validate
-};
+}

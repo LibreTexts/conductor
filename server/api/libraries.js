@@ -4,10 +4,9 @@
 //
 
 'use strict';
-const { query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-
-const LibrariesMap = require('../util/librariesmap.js').default;
+import { query } from 'express-validator';
+import conductorErrors from '../conductor-errors.js';
+import LibrariesMap from '../util/librariesmap.js';
 
 /**
  * Returns the full map of Libraries.
@@ -84,9 +83,9 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     getLibraries,
     getMainLibraries,
     getLibraryShelves,
     validate
-};
+}

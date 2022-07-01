@@ -2,12 +2,12 @@
 // LibreTexts Conductor
 // bookutils.js
 //
-var Promise = require('bluebird');
-const { isEmptyString } = require('./helpers.js');
-const { libraryNameKeys } = require('./librariesmap.js');
-const Book = require('../models/book.js');
-const axios = require('axios');
-const { getProductionURL } = require('./helpers.js');
+import Promise from 'bluebird';
+import axios from 'axios';
+import { isEmptyString } from './helpers.js';
+import { libraryNameKeys } from './librariesmap.js';
+import Book from '../models/book.js';
+import { getProductionURL } from './helpers.js';
 
 const licenses = [
     'arr',
@@ -36,7 +36,7 @@ const sortChoices = [
  * @param {String} bookID - The string to validate as a Book ID.
  * @returns {Boolean} True if valid, false otherwise.
  */
-const checkBookIDFormat = (bookID) => {
+export const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
         const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/ig);
         if (match.length === 1 && match[0] === bookID) return true;
@@ -50,7 +50,7 @@ const checkBookIDFormat = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The library shortname, or an empty string if not found.
  */
-const extractLibFromID = (bookID) => {
+export const extractLibFromID = (bookID) => {
     if (typeof(bookID) === 'string' && bookID !== '') {
         const splitID = bookID.split('-');
         if (splitID.length === 2) return splitID[0];
@@ -65,7 +65,7 @@ const extractLibFromID = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String[]} A pair of strings in the order [lib, coverID].
  */
-const getLibraryAndPageFromBookID = (bookID) => {
+export const getLibraryAndPageFromBookID = (bookID) => {
     if (typeof(bookID) === 'string') {
         const splitID = String(bookID).split('-');
         if (splitID.length > 1) return [splitID[0], splitID[1]];
@@ -79,7 +79,7 @@ const getLibraryAndPageFromBookID = (bookID) => {
  * @param {String} lib - The library shortname to validate. 
  * @returns {Boolean} True if valid identifier, false otherwise.
  */
-const isValidLibrary = (lib) => {
+export const isValidLibrary = (lib) => {
     let foundLib = libraryNameKeys.find(item => item === lib);
     if (foundLib !== undefined) return true;
     return false;
@@ -91,7 +91,7 @@ const isValidLibrary = (lib) => {
  * @param {String} lic - The license identifier to validate. 
  * @returns {Boolean} True if valid identifier, false otherwise.
  */
-const isValidLicense = (lic) => {
+export const isValidLicense = (lic) => {
     let foundLic = licenses.find(item => item === lic);
     if (foundLic !== undefined) return true;
     return false;
@@ -103,7 +103,7 @@ const isValidLicense = (lic) => {
  * @param {String} sort - The sorting method name to validate. 
  * @returns {Boolean} True if valid method, false otherwise.
  */
-const isValidSort = (sort) => {
+export const isValidSort = (sort) => {
     let foundSort = sortChoices.find(item => item === sort);
     if (foundSort !== undefined) return true;
     return false;
@@ -128,7 +128,7 @@ const validateLinkGenArguments = (lib, pageID) => {
  * @param {String} pageID - The pageID of the resource on the library.
  * @returns {String} The link to the the thumbnail, or an empty string if invalid arguments provided.
  */
-const genThumbnailLink = (lib, pageID) => {
+export const genThumbnailLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
         return `https://${lib}.libretexts.org/@api/deki/pages/${pageID}/files/=mindtouch.page%2523thumbnail`;
     }
@@ -141,7 +141,7 @@ const genThumbnailLink = (lib, pageID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The link to the PDF download, or an empty string if invalid arguments provided.
  */
-const genPDFLink = (bookID) => {
+export const genPDFLink = (bookID) => {
     if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Full.pdf`;
     return '';
 };
@@ -152,7 +152,7 @@ const genPDFLink = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The link to the Bookstore page, or an empty string if invalid arguments provided.
  */
-const genBookstoreLink = (bookID) => {
+export const genBookstoreLink = (bookID) => {
     if (checkBookIDFormat(bookID)) return `https://libretexts.org/bookstore/single.html?${bookID}`;
     return '';
 };
@@ -163,7 +163,7 @@ const genBookstoreLink = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The link to the ZIP download, or an empty string if invalid arguments provided.
  */
-const genZIPLink = (bookID) => {
+export const genZIPLink = (bookID) => {
     if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Individual.zip`;
     return '';
 };
@@ -174,7 +174,7 @@ const genZIPLink = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The link to the publication files download, or an empty string if invalid arguments provided.
  */
-const genPubFilesLink = (bookID) => {
+export const genPubFilesLink = (bookID) => {
     if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/Publication.zip`;
     return '';
 };
@@ -185,7 +185,7 @@ const genPubFilesLink = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The link to the LMS import file download, or an empty string if invalid arguments provided.
  */
-const genLMSFileLink = (bookID) => {
+export const genLMSFileLink = (bookID) => {
     if (checkBookIDFormat(bookID)) return `https://batch.libretexts.org/print/Letter/Finished/${bookID}/LibreText.imscc`;
     return '';
 };
@@ -196,7 +196,7 @@ const genLMSFileLink = (bookID) => {
  * @param {String} bookID - The resource/Book ID to work on.
  * @returns {String} The permalink to the resource, or an empty string if invalid arguments provided.
  */
-const genPermalink = (bookID) => {
+export const genPermalink = (bookID) => {
     if (checkBookIDFormat(bookID)) {
         let [lib, pageID] = getLibraryAndPageFromBookID(bookID);
         if (!isEmptyString(lib) && !isEmptyString(pageID)) return `https://${lib}.libretexts.org/@go/page/${pageID}`;
@@ -213,7 +213,7 @@ const genPermalink = (bookID) => {
  * @param {String} [bookURL] - The URL of the LibreText to lookup.
  * @returns {Promise<Object|Error>} The Book's TOC object, or throws an error.
  */
- const getBookTOCFromAPI = (bookID, bookURL) => {
+export const getBookTOCFromAPI = (bookID, bookURL) => {
     let bookLookup = false;
     return Promise.try(() => {
         if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
@@ -240,22 +240,3 @@ const genPermalink = (bookID) => {
         else throw (new Error('tocretrieve'));
     });
 };
-
-
-
-module.exports = {
-    checkBookIDFormat,
-    extractLibFromID,
-    getLibraryAndPageFromBookID,
-    isValidLibrary,
-    isValidLicense,
-    isValidSort,
-    genThumbnailLink,
-    genPDFLink,
-    genBookstoreLink,
-    genZIPLink,
-    genPubFilesLink,
-    genLMSFileLink,
-    genPermalink,
-    getBookTOCFromAPI
-}

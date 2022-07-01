@@ -4,32 +4,26 @@
 //
 
 'use strict';
-const express = require('express');
-
-/* Route Middleware */
-const middleware = require('./middleware.js');
-
-/* Interfaces */
-const authAPI = require('./api/auth.js');
-const usersAPI = require('./api/users.js');
-const orgsAPI = require('./api/organizations.js');
-const accountRequestsAPI = require('./api/accountrequests.js');
-const alertsAPI = require('./api/alerts.js');
-const adoptionReportAPI = require('./api/adoptionreports.js');
-const harvestingRequestsAPI = require('./api/harvestingrequests.js');
-const collectionsAPI = require('./api/collections.js');
-const booksAPI = require('./api/books.js');
-const homeworkAPI = require('./api/homework.js');
-const librariesAPI = require('./api/libraries.js');
-//const mailAPI = require('./api/mail.js'); // (enable for development only)
-const searchAPI = require('./api/search.js');
-const announcementAPI = require('./api/announcements.js');
-const peerReviewAPI = require('./api/peerreview.js');
-const projectsAPI = require('./api/projects.js');
-const tasksAPI = require('./api/tasks.js');
-const msgAPI = require('./api/messaging.js');
-const transFeedbackAPI = require('./api/translationfeedback.js');
-
+import express from 'express';
+import middleware from './middleware.js'; // Route middleware
+import authAPI from './api/auth.js';
+import usersAPI from './api/users.js';
+import orgsAPI from './api/organizations.js';
+import accountRequestsAPI from './api/accountrequests.js';
+import alertsAPI from './api/alerts.js';
+import adoptionReportAPI from './api/adoptionreports.js';
+import harvestingRequestsAPI from './api/harvestingrequests.js';
+import collectionsAPI from './api/collections.js';
+import booksAPI from './api/books.js';
+import homeworkAPI from './api/homework.js';
+import librariesAPI from './api/libraries.js';
+import searchAPI from './api/search.js';
+import announcementAPI from './api/announcements.js';
+import peerReviewAPI from './api/peerreview.js';
+import projectsAPI from './api/projects.js';
+import tasksAPI from './api/tasks.js';
+import msgAPI from './api/messaging.js';
+import transFeedbackAPI from './api/translationfeedback.js';
 
 let router = express.Router();
 
@@ -698,4 +692,4 @@ router.route('/project/accessibility/section/item').put(authAPI.verifyRequest,
     middleware.checkValidationErrors, projectsAPI.updateA11YReviewSectionItem);
 
 
-module.exports = router;
+export default router;

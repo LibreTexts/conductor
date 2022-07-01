@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const PeerReviewRubricSchema = new Schema({
+const PeerReviewRubricSchema = new mongoose.Schema({
     orgID: {                        // the organization the rubric was created in
         type: String,
         required: true
@@ -77,4 +76,4 @@ const PeerReviewRubricSchema = new Schema({
 
 const PeerReviewRubric = mongoose.model('PeerReviewRubric', PeerReviewRubricSchema);
 
-module.exports = PeerReviewRubric;
+export default PeerReviewRubric;

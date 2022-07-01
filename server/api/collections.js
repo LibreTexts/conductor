@@ -4,18 +4,13 @@
 //
 
 'use strict';
-const Collection = require('../models/collection.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const {
-  isEmptyString,
-  ensureUniqueStringArray,
-} = require('../util/helpers.js');
-const { debugError } = require('../debug.js');
-const b62 = require('base62-random');
-const {
-    checkBookIDFormat
-} = require('../util/bookutils.js');
+import { body, query } from 'express-validator';
+import b62 from 'base62-random';
+import Collection from '../models/collection.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString, ensureUniqueStringArray } from '../util/helpers.js';
+import { debugError } from '../debug.js';
+import { checkBookIDFormat } from '../util/bookutils.js';
 
 /**
  * Creates and saves a new Collection with
@@ -499,7 +494,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     createCollection,
     editCollection,
     deleteCollection,
@@ -509,4 +504,4 @@ module.exports = {
     addResourceToCollection,
     removeResourceFromCollection,
     validate
-};
+}

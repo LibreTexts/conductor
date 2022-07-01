@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const CustomCatalogSchema = new Schema({
+const CustomCatalogSchema = new mongoose.Schema({
     orgID: {                        // the organization's internal identifier string (one custom catalog/organization)
         type: String,
         required: true,
@@ -20,4 +19,4 @@ const CustomCatalogSchema = new Schema({
 
 const CustomCatalog = mongoose.model('CustomCatalog', CustomCatalogSchema);
 
-module.exports = CustomCatalog;
+export default CustomCatalog;

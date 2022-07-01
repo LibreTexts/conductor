@@ -4,23 +4,18 @@
 //
 
 'use strict';
-const User = require('../models/user.js');
-const Project = require('../models/project.js');
-const Task = require('../models/task.js');
-const Thread = require('../models/thread.js');
-const Message = require('../models/message.js');
-const { body, query } = require('express-validator');
-const b62 = require('base62-random');
-const { validate: uuidValidate } = require('uuid');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError, debugObject } = require('../debug.js');
-const { isEmptyString } = require('../util/helpers.js');
-
-const authAPI = require('./auth.js');
-const mailAPI = require('./mail.js');
-const projectsAPI = require('./projects.js');
-const usersAPI = require('./users.js');
-
+import b62 from 'base62-random';
+import { debugError } from '../debug.js';
+import { body, query } from 'express-validator';
+import User from '../models/user.js';
+import Project from '../models/project.js';
+import Task from '../models/task.js';
+import Thread from '../models/thread.js';
+import Message from '../models/message.js';
+import conductorErrors from '../conductor-errors.js';
+import mailAPI from './mail.js';
+import projectsAPI from './projects.js';
+import usersAPI from './users.js';
 
 /**
  * Creates a new Discussion Thread within a Project.
@@ -775,7 +770,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     createDiscussionThread,
     deleteDiscussionThread,
     getProjectThreads,
@@ -785,4 +780,4 @@ module.exports = {
     getThreadMessages,
     getTaskMessages,
     validate
-};
+}

@@ -1,7 +1,6 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const HarvestingRequestSchema = new Schema({
+const HarvestingRequestSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true
@@ -37,4 +36,4 @@ const HarvestingRequestSchema = new Schema({
 
 const HarvestingRequest = mongoose.model('HarvestingRequest', HarvestingRequestSchema);
 
-module.exports = HarvestingRequest;
+export default HarvestingRequest;

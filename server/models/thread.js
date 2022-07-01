@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const ThreadSchema = new Schema({
+const ThreadSchema = new mongoose.Schema({
     threadID: {                         // base62 14-digit identifier
         type: String,
         required: true,
@@ -37,4 +36,4 @@ const ThreadSchema = new Schema({
 
 const Thread = mongoose.model('Thread', ThreadSchema);
 
-module.exports = Thread;
+export default Thread;

@@ -4,19 +4,18 @@
 //
 
 'use strict';
-const User = require('../models/user.js');
-const HarvestingRequest = require('../models/harvestingrequest.js');
-const Project = require('../models/project.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const b62 = require('base62-random');
-const { validate: uuidValidate } = require('uuid');
-const { isEmptyString } = require('../util/helpers.js');
-const { threePartDateStringValidator } = require('../validators.js');
-const { getTextUse } = require('../util/projectutils.js');
-const { debugError } = require('../debug.js');
-
-const mailAPI = require('./mail.js');
+import { body, query } from 'express-validator';
+import { validate as uuidValidate } from 'uuid';
+import b62 from 'base62-random';
+import User from '../models/user.js';
+import HarvestingRequest from '../models/harvestingrequest.js';
+import Project from '../models/project.js';
+import conductorErrors from '../conductor-errors.js';
+import { isEmptyString } from '../util/helpers.js';
+import { threePartDateStringValidator } from '../validators.js';
+import { getTextUse } from '../util/projectutils.js';
+import { debugError } from '../debug.js';
+import mailAPI from './mail.js';
 
 /**
  * Creates and saves a new HarvestingRequest model with
@@ -348,10 +347,10 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     addRequest,
     getRequests,
     deleteRequest,
     convertRequest,
     validate
-};
+}

@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const TaskSchema = new Schema({
+const TaskSchema = new mongoose.Schema({
     orgID: {                    // organization identifier string
         type: String,
         required: true
@@ -49,4 +48,4 @@ const TaskSchema = new Schema({
 
 const Task = mongoose.model('Task', TaskSchema);
 
-module.exports = Task;
+export default Task;

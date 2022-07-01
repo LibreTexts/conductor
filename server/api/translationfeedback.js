@@ -4,15 +4,12 @@
 //
 
 'use strict';
-const TranslationFeedback = require('../models/translationfeedback.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const {
-    isEmptyString,
-    threePartDateStringToDate
-} = require('../util/helpers.js');
-const { threePartDateStringValidator } = require('../validators.js');
-const { debugError } = require('../debug.js');
+import { body, query } from 'express-validator';
+import TranslationFeedback from '../models/translationfeedback.js';
+import conductorErrors from '../conductor-errors.js';
+import { threePartDateStringToDate } from '../util/helpers.js';
+import { threePartDateStringValidator } from '../validators.js';
+import { debugError } from '../debug.js';
 
 /**
  * Creates and saves a new TranslationFeedback with
@@ -202,8 +199,8 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     submitFeedback,
     exportFeedback,
     validate
-};
+}

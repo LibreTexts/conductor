@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const HomeworkSchema = new Schema({
+const HomeworkSchema = new mongoose.Schema({
     hwID: {                     // base62 11-digit identifier
         type: String,
         required: true,
@@ -40,4 +39,4 @@ const HomeworkSchema = new Schema({
 
 const Homework = mongoose.model('Homework', HomeworkSchema);
 
-module.exports = Homework;
+export default Homework;

@@ -4,11 +4,10 @@
 //
 
 'use strict';
-const Organization = require('../models/organization.js');
-const { body, query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError } = require('../debug.js');
-
+import { body, query } from 'express-validator';
+import Organization from '../models/organization.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
 
 /**
  * Retrieves basic information about
@@ -159,9 +158,9 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     getOrganizationInfo,
     getAllOrganizations,
     updateOrganizationInfo,
     validate
-};
+}

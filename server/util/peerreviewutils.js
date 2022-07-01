@@ -4,9 +4,9 @@
  * @file Exposes helper functions and objects for Conductor Peer Review features. 
  */
 
-const peerReviewPromptTypes = ['3-likert', '5-likert', '7-likert', 'text', 'dropdown', 'checkbox'];
+export const peerReviewPromptTypes = ['3-likert', '5-likert', '7-likert', 'text', 'dropdown', 'checkbox'];
 
-const peerReviewAuthorTypes = ['student', 'instructor'];
+export const peerReviewAuthorTypes = ['student', 'instructor'];
 
 
 /**
@@ -15,7 +15,7 @@ const peerReviewAuthorTypes = ['student', 'instructor'];
  * @param {String} [review=false] - Specifies that the identifier provided is for a single peer Review.
  * @returns {Object[]|Error} The compiled aggregation pipeline, or an error if an identifier is unspecified.
  */
-const buildPeerReviewAggregation = (identifier, review = false) => {
+export const buildPeerReviewAggregation = (identifier, review = false) => {
     let matchObj = {};
     if (typeof(identifier) === 'string' && identifier.length > 0) {
         if (review) { // peerReviewID
@@ -99,7 +99,7 @@ const buildPeerReviewAggregation = (identifier, review = false) => {
  * @param {Object[]} peerReviews - An array of applicable Peer Review objects.
  * @returns {Number|null} The average rating or null if an error was encountered.
  */
-const calculateAveragePeerReviewRating = (peerReviews) => {
+export const calculateAveragePeerReviewRating = (peerReviews) => {
     if (Array.isArray(peerReviews) && peerReviews.length > 0) {
         let ratingsCount = 0;
         let totalRating = 0;
@@ -126,7 +126,7 @@ const calculateAveragePeerReviewRating = (peerReviews) => {
  * @param {String} promptType - The Prompt type identifier to validate.
  * @returns {Boolean} True if valid type, false otherwise.
  */
-const validatePeerReviewPromptType = (promptType) => {
+export const validatePeerReviewPromptType = (promptType) => {
     return peerReviewPromptTypes.includes(promptType);
 };
 
@@ -137,16 +137,6 @@ const validatePeerReviewPromptType = (promptType) => {
  * @param {String} authorType - The author type identifier to validate.
  * @returns {Boolean} True if valid type, false otherwise.
  */
-const validatePeerReviewAuthorType = (authorType) => {
+export const validatePeerReviewAuthorType = (authorType) => {
     return peerReviewAuthorTypes.includes(authorType);
 };
-
-
-module.exports = {
-    peerReviewPromptTypes,
-    peerReviewAuthorTypes,
-    buildPeerReviewAggregation,
-    calculateAveragePeerReviewRating,
-    validatePeerReviewPromptType,
-    validatePeerReviewAuthorType,
-}

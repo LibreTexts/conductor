@@ -2,10 +2,9 @@
 // LibreTexts Conductor
 // mtkeys.js
 //
+import base64 from 'base-64';
 
-const base64 = require('base-64');
-
-var browserKeys = {};
+let browserKeys = {};
 
 const decodeBrowserKeys = () => {
     if (process.env.BROWSERKEYS) {
@@ -22,7 +21,7 @@ const checkKeyStatus = () => {
     return false;
 };
 
-const getBrowserKeyForLib = (lib) => {
+export const getBrowserKeyForLib = (lib) => {
     // check if keys are already decoded, otherwise do it now
     if (checkKeyStatus()) {
         return browserKeys[lib];
@@ -36,7 +35,3 @@ const getBrowserKeyForLib = (lib) => {
         }
     }
 };
-
-module.exports = {
-    getBrowserKeyForLib
-}

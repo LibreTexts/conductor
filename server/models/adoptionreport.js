@@ -1,7 +1,6 @@
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const AdoptionReportSchema = new Schema({
+const AdoptionReportSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true
@@ -53,4 +52,4 @@ const AdoptionReportSchema = new Schema({
 
 const AdoptionReport = mongoose.model('AdoptionReport', AdoptionReportSchema);
 
-module.exports = AdoptionReport;
+export default AdoptionReport;

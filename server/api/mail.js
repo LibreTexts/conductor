@@ -3,12 +3,10 @@
 // mail.js
 //
 
-const Mailgun = require('mailgun.js');
-const formData = require('form-data');
-const { debugError } = require('../debug.js');
-const conductorErrors = require('../conductor-errors.js');
-const { marked } = require('marked');
-const { isEmptyString, truncateString } = require('../util/helpers.js');
+import Mailgun from 'mailgun.js';
+import formData from 'form-data';
+import { marked } from 'marked';
+import { isEmptyString, truncateString } from '../util/helpers.js';
 
 const mgInstance = new Mailgun(formData);
 const mailgun = mgInstance.client({
@@ -330,7 +328,7 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
  * @param {String} recipientAddress - the requesting user's email.
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
- const sendAccountRequestConfirmation = (requesterName, recipientAddress) => {
+const sendAccountRequestConfirmation = (requesterName, recipientAddress) => {
     let textToSend = `Hi ${requesterName}, LibreTexts has received your Instructor Account(s) Request. You should receive an email when we have reviewed your request. If you have any questions, please contact us at info@libretexts.org. Sincerely, The LibreTexts team` + autoGenNoticeText;
     let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has received your Instructor Account(s) Request. You should receive an email when we have reviewed your request. If you have any questions, please contact us at <a href='mailto:info@libretexts.org?subject=Instructor Accounts Request Questions' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a>.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -349,7 +347,7 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
  *  only after proper verification via other internal methods.
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
- const sendAccountRequestAdminNotif = () => {
+const sendAccountRequestAdminNotif = () => {
     let textToSend = `Attention: A user has submitted a new Instructor Account(s) Request for LibreTexts libraries access. This request is available in Conductor.` + autoGenNoticeText;
     let htmlToSend = `<p>Attention:</p><p>A user has submitted a new Instructor Account(s) Request for LibreTexts libraries access.</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -370,7 +368,7 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
  * @param {String} recipientAddress  - the requesting user's email
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
- const sendAccountRequestApprovalNotification = (requesterName, recipientAddress) => {
+const sendAccountRequestApprovalNotification = (requesterName, recipientAddress) => {
     let textToSend = `Hi ${requesterName}, LibreTexts has approved your Instructor Account(s) Request. You should have received seperate emails with information about your new account(s). Please check your spam/junk folder if you have not received them. Otherwise, contact LibreTexts at info@libretexts.org for assistance. Sincerely, The LibreTexts team` + autoGenNoticeText;
     let htmlToSend = `<p>Hi ${requesterName},</p><p>LibreTexts has approved your Instructor Account(s) Request.</p><p>You should have received seperate emails with information about your new account(s).</p><p><em>Please check your spam/junk folder if you have not received them. Otherwise, contact LibreTexts at <a href='mailto:info@libretexts.org?subject=New Instructor Accounts' target='_blank' rel='noopener noreferrer'>info@libretexts.org</a> for assistance.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -394,7 +392,7 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
  * @param {String} [projectURL] - The project's resource URL, if applicable.
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
- const sendPeerReviewInvitation = (inviterName, recipientAddress, projectID, projectTitle, projectURL) => {
+const sendPeerReviewInvitation = (inviterName, recipientAddress, projectID, projectTitle, projectURL) => {
     let reviewLink = `https://commons.libretexts.org/peerreview/${projectID}`;
     let textToSend = `Hello! ${inviterName} has invited you to review their project, ${projectTitle}, on the LibreTexts Conductor platform.`;
     let htmlToSend = `<p>Hello!</p><p>${inviterName} has invited you to review their project, <em>${projectTitle}</em>, on the LibreTexts Conductor platform.</p>`;
@@ -424,7 +422,7 @@ const sendAssignedToTaskNotification = (recipient, projectID, projectTitle, proj
  * @param {String} projectOrg - The Project's organization.
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
- const sendPeerReviewNotification = (recipients, projectID, projectTitle, projectOrg) => {
+const sendPeerReviewNotification = (recipients, projectID, projectTitle, projectOrg) => {
     let textToSend = `Attention: A new Peer Review has been submitted to the "${projectTitle}" project (available in the ${projectOrg} instance) on Conductor. You can view this Peer Review by visiting the Project's page and selecting 'Peer Review' from the top menu bar.` + autoGenNoticeText;
     let htmlToSend = `<p>Attention:</p><p>A new Peer Review has been submitted to the <a href="https://commons.libretexts.org/projects/${projectID}" target="_blank" rel="noopener noreferrer">${projectTitle}</a> project (available in the <strong>${projectOrg}</strong> instance) on Conductor.</p><p>You can view this Peer Review by visiting the Project's page and selecting <a href="https://commons.libretexts.org/projects/${projectID}/peerreview" target="_blank" rel="noopener noreferrer">'Peer Review'</a> from the top menu bar.</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -518,7 +516,7 @@ const sendAlertActivatedNotification = (recipientEmail, recipientName, alertTitl
 };
 
 
-module.exports = {
+export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
     sendPasswordChangeNotification,

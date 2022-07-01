@@ -1,7 +1,9 @@
-const debug = require('debug')('conductor');
-const util = require('util');
+import debugUtil from 'debug';
+import util from 'util';
 
-const debugServer = (msg) => {
+export const debug = debugUtil('conductor');
+
+export const debugServer = (msg) => {
     if (typeof(msg) === 'string') {
         debug('[SERVER]: %s', msg);
     } else {
@@ -9,7 +11,7 @@ const debugServer = (msg) => {
     }
 };
 
-const debugDB = (msg) => {
+export const debugDB = (msg) => {
     if (typeof(msg) === 'string') {
         debug('[DB]: %s', msg);
     } else {
@@ -17,15 +19,15 @@ const debugDB = (msg) => {
     }
 };
 
-const debugObject = (obj) => {
+export const debugObject = (obj) => {
     console.log(util.inspect(obj, { showHidden: false, depth: null }));
 };
 
-const debugError = (err) => {
+export const debugError = (err) => {
     debug('[ORGID - %s]: %s', process.env.ORG_ID, err.toString());
 };
 
-const debugCommonsSync = (msg) => {
+export const debugCommonsSync = (msg) => {
     if (typeof(msg) === 'string') {
         debug('[COMMONS SYNC]: %s', msg);
     } else {
@@ -33,21 +35,10 @@ const debugCommonsSync = (msg) => {
     }
 };
 
-const debugADAPTSync = (msg) => {
+export const debugADAPTSync = (msg) => {
     if (typeof(msg) === 'string') {
         debug('[COMMONS SYNC]: %s', msg);
     } else {
         debug('[COMMONS SYNC]: %s', msg.toString());
     }
 };
-
-
-module.exports = {
-    debug,
-    debugServer,
-    debugDB,
-    debugObject,
-    debugError,
-    debugCommonsSync,
-    debugADAPTSync
-}

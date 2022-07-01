@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const TagSchema = new Schema({
+const TagSchema = new mongoose.Schema({
     orgID: String,          // organization identifier string,
     tagID: String,          // base62 12-digit identifier
     title: String           // the tag's title/display text
@@ -17,4 +16,4 @@ const TagSchema = new Schema({
 
 const Tag = mongoose.model('Tag', TagSchema);
 
-module.exports = Tag;
+export default Tag;

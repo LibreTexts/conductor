@@ -4,17 +4,16 @@
 //
 
 'use strict';
-let Promise = require('bluebird');
-const User = require('../models/user.js');
-const Project = require('../models/project.js');
-const Book = require('../models/book.js');
-const Homework = require('../models/homework.js');
-const { query } = require('express-validator');
-const conductorErrors = require('../conductor-errors.js');
-const { debugError } = require('../debug.js');
-const { isValidDateObject } = require('../util/helpers.js'); 
-
-const projectAPI = require('./projects.js');
+import Promise from 'bluebird';
+import { query } from 'express-validator';
+import User from '../models/user.js';
+import Project from '../models/project.js';
+import Book from '../models/book.js';
+import Homework from '../models/homework.js';
+import conductorErrors from '../conductor-errors.js';
+import { debugError } from '../debug.js';
+import { isValidDateObject } from '../util/helpers.js';
+import projectAPI from './projects.js';
 
 const projectSortOptions = ['title', 'progress', 'classification', 'visibility', 'lead', 'updated'];
 const bookSortOptions = ['title', 'author', 'library', 'subject', 'affiliation'];
@@ -428,7 +427,7 @@ const validate = (method) => {
     }
 };
 
-module.exports = {
+export default {
     performSearch,
     validate
-};
+}

@@ -2,16 +2,14 @@
 // LibreTexts Conductor
 // helpers.js
 //
-
-const { validate: uuidValidate } = require('uuid');
-
+import { validate as uuidValidate } from 'uuid';
 
 /**
  * Checks that a string has a (trimmed) length greater than 0.
  * @param {String} str - The string to validate.
  * @returns {Boolean} True if non-empty or not a string, false otherwise.
  */
-const isEmptyString = (str) => {
+export const isEmptyString = (str) => {
     if (typeof(str) === 'string') return (!str || str.trim().length === 0);
     return false;
 };
@@ -26,7 +24,7 @@ const isEmptyString = (str) => {
  *                       of characters to allow before truncation
  * @returns {string} the truncated (if applicable) string
  */
-const truncateString = (str, len) => {
+export const truncateString = (str, len) => {
     if (str.length > len) {
         let subString = str.substring(0, len);
         return subString + "...";
@@ -40,7 +38,7 @@ const truncateString = (str, len) => {
  * Constructs a basic array with OrgIDs given
  * an array of Role objects.
  */
-const buildOrgArray = (roles) => {
+export const buildOrgArray = (roles) => {
     var orgs = [];
     roles.forEach((item) => {
         if (item.org) {
@@ -56,7 +54,7 @@ const buildOrgArray = (roles) => {
  * @param {string[]} arr  - the array of strings to validate
  * @returns {Boolean} true if valid array, false otherwise.
  */
-const validateUUIDArray = (arr) => {
+export const validateUUIDArray = (arr) => {
     if (Array.isArray(arr)) {
         let validArray = true;
         arr.forEach((item) => {
@@ -77,7 +75,7 @@ const validateUUIDArray = (arr) => {
  * @param {String} value  - the date string to convert
  * @returns {(Date|null)} Date if valid, null otherwise
  */
-const threePartDateStringToDate = (value) => {
+export const threePartDateStringToDate = (value) => {
     try {
         let dateComp = String(value).split('-');
         let month, day, year;
@@ -101,7 +99,7 @@ const threePartDateStringToDate = (value) => {
  * @param {String[]} arr - the array to filter.
  * @returns {String[]} the unique array of strings
  */
-const ensureUniqueStringArray = (arr) => {
+export const ensureUniqueStringArray = (arr) => {
     if (Array.isArray(arr)) {
         let uniqueValues = [];
         arr.forEach((item) => {
@@ -120,7 +118,7 @@ const ensureUniqueStringArray = (arr) => {
  * @param {Boolean} [returnStr] - return the first found substring as part of an object (optional).
  * @returns {Boolean|Object} Boolean of search result, or an object with the result boolean and the first matched substring.
  */
-const stringContainsOneOfSubstring = (str, arr, returnStr) => {
+export const stringContainsOneOfSubstring = (str, arr, returnStr) => {
     let contains = false;
     let foundSubstring = '';
     if (typeof(str) === 'string' && Array.isArray(arr)) {
@@ -145,7 +143,7 @@ const stringContainsOneOfSubstring = (str, arr, returnStr) => {
  * Checks if a native Date is properly instantiated.
  * @param {Object} date - The Date object to validate.
  */
-const isValidDateObject = (date) => {
+export const isValidDateObject = (date) => {
     return date instanceof Date && !isNaN(date);
 };
 
@@ -156,7 +154,7 @@ const isValidDateObject = (date) => {
  * @param {Date} date2 - The second date object.
  * @returns {number} The difference in milliseconds.
  */
-const computeDateDifference = (date1, date2) => {
+export const computeDateDifference = (date1, date2) => {
     if (isValidDateObject(date1) && isValidDateObject(date2)) {
         return Math.abs(date2 - date1);
     }
@@ -169,7 +167,7 @@ const computeDateDifference = (date1, date2) => {
  * @param {string} dateString - The date string to use in instantiation.
  * @returns {Date|null} A date object if successfully created, null otherwise.
  */
-const createAndValidateDateObject = (dateString) => {
+export const createAndValidateDateObject = (dateString) => {
     let newDate = null;
     const dateObj = new Date(dateString);
     if (isValidDateObject(dateObj)) newDate = dateObj;
@@ -181,23 +179,8 @@ const createAndValidateDateObject = (dateString) => {
  * Returns the production URL set in the server's environment variables.
  * @returns {String} the first production URL or an empty string if not found.
  */
-const getProductionURL = () => {
+export const getProductionURL = () => {
     let prodURLs = String(process.env.PRODUCTIONURLS).split(',');
     if (Array.isArray(prodURLs) && prodURLs.length > 0) return prodURLs[0];
     return '';
-};
-
-
-module.exports = {
-    isEmptyString,
-    truncateString,
-    buildOrgArray,
-    validateUUIDArray,
-    threePartDateStringToDate,
-    ensureUniqueStringArray,
-    stringContainsOneOfSubstring,
-    isValidDateObject,
-    computeDateDifference,
-    createAndValidateDateObject,
-    getProductionURL
 };

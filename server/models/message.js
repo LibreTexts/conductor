@@ -4,10 +4,9 @@
 // Mongoose Model
 //
 
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+import mongoose from 'mongoose';
 
-const MessageSchema = new Schema({
+const MessageSchema = new mongoose.Schema({
     messageID: {                        // base62 15-digit identifier
         type: String,
         required: true,
@@ -33,4 +32,4 @@ const MessageSchema = new Schema({
 
 const Message = mongoose.model('Message', MessageSchema);
 
-module.exports = Message;
+export default Message;
