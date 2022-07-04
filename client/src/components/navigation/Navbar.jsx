@@ -249,6 +249,10 @@ const Navbar = (_props) => {
                                         <Icon name='pencil' />
                                         ADAPT Homework System
                                     </Dropdown.Item>
+                                    <Dropdown.Item as='a' href='https://chat.libretexts.org/' target='_blank' rel='noopener noreferrer'>
+                                        <Icon name='discord' />
+                                        Chat
+                                    </Dropdown.Item>
                                     <Dropdown.Item as='a' href='https://groups.io/g/Libretexts-ConstructionForum' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='rss' />
                                         Construction Forum
@@ -257,25 +261,13 @@ const Navbar = (_props) => {
                                         <Icon name='plus' />
                                         Harvesting Request
                                     </Dropdown.Item>
-                                    <Dropdown.Item as='a' href='https://imathas.libretexts.org/imathas/' target='_blank' rel='noopener noreferrer'>
-                                        <Icon name='percent' />
-                                        IMathAS
-                                    </Dropdown.Item>
                                     <Dropdown.Item as='a' href='https://jupyter.libretexts.org/hub/login' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='server' />
                                         JupyterHub
                                     </Dropdown.Item>
-                                    <Dropdown.Item as='a' href='https://libremaps.libretexts.org/' target='_blank' rel='noopener noreferrer'>
-                                        <Icon name='map' />
-                                        LibreMaps
-                                    </Dropdown.Item>
                                     <Dropdown.Item as='a' href='https://studio.libretexts.org/' target='_blank' rel='noopener noreferrer'>
                                         <Icon name='puzzle' />
                                         LibreStudio
-                                    </Dropdown.Item>
-                                    <Dropdown.Item as='a' href='https://webwork.libretexts.org/webwork2' target='_blank' rel='noopener noreferrer'>
-                                        <Icon name='laptop' />
-                                        WeBWorK
                                     </Dropdown.Item>
                                 </Dropdown.Menu>
                             </Dropdown>
