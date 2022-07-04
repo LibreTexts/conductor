@@ -21,7 +21,7 @@ import {
     Search,
     Popup,
     Dropdown,
-    Checkbox
+    Checkbox,
 } from 'semantic-ui-react';
 import {
     CircularProgressbar,
@@ -1881,8 +1881,8 @@ const ProjectView = (props) => {
             <Grid.Row>
                 <Grid.Column width={16}>
                     <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
+                        <Segment className='flex-row-div flex-row-verticalcenter'>
+                            <Breadcrumb className='project-meta-breadcrumb'>
                                 <Breadcrumb.Section as={Link} to='/projects'>
                                     Projects
                                 </Breadcrumb.Section>
@@ -1909,8 +1909,16 @@ const ProjectView = (props) => {
                                     {project.title || 'Loading...'}
                                 </Breadcrumb.Section>
                             </Breadcrumb>
-                            <div className='float-right'>
-                                <span className='muted-text'>ID: {project.projectID || 'Loading...'}</span>
+                            <div className='flex-row-div flex-row-verticalcenter'>
+                              <span className='muted-text mr-2r'>ID: {project.projectID || 'Loading...'}</span>
+                              <Button
+                                content={`${projectPinned ? 'Unpin' : 'Pin'} Project`}
+                                icon='pin'
+                                labelPosition='left'
+                                color={projectPinned ? undefined : 'blue'}
+                                size='small'
+                                onClick={toggleProjectPin}
+                              />
                             </div>
                         </Segment>
                         <Segment loading={loadingData}>
@@ -1984,36 +1992,26 @@ const ProjectView = (props) => {
                                             </Button>
                                             <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                                                 <Dropdown.Menu>
-                                                    <Dropdown.Item
-                                                      icon={projectPinned ? (
-                                                        <Icon.Group className='icon'>
-                                                          <Icon name='pin' />
-                                                          <Icon corner name='x' />
-                                                        </Icon.Group>
-                                                      ) : (
-                                                        <Icon name='pin' />
-                                                      )}
-                                                      text={projectPinned ? 'Unpin Project' : 'Pin Project'}
-                                                      onClick={toggleProjectPin}
-                                                    />
-                                                    {userProjectMember &&
-                                                        <Dropdown.Item
-                                                            icon={hasFlag
-                                                                ? (
-                                                                    <Icon.Group className='icon'>
-                                                                        <Icon name='attention' />
-                                                                        <Icon corner name='x' />
-                                                                    </Icon.Group>
-                                                                )
-                                                                : <Icon name='attention' />
-                                                            }
-                                                            text={hasFlag ? 'Clear flag' : 'Flag Project'}
-                                                            onClick={() => {
-                                                                if (hasFlag) openFlagModal('clear')
-                                                                else openFlagModal('set')
-                                                            }}
-                                                        />
-                                                    }
+                                                    {userProjectMember && (
+                                                      <Dropdown.Item
+                                                        icon={hasFlag ? (
+                                                          <Icon.Group className='icon'>
+                                                            <Icon name='attention' />
+                                                            <Icon corner name='x' />
+                                                          </Icon.Group>
+                                                        ) : (
+                                                          <Icon name='attention' />
+                                                        )}
+                                                        text={hasFlag ? 'Clear flag' : 'Flag Project'}
+                                                        onClick={() => {
+                                                          if (hasFlag) openFlagModal('clear')
+                                                          else openFlagModal('set')
+                                                        }}
+                                                      />
+                                                    )}
+                                                    {!userProjectMember && (
+                                                      <Dropdown.Item text={<span><em>No actions available.</em></span>}/>
+                                                    )}
                                                 </Dropdown.Menu>
                                             </Dropdown>
                                         </Button.Group>

@@ -5,6 +5,7 @@
 
 'use strict';
 import Promise from 'bluebird';
+import express from 'express';
 import { body, query } from 'express-validator';
 import b62 from 'base62-random';
 import User from '../models/user.js';
@@ -923,50 +924,61 @@ const getUserPinnedProjects = (req, res) => {
   });
 };
 
-
 /**
- * Retrieves a list of the requesting User's most recent open projects.
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
+ * Retrieves a list of the requesting User's most recent projects. Excludes completed projects
+ * and projects the user has in their "pinned" list.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getRecentProjects = (req, res) => {
-    Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    {
-                        $or: constructProjectTeamMemberQuery(req.decoded.uuid)
-                    }, {
-                        status: {
-                            $ne: 'completed'
-                        }
-                    }
-                ]
-            }
-        }, {
-            $sort: {
-                updatedAt: -1,
-                title: -1
-            }
-        }, {
-            $limit: 6
-        }, {
-            $project: projectListingProjection
+async function getRecentProjects(req, res) {
+  const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+  if (!user) {
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err9,
+    });
+  }
+  let userPinned = [];
+  if (Array.isArray(user.pinnedProjects)) {
+    userPinned = user.pinnedProjects;
+  }
+  try {
+    const projects = await Project.aggregate([
+      {
+        $match: {
+          $and: [
+            { $or: constructProjectTeamMemberQuery(req.user.decoded.uuid) },
+            { status: { $ne: 'completed' } },
+            { projectID: { $nin: userPinned }},
+          ]
         }
-    ]).then((projects) => {
-        return res.send({
-            err: false,
-            projects: projects
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
-    })
+      }, {
+        $sort: {
+          updatedAt: -1,
+          title: -1,
+        }
+      }, {
+        $limit: 6
+      }, {
+        $project: projectListingProjection,
+      },
+    ]);
+    if (!Array.isArray(projects)) {
+      throw (new Error('Invalid result returned.'));
+    }
+    return res.send({
+      err: false,
+      projects,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
-
 
 /**
  * Retrieves a list of the available projects within the current Organization.

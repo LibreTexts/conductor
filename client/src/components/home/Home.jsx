@@ -18,10 +18,6 @@ import {
     List,
     Divider
 } from 'semantic-ui-react';
-import {
-    CircularProgressbar,
-    buildStyles
-} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
@@ -32,6 +28,7 @@ import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
+import ProjectCard from '../projects/ProjectCard';
 import Breakpoint from '../util/Breakpoints.jsx';
 import ConductorTextArea from '../util/ConductorTextArea';
 
@@ -373,7 +370,6 @@ const Home = (props) => {
      */
     useEffect(() => {
       if (showPinnedModal) {
-        console.log(pinnedProjects);
         getPinnableProjects();
       }
     }, [pinnedProjects, getPinnableProjects, showPinnedModal]);
@@ -396,33 +392,55 @@ const Home = (props) => {
     };
 
     /**
-     * Submits a request to the server to pin a project, then resets the selection in
-     * the Edit Pin Projects modal and refreshes the pinned list.
+     * Submits a request to the server to pin a project. Refreshes the
+     * Pinned & Recent projects lists on success.
+     *
+     * @param {string} projectID - Identifier of the project to pin.
+     * @returns {Promise<boolean>} True if successfully pinned, false otherwise.
      */
-    const pinProject = () => {
+    async function pinProject(projectID) {
+      if (!projectID || isEmptyString(projectID)) {
+        return false;
+      }
+      try {
+        const pinRes = await axios.put('/project/pin', {
+          projectID,
+        });
+        if (!pinRes.data.err) {
+          getPinnedProjects();
+          getRecentProjects();
+          return true;
+        } else {
+          throw (new Error(pinRes.data.errMsg));
+        }
+      } catch (e) {
+        handleGlobalError(e);
+      }
+      return false;
+    };
+
+    /**
+     * Wraps the project pinning function for use in the Edit Pinned Projects modal. Project
+     * selection in the modal is reset if the operation was successful.
+     * 
+     * @see {@link pinProject}
+     */
+    async function pinProjectInModal() {
       if (isEmptyString(pinProjectToPin)) {
         return;
       }
       setPinModalLoading(true);
-      axios.put('/project/pin', {
-        projectID: pinProjectToPin,
-      }).then((res) => {
-        if (!res.data.err) {
-          setPinProjectToPin('');
-          setPinProjectsOptions([]);
-          getPinnedProjects();
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setPinModalLoading(false);
-      }).catch((err) => {
-        handleGlobalError(err);
-        setPinModalLoading(false);
-      });
-    };
+      const didPin = await pinProject(pinProjectToPin);
+      if (didPin) {
+        setPinProjectToPin('');
+        setPinProjectsOptions([]);
+      }
+      setPinModalLoading(false);
+    }
 
     /**
      * Submits a request to the server to unpin a project, then refreshes the pinned list.
+     * For use inside the Edit Pinned Projects modal.
      *
      * @param {string} projectID - The identifier of the project to unpin.
      */
@@ -473,67 +491,6 @@ const Home = (props) => {
                 setAVModalLoading(false);
             });
         }
-    };
-
-    /**
-     * Renders a UI information card for a given project.
-     * 
-     * @param {Object} project - Object with (at least) basic information about the project.
-     * @returns {JSX.Element} The rendered project card.
-     */
-    const renderProjectCard = (project) => {
-      const itemDate = new Date(project.updatedAt);
-      project.updatedDate = date.format(itemDate, 'MM/DD/YY');
-      project.updatedTime = date.format(itemDate, 'h:mm A');
-      return (
-          <Card key={project.projectID} raised>
-              <div className='flex-col-div project-card-content'>
-                  <Link as='h4' className='project-card-title' to={`/projects/${project.projectID}`}>{truncateString(project.title, 100)}</Link>
-                  <span className='muted-text project-card-lastupdate'>Last updated {project.updatedDate} at {project.updatedTime}</span>
-                  <div className='flex-row-div'>
-                      <div className='project-card-progress-container'>
-                          <CircularProgressbar
-                              value={project.currentProgress || 0}
-                              strokeWidth={5}
-                              circleRatio={0.75}
-                              styles={buildStyles({
-                                  rotation: 1 / 2 + 1 / 8,
-                                  pathColor: '#127BC4',
-                                  textColor: '#127BC4',
-                                  strokeLinecap: 'butt'
-                              })}
-                          />
-                      </div>
-                      <div className='project-card-progress-container'>
-                          <CircularProgressbar
-                              value={project.peerProgress || 0}
-                              strokeWidth={5}
-                              circleRatio={0.75}
-                              styles={buildStyles({
-                                  rotation: 1 / 2 + 1 / 8,
-                                  pathColor: '#CD4D12',
-                                  textColor: '#CD4D12',
-                                  strokeLinecap: 'butt'
-                              })}
-                          />
-                      </div>
-                      <div className='project-card-progress-container'>
-                          <CircularProgressbar
-                              value={project.a11yProgress || 0}
-                              strokeWidth={5}
-                              circleRatio={0.75}
-                              styles={buildStyles({
-                                  rotation: 1 / 2 + 1 / 8,
-                                  pathColor: '#00b5ad',
-                                  textColor: '#00b5ad',
-                                  strokeLinecap: 'butt'
-                              })}
-                          />
-                      </div>
-                  </div>
-              </div>
-          </Card>
-      );
     };
 
     return (
@@ -734,7 +691,7 @@ const Home = (props) => {
                     {(pinnedProjects.length > 0) && (
                       <Segment basic loading={!loadedAllPinned}>
                         <Card.Group itemsPerRow={2}>
-                          {pinnedProjects.map((item) => renderProjectCard(item))}
+                          {pinnedProjects.map((item) => <ProjectCard project={item} key={item.projectID} />)}
                         </Card.Group>
                       </Segment>
                     )}
@@ -761,7 +718,14 @@ const Home = (props) => {
                         >
                             <Card.Group itemsPerRow={2}>
                                 {(recentProjects.length > 0) &&
-                                    recentProjects.map((item) => renderProjectCard(item))
+                                    recentProjects.map((item) => (
+                                      <ProjectCard
+                                        project={item}
+                                        key={item.projectID}
+                                        showPinButton={true}
+                                        onPin={pinProject}
+                                      />
+                                    ))
                                 }
                                 {(recentProjects.length === 0) &&
                                     <p>You don't have any projects right now.</p>
@@ -989,7 +953,7 @@ const Home = (props) => {
                         disabled={isEmptyString(pinProjectToPin)}
                         color='blue'
                         loading={pinModalLoading}
-                        onClick={pinProject}
+                        onClick={pinProjectInModal}
                     >
                         <Icon name='pin' />
                         Pin Project

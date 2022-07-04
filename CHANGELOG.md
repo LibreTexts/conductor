@@ -1,5 +1,16 @@
 # Changelog
 
+# 07-04-2022
+#### :art: UI/UX
+* Introduced the 'ProjectCard' reusable component
+* Added a Pin button to the Recent Projects cards in Home
+* Relocated the Pin/Unpin Project button for better visibility in Project View
+* Updated the Tools list in the Navbar
+
+#### :satellite: Server
+* The user's Pinned Projects are now automatically filtered from their Recent Projects
+
+
 # 06-28-2022
 #### :art: UI/UX
 * Introduce Pinned Projects in Home
