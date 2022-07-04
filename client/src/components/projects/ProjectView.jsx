@@ -23,10 +23,6 @@ import {
     Dropdown,
     Checkbox,
 } from 'semantic-ui-react';
-import {
-    CircularProgressbar,
-    buildStyles
-} from 'react-circular-progressbar';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
@@ -37,6 +33,7 @@ import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
+import ProjectProgressBar from './ProjectProgressBar';
 import ConductorTextArea from '../util/ConductorTextArea';
 import ConductorMessagingUI from '../util/ConductorMessagingUI';
 import ConductorChatUI from '../util/ConductorChatUI';
@@ -2043,47 +2040,26 @@ const ProjectView = (props) => {
                                             <Grid.Row centered>
                                                 <Grid.Column width={4} className='project-progress-column'>
                                                     <p className='text-center'><strong>Project</strong></p>
-                                                    <CircularProgressbar
-                                                        value={project.currentProgress || 0}
-                                                        text={`${project.currentProgress || 0}%`}
-                                                        strokeWidth={5}
-                                                        circleRatio={0.75}
-                                                        styles={buildStyles({
-                                                            rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#127BC4',
-                                                            textColor: '#127BC4',
-                                                            strokeLinecap: 'butt'
-                                                        })}
+                                                    <ProjectProgressBar
+                                                      progress={project.currentProgress || 0}
+                                                      type="progress"
+                                                      showPercent={true}
                                                     />
                                                 </Grid.Column>
                                                 <Grid.Column width={4} className='project-progress-column'>
                                                     <p className='text-center'><strong>Peer Review</strong></p>
-                                                    <CircularProgressbar
-                                                        value={project.peerProgress || 0}
-                                                        text={`${project.peerProgress || 0}%`}
-                                                        strokeWidth={5}
-                                                        circleRatio={0.75}
-                                                        styles={buildStyles({
-                                                            rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#CD4D12',
-                                                            textColor: '#CD4D12',
-                                                            strokeLinecap: 'butt'
-                                                        })}
+                                                    <ProjectProgressBar
+                                                      progress={project.peerProgress || 0}
+                                                      type="peer"
+                                                      showPercent={true}
                                                     />
                                                 </Grid.Column>
                                                 <Grid.Column width={4} className='project-progress-column'>
                                                     <p className='text-center'><strong>Accessibility</strong></p>
-                                                    <CircularProgressbar
-                                                        value={project.a11yProgress || 0}
-                                                        text={`${project.a11yProgress || 0}%`}
-                                                        strokeWidth={5}
-                                                        circleRatio={0.75}
-                                                        styles={buildStyles({
-                                                            rotation: 1 / 2 + 1 / 8,
-                                                            pathColor: '#00b5ad',
-                                                            textColor: '#00b5ad',
-                                                            strokeLinecap: 'butt'
-                                                        })}
+                                                    <ProjectProgressBar
+                                                      progress={project.a11yProgress || 0}
+                                                      type="a11y"
+                                                      showPercent={true}
                                                     />
                                                 </Grid.Column>
                                             </Grid.Row>

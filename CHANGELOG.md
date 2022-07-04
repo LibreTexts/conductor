@@ -6,6 +6,7 @@
 * Added a Pin button to the Recent Projects cards in Home
 * Relocated the Pin/Unpin Project button for better visibility in Project View
 * Updated the Tools list in the Navbar
+* Added a reusable 'ProjectProgressBar' component
 
 #### :satellite: Server
 * The user's Pinned Projects are now automatically filtered from their Recent Projects
