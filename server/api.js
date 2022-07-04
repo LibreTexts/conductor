@@ -64,6 +64,8 @@ router.route('/orgs').get(authAPI.verifyRequest,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
     orgsAPI.getAllOrganizations);
 
+router.route('/org').get(orgsAPI.getCurrentOrganization);
+
 router.route('/org/info')
     .get(orgsAPI.validate('getinfo'),
         middleware.checkValidationErrors,

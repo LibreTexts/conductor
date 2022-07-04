@@ -10,6 +10,7 @@
 
 #### :satellite: Server
 * The user's Pinned Projects are now automatically filtered from their Recent Projects
+* Added an API endpoint to retrieve the Organization the current server is configured for
 
 
 # 06-28-2022

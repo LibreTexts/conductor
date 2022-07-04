@@ -4,50 +4,77 @@
 //
 
 'use strict';
+import express from 'express';
 import { body, query } from 'express-validator';
 import Organization from '../models/organization.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 
 /**
- * Retrieves basic information about
- * the Organization specified by @orgID
- * in the request query.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
- * VALIDATION: 'getinfo'
+ * Attempts to retrieve basic information about an Organization given its identifier.
+ * NOTE: For internal use only. Does not provide a REST response.
+ *
+ * @param {string} orgID - The internal identifier.
+ * @returns {Promise<object|null>} The Organization info object, or null if not found.
  */
-const getOrganizationInfo = (req, res, _next) => {
-    Organization.findOne({
-        orgID: req.query.orgID
-    }, {
-        _id: 0,
-        aliases: 0
-    }).lean().then((org) => {
-        if (org) {
-            return res.send({
-                err: false,
-                ...org
-            });
-        } else {
-            throw('notfound')
-        }
-    }).catch((err) => {
-        if (err === 'notfound') {
-            return res.status(404).send({
-                err: true,
-                errMsg: conductorErrors.err11
-            })
-        } else {
-            debugError(err);
-            return res.status(500).send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
-        }
-    });
-};
+async function lookupOrganization(orgID) {
+  if (!orgID || typeof (orgID) !== 'string') {
+    return null;
+  }
+  try {
+    const org = await Organization.findOne(
+      { orgID },
+      { _id: 0, aliases: 0, defaultProjectLead: 0 },
+    ).lean();
+    if (org) {
+      return org;
+    }
+  } catch (e) {
+    debugError(e);
+  }
+  return null;
+}
 
+/**
+ * Retrieves information about the Organization identified in the request query.
+ * VALIDATION: 'getinfo'.
+ *
+ * @param {express.Request} req - The incoming request object.
+ * @param {express.Response} res - The outgoing response object. 
+ */
+async function getOrganizationInfo(req, res) {
+  const org = await lookupOrganization(req.query.orgID);
+  if (!org) {
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err11,
+    });
+  }
+  return res.send({
+    err: false,
+    ...org,
+  });
+}
+
+/**
+ * Retrieves information about the Organization the server is currently configured for.
+ *
+ * @param {express.Request} req - The incoming request object.
+ * @param {express.Response} res - The outgoing response object.
+ */
+async function getCurrentOrganization(_req, res) {
+  const org = await lookupOrganization(process.env.ORG_ID);
+  if (!org) {
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+  return res.send({
+    err: false,
+    org,
+  });
+}
 
 /**
  * Retrieves basic information about
@@ -160,6 +187,7 @@ const validate = (method) => {
 
 export default {
     getOrganizationInfo,
+    getCurrentOrganization,
     getAllOrganizations,
     updateOrganizationInfo,
     validate
