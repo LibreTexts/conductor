@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import axios from 'axios';
-import store from './store.js';
+import store from './state/store.js';
 import AuthHelper from './components/util/AuthHelper.js';
 import Commons from './Commons';
 import Conductor from './Conductor';
