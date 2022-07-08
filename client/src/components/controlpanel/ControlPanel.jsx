@@ -18,6 +18,7 @@ const ControlPanel = () => {
     // Global State
     const isCampusAdmin = useSelector((state) => state.user.isCampusAdmin);
     const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
+    const org = useSelector((state) => state.org);
 
     
     /**
@@ -149,7 +150,7 @@ const ControlPanel = () => {
                                 Welcome to Control Panel. Here, you will find several tools to manage your Campus Conductor instance.
                             </p>
                             <Segment basic>
-                                {(isSuperAdmin && (process.env.REACT_APP_ORG_ID === 'libretexts')) &&
+                                {(isSuperAdmin && (org.orgID === 'libretexts')) &&
                                     <div className='mb-2r'>
                                         <Header as='h5' dividing>LIBRETEXTS MASTER TOOLS</Header>
                                         <List relaxed='very' divided selection>

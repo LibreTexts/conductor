@@ -13,6 +13,7 @@ import {
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -20,8 +21,9 @@ import useGlobalError from '../error/ErrorHooks.js';
 
 const CampusSettings = () => {
 
-    // Global State
+    // Global State and Error Handling
     const { handleGlobalError } = useGlobalError();
+    const org = useSelector((state) => state.org);
 
     // UI
     const [loadedData, setLoadedData] = useState(false);
@@ -60,7 +62,7 @@ const CampusSettings = () => {
         setLoadedData(false);
         axios.get('/org/info', {
             params: {
-                orgID: process.env.REACT_APP_ORG_ID
+                orgID: org.orgID,
             }
         }).then((res) => {
             if (!res.data.err) {
@@ -142,8 +144,8 @@ const CampusSettings = () => {
         resetFormErrors();
         if (validateForm()) {
             setLoadedData(false);
-            var newData = {
-                orgID: process.env.REACT_APP_ORG_ID
+            let newData = {
+                orgID: org.orgID,
             };
             if (originalData.coverPhoto !== coverPhoto) newData.coverPhoto = coverPhoto;
             if (originalData.largeLogo !== largeLogo) newData.largeLogo = largeLogo;

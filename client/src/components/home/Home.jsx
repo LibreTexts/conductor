@@ -524,8 +524,7 @@ const Home = (props) => {
                                     {user.firstName}
                                 </Header>
                             </Menu.Item>
-                            {((user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) ||
-                                (user.hasOwnProperty('isCampusAdmin') && user.isCampusAdmin === true)) &&
+                            {(user.isSuperAdmin || user.isCampusAdmin) && (
                                 <Menu.Item
                                     as={Link}
                                     to='/controlpanel'
@@ -533,7 +532,7 @@ const Home = (props) => {
                                     Control Panel
                                     <Icon name='dashboard' />
                                 </Menu.Item>
-                            }
+                            )}
                             <Menu.Item
                                 as={Link}
                                 to='/'

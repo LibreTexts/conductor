@@ -14,6 +14,7 @@ import {
     Divider
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 
 import useGlobalError from '../error/ErrorHooks.js';
@@ -28,7 +29,9 @@ import { isEmptyString } from '../util/HelperFunctions.js';
 
 const AdoptionReportPage = (props) => {
 
+    // Global State and Error Handling
     const { handleGlobalError } = useGlobalError();
+    const org = useSelect((state) => state.org);
 
     // UI
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -249,7 +252,7 @@ const AdoptionReportPage = (props) => {
                 resource: {}
             };
             if (iAm === 'instructor') {
-                var postInstrStudentAccess = [];
+                let postInstrStudentAccess = [];
                 instrStudentAccess.forEach((item, idx) => {
                     switch (idx) {
                         case 0:
@@ -286,7 +289,7 @@ const AdoptionReportPage = (props) => {
                     access: postInstrStudentAccess
                 };
             } else if (iAm === 'student') {
-                var postStudentAccess = [];
+                let postStudentAccess = [];
                 studentAccess.forEach((item, idx) => {
                     switch (idx) {
                         case 0:
@@ -319,11 +322,11 @@ const AdoptionReportPage = (props) => {
                     access: postStudentAccess
                 };
             }
-            var postURL = "";
-            if ((process.env.REACT_APP_ORG_ID !== 'libretexts') && (process.env.REACT_APP_ADOPTIONREPORT_URL)) {
-                postURL = process.env.REACT_APP_ADOPTIONREPORT_URL;
+            let postURL = "";
+            if (org.orgID !== 'libretexts' && process.env.REACT_APP_ADOPTIONREPORT_URL) {
+              postURL = process.env.REACT_APP_ADOPTIONREPORT_URL;
             } else {
-                postURL = '/adoptionreport';
+              postURL = '/adoptionreport';
             }
             axios.post(postURL, formData).then((res) => {
                 if (!res.data.err) {

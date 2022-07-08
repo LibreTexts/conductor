@@ -1,12 +1,13 @@
-import './Commons.css';
-
-import {
-    Icon,
-    Image
-} from 'semantic-ui-react';
 import React from 'react';
+import PropTypes from 'prop-types';
+import { Icon, Image } from 'semantic-ui-react';
+import './CommonsFooter.css';
 
-const CommonsFooter = () => {
+/**
+ * Signals the bottom of all Commons interfaces, with LibreTexts contact links.
+ */
+const CommonsFooter = ({ orgID }) => {
+
   const contactLinks = [
     {
       key: 'email',
@@ -50,15 +51,15 @@ const CommonsFooter = () => {
   return (
     <div
       id="commons-footer"
-      className={process.env.REACT_APP_ORG_ID === 'libretexts' ? 'libretexts-footer' : 'libregrid-footer'}
+      className={orgID === 'libretexts' ? 'libretexts-footer' : 'libregrid-footer'}
     >
-      {(process.env.REACT_APP_ORG_ID === 'libretexts') ? (
+      {(orgID === 'libretexts') ? (
         <>
           <div className="footer-row">
             <p>The LibreTexts libraries are supported by the United States Department of Education Open Textbook Pilot Project.</p>
           </div>
           <div className="footer-row footer-links">
-            {(contactLinks.map((item) => (
+            {contactLinks.map((item) => (
               <a
                 href={item.href}
                 rel="noreferrer"
@@ -73,7 +74,7 @@ const CommonsFooter = () => {
                   <span aria-hidden={true}>{item.text}</span>
                 )}
               </a>
-            )))}
+            ))}
           </div>
         </>
       ) : (
@@ -90,9 +91,18 @@ const CommonsFooter = () => {
             alt="LibreTexts"
           />
         </>
-      )} 
+      )}
     </div>
   )
-}
+};
+
+CommonsFooter.propTypes = {
+  /**
+   * Internal identifier of the currently configured Organization.
+   */
+  orgID: PropTypes.string.isRequired,
+};
+
+CommonsFooter.defaultProps = {};
 
 export default CommonsFooter;

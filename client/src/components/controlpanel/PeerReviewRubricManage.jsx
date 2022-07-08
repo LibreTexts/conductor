@@ -204,7 +204,7 @@ const PeerReviewRubricManage = (props) => {
     const checkOrganizationHasDefault = useCallback(() => {
         axios.get('/peerreview/rubric/orgdefault').then((res) => {
             if (!res.data.err) {
-                if (res.data.orgID === process.env.REACT_APP_ORG_ID && res.data.hasDefault === false) {
+                if (res.data.orgID === org.orgID && res.data.hasDefault === false) {
                     setDisableRubricOrgDefault(false);
                 }
             } else {

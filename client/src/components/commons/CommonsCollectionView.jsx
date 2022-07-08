@@ -77,17 +77,16 @@ const CommonsCollectionView = (props) => {
     }, []);
 
     /**
-     * Update the page title based on
-     * Organization information.
+     * Update the page title based on Organization information.
      */
     useEffect(() => {
-        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName && collName !== '') {
-            document.title = org.shortName + " Commons | Collection " + collName;
-        } else if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Commons | Collection";
-        } else {
-            document.title = "LibreCommons | Collection";
-        }
+      if (org.orgID !== 'libretexts' && collName !== '') {
+        document.title = `${org.shortName} Commons | Collections | ${collName}`;
+      } else if (org.orgID === 'libretexts' && collName !== '') {
+        document.title = `LibreCommons | Collections | ${collName}`;
+      } else {
+        document.title = `LibreCommons | Collection`;
+      }
     }, [org, collName]);
 
     /**

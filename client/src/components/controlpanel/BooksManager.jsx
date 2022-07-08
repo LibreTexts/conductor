@@ -38,6 +38,7 @@ const BooksManager = (props) => {
     // Global State
     const { handleGlobalError } = useGlobalError();
     const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
+    const org = useSelector((state) => state.org);
 
     // Data
     const [syncResponse, setSyncResponse] = useState('');
@@ -356,15 +357,15 @@ const BooksManager = (props) => {
                                     <span className='ml-1p'><strong>Sync Schedule:</strong> Daily at 6:30 AM PST</span>
                                 </div>
                                 <div className='right-flex'>
-                                    {(isSuperAdmin && process.env.REACT_APP_ORG_ID === 'libretexts') &&
-                                        <Button
-                                            color='blue'
-                                            onClick={openSyncModal}
-                                        >
-                                            <Icon name='sync alternate' />
-                                            Sync Commons with Libraries
-                                        </Button>
-                                    }
+                                    {(isSuperAdmin && org.orgID === 'libretexts') && (
+                                      <Button
+                                        color='blue'
+                                        onClick={openSyncModal}
+                                      >
+                                        <Icon name='sync alternate' />
+                                        Sync Commons with Libraries
+                                      </Button>
+                                    )}
                                 </div>
                             </div>
                         </Segment>
@@ -493,7 +494,7 @@ const BooksManager = (props) => {
                                                     </Table.Cell>
                                                     <Table.Cell textAlign='center'>
                                                         <Button.Group vertical fluid>
-                                                            {((process.env.REACT_APP_ORG_ID === 'libretexts') || (item.isCampusBook))
+                                                            {((org.orgID === 'libretexts') || (item.isCampusBook))
                                                                 ? (
                                                                     <Button color='green' disabled>
                                                                         <Icon name='eye' />

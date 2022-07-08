@@ -1,9 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
+import useGlobalError from '../components/error/ErrorHooks.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
-
+/**
+ * Wraps a component to attempt to load the currently authenticated user's
+ * information into state, if applicable.
+ *
+ * @param {React.ReactElement} WrappedComponent - The component to enhance.
+ * @returns {React.ReactElement} The passed component with user information loaded, if available.
+ */
 const withUserStateDependency = (WrappedComponent) => {
   const WithUserStateDependency = (props) => {
 

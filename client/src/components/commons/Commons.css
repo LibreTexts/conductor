@@ -3,7 +3,6 @@
  * Styles relevant to the Commons
  */
 
-
 .commons-itemized-glyph {
     width: 1.18em;
 }
@@ -12,156 +11,6 @@
 .commons-container {
     margin: 1% !important;
     width: calc(100% - 2%);
-}
-
-/* Navigation */
-#commons-nav {
-    z-index: 100; /* Layer over jumbotron */
-    position: relative;
-    width: 100%;
-    height: 60px;
-    margin: 0;
-    padding: 0;
-    background-color: #FFFFFF;
-    -webkit-box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
-    box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
-}
-
-#commons-nav-logo {
-    width: auto;
-    max-height: 50px;
-    padding-top: 1%;
-    padding-bottom: 1%;
-}
-
-#commons-nav-orglogo {
-    width: auto;
-    max-height: 30px;
-    margin-left: 1rem;
-}
-
-#commons-nav-rightmenu {
-    padding-right: 1rem;
-}
-
-.commons-nav-link {
-    font-size: 1.05em;
-}
-
-#commons-nav-campusdropdown > i {
-    margin-left: 0.25em;
-}
-
-#commons-nav-mobileavatar {
-    height: 20px;
-    width: 20px;
-    margin: 0;
-}
-
-#commons-mobilenav {
-    z-index: 100; /* Layer over jumbotron */
-    position: relative;
-    width: 100%;
-    height: 80px;
-    margin: 0;
-    padding: 0;
-    background-color: #FFFFFF;
-    -webkit-box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
-    box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.59);
-    display: flex;
-}
-
-#commons-mobilenav-logo {
-    max-height: 60px;
-    width: auto;
-    margin-left: 1em;
-}
-
-#commons-mobilenav-left {
-    display: flex;
-    flex: 1;
-    justify-content: flex-start;
-    align-items: center;
-}
-
-#commons-mobilenav-right {
-    display: flex;
-    flex: 1;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-#commons-mobilenav-menubtn {
-    height: 40px;
-    width: 40px;
-}
-
-#commons-mobilenav-menu {
-    z-index: 100; /* Layer over jumbotron */
-    position: absolute;
-    top: 80px;
-    left: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background-color: #FFFFFF;
-}
-
-#commons-mobilenav-libmenu {
-    -webkit-box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.1);
-    box-shadow: 0px 2px 4px 2px rgba(51, 50, 50, 0.1);
-    clip-path: polygon(0% 0%, 100% 0%, 100% 120%, 0% 120%);
-}
-
-/* Jumbotron */
-#commons-jumbotron {
-  /* Background image is set dynamically */
-  z-index: 50; /* Appear underneath menu */
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  height: 21rem;
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
-}
-
-#commons-libreheader {
-  display: flex;
-  flex-direction: column;
-}
-
-#commons-libreheader-main {
-  font-size: 3.5rem;
-  line-height: 3.5rem;
-  color: #FFFFFF;
-  text-align: center;
-  margin: 0.5rem 0 0;
-}
-
-#commons-libreheader-sub {
-  text-align: center;
-  color: #FFFFFF;
-  margin: 0;
-  font-size: 1.75rem;
-  line-height: 1.75rem;
-}
-
-/* Commons Menu */
-#commons-menu {
-    margin: 0;
-    background-color: #127BC4;
-    width: 100%;
-    -webkit-box-shadow: 2px 2px 3px 0px #999999;
-    box-shadow: 2px 2px 3px 0px #999999;
-}
-
-.commons-menu-item {
-    color: #FFFFFF !important;
-    height: 100% !important;
-    font-size: 1.1em;
 }
 
 
@@ -182,15 +31,6 @@
     padding: 0;
     background-color: #127BC4;
     color: #FFFFFF;
-}
-
-/** Override pointing menu colors **/
-.ui.secondary.pointing.menu .active.item {
-    border-color: #FFFFFF;
-}
-
-.ui.secondary.pointing.menu .active.item:hover {
-    border-color: #C9C9C9;
 }
 
 /* Catalog Branding */
@@ -438,83 +278,10 @@
     margin-left: 0.5rem !important;
 }
 
-
-
-/* Powered By (for Campus Commons) */
-#commons-poweredby-tagline {
-    margin: 0;
-}
-
-/* Footer */
-#commons-footer {
-    display: flex;
-    flex-direction: column;
-    padding: 1.75em;
-    margin: 0;
-    margin-top: 2%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    -webkit-box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    text-align: center;
-}
-
-.footer-row {
-  display: flex;
-  flex: 1;
-  justify-content: center;
-  margin: 0.5em 0;
-}
-
-.contact-link {
-  margin: 0 1em;
-  font-size: 1.2rem;
-}
-
-.libretexts-footer {
-  background-color: #0E5E95;
-  color: #FFFFFF;
-}
-
-.libretexts-footer a {
-  color: #FFFFFF;
-}
-
-.libregrid-footer {
-  background-color: #ccecfd;
-}
-
-.commons-footer-sponsor {
-    padding-top: 0.25em;
-    padding-bottom: 0.25em;
-    height: 120px;
-    width: auto;
-}
-
-.commons-footer-widesponsor {
-    height: auto;
-    width: 95%;
-}
-
-#commons-sponsor-row {
-    padding-left: 0.25em;
-    padding-right: 0.25em;
-}
-
-.commons-footer-contactlinks {
-    font-size: 1.25rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
-}
-
-
 /* Responsive Styles */
 
 /* Small to medium devices (under 768px) */
 @media only screen and (max-width: 768px) {
-    #commons-jumbotron-logo {
-        max-width: 70%;
-        height: auto;
-    }
-
     #commons-searchbar-container {
         padding-left: 2%;
         padding-right: 2%;
@@ -536,13 +303,5 @@
 
     .commons-library-card-img img {
         height: auto !important;
-    }
-
-    .footer-links {
-      flex-direction: column;
-    }
-
-    .contact-link {
-      margin: 0.25em 0;
     }
 }

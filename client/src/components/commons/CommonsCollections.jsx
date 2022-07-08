@@ -51,8 +51,8 @@ const CommonsCollections = (_props) => {
      * Organization information.
      */
     useEffect(() => {
-        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Commons | Collections";
+        if (org.orgID !== 'libretexts') {
+            document.title = `${org.shortName} Commons | Collections`;
         } else {
             document.title = "LibreCommons | Collections";
         }

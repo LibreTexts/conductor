@@ -5,102 +5,62 @@
 
 /* Utils */
 import Cookies from 'js-cookie';
-import { isEmptyString } from '../components/util/HelperFunctions.js';
 
 /* User */
 const userInitialState = {
-    uuid: '',
-    authType: '',
-    firstName: '',
-    lastName: '',
-    avatar: '/favicon-96x96.png',
-    roles: [],
-    isAuthenticated: false,
-    isCampusAdmin: false,
-    isSuperAdmin: false
+  uuid: '',
+  authType: '',
+  firstName: '',
+  lastName: '',
+  avatar: '/favicon-96x96.png',
+  roles: [],
+  isAuthenticated: false,
+  isCampusAdmin: false,
+  isSuperAdmin: false
 };
-
-
-/**
- * Checks if the User is a Campus Administrator in the current instance.
- * @param {Object[]} roles - An array of the user's Role objects.
- * @returns {Boolean} True if user is a Campus Administrator in the instance, false otherwise.
- */
-const checkCampusAdmin = (roles) => {
-    if ((roles !== undefined) && (Array.isArray(roles)) && !isEmptyString(process.env.REACT_APP_ORG_ID)) {
-        let foundCampusAdmin = roles.find((element) => {
-            if ((element.org === process.env.REACT_APP_ORG_ID) && (element.role === 'campusadmin')) {
-                return element;
-            }
-            return null;
-        });
-        if (foundCampusAdmin !== undefined) return true;
-    }
-    return false;
-};
-
-
-/**
- * Checks if the User is a Super Administrator in Conductor.
- * @param {Object[]} roles - An array of the user's Role objects.
- * @returns {Boolean} True if user is a Super Administrator, false otherwise.
- */
-const checkSuperAdmin = (roles) => {
-    if ((roles !== undefined) && (Array.isArray(roles))) {
-        let foundCampusAdmin = roles.find((element) => {
-            if ((element.org === 'libretexts') && (element.role === 'superadmin')) {
-                return element;
-            }
-            return null;
-        });
-        if (foundCampusAdmin !== undefined) return true;
-    }
-    return false;
-};
-
 
 export default function userReducer(state = userInitialState, action) {
-    switch(action.type) {
-        case 'SET_AUTH':
-            return {
-                ...state,
-                isAuthenticated: true
-            }
-        case 'CHECK_AUTH':
-            if (Cookies.get('conductor_access') !== undefined) {
-                return {
-                    ...state,
-                    isAuthenticated: true
-                }
-            } else {
-                return state;
-            }
-        case 'CLEAR_AUTH':
-            return {
-                ...state,
-                isAuthenticated: false
-            }
-        case 'SET_USER_NAME':
-            return {
-                ...state,
-                firstName: action.payload.firstName,
-                lastName: action.payload.lastName
-            }
-        case 'SET_USER_INFO':
-            return {
-                ...state,
-                uuid: action.payload.uuid,
-                authType: action.payload.authType,
-                firstName: action.payload.firstName,
-                lastName: action.payload.lastName,
-                roles: action.payload.roles,
-                avatar: action.payload.avatar,
-                isCampusAdmin: checkCampusAdmin(action.payload.roles),
-                isSuperAdmin: checkSuperAdmin(action.payload.roles)
-            }
-        case 'CLEAR_USER_INFO':
-            return userInitialState;
-        default:
-            return state;
-    }
+  switch (action.type) {
+    case 'SET_AUTH':
+      return {
+        ...state,
+        isAuthenticated: true
+      }
+    case 'CHECK_AUTH':
+      if (Cookies.get('conductor_access') !== undefined) {
+        return {
+          ...state,
+          isAuthenticated: true
+        }
+      } else {
+        return state;
+      }
+    case 'CLEAR_AUTH':
+      return {
+        ...state,
+        isAuthenticated: false
+      }
+    case 'SET_USER_NAME':
+      return {
+        ...state,
+        firstName: action.payload.firstName,
+        lastName: action.payload.lastName
+      }
+    case 'SET_USER_INFO':
+      return {
+        ...state,
+        uuid: action.payload.uuid,
+        authType: action.payload.authType,
+        firstName: action.payload.firstName,
+        lastName: action.payload.lastName,
+        roles: action.payload.roles,
+        avatar: action.payload.avatar,
+        isCampusAdmin: action.payload.isCampusAdmin,
+        isSuperAdmin: action.payload.isSuperAdmin,
+      }
+    case 'CLEAR_USER_INFO':
+      return userInitialState;
+    default:
+      return state;
+  }
 };

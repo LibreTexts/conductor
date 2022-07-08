@@ -221,7 +221,7 @@ const UsersManager = () => {
                     } else if (isCampusAdmin) {
                         if (res.data.user.roles.length === 1) {
                             var campusRole = res.data.user.roles[0];
-                            if (campusRole.org && campusRole.org.orgID === process.env.REACT_APP_ORG_ID) {
+                            if (campusRole.org && campusRole.org.orgID === org.orgID) {
                                 setManageUserOrgRole(campusRole.role);
                                 setManageUserOrgRoleText(campusRole.roleText);
                             }
@@ -252,7 +252,7 @@ const UsersManager = () => {
     const campusAdminSetRole = (newRole) => {
         axios.put('/user/role/update', {
             uuid: manageUserUUID,
-            orgID: process.env.REACT_APP_ORG_ID,
+            orgID: org.orgID,
             role: newRole
         }).then((res) => {
             if (!res.data.err) {

@@ -30,6 +30,7 @@ const PeerReviewRubrics = (props) => {
     // Global State
     const { handleGlobalError } = useGlobalError();
     const user = useSelector((state) => state.user);
+    const org = useSelector((state) => state.org);
 
     // UI
     const [loadingRubrics, setLoadingRubrics] = useState(false);
@@ -253,7 +254,7 @@ const PeerReviewRubrics = (props) => {
                                                     <div className='right-flex'>
                                                         <Button.Group>
                                                             {(
-                                                                item.orgID === process.env.REACT_APP_ORG_ID
+                                                                item.orgID === org.orgID
                                                                 && (user.isCampusAdmin || user.isSuperAdmin)
                                                             ) && (
                                                                     <>

@@ -14,7 +14,7 @@ import {
     Form
 } from 'semantic-ui-react';
 import React, { useEffect, useState, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.jsx';
 import ConductorPagination from '../util/ConductorPagination.jsx';
@@ -39,12 +39,11 @@ import {
 } from '../util/CatalogOptions.js';
 import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
 
-const CommonsCatalog = (_props) => {
+const CommonsCatalog = () => {
 
     const { handleGlobalError } = useGlobalError();
 
     // Global State and Location/History
-    const dispatch = useDispatch();
     const location = useLocation();
     const history = useHistory();
     const org = useSelector((state) => state.org);
@@ -68,7 +67,7 @@ const CommonsCatalog = (_props) => {
     // Content Filters
     const [searchString, setSearchString] = useState('');
     const [libraryFilter, setLibraryFilter] = useState('');
-    const [locationFilter, setLocationFilter] = useState((process.env.REACT_APP_ORG_ID === 'libretexts') ? 'central' : 'campus');
+    const [locationFilter, setLocationFilter] = useState(org.orgID === 'libretexts' ? 'central' : 'campus');
     const [subjectFilter, setSubjectFilter] = useState('');
     const [authorFilter, setAuthorFilter] = useState('');
     const [licenseFilter, setLicenseFilter] = useState('');
@@ -101,17 +100,16 @@ const CommonsCatalog = (_props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-
     /**
      * Update the page title based on
      * Organization information.
      */
     useEffect(() => {
-        if (process.env.REACT_APP_ORG_ID && process.env.REACT_APP_ORG_ID !== 'libretexts' && org.shortName) {
-            document.title = org.shortName + " Commons | Catalog";
-        } else {
-            document.title = "LibreCommons | Catalog";
-        }
+      if (org.orgID !== 'libretexts') {
+        document.title = `${org.shortName} Commons | Catalog`;
+      } else {
+        document.title = 'LibreCommons | Catalog';
+      }
     }, [org]);
 
     /**
@@ -124,7 +122,7 @@ const CommonsCatalog = (_props) => {
         if (!initialSearch.current) {
             initialSearch.current = true;
         }
-        var searchURL = location.search;
+        let searchURL = location.search;
         searchURL = updateParams(searchURL, 'search', searchString);
         searchURL = updateParams(searchURL, 'library', libraryFilter);
         searchURL = updateParams(searchURL, 'subject', subjectFilter)
@@ -144,13 +142,13 @@ const CommonsCatalog = (_props) => {
         setSearchString('');
         setLibraryFilter('');
         setSubjectFilter('');
-        setLocationFilter((process.env.REACT_APP_ORG_ID === 'libretexts') ? 'central' : 'campus');
+        setLocationFilter((org.orgID === 'libretexts') ? 'central' : 'campus');
         setAuthorFilter('');
         setLicenseFilter('');
         setAffilFilter('');
         setCourseFilter('');
         setPubFilter('');
-        var searchURL = location.search;
+        let searchURL = location.search;
         searchURL = updateParams(searchURL, 'search', '');
         searchURL = updateParams(searchURL, 'library', '');
         searchURL = updateParams(searchURL, 'subject', '');
@@ -310,7 +308,7 @@ const CommonsCatalog = (_props) => {
      */
     useEffect(() => {
         if (initialSearch.current) {
-            var searchURL = updateParams(location.search, 'sort', sortChoice);
+            let searchURL = updateParams(location.search, 'sort', sortChoice);
             history.push({
                 pathname: location.pathname,
                 search: searchURL
@@ -325,7 +323,7 @@ const CommonsCatalog = (_props) => {
      */
     useEffect(() => {
         if (initialSearch.current) {
-            var searchURL = updateParams(location.search, 'mode', displayChoice);
+            let searchURL = updateParams(location.search, 'mode', displayChoice);
             history.push({
                 pathname: location.pathname,
                 search: searchURL
@@ -821,7 +819,12 @@ const CommonsCatalog = (_props) => {
                                 </Grid>
                             </Breakpoint>
                         </Segment>
-                        <Segment className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'} loading={!loadedData}>
+                        <Segment
+                          className={(displayChoice === 'visual') ? 'commons-content' : 'commons-content commons-content-itemized'}
+                          loading={!loadedData}
+                          aria-live="polite"
+                          aria-busy={!loadedData}
+                        >
                             {displayChoice === 'visual'
                                 ? (<VisualMode />)
                                 : (<ItemizedMode />)

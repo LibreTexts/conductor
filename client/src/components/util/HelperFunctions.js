@@ -140,6 +140,43 @@ const basicArraysEqual = (a, b) => {
   );
 };
 
+/**
+ * Checks if a user is a Campus Administrator in an Organization given their
+ * roles and the Organization identifier.
+ *
+ * @param {object[]} roles - Array of user roles in associated Organizations.
+ * @param {string} orgID - The Organization identifier to validate against.
+ * @returns {boolean} True if Campus Administrator, false otherwise.
+ */
+const checkCampusAdmin = (roles, orgID) => {
+  if (Array.isArray(roles) && typeof (orgID) === 'string') {
+    const foundCampusAdmin = roles.find((item) => (
+      item.org === orgID && item.role === 'campusadmin'
+    ));
+    if (foundCampusAdmin) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * Checks if a user is a Super Administrator in Conductor.
+ *
+ * @param {object[]} roles - Array of user roles in associated Organizations.
+ * @returns {boolean} True if Super Administrator, false otherwise.
+ */
+const checkSuperAdmin = (roles) => {
+  if (Array.isArray(roles)) {
+    const foundSuperAdmin = roles.find((item) => (
+      item.org === 'libretexts' && item.role === 'superadmin'
+    ));
+    if (foundSuperAdmin) {
+      return true;
+    }
+  }
+  return false;
+};
 
 export {
     isEmptyString,
@@ -149,5 +186,7 @@ export {
     validatePassword,
     normalizeURL,
     sortUsersByName,
-    basicArraysEqual
+    basicArraysEqual,
+    checkCampusAdmin,
+    checkSuperAdmin,
 };

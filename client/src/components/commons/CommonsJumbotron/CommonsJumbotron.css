@@ -1,0 +1,34 @@
+#commons-jumbotron {
+  /* Background image is set dynamically */
+  z-index: 50; /* Appear underneath menu */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 21rem;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+#commons-libreheader {
+  display: flex;
+  flex-direction: column;
+}
+
+#commons-libreheader-main {
+  font-size: 3.5rem;
+  line-height: 3.5rem;
+  color: #FFFFFF;
+  text-align: center;
+  margin: 0.5rem 0 0;
+}
+
+#commons-libreheader-sub {
+  text-align: center;
+  color: #FFFFFF;
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.75rem;
+}

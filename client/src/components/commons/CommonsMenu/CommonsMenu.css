@@ -1,0 +1,22 @@
+#commons-menu {
+  margin: 0;
+  background-color: #127BC4;
+  width: 100%;
+  -webkit-box-shadow: 2px 2px 3px 0px #999999;
+  box-shadow: 2px 2px 3px 0px #999999;
+}
+
+.commons-menu-item {
+  color: #FFFFFF !important;
+  height: 100% !important;
+  font-size: 1.1em;
+}
+
+/** Override pointing menu colors **/
+#commons-menu>.active.item {
+  border-color: #FFFFFF;
+}
+
+#commons-menu>.active.item:hover {
+  border-color: #C9C9C9;
+}
