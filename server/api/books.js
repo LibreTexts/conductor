@@ -486,7 +486,7 @@ const syncWithLibraries = (_req, res) => {
         }
         if (projectsToCreate.length > 0) {
             // Continue to autogenerate new Projects
-            return projectAPI.autoGenerateProjects(projectsToCreate);
+            return projectsAPI.autoGenerateProjects(projectsToCreate);
         }
         debugCommonsSync('No new projects to create.');
         return 0;
