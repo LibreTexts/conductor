@@ -9,7 +9,7 @@ import AccountRequest from './components/accountrequest/AccountRequest.jsx';
 import AccountRequests from './components/controlpanel/AccountRequests.jsx';
 import AccountSettings from './components/auth/AccountSettings.jsx';
 import AdoptionReports from './components/controlpanel/AdoptionReports.jsx';
-import BooksManager from './components/controlpanel/BooksManager.jsx';
+import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings.jsx';
 import CollectionsManager from './components/controlpanel/CollectionsManager.jsx';
 import ControlPanel from './components/controlpanel/ControlPanel.jsx';
