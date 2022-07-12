@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, Switch, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import CommonsBook from './components/commons/CommonsBook.jsx';
+import CommonsBook from './screens/commons/Book/index.jsx';
 import CommonsCatalog from './components/commons/CommonsCatalog.jsx';
 import CommonsCollections from './components/commons/CommonsCollections.jsx';
 import CommonsCollectionView from './components/commons/CommonsCollectionView.jsx';
