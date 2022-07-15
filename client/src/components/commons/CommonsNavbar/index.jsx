@@ -55,7 +55,7 @@ const CommonsNavbar = ({
         rel="noreferrer"
         className="commons-nav-link"
       >
-        Instruct Account Request
+        Instructor Account Request
         {isMobile && (
           <Icon name="share alternate" className="float-right" />
         )}
