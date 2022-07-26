@@ -1,5 +1,10 @@
 # Changelog
 
+# 07-26-2022
+#### :art: UI/UX
+* Restore "standalone" tools/pages in client router
+
+
 # 07-04-2022
 #### :art: UI/UX
 * Introduced the 'ProjectCard' reusable component

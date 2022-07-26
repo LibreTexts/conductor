@@ -6,7 +6,8 @@ import store from './state/store.js';
 import AuthHelper from './components/util/AuthHelper.js';
 import Commons from './Commons';
 import Conductor from './Conductor';
-import ErrorModal from './components/error/ErrorModal.jsx';
+import Standalone from './Standalone';
+import ErrorModal from './components/error/ErrorModal';
 import withOrgStateDependency from './enhancers/withOrgStateDependency';
 import './styles/global.css';
 
@@ -39,16 +40,19 @@ const Platform = () => {
     '/libraries/:lib',
     '/underdevelopment',
   ];
+  const standalonePaths = [
+    '/adopt',
+    '/accessibility',
+    '/translationfeedbackexport',
+  ];
   const ApplicationTree = () => {
     return (
       <div className='App'>
         <Switch>
           {/* Commons Render Tree */}
-          <Route
-            exact
-            path={commonsPaths}
-            component={Commons}
-          />
+          <Route exact path={commonsPaths} component={Commons} />
+          {/* Standalone Pages */}
+          <Route exact path={standalonePaths} component={Standalone} />
           {/* Conductor and fallback Render Tree */}
           <Route component={Conductor} />
         </Switch>

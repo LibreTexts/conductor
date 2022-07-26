@@ -25,6 +25,10 @@ body {
     flex-direction: column;
 }
 
+.standalone {
+  height: 100vh;
+}
+
 .component-container {
     margin: calc(60px + 2%) 2% 0 2% !important;
     width: calc(100% - 4%) !important;

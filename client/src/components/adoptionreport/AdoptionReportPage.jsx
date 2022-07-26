@@ -31,7 +31,7 @@ const AdoptionReportPage = (props) => {
 
     // Global State and Error Handling
     const { handleGlobalError } = useGlobalError();
-    const org = useSelect((state) => state.org);
+    const org = useSelector((state) => state.org);
 
     // UI
     const [showSuccessModal, setShowSuccessModal] = useState(false);
