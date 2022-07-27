@@ -2309,7 +2309,7 @@ const autoGenerateProjects = (newBooks) => {
     storage: materialsStorage,
     limits: {
       files: 10,
-      fileSize: 25000000,
+      fileSize: 100000000,
     },
     fileFilter: (_req, file, cb) => {
       if (file.originalname.includes('/')) {

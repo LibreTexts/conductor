@@ -50,7 +50,7 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
     <Modal size="large" open={show} onClose={onClose} {...props}>
       <Modal.Header>Upload Materials</Modal.Header>
       <Modal.Content>
-        <p>Files will be uploaded to the <strong>{directory}</strong> folder. Up to 10 files can be uploaded at once, with a maximum of 25 MB each.</p>
+        <p>Files will be uploaded to the <strong>{directory}</strong> folder. Up to 10 files can be uploaded at once, with a maximum of 100 MB each.</p>
         {!loading ? (
           <FileUploader multiple={true} maxFiles={10} onUpload={handleUpload} />
         ) : (
