@@ -5,6 +5,10 @@
 
 import { isEmptyString } from './HelperFunctions.js';
 
+const MATERIALS_ACCESS_SETTINGS = [
+  { key: 'public',  value: 'public',  text: 'Public'          },
+  { key: 'users',   value: 'users',   text: 'Conductor Users' },
+];
 
 /**
  * Validates that @lib and @pageID are not
@@ -186,7 +190,22 @@ const getShelvesNameText = (shelves) => {
   return 'Unknown';
 };
 
+/**
+ * Returns the UI-ready representation of a Book Ancillary Materials access/visibility setting.
+ *
+ * @param {string} access - The internal access setting.
+ * @returns {string} The UI-ready representation.
+ */
+const getMaterialsAccessText = (access) => {
+  const foundSetting = MATERIALS_ACCESS_SETTINGS.find((setting) => setting.value === access);
+  if (foundSetting) {
+    return foundSetting.text;
+  }
+  return 'Unknown';
+};
+
 export {
+    MATERIALS_ACCESS_SETTINGS,
     validateLinkGenArguments,
     genThumbnailLink,
     genPDFLink,
@@ -196,5 +215,6 @@ export {
     genLMSFileLink,
     genLinkSet,
     getLicenseColor,
-    getShelvesNameText
+    getShelvesNameText,
+    getMaterialsAccessText,
 }

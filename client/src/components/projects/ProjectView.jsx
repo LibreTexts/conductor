@@ -33,6 +33,7 @@ import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
+import MaterialsManager from '../MaterialsManager/MaterialsManager';
 import ProjectProgressBar from './ProjectProgressBar';
 import ConductorTextArea from '../util/ConductorTextArea';
 import ConductorMessagingUI from '../util/ConductorMessagingUI';
@@ -244,6 +245,9 @@ const ProjectView = (props) => {
 
   // TODO: Finish flagDescripErr implementation
 
+  // Manage Ancillary Materials Modal
+  const [showMaterialsModal, setShowMaterialsModal] = useState(false);
+
 
   /**
    * Set page title and load Project information on initial load.
@@ -301,7 +305,7 @@ const ProjectView = (props) => {
    */
   useEffect(() => {
     if (typeof (user.uuid) === 'string' && user.uuid !== '' && Object.keys(project).length > 0) {
-      let adminPermissions = checkProjectAdminPermission(project, user);
+      const adminPermissions = checkProjectAdminPermission(project, user);
       if (adminPermissions) {
         setUserProjectAdmin(true);
         setUserProjectMember(true);
@@ -1718,12 +1722,28 @@ const ProjectView = (props) => {
     }
   };
 
+  /**
+   * Sets the Manage Ancillary Materials modal to open in state.
+   */
+  function handleOpenMaterialsModal() {
+    setShowMaterialsModal(true);
+  }
+
+  /**
+   * Sets the Manage Ancillary Materials modal to closed in state.
+   */
+  function handleCloseMaterialsModal() {
+    setShowMaterialsModal(false);
+  }
 
   // Rendering Helper Booleans
-  let hasResourceInfo = project.author || project.license || project.resourceURL;
-  let hasNotes = project.notes && !isEmptyString(project.notes);
-  let hasFlag = project.flag && !isEmptyString(project.flag);
-  let flagCrumbEnabled = hasFlag && showReviewerCrumb;
+  const hasResourceInfo = project.author || project.license || project.resourceURL;
+  const hasNotes = project.notes && !isEmptyString(project.notes);
+  const hasFlag = project.flag && !isEmptyString(project.flag);
+  const flagCrumbEnabled = hasFlag && showReviewerCrumb;
+  const canManageMaterials = (
+    !isEmptyString(project.libreLibrary) && !isEmptyString(project.libreCoverID) && canViewDetails
+  );
   let libreAlertEnabled = project.libreAlerts && Array.isArray(project.libreAlerts) && user.uuid && project.libreAlerts.includes(user.uuid);
 
 
@@ -2114,7 +2134,7 @@ const ProjectView = (props) => {
                           {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
                             <div>
                               <Header as='span' sub>Tags: </Header>
-                              <Label.Group color='blue' className='inlineblock-display ml-1p'>
+                              <Label.Group className='inlineblock-display ml-1p'>
                                 {project.tags.map((tag, idx) => {
                                   return (
                                     <Label key={idx}>{tag}</Label>
@@ -2123,6 +2143,16 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
+                          {canManageMaterials && (
+                            <Button
+                              color="blue"
+                              compact
+                              className="mt-1e"
+                              onClick={handleOpenMaterialsModal}
+                            >
+                                Manage Ancillary Materials
+                            </Button>
+                          )}
                         </Grid.Column>
                         {hasResourceInfo &&
                           <Grid.Column>
@@ -3684,6 +3714,14 @@ const ProjectView = (props) => {
               <Button onClick={closePinnedModal} color='blue'>Done</Button>
             </Modal.Actions>
           </Modal>
+          {/* Manage Ancillary Materials */}
+          {project.projectID && (
+            <MaterialsManager
+              projectID={project.projectID}
+              show={showMaterialsModal}
+              onClose={handleCloseMaterialsModal}
+            />
+          )}
         </Grid.Column>
       </Grid.Row>
     </Grid>

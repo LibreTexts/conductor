@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   Image,
   Icon,
@@ -24,6 +25,7 @@ import { isEmptyString } from '../../../components/util/HelperFunctions.js';
 import { getLicenseColor } from '../../../components/util/BookHelpers.js';
 import { getPeerReviewAuthorText } from '../../../components/util/ProjectHelpers.js';
 import AdoptionReport from '../../../components/adoptionreport/AdoptionReport.jsx';
+import CommonsMaterials from '../../../components/commons/CommonsMaterials/index.jsx';
 import ConductorTreeView from '../../../components/util/ConductorTreeView/index.jsx';
 import PeerReview from '../../../components/peerreview/PeerReview.jsx';
 import PeerReviewView from '../../../components/peerreview/PeerReviewView.jsx';
@@ -39,6 +41,9 @@ const CommonsBook = (props) => {
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
+
+  // Global State
+  const isConductorUser = useSelector((state) => state.user?.isAuthenticated);
 
   // Data
   const [book, setBook] = useState({
@@ -64,7 +69,6 @@ const CommonsBook = (props) => {
     },
     adaptID: '',
   });
-  const [bookTOC, setBookTOC] = useState([]);
 
   // General UI
   const [showAdoptionReport, setShowAdoptionReport] = useState(false);
@@ -72,7 +76,14 @@ const CommonsBook = (props) => {
   const [loadedTOC, setLoadedTOC] = useState(false);
   const [loadedLicensing, setLoadedLicensing] = useState(false);
   const [showTOC, setShowTOC] = useState(false);
+  const [showMaterials, setShowMaterials] = useState(false);
   const [showLicensing, setShowLicensing] = useState(false);
+
+  // TOC
+  const [bookTOC, setBookTOC] = useState([]);
+
+  // Materials
+  const [materials, setMaterials] = useState([]);
 
   // Licensing Report
   const [foundCLR, setFoundCLR] = useState(false);
@@ -280,6 +291,39 @@ const CommonsBook = (props) => {
   }, [bookID, setPRAllow, setPRProjectID, setPRReviews]);
 
   /**
+   * Retrieves a list/hierarchy of any available Ancillary Materials for the book
+   * from the server and saves it to state.
+   */
+  const getMaterials = useCallback(async () => {
+    try {
+      const matRes = await axios.get(`/commons/book/${bookID}/materials`);
+      if (!matRes.data.err) {
+        if (Array.isArray(matRes.data.materials) && matRes.data.materials.length > 0) {
+          const disableRestrictedRecursive = (arr) => {
+            return arr.map((obj) => {
+              let children = undefined;
+              if (Array.isArray(obj.children)) {
+                children = disableRestrictedRecursive(obj.children);
+              }
+              return {
+                ...obj,
+                disabled: obj.access === 'users' && !isConductorUser,
+                children,
+              };
+            });
+          };
+          const accessMapped = disableRestrictedRecursive(matRes.data.materials);
+          setMaterials(accessMapped);
+        }
+      } else {
+        throw (new Error(matRes.data.errMsg));
+      }
+    } catch (e) {
+      console.error(e); // fail silently
+    }
+  }, [bookID, isConductorUser, setMaterials]);
+
+  /**
    * Register plugins and load data and preferences on initialization.
    */
   useEffect(() => {
@@ -309,8 +353,9 @@ const CommonsBook = (props) => {
     if (loadedData && !loadedLicensing) {
       getLicenseReport();
       getPeerReviews();
+      getMaterials();
     }
-  }, [loadedData, loadedLicensing, getLicenseReport, getPeerReviews]);
+  }, [loadedData, loadedLicensing, getLicenseReport, getPeerReviews, getMaterials]);
 
   /**
    * Updates state and localStorage with the user's preference to display a Book's Table of Contents.
@@ -367,6 +412,20 @@ const CommonsBook = (props) => {
   function handleClosePeerReviewView() {
     setPRViewShow(false);
     setPRViewData({});
+  }
+
+  /**
+   * Opens the Ancillary Materials modal.
+   */
+  function handleOpenMaterials() {
+    setShowMaterials(true);
+  }
+
+  /**
+   * Closes the Ancillary Materials modal.
+   */
+  function handleCloseMaterials() {
+    setShowMaterials(false);
   }
 
   /**
@@ -705,7 +764,17 @@ const CommonsBook = (props) => {
                 onClick={handleOpenAdoptionReport}
               />
               <PeerReviewButtons />
-              <Button.Group fluid vertical labeled icon color="blue" className="mt-1r">
+              {materials.length > 0 && (
+                <Button
+                  icon="folder open"
+                  content="View Ancillary Materials"
+                  color="blue"
+                  fluid
+                  onClick={handleOpenMaterials}
+                  className="mt-1r"
+                />
+              )}
+              <Button.Group fluid vertical labeled icon color="blue" className="mt-2r">
                 {accessLinks.map((item) => (
                   <Button
                     key={item.key}
@@ -882,6 +951,13 @@ const CommonsBook = (props) => {
         onClose={handleClosePeerReviewView}
         peerReviewData={prViewData}
         publicView={true}
+      />
+      <CommonsMaterials
+        show={showMaterials}
+        onClose={handleCloseMaterials}
+        bookID={bookID}
+        materials={materials}
+        hasLockedFileAccess={isConductorUser}
       />
     </div>
   )

@@ -1,0 +1,29 @@
+.filetree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.05em;
+}
+
+.filetree ul {
+  padding: 0;
+  list-style: none;
+}
+
+.filetree li {
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.hidden_files {
+  display: none;
+}
+
+.folder_expand_icon {
+  cursor: pointer;
+}
+
+.node_action_wrapper {
+  display: inline-block;
+  margin-left: 1em;
+}

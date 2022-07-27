@@ -4,10 +4,13 @@
 //
 import Promise from 'bluebird';
 import axios from 'axios';
-import { isEmptyString } from './helpers.js';
+import express from 'express';
+import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
+import base64 from 'base-64';
 import { libraryNameKeys } from './librariesmap.js';
 import Book from '../models/book.js';
-import { getProductionURL } from './helpers.js';
+import { getProductionURL, isEmptyString, removeTrailingSlash, assembleUrl } from './helpers.js';
+import { debugError } from '../debug.js';
 
 const licenses = [
     'arr',
@@ -30,6 +33,13 @@ const sortChoices = [
     'author'
 ];
 
+export const MATERIALS_S3_CLIENT_CONFIG = {
+  credentials: {
+    accessKeyId: process.env.AWS_MATERIALS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_MATERIALS_SECRET_KEY,
+  },
+  region: process.env.AWS_MATERIALS_REGION,
+};
 
 /**
  * Validates a string follows the internal LibreTexts `lib-coverID` Book ID format.
@@ -240,3 +250,267 @@ export const getBookTOCFromAPI = (bookID, bookURL) => {
         else throw (new Error('tocretrieve'));
     });
 };
+
+/**
+ * Retrieves all Ancillary Materials for a Book stored in the database as a flat array.
+ * Generally reserved for internal use.
+ *
+ * @param {string} bookID - LibreTexts standard book identifier.
+ * @returns {Promise<object[]|null>} All Materials listings, or null if error encountered.
+ */
+export async function retrieveAllBookMaterials(bookID) {
+  try {
+    const bookResults = await Book.aggregate([
+      {
+        $match: { bookID },
+      }, {
+        $unwind: {
+          path: '$materials',
+          preserveNullAndEmptyArrays: true,
+        },
+      }, {
+        $addFields: {
+          materials: {
+            createdDate: { $dateToString: { date: '$materials._id' } },
+          },
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { createdBy: "$materials.createdBy" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$uuid', '$$createdBy' ] },
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+              }
+            }
+          ],
+          as: 'materials.uploader',
+        },
+      }, {
+        $addFields: {
+          'materials.uploader': {
+            $arrayElemAt: ['$materials.uploader', 0],
+          },
+        },
+      }, {
+        $group: {
+          _id: '$_id',
+          materials: { $push: '$materials' },
+        },
+      },
+    ]);
+    if (bookResults.length < 1) {
+      throw (new Error('Book not found.'));
+    }
+    const book = bookResults[0];
+    if (!Array.isArray(book.materials)) {
+      return [];
+    }
+    const sorted = book.materials.sort((a, b) => {
+      if (a.name < b.name) {
+        return -1;
+      }
+      if (a.name > b.name) {
+        return 1;
+      }
+      return 0;
+    });
+    return sorted;
+  } catch (e) {
+    debugError(e);
+    return null;
+  }
+}
+
+/**
+ * Retrieves a list of Ancillary Materials for a Book in hierarchical format.
+ *
+ * @param {string} bookID - The LibreTexts standard book identifier.
+ * @param {string} [materialsKey=''] - The folder identifier to restrict the search to, if desired.
+ * @param {boolean} [details=false] - Include additional details about each file, such as uploader.
+ * @returns {Promise<[object[], object[]]|[null, null]>} A 2-tuple containing the list of materials and the path
+ * leading to the results, or nulls if error encountered.
+ */
+export async function retrieveBookMaterials(bookID, materialsKey = '', details = false) {
+  try {
+    let path = [{
+      materialID: '',
+      name: '',
+    }];
+
+    const allMaterials = await retrieveAllBookMaterials(bookID);
+    if (!allMaterials) {
+      throw (new Error('retrieveerror'));
+    }
+    if (allMaterials.length === 0) {
+      return [[], path];
+    }
+
+    let foundFolder = null;    
+    if (materialsKey !== '') {
+      foundFolder = allMaterials.find((obj) => obj.materialID === materialsKey);
+      if (!foundFolder) {
+        return [null, null]
+      }
+    }
+    const foundEntries = allMaterials.filter((obj) => obj.parent === materialsKey);
+
+    const buildParentPath = (obj) => {
+      let pathNodes = [];
+      pathNodes.push({
+        materialID: obj.materialID,
+        name: obj.name,
+      });
+      if (obj.parent !== '') {
+        const parent = allMaterials.find((pParent) => pParent.materialID === obj.parent);
+        if (parent) {
+          pathNodes = [...buildParentPath(parent), ...pathNodes];
+        }
+      }
+      return pathNodes;
+    };
+
+    if (foundFolder) {
+      path.push(...buildParentPath(foundFolder));
+    }
+
+    const buildChildList = (obj) => {
+      const currObj = obj;
+      let children = [];
+      if (!details) {
+        ['_id', 'createdby', 'downloadCount', 'uploader'].forEach((key) => delete currObj[key]);
+      }
+      if (obj.storageType !== 'folder') {
+        return currObj;
+      }
+      const foundChildren = allMaterials.filter((childObj) => childObj.parent === currObj.materialID);
+      if (foundChildren.length > 0) {
+        children = foundChildren.map((childObj) => buildChildList(childObj));
+        children = sortBookMaterials(children);
+      }
+      return {
+        ...currObj,
+        children,
+      }
+    };
+
+    const results = sortBookMaterials(foundEntries.map((obj) => buildChildList(obj)));
+    return [results, path];
+  } catch (e) {
+    debugError(e);
+    return [null, null];
+  }
+}
+
+/**
+ * Generates a pre-signed download URL for a Book Material, if access settings allow.
+ *
+ * @param {string} bookID - Identifier of the book to search in.
+ * @param {string} materialID - Identifier of the file in the Book's materials list.
+ * @param {express.Request} req - Original network request object, for determining file access.
+ * @returns {Promise<string|null|false>} The pre-signed url or null if not found,
+ *  or false if unauthorized.
+ */
+export async function downloadBookMaterial(bookID, materialID, req) {
+  try {
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) { // error encountered 
+      throw (new Error('retrieveerror'));
+    }
+
+    const foundFile = materials.find((obj) => (
+      obj.materialID === materialID && obj.storageType === 'file'
+    ));
+    if (!foundFile) {
+      return null;
+    }
+    if (foundFile.access === 'users') {
+      if (!req.user?.decoded?.uuid) {
+        return false;
+      }
+    }
+
+    const fileURL = assembleUrl([
+      'https://',
+      process.env.AWS_MATERIALS_DOMAIN,
+      bookID,
+      foundFile.materialID,
+    ]);
+    const exprDate = new Date();
+    exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
+    const privKey = base64.decode(process.env.AWS_MATERIALS_CLOUDFRONT_PRIVKEY);
+
+    const signedURL = getSignedUrl({
+      url: fileURL,
+      keyPairId: process.env.AWS_MATERIALS_KEYPAIR_ID,
+      dateLessThan: exprDate,
+      privateKey: privKey,
+    });
+
+    /* Update download count */
+    let downloadCount = 1;
+    if (typeof (foundFile.downloadCount) === 'number') {
+      downloadCount = foundFile.downloadCount + 1;
+    }
+    const updated = materials.map((obj) => {
+      if (obj.materialID === foundFile.materialID) {
+        return {
+          ...obj,
+          downloadCount,
+        };
+      }
+      return obj;
+    });
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      debugError(`Error occurred updating ${bookID}/${materialID} download count.`);
+    }
+
+    return signedURL;
+  } catch (e) {
+    debugError(e);
+    return null;
+  }
+}
+
+/**
+ * Stores an update to a Book's Materials array in the database.
+ *
+ * @param {string} bookID - Identifier of the book to update.
+ * @param {object[]} updatedMaterials - The full array of materials, with updated entries.
+ * @return {Promise<boolean>} True if successful, false otherwise.
+ */
+export async function updateBookMaterials(bookID, updatedMaterials) {
+  try {
+    await Book.updateOne(
+      { bookID },
+      { materials: updatedMaterials },
+    );
+    return true;
+  } catch (e) {
+    debugError(e);
+    return false;
+  }
+}
+
+/**
+ * Sorts an array of Book Materials based on the name of each entry, in natural alphanumeric order.
+ *
+ * @param {object[]} arr - Array of Materials entries.
+ * @returns {object[]} The sorted array.
+ */
+export function sortBookMaterials(arr) {
+  if (!Array.isArray(arr)) {
+    return arr;
+  }
+  const collator = new Intl.Collator();
+  return arr.sort((a, b) => collator.compare(a.name, b.name));
+}

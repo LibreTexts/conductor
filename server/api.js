@@ -273,6 +273,19 @@ router.route('/commons/book/peerreviews').get(
     booksAPI.getBookPeerReviews
 );
 
+router.route('/commons/book/:bookID/material/:materialID').get(
+  authAPI.optionalVerifyRequest,
+  booksAPI.validate('getBookMaterial'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookMaterial,
+);
+
+router.route('/commons/book/:bookID/materials/:materialID?').get(
+  booksAPI.validate('getBookMaterials'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookMaterials,
+);
+
 router.route('/commons/filters').get(booksAPI.getCatalogFilterOptions);
 
 router.route('/commons/catalogs/addresource').put(authAPI.verifyRequest,
@@ -692,6 +705,61 @@ router.route('/project/accessibility/section/item').put(authAPI.verifyRequest,
     authAPI.getUserAttributes,
     projectsAPI.validate('updateA11YReviewSectionItem'),
     middleware.checkValidationErrors, projectsAPI.updateA11YReviewSectionItem);
+
+router.route('/project/:projectID/book/material/:materialID').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('getProjectBookMaterial'),
+  middleware.checkValidationErrors,
+  projectsAPI.getProjectBookMaterial,
+);
+
+router.route('/project/:projectID/book/material/:materialID/access').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('updateProjectBookMaterialAccess'),
+  middleware.checkValidationErrors,
+  projectsAPI.updateProjectBookMaterialAccess,
+);
+
+router.route('/project/:projectID/book/material/:materialID/move').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('moveProjectBookMaterial'),
+  middleware.checkValidationErrors,
+  projectsAPI.moveProjectBookMaterial,
+);
+
+router.route('/project/:projectID/book/materials/:materialID?')
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('addProjectBookMaterials'),
+    middleware.checkValidationErrors,
+    projectsAPI.materialUploadHandler,
+    projectsAPI.addProjectBookMaterials,
+  )
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('getProjectBookMaterials'),
+    middleware.checkValidationErrors,
+    projectsAPI.getProjectBookMaterials,
+  )
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('renameProjectBookMaterial'),
+    middleware.checkValidationErrors,
+    projectsAPI.renameProjectBookMaterial,
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('removeProjectBookMaterial'),
+    middleware.checkValidationErrors,
+    projectsAPI.removeProjectBookMaterial,
+  );
 
 
 export default router;

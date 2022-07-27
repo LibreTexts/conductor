@@ -184,3 +184,36 @@ export const getProductionURL = () => {
     if (Array.isArray(prodURLs) && prodURLs.length > 0) return prodURLs[0];
     return '';
 };
+
+/**
+ * Removes a trailing slash, if any, from a given string.
+ *
+ * @param {string} str - The string to work on.
+ * @returns {string} The string with the trailing slash removed.
+ */
+export function removeTrailingSlash(str) {
+  return str.endsWith('/') ? str.slice(0, -1) : str;
+}
+
+/**
+ * Assembles a url given an array of parts.
+ *
+ * @param {string[]} parts - Array of strings to include in the URL, in desired order.
+ * @returns {string} The assembled url, or empty string if error encountered.
+ */
+export function assembleUrl(parts) {
+  if (!Array.isArray(parts)) {
+    return '';
+  }
+  let url = '';
+  for (let i = 0, n = parts.length; i < n; i += 1) {
+    const currPart = parts[i];
+    if (!isEmptyString(currPart)) {
+      if (!url.endsWith('/') && url.trim().length > 1) {
+        url = `${url}/`;
+      }
+      url = `${url}${currPart}`;
+    }
+  }
+  return url;
+}

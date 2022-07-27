@@ -6,8 +6,18 @@
 'use strict';
 import Promise from 'bluebird';
 import express from 'express';
-import { body, query } from 'express-validator';
+import async from 'async';
+import { body, query, param } from 'express-validator';
+import {
+  S3Client,
+  CopyObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import b62 from 'base62-random';
+import multer from 'multer';
+import { v4 } from 'uuid';
 import User from '../models/user.js';
 import Project from '../models/project.js';
 import Tag from '../models/tag.js';
@@ -15,15 +25,22 @@ import HarvestingRequest from '../models/harvestingrequest.js';
 import Organization from '../models/organization.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError, debugCommonsSync } from '../debug.js';
-import { isValidLicense } from '../util/bookutils.js';
 import {
     validateProjectClassification,
     validateRoadmapStep,
     getLibreTextInformation
 } from '../util/projectutils.js';
-import { getBookTOCFromAPI } from '../util/bookutils.js';
+import {
+  isValidLicense,
+  getBookTOCFromAPI,
+  retrieveBookMaterials,
+  retrieveAllBookMaterials,
+  MATERIALS_S3_CLIENT_CONFIG,
+  updateBookMaterials,
+  downloadBookMaterial,
+} from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
-import { isEmptyString } from '../util/helpers.js';
+import { isEmptyString, assembleUrl } from '../util/helpers.js';
 import { libraryNameKeys } from '../util/librariesmap.js';
 import authAPI from './auth.js';
 import mailAPI from './mail.js';
@@ -55,6 +72,7 @@ const projectListingProjection = {
 const projectStatusOptions = ['completed', 'available', 'open'];
 const projectVisibilityOptions = ['private', 'public'];
 
+const materialsStorage = multer.memoryStorage();
 
 /**
  * Creates a new Project within the current Organization using the values specified in the
@@ -2220,6 +2238,691 @@ const autoGenerateProjects = (newBooks) => {
     });
 };
 
+/**
+ * Multer handler to process and validate Book Materials uploads.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next middleware to call.
+ * @returns {function} The Materials upload handler.
+ */
+ function materialUploadHandler(req, res, next) {
+  const materialUploadConfig = multer({
+    storage: materialsStorage,
+    limits: {
+      files: 10,
+      fileSize: 25000000,
+    },
+    fileFilter: (_req, file, cb) => {
+      if (file.originalname.includes('/')) {
+        return cb(new Error('filenameslash'), false);
+      }
+      return cb(null, true);
+    },
+  }).array('materials', 10);
+  return materialUploadConfig(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        errMsg = conductorErrors.err60;
+      }
+      if (err.message === 'filenameslash') {
+        errMsg = conductorErrors.err61;
+      }
+      return res.status(400).send({
+        err: true,
+        errMsg,
+      });
+    }
+    return next();
+  });
+}
+
+/**
+ * Uploads Ancillary Materials for a Book linked to a Project to the corresponding folder
+ * in S3 and updates the Materials list.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ */
+ async function addProjectBookMaterials(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    if (
+      isEmptyString(project.projectURL)
+      || isEmptyString(project.libreLibrary)
+      || isEmptyString(project.libreCoverID)
+    ) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const bookID = `${project.libreLibrary}-${project.libreCoverID}`;
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) {
+      throw (new Error('retrieveerror'));
+    }
+
+    let parent = '';
+    if (req.body.parentID && req.body.parentID !== '') {
+      const foundParent = materials.find((obj) => obj.materialID === req.body.parentID);
+      if (!foundParent || foundParent.storageType === 'file') {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err64,
+        });
+      }
+      parent = req.body.parentID;
+    }
+
+    const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+    const providedFiles = Array.isArray(req.files) && req.files.length > 0;
+    const materialEntries = [];
+
+    if (providedFiles) { // Adding a file
+      const uploadCommands = [];
+      req.files.forEach((file) => {
+        const newID = v4();
+        const fileKey = assembleUrl([bookID, newID]);
+        const contentType = file.mimetype || 'application/octet-stream';
+        uploadCommands.push(new PutObjectCommand({
+          Bucket: process.env.AWS_MATERIALS_BUCKET,
+          Key: fileKey,
+          Body: file.buffer,
+          ContentDisposition: `inline; filename=${file.originalname}`,
+          ContentType: contentType,
+        }));
+        materialEntries.push({
+          materialID: newID,
+          name: file.originalname,
+          access: 'public',
+          size: file.size,
+          createdBy: req.user.decoded.uuid,
+          downloadCount: 0,
+          storageType: 'file',
+          parent,
+        });
+      });
+      await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
+    } else { // Adding a folder
+      if (!req.body.folderName) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err65,
+        });
+      }
+      materialEntries.push({
+        materialID: v4(),
+        name: req.body.folderName,
+        size: 0,
+        createdBy: req.user.decoded.uuid,
+        storageType: 'folder',
+        parent,
+      });
+    }
+
+    const updated = [...materials, ...materialEntries];
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Succesfully uploaded materials!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a download URL for a single Book Material linked to a Project.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getProjectBookMaterial(req, res) {
+  try {
+    const { projectID, materialID } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const downloadURL = await downloadBookMaterial(bookID, materialID, req);
+    if (downloadURL === null) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    } else if (downloadURL === false) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully generated download link!',
+      url: downloadURL,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a list of Ancillary Materials for a Book linked to a Project.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+ async function getProjectBookMaterials(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectGeneralPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+    const materialID = req.params.materialID || '';
+
+    const [materials, path] = await retrieveBookMaterials(bookID, materialID, true);
+    if (!materials) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully retrieved materials!',
+      path,
+      materials,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Renames an Ancillary Material (for a Book linked to a Project).
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+ async function renameProjectBookMaterial(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    let newName = req.body.newName;
+    const materialID = req.params.materialID;
+
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    if (!foundObj) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    /* Ensure file extension remains in new name */
+    if (!newName.includes('.')) {
+      const splitCurrName = foundObj.name.split('.');
+      if (splitCurrName.length > 1) {
+        const currExtension = splitCurrName[splitCurrName.length - 1];
+        newName = `${newName}.${currExtension}`;
+      }
+    }
+
+    const updated = materials.map((obj) => {
+      if (obj.materialID === foundObj.materialID) {
+        return {
+          ...obj,
+          name: newName,
+        };
+      }
+      return obj;
+    });
+
+    if (foundObj.storageType === 'file') {
+      const fileKey = `${bookID}/${materialID}`;
+      const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+      const s3File = await storageClient.send(new GetObjectCommand({
+        Bucket: process.env.AWS_MATERIALS_BUCKET,
+        Key: fileKey,
+      }));
+
+      let newContentType = 'application/octet-stream';
+      if (typeof (s3File.ContentType) === 'string' && s3File.ContentType !== newContentType) {
+        newContentType = s3File.ContentType;
+      }
+
+      await storageClient.send(new CopyObjectCommand({
+        Bucket: process.env.AWS_MATERIALS_BUCKET,
+        CopySource: `${process.env.AWS_MATERIALS_BUCKET}/${fileKey}`,
+        Key: fileKey,
+        ContentDisposition: `inline; filename=${newName}`,
+        ContentType: newContentType,
+        MetadataDirective: "REPLACE",
+      }));
+    }
+
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully renamed material!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Updates the access/visibility setting of an Ancillary Material (for a Book linked to a Project).
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgiong response object.
+ */
+async function updateProjectBookMaterialAccess(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) {
+      throw (new Error('retrieveerror'));
+    }
+
+    const materialID = req.params.materialID;
+    const newAccess = req.body.newAccess;
+    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    if (!foundObj) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+    if (foundObj.storageType !== 'file') {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+
+    const updated = materials.map((obj) => {
+      if (obj.materialID === materialID) {
+        return {
+          ...obj,
+          access: newAccess,
+        };
+      }
+      return obj;
+    });
+
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully updated material access setting!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Moves an Ancillary Material to a new parent (for a Book linked to a Project).
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object. 
+ */
+async function moveProjectBookMaterial(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const newParentID = req.body.newParent;
+    const materialID = req.params.materialID;
+    let newParentIsRoot = false;
+    if (newParentID === '') {
+      newParentIsRoot = true;
+    } 
+
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    let foundNewParent = null;
+    if (!newParentIsRoot) {
+      foundNewParent = materials.find((obj) => obj.materialID === newParentID);
+    }
+    if (!foundObj || (!newParentIsRoot && !foundNewParent)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    if (
+      materialID === newParentID
+      || (!newParentIsRoot && foundNewParent.storageType === 'file')
+    ) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err66,
+      });
+    }
+
+    const updated = materials.map((obj) => {
+      if (obj.materialID === materialID) {
+        return {
+          ...obj,
+          parent: newParentID,
+        };
+      }
+      return obj;
+    });
+
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully moved material!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Deletes an Ancillary Material (for a Book linked to a Project) in S3 and updates the Materials
+ * list. Multiple materials can be deleted by specifying a folder identifier.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing resposne object.
+ */
+ async function removeProjectBookMaterial(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const materialID = req.params.materialID;
+    const materials = await retrieveAllBookMaterials(bookID);
+    if (!materials) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    if (!foundObj) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    const objsToDelete = [];
+
+    const findChildObjectsRecursive = (parent = null) =>  {
+      materials.forEach((obj) => {
+        if (parent && obj.parent === parent) {
+          if (obj.storageType === 'folder') {
+            findChildObjectsRecursive(obj.materialID);
+          }
+          objsToDelete.push(obj);
+        }
+      });
+    };
+
+    objsToDelete.push(foundObj);
+    if (foundObj.storageType === 'folder') {
+      findChildObjectsRecursive(foundObj.materialID);
+    }
+
+    const objectIDs = objsToDelete.map((obj) => obj.materialID);
+    const filesToDelete = objsToDelete.map((obj) => {
+      if (obj.storageType === 'file') {
+        return {
+          Key: `${bookID}/${obj.materialID}`,
+        };
+      }
+      return null;
+    }).filter((obj) => obj !== null);
+
+    if (filesToDelete.length > 0) {
+      const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+      const deleteRes = await storageClient.send(new DeleteObjectsCommand({
+        Bucket: process.env.AWS_MATERIALS_BUCKET,
+        Delete: {
+          Objects: filesToDelete,
+        }
+      }));
+      if (Array.isArray(deleteRes.Errors) && deleteRes.Errors.length > 0) {
+        return res.status(500).send({
+          err: true,
+          errMsg: conductorErrors.err58,
+        });
+      }
+    }
+
+    const updated = materials.map((obj) => {
+      if (objectIDs.includes(obj.materialID)) {
+        return null;
+      }
+      return obj;
+    }).filter((obj) => obj !== null);
+
+    const bookUpdate = await updateBookMaterials(bookID, updated);
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: `Successfully deleted materials!`,
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves the LibreTexts standard identifier of the resource linked to a Project.
+ * 
+ * @param {object} project - Project information object.
+ * @returns {string|null} The linked Book identifier, or null if no book is linked.
+ */
+function getBookLinkedToProject(project) {
+  if (
+    isEmptyString(project.projectURL)
+    || isEmptyString(project.libreLibrary)
+    || isEmptyString(project.libreCoverID)
+  ) {
+    return null;
+  }
+  return `${project.libreLibrary}-${project.libreCoverID}`;
+}
+
 
 /**
  * Checks if a user has permission to perform general actions on or view a
@@ -2473,130 +3176,179 @@ const validateProjectRole = (role) => {
     return false;
 };
 
+/**
+ * Validates a provided Book Ancillary Material access/visibility setting.
+ *
+ * @param {string} access - The setting identifier to validate. 
+ * @returns {boolean} True if valid role, false otherwise. 
+ */
+const validateMaterialAccessSetting = (access) => {
+  return ['public', 'users'].includes(access);
+};
+
 
 /**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
 const validate = (method) => {
-    switch (method) {
-        case 'createProject':
-            return [
-                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
-                body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
-                body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
-                body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-                body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
-                body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-                body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
-                body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
-                body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-                body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
-            ]
-        case 'deleteProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'updateProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('title', conductorErrors.err1).optional().isString().isLength({ min: 1 }),
-                body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
-                body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-                body('peerProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-                body('a11yProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-                body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
-                body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
-                body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
-                body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-                body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-                body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
-                body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
-                body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-                body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-                body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-                body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep)
-            ]
-        case 'getProject':
-            return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'getUserProjectsAdmin':
-            return [
-                query('uuid', conductorErrors.err1).exists().isString().isUUID()
-            ]
-        case 'getAddableMembers':
-            return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'addMemberToProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('uuid', conductorErrors.err1).exists().isString().isUUID()
-            ]
-        case 'changeMemberRole':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('uuid', conductorErrors.err1).exists().isString().isUUID(),
-                body('newRole', conductorErrors.err1).exists().isString().custom(validateProjectRole)
-            ]
-        case 'removeMemberFromProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('uuid', conductorErrors.err1).exists().isString().isUUID()
-            ]
-        case 'flagProject':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup),
-                body('flagDescrip', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ max: 2000 })
-            ]
-        case 'clearProjectFlag':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'getProjectPinStatus':
-            return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'pinProject':
-            return [
-              body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-            ]
-        case 'unpinProject':
-            return [
-              body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-            ]
-        case 'createA11YReviewSection':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('sectionTitle', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 })
-            ]
-        case 'getA11YReviewSections':
-            return [
-                query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
-            ]
-        case 'updateA11YReviewSectionItem':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('sectionID', conductorErrors.err1).exists().isMongoId(),
-                body('itemName', conductorErrors.err1).exists().isString().custom(validateA11YReviewSectionItem),
-                body('newResponse', conductorErrors.err1).exists().isBoolean().toBoolean()
-            ]
-        case 'requestProjectPublishing':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-            ]
-        case 'importA11YSectionsFromTOC':
-            return [
-                body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-                body('merge', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
-            ]
-    }
+  switch (method) {
+    case 'createProject':
+      return [
+          body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
+          body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
+          body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
+          body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
+          body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+          body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
+          body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
+          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
+          body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
+      ]
+    case 'deleteProject':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'updateProject':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('title', conductorErrors.err1).optional().isString().isLength({ min: 1 }),
+          body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
+          body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+          body('peerProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+          body('a11yProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
+          body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
+          body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
+          body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
+          body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+          body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
+          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
+          body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+          body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep)
+      ]
+    case 'getProject':
+      return [
+          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'getUserProjectsAdmin':
+      return [
+          query('uuid', conductorErrors.err1).exists().isString().isUUID()
+      ]
+    case 'getAddableMembers':
+      return [
+          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'addMemberToProject':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('uuid', conductorErrors.err1).exists().isString().isUUID()
+      ]
+    case 'changeMemberRole':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('uuid', conductorErrors.err1).exists().isString().isUUID(),
+          body('newRole', conductorErrors.err1).exists().isString().custom(validateProjectRole)
+      ]
+    case 'removeMemberFromProject':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('uuid', conductorErrors.err1).exists().isString().isUUID()
+      ]
+    case 'flagProject':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('flagOption', conductorErrors.err1).exists().isString().custom(validateFlaggingGroup),
+          body('flagDescrip', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ max: 2000 })
+      ]
+    case 'clearProjectFlag':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'getProjectPinStatus':
+      return [
+          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'pinProject':
+      return [
+        body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+      ]
+    case 'unpinProject':
+      return [
+        body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+      ]
+    case 'createA11YReviewSection':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('sectionTitle', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 })
+      ]
+    case 'getA11YReviewSections':
+      return [
+          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
+    case 'updateA11YReviewSectionItem':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('sectionID', conductorErrors.err1).exists().isMongoId(),
+          body('itemName', conductorErrors.err1).exists().isString().custom(validateA11YReviewSectionItem),
+          body('newResponse', conductorErrors.err1).exists().isBoolean().toBoolean()
+      ]
+    case 'requestProjectPublishing':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+      ]
+    case 'importA11YSectionsFromTOC':
+      return [
+          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          body('merge', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
+      ]
+    case 'addProjectBookMaterials':
+      return [
+        param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+        body('parentID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+        body('folderName', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
+      ]
+    case 'getProjectBookMaterial':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+      ]
+    case 'getProjectBookMaterials':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+      ]
+    case 'renameProjectBookMaterial':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).exists().isUUID(),
+        body('newName', conductorErrors.err1).exists().isLength({ min: 1, max: 100 }),
+      ]
+    case 'updateProjectBookMaterialAccess':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).exists().isUUID(),
+        body('newAccess', conductorErrors.err1).exists().isString().custom(validateMaterialAccessSetting),
+      ]
+    case 'moveProjectBookMaterial':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).exists().isUUID(),
+        body('newParent', conductorErrors.err1).exists().isString(),
+      ]
+    case 'removeProjectBookMaterial':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('materialID', conductorErrors.err1).exists().isUUID(),
+      ]
+  }
 };
 
 export default {
@@ -2631,6 +3383,14 @@ export default {
     updateA11YReviewSectionItem,
     importA11YSectionsFromTOC,
     autoGenerateProjects,
+    materialUploadHandler,
+    addProjectBookMaterials,
+    getProjectBookMaterial,
+    getProjectBookMaterials,
+    renameProjectBookMaterial,
+    updateProjectBookMaterialAccess,
+    moveProjectBookMaterial,
+    removeProjectBookMaterial,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
     checkProjectAdminPermission,

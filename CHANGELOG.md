@@ -3,6 +3,11 @@
 # 07-26-2022
 #### :art: UI/UX
 * Restore "standalone" tools/pages in client router
+* Introduced Ancillary Materials in Commons Catalog entries
+* Introduced Manage Ancillary Materials in Conductor projects with linked books.
+
+#### :satellite: Server
+* Implemented API endpoints for managing and retrieving Ancillary Materials.
 
 
 # 07-04-2022

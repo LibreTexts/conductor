@@ -6,6 +6,31 @@
 
 import mongoose from 'mongoose';
 
+const MaterialsSchema = new mongoose.Schema();
+MaterialsSchema.add({
+  materialID: {
+    type: String,
+    required: true,
+  },
+  name: String,
+  access: {
+    type: String,
+    enum: ['public', 'users'],
+  },
+  storageType: {
+    type: String,
+    enum: ['file', 'folder'],
+    default: 'file',
+  },
+  size: {
+    type: Number,
+    default: 0,
+  },
+  parent: String,
+  createdBy: String, // uuid of uploader
+  downloadCount: Number,
+});
+
 const BookSchema = new mongoose.Schema({
     bookID: {                   // the LibreTexts standard text identifier of format `libShort-coverPageID`
         type: String,
@@ -43,7 +68,8 @@ const BookSchema = new mongoose.Schema({
         lms: String             //      download the LMS import file
     },
     adaptID: String,            // the complementary ADAPT course ID (if applicable)
-    lastUpdated: String         // the timestamp of the most recent (page-level) update within the book
+    lastUpdated: String,        // the timestamp of the most recent (page-level) update within the book
+    materials: [MaterialsSchema],
 }, {
     timestamps: true
 });

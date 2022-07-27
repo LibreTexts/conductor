@@ -5,9 +5,10 @@
 
 'use strict';
 import Promise from 'bluebird';
+import express from 'express';
 import axios from 'axios';
 import fs from 'fs-extra';
-import { body, query } from 'express-validator';
+import { query, param } from 'express-validator';
 import {
   debugError,
   debugCommonsSync,
@@ -36,6 +37,8 @@ import {
     genLMSFileLink,
     genPermalink,
     getBookTOCFromAPI,
+    retrieveBookMaterials,
+    downloadBookMaterial,
 } from '../util/bookutils.js';
 import { buildPeerReviewAggregation } from '../util/peerreviewutils.js';
 import { libraryNameKeys } from '../util/librariesmap.js';
@@ -1318,6 +1321,75 @@ const getLicenseReport = (req, res) => {
     });
 };
 
+/**
+ * Retrieves a download URL for a single Book Ancillary Material.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getBookMaterial(req, res) {
+  try {
+    const { bookID, materialID } = req.params;
+
+    const downloadURL = await downloadBookMaterial(bookID, materialID, req);
+
+    if (downloadURL === null) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    } else if (downloadURL === false) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfuly generated download link!',
+      url: downloadURL,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a list of Book Materials from S3.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getBookMaterials(req, res) {
+  try {
+    const bookID = req.params.bookID;
+    const materialID = req.params.materialID || '';
+    
+    const [materials, path] = await retrieveBookMaterials(bookID, materialID);
+
+    if (!materials) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully retrieved materials!',
+      path,
+      materials,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Generates a JSON file containing Commons Books listings for use by 3rd parties.
@@ -1438,53 +1510,45 @@ const retrieveKBExport = (_req, res) => {
  * Sets up the validation chain(s) for methods in this file.
  */
 const validate = (method) => {
-    switch (method) {
-        case 'getCommonsCatalog':
-            return [
-                query('sort', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidSort),
-                query('library', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLibrary),
-                query('subject', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-                query('author', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-                query('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
-                query('affiliation', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-                query('course', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-                query('publisher', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-                query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
-            ]
-        case 'getMasterCatalog':
-            return [
-                query('sort', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidSort),
-                query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
-            ]
-        case 'getBookDetail':
-            return [
-                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'getBookPeerReviews':
-            return [
-                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'addBookToCustomCatalog':
-            return [
-                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'removeBookFromCustomCatalog':
-            return [
-                body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'getBookSummary':
-            return [
-                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'getBookTOC':
-            return [
-                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-        case 'getLicenseReport':
-            return [
-                query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
-            ]
-    }
+  switch (method) {
+    case 'getCommonsCatalog':
+      return [
+        query('sort', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidSort),
+        query('library', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLibrary),
+        query('subject', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('author', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
+        query('affiliation', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('course', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('publisher', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
+      ]
+    case 'getMasterCatalog':
+      return [
+        query('sort', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidSort),
+        query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 })
+      ]
+    case 'getBookDetail':
+    case 'getBookPeerReviews':
+    case 'addBookToCustomCatalog':
+    case 'removeBookFromCustomCatalog':
+    case 'getBookSummary':
+    case 'getBookTOC':
+    case 'getLicenseReport':
+      return [
+        query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
+      ]
+    case 'getBookMaterial':
+      return [
+        param('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat),
+        param('materialID', conductorErrors.err1).exists().isUUID(),
+      ]
+    case 'getBookMaterials':
+      return [
+        param('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat),
+        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+      ]
+  }
 };
 
 export default {
@@ -1500,6 +1564,8 @@ export default {
     getBookSummary,
     getBookTOC,
     getLicenseReport,
+    getBookMaterials,
+    getBookMaterial,
     retrieveKBExport,
     validate
 }

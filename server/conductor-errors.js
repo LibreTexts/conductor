@@ -51,7 +51,16 @@ const conductorErrors = {
     'err54': "Oops, avatar files must be smaller than 5 MB.",
     'err55': "Sorry, we're having trouble validating your file.",
     'err56': "Sorry, we encountered an error while processing your file.",
-    'err57': "Sorry, we're having trouble saving your file."
+    'err57': "Sorry, we're having trouble saving your file.",
+    'err58': "Encountered an error deleting file(s). Try again in a moment.",
+    'err59': "Warning: Some files may not have been moved properly. Try deleting them manually.",
+    'err60': "Oops, materials files must be smaller than 25 MB.",
+    'err61': "Please provide at least one file.",
+    'err62': "Filenames cannot contain slashes.",
+    'err63': "Couldn't find a file with that identifier.",
+    'err64': "File cannot be uploaded to this location.",
+    'err65': "A folder name must be provided.",
+    'err66': "Sorry, that operation can't be performed on this resource.",
 };
 
 export default conductorErrors;
