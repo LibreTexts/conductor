@@ -2296,7 +2296,7 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    const hasPermission = checkProjectMemberPermission(project, req.user);
     if (!hasPermission) {
       return res.status(401).send({
         err: true,
@@ -2521,7 +2521,7 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    const hasPermission = checkProjectMemberPermission(project, req.user);
     if (!hasPermission) {
       return res.status(401).send({
         err: true,
@@ -2630,7 +2630,7 @@ async function updateProjectBookMaterialAccess(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    const hasPermission = checkProjectMemberPermission(project, req.user);
     if (!hasPermission) {
       return res.status(401).send({
         err: true,
@@ -2712,7 +2712,7 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    const hasPermission = checkProjectMemberPermission(project, req.user);
     if (!hasPermission) {
       return res.status(401).send({
         err: true,
@@ -2808,7 +2808,7 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user.decoded.uuid);
+    const hasPermission = checkProjectMemberPermission(project, req.user);
     if (!hasPermission) {
       return res.status(401).send({
         err: true,
@@ -2981,7 +2981,7 @@ const checkProjectMemberPermission = (project, user) => {
     }
     /* Check user has permission */
     if (userUUID !== '') {
-        let foundUser = projTeam.find((item) => {
+        const foundUser = projTeam.find((item) => {
             if (typeof (item) === 'string') {
                 return item === userUUID;
             } else if (typeof (item) === 'object') {
