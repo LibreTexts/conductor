@@ -1741,9 +1741,6 @@ const ProjectView = (props) => {
   const hasNotes = project.notes && !isEmptyString(project.notes);
   const hasFlag = project.flag && !isEmptyString(project.flag);
   const flagCrumbEnabled = hasFlag && showReviewerCrumb;
-  const canManageMaterials = (
-    !isEmptyString(project.libreLibrary) && !isEmptyString(project.libreCoverID) && canViewDetails
-  );
   let libreAlertEnabled = project.libreAlerts && Array.isArray(project.libreAlerts) && user.uuid && project.libreAlerts.includes(user.uuid);
 
 
@@ -2143,15 +2140,27 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
-                          {canManageMaterials && (
-                            <Button
-                              color="blue"
-                              compact
-                              className="mt-1e"
-                              onClick={handleOpenMaterialsModal}
-                            >
-                                Manage Ancillary Materials
-                            </Button>
+                          {project.hasCommonsBook && (
+                            <div className="mt-1e">
+                              <Link
+                                to={`/book/${project.libreLibrary}-${project.libreCoverID}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                View on Commons <Icon name="external" />
+                              </Link>
+                            </div>
+                          )}
+                          {(canViewDetails && project.hasCommonsBook) && (
+                            <div className="mt-1e">
+                              <Button
+                                color="blue"
+                                compact
+                                onClick={handleOpenMaterialsModal}
+                              >
+                                  Manage Ancillary Materials
+                              </Button>
+                            </div>
                           )}
                         </Grid.Column>
                         {hasResourceInfo &&

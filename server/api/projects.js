@@ -275,184 +275,242 @@ const deleteProject = (req, res) => {
  * the request query.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getProject'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getProject = (req, res) => {
-    return Project.aggregate([
-        {
-            $match: {
-                projectID: req.query.projectID
-            }
-        }, {
-            $lookup: {
-                from: 'tags',
-                let: {
-                    projTags: '$tags'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $and: [
-                                {
-                                    $expr: {
-                                        $in: ['$tagID', '$$projTags']
-                                    }
-                                },
-                                {
-                                    $expr: {
-                                        $eq: ['$orgID', process.env.ORG_ID]
-                                    }
-                                }
-                            ]
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            title: 1
-                        }
-                    }
-                ],
-                as: 'tagResults'
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    members: '$members'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$members']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'members'
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    liaisons: '$liaisons'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$liaisons']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'liaisons'
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    auditors: '$auditors'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$auditors']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'auditors'
-            }
-        }, {
-            $project: {
-                _id: 0
-            }
+async function getProject(req, res) {
+  try {
+    const projects = await Project.aggregate([
+      {
+        $match: {
+          projectID: req.query.projectID
         }
-    ]).then((projects) => {
-        if (projects.length > 0) {
-            var projResult = projects[0];
-            if (projResult.tagResults) {
-                projResult.tags = projResult.tagResults.map((tagResult) => {
-                    return tagResult.title;
-                });
-            } else {
-                projResult.tags = [];
+      }, {
+        $lookup: {
+          from: 'tags',
+          let: {
+            projTags: '$tags'
+          },
+          pipeline: [
+            {
+              $match: {
+                $and: [
+                  {
+                    $expr: {
+                      $in: ['$tagID', '$$projTags']
+                    }
+                  },
+                  {
+                    $expr: {
+                      $eq: ['$orgID', process.env.ORG_ID]
+                    }
+                  }
+                ]
+              }
+            }, {
+              $project: {
+                _id: 0,
+                title: 1
+              }
             }
-            delete projResult.tagResults; // prune lookup results
-            // check user has permission to view project
-            if (checkProjectGeneralPermission(projResult, req.user)) {
-                return res.send({
-                    err: false,
-                    project: projResult
-                });
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
+          ],
+          as: 'tagResults'
         }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: false,
-            errMsg: errMsg
-        });
+      }, {
+        $lookup: {
+          from: 'users',
+          let: {
+            members: '$members'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ['$uuid', '$$members']
+                }
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1
+              }
+            }
+          ],
+          as: 'members'
+        }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: {
+            leads: '$leads'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ['$uuid', '$$leads']
+                }
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1
+              }
+            }
+          ],
+          as: 'leads'
+        }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: {
+            liaisons: '$liaisons'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ['$uuid', '$$liaisons']
+                }
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1
+              }
+            }
+          ],
+          as: 'liaisons'
+        }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: {
+            auditors: '$auditors'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ['$uuid', '$$auditors']
+                }
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1
+              }
+            }
+          ],
+          as: 'auditors'
+        }
+      }, {
+        $lookup: {
+          from: 'books',
+          let: {
+            library: '$libreLibrary',
+            pageID: '$libreCoverID',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ['$$library', ''] },
+                        { $ne: ['$$pageID', ''] }
+                      ],
+                    },
+                    {
+                      $eq: ['$bookID', {
+                        $concat: ['$$library', '-', '$$pageID'],
+                      }],
+                    },
+                    {
+                      $eq: ['$bookID', false] // empty lookup
+                    },
+                  ]
+                }
+              }
+            }, {
+              $project: {
+                _id: 0,
+                bookID: 1,
+              }
+            }
+          ],
+          as: 'hasCommonsBook',
+        }
+      }, {
+        $addFields: {
+          hasCommonsBook: {
+            $cond: [
+              {
+                $gt: [
+                  { $size: '$hasCommonsBook' },
+                  0
+                ]
+              },
+              true,
+              false,
+            ],
+          },
+        },
+      }, {
+        $project: {
+          _id: 0
+        }
+      }
+    ]);
+    if (!projects.length > 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    const projResult = projects[0];
+
+    /* check permission */
+    if (!checkProjectGeneralPermission(projResult, req.user)) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    /* process tags */
+    if (Array.isArray(projResult.tagResults)) {
+      projResult.tags = projResult.tagResults.map((result) => result.title);
+    } else {
+      projResult.tags = [];
+    }
+    delete projResult.tagResults; // prune lookup results
+    
+    return res.send({
+      err: false,
+      project: projResult,
     });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
 
 

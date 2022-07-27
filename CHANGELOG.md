@@ -2,6 +2,16 @@
 
 # 07-26-2022
 #### :art: UI/UX
+* Introduced a quick link to "View on Commons" for Project with linked catalog entries
+* Hide "Manage Ancillary Materials" unless a Project has a linked Commons entry
+
+#### :satellite: Server
+* Fixed bug checking administrator permissions during Ancillary Materials management actions
+* Project retrieval now looks up linked books to provide a 'hasCommonsEntry' flag
+
+
+# 07-26-2022
+#### :art: UI/UX
 * Restore "standalone" tools/pages in client router
 * Introduced Ancillary Materials in Commons Catalog entries
 * Introduced Manage Ancillary Materials in Conductor projects with linked books.
