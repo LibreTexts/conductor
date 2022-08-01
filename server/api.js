@@ -255,22 +255,34 @@ router.route('/commons/mastercatalog').get(
     booksAPI.validate('getMasterCatalog'), middleware.checkValidationErrors,
     booksAPI.getMasterCatalog);
 
-router.route('/commons/book').get(booksAPI.validate('getBookDetail'),
-    middleware.checkValidationErrors, booksAPI.getBookDetail);
+router.route('/commons/book/:bookID').get(
+  booksAPI.validate('getBookDetail'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookDetail,
+);
 
-router.route('/commons/book/summary').get(booksAPI.validate('getBookSummary'),
-    middleware.checkValidationErrors, booksAPI.getBookSummary);
+router.route('/commons/book/:bookID/summary').get(
+  booksAPI.validate('getBookSummary'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookSummary,
+);
 
-router.route('/commons/book/toc').get(booksAPI.validate('getBookTOC'),
-    middleware.checkValidationErrors, booksAPI.getBookTOC);
+router.route('/commons/book/:bookID/toc').get(
+  booksAPI.validate('getBookTOC'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookTOC,
+);
 
-router.route('/commons/book/licensereport').get(booksAPI.validate('getLicenseReport'),
-    middleware.checkValidationErrors, booksAPI.getLicenseReport);
+router.route('/commons/book/:bookID/licensereport').get(
+  booksAPI.validate('getLicenseReport'),
+  middleware.checkValidationErrors,
+  booksAPI.getLicenseReport,
+);
 
-router.route('/commons/book/peerreviews').get(
-    booksAPI.validate('getBookPeerReviews'),
-    middleware.checkValidationErrors,
-    booksAPI.getBookPeerReviews
+router.route('/commons/book/:bookID/peerreviews').get(
+  booksAPI.validate('getBookPeerReviews'),
+  middleware.checkValidationErrors,
+  booksAPI.getBookPeerReviews
 );
 
 router.route('/commons/book/:bookID/material/:materialID').get(

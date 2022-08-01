@@ -115,9 +115,7 @@ const CommonsBook = (props) => {
    */
   const getTOC = useCallback(async () => {
     try {
-      const tocRes = await axios.get('/commons/book/toc', {
-        params: { bookID },
-      });
+      const tocRes = await axios.get(`/commons/book/${bookID}/toc`);
       if (!tocRes.data.err) {
         if (typeof (tocRes.data.toc) === 'object') {
           if (Array.isArray(tocRes.data.toc.children)) { // skip first level
@@ -139,9 +137,7 @@ const CommonsBook = (props) => {
   const getBook = useCallback(async () => {
     setLoadedData(false);
     try {
-      const bookRes = await axios.get('/commons/book', {
-        params: { bookID },
-      });
+      const bookRes = await axios.get(`/commons/book/${bookID}`);
       if (!bookRes.data.err) {
         if (bookRes.data.book) {
           bookRes.data.book.license = ''; // hotfix for new license infrastructure
@@ -186,9 +182,7 @@ const CommonsBook = (props) => {
       return [];
     };
     try {
-      const licRes = await axios.get('/commons/book/licensereport', {
-        params: { bookID },
-      });
+      const licRes = await axios.get(`/commons/book/${bookID}/licensereport`);
       if (!licRes.data.err) {
         if (licRes.data.data) {
           setFoundCLR(true);
@@ -251,9 +245,7 @@ const CommonsBook = (props) => {
    */
   const getPeerReviews = useCallback(async () => {
     try {
-      const prRes = await axios.get('/commons/book/peerreviews', {
-        params: { bookID },
-      });
+      const prRes = await axios.get(`/commons/book/${bookID}/peerreviews`);
       if (!prRes.data.err) {
         if (
           prRes.data.allowsAnon === true

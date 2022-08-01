@@ -1013,7 +1013,6 @@ const getCatalogFilterOptions = (_req, res) => {
     });
 };
 
-
 /**
  * Returns a Book object given a book ID.
  * NOTE: This function should only be called AFTER the validation chain.
@@ -1024,7 +1023,7 @@ const getCatalogFilterOptions = (_req, res) => {
  */
 async function getBookDetail(req, res) {
   try {
-    const { bookID } = req.query;
+    const { bookID } = req.params;
     const bookRes = await Book.aggregate([
       {
         $match: { bookID },
@@ -1136,59 +1135,57 @@ async function getBookDetail(req, res) {
 }
 
 /**
- * Checks if a Book has an associated Project, if it allows anonymous Peer Reviews, and the current Peer Reviews available.
+ * Checks if a Book has an associated Project, if it allows anonymous Peer Reviews,
+ *  and the current Peer Reviews available.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookPeerReviews'
- * @param {Object} req - The Express.js request object.
- * @param {Object} res - The Express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getBookPeerReviews = (req, res) => {
+async function getBookPeerReviews(req, res) {
+  try {
     let allowsAnon = true;
-    let projectID = '';
-    return new Promise((resolve, reject) => {
-        const [lib, coverID] = getLibraryAndPageFromBookID(req.query.bookID);
-        if (!isEmptyString(lib) && !isEmptyString(coverID)) {
-            resolve(Project.findOne({
-                $and: [
-                    { libreLibrary: lib },
-                    { libreCoverID: coverID },
-                    { visibility: 'public' }
-                ]
-            }).lean());
-        }
-        reject(new Error('notfound'));
-    }).then((project) => {
-        if (project) {
-            projectID = project.projectID;
-            if (project.allowAnonPR === false) allowsAnon = false; // true by default
-            return PeerReview.aggregate(buildPeerReviewAggregation(project.projectID));
-        }
-        throw (new Error('noproject'));
-    }).then((peerReviews) => {
-        return res.send({
-            err: false,
-            projectID: projectID,
-            allowsAnon: allowsAnon,
-            reviews: peerReviews
-        });
-    }).catch((err) => {
-        if (err.message === 'noproject') {
-            return res.send({
-                err: false,
-                msg: 'No Projects associated with this resource.'
-            });
-        } else {
-            debugError(err);
-            let errMsg = conductorErrors.err6;
-            if (err.message === 'notfound') errMsg = conductorErrors.err11;
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
-        }
-    });
-};
+    const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
+    if (isEmptyString(lib) || isEmptyString(coverID)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
 
+    const project = await Project.findOne({
+      $and: [
+        { libreLibrary: lib },
+        { libreCoverID: coverID },
+        { visibility: 'public' },
+      ],
+    }).lean();
+    if (!project) {
+      return res.send({
+        err: false,
+        msg: 'No Projects associated with this resource.',
+      });
+    }
+    
+    if (project.allowAnonPR === false) {
+      allowsAnon = false; // true by default
+    }
+    const peerReviews = await PeerReview.aggregate(buildPeerReviewAggregation(project.projectID));
+    return res.send({
+      err: false,
+      projectID: project.projectID,
+      reviews: peerReviews,
+      allowsAnon,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
 
 /**
  * Adds the Book specified by @bookID in the request
@@ -1285,117 +1282,103 @@ const removeBookFromCustomCatalog = (req, res) => {
 
 
 /**
- * Makes a request to a Book's respective library
- * to retrieve the Book summary. If no summary has
+ * Makes a request to a Book's respective library to retrieve the Book summary. If no summary has
  * been set, an empty string is returned.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
+ * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookSummary'
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getBookSummary = (req, res) => {
-    var summary = '';
-    const [lib, pageID] = getLibraryAndPageFromBookID(req.query.bookID);
-    const browserKey = getBrowserKeyForLib(lib);
-    if ((browserKey !== '') && (browserKey !== 'err')) {
-        axios.get(`https://${lib}.libretexts.org/@api/deki/pages/${pageID}/properties?dream.out.format=json`, {
-            headers: {
-                "X-Requested-With": "XMLHttpRequest",
-                "x-deki-token": getBrowserKeyForLib(lib)
-            }
-        }).then((axiosRes) => {
-            if (axiosRes.data) {
-                const pageData = axiosRes.data;
-                // search for Overview in MindTouch page properties
-                if (pageData.property && Array.isArray(pageData.property)) {
-                    const overviewData = pageData.property.find((item) => {
-                        if (item['@name'] === 'mindtouch.page#overview') {
-                            return item;
-                        }
-                    });
-                    if ((overviewData !== undefined) && (overviewData.contents)) {
-                        if (overviewData.contents['#text']) {
-                            summary = overviewData.contents['#text'];
-                        }
-                    }
-                }
-            }
-            return res.send({
-                err: false,
-                bookID: req.query.bookID,
-                summary: summary
-            });
-        }).catch((_axiosErr) => {
-            // error requesting data from MindTouch
-            debugError(new Error('Book Summary — axiosErr'))
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err6
-            });
-        });
-    } else {
-        // missing browserkey — can't authorize request to MindTouch
-        debugError(new Error('Book Summary — browserkey'));
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+async function getBookSummary(req, res) {
+  try {
+    const { bookID } = req.params;
+    const book = await Book.findOne({ bookID }).lean();
+    if (!book) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
     }
-};
 
+    return res.send({
+      err: false,
+      summary: book.summary || '',
+      bookID,
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
 
 /**
- * Retrieves a Book's Table of Contents via an internal
- * call to the LibreTexts API.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
+ * Retrieves a Book's Table of Contents via an internal call to the LibreTexts API.
+ * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookTOC'
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getBookTOC = (req, res) => {
-    return getBookTOCFromAPI(req.query.bookID).then((toc) => {
-        return res.send({
-            err: false,
-            toc: toc
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        })
+async function getBookTOC(req, res) {
+  try {
+    const toc = await getBookTOCFromAPI(req.params.bookID);
+    return res.send({
+      err: false,
+      toc,
     });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
-
 
 /**
  * Retrieves a Book's Content Licensing Report from the LibreTexts API
  * Server and returns the data, if it exists.
- * @param {Object} req - the Express.js request object
- * @param {Object} res - the Express.js response object
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getLicenseReport = (req, res) => {
-    let notFoundResponse = {
-        err: false,
-        found: false,
-        msg: "Couldn't find a Content Licensing Report for that resource."
-    };
-    axios.get(`https://api.libretexts.org/licensereports/${req.query.bookID}.json`).then((axiosRes) => {
-        if (axiosRes.data?.id) {
-            return res.send({
-                err: false,
-                found: true,
-                msg: `Found Content Licensing Report for ${req.query.bookID}.`,
-                data: axiosRes.data
-            });
-        } else return res.send(notFoundResponse);
-    }).catch((err) => {
-        if (err.response?.status === 404) return res.send(notFoundResponse);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+async function getLicenseReport(req, res) {
+  const notFoundResponse = {
+    err: false,
+    found: false,
+    msg: "Couldn't find a Content Licensing Report for that resource.",
+  };
+  try {
+    const { bookID } = req.params;
+    const licRep = await axios.get(
+      `https://api.libretexts.org/licensereports/${bookID}.json`,
+    ).catch((err) => {
+      if (err.response?.status === 404) {
+        return res.status(404).send(notFoundResponse);
+      } else {
+        throw (err);
+      }
+    })
+    if (!licRep.data?.id) {
+      return res.status(404).send(notFoundResponse);
+    }
+
+    return res.send({
+      err: false,
+      found: true,
+      msg: `Found Content Licensing Report for ${bookID}.`,
+      data: licRep.data,
     });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
 
 /**
@@ -1607,11 +1590,14 @@ const validate = (method) => {
       ]
     case 'getBookDetail':
     case 'getBookPeerReviews':
-    case 'addBookToCustomCatalog':
-    case 'removeBookFromCustomCatalog':
     case 'getBookSummary':
     case 'getBookTOC':
     case 'getLicenseReport':
+      return [
+        param('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat),
+      ]
+    case 'addBookToCustomCatalog':
+    case 'removeBookFromCustomCatalog':
       return [
         query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
       ]
