@@ -518,196 +518,168 @@ async function getProject(req, res) {
  * Updates the Project identified by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getProject'
- * @param  {Object} req - the express.js request object
- * @param  {Object} res - the express.js response object
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const updateProject = (req, res) => {
+async function updateProject(req, res) {
+  try {
+    const libNames = libraryNameKeys.join('|');
+    const libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
+    const { projectID } = req.body;
     let updateObj = {};
-    let checkTags = false;
-    let checkProjURL = false;
-    let libNames = [];
-    let libreURLRegex = null;
-    let newTagTitles = []; // titles of the project's tags to be returned with the updated document
     let sendCompleted = false;
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            if (checkProjectMemberPermission(project, req.user)) {
-                // determine if there are changes to save
-                if (req.body.hasOwnProperty('title') && req.body.title !== project.title) {
-                    updateObj.title = req.body.title;
-                }
-                if (req.body.hasOwnProperty('progress') && req.body.progress !== project.currentProgress) {
-                    updateObj.currentProgress = req.body.progress;
-                }
-                if (req.body.hasOwnProperty('peerProgress') && req.body.peerProgress !== project.peerProgress) {
-                    updateObj.peerProgress = req.body.peerProgress;
-                }
-                if (req.body.hasOwnProperty('a11yProgress') && req.body.a11yProgress !== project.a11yProgress) {
-                    updateObj.a11yProgress = req.body.a11yProgress;
-                }
-                if (req.body.hasOwnProperty('status') && req.body.status !== project.status) {
-                    updateObj.status = req.body.status;
-                    if (req.body.status === 'completed' && project.status !== 'completed') {
-                        // only send notifications when status is first changed to completed
-                        sendCompleted = true;
-                    }
-                }
-                if (req.body.hasOwnProperty('visibility') && req.body.visibility !== project.visibility) {
-                    updateObj.visibility = req.body.visibility;
-                }
-                if (req.body.hasOwnProperty('classification') && req.body.classification !== project.classification) {
-                    updateObj.classification = req.body.classification;
-                }
-                if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
-                    /* If the Project URL is a LibreTexts link, flag it to gather more information */
-                    libNames = libraryNameKeys.join('|');
-                    libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
-                    if (libreURLRegex.test(req.body.projectURL)) checkProjURL = true;
-                    updateObj.projectURL = req.body.projectURL;
-                }
-                if (req.body.hasOwnProperty('allowAnonPR') && req.body.allowAnonPR !== project.allowAnonPR) {
-                    updateObj.allowAnonPR = req.body.allowAnonPR;
-                }
-                if (req.body.hasOwnProperty('preferredPRRubric') && req.body.preferredPRRubric !== project.preferredPRRubric) {
-                    updateObj.preferredPRRubric = req.body.preferredPRRubric;
-                }
-                if (req.body.hasOwnProperty('author') && req.body.author !== project.author) {
-                    updateObj.author = req.body.author;
-                }
-                if (req.body.hasOwnProperty('authorEmail') && req.body.authorEmail !== project.authorEmail) {
-                    updateObj.authorEmail = req.body.authorEmail;
-                }
-                if (req.body.hasOwnProperty('license') && req.body.author !== project.license) {
-                    updateObj.license = req.body.license;
-                }
-                if (req.body.hasOwnProperty('resourceURL') && req.body.resourceURL !== project.resourceURL) {
-                    updateObj.resourceURL = req.body.resourceURL;
-                }
-                if (req.body.hasOwnProperty('notes') && req.body.notes !== project.notes) {
-                    updateObj.notes = req.body.notes;
-                }
-                if (req.body.hasOwnProperty('rdmpReqRemix') && req.body.rdmpReqRemix !== project.rdmpReqRemix) {
-                    updateObj.rdmpReqRemix = req.body.rdmpReqRemix;
-                }
-                if (req.body.hasOwnProperty('rdmpCurrentStep') && req.body.rdmpCurrentStep !== project.rdmpCurrentStep) {
-                    updateObj.rdmpCurrentStep = req.body.rdmpCurrentStep;
-                }
-                if (req.body.hasOwnProperty('tags') && Array.isArray(req.body.tags)) {
-                    checkTags = true;
-                }
-                if (checkTags) {
-                    if (req.body.tags.length > 0) {
-                        // need to resolve tags
-                        return Tag.aggregate([
-                            {
-                                $match: {
-                                    $and: [
-                                        { orgID: process.env.ORG_ID },
-                                        { title: { $in: req.body.tags } }
-                                    ]
-                                }
-                            }
-                        ])
-                    } else {
-                        updateObj.tags = []; // tags removed
-                    }
-                }
-                // don't need to modify or resolve tags
-                return [];
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((allOrgTags) => {
-        let tagBulkOps = [];
-        let projTagIDs = [];
-        // build new array of existing tagIDs,
-        // otherwise generate a new tagID and prepare to insert in DB
-        if (checkTags) {
-            req.body.tags.forEach((tagItem) => {
-                let foundTag = allOrgTags.find((orgTag) => {
-                    return orgTag.title === tagItem;
-                });
-                if (foundTag !== undefined) {
-                    projTagIDs.push(foundTag.tagID);
-                    newTagTitles.push(foundTag.title);
-                } else {
-                    let newID = b62(12);
-                    tagBulkOps.push({
-                        insertOne: {
-                            document: {
-                                orgID: process.env.ORG_ID,
-                                tagID: newID,
-                                title: tagItem
-                            }
-                        }
-                    });
-                    projTagIDs.push(newID);
-                    newTagTitles.push(tagItem);
-                }
+    
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (!checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    async function resolveTags(tagArr) {
+      if (tagArr.length > 0) {
+        const tagBulkInsert = [];
+        const newTagIDs = [];
+        const orgTags = await Tag.aggregate([
+          {
+            $match: {
+              $and: [
+                { orgID: process.env.ORG_ID },
+                { title: { $in: tagArr } },
+              ],
+            },
+          },
+        ]);
+        tagArr.forEach((tagItem) => {
+          const foundTag = orgTags.find((oTag) => oTag.title === tagItem);
+          if (foundTag) {
+            newTagIDs.push(foundTag.tagID);
+          } else {
+            const newID = b62(12);
+            tagBulkInsert.push({
+              orgID: process.env.ORG_ID,
+              tagID: newID,
+              title: tagItem,
             });
-            if (projTagIDs.length > 0) {
-                // set project tags with resolved array
-                updateObj.tags = projTagIDs;
-                if (tagBulkOps.length > 0) {
-                    // insert new tags
-                    return Tag.bulkWrite(tagBulkOps, {
-                        ordered: false
-                    });
-                }
-            }
-        }
-        // no new tags to insert
-        return {};
-    }).then((_bulkRes) => {
-        // optionally lookup LibreText information if a LibreTexts URL was provided
-        if (checkProjURL) return getLibreTextInformation(updateObj.projectURL);
-        return {};
-    }).then((projURLInfo) => {
-        if (checkProjURL) {
-            if (projURLInfo.hasOwnProperty('lib') && projURLInfo.lib !== '') updateObj.libreLibrary = projURLInfo.lib;
-            if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') updateObj.libreCoverID = projURLInfo.id;
-            if (projURLInfo.hasOwnProperty('shelf') && projURLInfo.shelf !== '') updateObj.libreShelf = projURLInfo.shelf;
-            else if (projURLInfo.hasOwnProperty('campus') && projURLInfo.campus !== '') updateObj.libreCampus = projURLInfo.campus;
-        }
-        if (Object.keys(updateObj).length > 0) {
-            // check if an update needs to be submitted
-            return Project.updateOne({
-                projectID: req.body.projectID
-            }, updateObj);
-        }
-        return {};
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            if (sendCompleted) {
-                notifyProjectCompleted(req.body.projectID);
-            }
-            return res.send({
-                err: false,
-                msg: 'Successfully updated project.'
-            });
-        } else if (Object.keys(updateRes).length === 0 && Object.keys(updateObj).length === 0) {
-            return res.send({
-                err: false,
-                msg: 'No changes to save.'
-            });
-        } else {
-            throw (new Error('updatefailed'));
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
+            newTagIDs.push(newID);
+          }
         });
+        if (newTagIDs.length > 0 && tagBulkInsert.length > 0) {
+          Tag.insertMany(tagBulkInsert, { ordered: false }); // insert new tags
+        }
+        return newTagIDs;
+      }
+      return []; // tags removed
+    };
+
+    if (req.body.title && req.body.title !== project.title) {
+      updateObj.title = req.body.title;
+    }
+    if (req.body.hasOwnProperty('progress') && req.body.progress !== project.currentProgress) {
+      updateObj.currentProgress = req.body.progress;
+    }
+    if (req.body.hasOwnProperty('peerProgress') && req.body.peerProgress !== project.peerProgress) {
+      updateObj.peerProgress = req.body.peerProgress;
+    }
+    if (req.body.hasOwnProperty('a11yProgress') && req.body.a11yProgress !== project.a11yProgress) {
+      updateObj.a11yProgress = req.body.a11yProgress;
+    }
+    if (req.body.status && req.body.status !== project.status) {
+      updateObj.status = req.body.status;
+      /* only send notification on first change to complete */
+      sendCompleted = req.body.status === 'completed' && project.status !== 'completed';
+    }
+    if (req.body.visibility && req.body.visibility !== project.visibility) {
+      updateObj.visibility = req.body.visibility;
+    }
+    if (req.body.classification && req.body.classification !== project.classification) {
+      updateObj.classification = req.body.classification;
+    }
+    if (req.body.projectURL && req.body.projectURL !== project.projectURL) {
+      /* If the Project URL is a LibreTexts link, gather more information */
+      updateObj.projectURL = req.body.projectURL;
+      if (libreURLRegex.test(req.body.projectURL)) {
+        const projURLInfo = getLibreTextInformation(updateObj.projectURL);
+        if (projURLInfo.lib && projURLInfo.lib !== '') {
+          updateObj.libreLibrary = projURLInfo.lib;
+        }
+        if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') {
+          updateObj.libreCoverID = projURLInfo.id;
+        }
+        if (projURLInfo.shelf && projURLInfo.shelf !== '') {
+          updateObj.libreShelf = projURLInfo.shelf;
+        } else if (projURLInfo.campus && projURLInfo.campus !== '') {
+          updateObj.libreCampus = projURLInfo.campus;
+        }
+      }
+    }
+    if (req.body.hasOwnProperty('allowAnonPR') && req.body.allowAnonPR !== project.allowAnonPR) {
+      updateObj.allowAnonPR = req.body.allowAnonPR;
+    }
+    if (req.body.preferredPRRubric && req.body.preferredPRRubric !== project.preferredPRRubric) {
+      updateObj.preferredPRRubric = req.body.preferredPRRubric;
+    }
+    if (req.body.author && req.body.author !== project.author) {
+      updateObj.author = req.body.author;
+    }
+    if (req.body.authorEmail && req.body.authorEmail !== project.authorEmail) {
+      updateObj.authorEmail = req.body.authorEmail;
+    }
+    if (req.body.license && req.body.license !== project.license) {
+      updateObj.license = req.body.license;
+    }
+    if (req.body.resourceURL && req.body.resourceURL !== project.resourceURL) {
+      updateObj.resourceURL = req.body.resourceURL;
+    }
+    if (req.body.notes && req.body.notes !== project.notes) {
+      updateObj.notes = req.body.notes;
+    }
+    if (req.body.hasOwnProperty('rdmpReqRemix') && req.body.rdmpReqRemix !== project.rdmpReqRemix) {
+      updateObj.rdmpReqRemix = req.body.rdmpReqRemix;
+    }
+    if (req.body.rdmpCurrentStep && req.body.rdmpCurrentStep !== project.rdmpCurrentStep) {
+      updateObj.rdmpCurrentStep = req.body.rdmpCurrentStep;
+    }
+    if (req.body.tags && Array.isArray(req.body.tags)) {
+      updateObj.tags = await resolveTags(req.body.tags);
+    }
+
+    if (Object.keys(updateObj).length > 0) {
+      const updateRes = await Project.updateOne({ projectID }, updateObj);
+      if (updateRes.modifiedCount !== 1) {
+        return res.status(500).send({
+          err: true,
+          errMsg: conductorErrors.err3,
+        });
+      }
+      if (sendCompleted) {
+        notifyProjectCompleted(projectID);
+      }
+      return res.send({
+        err: false,
+        msg: 'Successfully updated project!',
+      });
+    } else {
+      return res.send({
+        err: false,
+        msg: 'No changes to save.',
+      });
+    }
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
     });
+  } 
 };
 
 
