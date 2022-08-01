@@ -43,13 +43,16 @@ export const MATERIALS_S3_CLIENT_CONFIG = {
 
 /**
  * Validates a string follows the internal LibreTexts `lib-coverID` Book ID format.
- * @param {String} bookID - The string to validate as a Book ID.
- * @returns {Boolean} True if valid, false otherwise.
+ *
+ * @param {string} bookID - The string to validate as a Book ID.
+ * @returns {boolean} True if valid, false otherwise.
  */
 export const checkBookIDFormat = (bookID) => {
     if (typeof(bookID) === 'string') {
         const match = bookID.match(/[a-z1-2]{3,9}[-][0-9]{2,10}/ig);
-        if (match.length === 1 && match[0] === bookID) return true;
+        if (match && match[0] === bookID) {
+          return true;
+        }
     }
     return false;
 }
