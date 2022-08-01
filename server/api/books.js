@@ -1353,17 +1353,18 @@ async function getLicenseReport(req, res) {
   };
   try {
     const { bookID } = req.params;
+    let notFound = false;
     const licRep = await axios.get(
       `https://api.libretexts.org/licensereports/${bookID}.json`,
     ).catch((err) => {
       if (err.response?.status === 404) {
-        return res.status(404).send(notFoundResponse);
+        notFound = true;
       } else {
         throw (err);
       }
     })
-    if (!licRep.data?.id) {
-      return res.status(404).send(notFoundResponse);
+    if (notFound || !licRep.data?.id) {
+      return res.send(notFoundResponse);
     }
 
     return res.send({
