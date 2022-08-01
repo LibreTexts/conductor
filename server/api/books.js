@@ -1018,45 +1018,97 @@ const getCatalogFilterOptions = (_req, res) => {
  * Returns a Book object given a book ID.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookDetail'
- * @param {Object} req - The Express.js request object.
- * @param {Object} res - The Express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const getBookDetail = (req, res) => {
-    Book.aggregate([
-        {
-            $match: {
-                bookID: req.query.bookID
-            }
-        }, {
-            $project: {
-                _id: 0,
-                __v: 0,
-                createdAt: 0,
-                updatedAt: 0
-            }
-        }
-    ]).then((books) => {
-        if (books.length > 0) {
-            return res.send({
-                err: false,
-                book: books[0]
-            });
-        } else {
-            return res.send({
-                err: true,
-                errMsg: conductorErrors.err11
-            });
-        }
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+async function getBookDetail(req, res) {
+  try {
+    const { bookID } = req.query;
+    const bookRes = await Book.aggregate([
+      {
+        $match: { bookID },
+      }, {
+        $addFields: {
+          hasMaterials: {
+            $and: [
+              { $ne: [{ $type: '$materials' }, 'missing'] },
+              { $ne: [{ $type: '$materials' }, 'null'] },
+              { $gt: [{ $size: '$materials' }, 0] },
+            ],
+          },
+          coverID: {
+            $arrayElemAt: [
+              { $split: ['$bookID', '-'] },
+              1,
+            ],
+          },
+        },
+      }, {
+        $lookup: {
+          from: 'projects',
+          let: {
+            lib: '$library',
+            coverID: '$coverID',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$$lib', '$libreLibrary'] },
+                    { $eq: ['$$coverID', '$libreCoverID'] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'project',
+        },
+      }, {
+        $addFields: {
+          project: {
+            $arrayElemAt: ['$project', 0],
+          },
+        },
+      }, {
+        $addFields: {
+          allowAnonPR: {
+            $and: [
+              { $ne: [{ type: '$project.allowAnonPR' }, 'missing'] },
+              { $ne: ['$project.allowAnonPR', false] },
+            ],
+          },
+        },
+      }, {
+        $project: {
+          _id: 0,
+          __v: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          materials: 0,
+          project: 0,
+        },
+      },
+    ]);
+    if (bookRes.length < 1) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    return res.send({
+      err: false,
+      book: bookRes[0],
     });
-};
-
-
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Checks if a Book has an associated Project, if it allows anonymous Peer Reviews, and the current Peer Reviews available.
