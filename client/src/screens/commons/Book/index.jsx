@@ -744,7 +744,16 @@ const CommonsBook = (props) => {
                   <StarRating value={book.rating} displayMode={true} />
                 </div>
               )}
-              {(book.hasOwnProperty('adaptID') && book.adaptID !== '') && (
+              <Button
+                icon="hand paper"
+                content="Submit an Adoption Report"
+                color="green"
+                fluid
+                onClick={handleOpenAdoptionReport}
+                className="mt-2e"
+              />
+              <PeerReviewButtons />
+              {(book.adaptID && book.adaptID !== '') && (
                 <Button
                   icon="tasks"
                   content="View Homework on ADAPT"
@@ -754,16 +763,9 @@ const CommonsBook = (props) => {
                   href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
                   target="_blank"
                   rel="noreferrer"
+                  className="mt-1r"
                 />
               )}
-              <Button
-                icon="hand paper"
-                content="Submit an Adoption Report"
-                color="green"
-                fluid
-                onClick={handleOpenAdoptionReport}
-              />
-              <PeerReviewButtons />
               {materials.length > 0 && (
                 <Button
                   icon="folder open"
