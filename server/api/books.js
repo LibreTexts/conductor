@@ -1072,11 +1072,35 @@ async function getBookDetail(req, res) {
           },
         },
       }, {
+        $lookup: {
+          from: 'peerreviews',
+          let: {
+            projectID: '$project.projectID',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$projectID', '$$projectID'],
+                },
+              },
+            },
+          ],
+          as: 'peerReviews',
+        },
+      }, {
         $addFields: {
           allowAnonPR: {
             $and: [
-              { $ne: [{ type: '$project.allowAnonPR' }, 'missing'] },
+              { $ne: [{ $type: '$project.allowAnonPR' }, 'missing'] },
               { $ne: ['$project.allowAnonPR', false] },
+            ],
+          },
+          hasPeerReviews: {
+            $and: [
+              { $ne: [{ $type: '$peerReviews' }, 'missing'] },
+              { $ne: [{ $type: '$peerReviews' }, 'null' ] },
+              { $gt: [{ $size: '$peerReviews' }, 0] },
             ],
           },
         },
@@ -1088,6 +1112,7 @@ async function getBookDetail(req, res) {
           updatedAt: 0,
           materials: 0,
           project: 0,
+          peerReviews: 0,
         },
       },
     ]);
