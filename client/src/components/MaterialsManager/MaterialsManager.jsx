@@ -44,6 +44,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [itemsChecked, setItemsChecked] = useState(0);
   const [onlyFilesChecked, setOnlyFilesChecked] = useState(false);
+  const [allItemsChecked, setAllItemsChecked] = useState(false);
 
   const [currDirectory, setCurrDirectory] = useState('');
   const [currDirPath, setCurrDirPath] = useState([{
@@ -73,6 +74,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
             checked: false,
           }));
           setMaterials(withChecked);
+          setAllItemsChecked(false);
         }
         if (Array.isArray(matRes.data.path)) {
           setCurrDirPath(matRes.data.path);
@@ -84,8 +86,8 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
       handleGlobalError(e);
     }
     setMaterialsLoading(false);
-  }, [projectID, currDirectory, setMaterialsLoading,
-    setMaterials, setCurrDirPath, handleGlobalError]);
+  }, [projectID, currDirectory, setMaterialsLoading, setMaterials,
+    setCurrDirPath, handleGlobalError, setAllItemsChecked]);
 
   /**
    * Load the Materials list on open.
@@ -127,6 +129,30 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
       }
       return item;
     }));
+  }
+
+  /**
+   * Toggles the checked status of all entries in the list.
+   */
+  function handleToggleAllChecked() {
+    const foundChecked = materials.find((item) => item.checked);
+    if (foundChecked) { // one checked, uncheck all
+      setMaterials((prevMaterials) => prevMaterials.map((item) => {
+        return {
+          ...item,
+          checked: false,
+        };
+      }));
+      setAllItemsChecked(false);
+    } else { // none checked, check all
+      setMaterials((prevMaterials) => prevMaterials.map((item) => {
+        return {
+          ...item,
+          checked: true,
+        };
+      }));
+      setAllItemsChecked(true);
+    }
   }
 
   /**
@@ -394,12 +420,20 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
             <Segment attached="top">
               <DirectoryBreadcrumbs />
             </Segment>
-            <Table basic className="mt-2e" attached="bottom">
+            <Table basic attached="bottom">
               <Table.Header>
                 <Table.Row>
                   {TABLE_COLS.map((item) => (
                     <Table.HeaderCell key={item.key} width={item.width}>
                       {item.text}
+                      {item.key === 'check' && (
+                        <input
+                          type="checkbox"
+                          checked={allItemsChecked}
+                          onChange={handleToggleAllChecked}
+                          aria-label={`${allItemsChecked ? 'Uncheck' : 'Check'} all`}
+                        />
+                      )}
                     </Table.HeaderCell>
                   ))}
                 </Table.Row>
