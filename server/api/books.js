@@ -1036,13 +1036,6 @@ async function getBookDetail(req, res) {
         $match: { bookID },
       }, {
         $addFields: {
-          hasMaterials: {
-            $and: [
-              { $ne: [{ $type: '$materials' }, 'missing'] },
-              { $ne: [{ $type: '$materials' }, 'null'] },
-              { $gt: [{ $size: '$materials' }, 0] },
-            ],
-          },
           coverID: {
             $arrayElemAt: [
               { $split: ['$bookID', '-'] },
@@ -1064,6 +1057,7 @@ async function getBookDetail(req, res) {
                   $and: [
                     { $eq: ['$$lib', '$libreLibrary'] },
                     { $eq: ['$$coverID', '$libreCoverID'] },
+                    { $eq: ['$visibility', 'public'] },
                   ],
                 },
               },
@@ -1096,6 +1090,12 @@ async function getBookDetail(req, res) {
         },
       }, {
         $addFields: {
+          hasMaterials: {
+            $and: [
+              { $ifNull: ['$materials', false] },
+              { $gt: [{ $size: '$materials' }, 0] },
+            ],
+          },
           allowAnonPR: {
             $and: [
               { $ne: [{ $type: '$project.allowAnonPR' }, 'missing'] },
@@ -1104,9 +1104,26 @@ async function getBookDetail(req, res) {
           },
           hasPeerReviews: {
             $and: [
-              { $ne: [{ $type: '$peerReviews' }, 'missing'] },
-              { $ne: [{ $type: '$peerReviews' }, 'null' ] },
+              { $ifNull: ['$peerReviews', false] },
               { $gt: [{ $size: '$peerReviews' }, 0] },
+            ],
+          },
+          hasAdaptCourse: {
+            $and: [
+              { $ifNull: ['$project.adaptCourseID', false] },
+              { $gt: [{ $strLenBytes: '$project.adaptCourseID' }, 0] },
+            ],
+          },
+          adaptCourseID: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ['$project.adaptCourseID', false] },
+                  { $gt: [{ $strLenBytes: '$project.adaptCourseID' }, 0] },
+                ]
+              },
+              '$project.adaptCourseID',
+              '$adaptCourseID', // undefined
             ],
           },
         },

@@ -58,6 +58,8 @@ const ProjectSchema = new mongoose.Schema({
     license: String,            // resource license (if applicable)
     resourceURL: String,        // resource original URL (if applicable)
     projectURL: String,         // the URL where the project exists (if applicable, typically a LibreTexts lib link)
+    adaptURL: String,           // the URL of the project's ADAPT resources
+    adaptCourseID: String,      // the project's corresponding ADAPT Course ID, extracted from the @adaptURL
     tags: [String],             // project tags (tagIDs)
     notes: String,              // project notes/description
     rating: {                   // the overall quality, rated on a scale of 0-5, updated via Peer Reviews

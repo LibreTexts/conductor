@@ -621,6 +621,17 @@ async function updateProject(req, res) {
         }
       }
     }
+    if (req.body.adaptURL && req.body.adaptURL !== project.adaptURL) {
+      if (req.body.adaptURL !== '') { // link
+        const courseIDMatches = req.body.adaptURL.match(/[0-9]+/);
+        if (courseIDMatches.length === 1) {
+          updateObj.adaptCourseID = courseIDMatches[0];
+        }
+      } else { // unlink
+        updateObj.adaptCourseID = '';
+      }
+      updateObj.adaptURL = req.body.adaptURL;
+    }
     if (req.body.hasOwnProperty('allowAnonPR') && req.body.allowAnonPR !== project.allowAnonPR) {
       updateObj.allowAnonPR = req.body.allowAnonPR;
     }
@@ -3216,6 +3227,22 @@ const validateMaterialAccessSetting = (access) => {
   return ['public', 'users'].includes(access);
 };
 
+/**
+ * Verifies that a provided ADAPT Course URL contains a Course ID number.
+ *
+ * @param {string} url - The course url to validate. 
+ * @returns {boolean} True if valid course url, false otherwise.
+ */
+function validateADAPTCourseURL(url) {
+  if (typeof (url) === 'string') {
+    if (url.includes('/courses/')) { // link course
+      return Array.isArray(url.match(/[0-9]+/));
+    } else if (url === '') { // allow empty strings to unlink course
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Middleware(s) to verify requests contain
@@ -3262,7 +3289,8 @@ const validate = (method) => {
           body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
           body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
-          body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep)
+          body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
+          body('adaptURL', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateADAPTCourseURL),
       ]
     case 'getProject':
       return [

@@ -111,6 +111,7 @@ const ProjectView = (props) => {
   const [projA11YProgress, setProjA11YProgress] = useState(0);
   const [projURL, setProjURL] = useState('');
   const [projTags, setProjTags] = useState([]);
+  const [projAdaptURL, setProjAdaptURL] = useState('');
   const [projResAuthor, setProjResAuthor] = useState('');
   const [projResEmail, setProjResEmail] = useState('');
   const [projResLicense, setProjResLicense] = useState('');
@@ -490,6 +491,7 @@ const ProjectView = (props) => {
     if (project.classification) setProjClassification(project.classification);
     if (project.projectURL) setProjURL(project.projectURL);
     if (project.tags) setProjTags(project.tags);
+    if (project.adaptURL) setProjAdaptURL(project.adaptURL);
     if (project.author) setProjResAuthor(project.author);
     if (project.authorEmail) setProjResEmail(project.authorEmail);
     if (project.license) setProjResLicense(project.license);
@@ -516,6 +518,7 @@ const ProjectView = (props) => {
     setProjClassification('');
     setProjURL('');
     setProjTags([]);
+    setProjAdaptURL('');
     setProjResAuthor('');
     setProjResEmail('');
     setProjResLicense('');
@@ -680,6 +683,9 @@ const ProjectView = (props) => {
       }
       if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
         projData.projectURL = projURL;
+      }
+      if ((project.adaptURL && project.adaptURL !== projAdaptURL) || !project.adaptURL) {
+        projData.adaptURL = projAdaptURL;
       }
       if ((project.author && project.author !== projResAuthor) || !project.author) {
         projData.author = projResAuthor;
@@ -2151,6 +2157,17 @@ const ProjectView = (props) => {
                               </Link>
                             </div>
                           )}
+                          {(project.adaptCourseID && project.adaptCourseID !== '') && (
+                            <div className="mt-1e">
+                              <a
+                                href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                View Course on ADAPT <Icon name="external" />
+                              </a>
+                            </div>
+                          )}
                           {(canViewDetails && project.hasCommonsBook) && (
                             <div className="mt-1e">
                               <Button
@@ -2644,6 +2661,39 @@ const ProjectView = (props) => {
                   value={projTags}
                 />
                 <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
+                <Divider />
+                <Header as="h3">Homework and Assessments</Header>
+                <p>
+                  <em>
+                    {`Use this section to link your project's Commons page (if applicable) to an `}
+                    <a href="https://adapt.libretexts.org" target="_blank" rel="noreferrer">ADAPT</a>
+                    {` assessment system course. `}
+                    <strong>Ensure the course allows anonymous users.</strong>
+                  </em>
+                </p>
+                <Form.Field>
+                  <label htmlFor="adaptURL">
+                    <span className="mr-05p">ADAPT Course URL <span className="muted-text">(if applicable)</span></span>
+                    <Popup
+                      trigger={<Icon name="info circle" />}
+                      position="top center"
+                      content={(
+                        <span className="text-center">
+                          Paste the URL of your Course Dashboard (assignments list) or Course Properties page. The Course ID will be automatically determined.
+                        </span>
+                      )}
+                    />
+                  </label>
+                  <Form.Input
+                    name="adaptURL"
+                    type="url"
+                    placeholder="Enter ADAPT Course Dashboard URL..."
+                    onChange={(e) => setProjAdaptURL(e.target.value)}
+                    value={projAdaptURL}
+                    id="adaptURL"
+                    className="mb-2p"
+                  />
+                </Form.Field>
                 <Divider />
                 <Header as='h3'>Source Properties</Header>
                 <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>

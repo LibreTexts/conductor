@@ -745,14 +745,14 @@ const CommonsBook = (props) => {
                 className="mt-2e"
               />
               <PeerReviewButtons />
-              {(book.adaptID && book.adaptID !== '') && (
+              {(book.hasAdaptCourse && book.adaptCourseID !== '') && (
                 <Button
                   icon="tasks"
                   content="View Homework on ADAPT"
                   color="teal"
                   fluid
                   as="a"
-                  href={`https://adapt.libretexts.org/courses/${book.adaptID}/anonymous`}
+                  href={`https://adapt.libretexts.org/courses/${book.adaptCourseID}/anonymous`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1r"
