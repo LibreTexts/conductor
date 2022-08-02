@@ -88,7 +88,7 @@ const getADAPTCatalog = (_req, res) => {
  * 
  */
 const syncADAPTCommons = () => {
-    let assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/commons/';
+    let assgnBaseURL = 'https://adapt.libretexts.org/api/assignments/open/commons/';
     let adaptCourses = [];
     let assgnRequests = [];
     let updatedCount = 0;
