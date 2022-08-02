@@ -29,8 +29,9 @@ const licenses = [
 ];
 
 const sortChoices = [
-    'title',
-    'author'
+  'random',
+  'title',
+  'author',
 ];
 
 export const MATERIALS_S3_CLIENT_CONFIG = {

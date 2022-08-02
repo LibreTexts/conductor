@@ -89,37 +89,44 @@ const normalizedSort = (a, b) => {
 };
 
 /**
- * Accepts an array of Books and the sorting choice and
- * returns the sorted array.
+ * Accepts an array of Books and the sorting choice and returns the sorted array.
+ *
  * @param {object[]} books - The array of Book objects to sort
- * @param {string} [sortChoice] - The sort choice, either 'author' or 'title' (default).
+ * @param {string} [sortChoice] - The sort choice, either 'random', 'author', or 'title' (default).
  * @returns {object[]} The sorted array of Books.
  */
-const sortBooks = (books, sortChoice) => {
-    if (Array.isArray(books) && !isEmptyString(sortChoice)) {
-        return books.sort((a, b) => {
-            var baseA = '';
-            var baseB = '';
-            if (sortChoice === 'author') {
-                baseA = String(a.author);
-                baseB = String(b.author);
-            } else { // default Sort by Title
-                baseA = String(a.title);
-                baseB = String(b.title);
-            }
-            var normalA = baseA.toLowerCase().toLowerCase().replace(/[^A-Za-z]+/g, "");
-            var normalB = baseB.toLowerCase().toLowerCase().replace(/[^A-Za-z]+/g, "");
-            if (normalA < normalB) {
-                return -1;
-            }
-            if (normalA > normalB) {
-                return 1;
-            }
-            return 0;
-        });
-    } else {
-        return [];
+function sortBooks(books, sortChoice) {
+  if (Array.isArray(books) && !isEmptyString(sortChoice)) {
+    if (sortChoice === 'random') {
+      let shuffleArr = [...books];
+      for (let i = shuffleArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffleArr[i], shuffleArr[j]] = [shuffleArr[j], shuffleArr[i]];
+      }
+      return shuffleArr;
     }
+    return books.sort((a, b) => {
+      let baseA = '';
+      let baseB = '';
+      if (sortChoice === 'author') {
+        baseA = String(a.author);
+        baseB = String(b.author);
+      } else { // default Sort by Title
+        baseA = String(a.title);
+        baseB = String(b.title);
+      }
+      const normalA = baseA.toLowerCase().replace(/[^A-Za-z]+/g, "");
+      const normalB = baseB.toLowerCase().replace(/[^A-Za-z]+/g, "");
+      if (normalA < normalB) {
+        return -1;
+      }
+      if (normalA > normalB) {
+        return 1;
+      }
+      return 0;
+    });
+  }
+  return [];
 };
 
 

@@ -22,9 +22,6 @@ import axios from 'axios';
 import queryString from 'query-string';
 
 import {
-    getShelfOptions,
-} from '../util/HarvestingMasterOptions.js';
-import {
     libraryOptions,
     getLibGlyphURL,
     getLibGlyphAltText,
@@ -83,12 +80,13 @@ const CommonsCatalog = () => {
     const [pubOptions, setPubOptions] = useState([]);
 
     // Sort and Search Filters
-    const [sortChoice, setSortChoice] = useState('title');
+    const [sortChoice, setSortChoice] = useState('random');
     const [displayChoice, setDisplayChoice] = useState('visual');
 
     const sortOptions = [
-        { key: 'title', text: 'Sort by Title', value: 'title' },
-        { key: 'author', text: 'Sort by Author', value: 'author' }
+        { key: 'random',  text: 'Sort by...',     value: 'random' },
+        { key: 'title',   text: 'Sort by Title',  value: 'title' },
+        { key: 'author',  text: 'Sort by Author', value: 'author' },
     ];
 
     /**
@@ -113,14 +111,17 @@ const CommonsCatalog = () => {
     }, [org]);
 
     /**
-     * Build the new search URL and
-     * push it onto the history stack.
-     * Change to location triggers the
-     * network request to fetch results.
+     * Build the new search URL and push it onto the history stack.
+     * Change to location triggers the network request to fetch results.
      */
     const performSearch = () => {
+        let sort = sortChoice;
         if (!initialSearch.current) {
             initialSearch.current = true;
+            /* change to ordered on first search */
+            if (sort !== 'title' && sort !== 'author') {
+              sort = 'title';
+            }
         }
         let searchURL = location.search;
         searchURL = updateParams(searchURL, 'search', searchString);
@@ -132,6 +133,7 @@ const CommonsCatalog = () => {
         searchURL = updateParams(searchURL, 'affiliation', affilFilter);
         searchURL = updateParams(searchURL, 'course', courseFilter);
         searchURL = updateParams(searchURL, 'publisher', pubFilter);
+        searchURL = updateParams(searchURL, 'sort', sort);
         history.push({
             pathname: location.pathname,
             search: searchURL
@@ -205,7 +207,7 @@ const CommonsCatalog = () => {
         }).then((res) => {
             if (!res.data.err) {
                 if (res.data.books && Array.isArray(res.data.books)) {
-                    setCatalogBooks(res.data.books);
+                  setCatalogBooks(res.data.books);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -299,7 +301,7 @@ const CommonsCatalog = () => {
         if (checkedParams.current) {
             searchCommonsCatalog();
         }
-    }, [checkedParams.current, initialSearch.current, location.search]);
+    }, [checkedParams.current, location.search]);
 
     /**
      * Update the URL query with the sort choice
@@ -307,13 +309,13 @@ const CommonsCatalog = () => {
      * change has been made.
      */
     useEffect(() => {
-        if (initialSearch.current) {
-            let searchURL = updateParams(location.search, 'sort', sortChoice);
-            history.push({
-                pathname: location.pathname,
-                search: searchURL
-            });
-        }
+      if (initialSearch.current) {
+        let searchURL = updateParams(location.search, 'sort', sortChoice);
+        history.push({
+            pathname: location.pathname,
+            search: searchURL
+        });
+      }
     }, [sortChoice]);
 
     /**
@@ -346,7 +348,7 @@ const CommonsCatalog = () => {
      * and update state accordingly.
      */
     useEffect(() => {
-        var params = queryString.parse(location.search);
+        let params = queryString.parse(location.search);
         if ((Object.keys(params).length > 0) && (!initialSearch.current)) {
             // enable results for those entering a direct search URL
             initialSearch.current = true;
