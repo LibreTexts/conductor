@@ -603,7 +603,7 @@ async function updateProject(req, res) {
     if (req.body.classification && req.body.classification !== project.classification) {
       updateObj.classification = req.body.classification;
     }
-    if (req.body.projectURL && req.body.projectURL !== project.projectURL) {
+    if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
       /* If the Project URL is a LibreTexts link, gather more information */
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
@@ -621,7 +621,7 @@ async function updateProject(req, res) {
         }
       }
     }
-    if (req.body.adaptURL && req.body.adaptURL !== project.adaptURL) {
+    if (req.body.hasOwnProperty('adaptURL') && req.body.adaptURL !== project.adaptURL) {
       if (req.body.adaptURL !== '') { // link
         const courseIDMatches = req.body.adaptURL.match(/[0-9]+/);
         if (courseIDMatches.length === 1) {
