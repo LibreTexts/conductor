@@ -64,37 +64,6 @@ const checkLibreAPIKey = (req, res, next) => {
     return res.status(401).send({ errMsg: conductorErrors.err5 });
 };
 
-
-/**
- * Verifies CORS properties (all routes).
- * 
- * @param {object} req - The route request object.
- * @param {object} res - The route response object.
- * @param {function} next - The route's next middleware function to be ran.
- */
-const corsHelper = (req, res, next) => {
-    let allowedOrigins = [];
-    let origin = req.headers.origin;
-    if (process.env.NODE_ENV === 'production') {
-        allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
-    } else if (process.env.NODE_ENV === 'development') {
-        if (process.env.DEVELOPMENTURLS) {
-            allowedOrigins = String(process.env.DEVELOPMENTURLS).split(',');
-        } else {
-            allowedOrigins = ['http://localhost:3000'];
-        }
-    }
-    /* Check if origin is in the allowedOrigns array OR if the origin is from the libretexts.org domain */
-    if ((allowedOrigins.indexOf(origin) > -1) || (origin && (origin.indexOf(".libretexts.org") > -1))) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, Content-Type, Authorization, Access-Control-Allow-Credentials, X-Requested-With');
-    return next();
-};
-
-
 /**
  * Performs security header checks and reconstructs the Authorization header from
  * cookies/credentials (all routes).
@@ -105,14 +74,15 @@ const corsHelper = (req, res, next) => {
  */
 const authSanitizer = (req, res, next) => {
   if (req.method !== 'OPTIONS') {
-    if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
+    const { cookies } = req
+    if (!req.header('authorization') && req.header('X-Requested-With') !== 'XMLHttpRequest') {
       return res.status(403).send({
         err: true,
         errMsg: 'Invalid request.',
       });
     }
-    const { headers, cookies } = req
-    if (!headers.authorization && cookies.conductor_access && cookies.conductor_signed) {
+    
+    if (!req.header('authorization') && cookies.conductor_access && cookies.conductor_signed) {
       req.headers.authorization = `${cookies.conductor_access}.${cookies.conductor_signed}`;
     }
   }
@@ -141,7 +111,6 @@ export default {
     checkValidationErrors,
     checkLibreCommons,
     checkLibreAPIKey,
-    corsHelper,
     authSanitizer,
     middlewareFilter
 }

@@ -5,6 +5,7 @@
 
 'use strict';
 import express from 'express';
+import cors from 'cors';
 import middleware from './middleware.js'; // Route middleware
 import authAPI from './api/auth.js';
 import usersAPI from './api/users.js';
@@ -30,7 +31,26 @@ let router = express.Router();
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
 const apiAuthRoutes = ['/auth/token'];
 
-router.use(middleware.middlewareFilter(ssoRoutes, middleware.corsHelper));
+router.use(cors({
+  origin: function (_origin, callback) {
+    let allowedOrigins = [];
+    if (process.env.NODE_ENV === 'production') {
+      allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
+    } else if (process.env.NODE_ENV === 'development') {
+      if (process.env.DEVELOPMENTURLS) {
+        allowedOrigins = String(process.env.DEVELOPMENTURLS).split(',');
+      } else {
+        allowedOrigins = ['localhost:5000'];
+      }
+    }
+    callback(null, allowedOrigins);
+  },
+  methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 7200,
+}));
+
 router.use(middleware.middlewareFilter(
   [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport'],
   middleware.authSanitizer,
