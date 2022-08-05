@@ -30,20 +30,20 @@ const AuthCodeSchema = new mongoose.Schema({
     required: true,
   },
   /**
-   * Datetime the auth code was issued.
+   * Datetime the auth code was issued. The 'expires' property
+   * instructs MongoDB to delete the record after 1 hour, if not done so by the system.
    */
   issued: {
     type: Date,
     required: true,
+    expires: 3600, // delete record after 1 hour if code unused
   },
   /**
-   * Seconds after which the auth code is no longer valid. The 'expires' property
-   * instructs MongoDB to delete the record after 1 hour, if not done so by the system.
+   * Seconds after which the auth code is no longer valid.
    */
   expiresIn: {
     type: Number,
     required: true,
-    expires: 3600, // delete record after 1 hour if code unused
   },
 });
 
