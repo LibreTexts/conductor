@@ -104,18 +104,19 @@ const corsHelper = (req, res, next) => {
  * @param {function} next - The route's next middleware function to be ran.
  */
 const authSanitizer = (req, res, next) => {
-    if (req.method !== 'OPTIONS') {
-        if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
-            return res.status(403).send({
-                err: true,
-                errMsg: "Invalid request."
-            });
-        }
-        if (req.cookies.conductor_access !== undefined && req.cookies.conductor_signed !== undefined) {
-            req.headers.authorization = req.cookies.conductor_access + '.' + req.cookies.conductor_signed;
-        }
+  if (req.method !== 'OPTIONS') {
+    if (req.header('X-Requested-With') !== 'XMLHttpRequest') {
+      return res.status(403).send({
+        err: true,
+        errMsg: 'Invalid request.',
+      });
     }
-    return next();
+    const { headers, cookies } = req
+    if (!headers.authorization && cookies.conductor_access && cookies.conductor_signed) {
+      req.headers.authorization = `${cookies.conductor_access}.${cookies.conductor_signed}`;
+    }
+  }
+  return next();
 };
 
 

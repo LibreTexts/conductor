@@ -28,9 +28,13 @@ import transFeedbackAPI from './api/translationfeedback.js';
 let router = express.Router();
 
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
+const apiAuthRoutes = ['/auth/token'];
 
 router.use(middleware.middlewareFilter(ssoRoutes, middleware.corsHelper));
-router.use(middleware.middlewareFilter([...ssoRoutes, '/commons/kbexport'], middleware.authSanitizer));
+router.use(middleware.middlewareFilter(
+  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport'],
+  middleware.authSanitizer,
+));
 
 
 /* Auth */
@@ -50,6 +54,12 @@ router.route('/auth/resetpassword/complete').post(
 router.route('/auth/changepassword').put(authAPI.verifyRequest,
     authAPI.validate('changePassword'), middleware.checkValidationErrors,
     authAPI.changePassword);
+
+router.route('/auth/token').post(
+  authAPI.validate('createAccessToken'),
+  middleware.checkValidationErrors,
+  authAPI.createAccessToken,
+);
 
 
 // SSO/OAuth (excluded from CORS/Auth routes)

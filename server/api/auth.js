@@ -3,16 +3,21 @@
 // auth.js
 
 'use strict';
+import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
+import cryptoRandomString from 'crypto-random-string';
 import axios from 'axios';
+import AccessToken from '../models/accesstoken.js';
+import APIClient from '../models/apiclient.js';
+import AuthCode from '../models/authcode.js';
 import User from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError, debugServer } from '../debug.js';
-import { isEmptyString } from '../util/helpers.js';
+import { isEmptyString, isValidDateObject, computeDateDifference } from '../util/helpers.js';
 import mailAPI from './mail.js';
 
 const tokenTime = 86400;
@@ -21,6 +26,8 @@ const tokenURL = 'https://sso.libretexts.org/cas/oauth2.0/accessToken';
 const callbackURL = 'https://commons.libretexts.org/api/v1/oauth/libretexts';
 const profileURL = 'https://sso.libretexts.org/cas/oauth2.0/profile';
 
+const AUTH_CODE_LIFETIME = 30; // seconds
+const ACCESS_TOKEN_LIFETIME = 43200; // seconds
 
 /**
  * Creates (Access & Signature) Conductor cookies given a JWT.
@@ -656,30 +663,247 @@ const getUserBasicWithEmail = (uuid) => {
     });
 };
 
+/**
+ * Generates and saves an AuthCode for a given API Client on behalf of a user.
+ *
+ * @param {string} apiClientID - The internal API Client identifier.
+ * @param {string} user - The user's UUID.
+ * @returns {Promise<[string,number]|null>} The generated AuthCode and lifetime (in seconds),
+ *  or null if error encountered.
+ */
+async function createAuthCode(apiClientID, user) {
+  if (
+    typeof (apiClientID) !== 'string'
+    || apiClientID.length < 1
+    || typeof (user) !== 'string'
+    || user.length < 1
+  ) {
+    return null;
+  }
+  try {
+    const code = cryptoRandomString({ length: 6, type: 'base64' });
+    const authCode = new AuthCode({
+      issued: new Date(),
+      expiresIn: AUTH_CODE_LIFETIME,
+      code,
+      apiClientID,
+      user,
+    });
+    await authCode.save();
+    updateAPIClientLastUsed(apiClientID);
+    return [code, AUTH_CODE_LIFETIME];
+  } catch (e) {
+    debugError(e);
+    return null;
+  }
+}
 
 /**
- * Middleware to verify the JWT provided in a
- * request's Authorization header.
+ * Exchanges an AuthCode for an AccessToken to authenticate further requests from an API Client
+ * on behalf of a user.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const verifyRequest = (req, res, next) => {
-    let token = req.headers.authorization;
-    try {
-        const decoded = jwt.verify(token, process.env.SECRETKEY);
-        req.user = {
-            decoded: decoded
-        };
-        req.decoded = decoded; // TODO: REMOVE AND UPDATE OTHER LOGIC
-        return next();
-    } catch (err) {
-        let response = {
-            err: true,
-            errMsg: conductorErrors.err5
-        };
-        if (err.name === 'TokenExpiredError') response.tokenExpired = true;
-        return res.status(401).send(response);
-    }
-};
+async function createAccessToken(req, res) {
+  try {
+    const { clientID, clientSecret, code } = req.body;
 
+    /* Find API Client */
+    const apiClient = await APIClient.findOne({ clientID }).lean();
+    if (!apiClient) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11
+      });
+    }
+
+    /* Validate API Client Secret */
+    const match = await bcrypt.compare(clientSecret, apiClient.clientSecret);
+    if (!match) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err67,
+      });
+    }
+
+    /* Validate provided AuthCode */
+    const authCode = await AuthCode.findOne({ code }).lean();
+    if (!authCode) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (!isValidDateObject(authCode.issued) || !authCode.hasOwnProperty('expiresIn')) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err68,
+      });
+    }
+    if (computeDateDifference(authCode.issued, new Date()) > (authCode.expiresIn * 1000)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err69,
+      });
+    }
+
+    /* Create AccessToken */
+    const token = cryptoRandomString({ length: 32, type: 'base64' });
+    const expiresIn = ACCESS_TOKEN_LIFETIME;
+    const accessToken = new AccessToken({
+      user: authCode.user,
+      apiClientID: apiClient.clientID,
+      issued: new Date(),
+      expiresIn,
+      token,
+    });
+    await accessToken.save();
+
+    await AuthCode.deleteOne({ code });
+    updateAPIClientLastUsed(apiClient.clientID);
+    return res.send({
+      err: false,
+      msg: 'Successfully generated Access Token!',
+      accessToken: token,
+      expiresIn,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Updates an API Client's key database entry with the current datetime in its 'lastUsed' field.
+ *
+ * @param {string} clientID - Internal identifier of the API Client.
+ * @returns {void}
+ */
+function updateAPIClientLastUsed(clientID) {
+  if (typeof (clientID) !== 'string') {
+    return;
+  }
+  APIClient.updateOne({ clientID }, { lastUsed: new Date() }).catch((e) => {
+    console.warn('Error updating APIClient Last Used time:');
+    console.warn(e);
+  });
+}
+
+/**
+ * Verifies an Access Token provided in a request from an API Client on behalf of a user.
+ *
+ * @param {express.Request} req - Incoming request object, with token in authorization header.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next function to run in the middleware chain.
+ */
+async function verifyAPIClientRequest(req, res, next) {
+  try {
+    const exprInvalidRes = { err: true, errMsg: conductorErrors.err70 };
+    const token = req.headers.authorization.replace('Bearer ', '');
+
+    const accessToken = await AccessToken.findOne({ token }).lean();
+    if (!accessToken) {
+      return res.status(401).send(exprInvalidRes);
+    }
+
+    /* Validate access token */
+    if (!isValidDateObject(accessToken.issued) || !accessToken.hasOwnProperty('expiresIn')) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err68,
+      });
+    }
+    if (computeDateDifference(accessToken.issued, new Date()) > (accessToken.expiresIn * 1000)) {
+      return res.status(401).send(exprInvalidRes);
+    }
+
+    /* Retrieve API Client info */
+    const apiClient = await APIClient.findOne({ clientID: accessToken.apiClientID }).lean();
+    if (!apiClient) {
+      return res.status(401).send(exprInvalidRes);
+    }
+    const { clientID, scopes } = apiClient;
+
+    /* Perform HIGH-LEVEL check on scope access */
+    if (!Array.isArray(scopes)) {
+      return res.status(401).send(exprInvalidRes);
+    }
+    const path = req.route.path;
+    const resourcePath = path.split('/').filter((part) => part.length !== 0);
+    const resourcePrefix = resourcePath[0];
+
+    const hasResourcePrefixScope = () => {
+      const foundScope = scopes.find((entry) => entry.startsWith(resourcePrefix));
+      if (foundScope) {
+        return true;
+      }
+      return false;
+    };
+    if (!hasResourcePrefixScope()) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    /* Save information to request object for later use */
+    req.user = {
+      decoded: { uuid: accessToken.user },
+    };
+    req.decoded = {
+      uuid: accessToken.user,
+    }; // TODO: Remove and update other handlers
+    req.apiClient = {
+      clientID,
+      scopes,
+    };
+
+    updateAPIClientLastUsed(clientID);
+    return next();
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Verifies the JWT provided by a user or a Bearer access token provided by
+ * an API client in the Authorization header.
+ *
+ * @param {express.Request} req - Incoming request object, with cookies already processed.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next function to run in the middleware chain.
+ */
+function verifyRequest(req, res, next) {
+  const authHeader = req.headers.authorization;
+  try {
+    if (typeof (authHeader) === 'string' && authHeader.startsWith('Bearer ')) {
+      return verifyAPIClientRequest(req, res, next);
+    }
+    const decoded = jwt.verify(authHeader, process.env.SECRETKEY);
+    req.user = { decoded };
+    req.decoded = decoded; // TODO: Remove and update other handlers
+    return next();
+  } catch (e) {
+    let tokenExpired = false;
+    if (e.name === 'TokenExpiredError') {
+      tokenExpired = true;
+    } else {
+      debugError(e);
+    }
+    return res.status(401).send({
+      err: true,
+      errMsg: conductorErrors.err5,
+      ...(tokenExpired && { tokenExpired }),
+    })
+  }
+}
 
 /**
  * Middleware to optionally verify a request if authorization
@@ -835,34 +1059,40 @@ const passwordValidator = (password) => {
  * necessary fields.
  */
 const validate = (method) => {
-    switch (method) {
-        case 'login':
-            return [
-                body('email', conductorErrors.err1).exists().isEmail(),
-                body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
-            ]
-        case 'register':
-            return [
-                body('email', conductorErrors.err1).exists().isEmail(),
-                body('password', conductorErrors.err1).exists().isString().custom(passwordValidator),
-                body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
-                body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100 })
-            ]
-        case 'resetPassword':
-            return [
-                body('email', conductorErrors.err1).exists().isEmail()
-            ]
-        case 'completeResetPassword':
-            return [
-                body('token', conductorErrors.err1).exists().isString(),
-                body('password', conductorErrors.err1).exists().isString().custom(passwordValidator)
-            ]
-        case 'changePassword':
-            return [
-                body('currentPassword', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
-                body('newPassword', conductorErrors.err1).exists().isString().custom(passwordValidator)
-            ]
-    }
+  switch (method) {
+    case 'login':
+      return [
+        body('email', conductorErrors.err1).exists().isEmail(),
+        body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
+      ]
+    case 'register':
+      return [
+        body('email', conductorErrors.err1).exists().isEmail(),
+        body('password', conductorErrors.err1).exists().isString().custom(passwordValidator),
+        body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
+        body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100 })
+      ]
+    case 'resetPassword':
+      return [
+        body('email', conductorErrors.err1).exists().isEmail()
+      ]
+    case 'completeResetPassword':
+      return [
+        body('token', conductorErrors.err1).exists().isString(),
+        body('password', conductorErrors.err1).exists().isString().custom(passwordValidator)
+      ]
+    case 'changePassword':
+      return [
+        body('currentPassword', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
+        body('newPassword', conductorErrors.err1).exists().isString().custom(passwordValidator)
+      ]
+    case 'createAccessToken':
+      return [
+        body('clientID', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 100 }),
+        body('clientSecret', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 100 }),
+        body('code', conductorErrors.err1).exists().isString().isLength({ min: 6, max: 6 }),
+      ]
+  }
 }
 
 export default {
@@ -876,6 +1106,8 @@ export default {
     getLibreTextsAdmins,
     getCampusAdmins,
     getUserBasicWithEmail,
+    createAuthCode,
+    createAccessToken,
     verifyRequest,
     optionalVerifyRequest,
     getUserAttributes,
