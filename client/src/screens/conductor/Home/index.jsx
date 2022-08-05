@@ -28,16 +28,16 @@ import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
-import ProjectCard from '../projects/ProjectCard';
-import Breakpoint from '../util/Breakpoints.jsx';
-import ConductorTextArea from '../util/ConductorTextArea';
+import ProjectCard from '../../../components/projects/ProjectCard';
+import Breakpoint from '../../../components/util/Breakpoints.jsx';
+import ConductorTextArea from '../../../components/util/ConductorTextArea';
 
 import {
     truncateString,
     capitalizeFirstLetter,
     isEmptyString
-} from '../util/HelperFunctions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+} from '../../../components/util/HelperFunctions.js';
+import useGlobalError from '../../../components/error/ErrorHooks.js';
 
 const Home = (props) => {
 
@@ -540,13 +540,13 @@ const Home = (props) => {
                                 Commons
                                 <Icon name='handshake' />
                             </Menu.Item>
-                            <Dropdown.Item
+                            <Menu.Item
                                 as={Link}
                                 to='/alerts'
                             >
                                 <Icon name='alarm' />
                                 My Alerts
-                            </Dropdown.Item>
+                            </Menu.Item>
                             <Menu.Item
                                 href='https://commons.libretexts.org/harvestrequest'
                                 target='_blank'

@@ -15,7 +15,7 @@ import CollectionsManager from './components/controlpanel/CollectionsManager';
 import ControlPanel from './components/controlpanel/ControlPanel';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
-import Home from './components/home/Home';
+import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
 import Login from './components/auth/Login';
 import MyAlerts from './components/alerts/MyAlerts';
