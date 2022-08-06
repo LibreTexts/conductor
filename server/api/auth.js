@@ -748,6 +748,14 @@ async function createAccessToken(req, res) {
       });
     }
 
+    /* Revoke previous AccessTokens for this user & API Client */
+    await AccessToken.deleteMany({
+      $and: [
+        { user: authCode.user },
+        { apiClientID: apiClient.clientID },
+      ],
+    });
+
     /* Create AccessToken */
     const token = cryptoRandomString({ length: 32, type: 'base64' });
     const expiresIn = ACCESS_TOKEN_LIFETIME;

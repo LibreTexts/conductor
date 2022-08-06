@@ -29,11 +29,13 @@ const AccessTokenSchema = new mongoose.Schema({
     required: true,
   },
   /**
-   * Datetime the access token was issued.
+   * Datetime the access token was issued. The 'expires' property instructs
+   * MongoDB to delete the record after 1 week, if not done so by the system.
    */
   issued: {
     type: Date,
     required: true,
+    expires: '7d',
   },
   /**
    * Seconds that the access token is valid for.
