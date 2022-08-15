@@ -132,28 +132,6 @@ const CommonsBook = (props) => {
   }, [bookID, setBookTOC, setLoadedTOC, handleGlobalError]);
 
   /**
-   * Load information about the Book from the server catalog.
-   */
-  const getBook = useCallback(async () => {
-    setLoadedData(false);
-    try {
-      const bookRes = await axios.get(`/commons/book/${bookID}`);
-      if (!bookRes.data.err) {
-        if (bookRes.data.book) {
-          bookRes.data.book.license = ''; // hotfix for new license infrastructure
-          setBook(bookRes.data.book);
-          getTOC();
-        }
-      } else {
-        handleGlobalError(bookRes.data.errMsg);
-      }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-    setLoadedData(true);
-  }, [bookID, getTOC, setBook, setLoadedData, handleGlobalError]);
-
-  /**
    * Load the Licensing Report from the server and, if found, compute
    * the information to display in the pie chart.
    */
@@ -241,20 +219,12 @@ const CommonsBook = (props) => {
     setCLRChapters, setLoadedLicensing]);
 
   /**
-   * Load any Peer Reviews and public Review permissions from the server and save to state.
+   * Load any Peer Reviews from the server and save to state.
    */
   const getPeerReviews = useCallback(async () => {
     try {
       const prRes = await axios.get(`/commons/book/${bookID}/peerreviews`);
       if (!prRes.data.err) {
-        if (
-          prRes.data.allowsAnon === true
-          && typeof (prRes.data.projectID) === 'string'
-          && prRes.data.projectID.length > 0
-        ) {
-          setPRAllow(true);
-          setPRProjectID(prRes.data.projectID);
-        }
         if (Array.isArray(prRes.data.reviews) && prRes.data.reviews.length > 0) {
           const sorted = [...prRes.data.reviews].sort((a, b) => {
             const aKey = new Date(a.createdAt);
@@ -280,7 +250,7 @@ const CommonsBook = (props) => {
     } catch (e) {
       console.error(e); // fail silently
     }
-  }, [bookID, setPRAllow, setPRProjectID, setPRReviews]);
+  }, [bookID, setPRReviews]);
 
   /**
    * Retrieves a list/hierarchy of any available Ancillary Materials for the book
@@ -316,6 +286,44 @@ const CommonsBook = (props) => {
   }, [bookID, isConductorUser, setMaterials]);
 
   /**
+   * Load information about the Book from the server catalog.
+   */
+  const getBook = useCallback(async () => {
+    setLoadedData(false);
+    try {
+      const bookRes = await axios.get(`/commons/book/${bookID}`);
+      if (!bookRes.data.err) {
+        if (bookRes.data.book) {
+          const bookData = bookRes.data.book;
+          bookData.license = ''; // hotfix for new license infrastructure
+          setBook(bookData);
+          if (
+            bookData.allowAnonPR
+            && typeof (bookData.projectID) === 'string'
+            && bookData.projectID.length > 0
+          ) {
+            setPRAllow(true);
+            setPRProjectID(bookData.projectID)
+          }
+          if (bookData.hasPeerReviews) {
+            getPeerReviews();
+          }
+          if (bookData.hasMaterials) {
+            getMaterials();
+          }
+          getTOC();
+        }
+      } else {
+        handleGlobalError(bookRes.data.errMsg);
+      }
+    } catch (e) {
+      handleGlobalError(e);
+    }
+    setLoadedData(true);
+  }, [bookID, getTOC, getPeerReviews, getMaterials, setBook, setPRAllow,
+      setPRProjectID, setLoadedData, handleGlobalError]);
+
+  /**
    * Register plugins and load data and preferences on initialization.
    */
   useEffect(() => {
@@ -339,15 +347,13 @@ const CommonsBook = (props) => {
   }, [book]);
 
   /**
-   * Look for licensing report and peer reviews once book information is loaded.
+   * Look for licensing report once book information is loaded.
    */
   useEffect(() => {
     if (loadedData && !loadedLicensing) {
       getLicenseReport();
-      getPeerReviews();
-      getMaterials();
     }
-  }, [loadedData, loadedLicensing, getLicenseReport, getPeerReviews, getMaterials]);
+  }, [loadedData, loadedLicensing, getLicenseReport]);
 
   /**
    * Updates state and localStorage with the user's preference to display a Book's Table of Contents.
