@@ -1090,6 +1090,18 @@ async function getBookDetail(req, res) {
         },
       }, {
         $addFields: {
+          projectID: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ['$project.projectID', false] },
+                  { $gt: [{ $strLenBytes: '$project.projectID' }, 0] },
+                ],
+              },
+              '$project.projectID',
+              '$projectID', // undefined
+            ],
+          },
           hasMaterials: {
             $and: [
               { $ifNull: ['$materials', false] },
@@ -1120,7 +1132,7 @@ async function getBookDetail(req, res) {
                 $and: [
                   { $ifNull: ['$project.adaptCourseID', false] },
                   { $gt: [{ $strLenBytes: '$project.adaptCourseID' }, 0] },
-                ]
+                ],
               },
               '$project.adaptCourseID',
               '$adaptCourseID', // undefined
