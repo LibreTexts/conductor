@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Image,
@@ -35,9 +35,10 @@ import styles from './Book.module.css';
 /**
  * Displays a Commons Catalog Book entry and related information.
  */
-const CommonsBook = (props) => {
+const CommonsBook = () => {
 
-  const bookID = props.match?.params?.id;
+  const { id: bookID } = useParams();
+  const location = useLocation();
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -354,6 +355,23 @@ const CommonsBook = (props) => {
       getLicenseReport();
     }
   }, [loadedData, loadedLicensing, getLicenseReport]);
+
+  /**
+   * Read URL Search Parameters to automatically open any requested tools
+   * (e.g. from a direct link from the LibreTexts Libraries).
+   */
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('adoptionreport') === 'show') {
+      setShowAdoptionReport(true); 
+    }
+    if (searchParams.get('peerreview') === 'show' && prAllow) {
+      setPRShow(true);
+    }
+    if (searchParams.get('materials') === 'show' && materials?.length > 0) {
+      setShowMaterials(true);
+    }
+  }, [location, prAllow, materials, setShowAdoptionReport, setPRShow, setShowMaterials]);
 
   /**
    * Updates state and localStorage with the user's preference to display a Book's Table of Contents.
