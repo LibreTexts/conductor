@@ -36,6 +36,7 @@ router.use(cors({
     let allowedOrigins = [];
     if (process.env.NODE_ENV === 'production') {
       allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
+      allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
     } else if (process.env.NODE_ENV === 'development') {
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(',');
