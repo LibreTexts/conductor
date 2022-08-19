@@ -25,25 +25,45 @@ const AuthCodeSchema = new mongoose.Schema({
   /**
    * Identifier of the external service consuming results from the API.
    */
-  apiClientID: {
+  clientID: {
     type: String,
     required: true,
   },
   /**
-   * Datetime the auth code was issued. The 'expires' property
-   * instructs MongoDB to delete the record after 1 hour, if not done so by the system.
+   * URI to redirect the user to after the code is issued.
+   */
+  redirectURI: {
+    type: String,
+    required: true,
+  },
+  /**
+   * Resouce/information scope(s) the API Client is authorized to access using
+   * Access- or RefreshTokens generated from this code. Multiple scopes are space-delimited.
+   */
+  scope: {
+    type: String,
+    required: true,
+  },
+  /**
+   * Indicates the user is authorizing an application for the first time or is
+   * reauthorizing following scope changes.
+   */
+  isNewAuth: Boolean,
+  /**
+   * Date the code was issued.
    */
   issued: {
     type: Date,
     required: true,
-    expires: 3600, // delete record after 1 hour if code unused
   },
   /**
-   * Seconds after which the auth code is no longer valid.
+   * The Date after which the code is no longer valid. The 'expires' property instructs
+   * MongoDB to delete the record ASAP after this time, if not done so by the system.
    */
-  expiresIn: {
-    type: Number,
+  expiresAt: {
+    type: Date,
     required: true,
+    expires: 0,
   },
 });
 

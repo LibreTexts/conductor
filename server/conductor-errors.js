@@ -63,8 +63,9 @@ const conductorErrors = {
     'err66': "Sorry, that operation can't be performed on this resource.",
     'err67': "Access Denied: Invalid client secret provided.",
     'err68': "Access Denied: Unable to compute authorization code or access token expiration time.",
-    'err69': "Access Denied: Authorization code expired or invalid.",
+    'err69': "Access Denied: Provided authorization grant is expired or invalid.",
     'err70': "Access Denied: Access token is expired or invalid.",
+    'err71': "Access Denied: Invalid request parameters provided.",
 };
 
 export default conductorErrors;

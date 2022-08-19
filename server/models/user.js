@@ -38,6 +38,25 @@ const UserSchema = new mongoose.Schema({
     tokenExpiry: Date,          // the datetime that the @resetToken is no longer valid
     customAvatar: Boolean,      // if the user has set their own avatar
     pinnedProjects: [String],   // UUIDs of 'pinned' projects
+    /**
+     * API Client applications the user has authorized to access their account.
+     */
+    authorizedApps: [{
+      /**
+       * API Client internal identifier.
+       */
+      clientID: {
+        type: String,
+        required: true,
+      },
+      /**
+       * Date the User authorized (or re-authorized) the API Client.
+       */
+      authorizedAt: {
+        type: Date,
+        required: true,
+      },
+    }],
 }, {
     timestamps: true
 });

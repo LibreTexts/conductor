@@ -186,6 +186,16 @@ export const getProductionURL = () => {
 };
 
 /**
+ * Removes a leading slash, if any, from a string.
+ *
+ * @param {string} str - The string to work on.
+ * @returns {string} The string with the leading slash removed.
+ */
+export function removeLeadingSlash(str) {
+  return str.startsWith('/') ? str.slice(1) : str;
+}
+
+/**
  * Removes a trailing slash, if any, from a given string.
  *
  * @param {string} str - The string to work on.

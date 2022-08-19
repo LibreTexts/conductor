@@ -4,6 +4,7 @@
 //
 
 'use strict';
+import express from 'express';
 import { validationResult } from 'express-validator';
 import conductorErrors from './conductor-errors.js';
 
@@ -65,52 +66,64 @@ const checkLibreAPIKey = (req, res, next) => {
 };
 
 /**
- * Performs security header checks and reconstructs the Authorization header from
- * cookies/credentials (all routes).
+ * Reconstructs the Authorization header from cookies, if not already present.
  * 
- * @param {object} req - The route request object.
- * @param {object} res - The route response object.
- * @param {function} next - The route's next middleware function to be ran.
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - Next middleware function to run.
+ * @returns {express.NextFunction|express.Response} Invocation of the next middleware, or
+ *  an error response.
  */
-const authSanitizer = (req, res, next) => {
+function authSanitizer(req, _res, next) {
   if (req.method !== 'OPTIONS') {
-    const { cookies } = req
-    if (!req.header('authorization') && req.header('X-Requested-With') !== 'XMLHttpRequest') {
-      return res.status(403).send({
-        err: true,
-        errMsg: 'Invalid request.',
-      });
-    }
-    
+    const { cookies } = req;
     if (!req.header('authorization') && cookies.conductor_access && cookies.conductor_signed) {
       req.headers.authorization = `${cookies.conductor_access}.${cookies.conductor_signed}`;
     }
   }
   return next();
-};
+}
 
+/**
+ * Performs security checks on incoming requests by examing header values.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - Next middleware function to run.
+ * @returns {express.NextFunction|express.Response} An invocation of the next middleware, or
+ *  an error response.
+ */
+function requestSecurityHelper(req, res, next) {
+  if (req.method !== 'OPTIONS' && req.header('x-requested-with') !== 'XMLHttpRequest') {
+    return res.status(403).send({
+      err: true,
+      errMsg: conductorErrors.err71,
+    });
+  }
+  return next();
+}
 
 /**
  * Checks if a route is a member of an array of paths to exclude from the given middleware. If so,
- * the route immediately progresses to its respective middleware chain, otherwise, the middleware
- * is activated.
- * @param {string[]} paths       - an array of paths to exclude from the middleware
- * @param {function} middleware  - the middleware function to execute if the path is not excluded
+ * the route continues its middleware chain, otherwise, the given middleware is activated.
+ *
+ * @param {string[]} paths - An array of paths to exclude from the middleware
+ * @param {function} middleware  - The middleware function to execute if the path is not excluded.
  */
-const middlewareFilter = (paths, middleware) => {
-    return (req, res, next) => {
-        if (paths.includes(req._parsedUrl.pathname)) {
-            return next();
-        } else {
-            return middleware(req, res, next);
-        }
+function middlewareFilter(paths, middleware) {
+  return (req, res, next) => {
+    if (paths.includes(req._parsedUrl.pathname)) {
+      return next();
     }
-};
+    return middleware(req, res, next);
+  }
+}
 
 export default {
     checkValidationErrors,
     checkLibreCommons,
     checkLibreAPIKey,
     authSanitizer,
+    requestSecurityHelper,
     middlewareFilter
 }

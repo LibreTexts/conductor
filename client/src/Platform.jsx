@@ -44,6 +44,7 @@ const Platform = () => {
     '/adopt',
     '/accessibility',
     '/translationfeedbackexport',
+    '/oauthconsent'
   ];
   const ApplicationTree = () => {
     return (

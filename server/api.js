@@ -25,26 +25,44 @@ import projectsAPI from './api/projects.js';
 import tasksAPI from './api/tasks.js';
 import msgAPI from './api/messaging.js';
 import transFeedbackAPI from './api/translationfeedback.js';
+import OAuth from './api/oauth.js';
+import apiClientsAPI from './api/apiclients.js';
 
 let router = express.Router();
 
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
-const apiAuthRoutes = ['/auth/token'];
+const apiAuthRoutes = ['/oauth2.0/authorize', '/oauth2.0/accessToken'];
 
 router.use(cors({
-  origin: function (_origin, callback) {
+  origin: function (origin, callback) {
+    /* Build dynamic origins list */
     let allowedOrigins = [];
     if (process.env.NODE_ENV === 'production') {
       allowedOrigins = String(process.env.PRODUCTIONURLS).split(',');
       allowedOrigins.push(/\.libretexts\.org$/); // any LibreTexts subdomain
-    } else if (process.env.NODE_ENV === 'development') {
+    }
+    if (process.env.NODE_ENV === 'development') {
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(',');
       } else {
         allowedOrigins = ['localhost:5000'];
       }
     }
-    callback(null, allowedOrigins);
+
+    /* Check provided origin */
+    const foundOrigin = allowedOrigins.find((allowed) => {
+      if (typeof (allowed) === 'string') {
+        return allowed === origin;
+      }
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    if (foundOrigin) {
+      return callback(null, origin);
+    }
+    return callback(null, 'https://libretexts.org'); // default
   },
   methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'Content-Type', 'Authorization', 'X-Requested-With'],
@@ -52,11 +70,12 @@ router.use(cors({
   maxAge: 7200,
 }));
 
+router.use(middleware.authSanitizer);
+
 router.use(middleware.middlewareFilter(
   [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport'],
-  middleware.authSanitizer,
+  middleware.requestSecurityHelper,
 ));
-
 
 /* Auth */
 router.route('/auth/login').post(
@@ -90,11 +109,9 @@ router.route('/auth/changepassword').put(
   authAPI.changePassword,
 );
 
-router.route('/auth/token').post(
-  authAPI.validate('createAccessToken'),
-  middleware.checkValidationErrors,
-  authAPI.createAccessToken,
-);
+router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
+
+router.route('/oauth2.0/accessToken').post(OAuth.token());
 
 
 // SSO/OAuth (excluded from CORS/Auth routes)
@@ -1032,5 +1049,12 @@ router.route('/project/:projectID/book/materials/:materialID?')
     middleware.checkValidationErrors,
     projectsAPI.removeProjectBookMaterial,
   );
+
+router.route('/apiclients/:clientID').get(
+  authAPI.verifyRequest,
+  apiClientsAPI.validate('getAPIClient'),
+  middleware.checkValidationErrors,
+  apiClientsAPI.getAPIClient,
+);
 
 export default router;

@@ -508,6 +508,61 @@ const deleteUser = (req, res) => {
     });
 };
 
+/**
+ * Retrieves the list of API Client apps a User has authorized to access their account
+ * given their UUID.
+ *
+ * @param {string} uuid - The User's unique identifier.
+ * @returns {Promise<object[]>} The list of authorized apps, or an empty array if not found.
+ */
+async function getUserAuthorizedApplications(uuid) {
+  if (typeof (uuid) === 'string' || uuid.length > 0) {
+    const foundUser = await User.findOne({ uuid }).lean();
+    if (foundUser && Array.isArray(foundUser.authorizedApps)) {
+      return foundUser.authorizedApps;
+    }
+  }
+  return [];
+}
+
+/**
+ * Adds (or refreshes) an API Client to a User's list of authorized applications.
+ *
+ * @param {string} uuid - The User's unique identifier.
+ * @param {string} clientID - The API Client identifier.
+ * @returns {Promise<boolean>} True if successfully added/updated, false otherwise.
+ */
+async function addUserAuthorizedApplication(uuid, clientID) {
+  if (uuid && clientID) {
+    const foundUser = await User.findOne({ uuid }).lean();
+    if (foundUser) {
+      let authorized = [];
+      if (Array.isArray(foundUser.authorizedApps)) {
+        authorized = foundUser.authorizedApps;
+      }
+      const existingIdx = authorized.findIndex((app) => app.clientID === clientID);
+      const now = new Date();
+      if (existingIdx > -1) { // re-auth
+        authorized[existingIdx] = {
+          ...authorized[existingIdx],
+          authorizedAt: now,
+        };
+      } else {
+        authorized.push({
+          clientID,
+          authorizedAt: now,
+        });
+      }
+      const updated = await User.updateOne({ uuid }, {
+        authorizedApps: authorized,
+      });
+      if (updated.modifiedCount === 1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 /**
  * Returns the roles held by the User identified in the request body. If the requesting user is a Campus Admin,
@@ -791,6 +846,8 @@ export default {
     getBasicUsersList,
     getUserInfoAdmin,
     deleteUser,
+    addUserAuthorizedApplication,
+    getUserAuthorizedApplications,
     getUserRoles,
     updateUserRole,
     getUserEmails,

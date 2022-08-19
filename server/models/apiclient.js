@@ -31,15 +31,53 @@ const APIClientSchema = new mongoose.Schema({
     required: true,
   },
   /**
+   * A URL with information about the API Client or its producer.
+   */
+  infoURL: {
+    type: String,
+    required: true,
+  },
+  /**
+   * URL of an icon (image download) representing the API Client.
+   */
+  icon: {
+    type: String,
+    required: true,
+  },
+  /**
+   * OAuth grant types allowed for the client.
+   */
+  grants: {
+    type: [String],
+    required: true,
+  },
+  /**
+   * Redirect URI for use in AuthCode OAuth flow.
+   */
+  redirectURI: String,
+  /**
    * Scopes of information contained in Conductor resources that the client is
-   * authorized to access.
+   * authorized to access, in the format ACCESS:SET:RESOURCE.
    */
   scopes: [String],
+  /**
+   * Datetime the client's authorized scopes were updated. Changes to this
+   * value trigger a reconsent for OAuth flows.
+   */
+  scopesLastUpdated: Date,
   /**
    * Datetime the client last used their ID:SECRET pair. SHOULD be updated whenever information
    * is accessed using the pair.
    */
   lastUsed: Date,
+  /**
+   * Time (in seconds) that an AccessToken issued for this client is valid for.
+   */
+  accessTokenLifetime: Number,
+  /**
+   * Time (in seconds) that a RefreshToken issued for this client is valid for.
+   */
+  refreshTokenLifetime: Number,
 });
 
 const APIClient = mongoose.model('APIClient', APIClientSchema);
