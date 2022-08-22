@@ -35,7 +35,7 @@ import {
     getLibraryName
 } from '../util/LibraryOptions.js';
 import {
-    getTermTaught,
+    getTermTaughtText,
     buildAccessMethodsList
 } from '../adoptionreport/AdoptionReportOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
@@ -464,7 +464,7 @@ const AdoptionReports = (props) => {
                                                     </Grid.Column>
                                                     <Grid.Column>
                                                         <Header sub>Term Taught</Header>
-                                                        <p>{getTermTaught(currentReport.instructor.term)}</p>
+                                                        <p>{getTermTaughtText(currentReport.instructor.term)}</p>
                                                     </Grid.Column>
                                                     <Grid.Column>
                                                         <Header sub>Number of Students</Header>

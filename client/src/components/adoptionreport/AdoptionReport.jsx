@@ -19,7 +19,7 @@ import {
     iAmOptions,
     libreNetOptions,
     studentUseOptions,
-    instrTaughtOptions
+    getInstructionTermOptions,
 } from './AdoptionReportOptions.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
@@ -72,6 +72,7 @@ const AdoptionReport = (props) => {
     const [instrTaughtTermErr, setInstrTaughtTermErr] = useState(false);
     const [instrNumStudentsErr, setInstrNumStudentsErr] = useState(false);
 
+    const instrTaughtOptions = getInstructionTermOptions();
 
     /**
      * Open or close the modal depending on the

@@ -11,6 +11,8 @@
     4 = LibreTexts in a Box     = 'librebox'
 */
 
+import { eachMonthOfInterval } from 'date-fns';
+
 const iAmOptions = [
     { key: 'empty',         text: 'Choose...',  value: '' },
     { key: 'student',       text: 'Student',    value: 'student' },
@@ -53,39 +55,98 @@ const studentUseOptions = [
     }
 ];
 
-const instrTaughtOptions = [
-    { key: 'empty', text: 'Choose...',              value: '' },
-    { key: 'fq19',  text: 'Fall Quarter 2019',      value: 'fq19' },
-    { key: 'fs19',  text: 'Fall Semester 2019',     value: 'fs19' },
-    { key: 'wq20',  text: 'Winter Quarter 2020',    value: 'wq20' },
-    { key: 'sq20',  text: 'Spring Quarter 2020',    value: 'sq20' },
-    { key: 'ss20',  text: 'Spring Semester 2020',   value: 'ss20' },
-    { key: 'sum20', text: 'Summer 2020',            value: 'sum20' },
-    { key: 'fq20',  text: 'Fall Quarter 2020',      value: 'fq20' },
-    { key: 'fs20',  text: 'Fall Semester 2020',     value: 'fs20' },
-    { key: 'wq21',  text: 'Winter Quarter 2021',    value: 'wq21' },
-    { key: 'sq21',  text: 'Spring Quarter 2021',    value: 'sq21' },
-    { key: 'ss21',  text: 'Spring Semester 2021',   value: 'ss21' },
-    { key: 'sum21', text: 'Summer 2021',            value: 'sum21' },
-    { key: 'fq21',  text: 'Fall Quarter 2021',      value: 'fq21' },
-    { key: 'fs21',  text: 'Fall Semester 2021',     value: 'fs21' },
-    { key: 'wq22',  text: 'Winter Quarter 2022',    value: 'wq22' },
-    { key: 'sq22',  text: 'Spring Quarter 2022',    value: 'sq22' },
-    { key: 'ss22',  text: 'Spring Semester 2022',   value: 'ss22' }
-];
+const instructionalTerms = {
+  fq: { textPrefix: 'Fall Quarter', months: [9, 10, 11, 12] },
+  fs: { textPrefix: 'Fall Semester', months: [8, 9, 10, 11, 12] },
+  wq: { textPrefix: 'Winter Quarter', months: [1, 2, 3, 4] },
+  sq: { textPrefix: 'Spring Quarter', months: [3, 4, 5, 6] },
+  ss: { textPrefix: 'Spring Semester', months: [1, 2, 3, 4, 5, 6] },
+  sum: { textPrefix: 'Summer', months: [6, 7, 8] },
+};
 
+/**
+ * Generates a list of potential instructional terms in which an instructor may have used a text.
+ * The generated range is centered around the current date and bounded by one year in the past
+ * and up to six months in the future.
+ *
+ * @returns {object[]} An array of objects describing instructional terms in the
+ *  key/text/value shape.
+ */
+function getInstructionTermOptions() {
+  const now = new Date();
+  const twoYearsAgo = new Date().setFullYear(now.getFullYear() - 2);
+  const sixMonthsFuture = new Date().setMonth(now.getMonth() + 6);
+
+  const datesISO = new Set();
+  [
+    ...eachMonthOfInterval({ start: twoYearsAgo, end: now }),
+    ...eachMonthOfInterval({ start: now, end: sixMonthsFuture }),
+  ].forEach((date) => datesISO.add(date.toISOString()));
+
+  const allMonths = [];
+  datesISO.forEach((dateString) => allMonths.push(new Date(dateString)));
+
+  const allOptions = [];
+  const termKeys = new Set();
+
+  const getYearAsTwoDigit = (fullYear) => {
+    if (Number.isNaN(fullYear)) {
+      return '';
+    }
+    return fullYear.toString().slice(-2);
+  };
+
+  const addTermsByMonth = (month) => {
+    const monthNum = month.getMonth() + 1;
+    Object.entries(instructionalTerms).forEach(([termPrefix, term]) => {
+      if (term.months.includes(monthNum)) {
+        const year = month.getFullYear();
+        const key = `${termPrefix}${getYearAsTwoDigit(year)}`;
+        if (!termKeys.has(key)) {
+          termKeys.add(key);
+          allOptions.push({
+            year,
+            key: key,
+            text: `${term.textPrefix} ${year}`,
+            value: key,
+            startMonth: term.months[0],
+          });
+        }
+      }
+    });
+  };
+
+  allMonths.forEach((month) => addTermsByMonth(month));
+  allOptions.sort((a, b) => (a.year - b.year) || (a.startMonth - b.startMonth)).map((a) => {
+    const term = a;
+    delete term.year;
+    delete term.startMonth;
+    return term;
+  });
+
+  return [
+    { key: 'empty', text: 'Choose...', value: '' },
+    ...allOptions
+  ];
+}
 
 /**
  * Retrieves the UI-ready text for a provided Instructional Term identifier.
- * @param {String} term - The Instructional Term shortened identifier.
- * @returns {String} The UI-ready Term name, or 'Unknown Term'.
+ *
+ * @param {string} term - The Instructional Term shortened identifier.
+ * @returns {string} The UI-ready Term name, or 'Unknown Term'. 
  */
-const getTermTaught = (term) => {
-    let foundTerm = instrTaughtOptions.find((elem) => elem.value === term);
-    if (foundTerm !== undefined) return foundTerm.text;
-    return "Unknown Term";
-};
-
+function getTermTaughtText(term) {
+  if (typeof (term) === 'string' && term.length > 0 && term.length < 6) {
+    const termKey = term.slice(0, -2);
+    const termSuffix = term.slice(-2);
+    const termObj = instructionalTerms[termKey];
+    if (termObj) {
+      return `${termObj.textPrefix} 20${termSuffix}`;
+    }
+  }
+  return 'Unknown Term';
+}
 
 /**
  * Builds a UI-ready, comma separated list of resource access methods given an
@@ -131,7 +192,7 @@ export {
     iAmOptions,
     libreNetOptions,
     studentUseOptions,
-    instrTaughtOptions,
-    getTermTaught,
+    getInstructionTermOptions,
+    getTermTaughtText,
     buildAccessMethodsList
 }

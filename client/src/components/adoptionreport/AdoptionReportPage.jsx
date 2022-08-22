@@ -22,7 +22,7 @@ import {
     iAmOptions,
     libreNetOptions,
     studentUseOptions,
-    instrTaughtOptions
+    getInstructionTermOptions,
 } from './AdoptionReportOptions.js';
 import { libraryOptions } from '../util/LibraryOptions';
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -80,6 +80,7 @@ const AdoptionReportPage = (props) => {
     const [instrNumStudentsErr, setInstrNumStudentsErr] = useState(false);
     const [instrResLibErr, setInstrResLibErr] = useState(false);
 
+    const instrTaughtOptions = getInstructionTermOptions();
 
     /**
      * Update page title.
