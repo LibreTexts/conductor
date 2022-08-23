@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 
-import AccountRequest from './components/accountrequest/AccountRequest';
+import AccountRequest from './screens/conductor/AccountRequest';
 import AccountRequests from './components/controlpanel/AccountRequests';
 import AccountSettings from './components/auth/AccountSettings';
 import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';

@@ -27,7 +27,7 @@ import {
     getLibGlyphURL,
     getLibraryName
 } from '../util/LibraryOptions.js';
-import { getPurposeText } from '../util/AccountRequestOptions.js';
+import { getPurposeText } from '../../utils/accountRequestHelpers';
 import useGlobalError from '../error/ErrorHooks.js';
 
 const AccountRequests = () => {
