@@ -104,7 +104,7 @@ const AccountRequest = (props) => {
             valid = false;
             setPurposeErr(true);
         }
-        if (purpose === 'oer' && (!Array.isArray(libs) || libs.length === 0)) {
+        if (purpose === 'oer' && (!Array.isArray(libs) || libs.length < 1 || libs.length > 3)) {
             valid = false;
             setLibsErr(true);
         }
@@ -263,18 +263,25 @@ const AccountRequest = (props) => {
                                 value={purpose}
                                 error={purposeErr}
                             />
-                            <Form.Select
-                                required={purpose === 'oer'}
-                                id='library'
-                                fluid
-                                label='Which libraries do you need accounts on?'
-                                multiple
-                                options={libraryOptions}
-                                placeholder='Libraries...'
-                                onChange={(_e, { value }) => setLibs(value)}
-                                value={libs}
-                                error={libsErr}
-                            />
+                            {(purpose === 'oer') && (
+                              <Form.Field>
+                                <label htmlFor="library">
+                                  {`Which libraries do you need accounts on? `}
+                                  <span className="muted-text">Pick the library that best fits your needs. (min. 1, max. 3)</span>
+                                </label>
+                                <Form.Select
+                                    required={purpose === 'oer'}
+                                    id='library'
+                                    fluid
+                                    multiple
+                                    options={libraryOptions}
+                                    placeholder='Libraries...'
+                                    onChange={(_e, { value }) => setLibs(value)}
+                                    value={libs}
+                                    error={libsErr}
+                                />
+                              </Form.Field>
+                            )}
                             <Divider />
                             <Header as='h3'>Instructor Verification</Header>
                             <p>Anyone can access and read the full LibreTexts content: no account is necessary to access content. These accounts are only for instructors who needs to create custom textbooks for their class or who want to upload new content to the LibreTexts Libraries.</p>
