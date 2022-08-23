@@ -72,7 +72,7 @@ const getReports = (req, res) => {
                     }
                 }, {
                     $project: {
-                        _id: 0
+                      _v: 0,
                     }
                 }, {
                     $sort: {

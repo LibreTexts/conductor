@@ -149,6 +149,25 @@ function getTermTaughtText(term) {
 }
 
 /**
+ * Retrieves UI-ready text for a provided response to the LibreNet consortium membership question.
+ *
+ * @param {string} response - The user's response identifier.
+ * @returns {string} The UI-ready user response.
+ */
+function getLibreNetConsortiumText(response) {
+  switch (response) {
+    case 'yes':
+      return 'Yes';
+    case 'no':
+      return 'No';
+    case 'dk':
+      return `Don't know`;
+    default:
+      return 'Unknown';
+  }
+}
+
+/**
  * Builds a UI-ready, comma separated list of resource access methods given an
  * array of internal identifiers.
  * @param {String[]} accessOptions - Array of internal access method identifiers.
@@ -194,5 +213,6 @@ export {
     studentUseOptions,
     getInstructionTermOptions,
     getTermTaughtText,
+    getLibreNetConsortiumText,
     buildAccessMethodsList
 }
