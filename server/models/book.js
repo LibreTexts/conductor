@@ -160,6 +160,10 @@ const BookSchema = new mongoose.Schema({
    * Ancillary Materials associated with the Book.
    */
   materials: [MaterialsSchema],
+  /**
+   * Meta-tags from the respective library attached to the Book.
+   */
+  libraryTags: [String],
 }, {
   timestamps: true
 });
@@ -172,6 +176,7 @@ BookSchema.index({
   course: 'text',
   license: 'text',
   affiliation: 'text',
+  libraryTags: 'text',
 });
 
 const Book = mongoose.model('Book', BookSchema);

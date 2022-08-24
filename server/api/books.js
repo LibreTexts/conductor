@@ -299,6 +299,7 @@ const syncWithLibraries = (_req, res) => {
                 let location = '';
                 let program = '';
                 let lastUpdated = '';
+                let libraryTags = [];
                 if (book.link) {
                     link = book.link;
                     if (String(book.link).includes('/Bookshelves/')) {
@@ -334,6 +335,7 @@ const syncWithLibraries = (_req, res) => {
                             program = tag.replace('program:', '');
                         }
                     });
+                    libraryTags = book.tags;
                 }
                 if (typeof (book.lastModified) === 'string') lastUpdated = book.lastModified;
                 processedBooks.push({
@@ -358,6 +360,7 @@ const syncWithLibraries = (_req, res) => {
                         lms: genLMSFileLink(book.zipFilename)
                     },
                     lastUpdated,
+                    libraryTags,
                 });
             }
         });
@@ -442,7 +445,8 @@ const syncWithLibraries = (_req, res) => {
                             thumbnail: book.thumbnail,
                             summary: book.summary,
                             links: book.links,
-                            lastUpdated: book.lastUpdated
+                            lastUpdated: book.lastUpdated,
+                            libraryTags: book.libraryTags,
                         }
                     },
                     upsert: true
