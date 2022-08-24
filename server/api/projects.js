@@ -1223,289 +1223,282 @@ const getProjectsUnderDevelopment = (req, res) => {
     });
 };
 
+/**
+ * Retrieves a list of Users that can be added to a Project team.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getAddableMembers(req, res) {
+  try {
+    const { projectID } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    /* Check user has permission to add team members */
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const existing = constructProjectTeam(project); // don't include existing team members
+    const users = await User.aggregate([
+      {
+        $match: {
+          uuid: { $nin: existing },
+        },
+      }, {
+        $project: {
+          _id: 0,
+          uuid: 1,
+          firstName: 1,
+          lastName: 1,
+          avatar: 1,
+        },
+      }, {
+        $sort: { firstName: -1 },
+      },
+    ]);
+
+    return res.send({
+      users,
+      err: false,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
- * Retrieves a list of the Users that can be added to the team of the
- * project identified in the request query.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getAddableMembers'
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
+ * Adds a User to the members list of a Project.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
  */
-const getAddableMembers = (req, res) => {
-    Project.findOne({
-        projectID: req.query.projectID
-    }).lean().then((project) => {
-        if (project) {
-            // check user has permission to add team members
-            if (checkProjectAdminPermission(project, req.user)) {
-                var unadd = constructProjectTeam(project); // can't add existing users
-                return User.aggregate([
-                    {
-                        $match: {
-                            uuid: {
-                                $nin: unadd
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }, {
-                        $sort: {
-                            firstName: -1
-                        }
-                    }
-                ]);
-            } else {
-                throw (new Error('unauth'))
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((users) => {
-        return res.send({
-            err: false,
-            users: users
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
+async function addMemberToProject(req, res) {
+  try {
+    const { projectID } = req.params;
+    const { uuid } = req.body;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+  
+    const user = await User.findOne({ uuid }).lean();
+    if (!user) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err7,
+      });
+    }
+  
+    const updateRes = await Project.updateOne({
+      projectID,
+    }, {
+      $addToSet: {
+        members: uuid,
+      }
     });
-};
-
+    if (updateRes.modifiedCount !== 1) {
+      throw (new Error('Project update failed.'));
+    }
+  
+    mailAPI.sendAddedAsMemberNotification(
+      user.email,
+      user.firstName,
+      projectID,
+      project.title,
+    ).catch((e) => debugError(e));
+  
+    return res.send({
+      err: false,
+      msg: 'Successfully added user as team member!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
- * Adds a User to the members list of the project identified
- * by the projectID in the request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'addMemberToProject'
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
+ * Changes a team member's role within a Project.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const addMemberToProject = (req, res) => {
-    var userData = {};
-    var projectData = {};
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            projectData = project;
-            // check user has permission to add members
-            if (checkProjectAdminPermission(project, req.user)) {
-                // check user is not attempting to add themself
-                if (req.body.uuid !== req.user?.decoded?.uuid) {
-                    // lookup user being added
-                    return User.findOne({ uuid: req.body.uuid }).lean();
-                } else {
-                    throw (new Error('invalid'));
-                }
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((user) => {
-        if (user) {
-            userData = user;
-            // update the project's members list
-            return Project.updateOne({
-                projectID: projectData.projectID
-            }, {
-                $addToSet: {
-                    members: userData.uuid
-                }
-            });
-        } else {
-            throw (new Error('usernotfound'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return mailAPI.sendAddedAsMemberNotification(userData.email, userData.firstName,
-                projectData.projectID, projectData.title);
-        } else {
-            throw (new Error('updatefailed')); // handle as generic error below
-        }
-    }).then(() => {
-        // ignore return value of Mailgun call
-        return res.send({
-            err: false,
-            msg: 'Successfully added user as team member.'
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'invalid') errMsg = conductorErrors.err2;
-        else if (err.message === 'usernotfound') errMsg = conductorErrors.err7;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
+async function changeMemberRole(req, res) {
+  try {
+    const { projectID, uuid } = req.params;
+    const { newRole } = req.body;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
 
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    /* Construct current role listings, remove user, then add user to new role */
+    let leads = [];
+    let liaisons = [];
+    let members = [];
+    let auditors = [];
+    if (Array.isArray(project.leads)) {
+      leads = project.leads.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.liaisons)) {
+      liaisons = project.liaisons.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.members)) {
+      members = project.members.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.auditors)) {
+      auditors = project.auditors.filter((item) => item !== uuid);
+    }
+    switch (newRole) {
+      case 'lead':
+        leads.push(uuid);
+        break;
+      case 'liaison':
+        liaisons.push(uuid);
+        break;
+      case 'member':
+        members.push(uuid);
+        break;
+      case 'auditor':
+        auditors.push(uuid);
+        break;
+      default:
+        throw (new Error('Unknown role identifier provided.'));
+    }
+    if (leads.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err44,
+      });
+    }
+
+    const updateRes = await Project.updateOne({ projectID }, {
+      leads,
+      liaisons,
+      members,
+      auditors,
+    });
+    if (updateRes.modifiedCount !== 1) {
+      throw (new Error('Project update failed.'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully changed team member role!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    })
+  }
+}
 
 /**
- * Changes a User's role within the team of the Project identified
- * in the request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js request object
+ * Removes a team member from a Project.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
  */
-const changeMemberRole = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            // check user has permission to manage team members
-            if (checkProjectAdminPermission(project, req.user)) {
-                /* Construct current role listings, remove user, then add user to new role */
-                let projLeads = [];
-                let projLiaisons = [];
-                let projMembers = [];
-                let projAuditors = [];
-                if (project.leads && Array.isArray(project.leads)) projLeads = project.leads;
-                if (project.liaisons && Array.isArray(project.liaisons)) projLiaisons = project.liaisons;
-                if (project.members && Array.isArray(project.members)) projMembers = project.members;
-                if (project.auditors && Array.isArray(project.auditors)) projAuditors = project.auditors;
-                projLeads = projLeads.filter(item => item !== req.body.uuid);
-                projLiaisons = projLiaisons.filter(item => item !== req.body.uuid);
-                projMembers = projMembers.filter(item => item !== req.body.uuid);
-                projAuditors = projAuditors.filter(item => item !== req.body.uuid);
-                switch (req.body.newRole) {
-                    case 'lead':
-                        projLeads.push(req.body.uuid);
-                        break;
-                    case 'liaison':
-                        projLiaisons.push(req.body.uuid);
-                        break;
-                    case 'member':
-                        projMembers.push(req.body.uuid);
-                        break;
-                    case 'auditor':
-                        projAuditors.push(req.body.uuid);
-                        break;
-                    default:
-                        throw (new Error('invalidarg'));
-                };
-                if (projLeads.length === 0) {
-                    throw (new Error('nolead')); // at least one lead must be specified
-                }
-                /* Send update to DB */
-                return Project.updateOne({
-                    projectID: project.projectID
-                }, {
-                    leads: projLeads,
-                    liaisons: projLiaisons,
-                    members: projMembers,
-                    auditors: projAuditors
-                });
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Successfully removed user from project team.'
-            });
-        } else {
-            throw (new Error('updatefailed')); // handle as generic error below
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'nolead') errMsg = conductorErrors.err44;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
+async function removeMemberFromProject(req, res) {
+  try {
+    const { projectID, uuid } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      })
+    }
+
+    let leads = [];
+    let liaisons = [];
+    let members = [];
+    let auditors = [];
+    if (Array.isArray(project.leads)) {
+      leads = project.leads.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.liaisons)) {
+      liaisons = project.liaisons.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.members)) {
+      members = project.members.filter((item) => item !== uuid);
+    }
+    if (Array.isArray(project.auditors)) {
+      auditors = project.auditors.filter((item) => item !== uuid);
+    }
+    if (leads.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err44,
+      });
+    }
+
+    const updateRes = await Project.updateOne({ projectID }, {
+      leads,
+      liaisons,
+      members,
+      auditors,
     });
-};
+    if (updateRes.modifiedCount !== 1) {
+      throw (new Error('Project update failed.'));
+    }
 
-
-/**
- * Removes a User from the team of the Project identified in the
- * request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'removeMemberFromProject'
- * @param {Object} req - the express.js request object
- * @param {Object} res - the express.js response object
- */
-const removeMemberFromProject = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            // check user has permission to remove team members
-            if (checkProjectAdminPermission(project, req.user)) {
-                // update the project's members list
-                let projLeads = [];
-                let projLiaisons = [];
-                let projMembers = [];
-                let projAuditors = [];
-                if (project.leads && Array.isArray(project.leads)) projLeads = project.leads;
-                if (project.liaisons && Array.isArray(project.liaisons)) projLiaisons = project.liaisons;
-                if (project.members && Array.isArray(project.members)) projMembers = project.members;
-                if (project.auditors && Array.isArray(project.auditors)) projAuditors = project.auditors;
-                projLeads = projLeads.filter(item => item !== req.body.uuid);
-                projLiaisons = projLiaisons.filter(item => item !== req.body.uuid);
-                projMembers = projMembers.filter(item => item !== req.body.uuid);
-                projAuditors = projAuditors.filter(item => item !== req.body.uuid);
-                if (projLeads.length === 0) {
-                    throw (new Error('nolead')); // at least one lead must be specified
-                }
-                return Project.updateOne({
-                    projectID: project.projectID
-                }, {
-                    leads: projLeads,
-                    liaisons: projLiaisons,
-                    members: projMembers,
-                    auditors: projAuditors
-                });
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Successfully removed user from project team.'
-            });
-        } else {
-            throw (new Error('updatefailed')); // handle as generic error below
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else if (err.message === 'nolead') errMsg = conductorErrors.err44;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
+    return res.send({
+      err: false,
+      errMsg: 'Successfully removed team member from Project.',
     });
-};
-
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Sets a flag on the Project identified by the projectID in the request body
@@ -3329,23 +3322,23 @@ const validate = (method) => {
       ]
     case 'getAddableMembers':
       return [
-          query('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
       ]
     case 'addMemberToProject':
       return [
-          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
           body('uuid', conductorErrors.err1).exists().isString().isUUID()
       ]
     case 'changeMemberRole':
       return [
-          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-          body('uuid', conductorErrors.err1).exists().isString().isUUID(),
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          param('uuid', conductorErrors.err1).exists().isString().isUUID(),
           body('newRole', conductorErrors.err1).exists().isString().custom(validateProjectRole)
       ]
     case 'removeMemberFromProject':
       return [
-          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
-          body('uuid', conductorErrors.err1).exists().isString().isUUID()
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+          param('uuid', conductorErrors.err1).exists().isString().isUUID()
       ]
     case 'flagProject':
       return [

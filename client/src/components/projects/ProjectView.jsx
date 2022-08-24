@@ -729,11 +729,7 @@ const ProjectView = (props) => {
    */
   const getTeamUserOptions = () => {
     setTeamUserOptsLoading(true);
-    axios.get('/project/team/addable', {
-      params: {
-        projectID: props.match.params.id
-      }
-    }).then((res) => {
+    axios.get(`/project/${props.match.params.id}/team/addable`).then((res) => {
       if (!res.data.err) {
         if (res.data.users && Array.isArray(res.data.users)) {
           var newOptions = [];
@@ -781,9 +777,8 @@ const ProjectView = (props) => {
   const submitAddTeamMember = () => {
     if (!isEmptyString(teamUserToAdd)) {
       setTeamModalLoading(true);
-      axios.put('/project/team/add', {
-        projectID: props.match.params.id,
-        uuid: teamUserToAdd
+      axios.post(`/project/${props.match.params.id}/team`, {
+        uuid: teamUserToAdd,
       }).then((res) => {
         if (!res.data.err) {
           setTeamModalLoading(false);
@@ -810,9 +805,7 @@ const ProjectView = (props) => {
   const submitChangeTeamMemberRole = (memberUUID, newRole) => {
     if (!isEmptyString(memberUUID) && !isEmptyString(newRole)) {
       setTeamModalLoading(true);
-      axios.put('/project/team/role', {
-        projectID: props.match.params.id,
-        uuid: memberUUID,
+      axios.put(`/project/${props.match.params.id}/team/${memberUUID}/role`, {
         newRole: newRole
       }).then((res) => {
         if (!res.data.err) {
@@ -839,10 +832,7 @@ const ProjectView = (props) => {
   const submitRemoveTeamMember = (memberUUID) => {
     if (!isEmptyString(memberUUID)) {
       setTeamModalLoading(true);
-      axios.put('/project/team/remove', {
-        projectID: props.match.params.id,
-        uuid: memberUUID
-      }).then((res) => {
+      axios.delete(`/project/${props.match.params.id}/team/${memberUUID}`).then((res) => {
         if (!res.data.err) {
           setTeamModalLoading(false);
           getTeamUserOptions();

@@ -798,7 +798,7 @@ router.route('/project/pin')
     projectsAPI.unpinProject,
   );
 
-router.route('/project/team/addable').get(
+router.route('/project/:projectID/team/addable').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   projectsAPI.validate('getAddableMembers'),
@@ -806,7 +806,7 @@ router.route('/project/team/addable').get(
   projectsAPI.getAddableMembers,
 );
 
-router.route('/project/team/add').put(
+router.route('/project/:projectID/team').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   projectsAPI.validate('addMemberToProject'),
@@ -814,7 +814,7 @@ router.route('/project/team/add').put(
   projectsAPI.addMemberToProject,
 );
 
-router.route('/project/team/role').put(
+router.route('/project/:projectID/team/:uuid/role').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   projectsAPI.validate('changeMemberRole'),
@@ -822,7 +822,7 @@ router.route('/project/team/role').put(
   projectsAPI.changeMemberRole,
 );
 
-router.route('/project/team/remove').put(
+router.route('/project/:projectID/team/:uuid').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   projectsAPI.validate('removeMemberFromProject'),
