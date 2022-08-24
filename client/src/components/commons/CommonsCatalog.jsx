@@ -435,7 +435,7 @@ const CommonsCatalog = () => {
             )
         } else {
             return (
-                <p className='text-center'><em>No results found.</em></p>
+                <p className='text-center mt-2e mb-2e'><em>No results found.</em></p>
             );
         }
     };
