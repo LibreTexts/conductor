@@ -618,168 +618,124 @@ const buildOrganizationNamesList = (orgData) => {
     }
 };
 
-
 /**
- * Returns the Commons Catalog results according
- * to the requested filters and sort option.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
- * VALIDATION: 'getCommonsCatalog'
+ * Returns the Commons Catalog results according to request filters, search parameters,
+ * and sort options.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing resposne object.
  */
-const getCommonsCatalog = (req, res) => {
-    var orgData = {};
-    var sortChoice = 'title'; // default to Sort by Title
-    const matchObj = {};
-    var hasSearchParams = false;
-    return new Promise((resolve, _reject) => {
-        if (process.env.ORG_ID === 'libretexts') {
-            // LibreCommons — no need to lookup Organization info
-            resolve({});
-        } else {
-            // Campus Commons — need Organization info
-            resolve(Organization.findOne({
-                orgID: process.env.ORG_ID
-            }, {
-                _id: 0,
-                orgID: 1,
-                name: 1,
-                shortName: 1,
-                abbreviation: 1,
-                aliases: 1
-            }));
-        }
-    }).then((orgDataRes) => {
-        if (orgDataRes && Object.keys(orgDataRes).length > 0) {
-            orgData = orgDataRes;
-        }
-        if (process.env.ORG_ID === 'libretexts') {
-            // LibreCommons - no need to lookup Custom Catalog
-            return {};
-        } else {
-            // Campus Commons - look up Custom Catalog
-            return CustomCatalog.findOne({
-                orgID: process.env.ORG_ID
-            }, {
-                _id: 0,
-                orgID: 1,
-                resources: 1
-            });
-        }
-    }).then((customCatalogRes) => {
-        var hasCustomEntries = false;
-        if (req.query.library && !isEmptyString(req.query.library)) {
-            matchObj.library = req.query.library;
-            hasSearchParams = true;
-        }
-        if (req.query.subject && !isEmptyString(req.query.subject)) {
-            matchObj.subject = req.query.subject;
-            hasSearchParams = true;
-        }
-        if (req.query.location && !isEmptyString(req.query.location)) {
-            matchObj.location = req.query.location;
-            hasSearchParams = true;
-        } else {
-            if (process.env.ORG_ID === 'libretexts') {
-                matchObj.location = 'central'; // LibreCommons — default to Central Bookshelves
-            } else {
-                matchObj.location = 'campus'; // Campus Commons — search Campus Bookshelves
-            }
-        }
-        if (req.query.author && !isEmptyString(req.query.author)) {
-            matchObj.author = req.query.author;
-            hasSearchParams = true;
-        }
-        if (req.query.license && !isEmptyString(req.query.license)) {
-            matchObj.license = req.query.license;
-            hasSearchParams = true;
-        }
-        if (req.query.affiliation && !isEmptyString(req.query.affiliation)) {
-            matchObj.affiliation = req.query.affiliation;
-            hasSearchParams = true;
-        }
-        if (req.query.sort && !isEmptyString(req.query.sort)) {
-            sortChoice = req.query.sort;
-        }
-        if (req.query.search && !isEmptyString(req.query.search)) {
-            matchObj['$text'] = {
-                $search: `\"${req.query.search}\"`
-            };
-            hasSearchParams = true;
-        }
-        if (req.query.course && !isEmptyString(req.query.course)) {
-            matchObj.course = req.query.course;
-            hasSearchParams = true;
-        }
-        if ((process.env.ORG_ID !== 'libretexts')) {
-            var campusNames = buildOrganizationNamesList(orgData);
-            if (req.query.course && !isEmptyString(req.query.course)) {
-                campusNames.unshift(req.query.course);
-            }
-            if (req.query.publisher && !isEmptyString(req.query.publisher)) {
-                campusNames.unshift(req.query.publisher)
-            }
-            if (customCatalogRes && Object.keys(customCatalogRes).length > 0) {
-                if (customCatalogRes.resources && Array.isArray(customCatalogRes.resources) &&
-                    customCatalogRes.resources.length > 0) {
-                    hasCustomEntries = true;
-                }
-            }
-            if (hasCustomEntries) {
-                if (matchObj.location) {
-                    delete matchObj.location; // prune matchObj to allow custom entries
-                }
-                matchObj['$or'] = [{
-                    bookID: {
-                        $in: customCatalogRes.resources
-                    }
-                }, {
-                    course: {
-                        $in: campusNames
-                    }
-                }, {
-                    program: {
-                        $in: campusNames
-                    }
-                }]
-            } else {
-                matchObj['$or'] = [{
-                    course: {
-                        $in: campusNames
-                    }
-                }, {
-                    program: {
-                        $in: campusNames
-                    }
-                }];
-            }
-        }
-        return Book.aggregate([
-            {
-                $match: matchObj
-            }, {
-                $project: {
-                    _id: 0,
-                    __v: 0,
-                    createdAt: 0,
-                    updatedAt: 0
-                }
-            }
-        ]);
-    }).then((books) => {
-        const sortedBooks = sortBooks(books, sortChoice);
-        return res.send({
-            err: false,
-            books: sortedBooks
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
-    });
-};
+async function getCommonsCatalog(req, res) {
+  try {
+    const orgID = process.env.ORG_ID;
 
+    /* Build search object */
+    const searchObj = {};
+    let sortChoice = 'title'; // default to title sort
+
+    const setStringIfPresent = (obj, prop, key) => {
+      if (prop && !isEmptyString(prop)) {
+        obj[key] = prop;
+      }
+    };
+
+    setStringIfPresent(searchObj, req.query.library, 'library');
+    setStringIfPresent(searchObj, req.query.subject, 'subject');
+    setStringIfPresent(searchObj, req.query.author, 'author');
+    setStringIfPresent(searchObj, req.query.license, 'license');
+    setStringIfPresent(searchObj, req.query.affiliation, 'affiliation');
+    setStringIfPresent(searchObj, req.query.course, 'course');
+    setStringIfPresent(searchObj, req.query.publisher, 'publisher');
+
+    if (req.query.search && !isEmptyString(req.query.search)) {
+      searchObj['$text'] = {
+        $search: req.query.search,
+      };
+    }
+    if (req.query.location && !isEmptyString(req.query.location)) {
+      searchObj.location = req.query.location;
+    } else {
+      if (orgID === 'libretexts') {
+        searchObj.location = 'central'; // default to Central Bookshelves
+      } else {
+        searchObj.location = 'campus'; // default to Campus Bookshelves
+      }
+    }
+    if (req.query.sort && !isEmptyString(req.query.sort)) {
+      sortChoice = req.query.sort;
+    }
+
+    if (orgID !== 'libretexts') {
+      let hasCustomEntries = false;
+      const orgData = await Organization.findOne({ orgID }, {
+        _id: 0,
+        orgID: 1,
+        name: 1,
+        shortName: 1,
+        abbreviation: 1,
+        aliases: 1,
+      });
+      const customCatalog = await CustomCatalog.findOne({ orgID }, {
+        _id: 0,
+        orgID: 1,
+        resources: 1,
+      });
+      if (
+        customCatalog
+        && Array.isArray(customCatalog.resources)
+        && customCatalog.resources.length > 0
+      ) {
+        hasCustomEntries = true;
+      }
+
+      const campusNames = buildOrganizationNamesList(orgData);
+      if (searchObj.course) {
+        campusNames.unshift(searchObj.course);
+      }
+      if (searchObj.publisher) {
+        campusNames.unshift(searchObj.publisher);
+      }
+      if (hasCustomEntries) {
+        if (searchObj.location) {
+          delete searchObj.location; // prune searchObj to allow custom entries
+        }
+        searchObj['$or'] = [
+          { bookID: { $in: customCatalog.resources } },
+          { course: { $in: campusNames } },
+          { program: { $in: campusNames } },
+        ];
+      } else {
+        searchObj['$or'] = [
+          { course: { $in: campusNames } },
+          { program: { $in: campusNames } },
+        ];
+      }
+    }
+
+    const books = await Book.aggregate([
+      {
+        $match: searchObj,
+      }, {
+        $project: {
+          _id: 0,
+          __v: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      },
+    ]);
+    return res.send({
+      err: false,
+      books: sortBooks(books, sortChoice),
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Returns the master list of Commons Catalog
