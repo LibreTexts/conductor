@@ -100,6 +100,11 @@ const CommonsMaterials = ({ show, onClose, bookID, materials, hasLockedFileAcces
               <Icon name="lock" aria-label="Restricted" title="Restricted" />
             </span>
           )}
+          folderDisabledAction={(
+            <span>
+              <Icon name="lock" aria-label="Restricted" title="Restricted" />
+            </span>
+          )}
         />
       </Modal.Content>
       <Modal.Actions>

@@ -197,7 +197,10 @@ const getShelvesNameText = (shelves) => {
  * @returns {string} The UI-ready representation.
  */
 const getMaterialsAccessText = (access) => {
-  const foundSetting = MATERIALS_ACCESS_SETTINGS.find((setting) => setting.value === access);
+  const foundSetting = [
+    ...MATERIALS_ACCESS_SETTINGS,
+    { key: 'mixed', text: 'Mixed', value: 'mixed' },
+  ].find((setting) => setting.value === access);
   if (foundSetting) {
     return foundSetting.text;
   }

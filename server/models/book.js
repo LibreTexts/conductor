@@ -15,7 +15,7 @@ MaterialsSchema.add({
   name: String,
   access: {
     type: String,
-    enum: ['public', 'users'],
+    enum: ['public', 'users', 'mixed'],
   },
   storageType: {
     type: String,

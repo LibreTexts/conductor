@@ -38,6 +38,7 @@ import {
   MATERIALS_S3_CLIENT_CONFIG,
   updateBookMaterials,
   downloadBookMaterial,
+  computeStructureAccessSettings,
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
 import { isEmptyString, assembleUrl } from '../util/helpers.js';
@@ -2363,6 +2364,7 @@ const autoGenerateProjects = (newBooks) => {
     }
 
     let parent = '';
+    let accessSetting = 'public'; // default
     if (req.body.parentID && req.body.parentID !== '') {
       const foundParent = materials.find((obj) => obj.materialID === req.body.parentID);
       if (!foundParent || foundParent.storageType === 'file') {
@@ -2372,6 +2374,9 @@ const autoGenerateProjects = (newBooks) => {
         });
       }
       parent = req.body.parentID;
+      if (foundParent.access !== 'mixed') {
+        accessSetting = foundParent.access; // assume same setting as parent
+      }
     }
 
     const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
@@ -2394,7 +2399,7 @@ const autoGenerateProjects = (newBooks) => {
         materialEntries.push({
           materialID: newID,
           name: file.originalname,
-          access: 'public',
+          access: accessSetting,
           size: file.size,
           createdBy: req.user.decoded.uuid,
           downloadCount: 0,
@@ -2701,23 +2706,41 @@ async function updateProjectBookMaterialAccess(req, res) {
         errMsg: conductorErrors.err63,
       });
     }
-    if (foundObj.storageType !== 'file') {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err6,
+
+    /* Update material and any children */
+    const entriesToUpdate = [];
+
+    const findChildEntriesToUpdate = (parentID) => {
+      materials.forEach((obj) => {
+        if (obj.parent === parentID) {
+          entriesToUpdate.push(obj);
+          if (obj.storageType === 'folder') {
+            findChildEntriesToUpdate(obj.materialID);
+          }
+        }
       });
+    };
+
+    entriesToUpdate.push(foundObj);
+    if (foundObj.storageType === 'folder') {
+      findChildEntriesToUpdate(foundObj.materialID);
     }
 
-    const updated = materials.map((obj) => {
-      if (obj.materialID === materialID) {
+    let updated = materials.map((obj) => {
+      const foundUpdater = entriesToUpdate.find((upd) => upd.materialID === obj.materialID);
+      if (foundUpdater) {
         return {
           ...obj,
           access: newAccess,
-        };
+        }
       }
       return obj;
     });
 
+    /* Recalculate access for all file system entries */
+    updated = computeStructureAccessSettings(updated);
+
+    /* Save updates */
     const bookUpdate = await updateBookMaterials(bookID, updated);
     if (!bookUpdate) {
       throw (new Error('updatefail'));
@@ -2803,7 +2826,7 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    const updated = materials.map((obj) => {
+    let updated = materials.map((obj) => {
       if (obj.materialID === materialID) {
         return {
           ...obj,
@@ -2812,6 +2835,8 @@ async function moveProjectBookMaterial(req, res) {
       }
       return obj;
     });
+
+    updated = computeStructureAccessSettings(updated);
 
     const bookUpdate = await updateBookMaterials(bookID, updated);
     if (!bookUpdate) {
@@ -2923,12 +2948,14 @@ async function moveProjectBookMaterial(req, res) {
       }
     }
 
-    const updated = materials.map((obj) => {
+    let updated = materials.map((obj) => {
       if (objectIDs.includes(obj.materialID)) {
         return null;
       }
       return obj;
     }).filter((obj) => obj !== null);
+
+    updated = computeStructureAccessSettings(updated);
 
     const bookUpdate = await updateBookMaterials(bookID, updated);
     if (!bookUpdate) {

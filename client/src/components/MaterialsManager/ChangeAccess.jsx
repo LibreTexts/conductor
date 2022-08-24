@@ -99,11 +99,19 @@ const ChangeAccess = ({ show, onClose, projectID, materials, onFinishedChange })
     <Modal open={show} onClose={onClose}>
       <Modal.Header>Change Material Access</Modal.Header>
       <Modal.Content>
-        <p><strong>WARNING: </strong> You're about to change the access setting on the following file(s):</p>
+        <p>
+          <strong>WARNING: </strong>
+          {`You're about to change the access setting on the following material(s). `}
+          <strong>Changing access to a folder will also change access to all of its files and subdirectories.</strong>
+        </p>
         <ul>
           {materials.map((obj) => (
             <li key={obj.materialID}>
-              <FileIcon filename={obj.name} />
+              {obj.storageType === 'folder' ? (
+                <Icon name="folder outline" />
+              ) : (
+                <FileIcon filename={obj.name} />
+              )}
               {obj.name}
             </li>
           ))}

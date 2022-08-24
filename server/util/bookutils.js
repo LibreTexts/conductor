@@ -486,6 +486,57 @@ export async function downloadBookMaterial(bookID, materialID, req) {
 }
 
 /**
+ * Computes the access settings of folder within a Materials file system.
+ * Does not update the database.
+ *
+ * @param {object[]} materials - The full array of materials, with any access updates applied.
+ * @returns {object[]} The array of materials with folder access settings fully computed.
+ */
+export function computeStructureAccessSettings(materials) {
+  let toUpdate = [];
+
+  const computeFolderAccess = (folder) => {
+    const uniqueSettings = new Set();
+    const children = materials.filter((obj) => obj.parent === folder.materialID);
+    children.forEach((child) => {
+      if (child.storageType === 'file') {
+        uniqueSettings.add(child.access);
+      }
+      if (child.storageType === 'folder') {
+        uniqueSettings.add(computeFolderAccess(child));
+      }
+    });
+    const foundSettings = Array.from(uniqueSettings);
+    let newSetting = null;
+    if (foundSettings.length > 1) {
+      newSetting = 'mixed';
+    }
+    if (foundSettings.length === 1) {
+      newSetting = foundSettings[0];
+    }
+    if (newSetting !== folder.access) {
+      toUpdate.push({
+        ...folder,
+        access: newSetting,
+      });
+      return newSetting;
+    }
+    return folder.access;
+  };
+
+  const topLevel = materials.filter((obj) => obj.storageType === 'folder' && obj.parent === '');
+  topLevel.forEach((obj) => computeFolderAccess(obj));
+
+  return materials.map((obj) => {
+    const foundUpdate = toUpdate.find((upd) => upd.materialID === obj.materialID);
+    if (foundUpdate) {
+      return foundUpdate;
+    }
+    return obj;
+  });
+}
+
+/**
  * Stores an update to a Book's Materials array in the database.
  *
  * @param {string} bookID - Identifier of the book to update.

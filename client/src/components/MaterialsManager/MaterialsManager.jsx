@@ -43,7 +43,6 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
   const [showMove, setShowMove] = useState(false);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [itemsChecked, setItemsChecked] = useState(0);
-  const [onlyFilesChecked, setOnlyFilesChecked] = useState(false);
   const [allItemsChecked, setAllItemsChecked] = useState(false);
 
   const [currDirectory, setCurrDirectory] = useState('');
@@ -103,18 +102,13 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
    */
   useEffect(() => {
     let numChecked = 0;
-    let filesOnly = true;
     materials.forEach((item) => {
       if (item.checked) {
         numChecked += 1;
-        if (item.storageType === 'folder') {
-          filesOnly = false;
-        }
       }
     });
     setItemsChecked(numChecked);
-    setOnlyFilesChecked(filesOnly);
-  }, [materials, setItemsChecked, setOnlyFilesChecked]);
+  }, [materials, setItemsChecked]);
 
   /**
    * Update state when a Material entry is checked/unchecked.
@@ -404,7 +398,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
           </Button>
           <Button
             color="yellow"
-            disabled={itemsChecked < 1 || !onlyFilesChecked}
+            disabled={itemsChecked < 1}
             onClick={handleChangeAccess}
           >
             <Icon name="lock" />
@@ -475,9 +469,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
                         ) : item.name}
                       </Table.Cell>
                       <Table.Cell>
-                        {item.storageType === 'file' && (
-                          getMaterialsAccessText(item.access)
-                        )}
+                        {getMaterialsAccessText(item.access)}
                       </Table.Cell>
                       <Table.Cell>
                         {item.storageType === 'file' && fileSizePresentable(item.size)}
