@@ -1,17 +1,26 @@
-//
-// LibreTexts Conductor
-// tag.js
-// Mongoose Model
-//
+/**
+ * @file Defines a Mongoose schema for storing "tags" that label Projects for further
+ *  classification and identification.
+ * @author LibreTexts <info@libretexts.org>
+ */
 
 import mongoose from 'mongoose';
 
 const TagSchema = new mongoose.Schema({
-    orgID: String,          // organization identifier string,
-    tagID: String,          // base62 12-digit identifier
-    title: String           // the tag's title/display text
+  /**
+   * Organization identifier string.
+   */
+  orgID: String,
+  /**
+   * Base62 12-digit unique identifier.
+   */
+  tagID: String,
+  /**
+   * Tag's UI-title/display text.
+   */
+  title: String,
 }, {
-    timestamps: true
+  timestamps: true
 });
 
 const Tag = mongoose.model('Tag', TagSchema);
