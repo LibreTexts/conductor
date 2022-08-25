@@ -23,6 +23,10 @@ const TagSchema = new mongoose.Schema({
   timestamps: true
 });
 
+TagSchema.index({
+  title: 'text',
+});
+
 const Tag = mongoose.model('Tag', TagSchema);
 
 export default Tag;

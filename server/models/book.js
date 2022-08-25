@@ -171,11 +171,14 @@ const BookSchema = new mongoose.Schema({
 BookSchema.index({
   title: 'text',
   author: 'text',
+  affiliation: 'text',
   library: 'text',
   subject: 'text',
+  location: 'text',
   course: 'text',
+  program: 'text',
   license: 'text',
-  affiliation: 'text',
+  summary: 'text',
   libraryTags: 'text',
 });
 

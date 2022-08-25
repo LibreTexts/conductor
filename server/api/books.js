@@ -20,6 +20,7 @@ import Organization from '../models/organization.js';
 import CustomCatalog from '../models/customcatalog.js';
 import Project from '../models/project.js';
 import PeerReview from '../models/peerreview.js';
+import Tag from '../models/tag.js';
 import conductorErrors from '../conductor-errors.js';
 import { isEmptyString, isValidDateObject } from '../util/helpers.js';
 import {
@@ -628,41 +629,124 @@ const buildOrganizationNamesList = (orgData) => {
 async function getCommonsCatalog(req, res) {
   try {
     const orgID = process.env.ORG_ID;
+    let textSearchTerm = null;
 
-    /* Build search object */
-    const searchObj = {};
+    const searchOptions = {};
+    const institutionOptions = [];
+
+    const searchQueries = [];
+    const bookProjection = {
+      _id: 0,
+      _v: 0,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
     let sortChoice = 'title'; // default to title sort
+    if (req.query.sort && !isEmptyString(req.query.sort)) {
+      sortChoice = req.query.sort;
+    }
 
+    /* Build search options */
     const setStringIfPresent = (obj, prop, key) => {
       if (prop && !isEmptyString(prop)) {
         obj[key] = prop;
       }
     };
 
-    setStringIfPresent(searchObj, req.query.library, 'library');
-    setStringIfPresent(searchObj, req.query.subject, 'subject');
-    setStringIfPresent(searchObj, req.query.author, 'author');
-    setStringIfPresent(searchObj, req.query.license, 'license');
-    setStringIfPresent(searchObj, req.query.affiliation, 'affiliation');
-    setStringIfPresent(searchObj, req.query.course, 'course');
-    setStringIfPresent(searchObj, req.query.publisher, 'publisher');
+    setStringIfPresent(searchOptions, req.query.library, 'library');
+    setStringIfPresent(searchOptions, req.query.subject, 'subject');
+    setStringIfPresent(searchOptions, req.query.author, 'author');
+    setStringIfPresent(searchOptions, req.query.license, 'license');
+    setStringIfPresent(searchOptions, req.query.affiliation, 'affiliation');
+    setStringIfPresent(searchOptions, req.query.course, 'course');
+    setStringIfPresent(searchOptions, req.query.publisher, 'publisher');
 
-    if (req.query.search && !isEmptyString(req.query.search)) {
-      searchObj['$text'] = {
-        $search: req.query.search,
-      };
-    }
     if (req.query.location && !isEmptyString(req.query.location)) {
-      searchObj.location = req.query.location;
+      searchOptions.location = req.query.location;
     } else {
       if (orgID === 'libretexts') {
-        searchObj.location = 'central'; // default to Central Bookshelves
+        searchOptions.location = 'central'; // default to Central Bookshelves
       } else {
-        searchObj.location = 'campus'; // default to Campus Bookshelves
+        searchOptions.location = 'campus'; // default to Campus Bookshelves
       }
     }
-    if (req.query.sort && !isEmptyString(req.query.sort)) {
-      sortChoice = req.query.sort;
+
+    const searchOptionsArr = Object.entries(searchOptions).map(([key, value]) => ({
+      [key]: value,
+    }));
+    
+    /* Text search */
+    if (req.query.search && !isEmptyString(req.query.search)) {
+      textSearchTerm = req.query.search;
+      
+      /* Search for similar tags */
+      const tagResults = await Tag.aggregate([
+        {
+          $match: {
+            $and: [
+              { $text: { $search: req.query.search } },
+              { orgID },
+            ],
+          },
+        }, {
+          $project: {
+            _id: 0,
+            tagID: 1,
+          },
+        },
+      ]);
+
+      /* Search for Projects using found Tags that are linked to Books */
+      if (Array.isArray(tagResults) && tagResults.length > 0) {
+        const tagIDs = tagResults.map((item) => item.tagID).filter((item) => item !== undefined);
+        const projResults = await Project.aggregate([
+          {
+            $match: {
+              $and: [
+                {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$orgID', orgID] },
+                      { $ne: [{ $type: '$libreLibrary' }, 'missing'] },
+                      { $gt: [{ $strLenBytes: '$libreLibrary' }, 0] },
+                      { $ne: [{ $type: '$libreCoverID' }, 'missing'] },
+                      { $gt: [{ $strLenBytes: '$libreCoverID' }, 0] },
+                    ],
+                  },
+                },
+                { tags: { $in: tagIDs } },
+              ]
+            },
+          }, {
+            $project: {
+              _id: 0,
+              libreLibrary: 1,
+              libreCoverID: 1,
+            },
+          },
+        ]);
+        if (Array.isArray(projResults) && projResults.length > 0) {
+          const projBookIDs = projResults.map((proj) => `${proj.libreLibrary}-${proj.libreCoverID}`);
+          const idMatchObj = { bookID: { $in: projBookIDs }};
+          let projBookMatch = {};
+          if (searchOptionsArr.length > 0) {
+            projBookMatch = {
+              $and: [
+                ...searchOptionsArr,
+                idMatchObj,
+              ],
+            };
+          } else {
+            projBookMatch = idMatchObj;
+          }
+
+          searchQueries.push(Book.aggregate([
+            { $match: projBookMatch },
+            { $project: bookProjection },
+          ]));
+        }
+      }
     }
 
     if (orgID !== 'libretexts') {
@@ -689,44 +773,104 @@ async function getCommonsCatalog(req, res) {
       }
 
       const campusNames = buildOrganizationNamesList(orgData);
-      if (searchObj.course) {
-        campusNames.unshift(searchObj.course);
+      if (searchOptions.course) {
+        campusNames.unshift(searchOptions.course);
       }
-      if (searchObj.publisher) {
-        campusNames.unshift(searchObj.publisher);
+      if (searchOptions.publisher) {
+        campusNames.unshift(searchOptions.publisher);
       }
+
+      institutionOptions.push({ course: { $in: campusNames } });
+      institutionOptions.push({ publisher: { $in: campusNames } });
+
       if (hasCustomEntries) {
-        if (searchObj.location) {
-          delete searchObj.location; // prune searchObj to allow custom entries
+        // remove location filter to allow custom entries
+        const customSearchOptionsArr = searchOptionsArr.filter((obj) => !obj.location);
+
+        let customSearchObj = {};
+        const idMatchObj = { bookID: { $in: customCatalog.resources }};
+        if (customSearchOptionsArr.length > 0 && textSearchTerm) {
+          customSearchObj = {
+            $text: { $search: textSearchTerm },
+            $and: [
+              ...customSearchOptionsArr,
+              idMatchObj,
+            ],
+          };
+        } else if (customSearchOptionsArr.length > 0) {
+          customSearchObj = {
+            $and: [
+              ...customSearchOptionsArr,
+              idMatchObj,
+            ],
+          };
+        } else if (textSearchTerm) {
+          customSearchObj = {
+            ...idMatchObj,
+            $text: { $search: textSearchTerm },
+          };
+        } else {
+          customSearchObj = idMatchObj;
         }
-        searchObj['$or'] = [
-          { bookID: { $in: customCatalog.resources } },
-          { course: { $in: campusNames } },
-          { program: { $in: campusNames } },
-        ];
-      } else {
-        searchObj['$or'] = [
-          { course: { $in: campusNames } },
-          { program: { $in: campusNames } },
-        ];
+
+        searchQueries.push(Book.aggregate([
+          { $match: customSearchObj },
+          { $project: bookProjection },
+        ]));
       }
     }
 
-    const books = await Book.aggregate([
-      {
-        $match: searchObj,
-      }, {
-        $project: {
-          _id: 0,
-          __v: 0,
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      },
-    ]);
+    /** Build main query */
+    let mainSearchObj = {};
+    if (searchOptionsArr.length > 0 && institutionOptions.length > 0 && textSearchTerm) {
+      mainSearchObj = {
+        $text: { $search: textSearchTerm },
+        $and: searchOptionsArr,
+        $or: institutionOptions,
+      };
+    } else if (searchOptionsArr.length > 0 && institutionOptions.length > 0) {
+      mainSearchObj = {
+        $and: searchOptionsArr,
+        $or: institutionOptions,
+      };
+    } else if (searchOptionsArr.length > 0 && textSearchTerm) {
+      mainSearchObj = {
+        $text: { $search: textSearchTerm },
+        $and: searchOptionsArr,
+      };
+    } else if (institutionOptions.length > 0 && textSearchTerm) {
+      mainSearchObj = {
+        $text: { $search: textSearchTerm },
+        $or: institutionOptions,
+      };
+    } else if (searchOptionsArr.length > 0) {
+      mainSearchObj = {
+        $and: searchOptionsArr,
+      };
+    } else if (institutionOptions.length > 0) {
+      mainSearchObj = {
+        $or: institutionOptions,
+      };
+    } else if (textSearchTerm) {
+      mainSearchObj = { $text: { $search: textSearchTerm }};
+    }
+
+    searchQueries.push(Book.aggregate([
+      { $match: mainSearchObj },
+      { $project: bookProjection },
+    ]));
+
+    /* Execute all searches and combine */
+    const allQueryResults = await Promise.all(searchQueries);
+    const allFoundBooks = allQueryResults.reduce((arr, results) => arr.concat(results), []);
+
+    /* Ensure no duplicates */
+    const allBookIDs = new Set(allFoundBooks.map((book) => book.bookID));
+    const resultBooks = allFoundBooks.filter((book) => allBookIDs.has(book.bookID));
+
     return res.send({
       err: false,
-      books: sortBooks(books, sortChoice),
+      books: sortBooks(resultBooks, sortChoice),
     });
   } catch (e) {
     debugError(e);
