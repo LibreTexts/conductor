@@ -405,16 +405,16 @@ const BooksManager = () => {
     }
     if (book.isCustomEnabled) {
       return (
-        <Button color="green" onClick={() => openEOCModal('enable', book.bookID, book.title)}>
-          <Icon name="eye" />
-          Enable on Commons
+        <Button color="red" onClick={() => openEOCModal('disable', book.bookID, book.title)}>
+          <Icon name="eye slash" />
+          Disable on Commons
         </Button>
       );
     }
     return (
-      <Button color="red" onClick={() => openEOCModal('disable', book.bookID, book.title)}>
-        <Icon name="eye slash" />
-        Disable on Commons
+      <Button color="green" onClick={() => openEOCModal('enable', book.bookID, book.title)}>
+        <Icon name="eye" />
+        Enable on Commons
       </Button>
     );
   }
