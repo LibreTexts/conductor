@@ -608,7 +608,8 @@ async function updateProject(req, res) {
       /* If the Project URL is a LibreTexts link, gather more information */
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
-        const projURLInfo = getLibreTextInformation(updateObj.projectURL);
+        const projURLInfo = await getLibreTextInformation(updateObj.projectURL);
+        console.log(projURLInfo);
         if (projURLInfo.lib && projURLInfo.lib !== '') {
           updateObj.libreLibrary = projURLInfo.lib;
         }
