@@ -865,8 +865,14 @@ async function getCommonsCatalog(req, res) {
     const allFoundBooks = allQueryResults.reduce((arr, results) => arr.concat(results), []);
 
     /* Ensure no duplicates */
-    const allBookIDs = new Set(allFoundBooks.map((book) => book.bookID));
-    const resultBooks = allFoundBooks.filter((book) => allBookIDs.has(book.bookID));
+    const resultBookIDs = new Set();
+    const resultBooks = allFoundBooks.filter((book) => {
+      if (!resultBookIDs.has(book.bookID)) {
+        resultBookIDs.add(book.bookID);
+        return true;
+      }
+      return false;
+    });
 
     return res.send({
       err: false,
