@@ -771,16 +771,17 @@ const CommonsBook = () => {
               <PeerReviewButtons />
               {(book.hasAdaptCourse && book.adaptCourseID !== '') && (
                 <Button
-                  icon="tasks"
-                  content="View Homework on ADAPT"
                   color="teal"
                   fluid
                   as="a"
                   href={`https://adapt.libretexts.org/courses/${book.adaptCourseID}/anonymous`}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-05r"
-                />
+                  className={`mt-05r ${styles.adapt_button}`}
+                >
+                  <img src="/adapt_icon_white.png" aria-hidden="true" alt="" />
+                  <span>View Homework on ADAPT</span>
+                </Button>
               )}
               {materials.length > 0 && (
                 <Button

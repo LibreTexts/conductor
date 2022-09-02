@@ -54,6 +54,20 @@
   grid-row: 1 / 2;
 }
 
+.adapt_button {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.adapt_button img {
+  height: 1.1em;
+}
+
+.adapt_button span {
+  margin-left: 0.5em;
+}
+
 @media only screen and (max-width: 1024px) {
   .grid {
     grid-template-columns: none;
