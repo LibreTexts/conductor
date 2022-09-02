@@ -220,8 +220,16 @@ body {
 }
 
 /** margin-top **/
+.mt-05e {
+  margin-top: 0.5em !important;
+}
+
 .mt-05p {
     margin-top: 0.5% !important;
+}
+
+.mt-05r {
+  margin-top: 0.5rem !important;
 }
 
 .mt-1e {

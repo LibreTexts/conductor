@@ -566,7 +566,7 @@ const CommonsBook = () => {
           labeled
           icon
           fluid
-          className="mt-1r"
+          className="mt-05r"
         >
           <Button {...submitButtonProps} />
           <Button {...viewButtonProps} />
@@ -575,11 +575,11 @@ const CommonsBook = () => {
     }
     if (prAllow) {
       // allows reviews, none yet
-      return <Button className="mt-1r" {...submitButtonProps} />
+      return <Button className="mt-05r" {...submitButtonProps} />
     }
     if (prReviews.length > 0) {
       // doesn't allow reviews, but existing are visible
-      return <Button className="mt-1r" {...viewButtonProps} />
+      return <Button className="mt-05r" {...viewButtonProps} />
     }
     return null;
   };
@@ -779,7 +779,7 @@ const CommonsBook = () => {
                   href={`https://adapt.libretexts.org/courses/${book.adaptCourseID}/anonymous`}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1r"
+                  className="mt-05r"
                 />
               )}
               {materials.length > 0 && (
@@ -789,7 +789,7 @@ const CommonsBook = () => {
                   color="blue"
                   fluid
                   onClick={handleOpenMaterials}
-                  className="mt-1r"
+                  className="mt-05r"
                 />
               )}
               <Button.Group fluid vertical labeled icon color="blue" className="mt-2r">
