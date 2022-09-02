@@ -1,87 +1,198 @@
-//
-// LibreTexts Conductor
-// project.js
-// Mongoose Model
-//
+/**
+ * @file Defines a Mongoose schema for storing Projects, a core component of Conductor, used
+ *  to encapsulate project planning interactions and communications.
+ * @author LibreTexts <info@libretexts.org>
+ */
 
 import mongoose from 'mongoose';
 import { projectClassifications } from '../util/projectutils.js';
 import { a11ySectionReviewSchema } from '../util/a11yreviewutils.js';
 
 const ProjectSchema = new mongoose.Schema({
-    orgID: {                    // organization identifier string
-        type: String,
-        required: true
-    },
-    projectID: {                // base62 10-digit identifier
-        type: String,
-        required: true
-    },
-    title: {                    // project title
-        type: String,
-        required: true
-    },
-    status: {                   // project status, one of: 'available', 'open', 'completed', 'flagged'
-        type: String,
-        default: 'available'
-    },
-    visibility: {
-        type: String,           // project privacy, one of: 'public', 'private'
-        default: 'private'
-    },
-    currentProgress: {          // estimated project progress (%)
-        type: Number,
-        default: 0
-    },
-    peerProgress: {             // estimated project peer review progress (%)
-        type: Number,
-        default: 0
-    },
-    a11yProgress: {             // estimated project accessibility progress/score (%)
-        type: Number,
-        default: 0
-    },
-    classification: {           // the project's internal classification
-        type: String,
-        enum: ['', ...projectClassifications]
-    },
-    leads: [String],            // project leads (privileged) (UUIDs)
-    liaisons: [String],         // project liaisons (campus admins, privileged) (UUIDs)
-    members: [String],          // project team members (semi-privileged) (UUIDs)
-    auditors: [String],         // users with access to view (low-privileged) (UUIDs)
-    libreLibrary: String,       // the corresponding LibreText's library
-    libreCoverID: String,       // the corresponding LibreText's Coverpage ID,
-    libreShelf: String,         // the 'Bookshelf' if the LibreText is not a campus text
-    libreCampus: String,        // the 'Campus' if the LibreText is a campus text
-    author: String,             // resource author (if applicable)
-    authorEmail: String,        // resource author's email (if applicable)
-    license: String,            // resource license (if applicable)
-    resourceURL: String,        // resource original URL (if applicable)
-    projectURL: String,         // the URL where the project exists (if applicable, typically a LibreTexts lib link)
-    adaptURL: String,           // the URL of the project's ADAPT resources
-    adaptCourseID: String,      // the project's corresponding ADAPT Course ID, extracted from the @adaptURL
-    tags: [String],             // project tags (tagIDs)
-    notes: String,              // project notes/description
-    rating: {                   // the overall quality, rated on a scale of 0-5, updated via Peer Reviews
-        type: Number,
-        min: 0,
-        max: 5
-    },
-    rdmpReqRemix: Boolean,      // whether the Construction Roadmap indicates remixing is required
-    rdmpCurrentStep: String,    // the project's current step in the Construction Roadmap,
-    a11yReview: [               // the text section accessibility reviews
-        a11ySectionReviewSchema
-    ],
-    harvestReqID: String,       // the _id of the Harvesting Request the project was converted from (if applicable)
-    flag: String,               // user group to flag, one of: ['libretexts', 'campusadmin', 'lead', 'liaison']
-    flagDescrip: String,        // a description of the reason for flagging
-    allowAnonPR: {              // allow 'anonymous' Peer Reviews (if Project is public)
-        type: Boolean,
-        default: true
-    },
-    preferredPRRubric: String   // the rubricID of the preferred Peer Review Rubric
+  /**
+   * Organization identifier string.
+   */
+  orgID: {
+    type: String,
+    required: true,
+  },
+  /**
+   * Base62 10-digit unique identifier.
+   */
+  projectID: {
+    type: String,
+    required: true,
+  },
+  /**
+   * Project's title.
+   */
+  title: {
+    type: String,
+    required: true,
+  },
+  /**
+   * The Project's "status" for team members and in the system.
+   */
+  status: {
+    type: String,
+    default: 'available',
+    enum: ['available', 'open', 'completed', 'flagged'],
+  },
+  /**
+   * Project's privacy setting.
+   */
+  visibility: {
+    type: String,
+    default: 'private',
+    enum: ['public', 'private'],
+  },
+  /**
+   * Estimated Project progress (%).
+   */
+  currentProgress: {
+    type: Number,
+    default: 0,
+  },
+  /**
+   * Estimated Project Peer Review progress (%).
+   */
+  peerProgress: {
+    type: Number,
+    default: 0,
+  },
+  /**
+   * Estimated Project Accessibility score (%).
+   */
+  a11yProgress: {
+    type: Number,
+    default: 0,
+  },
+  /**
+   * Project's internal classification/type.
+   */
+  classification: {
+    type: String,
+    enum: ['', ...projectClassifications],
+  },
+  /**
+   * Project Leads (privileged) (UUIDs).
+   */
+  leads: [String],
+  /**
+   * Project Liaisons (campus admins, privileged) (UUIDs).
+   */
+  liaisons: [String],
+  /**
+   * Project team members (semi-privileged) (UUIDs).
+   */
+  members: [String],
+  /**
+   * Users with access to view (low-privileged) (UUIDs).
+   */
+  auditors: [String],
+  /**
+   * Corresponding LibreTexts library, if the Project pertains to a Book
+   * or other ancillary resource/tool.
+   */
+  libreLibrary: String,
+  /**
+   * Corresponding LibreText Coverpage ID.
+   */
+  libreCoverID: String,
+  /**
+   * The "Bookshelf" the associated Book is located in, if not a campus text.
+   */
+  libreShelf: String,
+  /**
+   * The "Campus" the associated Book belongs to.
+   */
+  libreCampus: String,
+  /**
+   * Name of the associated Book/resource's author.
+   */
+  author: String,
+  /**
+   * Email of the associated Book/resource's author.
+   */
+  authorEmail: String,
+  /**
+   * Content licensing of the associated Book/resource.
+   */
+  license: String,
+  /**
+   * Original URL of the resource, if applicable.
+   */
+  resourceURL: String,
+  /**
+   * URL where the resource currently exists, typically a LibreTexts library link.
+   */
+  projectURL: String,
+  /**
+   * URL of the Project's associated ADAPT homework system resources.
+   */
+  adaptURL: String,
+  /**
+   * Project's corresponding ADAPT Course ID, extracted from the adaptURL.
+   */
+  adaptCourseID: String,
+  /**
+   * Project tags as tagIDs.
+   */
+  tags: [String],
+  /**
+   * Project notes/description text.
+   */
+  notes: String,
+  /**
+   * Overall quality rating (scale 0-5) of the Project's associated Book.
+   * Updated via aggregation of Peer Reviews.
+   */
+  rating: {
+    type: Number,
+    min: 0,
+    max: 5,
+  },
+  /**
+   * Whether the Project's Construction Roadmap indicates remixing is required.
+   */
+  rdmpReqRemix: Boolean,
+  /**
+   * Project's current step in the Contruction Roadmap.
+   */
+  rdmpCurrentStep: String,
+  /**
+   * Text section accessibility reviews.
+   */
+  a11yReview: [a11ySectionReviewSchema],
+  /**
+   * The original _id of the Harvesting Request the Project was generated
+   * from, if applicable.
+   */
+  harvestReqID: String,
+  /**
+   * User group identifier to flag.
+   */
+  flag: {
+    type: String,
+    enum: ['libretexts', 'campusadmin', 'lead', 'liaison'],
+  },
+  /**
+   * A description of the reason for flagging.
+   */
+  flagDescrip: String,
+  /**
+   * Allow 'anonymous' Peer Reviews (if Project is public and has associated Book).
+   */
+  allowAnonPR: {
+    type: Boolean,
+    default: true,
+  },
+  /**
+   * The rubricID of the team's preferred Peer Review rubric.
+   */
+  preferredPRRubric: String,
 }, {
-    timestamps: true
+  timestamps: true
 });
 
 const Project = mongoose.model('Project', ProjectSchema);
