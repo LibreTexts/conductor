@@ -66,6 +66,7 @@ const conductorErrors = {
     'err69': "Access Denied: Provided authorization grant is expired or invalid.",
     'err70': "Access Denied: Access token is expired or invalid.",
     'err71': "Access Denied: Invalid request parameters provided.",
+    'err72': "C-ID Descriptors sync appears to have failed. Check server logs.",
 };
 
 export default conductorErrors;

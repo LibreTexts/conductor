@@ -191,6 +191,10 @@ const ProjectSchema = new mongoose.Schema({
    * The rubricID of the team's preferred Peer Review rubric.
    */
   preferredPRRubric: String,
+  /**
+   * The C-ID Descriptor applicable to this Project.
+   */
+  cidDescriptor: String,
 }, {
   timestamps: true
 });

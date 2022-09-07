@@ -23,6 +23,7 @@ import Project from '../models/project.js';
 import Tag from '../models/tag.js';
 import HarvestingRequest from '../models/harvestingrequest.js';
 import Organization from '../models/organization.js';
+import CIDDescriptor from '../models/ciddescriptor.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError, debugCommonsSync } from '../debug.js';
 import {
@@ -457,6 +458,30 @@ async function getProject(req, res) {
           as: 'hasCommonsBook',
         }
       }, {
+        $lookup: {
+          from: 'ciddescriptors',
+          let: {
+            cidDescriptor: '$cidDescriptor',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$descriptor', '$$cidDescriptor'],
+                },
+              },
+            }, {
+              $project: {
+                _id: 0,
+                __v: 0,
+                createdAt: 0,
+                updatedAt: 0,
+              },
+            },
+          ],
+          as: 'cidDescriptor',
+        }
+      }, {
         $addFields: {
           hasCommonsBook: {
             $cond: [
@@ -469,6 +494,9 @@ async function getProject(req, res) {
               true,
               false,
             ],
+          },
+          cidDescriptor: {
+            $arrayElemAt: ['$cidDescriptor', 0],
           },
         },
       }, {
@@ -663,6 +691,9 @@ async function updateProject(req, res) {
     }
     if (req.body.tags && Array.isArray(req.body.tags)) {
       updateObj.tags = await resolveTags(req.body.tags);
+    }
+    if (req.body.hasOwnProperty('cidDescriptor') && req.body.cidDescriptor !== project.cidDescriptor) {
+      updateObj.cidDescriptor = req.body.cidDescriptor;
     }
 
     if (Object.keys(updateObj).length > 0) {
@@ -3266,6 +3297,25 @@ function validateADAPTCourseURL(url) {
 }
 
 /**
+ * Verifies that a provided C-ID Descriptor exists.
+ *
+ * @param {string} descriptor - The C-ID descriptor.
+ * @returns {Promise<void>} Resolves if valid descriptor, rejects otherwise.
+ */
+async function validateCIDDescriptor(descriptor) {
+  if (typeof (descriptor) === 'string') {
+    if (descriptor === '') {
+      return Promise.resolve(); // unsetting descriptor
+    }
+    const foundDescriptor = await CIDDescriptor.findOne({ descriptor }).lean();
+    if (foundDescriptor) {
+      return Promise.resolve(); // valid
+    }
+  }
+  return Promise.reject();
+}
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -3312,6 +3362,7 @@ const validate = (method) => {
           body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
           body('adaptURL', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateADAPTCourseURL),
+          body('cidDescriptor', conductorErrors.err1).optional().custom(validateCIDDescriptor),
       ]
     case 'getProject':
       return [

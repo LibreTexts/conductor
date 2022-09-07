@@ -27,6 +27,7 @@ import msgAPI from './api/messaging.js';
 import transFeedbackAPI from './api/translationfeedback.js';
 import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
+import CIDDescriptorsAPI from './api/ciddescriptors.js';
 
 let router = express.Router();
 
@@ -1055,6 +1056,16 @@ router.route('/apiclients/:clientID').get(
   apiClientsAPI.validate('getAPIClient'),
   middleware.checkValidationErrors,
   apiClientsAPI.getAPIClient,
+);
+
+router.route('/c-ids').get(
+  authAPI.verifyRequest,
+  CIDDescriptorsAPI.getCIDDescriptors,
+);
+
+router.route('/c-ids/sync/automated').put(
+  middleware.checkLibreAPIKey,
+  CIDDescriptorsAPI.runAutomatedSyncCIDDescriptors,
 );
 
 export default router;

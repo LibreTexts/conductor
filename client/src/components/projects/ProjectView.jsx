@@ -111,6 +111,7 @@ const ProjectView = (props) => {
   const [projA11YProgress, setProjA11YProgress] = useState(0);
   const [projURL, setProjURL] = useState('');
   const [projTags, setProjTags] = useState([]);
+  const [projCID, setProjCID] = useState('');
   const [projAdaptURL, setProjAdaptURL] = useState('');
   const [projResAuthor, setProjResAuthor] = useState('');
   const [projResEmail, setProjResEmail] = useState('');
@@ -122,7 +123,9 @@ const ProjectView = (props) => {
   const [projPRProgressErr, setProjPRProgressErr] = useState(false);
   const [projA11YProgressErr, setProjA11YProgressErr] = useState(false);
   const [tagOptions, setTagOptions] = useState([]);
+  const [cidOptions, setCIDOptions] = useState([]);
   const [loadedTags, setLoadedTags] = useState(false);
+  const [loadedCIDs, setLoadedCIDs] = useState(false);
 
   // Project Pin Modal
   const [showPinnedModal, setShowPinnedModal] = useState(false);
@@ -482,6 +485,7 @@ const ProjectView = (props) => {
   const openEditInfoModal = () => {
     setEditModalLoading(true);
     getTags();
+    getCIDDescriptors();
     if (project.title) setProjTitle(project.title);
     if (project.status) setProjStatus(project.status);
     if (project.visibility) setProjVisibility(project.visibility);
@@ -492,6 +496,7 @@ const ProjectView = (props) => {
     if (project.projectURL) setProjURL(project.projectURL);
     if (project.tags) setProjTags(project.tags);
     if (project.adaptURL) setProjAdaptURL(project.adaptURL);
+    if (project.cidDescriptor?.descriptor) setProjCID(project.cidDescriptor.descriptor);
     if (project.author) setProjResAuthor(project.author);
     if (project.authorEmail) setProjResEmail(project.authorEmail);
     if (project.license) setProjResLicense(project.license);
@@ -518,6 +523,7 @@ const ProjectView = (props) => {
     setProjClassification('');
     setProjURL('');
     setProjTags([]);
+    setProjCID('');
     setProjAdaptURL('');
     setProjResAuthor('');
     setProjResEmail('');
@@ -557,6 +563,40 @@ const ProjectView = (props) => {
     });
   };
 
+  /**
+   * Loads C-ID Descriptors from the server, transforms them for use in UI,
+   * then saves them to state.
+   */
+  const getCIDDescriptors = () => {
+    axios.get('/c-ids').then((res) => {
+      if (!res.data.err) {
+        if (Array.isArray(res.data.descriptors)) {
+          const descriptors = [
+            { value: '', key: 'clear', text: 'Clear...' },
+            ...res.data.descriptors.map((item) => {
+              return {
+                value: item.descriptor,
+                key: item.descriptor,
+                text: `${item.descriptor}: ${item.title}`,
+                content: (
+                  <div>
+                    <span><strong>{item.descriptor}</strong>: {item.title}</span>
+                    <p className="mt-05p"><em>{item.description}</em></p>
+                  </div>
+                ),
+              };
+            }),
+          ];
+          setCIDOptions(descriptors);
+          setLoadedCIDs(true);
+        }
+      } else {
+        handleGlobalError(res.data.errMsg);
+      }
+    }).catch((err) => {
+      handleGlobalError(err);
+    });
+  };
 
   /**
    * Resets all Edit Information form error states.
@@ -683,6 +723,9 @@ const ProjectView = (props) => {
       }
       if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
         projData.projectURL = projURL;
+      }
+      if ((project.cidDescriptor?.descriptor && project.cidDescriptor?.descriptor !== projCID) || !project.cidDescriptor) {
+        projData.cidDescriptor = projCID;
       }
       if ((project.adaptURL && project.adaptURL !== projAdaptURL) || !project.adaptURL) {
         projData.adaptURL = projAdaptURL;
@@ -2093,6 +2136,14 @@ const ProjectView = (props) => {
                               <span>{getClassificationText(project.classification)}</span>
                             </div>
                           }
+                          {(project.cidDescriptor && !isEmptyString(project.cidDescriptor?.descriptor)) && (
+                            <div className="mb-1p">
+                              <Header as="span" sub>C-ID: </Header>
+                              <span>
+                                <em>{project.cidDescriptor.descriptor}: {project.cidDescriptor.title}</em>
+                              </span>
+                            </div>
+                          )}
                           {(project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep)) &&
                             <div className='mb-1p'>
                               <Header as='span' sub>Construction Step: </Header>
@@ -2649,6 +2700,36 @@ const ProjectView = (props) => {
                     content: tag.text
                   })}
                   value={projTags}
+                />
+                <Form.Dropdown
+                  id="cidinput"
+                  label={(
+                    <label htmlFor="cidinput">
+                      <span className="mr-05p">C-ID <span className="muted-text">(if applicable)</span></span>
+                      <Popup
+                        trigger={<Icon name="info circle" />}
+                        position="top center"
+                        hoverable={true}
+                        content={(
+                          <span className="text-center">
+                            {'Use this field if your Project or resource pertains to content for a course registered with the '}
+                            <a href="https://c-id.net/" target="_blank" rel="noopener">
+                              California Course Identification Numbering System (C-ID)
+                            </a>.
+                          </span>
+                        )}
+                      />
+                    </label>
+                  )}
+                  deburr
+                  placeholder="Search C-IDs..."
+                  search
+                  selection
+                  options={cidOptions}
+                  loading={!loadedCIDs}
+                  disabled={!loadedCIDs}
+                  onChange={(_e, { value }) => setProjCID(value)}
+                  value={projCID}
                 />
                 <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
                 <Divider />
