@@ -7,6 +7,7 @@ import Promise from 'bluebird';
 import express from 'express';
 import axios from 'axios';
 import { parse } from 'csv-parse';
+import { query } from 'express-validator';
 import CIDDescriptor from '../models/ciddescriptor.js';
 import { debugError } from '../debug.js';
 import conductorErrors from '../conductor-errors.js';
@@ -126,8 +127,9 @@ async function runAutomatedSyncCIDDescriptors(_req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function getCIDDescriptors(_req, res) {
+async function getCIDDescriptors(req, res) {
   try {
+    const { detailed } = req.query;
     const descriptors = await CIDDescriptor.aggregate([
       {
         $sort: {
@@ -137,6 +139,13 @@ async function getCIDDescriptors(_req, res) {
         $project: {
           _id: 0,
           __v: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          ...(!detailed && {
+            description: 0,
+            approved: 0,
+            expires: 0,
+          }),
         },
       },
     ]);
@@ -154,8 +163,23 @@ async function getCIDDescriptors(_req, res) {
   }
 }
 
+/**
+ * Middleware(s) to validate requests contain necessary and/or valid fields.
+ *
+ * @param {string} method - Method name to validate request for.
+ */
+function validate(method) {
+  switch (method) {
+    case 'getCIDDescriptors':
+      return [
+        query('detailed', conductorErrors.err1).optional().toBoolean(true),
+      ];
+  }
+}
+
 export default {
   syncCIDDescriptors,
   runAutomatedSyncCIDDescriptors,
   getCIDDescriptors,
+  validate,
 }

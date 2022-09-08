@@ -568,7 +568,9 @@ const ProjectView = (props) => {
    * then saves them to state.
    */
   const getCIDDescriptors = () => {
-    axios.get('/c-ids').then((res) => {
+    axios.get('/c-ids', {
+      params: { detailed: true },
+    }).then((res) => {
       if (!res.data.err) {
         if (Array.isArray(res.data.descriptors)) {
           const descriptors = [

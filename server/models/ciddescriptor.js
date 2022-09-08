@@ -39,6 +39,11 @@ const CIDDescriptorSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+CIDDescriptorSchema.index({
+  title: 'text',
+  description: 'text',
+});
+
 const CIDDescriptor = mongoose.model('CIDDescriptor', CIDDescriptorSchema);
 
 export default CIDDescriptor;

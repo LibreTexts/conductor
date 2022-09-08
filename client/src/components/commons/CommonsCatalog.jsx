@@ -72,12 +72,14 @@ const CommonsCatalog = () => {
     const [instrFilter, setInstrFilter] = useState('');
     const [courseFilter, setCourseFilter] = useState('');
     const [pubFilter, setPubFilter] = useState('');
+    const [cidFilter, setCIDFilter] = useState('');
 
     const [subjectOptions, setSubjectOptions] = useState([]);
     const [authorOptions, setAuthorOptions] = useState([]);
     const [affOptions, setAffOptions] = useState([]);
     const [courseOptions, setCourseOptions] = useState([]);
     const [pubOptions, setPubOptions] = useState([]);
+    const [cidOptions, setCIDOptions] = useState([]);
 
     // Sort and Search Filters
     const [sortChoice, setSortChoice] = useState('random');
@@ -133,6 +135,7 @@ const CommonsCatalog = () => {
         searchURL = updateParams(searchURL, 'affiliation', affilFilter);
         searchURL = updateParams(searchURL, 'course', courseFilter);
         searchURL = updateParams(searchURL, 'publisher', pubFilter);
+        searchURL = updateParams(searchURL, 'cid', cidFilter);
         searchURL = updateParams(searchURL, 'sort', sort);
         history.push({
             pathname: location.pathname,
@@ -150,6 +153,7 @@ const CommonsCatalog = () => {
         setAffilFilter('');
         setCourseFilter('');
         setPubFilter('');
+        setCIDFilter('');
         let searchURL = location.search;
         searchURL = updateParams(searchURL, 'search', '');
         searchURL = updateParams(searchURL, 'library', '');
@@ -160,6 +164,7 @@ const CommonsCatalog = () => {
         searchURL = updateParams(searchURL, 'affiliation', '');
         searchURL = updateParams(searchURL, 'course', '');
         searchURL = updateParams(searchURL, 'publisher', '');
+        searchURL = updateParams(searchURL, 'cid', '');
         history.push({
             pathname: location.pathname,
             search: searchURL
@@ -202,6 +207,9 @@ const CommonsCatalog = () => {
         if (!isEmptyString(pubFilter)) {
             paramsObj.publisher = pubFilter;
         }
+        if (!isEmptyString(cidFilter)) {
+            paramsObj.cidDescriptor = cidFilter;
+        }
         axios.get('/commons/catalog', {
             params: paramsObj
         }).then((res) => {
@@ -231,6 +239,7 @@ const CommonsCatalog = () => {
                 var newAffOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
                 var newCourseOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
                 var newPubOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
+                let newCIDOptions = [{ key: 'empty', text: 'Clear...', value: '' }];
                 if (res.data.authors && Array.isArray(res.data.authors)) {
                     res.data.authors.forEach((author) => {
                         newAuthorOptions.push({
@@ -276,11 +285,21 @@ const CommonsCatalog = () => {
                         });
                     });
                 }
+                if (Array.isArray(res.data.cids)) {
+                  res.data.cids.forEach((descriptor) => {
+                    newCIDOptions.push({
+                      key: descriptor,
+                      text: descriptor,
+                      value: descriptor,
+                    });
+                  });
+                }
                 setAuthorOptions(newAuthorOptions);
                 setSubjectOptions(newSubjectOptions);
                 setAffOptions(newAffOptions);
                 setCourseOptions(newCourseOptions);
                 setPubOptions(newPubOptions);
+                setCIDOptions(newCIDOptions);
             } else {
                 handleGlobalError(res.data.errMsg);
             }
@@ -392,6 +411,9 @@ const CommonsCatalog = () => {
         }
         if ((params.publisher !== undefined) && (params.publisher !== pubFilter)) {
             setPubFilter(params.publisher);
+        }
+        if ((params.cid !== undefined) && (params.cid !== cidFilter)) {
+          setCIDFilter(params.cid);
         }
         if (!checkedParams.current) { // set the initial URL params sync to complete
             checkedParams.current = true;
@@ -694,6 +716,21 @@ const CommonsCatalog = () => {
                                             setPubFilter(value);
                                         }}
                                         value={pubFilter}
+                                        loading={!loadedFilters}
+                                        className='commons-filter'
+                                    />
+                                </div>
+                                <div id='commons-advancedsrch-row3' className='commons-advancedsrch-row'>
+                                    <Dropdown
+                                        placeholder='C-ID'
+                                        floating
+                                        search
+                                        selection
+                                        button
+                                        options={cidOptions}
+                                        onChange={(_e, { value }) => setCIDFilter(value)}
+                                        value={cidFilter}
+                                        tabIndex={-1}
                                         loading={!loadedFilters}
                                         className='commons-filter'
                                     />

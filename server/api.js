@@ -1059,7 +1059,8 @@ router.route('/apiclients/:clientID').get(
 );
 
 router.route('/c-ids').get(
-  authAPI.verifyRequest,
+  CIDDescriptorsAPI.validate('getCIDDescriptors'),
+  middleware.checkValidationErrors,
   CIDDescriptorsAPI.getCIDDescriptors,
 );
 
