@@ -203,6 +203,20 @@ function fileSizePresentable(bytes, dp = 1) {
   return `${fileBytes.toFixed(dp)} ${UNITS[u]}`;
 }
 
+/**
+ * Checks if two Sets are equal.
+ *
+ * @param {Set} set1 - The first set to examine.
+ * @param {Set} set2 - The second set to examine.
+ * @returns {boolean} True if sets are equal, false otherwise.
+ */
+function setsEqual(set1, set2) {
+  if (set1 instanceof Set && set2 instanceof Set) {
+    return set1.size === set2.size && Array.from(set1).every((item) => set2.has(item));
+  }
+  return false;
+}
+
 export {
     isEmptyString,
     truncateString,
@@ -215,4 +229,5 @@ export {
     checkCampusAdmin,
     checkSuperAdmin,
     fileSizePresentable,
+    setsEqual,
 };

@@ -192,9 +192,9 @@ const ProjectSchema = new mongoose.Schema({
    */
   preferredPRRubric: String,
   /**
-   * The C-ID Descriptor applicable to this Project.
+   * The C-ID Descriptor(s) applicable to this Project.
    */
-  cidDescriptor: String,
+  cidDescriptors: [String],
 }, {
   timestamps: true
 });

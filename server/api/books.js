@@ -767,7 +767,7 @@ async function getCommonsCatalog(req, res) {
         const projMatchObj = {
           $and: [
             projectWithAssociatedBookQuery,
-            { cidDescriptor: { $in: descriptors } },
+            { cidDescriptors: { $in: descriptors } },
           ],
         };
         await buildSearchQueryFromProjectResults(projMatchObj);

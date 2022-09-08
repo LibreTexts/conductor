@@ -458,30 +458,6 @@ async function getProject(req, res) {
           as: 'hasCommonsBook',
         }
       }, {
-        $lookup: {
-          from: 'ciddescriptors',
-          let: {
-            cidDescriptor: '$cidDescriptor',
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ['$descriptor', '$$cidDescriptor'],
-                },
-              },
-            }, {
-              $project: {
-                _id: 0,
-                __v: 0,
-                createdAt: 0,
-                updatedAt: 0,
-              },
-            },
-          ],
-          as: 'cidDescriptor',
-        }
-      }, {
         $addFields: {
           hasCommonsBook: {
             $cond: [
@@ -494,9 +470,6 @@ async function getProject(req, res) {
               true,
               false,
             ],
-          },
-          cidDescriptor: {
-            $arrayElemAt: ['$cidDescriptor', 0],
           },
         },
       }, {
@@ -692,8 +665,8 @@ async function updateProject(req, res) {
     if (req.body.tags && Array.isArray(req.body.tags)) {
       updateObj.tags = await resolveTags(req.body.tags);
     }
-    if (req.body.hasOwnProperty('cidDescriptor') && req.body.cidDescriptor !== project.cidDescriptor) {
-      updateObj.cidDescriptor = req.body.cidDescriptor;
+    if (Array.isArray(req.body.cidDescriptors)) {
+      updateObj.cidDescriptors = req.body.cidDescriptors;
     }
 
     if (Object.keys(updateObj).length > 0) {
@@ -3297,19 +3270,37 @@ function validateADAPTCourseURL(url) {
 }
 
 /**
- * Verifies that a provided C-ID Descriptor exists.
+ * Verifies that all provided C-ID Descriptors exist.
  *
- * @param {string} descriptor - The C-ID descriptor.
- * @returns {Promise<void>} Resolves if valid descriptor, rejects otherwise.
+ * @param {string[]} descriptors - The C-ID descriptors to attach to the Project.
+ * @returns {Promise<void>} Resolves if all valid descriptors, rejects otherwise.
  */
-async function validateCIDDescriptor(descriptor) {
-  if (typeof (descriptor) === 'string') {
-    if (descriptor === '') {
-      return Promise.resolve(); // unsetting descriptor
+async function validateCIDDescriptors(descriptors) {
+  if (Array.isArray(descriptors)) {
+    if (descriptors.length === 0) {
+      return Promise.resolve(); // unsetting descriptors
     }
-    const foundDescriptor = await CIDDescriptor.findOne({ descriptor }).lean();
-    if (foundDescriptor) {
-      return Promise.resolve(); // valid
+    try {
+      const found = await CIDDescriptor.aggregate([
+        {
+          $project: {
+            _id: 0,
+            descriptor: 1,
+          },
+        },
+      ]);
+      const all = found.map((item) => item.descriptor).filter((item) => item !== undefined);
+      let valid = true;
+      descriptors.forEach((item) => {
+        if (!all.includes(item)) {
+          valid = false;
+        }
+      });
+      if (valid) {
+        return Promise.resolve();
+      }
+    } catch (e) {
+      debugError(`Error validating C-IDs: ${e.toString()}`);
     }
   }
   return Promise.reject();
@@ -3362,7 +3353,7 @@ const validate = (method) => {
           body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
           body('adaptURL', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateADAPTCourseURL),
-          body('cidDescriptor', conductorErrors.err1).optional().custom(validateCIDDescriptor),
+          body('cidDescriptors', conductorErrors.err1).optional().custom(validateCIDDescriptors),
       ]
     case 'getProject':
       return [

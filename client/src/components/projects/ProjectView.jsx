@@ -46,7 +46,8 @@ import {
   capitalizeFirstLetter,
   normalizeURL,
   truncateString,
-  sortUsersByName
+  sortUsersByName,
+  setsEqual,
 } from '../util/HelperFunctions.js';
 import {
   libraryOptions,
@@ -111,7 +112,7 @@ const ProjectView = (props) => {
   const [projA11YProgress, setProjA11YProgress] = useState(0);
   const [projURL, setProjURL] = useState('');
   const [projTags, setProjTags] = useState([]);
-  const [projCID, setProjCID] = useState('');
+  const [projCIDs, setProjCIDs] = useState([]);
   const [projAdaptURL, setProjAdaptURL] = useState('');
   const [projResAuthor, setProjResAuthor] = useState('');
   const [projResEmail, setProjResEmail] = useState('');
@@ -495,8 +496,8 @@ const ProjectView = (props) => {
     if (project.classification) setProjClassification(project.classification);
     if (project.projectURL) setProjURL(project.projectURL);
     if (project.tags) setProjTags(project.tags);
+    if (project.cidDescriptors) setProjCIDs(project.cidDescriptors);
     if (project.adaptURL) setProjAdaptURL(project.adaptURL);
-    if (project.cidDescriptor?.descriptor) setProjCID(project.cidDescriptor.descriptor);
     if (project.author) setProjResAuthor(project.author);
     if (project.authorEmail) setProjResEmail(project.authorEmail);
     if (project.license) setProjResLicense(project.license);
@@ -523,7 +524,7 @@ const ProjectView = (props) => {
     setProjClassification('');
     setProjURL('');
     setProjTags([]);
-    setProjCID('');
+    setProjCIDs([]);
     setProjAdaptURL('');
     setProjResAuthor('');
     setProjResEmail('');
@@ -689,18 +690,23 @@ const ProjectView = (props) => {
       var projData = {
         projectID: props.match.params.id
       };
-      if (project.tags) {
-        var newTags = false;
-        var originalPlainTags = [];
-        if (project.tags) originalPlainTags = project.tags;
-        // check if there are any new tags
-        projTags.forEach((tag) => {
-          if (!originalPlainTags.includes(tag)) newTags = true;
-        });
-        // new tags are present or all tags were removed
-        if (newTags || (originalPlainTags.length > 0 && projTags.length === 0)) projData.tags = projTags;
+      if (Array.isArray(project.tags)) {
+        const currTags = new Set(project.tags);
+        const newTags = new Set(projTags);
+        if (!setsEqual(currTags, newTags)) {
+          projData.tags = projTags;
+        }
       } else {
         projData.tags = projTags;
+      }
+      if (Array.isArray(project.cidDescriptors)) {
+        const currCIDs = new Set(project.cidDescriptors);
+        const newCIDs = new Set(projCIDs);
+        if (!setsEqual(currCIDs, newCIDs)) {
+          projData.cidDescriptors = projCIDs;
+        }
+      } else {
+        projData.cidDescriptors = projCIDs;
       }
       if ((project.title && project.title !== projTitle) || !project.title) {
         projData.title = projTitle;
@@ -725,9 +731,6 @@ const ProjectView = (props) => {
       }
       if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
         projData.projectURL = projURL;
-      }
-      if ((project.cidDescriptor?.descriptor && project.cidDescriptor?.descriptor !== projCID) || !project.cidDescriptor) {
-        projData.cidDescriptor = projCID;
       }
       if ((project.adaptURL && project.adaptURL !== projAdaptURL) || !project.adaptURL) {
         projData.adaptURL = projAdaptURL;
@@ -2138,14 +2141,6 @@ const ProjectView = (props) => {
                               <span>{getClassificationText(project.classification)}</span>
                             </div>
                           }
-                          {(project.cidDescriptor && !isEmptyString(project.cidDescriptor?.descriptor)) && (
-                            <div className="mb-1p">
-                              <Header as="span" sub>C-ID: </Header>
-                              <span>
-                                <em>{project.cidDescriptor.descriptor}: {project.cidDescriptor.title}</em>
-                              </span>
-                            </div>
-                          )}
                           {(project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep)) &&
                             <div className='mb-1p'>
                               <Header as='span' sub>Construction Step: </Header>
@@ -2177,6 +2172,16 @@ const ProjectView = (props) => {
                               : <span><em>Unlinked</em></span>
                             }
                           </div>
+                          {(Array.isArray(project.cidDescriptors) && project.cidDescriptors.length > 0) && (
+                            <div className="mb-1p">
+                              <Header as="span" sub>C-ID(s): </Header>
+                              <Label.Group className="inlineblock-display ml-1p">
+                                {project.cidDescriptors.map((cid) => (
+                                  <Label key={cid}>{cid}</Label>
+                                ))}
+                              </Label.Group>
+                            </div>
+                          )}
                           {(project.tags && Array.isArray(project.tags) && project.tags.length > 0) &&
                             <div>
                               <Header as='span' sub>Tags: </Header>
@@ -2725,13 +2730,18 @@ const ProjectView = (props) => {
                   )}
                   deburr
                   placeholder="Search C-IDs..."
+                  multiple
                   search
                   selection
                   options={cidOptions}
                   loading={!loadedCIDs}
                   disabled={!loadedCIDs}
-                  onChange={(_e, { value }) => setProjCID(value)}
-                  value={projCID}
+                  onChange={(_e, { value }) => setProjCIDs(value)}
+                  renderLabel={(cid) => ({
+                    color: 'blue',
+                    content: cid.key,
+                  })}
+                  value={projCIDs}
                 />
                 <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
                 <Divider />
