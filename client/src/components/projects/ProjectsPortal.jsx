@@ -14,9 +14,11 @@ import {
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation, useHistory } from 'react-router-dom';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
+import CreateProject from './CreateProject';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
@@ -28,8 +30,10 @@ import useGlobalError from '../error/ErrorHooks.js';
 
 const ProjectsPortal = (props) => {
 
-    // Global Error Handling
+    // Global State and Error Handling
     const { handleGlobalError } = useGlobalError();
+    const history = useHistory();
+    const location = useLocation();
 
     // UI
     const [loadedProjects, setLoadedProjects] = useState(false);
@@ -41,6 +45,17 @@ const ProjectsPortal = (props) => {
     // Projects Data
     const [projects, setProjects] = useState([]);
     const [displayProjects, setDisplayProjects] = useState([]);
+
+    // Create Project
+    const [showCreateProject, setShowCreateProject] = useState(false);
+
+    useEffect(() => {
+      if (location.pathname.includes('create')) {
+        setShowCreateProject(true);
+      } else {
+        setShowCreateProject(false);
+      }
+    }, [location, setShowCreateProject]);
 
 
     /**
@@ -118,6 +133,19 @@ const ProjectsPortal = (props) => {
         }
     }, [projects, sortChoice, searchString, setDisplayProjects]);
 
+    /**
+     * Opens the Create Project tool.
+     */
+    function handleOpenCreateProject() {
+      history.push('/projects/create');
+    }
+
+    /**
+     * Closes the Create Project tool.
+     */
+    function handleCloseCreateProject() {
+      history.push('/projects');
+    }
 
     return(
         <Grid className='component-container' divided='vertically'>
@@ -164,10 +192,9 @@ const ProjectsPortal = (props) => {
                                 inline
                             />
                             <Button
-                                as={Link}
-                                to='/projects/create'
                                 floated='right'
                                 color='green'
+                                onClick={handleOpenCreateProject}
                             >
                                 <Button.Content>
                                     <Icon name='add' />
@@ -261,6 +288,7 @@ const ProjectsPortal = (props) => {
                             </Table>
                         </Segment>
                     </Segment.Group>
+                    <CreateProject show={showCreateProject} onClose={handleCloseCreateProject} />
                 </Grid.Column>
             </Grid.Row>
         </Grid>

@@ -77,155 +77,35 @@ const projectVisibilityOptions = ['private', 'public'];
 const materialsStorage = multer.memoryStorage();
 
 /**
- * Creates a new Project within the current Organization using the values specified in the
- * request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'createProject'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ * Creates a new, empty Project within the current Organization.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
  */
-const createProject = (req, res) => {
-    let hasTags = false;
-    let checkProjURL = false;
-    let libNames = [];
-    let libreURLRegex = null;
-    // Setup project with defaults
-    const newProjectID = b62(10);
-    let newProjData = {
-        orgID: process.env.ORG_ID,
-        projectID: newProjectID,
-        title: req.body.title,
-        status: 'open',
-        visibility: 'private',
-        currentProgress: 0,
-        peerProgress: 0,
-        a11yProgress: 0,
-        classification: '',
-        author: '',
-        authorEmail: '',
-        license: '',
-        resourceURL: '',
-        projectURL: '',
-        leads: [req.decoded.uuid],
-        liaisons: [],
-        members: [],
-        auditors: [],
-        tags: [],
-        notes: ''
+async function createProject(req, res) {
+  try {
+    const { title, visibility } = req.body;
+    const newProjData = {
+      title,
+      visibility,
+      orgID: process.env.ORG_ID,
+      projectID: b62(10),
+      status: 'open',
+      leads: [req.user.decoded.uuid],
     };
-    // Apply user values if present
-    if (req.body.hasOwnProperty('visibility')) newProjData.visibility = req.body.visibility;
-    if (req.body.hasOwnProperty('status')) newProjData.status = req.body.status;
-    if (req.body.hasOwnProperty('progress')) newProjData.currentProgress = req.body.progress;
-    if (req.body.hasOwnProperty('classification')) newProjData.classification = req.body.classification;
-    if (req.body.hasOwnProperty('projectURL')) {
-        /* If the Project URL is a LibreTexts link, flag it to gather more information */
-        libNames = libraryNameKeys.join('|');
-        libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
-        if (libreURLRegex.test(req.body.projectURL)) checkProjURL = true;
-        newProjData.projectURL = req.body.projectURL;
-    }
-    if (req.body.hasOwnProperty('projectURL')) newProjData.projectURL = req.body.projectURL;
-    if (req.body.hasOwnProperty('author')) newProjData.author = req.body.author;
-    if (req.body.hasOwnProperty('authorEmail')) newProjData.authorEmail = req.body.authorEmail;
-    if (req.body.hasOwnProperty('license')) newProjData.license = req.body.license;
-    if (req.body.hasOwnProperty('resourceURL')) newProjData.resourceURL = req.body.resourceURL;
-    if (req.body.hasOwnProperty('notes')) newProjData.notes = req.body.notes;
-    new Promise((resolve, _reject) => {
-        // lookup all organization tags if new project has tags
-        if (req.body.hasOwnProperty('tags')) {
-            hasTags = true;
-            resolve(Tag.aggregate([
-                {
-                    $match: {
-                        $and: [
-                            { orgID: process.env.ORG_ID },
-                            { title: { $in: req.body.tags } }
-                        ]
-                    }
-                }
-            ]));
-        } else {
-            // no tags specified, no need to resolve them
-            resolve([]);
-        }
-    }).then((allOrgTags) => {
-        var tagBulkOps = [];
-        var projTagIDs = [];
-        if (hasTags) {
-            // build new array of existing tagIDs,
-            // otherwise generate a new tagID and prepare to insert in DB
-            req.body.tags.forEach((tagItem) => {
-                var foundTag = allOrgTags.find((orgTag) => {
-                    return orgTag.title === tagItem;
-                });
-                if (foundTag !== undefined) {
-                    projTagIDs.push(foundTag.tagID);
-                } else {
-                    var newID = b62(12);
-                    tagBulkOps.push({
-                        insertOne: {
-                            document: {
-                                orgID: process.env.ORG_ID,
-                                tagID: newID,
-                                title: tagItem
-                            }
-                        }
-                    });
-                    projTagIDs.push(newID);
-                }
-            });
-            // set project tags with resolved array
-            newProjData.tags = projTagIDs;
-            if (tagBulkOps.length > 0) {
-                // insert new tags
-                return Tag.bulkWrite(tagBulkOps, {
-                    ordered: false
-                });
-            }
-        }
-        // no new tags to insert
-        return {};
-    }).then((_bulkRes) => {
-        // optionally lookup LibreText information if a LibreTexts URL was provided
-        if (checkProjURL) return getLibreTextInformation(newProjData.projectURL);
-        return {};
-    }).then((projURLInfo) => {
-        if (checkProjURL) {
-            if (projURLInfo.hasOwnProperty('lib') && projURLInfo.lib !== '') newProjData.libreLibrary = projURLInfo.lib;
-            if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') newProjData.libreCoverID = projURLInfo.id;
-            if (projURLInfo.hasOwnProperty('shelf') && projURLInfo.shelf !== '') newProjData.libreShelf = projURLInfo.shelf;
-            else if (projURLInfo.hasOwnProperty('campus') && projURLInfo.campus !== '') newProjData.libreCampus = projURLInfo.campus;
-        }
-        // save formatted project to DB
-        return new Project(newProjData).save();
-    }).then((newDoc) => {
-        if (newDoc) {
-            if (newDoc.visibility === 'public') {
-                return alertsAPI.processInstantProjectAlerts([newDoc._id]);
-            }
-            return true;
-        } else {
-            throw (new Error('createfail'));
-        }
-    }).then(() => {
-        // ignore return value of Alerts processing
-        return res.send({
-            err: false,
-            msg: 'New project created.',
-            projectID: newProjectID
-        });
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'createfail') errMsg = conductorErrors.err3;
-        else debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
+    const newProject = await new Project(newProjData).save();
+    return res.send({
+      err: false,
+      msg: 'New project created!',
+      projectID: newProject.projectID,
     });
-};
-
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Deletes the Project identified by the projectID in the request body.
@@ -3315,17 +3195,7 @@ const validate = (method) => {
     case 'createProject':
       return [
           body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
-          body('tags', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
-          body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
-          body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
-          body('progress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
-          body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
-          body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-          body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-          body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
-          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
-          body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
-          body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString()
+          body('visibility', conductorErrors.err1).exists().custom(validateVisibility),
       ]
     case 'deleteProject':
       return [
@@ -3341,7 +3211,7 @@ const validate = (method) => {
           body('a11yProgress', conductorErrors.err1).optional({ checkFalsy: true }).isInt({ min: 0, max: 100, allow_leading_zeroes: false }),
           body('status', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateProjectStatus),
           body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
-          body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateVisibility),
+          body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateVisibility),
           body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
           body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),

@@ -25,7 +25,6 @@ import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
 import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics';
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
-import ProjectCreate from './components/projects/ProjectCreate';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
 import ProjectsAvailable from './components/projects/ProjectsAvailable';
 import ProjectsCompleted from './components/projects/ProjectsCompleted';
@@ -60,9 +59,8 @@ const Conductor = () => {
         <PrivateRoute exact path='/home' component={Home} />
         <PrivateRoute exact path='/search' component={Search} />
         <PrivateRoute exact path='/alerts' component={MyAlerts} />
-        <PrivateRoute exact path='/projects' component={ProjectsPortal} />
-        <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />
-        <PrivateRoute exact path='/projects/create' component={ProjectCreate} />
+        <PrivateRoute exact path='/projects/(create)?' component={ProjectsPortal} />
+        <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
         <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
         <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />
         <PrivateRoute exact path='/projects/:id' component={ProjectView} />
