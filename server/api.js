@@ -1040,9 +1040,9 @@ router.route('/project/:projectID/book/materials/:materialID?')
   ).put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('renameProjectBookMaterial'),
+    projectsAPI.validate('updateProjectBookMaterial'),
     middleware.checkValidationErrors,
-    projectsAPI.renameProjectBookMaterial,
+    projectsAPI.updateProjectBookMaterial,
   ).delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,

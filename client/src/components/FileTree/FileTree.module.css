@@ -25,5 +25,9 @@
 
 .node_action_wrapper {
   display: inline-block;
-  margin-left: 1em;
+  margin-left: 0.2em;
+}
+
+.file_info_icon {
+  margin-left: 0.2em !important;
 }

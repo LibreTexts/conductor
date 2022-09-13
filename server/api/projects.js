@@ -2469,12 +2469,12 @@ async function getProjectBookMaterial(req, res) {
 }
 
 /**
- * Renames an Ancillary Material (for a Book linked to a Project).
+ * Renames or updates the description of an Ancillary Material (for a Book linked to a Project).
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
- async function renameProjectBookMaterial(req, res) {
+ async function updateProjectBookMaterial(req, res) {
   try {
     const projectID = req.params.projectID;
     const project = await Project.findOne({ projectID }).lean();
@@ -2501,8 +2501,16 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    let newName = req.body.newName;
     const materialID = req.params.materialID;
+    const { name, description } = req.body;
+
+    // check if there are any updates to perform (account for unsetting the description)
+    if (typeof (name) !== 'string' && typeof (description) !== 'string') {
+      return res.send({
+        err: false,
+        msg: 'No fields provided to update.',
+      });
+    }
 
     const materials = await retrieveAllBookMaterials(bookID);
     if (!materials) { // error encountered
@@ -2517,21 +2525,28 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    /* Ensure file extension remains in new name */
-    if (!newName.includes('.')) {
-      const splitCurrName = foundObj.name.split('.');
-      if (splitCurrName.length > 1) {
-        const currExtension = splitCurrName[splitCurrName.length - 1];
-        newName = `${newName}.${currExtension}`;
+    let processedName = name;
+    if (processedName) {
+      // Ensure file extension remains in new name
+      if (!processedName.includes('.')) {
+        const splitCurrName = foundObj.name.split('.');
+        if (splitCurrName.length > 1) {
+          const currExtension = splitCurrName[splitCurrName.length - 1];
+          processedName = `${processedName}.${currExtension}`;
+        }
       }
     }
 
     const updated = materials.map((obj) => {
       if (obj.materialID === foundObj.materialID) {
-        return {
-          ...obj,
-          name: newName,
-        };
+        const updateObj = { ...obj };
+        if (processedName) {
+          updateObj.name = processedName;
+        }
+        if (typeof (description) === 'string') { // account for unsetting
+          updateObj.description = description;
+        }
+        return updateObj;
       }
       return obj;
     });
@@ -2553,7 +2568,7 @@ async function getProjectBookMaterial(req, res) {
         Bucket: process.env.AWS_MATERIALS_BUCKET,
         CopySource: `${process.env.AWS_MATERIALS_BUCKET}/${fileKey}`,
         Key: fileKey,
-        ContentDisposition: `inline; filename=${newName}`,
+        ContentDisposition: `inline; filename=${processedName}`,
         ContentType: newContentType,
         MetadataDirective: "REPLACE",
       }));
@@ -2566,7 +2581,7 @@ async function getProjectBookMaterial(req, res) {
 
     return res.send({
       err: false,
-      msg: 'Successfully renamed material!',
+      msg: 'Successfully updated material!',
     });
   } catch (e) {
     debugError(e);
@@ -3356,11 +3371,12 @@ const validate = (method) => {
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
       ]
-    case 'renameProjectBookMaterial':
+    case 'updateProjectBookMaterial':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         param('materialID', conductorErrors.err1).exists().isUUID(),
-        body('newName', conductorErrors.err1).exists().isLength({ min: 1, max: 100 }),
+        body('name', conductorErrors.err1).optional().isLength({ min: 1, max: 100 }),
+        body('description', conductorErrors.err1).optional().isLength({ max: 500 }),
       ]
     case 'updateProjectBookMaterialAccess':
       return [
@@ -3418,7 +3434,7 @@ export default {
     addProjectBookMaterials,
     getProjectBookMaterial,
     getProjectBookMaterials,
-    renameProjectBookMaterial,
+    updateProjectBookMaterial,
     updateProjectBookMaterialAccess,
     moveProjectBookMaterial,
     removeProjectBookMaterial,

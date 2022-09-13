@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Icon } from 'semantic-ui-react';
+import { Icon, Popup } from 'semantic-ui-react';
 import FileIcon from '../FileIcon';
 import styles from './FileTree.module.css';
 
@@ -12,6 +12,7 @@ const FileTreeNode = ({
   item,
   identifierKey,
   typeKey,
+  onFileNameClick,
   onFileActionClick,
   onFolderActionClick,
   disabled,
@@ -42,6 +43,18 @@ const FileTreeNode = ({
     ...props,
   };
 
+  const description = item.description ? (
+    <Popup
+      trigger={(
+        <Icon name="info" color="grey" className={`cursor-pointer ${styles.file_info_icon}`} size="small" />
+      )}
+      position="top center"
+      content={(
+        <p className="text-center">{item.description}</p>
+      )}
+    />
+  ) : null;
+
   if (isFolder) {
     return (
       <li {...liProps}>
@@ -54,7 +67,8 @@ const FileTreeNode = ({
             />
           )}
           <Icon name="folder outline" />
-          {item.name}
+          <span>{item.name}</span>
+          {description}
           {!disabled ? (
             <div
               onClick={() => onFolderActionClick(item[identifierKey])}
@@ -75,6 +89,7 @@ const FileTreeNode = ({
               item={child}
               identifierKey={identifierKey}
               typeKey={typeKey}
+              onFileNameClick={onFileNameClick}
               onFileActionClick={onFileActionClick}
               onFolderActionClick={onFolderActionClick}
               disabled={child.disabled}
@@ -92,18 +107,35 @@ const FileTreeNode = ({
   return (
     <li {...liProps}>
       <FileIcon filename={item.name} />
-      <span>{item.name}</span>
       {!disabled ? (
-        <div
-          onClick={() => onFileActionClick(item[identifierKey])}
-          className={styles.node_action_wrapper}
-        >
-          {fileAction}
-        </div>
+        <>
+          {onFileNameClick ? (
+            <button
+              onClick={() => onFileNameClick(item[identifierKey])}
+              title={`Download ${item.name} (opens in new tab)`}
+              className="button-text-link"
+            >
+              {item.name}
+            </button>
+          ) : (
+            <span>{item.name}</span>
+          )}
+          {description}
+          <div
+            onClick={() => onFileActionClick(item[identifierKey])}
+            className={styles.node_action_wrapper}
+          >
+            {fileAction}
+          </div>
+        </>
       ) : (
-        <div className={styles.node_action_wrapper}>
-          {fileDisabledAction}
-        </div>
+        <>
+          <span>{item.name}</span>
+          {description}
+          <div className={styles.node_action_wrapper}>
+            {fileDisabledAction}
+          </div>
+        </>
       )}
     </li>
   );
@@ -122,6 +154,11 @@ FileTreeNode.propTypes = {
    * Object key that returns the node's type ("file" or "folder").
    */
   typeKey: PropTypes.string.isRequired,
+  /**
+   * Handler to activate when a file-type node's name is clicked.
+   * Passes the node's identifier value as the first argument.
+   */
+  onFileNameClick: PropTypes.func,
   /**
    * Handler to activate when a file-type node's action is clicked.
    * Passes the node's identifier value as the first argument.

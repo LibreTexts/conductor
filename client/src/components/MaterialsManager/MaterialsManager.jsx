@@ -9,9 +9,9 @@ import DeleteMaterials from './DeleteMaterials';
 import FileIcon from '../FileIcon';
 import MaterialsUploader from './MaterialsUploader';
 import MoveMaterials from './MoveMaterials';
-import RenameMaterial from './RenameMaterial';
+import EditMaterial from './EditMaterial';
 import { getMaterialsAccessText } from '../util/BookHelpers';
-import { fileSizePresentable } from '../util/HelperFunctions';
+import { fileSizePresentable, truncateString } from '../util/HelperFunctions';
 import useGlobalError from '../error/ErrorHooks';
 import styles from './MaterialsManager.module.css';
 
@@ -22,12 +22,12 @@ import styles from './MaterialsManager.module.css';
 const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
 
   const TABLE_COLS = [
-    { key: 'check', text: '', width: 1 },
-    { key: 'name', text: 'Name', width: 6 },
+    { key: 'check', text: '', collapsing: true },
+    { key: 'name', text: 'Name', width: 8 },
     { key: 'access', text: 'Access', width: 2, },
-    { key: 'size', text: 'Size', width: 2 },
+    { key: 'size', text: 'Size', width: 1 },
     { key: 'uploaded', text: 'Created/Uploaded', width: 4 },
-    { key: 'download', text: '', width: 1 },
+    { key: 'download', text: '', collapsing: true },
   ];
 
   // Global Error Handling
@@ -39,7 +39,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [showChangeAccess, setShowChangeAccess] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [showRename, setShowRename] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [showMove, setShowMove] = useState(false);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [itemsChecked, setItemsChecked] = useState(0);
@@ -51,8 +51,9 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
     name: '',
   }]);
 
-  const [renameID, setRenameID] = useState('');
-  const [renameName, setRenameName] = useState('');
+  const [editID, setEditID] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDescrip, setEditDescrip] = useState('');
   const [moveMaterials, setMoveMaterials] = useState([]);
   const [accessMaterials, setAccessMaterials] = useState([]);
   const [deleteMaterials, setDeleteMaterials] = useState([]);
@@ -194,32 +195,36 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
   }
 
   /**
-   * Gathers the Material entry to be renamed, enters its information into state,
-   * and opens the Rename Material tool.
+   * Gathers the Material entry to be edited, enters its information into state,
+   * and opens the Edit Material tool.
+   *
+   * @param {string} materialID - Identifier of the entry to work on.
    */
-  function handleRenameMaterial() {
-    const toRename = materials.find((obj) => obj.checked);
-    if (toRename && toRename.materialID && toRename.name) {
-      setRenameID(toRename.materialID);
-      setRenameName(toRename.name);
-      setShowRename(true);
+  function handleEditMaterial(materialID) {
+    const toEdit = materials.find((obj) => obj.materialID === materialID);
+    if (toEdit) {
+      setEditID(toEdit.materialID);
+      setEditName(toEdit.name);
+      setEditDescrip(toEdit.description || '');
+      setShowEdit(true);
     }
   }
 
   /**
-   * Closes the Rename Material tool and resets its state.
+   * Closes the Edit Material tool and resets its state.
    */
-  function handleRenameClose() {
-    setShowRename(false);
-    setRenameID('');
-    setRenameName('');
+  function handleEditClose() {
+    setShowEdit(false);
+    setEditID('');
+    setEditName('');
+    setEditDescrip('');
   }
 
   /**
-   * Closes the Rename Material tool and refreshes the list of Materials after successful rename.
+   * Closes the Edit Material tool and refreshes the list of Materials after successful edit.
    */
-  function handleRenameFinished() {
-    handleRenameClose();
+  function handleEditFinished() {
+    handleEditClose();
     getMaterials();
   }
 
@@ -388,10 +393,6 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
             <Icon name="add" />
             New Folder
           </Button>
-          <Button color="blue" disabled={itemsChecked !== 1} onClick={handleRenameMaterial}>
-            <Icon name="edit" />
-            Rename
-          </Button>
           <Button color="teal" disabled={itemsChecked < 1} onClick={handleMoveMaterials}>
             <Icon name="move" />
             Move
@@ -418,7 +419,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
               <Table.Header>
                 <Table.Row>
                   {TABLE_COLS.map((item) => (
-                    <Table.HeaderCell key={item.key} width={item.width}>
+                    <Table.HeaderCell key={item.key} collapsing={item.collapsing} width={item.width}>
                       {item.text}
                       {item.key === 'check' && (
                         <input
@@ -454,19 +455,38 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
                         />
                       </Table.Cell>
                       <Table.Cell>
-                        {item.storageType === 'folder' ? (
-                          <Icon name="folder outline" />
-                        ) : (
-                          <FileIcon filename={item.name} />
-                        )}
-                        {item.storageType === 'folder' ? (
-                          <span
-                            className="text-link"
-                            onClick={() => handleDirectoryClick(item.materialID)}
-                          >
-                            {item.name}
-                          </span>
-                        ) : item.name}
+                        <div className={styles.namedescrip_cell}>
+                          <div>
+                            <div className={item.description ? 'mb-05e' : ''}>
+                              {item.storageType === 'folder' ? (
+                                <Icon name="folder outline" />
+                              ) : (
+                                <FileIcon filename={item.name} />
+                              )}
+                              {item.storageType === 'folder' ? (
+                                <span
+                                  className={`text-link ${styles.namedescrip_title}`}
+                                  onClick={() => handleDirectoryClick(item.materialID)}
+                                >
+                                  {item.name}
+                                </span>
+                              ) : (
+                                <span className={styles.namedescrip_title}>{item.name}</span>
+                              )}
+                            </div>
+                            {item.description && (
+                              <span className="muted-text ml-1e">{truncateString(item.description, 100)}</span>
+                            )}
+                          </div>
+                          <Button
+                            icon="edit"
+                            size="small"
+                            basic
+                            circular
+                            title="Edit name or description"
+                            onClick={() => handleEditMaterial(item.materialID)}
+                          />
+                        </div>
                       </Table.Cell>
                       <Table.Cell>
                         {getMaterialsAccessText(item.access)}
@@ -487,6 +507,7 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
                           <Button
                             icon
                             size="small"
+                            title="Download file (opens in new tab)"
                             onClick={() => handleDownloadFile(item.materialID)}
                           >
                             <Icon name="download" />
@@ -533,13 +554,14 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
           materials={accessMaterials}
           onFinishedChange={handleAccessFinished}
         />
-        <RenameMaterial
-          show={showRename}
-          onClose={handleRenameClose}
+        <EditMaterial
+          show={showEdit}
+          onClose={handleEditClose}
           projectID={projectID}
-          materialID={renameID}
-          currentName={renameName}
-          onFinishedRename={handleRenameFinished}
+          materialID={editID}
+          currentName={editName}
+          currentDescrip={editDescrip}
+          onFinishedEdit={handleEditFinished}
         />
         <MoveMaterials
           show={showMove}

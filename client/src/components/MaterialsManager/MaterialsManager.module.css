@@ -1,3 +1,13 @@
 .table_row {
   height: 60px;
 }
+
+.namedescrip_cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.namedescrip_title {
+  font-size: 1.1em;
+}

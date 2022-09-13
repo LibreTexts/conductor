@@ -41,6 +41,10 @@ MaterialsSchema.add({
     default: 0,
   },
   /**
+   * UI text describing the entry and its contents.
+   */
+  description: String,
+  /**
    * Identifier of the immediate parent in the hierarchy. Empty string if the
    * entry is at the top-level of the hierarchy.
    */

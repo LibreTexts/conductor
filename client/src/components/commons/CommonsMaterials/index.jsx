@@ -83,26 +83,15 @@ const CommonsMaterials = ({ show, onClose, bookID, materials, hasLockedFileAcces
           items={materials}
           nodeIdentifierKey="materialID"
           nodeTypeKey="storageType"
-          onFileActionClick={handleFileNodeClick}
-          fileAction={(
-            <Button
-              icon
-              aria-label="Open/Download"
-              title="Open/Download"
-              size="tiny"
-              basic
-            >
-              <Icon name="download" />
-            </Button>
-          )}
+          onFileNameClick={handleFileNodeClick}
           fileDisabledAction={(
             <span>
-              <Icon name="lock" aria-label="Restricted" title="Restricted" />
+              <Icon name="lock" aria-label="Restricted" title="Restricted" size="small" />
             </span>
           )}
           folderDisabledAction={(
             <span>
-              <Icon name="lock" aria-label="Restricted" title="Restricted" />
+              <Icon name="lock" aria-label="Restricted" title="Restricted" size="small" />
             </span>
           )}
         />

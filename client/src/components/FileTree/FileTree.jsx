@@ -10,6 +10,7 @@ const FileTree = ({
   items,
   nodeIdentifierKey,
   nodeTypeKey,
+  onFileNameClick,
   onFileActionClick,
   onFolderActionClick,
   fileAction,
@@ -26,6 +27,7 @@ const FileTree = ({
           item={entry}
           identifierKey={nodeIdentifierKey}
           typeKey={nodeTypeKey}
+          onFileNameClick={onFileNameClick}
           onFileActionClick={onFileActionClick}
           onFolderActionClick={onFolderActionClick}
           disabled={entry.disabled}
@@ -49,9 +51,14 @@ FileTree.propTypes = {
    */
   nodeIdentifierKey: PropTypes.string.isRequired,
   /**
- * Object key that returns the node's type ("file" or "folder").
- */
+   * Object key that returns the node's type ("file" or "folder").
+   */
   nodeTypeKey: PropTypes.string.isRequired,
+  /**
+   * Handler to activate when a file-type node's name is clicked.
+   * Passes the node's identifier value as the first argument.
+   */
+  onFileNameClick: PropTypes.func,
   /**
    * Handler to activate when a file-type node's action is clicked.
    * Passes the node's identifier value as the first argument.
@@ -81,6 +88,7 @@ FileTree.propTypes = {
 };
 
 FileTree.propTypes = {
+  onFileNameClick: () => { },
   onFileActionClick: () => { },
   onFolderActionClick: () => { },
   // don't provide null default props for node actions - prop type checking throws error

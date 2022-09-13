@@ -1,3 +1,7 @@
+:root {
+  --link-color: #4B58E6;
+}
+
 * {
   box-sizing:border-box
 }
@@ -16,5 +20,5 @@ code {
 }
 
 a {
-  color: #4b58e6;
+  color: var(--link-color);
 }
