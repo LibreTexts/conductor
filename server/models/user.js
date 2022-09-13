@@ -57,6 +57,11 @@ const UserSchema = new mongoose.Schema({
         required: true,
       },
     }],
+    /**
+     * Indicates the "user" is a system account and should not be directly accessed, nor shown
+     * in lists of users and team members.
+     */
+    isSystem: Boolean,
 }, {
     timestamps: true
 });

@@ -181,10 +181,15 @@ const performSearch = (req, res) => {
     aggregations.push(User.aggregate([
         {
             $match: {
-                $or: [
+              $and: [
+                {
+                  $or: [
                     { firstName: queryRegex },
-                    { lastName: queryRegex }
-                ]
+                    { lastName: queryRegex },
+                  ],
+                },
+                { $expr: { $not: '$isSystem' } },
+              ],
             }
         }, {
             $project: {

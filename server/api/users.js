@@ -324,7 +324,9 @@ const updateUserAvatar = (req, res) => {
 const getUsersList = (_req, res) => {
     User.aggregate([
         {
-            $match: {}
+            $match: {
+              $expr: { $not: '$isSystem' },
+            },
         }, {
             $project: {
                 _id: 0,
@@ -368,7 +370,9 @@ const getUsersList = (_req, res) => {
 const getBasicUsersList = (_req, res) => {
     User.aggregate([
         {
-            $match: {}
+            $match: {
+              $expr: { $not: '$isSystem' },
+            },
         }, {
             $project: {
                 _id: 0,

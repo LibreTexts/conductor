@@ -21,6 +21,8 @@ import { v4 } from 'uuid';
 import User from '../models/user.js';
 import Project from '../models/project.js';
 import Tag from '../models/tag.js';
+import Thread from '../models/thread.js';
+import Message from '../models/message.js';
 import HarvestingRequest from '../models/harvestingrequest.js';
 import Organization from '../models/organization.js';
 import CIDDescriptor from '../models/ciddescriptor.js';
@@ -29,7 +31,9 @@ import { debugError, debugCommonsSync } from '../debug.js';
 import {
     validateProjectClassification,
     validateRoadmapStep,
-    getLibreTextInformation
+    getLibreTextInformation,
+    progressThreadDefaultMessage,
+    projectWelcomeMessage,
 } from '../util/projectutils.js';
 import {
   isValidLicense,
@@ -94,6 +98,39 @@ async function createProject(req, res) {
       leads: [req.user.decoded.uuid],
     };
     const newProject = await new Project(newProjData).save();
+
+    // Create default Threads
+    const welcomeThreadID = b62(14);
+    const progressThreadID = b62(14);
+    const defaultThreads = [{
+        threadID: welcomeThreadID,
+        project: newProject.projectID,
+        title: 'Welcome',
+        kind: 'project',
+        createdBy: process.env.CONDUCTOR_SYSTEM_UUID,
+      }, {
+        threadID: progressThreadID,
+        project: newProject.projectID,
+        title: 'Progress',
+        kind: 'project',
+        createdBy: process.env.CONDUCTOR_SYSTEM_UUID,
+    }];
+    await Thread.insertMany(defaultThreads);
+
+    // Create default Messages
+    const defaultMessages = [{
+      messageID: b62(15),
+      thread: welcomeThreadID,
+      body: projectWelcomeMessage,
+      author: process.env.CONDUCTOR_SYSTEM_UUID,
+    }, {
+      messageID: b62(15),
+      thread: progressThreadID,
+      body: progressThreadDefaultMessage,
+      author: process.env.CONDUCTOR_SYSTEM_UUID,
+    }];
+    await Message.insertMany(defaultMessages);
+
     return res.send({
       err: false,
       msg: 'New project created!',
@@ -1137,7 +1174,10 @@ async function getAddableMembers(req, res) {
     const users = await User.aggregate([
       {
         $match: {
-          uuid: { $nin: existing },
+          $and: [
+            { uuid: { $nin: existing } },
+            { $expr: { $not: '$isSystem' } },
+          ],
         },
       }, {
         $project: {

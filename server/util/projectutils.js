@@ -29,6 +29,15 @@ export const textUseOptions = [
     { key: 'other', text: 'Other (please explain in comments)', value: 'other' },
 ];
 
+export const progressThreadDefaultMessage = `*This thread was automatically created by Conductor. Use it to discuss your project's progress, or create another to the left!*`;
+
+export const projectWelcomeMessage = `Welcome to your new Conductor project!
+The Conductor is an increasingly powerful project planning and curation tool. If your text is available on the LibreTexts bookshelves, it is also listed on Commons. Using Conductor, you can collect and curate Peer Reviews to continuously improve the quality of your new resource. Conductor also provides a place for your ancillary materials such as slide decks, a syllabus, notes, etc., all of which can be public (available to all) or restricted to instructors. You can use the *Accessibility* tab of your new project or our Accessibility Checker tool in the library editor to ensure your resource is available to all readers.
+Conductor improves communication between the LibreTexts team and our community of authors. Projects needing help can be flagged for review. The platform streamlines adoption reporting and account requests into one convenient place. Users submitting a Harvesting Request can be added to the project to stay up-to-date with its progress in real-time.
+Conductor also promotes collaboration and organization among everyone on your OER team (including LibreTexts project liaisons) by providing messaging and task/to-do lists. Tasks can have dependencies and due dates and are visible in a calendar or Gantt chart view.
+You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/10%3A_Commons_and_Conductor).
+`;
+
 
 /**
  * Validates that a given classification string is one of the
