@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { Button, Modal, Loader } from 'semantic-ui-react';
+import { Button, Modal } from 'semantic-ui-react';
+import ProgressBar from '../ProgressBar';
 import useGlobalError from '../error/ErrorHooks';
 import FileUploader from '../FileUploader';
+import styles from './MaterialsManager.module.css';
 
 /**
  * Modal interface to upload Ancillary Materials to a Project/Book.
@@ -15,6 +17,10 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
 
   // State
   const [loading, setLoading] = useState(false);
+  const [percentUploaded, setPercentUploaded] = useState(0);
+  const [finishedFileTransfer, setFinishedFileTransfer] = useState(false);
+
+  const dirText = directory ? directory : 'root';
 
   /**
    * Handles upload to the server after files are collected using the FileUploader.
@@ -32,10 +38,23 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
       const uploadRes = await axios.post(
         `/project/${projectID}/book/materials`,
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            if (typeof (progressEvent.loaded) === 'number' && typeof (progressEvent.total) === 'number') {
+              const progress = (progressEvent.loaded / progressEvent.total) * 100;
+              setPercentUploaded(progress);
+              if (progress === 100) {
+                setFinishedFileTransfer(true);
+              }
+            }
+          },
+        },
       );
       if (!uploadRes.data.err) {
         setLoading(false);
+        setPercentUploaded(0);
+        setFinishedFileTransfer(false);
         onFinishedUpload();
       } else {
         throw (new Error(uploadRes.data.errMsg));
@@ -50,11 +69,24 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
     <Modal size="large" open={show} onClose={onClose} {...props}>
       <Modal.Header>Upload Materials</Modal.Header>
       <Modal.Content>
-        <p>Files will be uploaded to the <strong>{directory}</strong> folder. Up to 10 files can be uploaded at once, with a maximum of 100 MB each.</p>
         {!loading ? (
-          <FileUploader multiple={true} maxFiles={10} onUpload={handleUpload} />
+          <div>
+            <p>Files will be uploaded to the <strong>{dirText}</strong> folder. Up to 10 files can be uploaded at once, with a maximum of 100 MB each.</p>
+            <FileUploader multiple={true} maxFiles={10} onUpload={handleUpload} />
+          </div>
         ) : (
-          <Loader active inline="centered" className="mt-2p mb-2p" />
+          <ProgressBar
+            id="upload-progress"
+            label={(
+              <label
+                htmlFor="upload-progress"
+                className={styles.upload_progress_label}
+              >
+                {!finishedFileTransfer ? 'Uploading...' : 'Finishing...'}
+              </label>
+            )}
+            value={percentUploaded}
+          />
         )}
       </Modal.Content>
       <Modal.Actions>

@@ -127,7 +127,7 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
                 nodeTypeKey="storageType"
                 onFolderActionClick={handleMove}
                 folderAction={(
-                  <Button color="green" size="small" compact>
+                  <Button color="green" size="small" compact className="ml-1e">
                     Move here
                   </Button>
                 )}
