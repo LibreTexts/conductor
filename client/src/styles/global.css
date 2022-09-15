@@ -212,6 +212,10 @@ body {
     cursor: pointer;
 }
 
+.word-break-all {
+    word-break: break-all;
+}
+
 /** padding-top **/
 .pt-2p {
     padding-top: 2% !important;

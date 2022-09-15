@@ -6,7 +6,7 @@ import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 
 import AccountRequest from './screens/conductor/AccountRequest';
-import AccountRequests from './components/controlpanel/AccountRequests';
+import AccountRequests from './screens/conductor/controlpanel/AccountRequests';
 import AccountSettings from './components/auth/AccountSettings';
 import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';
 import BooksManager from './screens/conductor/controlpanel/BooksManager';
