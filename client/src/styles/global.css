@@ -216,6 +216,10 @@ body {
     word-break: break-all;
 }
 
+.word-break-word {
+    word-break: break-word;
+}
+
 /** padding-top **/
 .pt-2p {
     padding-top: 2% !important;

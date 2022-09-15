@@ -3236,7 +3236,7 @@ const ProjectView = (props) => {
                     {(viewTaskData.description && viewTaskData.description !== '') &&
                       <div className='mt-1p mb-4p'>
                         <Header as='h3' dividing>Description</Header>
-                        <p dangerouslySetInnerHTML={{
+                        <p className="word-break-word" dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(marked(viewTaskData.description))
                         }}></p>
                       </div>
