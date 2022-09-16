@@ -167,6 +167,14 @@ const Login = () => {
         }
     };
 
+    const genRegisterLink = () => {
+        const redirectBase = '/register';
+        if (redirectURI) {
+            return `${redirectBase}?redirect_uri=${encodeURIComponent(redirectURI)}`;
+        }
+        return redirectBase;
+    };
+
     const initSSOLogin = () => {
         if (process.env.NODE_ENV === 'production') {
             let domains = String(process.env.REACT_APP_PRODUCTION_URLS).split(',');
@@ -245,7 +253,7 @@ const Login = () => {
                         color='green'
                         className='mt-1p'
                         as={Link}
-                        to='/register'
+                        to={genRegisterLink}
                         tabIndex='0'
                     >
                         <Icon name='add user'/> Register

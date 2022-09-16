@@ -12,7 +12,7 @@ import {
     Header
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useHistory } from 'react-router-dom';
 import axios from 'axios';
 import {
     isEmptyString,
@@ -21,13 +21,16 @@ import {
 
 import useGlobalError from '../error/ErrorHooks.js';
 
-const Register = (props) => {
+const Register = () => {
 
+    const history = useHistory();
+    const location = useLocation();
     const { handleGlobalError } = useGlobalError();
 
     // UI
     const [submitLoading, setSubmitLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [redirectURI, setRedirectURI] = useState('');
 
     // Form Data
     const [firstName, setFirstName] = useState('');
@@ -43,7 +46,19 @@ const Register = (props) => {
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Register";
-    }, []);
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('redirect_uri')) {
+            setRedirectURI(searchParams.get('redirect_uri'));
+        }
+    }, [location.search]);
+
+    const genBackToLoginLink = () => {
+        const redirectBase = '/login';
+        if (redirectURI) {
+            return `${redirectBase}?redirect_uri=${encodeURIComponent(redirectURI)}`;
+        }
+        return redirectBase;
+    };
 
     /** Form input handlers **/
     const onChange = (e) => {
@@ -122,7 +137,11 @@ const Register = (props) => {
             axios.post('/auth/register', userData).then((res) => {
                 if (!res.data.err) {
                     setSubmitLoading(false);
-                    props.history.push('/login?newregister=true');
+                    const newSearchParams = new URLSearchParams({ newregister: true });
+                    if (redirectURI) {
+                        newSearchParams.set('redirect_uri', redirectURI);
+                    }
+                    history.push(`/login?${newSearchParams.toString()}`);
                 } else {
                     handleGlobalError(res.data.errMsg)
                     setSubmitLoading(false);
@@ -148,7 +167,10 @@ const Register = (props) => {
                         <Icon name='info circle' />
                         <Message.Content>
                             <Message.Header>Conductor Accounts are Universal</Message.Header>
-                            <p>Remember, Conductor accounts are universal: register one account and use it on any instance. If you already have an account, you can return to <Link to='/login'>Login.</Link></p>
+                            <p>
+                                {'Remember, Conductor accounts are universal: register one account and use it on any instance. If you already have an account, you can return to '}
+                                <Link to={genBackToLoginLink}>Login.</Link>
+                            </p>
                         </Message.Content>
                     </Message>
                     <Form noValidate>
