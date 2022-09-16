@@ -33,6 +33,12 @@ const AccountRequest = () => {
     { key: 'no', text: 'No', value: 'false' },
   ];
 
+  const PURPOSE_OPTIONS = purposeOptions.map((item) => {
+    const opt = { ...item };
+    delete opt.shortText;
+    return opt;
+  });
+
   // Global State and Error
   const history = useHistory();
   const { handleGlobalError } = useGlobalError();
@@ -315,7 +321,7 @@ const AccountRequest = () => {
                 id="purpose"
                 fluid
                 label="What do you need accounts for?"
-                options={purposeOptions}
+                options={PURPOSE_OPTIONS}
                 placeholder="Choose purpose..."
                 onChange={handlePurposeChange}
                 value={purpose}
