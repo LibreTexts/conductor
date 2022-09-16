@@ -13,18 +13,19 @@ import {
     Modal
 } from 'semantic-ui-react';
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useHistory } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import queryString from 'query-string';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
 import useGlobalError from '../error/ErrorHooks.js';
 
-const Login = (props) => {
+const Login = () => {
 
     const dispatch = useDispatch();
+    const location = useLocation();
+    const history = useHistory();
     const { handleGlobalError } = useGlobalError();
 
     // UI
@@ -47,23 +48,23 @@ const Login = (props) => {
 
     useEffect(() => {
         document.title = "LibreTexts Conductor | Login";
-        const queryValues = queryString.parse(props.location.search);
-        if (queryValues.src === 'authexpired') {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('src') === 'authexpired') {
             setExpiredAuth(true);
         }
-        if (queryValues.newregister === 'true') {
+        if (searchParams.get('newregister') === 'true') {
             setNewRegister(true);
         }
-        if (queryValues.resetsuccess === 'true') {
+        if (searchParams.get('resetsuccess') === 'true') {
             setPassReset(true);
         }
-        if (queryValues.passchange === 'true') {
+        if (searchParams.get('passchange') === 'true') {
             setPassChange(true);
         }
-        if (queryValues.redirect_uri && queryValues.redirect_uri !== '') {
-            setRedirectURI(decodeURIComponent(queryValues.redirect_uri));
+        if (searchParams.get('redirect_uri')) {
+            setRedirectURI(searchParams.get('redirect_uri'));
         }
-    }, [props.location.search]);
+    }, [location.search]);
 
 
     /** Form input handlers **/
@@ -126,12 +127,12 @@ const Login = (props) => {
                             type: 'SET_AUTH'
                         });
                         if (redirectURI !== '') { // redirect to the page the user tried to visit directly
-                            props.history.push(redirectURI);
+                            history.push(redirectURI);
                         } else {
                             if (res.data.isNewMember) { // default, direct to Home
-                                props.history.push('/home?newmember=true');
+                                history.push('/home?newmember=true');
                             } else {
-                                props.history.push('/home');
+                                history.push('/home');
                             }
                         }
                     } else {
