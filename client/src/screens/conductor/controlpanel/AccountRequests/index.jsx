@@ -92,11 +92,18 @@ const AccountRequests = () => {
   }
 
   /**
-   * Closes the View Account Request tool and refreshes the list of Account Requests.
+   * Closes the View Account Request tool.
    */
   function handleViewModalClose() {
     setShowViewModal(false);
     setCurrentRequest(null);
+  }
+
+  /**
+   * Refreshes the list of Account Requests when a child component indicates
+   * the server's data may have changed.
+   */
+  function handleDataChangeNotification() {
     getAccountRequests();
   }
 
@@ -201,6 +208,7 @@ const AccountRequests = () => {
             show={showViewModal}
             onClose={handleViewModalClose}
             request={currentRequest}
+            onDataChange={handleDataChangeNotification}
           />
         </Grid.Column>
       </Grid.Row>

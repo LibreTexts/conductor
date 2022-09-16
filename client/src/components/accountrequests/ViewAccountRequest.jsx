@@ -10,7 +10,7 @@ import useGlobalError from '../error/ErrorHooks';
 /**
  * Modal tool to view and approve or deny an Instructor Account Request.
  */
-const ViewAccountRequest = ({ show, onClose, request }) => {
+const ViewAccountRequest = ({ show, onClose, request, onDataChange }) => {
 
   // Global error handling
   const { handleGlobalError } = useGlobalError();
@@ -30,6 +30,7 @@ const ViewAccountRequest = ({ show, onClose, request }) => {
       const completeRes = await axios.put(`/accountrequest/${request._id}`);
       if (!completeRes.data.err) {
         setLoading(false);
+        onDataChange();
         handleClose();
       } else {
         throw (new Error(completeRes.data.errMsg));
@@ -50,6 +51,7 @@ const ViewAccountRequest = ({ show, onClose, request }) => {
       const deleteRes = await axios.delete(`/accountrequest/${request._id}`);
       if (!deleteRes.data.err) {
         setLoading(false);
+        onDataChange();
         handleClose();
       } else {
         throw (new Error(deleteRes.data.errMsg));
@@ -238,10 +240,15 @@ ViewAccountRequest.propTypes = {
     moreInfo: PropTypes.bool,
     libraries: PropTypes.arrayOf(PropTypes.string),
   }),
+  /**
+   * Handler to activate when server data has changed and the parent component should refresh.
+   */
+  onDataChange: PropTypes.func,
 };
 
 ViewAccountRequest.defaultProps = {
   onClose: () => { },
+  onDataChange: () => { },
 };
 
 export default ViewAccountRequest;
