@@ -27,9 +27,7 @@ const ViewAccountRequest = ({ show, onClose, request }) => {
   async function submitComplete() {
     try {
       setLoading(true);
-      const completeRes = await axios.put('/accountrequest/complete', {
-        requestID: request._id
-      });
+      const completeRes = await axios.put(`/accountrequest/${request._id}`);
       if (!completeRes.data.err) {
         setLoading(false);
         handleClose();
@@ -49,9 +47,7 @@ const ViewAccountRequest = ({ show, onClose, request }) => {
   async function submitDelete() {
     try {
       setLoading(true);
-      const deleteRes = await axios.delete('/accountrequest', {
-        data: { requestID: request._id },
-      });
+      const deleteRes = await axios.delete(`/accountrequest/${request._id}`);
       if (!deleteRes.data.err) {
         setLoading(false);
         handleClose();

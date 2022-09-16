@@ -235,13 +235,23 @@ router.route('/harvestingrequests').get(
 
 /* Library/Service Account Requests */
 // (submission route can be anonymous)
-router.route('/accountrequest')
-  .post(
+router.route('/accountrequest').post(
+  middleware.checkLibreCommons,
+  authAPI.optionalVerifyRequest,
+  accountRequestsAPI.validate('submitRequest'),
+  middleware.checkValidationErrors,
+  accountRequestsAPI.submitRequest,
+);
+
+router.route('/accountrequest/:requestID')
+  .put(
     middleware.checkLibreCommons,
-    authAPI.optionalVerifyRequest,
-    accountRequestsAPI.validate('submitRequest'),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    accountRequestsAPI.validate('completeRequest'),
     middleware.checkValidationErrors,
-    accountRequestsAPI.submitRequest,
+    accountRequestsAPI.completeRequest,
   ).delete(
     middleware.checkLibreCommons,
     authAPI.verifyRequest,
@@ -252,17 +262,6 @@ router.route('/accountrequest')
     accountRequestsAPI.deleteRequest,
   );
 
-router.route('/accountrequest/complete').put(
-  middleware.checkLibreCommons,
-  authAPI.verifyRequest,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  accountRequestsAPI.validate('completeRequest'),
-  middleware.checkValidationErrors,
-  accountRequestsAPI.completeRequest,
-);
-
 router.route('/accountrequests').get(
   middleware.checkLibreCommons,
   authAPI.verifyRequest,
@@ -271,7 +270,6 @@ router.route('/accountrequests').get(
   middleware.checkValidationErrors,
   accountRequestsAPI.getRequests,
 );
-
 
 
 /* Commons Collections */

@@ -1,270 +1,261 @@
-//
-// LibreTexts Conductor
-// accountrequests.js
-//
+/**
+ * @file Defines functions for managing Account Requests for other LibreTexts services.
+ * @author LibreTexts <info@libretexts.org>
+ */
 
 'use strict';
-import { body } from 'express-validator';
+import express from 'express';
+import { body, param } from 'express-validator';
 import User from '../models/user.js';
 import AccountRequest from '../models/accountrequest.js';
 import conductorErrors from '../conductor-errors.js';
-import { isEmptyString, ensureUniqueStringArray } from '../util/helpers.js';
+import { ensureUniqueStringArray } from '../util/helpers.js';
 import { debugError } from '../debug.js';
 import LibrariesMap from '../util/librariesmap.js';
 import mailAPI from './mail.js';
 
 /**
- * Creates and saves a new AccountRequest with the data
- * in the request body.
- * NOTE: This function should only be called AFTER
- *  the validation chain. This method is only available on
- *  the LibreCommons server.
- * VALIDATION: 'submitRequest'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ * Creates a new AccountRequest and notifies the LibreTexts team.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const submitRequest = (req, res) => {
-    let userLookup = false;
-    let userEmail = '';
-    let userName = 'Unknown';
+async function submitRequest(req, res) {
+  try {
     let requestData = {
-        ...req.body,
-        status: 'open'
+      status: 'open',
+      institution: req.body.institution,
+      purpose: req.body.purpose,
+      facultyURL: req.body.facultyURL,
+      libraries: req.body.libraries,
+      moreInfo: req.body.moreInfo,
     };
-    new Promise((resolve, reject) => {
-        if (req.body.purpose === 'oer' && !Array.isArray(req.body.libraries)) {
-            reject(new Error('missingfield')); // libraries are required for OER account purpose
-        }
-        if (req.user?.decoded?.uuid) { // user is logged in
-            userLookup = true;
-            resolve(User.findOne({
-                uuid: req.user.decoded.uuid
-            }));
-        } else if (req.body.email && req.body.name
-            && !isEmptyString(req.body.email) && !isEmptyString(req.body.name)) {
-            // 'anon' submission
-            userEmail = req.body.email;
-            userName = req.body.name;
-            resolve({});
-        } else reject(new Error('missingfield'));
-    }).then((user) => {
-        if (userLookup && Object.keys(user).length > 0) {
-            userEmail = user.email;
-            userName = `${user.firstName} ${user.lastName}`;
-            requestData = {
-                ...requestData,
-                email: userEmail,
-                name: userName,
-                requester: user.uuid
-            };
-        }
-        var newRequest = new AccountRequest(requestData);
-        return newRequest.save();
-    }).then((newDoc) => {
-        if (newDoc) return mailAPI.sendAccountRequestAdminNotif(); // send notification to LibreTexts team
-        else throw(conductorErrors.err3);
-    }).then(() => {
-        // ignore return value of Mailgun call
-        return mailAPI.sendAccountRequestConfirmation(userName, userEmail); // send confirmation to user
-    }).then(() => {
-        // ignore return value of Mailgun call
-        return res.send({
-            err: false,
-            msg: "Account Request successfully submitted."
-        });
-    }).catch((err) => {
-        debugError(err);
-        let errMsg = conductorErrors.err6;
-        if (err.msg === 'missingfield') errMsg = conductorErrors.err1;
-        return res.status(500).send({
-            err: true,
-            errMsg: errMsg
-        });
+  
+    // Conductor user
+    if (req.user?.decoded?.uuid) {
+      const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      if (foundUser) {
+        requestData.name = `${foundUser.firstName} ${foundUser.lastName}`;
+        requestData.email = foundUser.email;
+        requestData.requester = foundUser.uuid;
+      }
+    } else { // 'anonymous submission'
+      requestData.email = req.body.email;
+      requestData.name = req.body.name;
+    }
+  
+    if (!requestData.email || !requestData.name) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+  
+    await new AccountRequest(requestData).save();
+  
+    // Notify LibreTexts team
+    mailAPI.sendAccountRequestAdminNotif();
+    // Send confirmation to user
+    mailAPI.sendAccountRequestConfirmation(requestData.name, requestData.email);
+  
+    return res.send({
+      err: false,
+      msg: 'Account Request successfully submitted.',
     });
-};
-
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
- * Returns all open Account Requests.
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ * Retrieves all Account Requests.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object. 
  */
-const getRequests = (_req, res) => {
-    AccountRequest.aggregate([
-        {
-            $lookup: {
-                from: 'users',
-                let: { requester: '$requester' },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $eq: ['$uuid', '$$requester']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'requester'
-            }
-        }, {
-            $sort: {
-                createdAt: -1
-            }
-        }
-    ]).then((requests) => {
-        return res.status(200).send({
-            err: false,
-            requests: requests
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
+async function getRequests(_req, res) {
+  try {
+    const requests = await AccountRequest.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          let: { requester: '$requester' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$uuid', '$$requester'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          }],
+          as: 'requester',
+        },
+      }, {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+    ]);
+    return res.send({
+      requests,
+      err: false,
     });
-};
-
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Marks an Account Request as completed.
- * VALIDATION: 'completeRequest'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const completeRequest = (req, res) => {
-    let userEmail = '';
-    let userName = 'Unknown';
-    AccountRequest.findOne({ _id: req.body.requestID }).then((reqData) => {
-        if (reqData) {
-            userEmail = reqData.email;
-            userName = reqData.name;
-            return AccountRequest.updateOne({
-                _id: req.body.requestID
-            }, {
-                status: 'completed'
-            })
-        } else throw(new Error('notfound'));
-    }).then((updateData) => {
-        if (updateData.modifiedCount === 1) {
-            return mailAPI.sendAccountRequestApprovalNotification(userName, userEmail); // send notification to user
-        } else throw(new Error('updatefail'));
-    }).then(() => {
-        // ignore return value of Mailgun call
-        return res.send({
-            err: false,
-            msg: "Successfully marked Account Request as complete."
-        });
-    }).catch((err) => {
-        let errMsg = conductorErrors.err6;
-        if (err.msg === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.msg === 'updatefail') errMsg = conductorErrors.err3;
-        return res.send({
-            err: false,
-            errMsg: errMsg
-        });
+async function completeRequest(req, res) {
+  try {
+    const { requestID } = req.params;
+    const foundRequest = await AccountRequest.findOne({ _id: requestID }).lean();
+    if (!foundRequest) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const updateRes = await AccountRequest.updateOne(
+      { _id: requestID },
+      { status: 'completed' },
+    );
+    if (updateRes.modifiedCount === 1) {
+      mailAPI.sendAccountRequestApprovalNotification(foundRequest.name, foundRequest.email);
+    }
+    return res.send({
+      err: false,
+      msg: 'Succesfully marked Account Request as complete.',
     });
-};
-
-
-/**
- * Deletes the AccountRequest identified by the requestID
- * in the request body.
- * NOTE: This function should only be called AFTER
- *  the validation chain.
- * VALIDATION: 'deleteRequest'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
- */
-const deleteRequest = (req, res) => {
-    AccountRequest.deleteOne({ _id: req.body.requestID }).then((deleteRes) => {
-        if (deleteRes.deletedCount === 1) {
-            return res.send({
-                err: false,
-                msg: "Account Request successfully deleted.",
-            });
-        } else {
-            throw(conductorErrors.err3);
-        }
-    }).catch((err) => {
-        debugError(err);
-        return res.status(500).send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
-    })
-};
-
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
- * Checks if a provided Account Request 'Purpose' is valid.
- * @param {String} purpose - the purpose string to validate.
- * @returns {Boolean} true if valid purpose, false otherwise.
+ * Deletes an AccountRequest.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const validateRequestPurpose = (purpose) => {
-    let validPurposes = ['oer', 'h5p', 'adapt'];
-    if (typeof(purpose) === 'string') return validPurposes.includes(purpose);
-    return false;
-};
-
-
-/**
- * Checks if a provided Account Request Libraries array is valid.
- * @param {String[]} libraries - the array of library identifiers to validate.
- * @returns {Boolean} true if valid array, false otherwise.
- */
-const validateRequestLibraries = (libraries) => {
-    if (Array.isArray(libraries)) {
-        if (libraries.length > 0) {
-            let validArray = true;
-            libraries.forEach((item) => {
-                if (validArray) { // quasi-early stopping
-                    let foundLibrary = LibrariesMap.find(lib => lib.key === item);
-                    if (foundLibrary === undefined) validArray = false;
-                }
-            });
-            return validArray;
-        }
+async function deleteRequest(req, res) {
+  try {
+    const { requestID } = req.params;
+    const deleteRes = await AccountRequest.deleteOne({ _id: requestID });
+    if (deleteRes.deletedCount === 1) {
+      return res.send({
+        err: false,
+        msg: 'Account Request successfully deleted.',
+      });
     }
-    return false;
-};
-
+    return res.status(404).send({
+      err: true,
+      errMsg: conductorErrors.err11,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
- * Sets up the validation chains for methods/routes in this file.
- * @param {String} method - the method name to validate for.
- * @returns {Boolean} true if the validation checks passed, false otherwise.
+ * Validates the provided "purpose" field of a submitted request. If the request if for LibreTexts
+ * libraries access, the `libraries` field is also validated.
+ *
+ * @param {string} purpose - Purpose of Account Request. 
+ * @param {object} data - Data passed from the validation library.
+ * @param {object} data.req - Information about the original network request, including body.
+ * @returns {boolean} True if valid purpose (and libraries, if applicable), false otherwise.
+ * @throws Throws error message if the request is for LibreTexts libraries access and an invalid
+ *  list of libraries were provided.
  */
-const validate = (method) => {
-    switch (method) {
-        case 'submitRequest':
-            return [
-                body('email', conductorErrors.err1).optional({ checkFalsy: true }).isEmail(),
-                body('name', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
-                body('institution', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 }),
-                body('purpose', conductorErrors.err1).exists().isString().custom(validateRequestPurpose),
-                body('facultyURL', conductorErrors.err1).exists().isString().isURL(),
-                body('libraries', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateRequestLibraries).customSanitizer(ensureUniqueStringArray),
-                body('moreInfo', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
-            ]
-        case 'completeRequest':
-            return [
-                body('requestID', conductorErrors.err1).exists().isMongoId()
-            ]
-        case 'deleteRequest':
-            return [
-                body('requestID', conductorErrors.err1).exists().isMongoId()
-            ]
+function validateRequestPurpose(purpose, { req }) {
+  const validPurposes = ['oer', 'h5p', 'adapt'];
+  if (typeof (purpose) !== 'string') {
+    return false;
+  }
+  const isValidPurpose = validPurposes.includes(purpose);
+  if (!isValidPurpose) {
+    return false;
+  }
+  if (purpose !== 'oer') {
+    return true;
+  }
+  if (
+    isValidPurpose
+    && Array.isArray(req.body.libraries)
+    && req.body.libraries.length > 0
+    && req.body.libraries.length < 4
+  ) {
+    let validArray = true;
+    req.body.libraries.forEach((item) => {
+      const foundLibrary = LibrariesMap.find((lib) => lib.key === item);
+      if (!foundLibrary) {
+        validArray = false;
+      }
+    });
+    if (validArray) {
+      return true;
     }
-};
+  }
+  throw (new Error(conductorErrors.err73));
+}
+
+/**
+ * Middleware(s) to verify that requests contain necessary and/or valid fields.
+ *
+ * @param {string} method - Method name to validate request for. 
+ */
+function validate(method) {
+  switch (method) {
+    case 'submitRequest':
+      return [
+        body('email', conductorErrors.err1).optional({ checkFalsy: true }).isEmail(),
+        body('name', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
+        body('institution', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 }),
+        body('libraries', conductorErrors.err1).optional().customSanitizer(ensureUniqueStringArray),
+        body('purpose', conductorErrors.err1).exists().isString().custom(validateRequestPurpose),
+        body('facultyURL', conductorErrors.err1).exists().isString().isURL(),
+        body('moreInfo', conductorErrors.err1).optional().isBoolean().toBoolean(),
+      ];
+    case 'completeRequest':
+      return [
+        param('requestID', conductorErrors.err1).exists().isMongoId(),
+      ];
+    case 'deleteRequest':
+      return [
+        param('requestID', conductorErrors.err1).exists().isMongoId(),
+      ];
+  }
+}
 
 export default {
     submitRequest,
