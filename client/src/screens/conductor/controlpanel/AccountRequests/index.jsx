@@ -149,7 +149,7 @@ const AccountRequests = () => {
                         completedRow = true;
                       }
                       return (
-                        <Table.Row key={item._id}>
+                        <Table.Row key={item._id} className="word-break-all">
                           <Table.Cell textAlign="center">
                             {completedRow && (
                               <Icon
