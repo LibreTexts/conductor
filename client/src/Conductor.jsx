@@ -7,7 +7,7 @@ import PrivateRoute from './components/util/PrivateRoute';
 
 import AccountRequest from './screens/conductor/AccountRequest';
 import AccountRequests from './screens/conductor/controlpanel/AccountRequests';
-import AccountSettings from './components/auth/AccountSettings';
+import AccountSettings from './screens/conductor/AccountSettings';
 import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';
 import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings';
