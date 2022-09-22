@@ -3,7 +3,8 @@
 // users.js
 
 'use strict';
-import { body, query } from 'express-validator';
+import express from 'express';
+import { body, query, param } from 'express-validator';
 import multer from 'multer';
 import sharp from 'sharp';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -530,6 +531,106 @@ async function getUserAuthorizedApplications(uuid) {
 }
 
 /**
+ * Retrieves the list of API Client applications the current user has authorized to access
+ * their account.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getAuthorizedApplications(req, res) {
+    try {
+        const searchRes = await User.aggregate([{
+            $match: {
+                uuid: req.user.decoded.uuid,
+            },
+        }, {
+            $project: {
+                _id: 0,
+                uuid: 1,
+                authorizedApps: 1,
+            },
+        }, {
+            $unwind: {
+                path: '$authorizedApps',
+                preserveNullAndEmptyArrays: true,
+            },
+        }, {
+            $lookup: {
+                from: 'apiclients',
+                let: { client: '$authorizedApps.clientID' },
+                pipeline: [{
+                    $match: {
+                        $expr: {
+                            $eq: ['$clientID', '$$client'],
+                        },
+                    },
+                }, {
+                    $project: {
+                        _id: 0,
+                        clientID: 1,
+                        name: 1,
+                        infoURL: 1,
+                        icon: 1,
+                        scopes: 1,
+                    },
+                }],
+                as: 'apiclient',
+            }
+        }, {
+            $addFields: {
+                application: {
+                    $arrayElemAt: ['$apiclient', 0],
+                },
+                apiclient: '$$REMOVE',
+            },
+        }, {
+            $addFields: {
+                'application.authorizedAt': '$authorizedApps.authorizedAt',
+                authorizedApps: '$$REMOVE',
+            },
+        }, {
+            $group: {
+                _id: '$_id',
+                uuid: { $first: '$uuid' },
+                authorizedApps: { $push: '$application' },
+            },
+        }, {
+            $project: {
+                _id: 0,
+                uuid: 1,
+                authorizedApps: {
+                    $filter: {
+                        input: '$authorizedApps',
+                        as: 'app',
+                        cond: { $ifNull: ['$$app.clientID', false] },
+                    },
+                },
+            },
+        }]);
+        
+        if (searchRes.length < 1) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err9,
+            });
+        }
+
+        const userApps = searchRes[0].authorizedApps || [];
+        return res.send({
+            err: false,
+            msg: 'Successfully retrieved authorized applications!',
+            apps: userApps,
+        });
+    } catch (e) {
+        debugError(e);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
+
+/**
  * Adds (or refreshes) an API Client to a User's list of authorized applications.
  *
  * @param {string} uuid - The User's unique identifier.
@@ -566,6 +667,31 @@ async function addUserAuthorizedApplication(uuid, clientID) {
     }
   }
   return false;
+}
+
+/**
+ * Removes an API Client from the current user's list of authorized applications.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function removeUserAuthorizedApplication(req, res) {
+    try {
+        const { clientID } = req.params;
+        await User.updateOne(
+            { uuid: req.user.decoded.uuid },
+            { $pull: { authorizedApps: { clientID } } },
+        );
+        return res.send({
+            err: false,
+            msg: 'Successfully revoke application access.',
+        });
+    } catch (e) {
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
 }
 
 /**
@@ -835,6 +961,10 @@ const validate = (method) => {
                 body('orgID', conductorErrors.err1).exists().isString().isLength({ min: 2, max: 50 }),
                 body('role', conductorErrors.err1).exists().isString().custom(roleValidator)
             ]
+        case 'removeAuthorizedApplication':
+            return [
+                param('clientID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
+            ]
     }
 }
 
@@ -851,7 +981,9 @@ export default {
     getUserInfoAdmin,
     deleteUser,
     addUserAuthorizedApplication,
+    removeUserAuthorizedApplication,
     getUserAuthorizedApplications,
+    getAuthorizedApplications,
     getUserRoles,
     updateUserRole,
     getUserEmails,

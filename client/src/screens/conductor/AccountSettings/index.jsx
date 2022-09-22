@@ -9,6 +9,7 @@ import {
 } from 'semantic-ui-react';
 import AccountOverview from '../../../components/accountsettings/AccountOverview';
 import AccountSecurity from '../../../components/accountsettings/AccountSecurity';
+import AuthorizedApplications from '../../../components/accountsettings/AuthorizedApplications';
 import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
@@ -16,6 +17,12 @@ import useGlobalError from '../../../components/error/ErrorHooks';
  * update their profile or security settings.
  */
 const AccountSettings = () => {
+
+  const MENU_ITEMS = [
+    { key: 'overview', title: 'Account Overview' },
+    { key: 'authorizedapps', title: 'Authorized Applications' },
+    { key: 'security', title: 'Security' },
+  ];
 
   // Global State and Error Handling
   const dispatch = useDispatch();
@@ -79,17 +86,12 @@ const AccountSettings = () => {
   }, [account.firstName, account.lastName, user.firstName, user.lastName, dispatch]);
 
   /**
-   * Activates the Overview pane.
+   * Activates the pane identified by the `name` argument.
+   *
+   * @param {string} name - Identifier of the desired pane.
    */
-  function handleOpenOverviewPane() {
-    setActivePane('overview');
-  }
-
-  /**
-   * Activates the Security pane.
-   */
-  function handleOpenSecurityPane() {
-    setActivePane('security');
+  function handleActivatePane(name) {
+    setActivePane(name);
   }
 
   /**
@@ -98,6 +100,24 @@ const AccountSettings = () => {
    */
   function handleDataChange() {
     getAccountInfo();
+  }
+
+  /**
+   * Renders the currently active pane.
+   *
+   * @returns {JSX.Element} The rendered pane.
+   */
+  function ActivePane() {
+    switch (activePane) {
+      case 'overview':
+        return <AccountOverview account={account} onDataChange={handleDataChange} />;
+      case 'authorizedapps':
+        return <AuthorizedApplications />;
+      case 'security':
+        return <AccountSecurity account={account} onDataChange={handleDataChange} />;
+      default:
+        return null;
+    }
   }
 
   return (
@@ -114,29 +134,19 @@ const AccountSettings = () => {
               <Grid.Row>
                 <Grid.Column width={4}>
                   <Menu fluid vertical color="blue" secondary pointing className="fullheight-menu">
-                    <Menu.Item
-                      name="overview"
-                      active={activePane === 'overview'}
-                      onClick={handleOpenOverviewPane}
-                    >
-                      Account Overview
-                    </Menu.Item>
-                    <Menu.Item
-                      name="security"
-                      active={activePane === 'security'}
-                      onClick={handleOpenSecurityPane}
-                    >
-                      Security
-                    </Menu.Item>
+                    {MENU_ITEMS.map((item) => (
+                      <Menu.Item
+                        key={item.key}
+                        active={activePane === item.key}
+                        onClick={() => handleActivatePane(item.key)}
+                      >
+                        {item.title}
+                      </Menu.Item>
+                    ))}
                   </Menu>
                 </Grid.Column>
                 <Grid.Column stretched width={12}>
-                  {activePane === 'overview' && (
-                    <AccountOverview account={account} onDataChange={handleDataChange} />
-                  )}
-                  {activePane === 'security' && (
-                    <AccountSecurity account={account} onDataChange={handleDataChange} />
-                  )}
+                  <ActivePane />
                 </Grid.Column>
               </Grid.Row>
             </Grid>

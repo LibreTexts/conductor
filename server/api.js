@@ -511,6 +511,18 @@ router.route('/user/avatar').post(
   usersAPI.updateUserAvatar,
 );
 
+router.route('/user/authorizedapps').get(
+  authAPI.verifyRequest,
+  usersAPI.getAuthorizedApplications,
+);
+
+router.route('/user/authorizedapps/:clientID').delete(
+  authAPI.verifyRequest,
+  usersAPI.validate('removeAuthorizedApplication'),
+  middleware.checkValidationErrors,
+  usersAPI.removeUserAuthorizedApplication,
+);
+
 router.route('/user/roles').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

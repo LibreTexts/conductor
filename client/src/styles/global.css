@@ -346,6 +346,10 @@ body {
 }
 
 /** margin-left **/
+.ml-05e {
+    margin-left: 0.5em !important;
+}
+
 .ml-05p {
     margin-left: 0.5% !important;
 }
@@ -371,6 +375,10 @@ body {
 }
 
 /** margin-right **/
+.mr-05e {
+    margin-right: 0.5em !important;
+}
+
 .mr-05p {
     margin-right: 0.5% !important;
 }
