@@ -68,6 +68,7 @@ const conductorErrors = {
     'err71': "Access Denied: Invalid request parameters provided.",
     'err72': "C-ID Descriptors sync appears to have failed. Check server logs.",
     'err73': "Invalid library selections provided.",
+    'err74': "Missing instructor profile data.",
 };
 
 export default conductorErrors;

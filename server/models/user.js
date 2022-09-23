@@ -62,6 +62,19 @@ const UserSchema = new mongoose.Schema({
      * in lists of users and team members.
      */
     isSystem: Boolean,
+    /**
+     * Information about the user's status as an instructor an academic institution.
+     */
+    instructorProfile: {
+        /**
+         * Name of the academic institution.
+         */
+        institution: String,
+        /**
+         * URL pointing to a website that verifies the user's status at the institution.
+         */
+        facultyURL: String,
+    },
 }, {
     timestamps: true
 });

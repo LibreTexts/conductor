@@ -102,53 +102,56 @@ const ViewAccountRequest = ({ show, onClose, request, onDataChange }) => {
 
   return (
     <Modal open={show} onClose={handleClose}>
-      <Modal.Header>View Account Request</Modal.Header>
+      <Modal.Header as="h3">View Account Request</Modal.Header>
       <Modal.Content scrolling>
-        <Grid divided="vertically">
-          <Grid.Row columns={3}>
+        <Grid divided>
+          <Grid.Row columns={2}>
             <Grid.Column>
-              <Header sub>Email</Header>
-              <p>{request?.email}</p>
+              <Header as="h4">Requester</Header>
+              <p>
+                <Header sub as="span">Name:</Header>
+                <span> {request?.name}</span>
+              </p>
+              <p>
+                <Header sub as="span">Email:</Header>
+                <span> {request?.email}</span>
+              </p>
+              <p>
+                <Header sub as="span">Institution:</Header>
+                <span> {request?.institution}</span>
+              </p>
+              <p>
+                <Header sub as="span">Verification URL:</Header>
+                {' '}
+                <a
+                  href={normalizeURL(request?.facultyURL)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="word-break-all"
+                >
+                  {truncateString(request?.facultyURL, 75)}
+                </a>
+              </p>
             </Grid.Column>
             <Grid.Column>
-              <Header sub>Name</Header>
-              <p>{request?.name}</p>
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub>Purpose</Header>
-              <p>{getPurposeText(request?.purpose)}</p>
-            </Grid.Column>
-          </Grid.Row>
-          <Grid.Row columns={3}>
-            <Grid.Column>
-              <Header sub>Institution</Header>
-              <p>{request?.institution}</p>
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub>Verification URL</Header>
-              <a
-                href={normalizeURL(request?.facultyURL)}
-                target="_blank"
-                rel="noreferrer"
-                className="word-break-all"
-              >
-                {truncateString(request?.facultyURL, 75)}
-              </a>
-            </Grid.Column>
-            <Grid.Column>
-              <Header sub>Requests LibreNet Info</Header>
-              {request?.hasOwnProperty('moreInfo')
-                ? (request.moreInfo
-                  ? <p><strong>Yes</strong></p>
-                  : <p>No</p>
-                )
-                : <p><em>Unspecified</em></p>
-              }
-            </Grid.Column>
-            {request?.purpose === 'oer' && (
-              <Grid.Row columns={1}>
-                <Grid.Column>
-                  <Header sub>Libraries Request</Header>
+              <Header as="h4">Request Information</Header>
+              <p>
+                <Header sub as="span">Purpose:</Header>
+                <span> {getPurposeText(request?.purpose)}</span>
+              </p>
+              <p>
+                <Header sub as="span">Requests LibreNet Info:</Header>
+                {request?.hasOwnProperty('moreInfo')
+                  ? (request.moreInfo
+                    ? <span><strong> Yes</strong></span>
+                    : <span> No</span>
+                  )
+                  : <span> <em>Unspecified</em></span>
+                }
+              </p>
+              {request?.purpose === 'oer' && (
+                <>
+                  <Header sub>Libraries Requested</Header>
                   <ul>
                     {Array.isArray(request?.libraries) && (
                       request.libraries.map((item) => (
@@ -159,9 +162,9 @@ const ViewAccountRequest = ({ show, onClose, request, onDataChange }) => {
                       ))
                     )}
                   </ul>
-                </Grid.Column>
-              </Grid.Row>
-            )}
+                </>
+              )}
+            </Grid.Column>
           </Grid.Row>
         </Grid>
       </Modal.Content>

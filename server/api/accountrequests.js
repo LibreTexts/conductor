@@ -22,41 +22,50 @@ import mailAPI from './mail.js';
  */
 async function submitRequest(req, res) {
   try {
-    let requestData = {
-      status: 'open',
-      institution: req.body.institution,
-      purpose: req.body.purpose,
-      facultyURL: req.body.facultyURL,
-      libraries: req.body.libraries,
-      moreInfo: req.body.moreInfo,
-    };
-  
-    // Conductor user
-    if (req.user?.decoded?.uuid) {
-      const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
-      if (foundUser) {
-        requestData.name = `${foundUser.firstName} ${foundUser.lastName}`;
-        requestData.email = foundUser.email;
-        requestData.requester = foundUser.uuid;
-      }
-    } else { // 'anonymous submission'
-      requestData.email = req.body.email;
-      requestData.name = req.body.name;
-    }
-  
-    if (!requestData.email || !requestData.name) {
+    const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    if (!foundUser) {
       return res.status(400).send({
         err: true,
-        errMsg: conductorErrors.err1,
+        errMsg: conductorErrors.err9,
       });
     }
-  
-    await new AccountRequest(requestData).save();
+
+    const instructorProfile = foundUser.instructorProfile;
+    if (!instructorProfile && (!req.body.institution || !req.body.facultyURL)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err74,
+      });
+    }
+
+    // Add instructor profile to user record
+    if (!instructorProfile) {
+      const updateRes = await User.updateOne({ uuid: req.user.decoded.uuid }, {
+        instructorProfile: {
+          institution: req.body.institution,
+          facultyURL: req.body.facultyURL,
+        },
+      });
+      if (updateRes.modifiedCount !== 1) {
+        throw (new Error("Couldn't update User instructor profile"));
+      }
+    }
+
+    await new AccountRequest({
+      requester: foundUser.uuid,
+      status: 'open',
+      purpose: req.body.purpose,
+      libraries: req.body.libraries,
+      moreInfo: req.body.moreInfo,
+    }).save();
   
     // Notify LibreTexts team
     mailAPI.sendAccountRequestAdminNotif();
     // Send confirmation to user
-    mailAPI.sendAccountRequestConfirmation(requestData.name, requestData.email);
+    mailAPI.sendAccountRequestConfirmation(
+      `${foundUser.firstName} ${foundUser.lastName}`,
+      foundUser.email,
+    );
   
     return res.send({
       err: false,
@@ -97,9 +106,57 @@ async function getRequests(_req, res) {
               firstName: 1,
               lastName: 1,
               avatar: 1,
+              email: 1,
+              instructorProfile: 1,
             },
           }],
           as: 'requester',
+        },
+      }, {
+        $addFields: {
+          requester: {
+            $cond: [
+              { $gt: [{ $size: '$requester' }, 0] },
+              { $arrayElemAt: ['$requester', 0] },
+              '$$REMOVE',
+            ],
+          }
+        },
+      }, {
+        $addFields: {
+          name: {
+            $cond: [
+              { 
+                $and: [
+                  { $ne: [{ $type: '$requester.firstName' }, 'missing'] },
+                  { $ne: [{ $type: '$requester.lastName' }, 'missing'] },
+                ],
+              },
+              { $concat: ['$requester.firstName', ' ', '$requester.lastName'] },
+              '$name',
+            ],
+          },
+          email: {
+            $cond: [
+              { $ne: [{ $type: '$requester.email' }, 'missing'] },
+              '$requester.email',
+              '$email',
+            ],
+          },
+          institution: {
+            $cond: [
+              { $ne: [{ $type: '$requester.instructorProfile.institution' }, 'missing'] },
+              '$requester.instructorProfile.institution',
+              '$institution',
+            ],
+          },
+          facultyURL: {
+            $cond: [
+              { $ne: [{ $type: '$requester.instructorProfile.facultyURL' }, 'missing'] },
+              '$requester.instructorProfile.facultyURL',
+              '$facultyURL',
+            ],
+          },
         },
       }, {
         $sort: {
@@ -238,12 +295,10 @@ function validate(method) {
   switch (method) {
     case 'submitRequest':
       return [
-        body('email', conductorErrors.err1).optional({ checkFalsy: true }).isEmail(),
-        body('name', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
-        body('institution', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 150 }),
+        body('purpose', conductorErrors.err1).exists().custom(validateRequestPurpose),
+        body('institution', conductorErrors.err1).optional().isLength({ min: 2, max: 100 }),
+        body('facultyURL', conductorErrors.err1).optional().isURL(),
         body('libraries', conductorErrors.err1).optional().customSanitizer(ensureUniqueStringArray),
-        body('purpose', conductorErrors.err1).exists().isString().custom(validateRequestPurpose),
-        body('facultyURL', conductorErrors.err1).exists().isString().isURL(),
         body('moreInfo', conductorErrors.err1).optional().isBoolean().toBoolean(),
       ];
     case 'completeRequest':

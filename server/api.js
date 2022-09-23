@@ -234,10 +234,9 @@ router.route('/harvestingrequests').get(
 
 
 /* Library/Service Account Requests */
-// (submission route can be anonymous)
 router.route('/accountrequest').post(
   middleware.checkLibreCommons,
-  authAPI.optionalVerifyRequest,
+  authAPI.verifyRequest,
   accountRequestsAPI.validate('submitRequest'),
   middleware.checkValidationErrors,
   accountRequestsAPI.submitRequest,
@@ -549,6 +548,17 @@ router.route('/user/delete').put(
   middleware.checkValidationErrors,
   usersAPI.deleteUser,
 );
+
+router.route('/user/instructorprofile')
+  .get(
+    authAPI.verifyRequest,
+    usersAPI.getInstructorProfile,
+  ).put(
+    authAPI.verifyRequest,
+    usersAPI.validate('updateInstructorProfile'),
+    middleware.checkValidationErrors,
+    usersAPI.updateUserInstructorProfile,
+  );
 
 router.route('/user/projects').get(
   authAPI.verifyRequest,

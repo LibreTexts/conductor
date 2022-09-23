@@ -15,25 +15,11 @@
      enum: ['open', 'completed']
    },
    /**
-    * Email of the requester.
+    * UUID of the requester.
     */
-   email: {
-     type: String,
-     required: true,
-   },
-   /**
-    * Name of the requester.
-    */
-   name: {
-     type: String,
-     required: true
-   },
-   /**
-    * Name of the academic institution the requester belongs to.
-    */
-   institution: {
-     type: String,
-     required: true
+   requester: {
+    type: String,
+    required: true,
    },
    /**
     * The LibreTexts service the requester would like access to.
@@ -44,14 +30,6 @@
      enum: ['oer', 'h5p', 'adapt']
    },
    /**
-    * URL pointing to a website verifying the requester's status at their
-    * academic institution.
-    */
-   facultyURL: {
-     type: String,
-     required: true
-   },
-   /**
     * List of LibreTexts libraries the requester would like access to if `purpose` is `oer`.
     */
    libraries: [String],
@@ -59,10 +37,6 @@
     * Indicates the requester would like more information about the LibreNet.
     */
    moreInfo: Boolean,
-   /**
-    * UUID of the requester, if they were signed into Conductor during submission.
-    */
-   requester: String,
  }, {
    timestamps: true
  });

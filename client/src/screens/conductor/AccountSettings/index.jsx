@@ -10,6 +10,7 @@ import {
 import AccountOverview from '../../../components/accountsettings/AccountOverview';
 import AccountSecurity from '../../../components/accountsettings/AccountSecurity';
 import AuthorizedApplications from '../../../components/accountsettings/AuthorizedApplications';
+import InstructorProfile from '../../../components/accountsettings/InstructorProfile';
 import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
@@ -20,6 +21,7 @@ const AccountSettings = () => {
 
   const MENU_ITEMS = [
     { key: 'overview', title: 'Account Overview' },
+    { key: 'instructor', title: 'Instructor Profile' },
     { key: 'authorizedapps', title: 'Authorized Applications' },
     { key: 'security', title: 'Security' },
   ];
@@ -113,6 +115,8 @@ const AccountSettings = () => {
         return <AccountOverview account={account} onDataChange={handleDataChange} />;
       case 'authorizedapps':
         return <AuthorizedApplications />;
+      case 'instructor':
+        return <InstructorProfile account={account} onDataChange={handleDataChange} />
       case 'security':
         return <AccountSecurity account={account} onDataChange={handleDataChange} />;
       default:

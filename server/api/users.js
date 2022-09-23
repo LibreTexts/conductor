@@ -107,7 +107,8 @@ const getBasicAccountInfo = (req, res) => {
                 avatar: 1,
                 roles: 1,
                 authType: 1,
-                createdAt: 1
+                instructorProfile: 1,
+                createdAt: 1,
             }
         }, {
             $lookup: {
@@ -141,7 +142,8 @@ const getBasicAccountInfo = (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                avatar: user.avatar
+                avatar: user.avatar,
+                instructorProfile: user.instructorProfile,
             };
             account.createdAt = user._id.getTimestamp();
             if (user.authType === 'sso') {
@@ -315,6 +317,57 @@ const updateUserAvatar = (req, res) => {
     });
 };
 
+/**
+ * Updates the current user's stored Instructor Profile.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function updateUserInstructorProfile(req, res) {
+    try {
+        const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+        let profileUpdate = foundUser.instructorProfile || { };
+        if (Object.hasOwn(req.body, 'institution')) {
+            profileUpdate.institution = req.body.institution;
+        }
+        if (Object.hasOwn(req.body, 'facultyURL')) {
+            profileUpdate.facultyURL = req.body.facultyURL;
+        }
+        
+        // Ensure both are present (or not present) at the same time
+        if (
+            !Object.hasOwn(profileUpdate, 'institution')
+            || !Object.hasOwn(profileUpdate, 'facultyURL')
+            || (profileUpdate.facultyURL.length > 0 && profileUpdate.institution.length === 0)
+            || (profileUpdate.institution.length > 0 && profileUpdate.facultyURL.length === 0)
+        ) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err2,
+            });
+        }
+
+        // Allow unsetting
+        if (profileUpdate.institution.length === 0 && profileUpdate.facultyURL.length === 0) {
+            profileUpdate = null;
+        }
+
+        await User.updateOne(
+            { uuid: req.user.decoded.uuid },
+            { instructorProfile: profileUpdate },
+        );
+        return res.send({
+            err: false,
+            msg: 'Successfully updated user instructor profile!',
+        });
+    } catch (e) {
+        debugError(e);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
 
 /**
  * Returns a list of simple information about all Users in the database.
@@ -695,6 +748,41 @@ async function removeUserAuthorizedApplication(req, res) {
 }
 
 /**
+ * Retrieves the User's instructor profile, if applicable.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object. 
+ */
+async function getInstructorProfile(req, res) {
+    try {
+        const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+        if (!foundUser) {
+            return res.status(400).send({
+                err: true,
+                errMsg: conductorErrors.err9,
+            });
+        }
+
+        let profile = null;
+        if (foundUser.instructorProfile) {
+            profile = foundUser.instructorProfile;
+        }
+
+        return res.send({
+            profile,
+            err: false,
+            uuid: foundUser.uuid,
+        });
+    } catch (e) {
+        debugError(e);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
+
+/**
  * Returns the roles held by the User identified in the request body. If the requesting user is a Campus Admin,
  * only the role object relevant to the Campus is returned.
  * Method should be restricted to users with elevated privileges.
@@ -943,6 +1031,11 @@ const validate = (method) => {
             return [
                 body('email', conductorErrors.err1).exists().isEmail()
             ]
+        case 'updateInstructorProfile':
+            return [
+                body('institution', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 1, max: 100 }),
+                body('facultyURL', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
+            ]
         case 'getUserInfoAdmin':
             return [
                 query('uuid', conductorErrors.err1).exists().isString().isUUID()
@@ -976,6 +1069,7 @@ export default {
     updateUserName,
     updateUserEmail,
     updateUserAvatar,
+    updateUserInstructorProfile,
     getUsersList,
     getBasicUsersList,
     getUserInfoAdmin,
@@ -984,6 +1078,7 @@ export default {
     removeUserAuthorizedApplication,
     getUserAuthorizedApplications,
     getAuthorizedApplications,
+    getInstructorProfile,
     getUserRoles,
     updateUserRole,
     getUserEmails,

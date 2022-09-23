@@ -83,7 +83,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
-          <Route exact path='/accountrequest' key='accountrequest' component={AccountRequest} />
+          <PrivateRoute exact path="/accountrequest" key="accountrequest" component={AccountRequest} unAuthSrc="accountrequest" />
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 

@@ -36,6 +36,7 @@ const Login = () => {
     const [showNewRegister, setNewRegister] = useState(false);
     const [showPassReset, setPassReset] = useState(false);
     const [showPassChange, setPassChange] = useState(false);
+    const [showAccountRequestAuth, setShowAccountRequestAuth] = useState(false);
     const [redirectURI, setRedirectURI] = useState('');
 
     // Form Data
@@ -51,6 +52,9 @@ const Login = () => {
         const searchParams = new URLSearchParams(location.search);
         if (searchParams.get('src') === 'authexpired') {
             setExpiredAuth(true);
+        }
+        if (searchParams.get('src') === 'accountrequest') {
+            setShowAccountRequestAuth(true);
         }
         if (searchParams.get('newregister') === 'true') {
             setNewRegister(true);
@@ -194,6 +198,15 @@ const Login = () => {
                         </Grid.Column>
                 </Grid>
                 <Segment raised>
+                    {showAccountRequestAuth && (
+                        <Message info icon>
+                            <Icon name="info circle" />
+                            <Message.Content>
+                                <Message.Header>Conductor Account Required</Message.Header>
+                                <p>A Conductor account is now required to submit an Instructor Account Request for other LibreTexts services. This helps LibreTexts streamline the account approval process and create consistent records. Conductor accounts are free and open to all.</p>
+                            </Message.Content>
+                        </Message>
+                    )}
                     {showPassChange &&
                         <Message positive icon>
                             <Icon name='check' />

@@ -5,6 +5,10 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import useGlobalError from '../error/ErrorHooks';
 
+/**
+ * The Authorized Applications pane lists partner applications that the user has authorized to
+ * access their account (e.g., via OAuth) and allows access to be revoked.
+ */
 const AuthorizedApplications = () => {
 
   // Global State and Error Handling

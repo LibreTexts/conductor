@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -17,7 +17,11 @@ import {
 } from 'semantic-ui-react';
 import useQueryParam from '../../../utils/useQueryParam';
 import useGlobalError from '../../../components/error/ErrorHooks';
-import { isEmptyString } from '../../../components/util/HelperFunctions';
+import {
+  isEmptyString,
+  normalizeURL,
+  truncateString,
+} from '../../../components/util/HelperFunctions';
 import { libraryOptions } from '../../../components/util/LibraryOptions';
 import { purposeOptions } from '../../../utils/accountRequestHelpers';
 
@@ -50,28 +54,53 @@ const AccountRequest = () => {
   const showOpenCommons = useQueryParam('src') === 'commons';
 
   // Form Data
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [purpose, setPurpose] = useState('');
   const [libs, setLibs] = useState([]);
   const [institution, setInstitution] = useState('');
   const [url, setURL] = useState('');
   const [moreInfo, setMoreInfo] = useState('');
+  const [existingProfile, setExistingProfile] = useState(false);
 
   // Form Validation
-  const [emailErr, setEmailErr] = useState(false);
-  const [nameErr, setNameErr] = useState(false);
   const [purposeErr, setPurposeErr] = useState(false);
   const [libsErr, setLibsErr] = useState(false);
   const [instErr, setInstErr] = useState(false);
   const [urlErr, setURLErr] = useState(false);
 
   /**
+   * Retrieves the user's saved Instructor Profile, if available, from the server
+   * and updates state.
+   */
+  const getInstructorProfile = useCallback(async () => {
+    setLoadingData(true);
+    try {
+      const profileRes = await axios.get('/user/instructorprofile');
+      if (!profileRes.data.err) {
+        if (
+          profileRes.data.profile
+          && profileRes.data.profile.institution
+          && profileRes.data.profile.facultyURL
+        ) {
+          setExistingProfile(true);
+          setInstitution(profileRes.data.profile.institution);
+          setURL(profileRes.data.profile.facultyURL);
+        }
+      } else {
+        throw (new Error(profileRes.data.errMsg));
+      }
+    } catch (e) {
+      handleGlobalError(e);
+    }
+    setLoadingData(false);
+  }, [setLoadingData, handleGlobalError]);
+
+  /**
    * Update page title on load.
    */
   useEffect(() => {
     document.title = "LibreTexts Conductor | Account Request";
-  }, []);
+    getInstructorProfile();
+  }, [getInstructorProfile]);
 
   /**
    * Validates the form data and sets error states, if necessary.
@@ -80,14 +109,6 @@ const AccountRequest = () => {
    */
   function validateForm() {
     let valid = true;
-    if (!user.isAuthenticated && isEmptyString(email)) {
-      valid = false;
-      setEmailErr(true);
-    }
-    if (!user.isAuthenticated && isEmptyString(name)) {
-      valid = false;
-      setNameErr(true);
-    }
     if (isEmptyString(purpose)) {
       valid = false;
       setPurposeErr(true);
@@ -111,8 +132,6 @@ const AccountRequest = () => {
    * Resets all form error states.
    */
   function resetForm() {
-    setEmailErr(false);
-    setNameErr(false);
     setPurposeErr(false);
     setLibsErr(false);
     setInstErr(false);
@@ -138,12 +157,12 @@ const AccountRequest = () => {
     if (validateForm()) {
       setLoadingData(true);
       const requestData = {
-        email: email,
-        name: name,
-        institution: institution,
         purpose: purpose,
-        facultyURL: url
       };
+      if (!existingProfile) {
+        requestData.institution = institution;
+        requestData.facultyURL = url;
+      }
       if (purpose === 'oer') {
         requestData.libraries = libs;
       }
@@ -176,12 +195,6 @@ const AccountRequest = () => {
   function onChange(e) {
     const { value } = e.target;
     switch (e.target.id) {
-      case 'email':
-        setEmail(value);
-        break;
-      case 'name':
-        setName(value);
-        break;
       case 'institution':
         setInstitution(value);
         break;
@@ -200,7 +213,7 @@ const AccountRequest = () => {
    * @param {object} data - Data passed from the UI component.
    * @param {string} data.value - The new purpose value.
    */
-  function handlePurposeChange(e, { value }) {
+  function handlePurposeChange(_e, { value }) {
     setPurpose(value);
   }
 
@@ -211,7 +224,7 @@ const AccountRequest = () => {
    * @param {object} data - Data passed from the UI component.
    * @param {string[]} data.value - The updated list of selected libraries.
    */
-  function handleLibsChange(e, { value }) {
+  function handleLibsChange(_e, { value }) {
     setLibs(value);
   }
 
@@ -222,7 +235,7 @@ const AccountRequest = () => {
    * @param {object} data - Data passed from the UI component.
    * @param {string|string[]} data.value - The new value of the input. 
    */
-  function handleMoreInfoChange(e, { value }) {
+  function handleMoreInfoChange(_e, { value }) {
     setMoreInfo(value);
   }
 
@@ -264,7 +277,7 @@ const AccountRequest = () => {
               </Message>
             )}
             <p className="text-center">
-              {'Instructor accounts are for instructors only. Please use your campus email address to facilitate verification of your instructor status.'}
+              {'Instructor accounts are for instructors only. Please use your campus email address to facilitate verification of your instructor status. '}
               <em>
                 {'Upon approval, you should receive a notification from LibreTexts Conductor. Login details for your requested service(s) will arrive separately. '}
                 {'Please check your junk/spam folder if you do not receive them. '}
@@ -272,50 +285,17 @@ const AccountRequest = () => {
             </p>
             <p className="text-center mt-2p">
               {'Accounts are required to modify content on the LibreTexts libraries including editing pages, uploading content, creating new Course Shells, and remixing customized textbooks. '}
+              {'Accounts are required to create and modify content on Studio or create courses and assignments on the ADAPT homework system. '}
               {'Fill out and submit this form to request an Instructor account.'}
             </p>
-            {user.isAuthenticated && (
-              <Message icon positive className="mt-2p">
-                <Icon name="user circle" />
-                <Message.Content>
-                  <Message.Header>Welcome, {user.firstName}</Message.Header>
-                  <p>Your Conductor name and email address will be used in this account request.</p>
-                </Message.Content>
-              </Message>
-            )}
+            <Message icon positive className="mt-1e mb-1e">
+              <Icon name="user circle" />
+              <Message.Content>
+                <Message.Header>Welcome, {user.firstName}</Message.Header>
+                <p>Your Conductor name and email address will be used in this account request.</p>
+              </Message.Content>
+            </Message>
             <Form onSubmit={onSubmit}>
-              {!user.isAuthenticated && (
-                <Form.Field required error={emailErr}>
-                  <label htmlFor="email">Email</label>
-                  <Input
-                    fluid
-                    id="email"
-                    type="email"
-                    name="email"
-                    placeholder="Email..."
-                    value={email}
-                    onChange={onChange}
-                    icon="mail"
-                    iconPosition="left"
-                  />
-                </Form.Field>
-              )}
-              {!user.isAuthenticated && (
-                <Form.Field required error={nameErr}>
-                  <label htmlFor="name">Name</label>
-                  <Input
-                    fluid
-                    id="name"
-                    type="text"
-                    name="name"
-                    placeholder="Name..."
-                    value={name}
-                    onChange={onChange}
-                    icon="user circle"
-                    iconPosition="left"
-                  />
-                </Form.Field>
-              )}
               <Form.Select
                 required
                 id="purpose"
@@ -350,40 +330,75 @@ const AccountRequest = () => {
               <Header as="h3">Instructor Verification</Header>
               <p>
                 {'Anyone can access and read the full LibreTexts content: no account is necessary to access content. '}
-                {'These accounts are only for instructors who needs to create custom textbooks for their class or who want to upload new content to the LibreTexts Libraries.'}
+                {'These accounts are only for instructors who needs to create custom textbooks for their class or who want to upload new content to the LibreTexts Libraries, Studio, or ADAPT homework system.'}
               </p>
               <p>
                 {`To verify instructor status you must provide a link to a web page showing your faculty status. Links to your institution's web page are NOT sufficient. `}
                 {'A URL which shows that you are an instructor is needed. Please provide your complete name, department and status otherwise we will not approve your application.'}
               </p>
-              <Form.Field required error={instErr}>
-                <label htmlFor="institution">Your Institution</label>
-                <Input
-                  fluid
-                  id="institution"
-                  type="text"
-                  name="institution"
-                  placeholder="Institution..."
-                  value={institution}
-                  onChange={onChange}
-                  icon="university"
-                  iconPosition="left"
-                />
-              </Form.Field>
-              <Form.Field required error={urlErr}>
-                <label htmlFor="url">Link to your faculty entry on your institution's website (or other URL that shows your faculty status)</label>
-                <Input
-                  fluid
-                  id="url"
-                  type="text"
-                  name="url"
-                  placeholder="URL..."
-                  value={url}
-                  onChange={onChange}
-                  icon="compass"
-                  iconPosition="left"
-                />
-              </Form.Field>
+              {existingProfile ? (
+                <Message icon positive className="mt-1e mb-1e">
+                  <Icon name="address card" />
+                  <Message.Content>
+                    <Message.Header>Instructor Profile Found</Message.Header>
+                    <p>
+                      {"You've already submitted instructor verification data, so we'll use it in this request. If you need to update your instructor profile, visit your "}
+                      <Link to="/account">Account Settings</Link>.
+                    </p>
+                    <p><strong>Institution:</strong> {institution}</p>
+                    <p>
+                      <strong>Verification URL:</strong>
+                      {' '}
+                      <a
+                        href={normalizeURL(url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="word-break-all"
+                      >
+                        {truncateString(url, 75)}
+                      </a>
+                    </p>
+                  </Message.Content>
+                </Message>
+              ) : (
+                <>
+                  <p>
+                    <em>
+                      {`This information will be saved to your Conductor account's Instructor
+                       Profile. You can update it anytime in `}
+                      <Link to="/account">Account Settings</Link>.
+                    </em>
+                  </p>
+                  <Form.Field required error={instErr}>
+                    <label htmlFor="institution">Your Institution</label>
+                    <Input
+                      fluid
+                      id="institution"
+                      type="text"
+                      name="institution"
+                      placeholder="Institution..."
+                      value={institution}
+                      onChange={onChange}
+                      icon="university"
+                      iconPosition="left"
+                    />
+                  </Form.Field>
+                  <Form.Field required error={urlErr}>
+                    <label htmlFor="url">Link to your faculty entry on your institution's website (or other URL that shows your faculty status)</label>
+                    <Input
+                      fluid
+                      id="url"
+                      type="text"
+                      name="url"
+                      placeholder="URL..."
+                      value={url}
+                      onChange={onChange}
+                      icon="compass"
+                      iconPosition="left"
+                    />
+                  </Form.Field>
+                </>
+              )}
               <Form.Select
                 id="moreinfo"
                 fluid
@@ -399,7 +414,7 @@ const AccountRequest = () => {
                 size="large"
                 fluid
                 loading={loadingData}
-                className="mt-4p"
+                className="mt-2e"
               >
                 Submit Request
               </Button>
