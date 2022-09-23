@@ -67,7 +67,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
         <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
         <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
-        <PrivateRoute exact path='/account' component={AccountSettings} />
+        <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/accountrequests' component={AccountRequests} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />

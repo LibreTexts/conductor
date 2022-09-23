@@ -179,7 +179,7 @@ const OAuthConsent = () => {
           <p id={styles.security_msg}>
             {`Make sure you trust this application and want to give them access to any sensitive information listed above. `}
             {`You can always revoke access in your `}
-            <Link to="/account" target="_blank">Conductor account.</Link>
+            <Link to="/account/authorizedapps" target="_blank">Conductor account.</Link>
             {` If you don't recognize this application or have concerns, please `}
             <a href="mailto:info@libretexts.org" target="_blank" rel="noreferrer">
               contact LibreTexts

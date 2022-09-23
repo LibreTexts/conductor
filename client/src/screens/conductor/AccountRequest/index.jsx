@@ -343,7 +343,7 @@ const AccountRequest = () => {
                     <Message.Header>Instructor Profile Found</Message.Header>
                     <p>
                       {"You've already submitted instructor verification data, so we'll use it in this request. If you need to update your instructor profile, visit your "}
-                      <Link to="/account">Account Settings</Link>.
+                      <Link to="/account/instructorprofile">Account Settings</Link>.
                     </p>
                     <p><strong>Institution:</strong> {institution}</p>
                     <p>
@@ -366,7 +366,7 @@ const AccountRequest = () => {
                     <em>
                       {`This information will be saved to your Conductor account's Instructor
                        Profile. You can update it anytime in `}
-                      <Link to="/account">Account Settings</Link>.
+                      <Link to="/account/instructorprofile">Account Settings</Link>.
                     </em>
                   </p>
                   <Form.Field required error={instErr}>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useHistory, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import {
@@ -19,21 +20,24 @@ import useGlobalError from '../../../components/error/ErrorHooks';
  */
 const AccountSettings = () => {
 
+  const DEFAULT_ACTIVE_PANE = 'overview';
+
   const MENU_ITEMS = [
     { key: 'overview', title: 'Account Overview' },
-    { key: 'instructor', title: 'Instructor Profile' },
+    { key: 'instructorprofile', title: 'Instructor Profile' },
     { key: 'authorizedapps', title: 'Authorized Applications' },
     { key: 'security', title: 'Security' },
   ];
 
   // Global State and Error Handling
   const dispatch = useDispatch();
+  const history = useHistory();
   const user = useSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
 
   // UI
   const [loading, setLoading] = useState(false);
-  const [activePane, setActivePane] = useState('overview');
+  const { activePane } = useParams();
 
   // Data
   const [account, setAccount] = useState({});
@@ -59,6 +63,15 @@ const AccountSettings = () => {
     }
     setLoading(false);
   }, [setAccount, setLoading, handleGlobalError]);
+
+  /**
+   * Activate the default pane if one is not yet active.
+   */
+  useEffect(() => {
+    if (!activePane) {
+      history.push(`/account/${DEFAULT_ACTIVE_PANE}`);
+    }
+  }, [activePane, history]);
 
   /**
    * Set the page title and gather data from the server on load.
@@ -93,7 +106,7 @@ const AccountSettings = () => {
    * @param {string} name - Identifier of the desired pane.
    */
   function handleActivatePane(name) {
-    setActivePane(name);
+    history.push(`/account/${name}`);
   }
 
   /**
@@ -115,7 +128,7 @@ const AccountSettings = () => {
         return <AccountOverview account={account} onDataChange={handleDataChange} />;
       case 'authorizedapps':
         return <AuthorizedApplications />;
-      case 'instructor':
+      case 'instructorprofile':
         return <InstructorProfile account={account} onDataChange={handleDataChange} />
       case 'security':
         return <AccountSecurity account={account} onDataChange={handleDataChange} />;
