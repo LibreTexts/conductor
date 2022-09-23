@@ -108,6 +108,7 @@ const getBasicAccountInfo = (req, res) => {
                 roles: 1,
                 authType: 1,
                 instructorProfile: 1,
+                verifiedInstructor: 1,
                 createdAt: 1,
             }
         }, {
@@ -144,6 +145,7 @@ const getBasicAccountInfo = (req, res) => {
                 email: user.email,
                 avatar: user.avatar,
                 instructorProfile: user.instructorProfile,
+                verifiedInstructor: user.verifiedInstructor,
             };
             account.createdAt = user._id.getTimestamp();
             if (user.authType === 'sso') {
@@ -764,11 +766,16 @@ async function getInstructorProfile(req, res) {
         }
 
         let profile = null;
+        let verifiedInstructor = false;
         if (foundUser.instructorProfile) {
             profile = foundUser.instructorProfile;
         }
+        if (foundUser.verifiedInstructor) {
+            verifiedInstructor = foundUser.verifiedInstructor;
+        }
 
         return res.send({
+            verifiedInstructor,
             profile,
             err: false,
             uuid: foundUser.uuid,

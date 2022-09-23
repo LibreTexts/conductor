@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -10,7 +10,9 @@ import {
   Header,
   Icon,
   Image,
+  Label,
   Modal,
+  Popup,
   Segment,
 } from 'semantic-ui-react';
 import { normalizeURL, truncateString } from '../util/HelperFunctions';
@@ -31,11 +33,23 @@ const InstructorProfile = ({ account, onDataChange }) => {
   const [loading, setLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Data
+  const [verifiedStatus, setVerifiedStatus] = useState(false);
+
   // Edit Instructor Profile Modal
   const [institution, setInstitution] = useState('');
   const [facultyURL, setFacultyURL] = useState('');
   const [institutionErr, setInstitutionErr] = useState(false);
   const [facultyURLErr, setFacultyURLErr] = useState(false);
+
+  /**
+   * Set state based on passed props.
+   */
+  useEffect(() => {
+    if (account.verifiedInstructor) {
+      setVerifiedStatus(true);
+    }
+  }, [account, setVerifiedStatus]);
 
   /**
    * Resets any error states in the Edit Instructor Profile form.
@@ -131,7 +145,7 @@ const InstructorProfile = ({ account, onDataChange }) => {
         break;
       default:
         break;
-    } 
+    }
   }
 
   return (
@@ -146,10 +160,42 @@ const InstructorProfile = ({ account, onDataChange }) => {
       </p>
       <Card raised fluid className="mt-1e mb-2e">
         <Card.Content>
-          <Card.Header>
-            <Image avatar src={account?.avatar || DEFAULT_AVATAR} alt="" />
-            <span className="ml-05e">{account?.firstName} {account?.lastName}</span>
-          </Card.Header>
+          <div className="flex-row-div">
+            <div className="left-flex">
+              <Image avatar src={account?.avatar || DEFAULT_AVATAR} alt="" />
+              <span className="ml-05e text-header">{account?.firstName} {account?.lastName}</span>
+            </div>
+            <div className="right-flex">
+              <Label color={verifiedStatus ? 'green' : undefined}>
+                <Icon name={verifiedStatus ? 'check' : 'times circle outline'} />
+                Instructor Status
+                <Label.Detail>
+                  {verifiedStatus ? 'Verified' : 'Not Yet Verified'}
+                  <Popup
+                    trigger={(
+                      <span
+                        className={`ml-05e underline-hover${verifiedStatus ? '' : ' muted-text'}`}
+                      >
+                        ?
+                      </span>
+                    )}
+                    position="left center"
+                    content={(
+                      <p className="text-center">
+                        {verifiedStatus
+                          ? `A member of the LibreTexts team has verified your status as an instructor.
+                             You won't have to reverify, even if you move institutions.`
+                          : `You haven't yet been verified as an instructor by the LibreTexts team.
+                             The LibreTexts team can verify you if you submit an Account Request.
+                             Your Conductor experience won't be impacted by this.`
+                        }
+                      </p>
+                    )}
+                  />
+                </Label.Detail>
+              </Label>
+            </div>
+          </div>
           <Card.Description className="mt-1e">
             <p>
               <Header sub as="span">Institution:</Header>
@@ -248,6 +294,7 @@ InstructorProfile.propTypes = {
       institution: PropTypes.string,
       facultyURL: PropTypes.string,
     }),
+    verifiedInstructor: PropTypes.bool,
   }),
   /**
    * Handler to activate when the server's data may have changed.
@@ -256,7 +303,7 @@ InstructorProfile.propTypes = {
 };
 
 InstructorProfile.defaultProps = {
-  account: { },
+  account: {},
   onDataChange: () => { },
 };
 

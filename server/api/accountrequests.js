@@ -108,6 +108,7 @@ async function getRequests(_req, res) {
               avatar: 1,
               email: 1,
               instructorProfile: 1,
+              verifiedInstructor: 1,
             },
           }],
           as: 'requester',
@@ -194,12 +195,35 @@ async function completeRequest(req, res) {
       });
     }
 
+    const { institution, facultyURL } = foundRequest;
+    let name = foundRequest.name;
+    let email = foundRequest.email;
+    if (foundRequest.requester) {
+      const foundUser = await User.findOne({ uuid: foundRequest.requester }).lean();
+      if (foundUser) {
+        name = `${foundUser.firstName} ${foundUser.lastName}`;
+        email = foundUser.email;
+        // Save the user's 'verified' status
+        const updateObj = {
+          verifiedInstructor: true,
+        };
+        // If the user does not have an instructorProfile, save the details submitted with request
+        if (!foundUser.instructorProfile && institution && facultyURL) {
+          updateObj.instructorProfile = {
+            institution,
+            facultyURL,
+          };
+        }
+        await User.updateOne({ uuid: foundRequest.requester }, updateObj);
+      }
+    }
+
     const updateRes = await AccountRequest.updateOne(
       { _id: requestID },
       { status: 'completed' },
     );
     if (updateRes.modifiedCount === 1) {
-      mailAPI.sendAccountRequestApprovalNotification(foundRequest.name, foundRequest.email);
+      mailAPI.sendAccountRequestApprovalNotification(name, email);
     }
     return res.send({
       err: false,

@@ -67,6 +67,13 @@ body {
     font-size: 75%;
 }
 
+.text-header {
+    font-size: 1.28571429rem;
+    font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+    font-weight: 700;
+    color: rgba(0,0,0,.87);
+}
+
 .formheader {
     margin: 2% 0 2% 0 !important;
 }
@@ -150,6 +157,14 @@ body {
 
 .semantic-textarea-font textarea {
     font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+}
+
+.underline-hover {
+    border-bottom: 1px dashed #6c757d;
+}
+
+.underline-hover:hover {
+    cursor: pointer;
 }
 
 /* Helper Classes */

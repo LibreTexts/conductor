@@ -75,6 +75,11 @@ const UserSchema = new mongoose.Schema({
          */
         facultyURL: String,
     },
+    /**
+     * Indicates a LibreTexts team member has verified the user's status
+     * at an academic institution.
+     */
+    verifiedInstructor: Boolean,
 }, {
     timestamps: true
 });

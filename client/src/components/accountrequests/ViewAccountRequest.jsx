@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { Button, Grid, Header, Icon, Image, Modal } from 'semantic-ui-react';
+import { Button, Grid, Header, Icon, Image, Label, Modal, Popup } from 'semantic-ui-react';
 import { getPurposeText } from '../../utils/accountRequestHelpers';
 import { normalizeURL, truncateString } from '../util/HelperFunctions';
 import { getLibGlyphURL, getLibraryName } from '../util/LibraryOptions';
@@ -132,6 +132,36 @@ const ViewAccountRequest = ({ show, onClose, request, onDataChange }) => {
                   {truncateString(request?.facultyURL, 75)}
                 </a>
               </p>
+              <p>
+                <Header sub as="span">Verified Instructor: </Header>
+                {request?.requester?.verifiedInstructor ? (
+                  <Label color="green" className="ml-05e">
+                    <Icon name="check" />
+                    Yes
+                  </Label>
+                ) : (
+                  <Label color="yellow" className="ml-05e">
+                    <Icon name="times circle outline" />
+                    No
+                  </Label>
+                )}
+                <Popup
+                  trigger={(
+                    <span className="ml-05e underline-hover small-text muted-text">
+                      What's this?
+                    </span>
+                  )}
+                  position="top center"
+                  content={(
+                    <p className="text-center">
+                      {request?.requester?.verifiedInstructor
+                        ? 'A member of the LibreTexts team has already verified this user as an instructor'
+                        : 'This user has not yet been verified as an instructor by the LibreTexts team'
+                      }
+                    </p>
+                  )}
+                />
+              </p>
             </Grid.Column>
             <Grid.Column>
               <Header as="h4">Request Information</Header>
@@ -193,7 +223,13 @@ const ViewAccountRequest = ({ show, onClose, request, onDataChange }) => {
       <Modal open={showConfirmComplete} onClose={handleCloseConfirmComplete}>
         <Modal.Header>Confirm</Modal.Header>
         <Modal.Content>
-          <p>Are you sure you want to mark this request as complete?</p>
+          <p>
+            Are you sure you want to mark this request as complete?
+            <strong>
+              {` Marking this request as complete will also mark the requester as a
+               verified instructor, if not already verified.`}
+            </strong>
+          </p>
         </Modal.Content>
         <Modal.Actions>
           <Button onClick={handleCloseConfirmComplete}>Cancel</Button>
@@ -242,6 +278,9 @@ ViewAccountRequest.propTypes = {
     facultyURL: PropTypes.string.isRequired,
     moreInfo: PropTypes.bool,
     libraries: PropTypes.arrayOf(PropTypes.string),
+    requester: PropTypes.shape({
+      verifiedInstructor: PropTypes.bool,
+    }),
   }),
   /**
    * Handler to activate when server data has changed and the parent component should refresh.
