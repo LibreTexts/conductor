@@ -206,9 +206,7 @@ const OrganizationsManager = () => {
         resetFormErrors();
         if (validateForm()) {
             setEditOrgLoading(true);
-            var newData = {
-                orgID: editOrgID
-            };
+            var newData = {};
             if (editOrgOriginalData.coverPhoto !== editOrgCoverPhoto) newData.coverPhoto = editOrgCoverPhoto;
             if (editOrgOriginalData.largeLogo !== editOrgLargeLogo) newData.largeLogo = editOrgLargeLogo;
             if (editOrgOriginalData.mediumLogo !== editOrgMediumLogo) newData.mediumLogo = editOrgMediumLogo;
@@ -217,7 +215,7 @@ const OrganizationsManager = () => {
             if (editOrgOriginalData.commonsHeader !== editOrgCommonsHeader) newData.commonsHeader = editOrgCommonsHeader;
             if (editOrgOriginalData.commonsMessage !== editOrgCommonsMessage) newData.commonsMessage = editOrgCommonsMessage;
             if (Object.keys(newData).length > 1) {
-                axios.put('/org/info', newData).then((res) => {
+                axios.put(`/org/${editOrgID}`, newData).then((res) => {
                     if (!res.data.err) {
                         closeEditOrgModal();
                         getOrganizations();

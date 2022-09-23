@@ -60,11 +60,7 @@ const CampusSettings = () => {
      */
     const getOrgInfo = () => {
         setLoadedData(false);
-        axios.get('/org/info', {
-            params: {
-                orgID: org.orgID,
-            }
-        }).then((res) => {
+        axios.get(`/org/${org.orgID}`).then((res) => {
             if (!res.data.err) {
                 var orgData = res.data;
                 delete orgData.err;
@@ -144,9 +140,7 @@ const CampusSettings = () => {
         resetFormErrors();
         if (validateForm()) {
             setLoadedData(false);
-            let newData = {
-                orgID: org.orgID,
-            };
+            let newData = {};
             if (originalData.coverPhoto !== coverPhoto) newData.coverPhoto = coverPhoto;
             if (originalData.largeLogo !== largeLogo) newData.largeLogo = largeLogo;
             if (originalData.mediumLogo !== mediumLogo) newData.mediumLogo = mediumLogo;
@@ -155,7 +149,7 @@ const CampusSettings = () => {
             if (originalData.commonsHeader !== commonsHeader) newData.commonsHeader = commonsHeader;
             if (originalData.commonsMessage !== commonsMessage) newData.commonsMessage = commonsMessage;
             if (Object.keys(newData).length > 1) {
-                axios.put('/org/info', newData).then((res) => {
+                axios.put(`/org/${org.orgID}`, newData).then((res) => {
                     if (!res.data.err) {
                         if (res.data.updatedOrg) {
                             setOrgInfo(res.data.updatedOrg);

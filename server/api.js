@@ -131,7 +131,7 @@ router.route('/orgs').get(
 
 router.route('/org').get(orgsAPI.getCurrentOrganization);
 
-router.route('/org/info')
+router.route('/org/:orgID')
   .get(
     orgsAPI.validate('getinfo'),
     middleware.checkValidationErrors,
