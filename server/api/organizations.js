@@ -10,6 +10,7 @@ import { body, param } from 'express-validator';
 import Organization from '../models/organization.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
+import authAPI from './auth.js';
 
 /**
  * Attempts to retrieve basic information about an Organization given its identifier.
@@ -108,6 +109,46 @@ async function getAllOrganizations(_req, res) {
 }
 
 /**
+ * Retrieves a basic list of all Organizations participating in the
+ * LibreGrid/Campus Commons network.
+ *
+ * @param {express.Request} _req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getLibreGridOrganizations(_req, res) {
+  try {
+    const orgs = await Organization.aggregate([
+      {
+        $match: {
+          addToLibreGridList: true,
+        },
+      }, {
+        $project: {
+          _id: 0,
+          orgID: 1,
+          name: 1,
+          domain: 1,
+        },
+      }, {
+        $sort: {
+          name: 1,
+        },
+      },
+    ]);
+    return res.send({
+      orgs,
+      err: false,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Updates an Organization's information.
  *
  * @param {express.Request} req - Incoming request object.
@@ -134,6 +175,21 @@ async function updateOrganizationInfo(req, res) {
     addToUpdateIfPresent('commonsHeader');
     addToUpdateIfPresent('commonsMessage');
     addToUpdateIfPresent('mainColor');
+
+    if (
+      Object.hasOwn(req.body, 'addToLibreGridList')
+      && orgID !== 'libretexts'
+      && Array.isArray(req.user?.roles)
+    ) {
+      const isCampusAdmin = authAPI.checkHasRole(
+        { roles: req.user.roles },
+        process.env.ORG_ID,
+        'campusadmin',
+      );
+      if (isCampusAdmin) {
+        updateObj.addToLibreGridList = req.body.addToLibreGridList;
+      }
+    }
 
     // Save updates
     const updated = await Organization.findOneAndUpdate({ orgID }, updateObj, {
@@ -183,6 +239,7 @@ function validate(method) {
         body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
         body('mainColor', conductorErrors.err1).optional({ checkFalsy: true }).isHexColor(),
+        body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
       ];
   }
 }
@@ -191,6 +248,7 @@ export default {
     getOrganizationInfo,
     getCurrentOrganization,
     getAllOrganizations,
+    getLibreGridOrganizations,
     updateOrganizationInfo,
     validate
 }

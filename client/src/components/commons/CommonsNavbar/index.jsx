@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import axios from 'axios';
 import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
 import Breakpoint from '../../util/Breakpoints';
 import './CommonsNavbar.css';
@@ -14,6 +15,42 @@ const CommonsNavbar = ({
   onMobileMenuToggle,
   onMobileCommonsListToggle,
 }) => {
+
+  // Data
+  const [campusCommons, setCampusCommons] = useState([]);
+
+  /**
+   * Retrieves a list of LibreGrid/Campus Commons instances from the server and saves it to state.
+   */
+  const getCampusCommons = useCallback(async () => {
+    try {
+      const commonsRes = await axios.get('/orgs/libregrid');
+      if (!commonsRes.data.err) {
+        if (Array.isArray(commonsRes.data.orgs)) {
+          const orgs = [...commonsRes.data.orgs].map((item) => ({
+            key: item.orgID,
+            name: item.name,
+            link: item.domain,
+          }));
+          setCampusCommons(orgs);
+        }
+      } else {
+        throw (new Error(commonsRes.data.errMsg));
+      }
+    } catch (e) {
+      console.warn('Error retrieving Campus Commons list:');
+      console.warn(e);
+    }
+  }, [setCampusCommons]);
+
+  /**
+   * Load the list of Campus Commons if running on the LibreCommons server.
+   */
+  useEffect(() => {
+    if (org.orgID === 'libretexts') {
+      getCampusCommons();
+    }
+  }, [org.orgID, getCampusCommons]);
 
   /**
    * Renders a styled About "Organization" menu option depending on the screen size.
@@ -73,22 +110,16 @@ const CommonsNavbar = ({
    * @returns {React.ReactElement[]} The rendered Commons List.
    */
   const CommonsList = ({ isMobile = false }) => {
-    const commons = [
-      { key: "oeri", name: "ASCC (OERI)" },
-      { key: "hacc", name: "HACC" },
-      { key: "highline", name: "Highline College" },
-      { key: "k-state", name: "Kansas State University" },
-      { key: "losrios", name: "Los Rios Community College District" },
-      { key: "pgcc", name: "Prince George's Community College" },
-      { key: "reedley", name: "Reedley College" },
-      { key: "ucdavis", name: "UC Davis" },
-    ];
-    const items = commons.map((inst) => ({
+    if (campusCommons.length === 0) {
+      return null;
+    }
+
+    const items = campusCommons.map((inst) => ({
       ...inst,
       props: {
         key: inst.key,
         as: 'a',
-        href: `https://${inst.key}.commons.libretexts.org`,
+        href: inst.link,
         target: '_blank',
         rel: 'noopener noreferrer',
       },
@@ -108,7 +139,7 @@ const CommonsNavbar = ({
     }
     return (
       <Dropdown item text="Campus Commons" id="commons-nav-campusdropdown">
-        <Dropdown.Menu>
+        <Dropdown.Menu direction="left">
           {items.map((item) => (
             <Dropdown.Item {...item.props}>
               <Icon name="university" />

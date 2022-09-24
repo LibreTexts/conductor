@@ -49,6 +49,7 @@ const OrganizationsManager = () => {
     const [showEditOrgModal, setShowEditOrgModal] = useState(false);
     const [editOrgID, setEditOrgID] = useState('');
     const [editOrgOriginalData, setEditOrgOriginalData] = useState({});
+    const [editOrgAddToGrid, setEditOrgAddToGrid] = useState(false);
     const [editOrgCoverPhoto, setEditOrgCoverPhoto] = useState('');
     const [editOrgCoverPhotoErr, setEditOrgCoverPhotoErr] = useState(false);
     const [editOrgLargeLogo, setEditOrgLargeLogo] = useState('');
@@ -214,7 +215,10 @@ const OrganizationsManager = () => {
             if (editOrgOriginalData.aboutLink !== editOrgAboutLink) newData.aboutLink = editOrgAboutLink;
             if (editOrgOriginalData.commonsHeader !== editOrgCommonsHeader) newData.commonsHeader = editOrgCommonsHeader;
             if (editOrgOriginalData.commonsMessage !== editOrgCommonsMessage) newData.commonsMessage = editOrgCommonsMessage;
-            if (Object.keys(newData).length > 1) {
+            if (editOrgID !== 'libretexts' && editOrgOriginalData.addToLibreGridList !== editOrgAddToGrid) {
+                newData.addToLibreGridList = editOrgAddToGrid;
+            }
+            if (Object.keys(newData).length > 0) {
                 axios.put(`/org/${editOrgID}`, newData).then((res) => {
                     if (!res.data.err) {
                         closeEditOrgModal();
@@ -252,6 +256,7 @@ const OrganizationsManager = () => {
         if (orgData.aboutLink) setEditOrgAboutLink(orgData.aboutLink);
         if (orgData.commonsHeader) setEditOrgCommonsHeader(orgData.commonsHeader);
         if (orgData.commonsMessage) setEditOrgCommonsMessage(orgData.commonsMessage);
+        if (orgData.addToLibreGridList) setEditOrgAddToGrid(orgData.addToLibreGridList);
         setShowEditOrgModal(true);
     };
 
@@ -265,6 +270,7 @@ const OrganizationsManager = () => {
         setShowEditOrgModal(false);
         resetFormErrors();
         setEditOrgID('');
+        setEditOrgAddToGrid(false);
         setEditOrgCoverPhoto('');
         setEditOrgLargeLogo('');
         setEditOrgMediumLogo('');
@@ -400,11 +406,22 @@ const OrganizationsManager = () => {
                     </Segment.Group>
                     <Modal
                         open={showEditOrgModal}
-                        closeOnDimmerClick={false}
+                        onClose={closeEditOrgModal}
                     >
                         <Modal.Header>Edit Organization Details</Modal.Header>
-                        <Modal.Content>
+                        <Modal.Content scrolling>
                             <Form noValidate>
+                                <h4>LibreGrid Settings</h4>
+                                <Form.Field>
+                                    <Form.Checkbox
+                                        toggle
+                                        disabled={editOrgID === 'libretexts'}
+                                        label="Add to global Campus Commons list"
+                                        onChange={() => setEditOrgAddToGrid(!editOrgAddToGrid)}
+                                        checked={editOrgAddToGrid}
+                                    />
+                                </Form.Field>
+                                <Divider />
                                 <h4>Branding Images</h4>
                                 <Form.Field
                                     required

@@ -129,6 +129,8 @@ router.route('/orgs').get(
   orgsAPI.getAllOrganizations,
 );
 
+router.route('/orgs/libregrid').get(orgsAPI.getLibreGridOrganizations);
+
 router.route('/org').get(orgsAPI.getCurrentOrganization);
 
 router.route('/org/:orgID')

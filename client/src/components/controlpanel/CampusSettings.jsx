@@ -148,7 +148,7 @@ const CampusSettings = () => {
             if (originalData.aboutLink !== aboutLink) newData.aboutLink = aboutLink;
             if (originalData.commonsHeader !== commonsHeader) newData.commonsHeader = commonsHeader;
             if (originalData.commonsMessage !== commonsMessage) newData.commonsMessage = commonsMessage;
-            if (Object.keys(newData).length > 1) {
+            if (Object.keys(newData).length > 0) {
                 axios.put(`/org/${org.orgID}`, newData).then((res) => {
                     if (!res.data.err) {
                         if (res.data.updatedOrg) {
