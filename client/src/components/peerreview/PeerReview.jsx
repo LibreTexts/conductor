@@ -626,10 +626,9 @@ const PeerReview = ({
                                                         placeholder='Enter your response...'
                                                         textValue={item.value}
                                                         onTextChange={(value) => handleFieldChange(item, value)}
-                                                        inputType='response'
-                                                        showSendButton={false}
+                                                        hideFormatMsg
+                                                        contentType='response'
                                                         error={item.error}
-                                                        hideAttached={true}
                                                     />
                                                 </Form.Field>
                                             )

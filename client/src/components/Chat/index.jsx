@@ -55,10 +55,10 @@ const Chat = ({
         date.plugin(day_of_week);
         // Hook to force message links to open in new window
         DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-          if ('target' in node) {
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer')
-          }
+            if ('target' in node) {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer')
+            }
         });
     }, []);
 
@@ -169,7 +169,7 @@ const Chat = ({
                                     <Comment.Content>
                                         <Comment.Author as='span'>{item.author?.firstName} {item.author?.lastName}</Comment.Author>
                                         <Comment.Metadata>
-                                          <div>{item.date} at {item.time}</div>
+                                            <div>{item.date} at {item.time}</div>
                                         </Comment.Metadata>
                                         <Comment.Text className='conductor-chat-msg-body' dangerouslySetInnerHTML={readyMsgBody}></Comment.Text>
                                         {((item.author?.uuid === user.uuid) || isProjectAdmin) &&
@@ -177,7 +177,7 @@ const Chat = ({
                                                 <Comment.Action onClick={() => openDelMsgModal(item.messageID)}>Delete</Comment.Action>
                                             </Comment.Actions>
                                         }
-                                      </Comment.Content>
+                                    </Comment.Content>
                                 </Comment>
                             )
                         })}
@@ -194,14 +194,26 @@ const Chat = ({
                 }
             </div>
             <div id='conductor-chat-reply-container'>
-                <TextArea
-                    placeholder='Send a message...'
-                    textValue={messageCompose}
-                    onTextChange={(value) => setMessageCompose(value)}
-                    disableSend={(activeThread === '') || (messageCompose === '')}
-                    sendLoading={messageSending}
-                    onSendClick={sendMessage}
-                />
+                <div id="replycontainer-left">
+                    <TextArea
+                        placeholder='Send a message...'
+                        textValue={messageCompose}
+                        onTextChange={(value) => setMessageCompose(value)}
+                    />
+                </div>
+                <div id="replycontainer-right">
+                    <Button
+                        id="replycontainer-sendbutton"
+                        color='blue'
+                        icon 
+                        fluid
+                        disabled={activeThread === '' || messageCompose === ''}
+                        loading={messageSending}
+                        onClick={sendMessage}
+                    >
+                        <Icon name='send' />
+                    </Button>
+                </div>
             </div>
             {/* Delete Discussion Message Modal */}
             <Modal
@@ -257,7 +269,7 @@ Chat.defaultProps = {
     activeThreadMsgs: [],
     loadedThreadMsgs: false,
     getThreads: null,
-    getMessages: () => {},
+    getMessages: () => { },
     isProjectAdmin: false,
 };
 

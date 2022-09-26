@@ -44,8 +44,28 @@
     border-top: 1px solid rgba(34,36,38,.15);
     -webkit-box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
     box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
-    padding: 0.5%;
+    padding: 0.5em;
     display: flex;
     flex-direction: row;
-    max-height: 200px;
+    max-height: 145px;
+}
+
+#conductor-chat-reply-container textarea {
+    min-height: 50px !important;
+    max-height: calc(100px - 0.5em) !important;
+}
+
+#replycontainer-left {
+    flex: 1;
+}
+
+#replycontainer-right {
+    flex-basis: 5%;
+    display: flex;
+    justify-content: center;
+    padding-left: 0.5em;
+}
+
+#replycontainer-sendbutton {
+    margin: 0;
 }

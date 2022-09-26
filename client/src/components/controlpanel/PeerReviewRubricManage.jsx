@@ -1142,8 +1142,7 @@ const PeerReviewRubricManage = (props) => {
                                 placeholder={`Enter ${tmMode === 'add' && 'new'} text...`}
                                 textValue={tmText}
                                 onTextChange={(value) => setTMText(value)}
-                                inputType='text block'
-                                showSendButton={false}
+                                contentType='text block'
                                 error={tmError}
                             />
                         </Modal.Content>

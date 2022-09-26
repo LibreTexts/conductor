@@ -1,89 +1,65 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button, Icon } from 'semantic-ui-react';
-import './TextArea.css';
+import styles from './TextArea.module.css';
 
 /**
  * A reusable and themed textarea.
  */
 const TextArea = ({
-    placeholder,
-    textValue,
-    onTextChange,
-    disableSend,
-    sendLoading,
-    onSendClick,
-    inputType,
-    showSendButton,
-    hideAttached,
-    error
+  placeholder,
+  textValue,
+  onTextChange,
+  hideFormatMsg,
+  contentType,
+  error
 }) => {
 
-    return (
-        <div id='textarea-input-container' className={error ? 'textarea-error' : ''}>
-            <textarea
-                id='textarea-input'
-                placeholder={placeholder}
-                value={textValue}
-                onChange={(e) => {
-                    if (onTextChange !== undefined) {
-                        onTextChange(e.target.value);
-                    }
-                }}
-                rows={1}
-                className={showSendButton ? 'has-send-button' : ''}
-            ></textarea>
-            {!hideAttached && (
-                <div id='textarea-attached'>
-                    <div className='left-flex'>
-                        <span id='textarea-helptext'>
-                            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {inputType}!
-                        </span>
-                    </div>
-                    {showSendButton &&
-                        <div className='right-flex'>
-                            <Button
-                                disabled={disableSend}
-                                loading={sendLoading}
-                                onClick={onSendClick}
-                                color='blue'
-                                floated='right'
-                            >
-                                <Icon name='send' />
-                                Send
-                            </Button>
-                        </div>
-                    }
-                </div>
-            )}
-        </div>
-    )
-};
+  /**
+   * Activates the provided change handler, with the new value as the first argument.
+   *
+   * @param {React.ChangeEvent<HTMLTextAreaElement>} e - Event that activate the handler.
+   */
+  function handleInputChange(e) {
+    onTextChange(e.target.value);
+  }
 
-TextArea.defaultProps = {
-    placeholder: 'Enter text here...',
-    textValue: '',
-    onTextChange: () => {},
-    disableSend: false,
-    sendLoading: false,
-    onSendClick: () => {},
-    inputType: 'message',
-    showSendButton: true,
-    hideAttached: false,
-    error: false
+  return (
+    <div id={styles.container} className={error ? styles.error : ''}>
+      <textarea
+        id={styles.textarea}
+        placeholder={placeholder}
+        value={textValue}
+        onChange={handleInputChange}
+        rows={1}
+      />
+      {!hideFormatMsg && (
+        <div id={styles.format_msg}>
+          <span id={styles.format_msg_text}>
+            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {contentType}!
+          </span>
+        </div>
+      )}
+    </div>
+  )
 };
 
 TextArea.propTypes = {
-    placeholder: PropTypes.string,
-    textValue: PropTypes.string,
-    onTextChange: PropTypes.func,
-    disableSend: PropTypes.bool,
-    sendLoading: PropTypes.bool,
-    onSendClick: PropTypes.func,
-    inputType: PropTypes.string,
-    showSendButton: PropTypes.bool,
-    hideAttached: PropTypes.bool,
-    error: PropTypes.bool
+  placeholder: PropTypes.string,
+  textValue: PropTypes.string,
+  onTextChange: PropTypes.func,
+  hideFormatMsg: PropTypes.bool,
+  contentType: PropTypes.string,
+  error: PropTypes.bool,
 };
+
+TextArea.defaultProps = {
+  placeholder: 'Enter text here...',
+  textValue: '',
+  onTextChange: () => { },
+  hideFormatMsg: false,
+  contentType: 'message',
+  error: false,
+};
+
 
 export default TextArea;

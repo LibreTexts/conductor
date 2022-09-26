@@ -2830,8 +2830,7 @@ const ProjectView = (props) => {
                     placeholder='Enter additional notes here...'
                     textValue={projNotes}
                     onTextChange={(value) => setProjNotes(value)}
-                    inputType='notes'
-                    showSendButton={false}
+                    contentType='notes'
                   />
                 </Form.Field>
               </Form>
@@ -2995,8 +2994,7 @@ const ProjectView = (props) => {
                     placeholder='Description...'
                     textValue={mngTaskDescrip}
                     onTextChange={(value) => setMngTaskDescrip(value)}
-                    inputType='description'
-                    showSendButton={false}
+                    contentType='description'
                   />
                 </Form.Field>
                 {(mngTaskMode === 'add') &&
@@ -3812,8 +3810,7 @@ const ProjectView = (props) => {
                       placeholder='Describe the reason for flagging...'
                       textValue={flagDescrip}
                       onTextChange={(value) => setFlagDescrip(value)}
-                      inputType='description'
-                      showSendButton={false}
+                      contentType='description'
                     />
                   </div>
                 )

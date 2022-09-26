@@ -817,8 +817,7 @@ const Home = (props) => {
                                 placeholder='Enter announcement text...'
                                 textValue={naMessage}
                                 onTextChange={(value) => setNAMessage(value)}
-                                inputType='announcement'
-                                showSendButton={false}
+                                contentType='announcement'
                             />
                         </Form.Field>
                         {(user.hasOwnProperty('isSuperAdmin') && user.isSuperAdmin === true) &&
