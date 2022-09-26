@@ -19,7 +19,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
 import Breakpoint from '../util/Breakpoints.jsx';
-import ConductorTextArea from '../util/ConductorTextArea';
+import TextArea from '../TextArea';
 import StarRating from './StarRating.jsx';
 
 import {
@@ -622,7 +622,7 @@ const PeerReview = ({
                                             return (
                                                 <Form.Field className='mb-2p' key={item.order}>
                                                     <label className={item.promptRequired ? 'form-required' : ''}>{item.promptText}</label>
-                                                    <ConductorTextArea
+                                                    <TextArea
                                                         placeholder='Enter your response...'
                                                         textValue={item.value}
                                                         onTextChange={(value) => handleFieldChange(item, value)}

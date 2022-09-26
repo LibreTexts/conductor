@@ -21,7 +21,7 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
-import ConductorDateInput from '../util/ConductorDateInput';
+import DateInput from '../DateInput';
 
 import {
     isEmptyString,
@@ -353,14 +353,14 @@ const HarvestingRequests = (props) => {
                         </Segment>
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
-                                <ConductorDateInput
+                                <DateInput
                                     value={fromDate}
                                     onChange={(value) => setFromDate(value)}
                                     label='From'
                                     inlineLabel={true}
                                     className='mr-2p'
                                 />
-                                <ConductorDateInput
+                                <DateInput
                                     value={toDate}
                                     onChange={(value) => setToDate(value)}
                                     label='To'

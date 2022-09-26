@@ -34,7 +34,7 @@ import {
     getPeerReviewAuthorText
 } from '../util/ProjectHelpers.js';
 
-import ConductorMessagingUI from '../util/ConductorMessagingUI';
+import Messaging from '../Messaging';
 import PeerReview from '../peerreview/PeerReview.jsx';
 import PeerReviewView from '../peerreview/PeerReviewView.jsx';
 
@@ -676,7 +676,7 @@ const ProjectPeerReview = (props) => {
                                                 raised
                                                 className='project-discussion-segment mb-4p'
                                             >
-                                                <ConductorMessagingUI
+                                                <Messaging
                                                     projectID={props.match.params.id}
                                                     user={user}
                                                     kind='peerreview'

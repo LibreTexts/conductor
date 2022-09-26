@@ -1,24 +1,14 @@
-//
-// LibreTexts Conductor
-// ConductorDateInput/index.js
-// A reusable, customizable date input for use in
-// the Conductor UI.
-//
-
-import './ConductorDateInput.css';
-
+import React, { memo } from 'react';
+import PropTypes from 'prop-types';
+import date from 'date-and-time';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
 import { DateUtils } from 'react-day-picker';
-import React, { useEffect, useState, memo } from 'react';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import day_of_week from 'date-and-time/plugin/day-of-week';
+import './DateInput.css';
 
-import { isEmptyString } from '../HelperFunctions.js';
-
-import useGlobalError from '../../error/ErrorHooks.js';
-
-const ConductorDateInput = ({
+/**
+ * A customizable date input.
+ */
+const DateInput = ({
     value,
     onChange,
     label,
@@ -53,7 +43,18 @@ const ConductorDateInput = ({
     )
 };
 
-ConductorDateInput.defaultProps = {
+DateInput.propTypes = {
+    value: PropTypes.oneOfType([
+        PropTypes.instanceOf(Date),
+        PropTypes.string,
+    ]),
+    onChange: PropTypes.func,
+    label: PropTypes.string,
+    inlineLabel: PropTypes.bool,
+    className: PropTypes.string,
+};
+
+DateInput.defaultProps = {
     value: '',
     onChange: () => {},
     label: null,
@@ -61,4 +62,4 @@ ConductorDateInput.defaultProps = {
     className: ''
 };
 
-export default memo(ConductorDateInput);
+export default memo(DateInput);

@@ -1,20 +1,12 @@
-//
-// LibreTexts Conductor
-// ConductorTextArea/index.js
-// A reusable, customizable, and themed textarea for use in
-// the Conductor UI.
-//
-
-import './ConductorTextArea.css';
-
-import {
-    Icon,
-    Button
-} from 'semantic-ui-react';
 import React from 'react';
 import PropTypes from 'prop-types';
+import { Button, Icon } from 'semantic-ui-react';
+import './TextArea.css';
 
-const ConductorTextArea = ({
+/**
+ * A reusable and themed textarea.
+ */
+const TextArea = ({
     placeholder,
     textValue,
     onTextChange,
@@ -68,7 +60,7 @@ const ConductorTextArea = ({
     )
 };
 
-ConductorTextArea.defaultProps = {
+TextArea.defaultProps = {
     placeholder: 'Enter text here...',
     textValue: '',
     onTextChange: () => {},
@@ -81,7 +73,7 @@ ConductorTextArea.defaultProps = {
     error: false
 };
 
-ConductorTextArea.propTypes = {
+TextArea.propTypes = {
     placeholder: PropTypes.string,
     textValue: PropTypes.string,
     onTextChange: PropTypes.func,
@@ -94,4 +86,4 @@ ConductorTextArea.propTypes = {
     error: PropTypes.bool
 };
 
-export default ConductorTextArea;
+export default TextArea;

@@ -14,7 +14,7 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import AdoptionReportView from '../../../../components/AdoptionReportView';
-import ConductorDateInput from '../../../../components/util/ConductorDateInput';
+import DateInput from '../../../../components/DateInput';
 import {
   isEmptyString,
   truncateString,
@@ -257,14 +257,14 @@ const AdoptionReports = () => {
             </Segment>
             <Segment>
               <div className="flex-row-div">
-                <ConductorDateInput
+                <DateInput
                   value={fromDate}
                   onChange={handleFromDateChange}
                   label="From"
                   inlineLabel={true}
                   className="mr-2p"
                 />
-                <ConductorDateInput
+                <DateInput
                   value={toDate}
                   onChange={handleToDateChange}
                   label="To"

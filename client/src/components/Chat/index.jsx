@@ -1,12 +1,11 @@
-//
-// LibreTexts Conductor
-// ConductorChatUI/index.js
-// A reusable chat thread interface for use in
-// the Conductor UI.
-//
-
-import './ConductorChatUI.css';
-
+import React, { useEffect, useState, memo } from 'react';
+import PropTypes from 'prop-types';
+import axios from 'axios';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+import date from 'date-and-time';
+import ordinal from 'date-and-time/plugin/ordinal';
+import day_of_week from 'date-and-time/plugin/day-of-week';
 import {
     Header,
     Button,
@@ -15,21 +14,15 @@ import {
     Loader,
     Comment
 } from 'semantic-ui-react';
-import React, { useEffect, useState, memo } from 'react';
-import ConductorTextArea from '../ConductorTextArea';
-import axios from 'axios';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import day_of_week from 'date-and-time/plugin/day-of-week';
-import PropTypes from 'prop-types';
+import TextArea from '../TextArea';
+import { isEmptyString } from '../util/HelperFunctions.js';
+import useGlobalError from '../error/ErrorHooks.js';
+import './Chat.css';
 
-import { isEmptyString } from '../HelperFunctions.js';
-
-import useGlobalError from '../../error/ErrorHooks.js';
-
-const ConductorChatUI = ({
+/**
+ * A reusable chat/message thread interface.
+ */
+const Chat = ({
     projectID,
     user,
     mode,
@@ -201,7 +194,7 @@ const ConductorChatUI = ({
                 }
             </div>
             <div id='conductor-chat-reply-container'>
-                <ConductorTextArea
+                <TextArea
                     placeholder='Send a message...'
                     textValue={messageCompose}
                     onTextChange={(value) => setMessageCompose(value)}
@@ -240,21 +233,7 @@ const ConductorChatUI = ({
     )
 };
 
-ConductorChatUI.defaultProps = {
-    projectID: '',
-    user: {},
-    mode: 'messaging',
-    kind: 'project',
-    activeThread: '',
-    activeThreadTitle: 'Messages',
-    activeThreadMsgs: [],
-    loadedThreadMsgs: false,
-    getThreads: null,
-    getMessages: () => {},
-    isProjectAdmin: false,
-};
-
-ConductorChatUI.propTypes = {
+Chat.propTypes = {
     projectID: PropTypes.string,
     user: PropTypes.object.isRequired,
     mode: PropTypes.string.isRequired,
@@ -268,4 +247,18 @@ ConductorChatUI.propTypes = {
     isProjectAdmin: PropTypes.bool,
 };
 
-export default memo(ConductorChatUI);
+Chat.defaultProps = {
+    projectID: '',
+    user: {},
+    mode: 'messaging',
+    kind: 'project',
+    activeThread: '',
+    activeThreadTitle: 'Messages',
+    activeThreadMsgs: [],
+    loadedThreadMsgs: false,
+    getThreads: null,
+    getMessages: () => {},
+    isProjectAdmin: false,
+};
+
+export default memo(Chat);

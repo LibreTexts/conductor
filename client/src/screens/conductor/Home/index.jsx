@@ -30,7 +30,7 @@ import { marked } from 'marked';
 
 import ProjectCard from '../../../components/projects/ProjectCard';
 import Breakpoint from '../../../components/util/Breakpoints.jsx';
-import ConductorTextArea from '../../../components/util/ConductorTextArea';
+import TextArea from '../../../components/TextArea';
 
 import {
     truncateString,
@@ -813,7 +813,7 @@ const Home = (props) => {
                             error={naMessageError}
                         >
                             <label>Message</label>
-                            <ConductorTextArea
+                            <TextArea
                                 placeholder='Enter announcement text...'
                                 textValue={naMessage}
                                 onTextChange={(value) => setNAMessage(value)}

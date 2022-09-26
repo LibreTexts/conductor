@@ -26,7 +26,7 @@ import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import ConductorMessagingUI from '../util/ConductorMessagingUI';
+import Messaging from '../Messaging';
 import { MentionsInput, Mention } from 'react-mentions';
 
 import {
@@ -323,7 +323,7 @@ const ProjectAccessibility = (props) => {
                                                 raised
                                                 className='project-discussion-segment mb-4p'
                                             >
-                                                <ConductorMessagingUI
+                                                <Messaging
                                                     projectID={props.match.params.id}
                                                     user={user}
                                                     kind='a11y'

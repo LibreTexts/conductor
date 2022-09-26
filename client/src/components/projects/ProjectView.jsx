@@ -35,10 +35,10 @@ import { marked } from 'marked';
 
 import MaterialsManager from '../MaterialsManager/MaterialsManager';
 import ProjectProgressBar from './ProjectProgressBar';
-import ConductorTextArea from '../util/ConductorTextArea';
-import ConductorMessagingUI from '../util/ConductorMessagingUI';
-import ConductorChatUI from '../util/ConductorChatUI';
-import ConductorDateInput from '../util/ConductorDateInput';
+import TextArea from '../TextArea';
+import Messaging from '../Messaging';
+import Chat from '../Chat';
+import DateInput from '../DateInput';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -2297,7 +2297,7 @@ const ProjectView = (props) => {
                         raised
                         className='project-discussion-segment mb-2p'
                       >
-                        <ConductorMessagingUI
+                        <Messaging
                           projectID={props.match.params.id}
                           user={user}
                           kind='project'
@@ -2826,7 +2826,7 @@ const ProjectView = (props) => {
                 <Header as='h3'>Additional Information</Header>
                 <Form.Field>
                   <label>Notes</label>
-                  <ConductorTextArea
+                  <TextArea
                     placeholder='Enter additional notes here...'
                     textValue={projNotes}
                     onTextChange={(value) => setProjNotes(value)}
@@ -2991,7 +2991,7 @@ const ProjectView = (props) => {
                 </Form.Field>
                 <Form.Field>
                   <label>Description</label>
-                  <ConductorTextArea
+                  <TextArea
                     placeholder='Description...'
                     textValue={mngTaskDescrip}
                     onTextChange={(value) => setMngTaskDescrip(value)}
@@ -3000,14 +3000,14 @@ const ProjectView = (props) => {
                   />
                 </Form.Field>
                 {(mngTaskMode === 'add') &&
-                  <ConductorDateInput
+                  <DateInput
                     value={mngTaskStartDate}
                     onChange={(value) => setMngTaskStartDate(value)}
                     label='Start Date'
                   />
                 }
                 {(mngTaskMode === 'add') &&
-                  <ConductorDateInput
+                  <DateInput
                     value={mngTaskEndDate}
                     className='mt-2p'
                     onChange={(value) => setMngTaskEndDate(value)}
@@ -3107,7 +3107,7 @@ const ProjectView = (props) => {
                     }
                     {viewTaskStartDateEdit &&
                       <div className='task-detail-textdiv'>
-                        <ConductorDateInput
+                        <DateInput
                           value={viewTaskStartDateNew}
                           className='mt-2p'
                           onChange={(value) => setViewTaskStartDateNew(value)}
@@ -3148,7 +3148,7 @@ const ProjectView = (props) => {
                     }
                     {viewTaskEndDateEdit &&
                       <div className='task-detail-textdiv'>
-                        <ConductorDateInput
+                        <DateInput
                           value={viewTaskEndDateNew}
                           className='mt-2p'
                           onChange={(value) => setViewTaskEndDateNew(value)}
@@ -3414,7 +3414,7 @@ const ProjectView = (props) => {
                   </div>
                   <div id='task-view-right'>
                     <div id='task-view-chat'>
-                      <ConductorChatUI
+                      <Chat
                         projectID={props.match.params.id}
                         user={user}
                         mode='standalone'
@@ -3808,7 +3808,7 @@ const ProjectView = (props) => {
                       error={flagOptionErr}
                       className='mb-2p'
                     />
-                    <ConductorTextArea
+                    <TextArea
                       placeholder='Describe the reason for flagging...'
                       textValue={flagDescrip}
                       onTextChange={(value) => setFlagDescrip(value)}

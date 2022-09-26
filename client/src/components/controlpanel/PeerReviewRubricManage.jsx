@@ -23,7 +23,7 @@ import axios from 'axios';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-import ConductorTextArea from '../util/ConductorTextArea';
+import TextArea from '../TextArea';
 
 import { peerReviewPromptTypes } from '../util/ProjectHelpers';
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -1138,7 +1138,7 @@ const PeerReviewRubricManage = (props) => {
                     >
                         <Modal.Header>{(tmMode === 'add') ? 'Add' : 'Edit'} Text Block</Modal.Header>
                         <Modal.Content>
-                            <ConductorTextArea
+                            <TextArea
                                 placeholder={`Enter ${tmMode === 'add' && 'new'} text...`}
                                 textValue={tmText}
                                 onTextChange={(value) => setTMText(value)}

@@ -26,7 +26,7 @@ import { getLicenseColor } from '../../../components/util/BookHelpers.js';
 import { getPeerReviewAuthorText } from '../../../components/util/ProjectHelpers.js';
 import AdoptionReport from '../../../components/adoptionreport/AdoptionReport.jsx';
 import CommonsMaterials from '../../../components/commons/CommonsMaterials/index.jsx';
-import ConductorTreeView from '../../../components/util/ConductorTreeView/index.jsx';
+import TreeView from '../../../components/TreeView';
 import PeerReview from '../../../components/peerreview/PeerReview.jsx';
 import PeerReviewView from '../../../components/peerreview/PeerReviewView.jsx';
 import StarRating from '../../../components/peerreview/StarRating.jsx';
@@ -676,7 +676,7 @@ const CommonsBook = () => {
         <div className={styles.clr_breakdown}>
           <Header as="h4" className="mt-2p" dividing>Breakdown</Header>
           {clrChapters.length > 0 ? (
-            <ConductorTreeView
+            <TreeView
               items={clrChapters}
               asLinks={true}
               hrefKey="url"
@@ -834,7 +834,7 @@ const CommonsBook = () => {
                     </div>
                   </div>
                   {(bookTOC.length > 0) ? (
-                    <ConductorTreeView
+                    <TreeView
                       items={bookTOC}
                       asLinks={true}
                       hrefKey='url'

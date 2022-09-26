@@ -1,16 +1,12 @@
-//
-// LibreTexts Conductor
-// ConductorTreeView/index.js
-// A reusable TreeView for use in Conductor and Commons UI.
-//
-
-import './ConductorTreeView.css';
-
-import { List, Icon } from 'semantic-ui-react';
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import { Icon, List } from 'semantic-ui-react';
+import './TreeView.css';
 
-
-const ConductorTreeNode = ({ parentKey, item, asLink, hrefKey, textKey }) => {
+/**
+ * Displays items in a "tree" view, with nested and expandable lists.
+ */
+const TreeNode = ({ parentKey, item, asLink, hrefKey, textKey }) => {
 
     const [expanded, setExpanded] = useState(false);
     let hasChildren = Array.isArray(item.children) && item.children.length > 0;
@@ -48,7 +44,7 @@ const ConductorTreeNode = ({ parentKey, item, asLink, hrefKey, textKey }) => {
                     <List.List>
                         {item.children.map((subItem, idx) => {
                             return (
-                                <ConductorTreeNode
+                                <TreeNode
                                     key={`tree-node-${parentKey}-${idx}`}
                                     parentKey={idx}
                                     itemKey={subItem.id}
@@ -67,14 +63,14 @@ const ConductorTreeNode = ({ parentKey, item, asLink, hrefKey, textKey }) => {
 };
 
 
-const ConductorTreeView = ({ items, asLinks, hrefKey, textKey }) => {
+const TreeView = ({ items, asLinks, hrefKey, textKey }) => {
     if (Array.isArray(items)) {
         if ((asLinks === true && typeof(hrefKey) === 'string' && typeof(textKey) === 'string') || asLinks === false) {
             return (
                 <List relaxed>
                     {items.map((item, idx) => {
                         return (
-                            <ConductorTreeNode
+                            <TreeNode
                                 key={`tree-node-${idx}`}
                                 parentKey={idx}
                                 item={item}
@@ -91,11 +87,18 @@ const ConductorTreeView = ({ items, asLinks, hrefKey, textKey }) => {
     return null;
 };
 
-ConductorTreeView.defaultProps = {
+TreeView.propTypes = {
+    items: PropTypes.arrayOf(PropTypes.object),
+    asLinks: PropTypes.bool,
+    hrefKey: PropTypes.string,
+    textKey: PropTypes.string,
+};
+
+TreeView.defaultProps = {
     items: null,
     asLinks: false,
     hrefKey: null,
     textKey: null
 };
 
-export default ConductorTreeView;
+export default TreeView;

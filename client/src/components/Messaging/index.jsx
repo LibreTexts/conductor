@@ -1,12 +1,11 @@
-//
-// LibreTexts Conductor
-// ConductorMessagingUI/index.js
-// A reusable messaging (threads and chat window) interface for use in
-// the Conductor UI.
-//
-
-import './ConductorMessagingUI.css';
-
+import React, { useEffect, useState, useCallback, memo } from 'react';
+import PropTypes from 'prop-types';
+import axios from 'axios';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+import date from 'date-and-time';
+import ordinal from 'date-and-time/plugin/ordinal';
+import day_of_week from 'date-and-time/plugin/day-of-week';
 import {
     Header,
     Button,
@@ -16,25 +15,18 @@ import {
     Form,
     Input
 } from 'semantic-ui-react';
-import React, { useEffect, useState, useCallback, memo } from 'react';
-import ConductorChatUI from '../ConductorChatUI';
-import axios from 'axios';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import day_of_week from 'date-and-time/plugin/day-of-week';
-import PropTypes from 'prop-types';
-
+import Chat from '../Chat';
 import {
     isEmptyString,
     truncateString
-} from '../HelperFunctions.js';
+} from '../util/HelperFunctions.js';
+import useGlobalError from '../error/ErrorHooks.js';
+import './Messaging.css';
 
-import useGlobalError from '../../error/ErrorHooks.js';
-
-
-const ConductorMessagingUI = ({ projectID, user, kind, isProjectAdmin }) => {
+/**
+ * A reusable messaging (threads and chat window) interface.
+ */
+const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
@@ -267,7 +259,7 @@ const ConductorMessagingUI = ({ projectID, user, kind, isProjectAdmin }) => {
                     }
                 </div>
             </div>
-            <ConductorChatUI
+            <Chat
                 projectID={projectID}
                 user={user}
                 kind={kind}
@@ -346,21 +338,21 @@ const ConductorMessagingUI = ({ projectID, user, kind, isProjectAdmin }) => {
     )
 };
 
-ConductorMessagingUI.defaultProps = {
-    projectID: '',
-    user: {},
-    kind: 'project',
-    isProjectAdmin: false,
-};
-
-ConductorMessagingUI.propTypes = {
+Messaging.propTypes = {
     projectID: PropTypes.string.isRequired,
     user: PropTypes.object.isRequired,
     kind: PropTypes.string.isRequired,
     isProjectAdmin: PropTypes.bool
 };
 
-export default memo(ConductorMessagingUI);
+Messaging.defaultProps = {
+    projectID: '',
+    user: {},
+    kind: 'project',
+    isProjectAdmin: false,
+};
+
+export default memo(Messaging);
 
 /**
 <div className='left-flex' id='project-messages-reply-inputcontainer'>

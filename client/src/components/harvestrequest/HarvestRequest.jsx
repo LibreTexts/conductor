@@ -17,7 +17,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
 
-import ConductorDateInput from '../util/ConductorDateInput';
+import DateInput from '../DateInput';
 
 import useGlobalError from '../error/ErrorHooks.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
@@ -299,7 +299,7 @@ const HarvestRequest = (props) => {
                                 onChange={handleUseChange}
                                 value={resourceUse}
                             />
-                            <ConductorDateInput
+                            <DateInput
                                 value={dateIntegrate}
                                 onChange={(value) => setDateIntegrate(value)}
                                 label='Date integration has to be completed for adoption to be possible:*'
