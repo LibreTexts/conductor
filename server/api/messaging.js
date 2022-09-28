@@ -402,13 +402,20 @@ async function createTaskMessage(req, res) {
         );
         if (Array.isArray(notifyEmails) && notifyEmails.length > 0) {
             // send email notifications
+            let taskTitle = task.title;
+            if (task.parent) {
+                const parent = await Task.findOne({ taskID: task.parent }).lean();
+                if (parent) {
+                    taskTitle = `${parent.title}/${task.title}`;
+                }
+            }
             mailAPI.sendNewProjectMessagesNotification(
                 notifyEmails,
                 project.projectID,
                 project.title,
                 project.orgID,
                 'Tasks',
-                task.title,
+                taskTitle,
                 message.body,
                 `${user.firstName} ${user.lastName}`,
             ).catch((e) => debugError(e));

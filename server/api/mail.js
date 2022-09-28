@@ -268,7 +268,7 @@ const sendProjectFlaggedNotification = (recipients, projectID, projectTitle, pro
  */
 const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle, projectOrg, messagesKind, threadTitle, messageText, authorName) => {
     let msgAuthor = authorName || 'A Conductor user';
-    let htmlToSend = `<p>A new message is available in the <em>${threadTitle}</em> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p>`;
+    let htmlToSend = `<p>A new message is available in the <strong>${threadTitle}</strong> thread (<em>${messagesKind} Discussion</em>) of the <a href='https://commons.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectTitle}</a> project on Conductor.</p>`;
     if (!isEmptyString(messageText)) {
         let truncMsg = truncateString(messageText, 500);
         htmlToSend += `<p style="margin-left: 15px;"><strong>${msgAuthor}</strong> said:</p><p style="margin-left: 15px; border-left: 2px solid #ccc; padding-left: 1%;">${marked.parseInline(truncMsg)}</p>`;
