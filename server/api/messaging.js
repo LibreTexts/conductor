@@ -4,9 +4,10 @@
 //
 
 'use strict';
+import express from 'express';
 import b62 from 'base62-random';
 import { debugError } from '../debug.js';
-import { body, query } from 'express-validator';
+import { body, query, param } from 'express-validator';
 import User from '../models/user.js';
 import Project from '../models/project.js';
 import Task from '../models/task.js';
@@ -245,219 +246,170 @@ const getProjectThreads = (req, res) => {
     });
 };
 
-
 /**
  * Creates a new Message within a Project Thread.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'createThreadMessage'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const createThreadMessage = (req, res) => {
-    let discussionKind = null;
-    let threadTitle = null;
-    let projectData = {};
-    let sentMessage = false;
-    let sentMsgData = {};
-    let msgAuthorName = null;
-    let sentNotif = false;
-    const currentTime = new Date();
-    Thread.findOne({
-        threadID: req.body.threadID
-    }).lean().then((thread) => {
-        if (thread) {
-            threadTitle = thread.title;
+async function createThreadMessage(req, res) {
+    try {
+        const { threadID } = req.params;
+        const thread = await Thread.findOne({ threadID }).lean();
+        if (!thread) {
+            return res.status(404).send({
+                err: true,
+                errMsg: conductorErrors.err11,
+            });
+        }
+
+        const project = await Project.findOne({ projectID: thread.project }).lean();
+        if (!project) {
+            return res.status(404).send({
+                err: true,
+                errMsg: conductorErrors.err11,
+            });
+        }
+
+        // check permission
+        if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
+        }
+
+        const message = await new Message({
+            messageID: b62(15),
+            thread: threadID,
+            body: req.body.message,
+            author: req.user.decoded.uuid,
+        }).save();
+
+        const user = await User.findOne(
+            { uuid: req.user.decoded.uuid },
+            { firstName: 1, lastName: 1 },
+        ).lean();
+
+        const projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
+        const teamEmails = await usersAPI.getUserEmails(projectTeam);
+        if (Array.isArray(teamEmails) && teamEmails.length > 0) {
+            // send email notifications
+            let discussionKind = null;
             switch (thread.kind) {
                 case 'peerreview':
                     discussionKind = 'Peer Review';
                     break;
                 case 'a11y':
-                    discussionKind = 'accessibility';
+                    discussionKind = 'Accessibility';
                     break;
                 default:
                     discussionKind = 'Project';
             }
-            return Project.findOne({
-                projectID: thread.project
-            }).lean();
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((project) => {
-        if (project) {
-            projectData = project;
-            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
-                const message = new Message({
-                    messageID: b62(15),
-                    thread: req.body.threadID,
-                    body: req.body.message,
-                    author: req.user.decoded.uuid
-                });
-                return message.save();
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
-        }
-    }).then((newMsg) => {
-        if (newMsg) {
-            sentMessage = true;
-            sentMsgData = newMsg;
-            return User.findOne({ uuid: req.user.decoded.uuid }, { firstName: 1, lastName: 1 }).lean();
-        } else {
-            throw(new Error('createfail'));
-        }
-    }).then((msgAuthor) => {
-      if (msgAuthor) {
-        msgAuthorName = `${msgAuthor.firstName} ${msgAuthor.lastName}`;
-      }
-      let projectTeam = projectsAPI.constructProjectTeam(projectData, req.user.decoded.uuid);
-      return usersAPI.getUserEmails(projectTeam);
-    }).then((teamEmails) => {
-        if (Array.isArray(teamEmails) && teamEmails.length > 0) {
-            // send email notifications
-            sentNotif = true;
-            return mailAPI.sendNewProjectMessagesNotification(teamEmails, projectData.projectID,
-                projectData.title, projectData.orgID, discussionKind, threadTitle,
-                sentMsgData.body, msgAuthorName);
-        } else {
-            return {};
-        }
-    }).then(() => {
-        // ignore return value of Mailgun call
-        if (sentNotif) {
-            return Thread.updateOne({
-                threadID: req.body.threadID
-            }, {
-                lastNotifSent: currentTime
+            mailAPI.sendNewProjectMessagesNotification(
+                teamEmails,
+                project.projectID,
+                project.title,
+                project.orgID,
+                discussionKind,
+                thread.title,
+                message.body,
+                `${user.firstName} ${user.lastName}`,
+            ).catch((e) => debugError(e));
+
+            Thread.updateOne({ threadID }, { lastNotifSent: new Date() }).catch((e) => {
+                debugError(e);
             });
-        } else {
-            return {};
         }
-    }).then(() => {
-        // ignore return value of update
+
         return res.send({
             err: false,
-            msg: 'Message successfully sent.',
-            messageID: sentMsgData.messageID
+            msg: 'Message successfully sent!',
+            messageID: message.messageID,
         });
-    }).catch((err) => {
-        debugError(err);
-        // return success as long as message was sent, ignoring notification failures
-        if (sentMessage) {
-            return res.send({
-                err: false,
-                msg: 'Message successfully sent.',
-                messageID: sentMsgData.messageID
-            });
-        } else {
-            debugError(err);
-            var errMsg = conductorErrors.err6;
-            if (err.message === 'notfound') errMsg = conductorErrors.err11;
-            else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-            else if (err.message === 'createfail') errMsg = conductorErrors.err3;
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
-        }
-    });
-};
-
+    } catch (e) {
+        debugError(e);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
 
 /**
  * Creates a new Message within a Task.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'createTaskMessage'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
-const createTaskMessage = (req, res) => {
-    let task = {};
-    let project = {};
-    let sentMessage = false;
-    let sentMsgData = {};
-    let msgAuthorName = null;
-    Task.findOne({
-        taskID: req.body.taskID
-    }).lean().then((taskData) => {
-        if (taskData) {
-            task = taskData;
-            return Project.findOne({
-                projectID: task.projectID
-            }).lean();
-        } else {
-            throw(new Error('notfound'));
+async function createTaskMessage(req, res) {
+    try {
+        const { taskID } = req.params;
+        const task = await Task.findOne({ taskID }).lean();
+        if (!task) {
+            return res.status(404).send({
+                err: true,
+                errMsg: conductorErrors.err11,
+            });
         }
-    }).then((projectData) => {
-        if (projectData) {
-            project = projectData;
-            if (projectsAPI.checkProjectMemberPermission(project, req.user)) {
-                const message = new Message({
-                    messageID: b62(15),
-                    task: task.taskID,
-                    body: req.body.message,
-                    author: req.user.decoded.uuid
-                });
-                return message.save();
-            } else {
-                throw(new Error('unauth'));
-            }
-        } else {
-            throw(new Error('notfound'));
+
+        const project = await Project.findOne({ projectID: task.projectID }).lean();
+        if (!project) {
+            return res.status(404).send({
+                err: true,
+                errMsg: conductorErrors.err11,
+            });
         }
-    }).then((newMsg) => {
-        if (newMsg) {
-            sentMessage = true;
-            sentMsgData = newMsg;
-            return User.findOne({ uuid: req.user.decoded.uuid }, { firstName: 1, lastName: 1 }).lean();
-        } else {
-            throw(new Error('createfail'));
+
+        // check permission
+        if (!projectsAPI.checkProjectMemberPermission(project, req.user)) {
+            return res.status(403).send({
+                err: true,
+                errMsg: conductorErrors.err8,
+            });
         }
-    }).then((msgAuthor) => {
-      if (msgAuthor) {
-        msgAuthorName = `${msgAuthor.firstName} ${msgAuthor.lastName}`;
-      }
-      let projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
-      return usersAPI.getUserEmails(projectTeam);
-    }).then((teamEmails) => {
+
+        const message = await new Message({
+            messageID: b62(15),
+            task: task.taskID,
+            body: req.body.message,
+            author: req.user.decoded.uuid,
+        }).save();
+
+        const user = await User.findOne(
+            { uuid: req.user.decoded.uuid },
+            { firstName: 1, lastName: 1 },
+        ).lean();
+
+        const projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
+        const teamEmails = await usersAPI.getUserEmails(projectTeam);
         if (Array.isArray(teamEmails) && teamEmails.length > 0) {
-            return mailAPI.sendNewProjectMessagesNotification(teamEmails, project.projectID,
-                project.title, project.orgID, 'Tasks', task.title,
-                sentMsgData.body, msgAuthorName);
-        } else {
-            return {};
+            // send email notifications
+            mailAPI.sendNewProjectMessagesNotification(
+                teamEmails,
+                project.projectID,
+                project.title,
+                project.orgID,
+                'Tasks',
+                task.title,
+                message.body,
+                `${user.firstName} ${user.lastName}`,
+            ).catch((e) => debugError(e));
         }
-    }).then(() => {
-        // ignore return value of Mailgun call
+
         return res.send({
             err: false,
-            msg: 'Message successfully sent.',
-            messageID: sentMsgData.messageID
+            msg: 'Message successfully sent!',
+            messageID: message.messageID,
         });
-    }).catch((err) => {
-        // return success as long as message was sent, ignoring notification failures
-        if (sentMessage) {
-            return res.send({
-                err: false,
-                msg: 'Message successfully sent.',
-                messageID: sentMsgData.messageID
-            });
-        } else {
-            debugError(err);
-            var errMsg = conductorErrors.err6;
-            if (err.message === 'notfound') errMsg = conductorErrors.err11;
-            else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-            else if (err.message === 'createfail') errMsg = conductorErrors.err3;
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
-        }
-    });
-};
-
+    } catch (e) {
+        debugError(e);
+        return res.status(500).send({
+            err: true,
+            errMsg: conductorErrors.err6,
+        });
+    }
+}
 
 /**
  * Deletes a Message within a Project Thread or Task.
@@ -747,12 +699,12 @@ const validate = (method) => {
             ]
         case 'createThreadMessage':
             return [
-                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 }),
+                param('threadID', conductorErrors.err1).exists().isLength({ min: 14, max: 14 }),
                 body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
             ]
         case 'createTaskMessage':
             return [
-                body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16 }),
+                param('taskID', conductorErrors.err1).exists().isLength({ min: 16, max: 16 }),
                 body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
             ]
         case 'deleteMessage':

@@ -891,20 +891,21 @@ router.route('/project/thread/messages').get(
   msgAPI.getThreadMessages,
 );
 
-router.route('/project/thread/message')
-  .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    msgAPI.validate('createThreadMessage'),
-    middleware.checkValidationErrors,
-    msgAPI.createThreadMessage,
-  ).delete(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    msgAPI.validate('deleteMessage'),
-    middleware.checkValidationErrors,
-    msgAPI.deleteMessage,
-  );
+router.route('/project/thread/:threadID/message').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  msgAPI.validate('createThreadMessage'),
+  middleware.checkValidationErrors,
+  msgAPI.createThreadMessage,
+);
+
+router.route('/project/thread/message').delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  msgAPI.validate('deleteMessage'),
+  middleware.checkValidationErrors,
+  msgAPI.deleteMessage,
+);
 
 router.route('/project/tasks').get(
   authAPI.verifyRequest,
@@ -973,20 +974,21 @@ router.route('/project/task/messages').get(
   msgAPI.getTaskMessages,
 );
 
-router.route('/project/task/message')
-  .post(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    msgAPI.validate('createTaskMessage'),
-    middleware.checkValidationErrors,
-    msgAPI.createTaskMessage,
-  ).delete(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    msgAPI.validate('deleteMessage'),
-    middleware.checkValidationErrors,
-    msgAPI.deleteMessage,
-  );
+router.route('/project/task/:taskID/message').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  msgAPI.validate('createTaskMessage'),
+  middleware.checkValidationErrors,
+  msgAPI.createTaskMessage,
+);
+
+router.route('/project/task/message').delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  msgAPI.validate('deleteMessage'),
+  middleware.checkValidationErrors,
+  msgAPI.deleteMessage,
+);
 
 router.route('/project/publishing').post(
   authAPI.verifyRequest,
