@@ -87,8 +87,11 @@ const Navbar = (_props) => {
           setActiveItem(data.name);
         }}
       >
-        <Image src='/mini_logo.png' id='nav-logo' />
-        <span className='nav-title'>Conductor</span>
+        <Image
+          src="https://cdn.libretexts.net/Logos/conductor_full.png"
+          id="nav-logo"
+          alt="LibreTexts Conductor"
+        />
         {(org.orgID !== 'libretexts') &&
           <Image src={org.mediumLogo} id='nav-org-logo' />
         }
