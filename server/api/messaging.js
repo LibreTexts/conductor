@@ -17,6 +17,9 @@ import conductorErrors from '../conductor-errors.js';
 import mailAPI from './mail.js';
 import projectsAPI from './projects.js';
 import usersAPI from './users.js';
+import { validateUUIDArray } from '../util/helpers.js';
+
+const THREAD_NOTIFY_OPTIONS = ['all', 'specific', 'none'];
 
 /**
  * Creates a new Discussion Thread within a Project.
@@ -254,6 +257,8 @@ const getProjectThreads = (req, res) => {
  */
 async function createThreadMessage(req, res) {
     try {
+        const DEFAULT_NOTIFY_SETTING = 'all';
+
         const { threadID } = req.params;
         const thread = await Thread.findOne({ threadID }).lean();
         if (!thread) {
@@ -291,9 +296,14 @@ async function createThreadMessage(req, res) {
             { firstName: 1, lastName: 1 },
         ).lean();
 
-        const projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
-        const teamEmails = await usersAPI.getUserEmails(projectTeam);
-        if (Array.isArray(teamEmails) && teamEmails.length > 0) {
+        const notifyEmails = await getUsersToNotify(
+            req.body.notify || DEFAULT_NOTIFY_SETTING,
+            req.user.decoded.uuid,
+            project,
+            null,
+            req.body.notifyUsers || null,
+        );
+        if (Array.isArray(notifyEmails) && notifyEmails.length > 0) {
             // send email notifications
             let discussionKind = null;
             switch (thread.kind) {
@@ -307,7 +317,7 @@ async function createThreadMessage(req, res) {
                     discussionKind = 'Project';
             }
             mailAPI.sendNewProjectMessagesNotification(
-                teamEmails,
+                notifyEmails,
                 project.projectID,
                 project.title,
                 project.orgID,
@@ -344,6 +354,8 @@ async function createThreadMessage(req, res) {
  */
 async function createTaskMessage(req, res) {
     try {
+        const DEFAULT_NOTIFY_SETTING = 'assigned';
+
         const { taskID } = req.params;
         const task = await Task.findOne({ taskID }).lean();
         if (!task) {
@@ -381,12 +393,17 @@ async function createTaskMessage(req, res) {
             { firstName: 1, lastName: 1 },
         ).lean();
 
-        const projectTeam = projectsAPI.constructProjectTeam(project, req.user.decoded.uuid);
-        const teamEmails = await usersAPI.getUserEmails(projectTeam);
-        if (Array.isArray(teamEmails) && teamEmails.length > 0) {
+        const notifyEmails = await getUsersToNotify(
+            req.body.notify || DEFAULT_NOTIFY_SETTING,
+            req.user.decoded.uuid,
+            project,
+            task,
+            req.body.notifyUsers || null,
+        );
+        if (Array.isArray(notifyEmails) && notifyEmails.length > 0) {
             // send email notifications
             mailAPI.sendNewProjectMessagesNotification(
-                teamEmails,
+                notifyEmails,
                 project.projectID,
                 project.title,
                 project.orgID,
@@ -663,6 +680,40 @@ const getTaskMessages = (req, res) => {
     });
 };
 
+/**
+ * Returns the emails of users to notify about new messages, depending on `notifySetting`.
+ *
+ * @param {string} notifySetting - Notification setting identifier.
+ * @param {string} uuid - UUID of the current user.
+ * @param {object} project - Project information object, including team.
+ * @param {object} [task=null] - Task information object, if applicable.
+ * @param {string[]} [notifyUsers=[]] - UUIDs of specific users to notify, if applicable.
+ * @returns {Promise<string[]>} Array of user emails, or empty array if error encountered.
+ */
+async function getUsersToNotify(notifySetting, uuid, project, task = null, notifyUsers = []) {
+    try {
+        if (notifySetting === 'all') {
+            const projectTeam = projectsAPI.constructProjectTeam(project, uuid);
+            const emails = await usersAPI.getUserEmails(projectTeam);
+            return emails;
+        }
+        if (notifySetting === 'specific' && Array.isArray(notifyUsers)) {
+            const projectTeam = projectsAPI.constructProjectTeam(project, uuid).filter((item) => (
+                notifyUsers.includes(item)
+            ));
+            const emails = await usersAPI.getUserEmails(projectTeam);
+            return emails;
+        }
+        if (notifySetting === 'assigned' && Array.isArray(task?.assignees)) {
+            const assignees = task.assignees.filter((item) => item !== uuid);
+            const emails = await usersAPI.getUserEmails(assignees);
+            return emails;
+        }
+    } catch (e) {
+        debugError(e);
+    }
+    return [];
+}
 
 /**
  * Validate a provided Thread Kind.
@@ -675,6 +726,31 @@ const validateThreadKind = (kind) => {
     return false
 };
 
+/**
+ * Validates a provided notification setting option during thread message sending.
+ *
+ * @param {string} notifySetting - The notification setting identifier.
+ * @returns {boolean} True if valid, false otherwise.
+ */
+function validateThreadMessageNotifySetting(notifySetting) {
+    if (typeof (notifySetting) === 'string') {
+        return THREAD_NOTIFY_OPTIONS.includes(notifySetting);
+    }
+    return false;
+};
+
+/**
+ * Validates a provided notification setting option during task message sending.
+ *
+ * @param {string} notifySetting - The notification setting identifier.
+ * @returns {boolean} True if valid, false otherwise.
+ */
+function validateTaskMessageNotifySetting(notifySetting) {
+    if (typeof (notifySetting) === 'string') {
+        return [...THREAD_NOTIFY_OPTIONS, 'assigned'].includes(notifySetting);
+    }
+    return false;
+}
 
 /**
  * Middleware(s) to verify requests contain
@@ -700,12 +776,16 @@ const validate = (method) => {
         case 'createThreadMessage':
             return [
                 param('threadID', conductorErrors.err1).exists().isLength({ min: 14, max: 14 }),
-                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
+                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 }),
+                body('notify', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateThreadMessageNotifySetting),
+                body('notifyUsers', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
             ]
         case 'createTaskMessage':
             return [
                 param('taskID', conductorErrors.err1).exists().isLength({ min: 16, max: 16 }),
-                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 })
+                body('message', conductorErrors.err1).exists().isString().isLength({ min: 1, max: 2000 }),
+                body('notify', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateTaskMessageNotifySetting),
+                body('notifyUsers', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateUUIDArray),
             ]
         case 'deleteMessage':
             return [

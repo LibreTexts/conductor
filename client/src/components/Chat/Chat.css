@@ -51,7 +51,7 @@
 }
 
 #conductor-chat-reply-container textarea {
-    min-height: 50px !important;
+    min-height: calc(50px + 0.25em) !important;
     max-height: calc(100px - 0.5em) !important;
 }
 
@@ -60,12 +60,18 @@
 }
 
 #replycontainer-right {
-    flex-basis: 5%;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
     padding-left: 0.5em;
 }
 
 #replycontainer-sendbutton {
     margin: 0;
+    height: 40px !important;
+}
+
+#replycontainer-notifydropdown {
+    margin-top: 0.25em;
 }
