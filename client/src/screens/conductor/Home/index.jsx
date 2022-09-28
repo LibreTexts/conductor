@@ -535,13 +535,6 @@ const Home = (props) => {
                             )}
                             <Menu.Item
                                 as={Link}
-                                to='/'
-                            >
-                                Commons
-                                <Icon name='handshake' />
-                            </Menu.Item>
-                            <Menu.Item
-                                as={Link}
                                 to='/alerts'
                             >
                                 <Icon name='alarm' />

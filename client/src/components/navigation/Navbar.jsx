@@ -242,6 +242,10 @@ const Navbar = (_props) => {
               </Dropdown.Menu>
             </Dropdown>
           </Menu.Item>
+          <Menu.Item as={Link} to="/">
+            <Icon name="handshake outline" className="mr-05e" />
+            <strong>Commons</strong>
+          </Menu.Item>
           <Menu.Item>
             <Image src={`${user.avatar}`} avatar />
             <Dropdown inline text={user.firstName + ' ' + user.lastName}>
