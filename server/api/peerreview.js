@@ -835,7 +835,7 @@ const updatePeerReviewRubric = (req, res) => {
                                     && !dropdownKeys.includes(opt.key)
                                     && typeof (opt.value) === 'string' && opt.value.length > 0
                                     && typeof (opt.text) === 'string' && opt.text.length > 0
-                                    && dropdownOptions.length < 11
+                                    && dropdownOptions.length < 25
                                 ) {
                                     dropdownKeys.push(opt.key);
                                     dropdownOptions.push({

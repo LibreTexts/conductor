@@ -1206,7 +1206,7 @@ const PeerReviewRubricManage = (props) => {
                                         </Form.Group>
                                         {(pmType === 'dropdown') && (
                                             <>
-                                                <Header size='tiny' as='span'>Dropdown Options <span className='muted-text'>(up to 10)</span></Header>
+                                                <Header size='tiny' as='span'>Dropdown Options <span className='muted-text'>(up to 25)</span></Header>
                                                 <List divided>
                                                     {pmDropdownOpts.map((item, idx) => {
                                                         return (
@@ -1260,7 +1260,7 @@ const PeerReviewRubricManage = (props) => {
                                                             </List.Item>
                                                         )
                                                     })}
-                                                    {(pmDropdownOpts.length < 10) && (
+                                                    {(pmDropdownOpts.length < 25) && (
                                                         <List.Item key='new'>
                                                             <Input
                                                                 type='text'
