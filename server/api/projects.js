@@ -1277,7 +1277,7 @@ async function addMemberToProject(req, res) {
 async function getProjectTeam(req, res) {
   try {
     const { projectID } = req.params;
-    const { combine } = req.query;
+    const { combine, excludeCurrent } = req.query;
     const userProjection = {
       _id: 0,
       uuid: 1,
@@ -1382,10 +1382,10 @@ async function getProjectTeam(req, res) {
       projectID: projectResult.projectID,
     };
 
-    const members = projectResult.members || [];
-    const leads = projectResult.leads || [];
-    const liaisons = projectResult.liaisons || [];
-    const auditors = projectResult.auditors || [];
+    let members = projectResult.members || [];
+    let leads = projectResult.leads || [];
+    let liaisons = projectResult.liaisons || [];
+    let auditors = projectResult.auditors || [];
 
     const collator = new Intl.Collator();
     const sortTeamArray = (a, b) => {
@@ -1393,6 +1393,15 @@ async function getProjectTeam(req, res) {
       const bName = `${b.firstName} ${b.lastName}`;
       return collator.compare(aName, bName);
     };
+
+    const filterCurrentUser = (item) => item.uuid !== req.user.decoded.uuid;
+
+    if (excludeCurrent) {
+      members = members.filter(filterCurrentUser);
+      leads = leads.filter(filterCurrentUser);
+      liaisons = liaisons.filter(filterCurrentUser);
+      auditors = auditors.filter(filterCurrentUser)
+    }
 
     if (!combine) {
       members.sort(sortTeamArray);
@@ -3460,6 +3469,7 @@ const validate = (method) => {
       return [
           param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
           query('combine', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+          query('excludeCurrent', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
       ]
     case 'changeMemberRole':
       return [
