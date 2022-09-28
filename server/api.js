@@ -821,20 +821,27 @@ router.route('/project/pin')
     projectsAPI.unpinProject,
   );
 
+router.route('/project/:projectID/team')
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('getProjectTeam'),
+    middleware.checkValidationErrors,
+    projectsAPI.getProjectTeam,
+  ).post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('addMemberToProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.addMemberToProject,
+  );
+
 router.route('/project/:projectID/team/addable').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   projectsAPI.validate('getAddableMembers'),
   middleware.checkValidationErrors,
   projectsAPI.getAddableMembers,
-);
-
-router.route('/project/:projectID/team').post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  projectsAPI.validate('addMemberToProject'),
-  middleware.checkValidationErrors,
-  projectsAPI.addMemberToProject,
 );
 
 router.route('/project/:projectID/team/:uuid/role').put(

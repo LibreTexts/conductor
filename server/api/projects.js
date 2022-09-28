@@ -1269,6 +1269,165 @@ async function addMemberToProject(req, res) {
 }
 
 /**
+ * Retrieves a list of the Project's team members.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object. 
+ */
+async function getProjectTeam(req, res) {
+  try {
+    const { projectID } = req.params;
+    const { combine } = req.query;
+    const userProjection = {
+      _id: 0,
+      uuid: 1,
+      firstName: 1,
+      lastName: 1,
+      avatar: 1,
+    };
+    const projects = await Project.aggregate([
+      {
+        $match: {
+          projectID,
+        },
+      }, {
+        $project: {
+          _id: 0,
+          projectID: 1,
+          members: 1,
+          leads: 1,
+          liaisons: 1,
+          auditors: 1,
+        }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { members: '$members' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ['$uuid', '$$members'] },
+              },
+            }, {
+              $project: userProjection,
+            },
+          ],
+          as: 'members',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { leads: '$leads' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ['$uuid', '$$leads'] },
+              },
+            }, {
+              $project: userProjection,
+            },
+          ],
+          as: 'leads',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { liaisons: '$liaisons' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ['$uuid', '$$liaisons'] },
+              },
+            }, {
+              $project: userProjection,
+            },
+          ],
+          as: 'liaisons',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { auditors: '$auditors' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ['$uuid', '$$auditors'] },
+              },
+            }, {
+              $project: userProjection,
+            },
+          ],
+          as: 'auditors',
+        },
+      },
+    ]);
+    if (!projects.length > 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    const projectResult = projects[0];
+
+    // check permission
+    if (!checkProjectGeneralPermission(projectResult, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    let response = {
+      err: false,
+      projectID: projectResult.projectID,
+    };
+
+    const members = projectResult.members || [];
+    const leads = projectResult.leads || [];
+    const liaisons = projectResult.liaisons || [];
+    const auditors = projectResult.auditors || [];
+
+    const collator = new Intl.Collator();
+    const sortTeamArray = (a, b) => {
+      const aName = `${a.firstName} ${a.lastName}`;
+      const bName = `${b.firstName} ${b.lastName}`;
+      return collator.compare(aName, bName);
+    };
+
+    if (!combine) {
+      members.sort(sortTeamArray);
+      leads.sort(sortTeamArray);
+      liaisons.sort(sortTeamArray);
+      auditors.sort(sortTeamArray);
+      response = {
+        ...response,
+        members,
+        leads,
+        liaisons,
+        auditors,
+      };
+    } else {
+      const allTeam = [
+        ...members.map((item) => ({ ...item, role: 'Member' })),
+        ...leads.map((item) => ({ ...item, role: 'Lead' })),
+        ...liaisons.map((item) => ({ ...item, role: 'Liaison' })),
+        ...auditors.map((item) => ({ ...item, role: 'Auditor' })),
+      ];
+      allTeam.sort(sortTeamArray);
+      response.team = allTeam;
+    }
+
+    return res.send(response);
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Changes a team member's role within a Project.
  *
  * @param {express.Request} req - Incoming request object.
@@ -3297,6 +3456,11 @@ const validate = (method) => {
           param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
           body('uuid', conductorErrors.err1).exists().isString().isUUID()
       ]
+    case 'getProjectTeam':
+      return [
+          param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+          query('combine', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+      ]
     case 'changeMemberRole':
       return [
           param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -3415,6 +3579,7 @@ export default {
     getProjectsUnderDevelopment,
     getAddableMembers,
     addMemberToProject,
+    getProjectTeam,
     changeMemberRole,
     removeMemberFromProject,
     flagProject,
