@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === 'production') {
 } else { // helper for testing mail sends in development
   mailgun = {
     messages: {
-      create(domain, msgData) {
+      async create(domain, msgData) {
         console.log(`Simulating send via ${domain}. Message Data:`);
         console.log(util.inspect(msgData));
       },
