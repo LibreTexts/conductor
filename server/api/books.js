@@ -876,7 +876,7 @@ async function getCommonsCatalog(req, res) {
       }
     }
 
-    /** Build main query */
+    // Build main query
     let mainSearchObj = {};
     if (searchOptionsArr.length > 0 && institutionOptions.length > 0 && textSearchTerm) {
       mainSearchObj = {
@@ -918,11 +918,12 @@ async function getCommonsCatalog(req, res) {
       ]));
     }
 
-    /* Execute all searches and combine */
+    // Execute all searches and combine
     const allQueryResults = await Promise.all(searchQueries);
     const allFoundBooks = allQueryResults.reduce((arr, results) => arr.concat(results), []);
+    const totalNumBooks = await Book.estimatedDocumentCount();
 
-    /* Ensure no duplicates */
+    // Ensure no duplicates
     const resultBookIDs = new Set();
     const resultBooks = allFoundBooks.filter((book) => {
       if (!resultBookIDs.has(book.bookID)) {
@@ -934,6 +935,8 @@ async function getCommonsCatalog(req, res) {
 
     return res.send({
       err: false,
+      numFound: resultBooks.length,
+      numTotal: totalNumBooks,
       books: sortBooks(resultBooks, sortChoice),
     });
   } catch (e) {

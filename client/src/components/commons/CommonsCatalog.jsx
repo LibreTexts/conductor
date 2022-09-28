@@ -48,6 +48,8 @@ const CommonsCatalog = () => {
     // Data
     const [catalogBooks, setCatalogBooks] = useState([]);
     const [pageBooks, setPageBooks] = useState([]);
+    const [numResultBooks, setNumResultBooks] = useState(0);
+    const [numTotalBooks, setNumTotalBooks] = useState(0);
 
     /** UI **/
     const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -214,8 +216,14 @@ const CommonsCatalog = () => {
             params: paramsObj
         }).then((res) => {
             if (!res.data.err) {
-                if (res.data.books && Array.isArray(res.data.books)) {
+                if (Array.isArray(res.data.books)) {
                   setCatalogBooks(res.data.books);
+                }
+                if (typeof (res.data.numFound) === 'number') {
+                    setNumResultBooks(res.data.numFound);
+                }
+                if (typeof (res.data.numTotal) === 'number') {
+                    setNumTotalBooks(res.data.numTotal);
                 }
             } else {
                 handleGlobalError(res.data.errMsg);
@@ -522,6 +530,13 @@ const CommonsCatalog = () => {
         )
     };
 
+    const ResultsText = () => (
+        <span>
+            {' items per page of '}
+            <strong>{numResultBooks.toLocaleString()}</strong>
+            {' '}results from {numTotalBooks.toLocaleString()} available.
+        </span>
+    );
 
     return (
         <Grid className='commons-container'>
@@ -752,7 +767,7 @@ const CommonsCatalog = () => {
                                             value={itemsPerPage}
                                             aria-label='Number of results to display per page'
                                         />
-                                        <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                        <ResultsText />
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
                                         <ConductorPagination
@@ -808,7 +823,7 @@ const CommonsCatalog = () => {
                                                     value={itemsPerPage}
                                                     aria-label='Number of results to display per page'
                                                 />
-                                                <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                                <ResultsText />
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>
@@ -884,7 +899,7 @@ const CommonsCatalog = () => {
                                             value={itemsPerPage}
                                             aria-label='Number of results to display per page'
                                         />
-                                        <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                        <ResultsText />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <ConductorPagination
@@ -913,7 +928,7 @@ const CommonsCatalog = () => {
                                                     value={itemsPerPage}
                                                     aria-label='Number of results to display per page'
                                                 />
-                                                <span> items per page of <strong>{Number(catalogBooks.length).toLocaleString()}</strong> results.</span>
+                                                <ResultsText />
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>
