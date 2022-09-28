@@ -98,7 +98,7 @@ const normalizedSort = (a, b) => {
  * @returns {object[]} The sorted array of Books.
  */
 function sortBooks(books, sortChoice) {
-  if (Array.isArray(books) && !isEmptyString(sortChoice)) {
+  if (Array.isArray(books) && sortChoice) {
     if (sortChoice === 'random') {
       let shuffleArr = [...books];
       for (let i = shuffleArr.length - 1; i > 0; i--) {
@@ -107,28 +107,27 @@ function sortBooks(books, sortChoice) {
       }
       return shuffleArr;
     }
+
+    const collator = new Intl.Collator('en-US', {
+      numeric: true,
+      sensitivity: 'base',
+      ignorePunctuation: true,
+    });
     return books.sort((a, b) => {
-      let baseA = '';
-      let baseB = '';
+      let aKey = '';
+      let bKey = '';
       if (sortChoice === 'author') {
-        baseA = String(a.author);
-        baseB = String(b.author);
-      } else { // default Sort by Title
-        baseA = String(a.title);
-        baseB = String(b.title);
+        aKey = a.author;
+        bKey = b.author;
+      } else {
+        // default Sort by Title
+        aKey = a.title;
+        bKey = b.title;
       }
-      const normalA = baseA.toLowerCase().replace(/[^A-Za-z]+/g, "");
-      const normalB = baseB.toLowerCase().replace(/[^A-Za-z]+/g, "");
-      if (normalA < normalB) {
-        return -1;
-      }
-      if (normalA > normalB) {
-        return 1;
-      }
-      return 0;
+      return collator.compare(aKey, bKey);
     });
   }
-  return [];
+  return books;
 };
 
 
