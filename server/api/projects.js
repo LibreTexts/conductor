@@ -21,6 +21,7 @@ import { v4 } from 'uuid';
 import User from '../models/user.js';
 import Project from '../models/project.js';
 import Tag from '../models/tag.js';
+import Task from '../models/task.js';
 import Thread from '../models/thread.js';
 import Message from '../models/message.js';
 import HarvestingRequest from '../models/harvestingrequest.js';
@@ -1579,6 +1580,12 @@ async function removeMemberFromProject(req, res) {
     if (updateRes.modifiedCount !== 1) {
       throw (new Error('Project update failed.'));
     }
+
+    await Task.updateMany({ projectID }, {
+      $pull: {
+        assignees: uuid,
+      },
+    }).catch((e) => debugError(e));
 
     return res.send({
       err: false,

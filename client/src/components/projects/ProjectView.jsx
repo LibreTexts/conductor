@@ -885,6 +885,7 @@ const ProjectView = (props) => {
           setTeamModalLoading(false);
           getTeamUserOptions();
           getProject();
+          getProjectTasks();
         } else {
           handleGlobalError(res.data.errMsg);
         }
