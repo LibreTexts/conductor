@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
@@ -39,6 +39,9 @@ const Chat = ({
 
   // Global State and Eror Handling
   const { handleGlobalError } = useGlobalError();
+
+  // UI
+  const chatWindowBottom = useRef(null);
 
   // Delete Message Modal
   const [showDelMsgModal, setShowDelMsgModal] = useState(false);
@@ -150,6 +153,12 @@ const Chat = ({
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (loadedThreadMsgs && activeThreadMsgs.length > 0) {
+      chatWindowBottom.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [loadedThreadMsgs, activeThreadMsgs]);
 
   /**
    * Submits the new message and notification settings to the server, then
@@ -350,6 +359,7 @@ const Chat = ({
             </em>
           </p>
         )}
+        <div ref={chatWindowBottom} />
       </div>
       <div id="conductor-chat-reply-container">
         <div id="replycontainer-left">

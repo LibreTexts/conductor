@@ -1,6 +1,6 @@
 #conductor-chat {
     display: flex;
-    flex-grow: 1;
+    flex: 1;
     flex-direction: column;
 }
 
@@ -22,7 +22,7 @@
 #conductor-chat-window {
     background-color: rgba(251, 251, 251, 0.5);
     padding: 2%;
-    /*height: 100%;*/
+    height: 100%;
     overflow-y: scroll;
     overflow-x: hidden;
     min-height: 250px;
