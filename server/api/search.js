@@ -14,6 +14,7 @@ import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 import { isValidDateObject } from '../util/helpers.js';
 import projectAPI from './projects.js';
+import authAPI from './auth.js';
 
 const projectSortOptions = ['title', 'progress', 'classification', 'visibility', 'lead', 'updated'];
 const bookSortOptions = ['title', 'author', 'library', 'subject', 'affiliation'];
@@ -40,6 +41,8 @@ const performSearch = (req, res) => {
     let projectFilters = [];
     let projectFiltersOptions = {};
 
+    const isSuperAdmin = authAPI.checkHasRole(req.user, 'libretexts', 'superadmin');
+
     /* Project Location Filter, only needed if 'local' */
     if (typeof (req.query.projLocation) === 'string' && req.query.projLocation === 'local') {
         projectFilters.push({ orgID: process.env.ORG_ID });
@@ -50,19 +53,18 @@ const performSearch = (req, res) => {
     }
     /* Project Visibility Filter, only needed if not 'any' */
     const teamMemberQuery = projectAPI.constructProjectTeamMemberQuery(req.decoded.uuid);
-    const privateProjectQuery = {
-        $and: [
-            { visibility: 'private' },
-            { $or: teamMemberQuery }
-        ]
-    };
+    const privateProjectQueryParts = [{ visibility: 'private' }];
+    if (!isSuperAdmin) {
+        privateProjectQueryParts.push({ $or: teamMemberQuery });
+    }
+    const privateProjectQuery = { $and: privateProjectQueryParts };
     const publicProjectQuery = { visibility: 'public' };
     // PUBLIC OR (PRIVATE AND [TEAM] INCLUDES USER)
     const anyVisibilityQuery = {
         $or: [
             publicProjectQuery,
-            privateProjectQuery
-        ]
+            privateProjectQuery,
+        ],
     };
     if (typeof (req.query.projVisibility) === 'string') {
         if (req.query.projVisibility === 'public') {

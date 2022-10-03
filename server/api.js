@@ -466,6 +466,7 @@ router.route('/commons/homework/sync/automated').put(
 /* Search */
 router.route('/search').get(
   authAPI.verifyRequest,
+  authAPI.getUserAttributes,
   searchAPI.validate('performSearch'),
   middleware.checkValidationErrors,
   searchAPI.performSearch,
