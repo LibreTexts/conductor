@@ -15,7 +15,6 @@ import {
   Modal,
   Segment,
 } from 'semantic-ui-react';
-import useQueryParam from '../../../utils/useQueryParam';
 import useGlobalError from '../../../components/error/ErrorHooks';
 import {
   isEmptyString,
@@ -51,7 +50,6 @@ const AccountRequest = () => {
   // UI
   const [showSuccessModal, setSuccessModal] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
-  const showOpenCommons = useQueryParam('src') === 'commons';
 
   // Form Data
   const [purpose, setPurpose] = useState('');
@@ -262,20 +260,6 @@ const AccountRequest = () => {
       <Grid.Row>
         <Grid.Column mobile={16} computer={10}>
           <Segment raised className="mb-4r">
-            {showOpenCommons && (
-              <Message icon info className="mb-2p">
-                <Icon name="lock open" />
-                <Message.Content>
-                  <Message.Header>Conductor Is Open to All</Message.Header>
-                  <p>
-                    {'This form is for instructors to request accounts on '}
-                    <strong>LibreTexts libraries</strong>, the <strong>LibreStudio</strong>, and the <strong>ADAPT homework system</strong>.
-                    {' Conductor is open to all community members without explicit approval. To register for or log in to Conductor, '}
-                    <Link to="/login">navigate here</Link>.
-                  </p>
-                </Message.Content>
-              </Message>
-            )}
             <p className="text-center">
               {'Instructor accounts are for instructors only. Please use your campus email address to facilitate verification of your instructor status. '}
               <em>

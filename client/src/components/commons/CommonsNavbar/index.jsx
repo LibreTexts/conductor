@@ -87,7 +87,7 @@ const CommonsNavbar = ({
     return (
       <Menu.Item
         as={Link}
-        to="/accountrequest?src=commons"
+        to="/accountrequest"
         target="_blank"
         rel="noreferrer"
         className="commons-nav-link"
