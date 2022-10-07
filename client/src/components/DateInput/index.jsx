@@ -4,6 +4,7 @@ import date from 'date-and-time';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
 import { DateUtils } from 'react-day-picker';
 import './DateInput.css';
+import 'react-day-picker/lib/style.css';
 
 /**
  * A customizable date input.
@@ -13,7 +14,9 @@ const DateInput = ({
     onChange,
     label,
     inlineLabel,
-    className
+    required,
+    className,
+    error,
 }) => {
 
     const parseDate = (str, format) => {
@@ -27,9 +30,13 @@ const DateInput = ({
     };
 
     return (
-        <div className={`conductor-date-input ui form ${inlineLabel && 'inline'} ${className}`}>
+        <div className={`conductor-date-input ui form${inlineLabel ? ' inline' : ''} ${className} ${error ? ' form-error-input' : ''}`}>
             {(label !== null) &&
-                <label className={`cdi-label ${inlineLabel && 'inline'}`}>{label}</label>
+                <label
+                    className={`cdi-label${inlineLabel ? ' inline' : ''}${required ? ' form-required' : ''}${error ? ' form-error-label' : ''}`}
+                >
+                    {label}
+                </label>
             }
             <DayPickerInput
                 onDayChange={(day) => onChange(day)}
@@ -51,7 +58,9 @@ DateInput.propTypes = {
     onChange: PropTypes.func,
     label: PropTypes.string,
     inlineLabel: PropTypes.bool,
+    required: PropTypes.bool,
     className: PropTypes.string,
+    error: PropTypes.bool,
 };
 
 DateInput.defaultProps = {
@@ -59,7 +68,9 @@ DateInput.defaultProps = {
     onChange: () => {},
     label: null,
     inlineLabel: false,
-    className: ''
+    required: false,
+    className: '',
+    error: false,
 };
 
 export default memo(DateInput);
