@@ -279,7 +279,7 @@ async function deleteRequest(req, res) {
  *  list of libraries were provided.
  */
 function validateRequestPurpose(purpose, { req }) {
-  const validPurposes = ['oer', 'h5p', 'adapt'];
+  const validPurposes = ['oer', 'h5p', 'adapt', 'analytics'];
   if (typeof (purpose) !== 'string') {
     return false;
   }

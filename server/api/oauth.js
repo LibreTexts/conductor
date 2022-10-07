@@ -300,7 +300,7 @@ class ConductorOAuthServer {
       const request = new Request(req);
       const response = new Response(res);
       const token = await serverScope.server.authenticate(request, response, {
-        scope: scopes.getEndpointAsScope(req.path, req.method),
+        scope: scopes.getEndpointAsScope(req.route.path, req.method),
       });
       req.user = {
         authSource: 'oauth',

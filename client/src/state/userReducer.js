@@ -16,7 +16,8 @@ const userInitialState = {
   roles: [],
   isAuthenticated: false,
   isCampusAdmin: false,
-  isSuperAdmin: false
+  isSuperAdmin: false,
+  isVerifiedInstructor: false,
 };
 
 export default function userReducer(state = userInitialState, action) {
@@ -57,6 +58,7 @@ export default function userReducer(state = userInitialState, action) {
         avatar: action.payload.avatar,
         isCampusAdmin: action.payload.isCampusAdmin,
         isSuperAdmin: action.payload.isSuperAdmin,
+        isVerifiedInstructor: action.payload.isVerifiedInstructor,
       }
     case 'CLEAR_USER_INFO':
       return userInitialState;

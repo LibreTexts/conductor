@@ -185,6 +185,18 @@ body {
     color: #9f3a38 !important;
 }
 
+.form-error-input input {
+    background: #fff6f6 !important;
+    border-color: #e0b4b4 !important;
+    color: #9f3a38 !important;
+    border-radius: '' !important;
+    box-shadow: none !important;
+}
+
+.form-error-input input::placeholder {
+    color: #e7bdbc;
+}
+
 .hiddensection {
     display: flex;
     flex-direction: row;
@@ -295,6 +307,10 @@ body {
     margin-top: 2rem !important;
 }
 
+.mt-3e {
+    margin-top: 3em !important;
+}
+
 .mt-3p {
     margin-top: 3% !important;
 }
@@ -369,6 +385,10 @@ body {
     margin-left: 0.5% !important;
 }
 
+.ml-05r {
+    margin-left: 0.5rem !important;
+}
+
 .ml-1e {
     margin-left: 1em !important;
 }
@@ -379,6 +399,10 @@ body {
 
 .ml-1r {
     margin-left: 1rem !important;
+}
+
+.ml-2e {
+    margin-left: 2em !important;
 }
 
 .ml-2p {
@@ -398,12 +422,24 @@ body {
     margin-right: 0.5% !important;
 }
 
+.mr-05r {
+    margin-right: 0.5rem !important;
+}
+
+.mr-1e {
+    margin-right: 1em !important;
+}
+
 .mr-1p {
     margin-right: 1% !important;
 }
 
 .mr-1r {
     margin-right: 1rem !important;
+}
+
+.mr-2e {
+    margin-right: 2em !important;
 }
 
 .mr-2p {
@@ -507,7 +543,7 @@ body {
 }
 
 .inlineblock-display {
-    display: inline-block;
+    display: inline-block !important;
 }
 
 .contrast-link {

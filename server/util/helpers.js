@@ -177,12 +177,11 @@ export const createAndValidateDateObject = (dateString) => {
 
 /**
  * Returns the production URL set in the server's environment variables.
- * @returns {String} the first production URL or an empty string if not found.
+ *
+ * @returns {string} The production URL or an empty string if not found.
  */
 export const getProductionURL = () => {
-    let prodURLs = String(process.env.PRODUCTIONURLS).split(',');
-    if (Array.isArray(prodURLs) && prodURLs.length > 0) return prodURLs[0];
-    return '';
+    return process.env.CONDUCTOR_DOMAIN || '';
 };
 
 /**

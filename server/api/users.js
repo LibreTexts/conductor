@@ -66,7 +66,8 @@ const getBasicUserInfo = (req, res) => {
         firstName: 1,
         lastName: 1,
         roles: 1,
-        avatar: 1
+        avatar: 1,
+        verifiedInstructor: 1,
     }).lean().then((user) => {
         if (user) {
             return res.send({
@@ -170,6 +171,20 @@ const getBasicAccountInfo = (req, res) => {
         });
     });
 };
+
+/**
+ * Checks if the User has been verified as an instructor at an academic institution.
+ *
+ * @param {string} uuid - User's unique identifier.
+ * @returns {Promise<boolean>} True if verified instructor, false otherwise.
+ */
+async function checkVerifiedInstructorStatus(uuid) {
+    if (uuid) {
+        const user = await User.findOne({ uuid }).lean();
+        return !!user.verifiedInstructor;
+    }
+    return false;
+}
 
 
 /**
@@ -1073,6 +1088,7 @@ export default {
     avatarUploadHandler,
     getBasicUserInfo,
     getBasicAccountInfo,
+    checkVerifiedInstructorStatus,
     updateUserName,
     updateUserEmail,
     updateUserAvatar,

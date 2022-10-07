@@ -120,16 +120,16 @@ const OAuthConsent = () => {
    */
   function renderScopeDescriptions() {
     const resourceSets = [];
-    Object.keys(client.scopeDescriptions).forEach((key) => {
+    Object.keys(client.scopeDescriptions).forEach((key, idx) => {
       const resourceItems = [];
       const scopeSet = client.scopeDescriptions[key];
-      scopeSet.resources.forEach((resource) => {
+      scopeSet.resources.forEach((resource, subIdx) => {
         resourceItems.push(
-          <li><strong>{resource.accessDescription}:</strong> {resource.description}</li>
+          <li key={subIdx}><strong>{resource.accessDescription}:</strong> {resource.description}</li>
         );
       });
       resourceSets.push(
-        <li>
+        <li key={idx}>
           <span>{scopeSet.description}</span>
           <ul>{resourceItems}</ul>
         </li>

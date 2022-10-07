@@ -28,6 +28,7 @@ import transFeedbackAPI from './api/translationfeedback.js';
 import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
 import CIDDescriptorsAPI from './api/ciddescriptors.js';
+import analyticsAPI from './api/analytics.js';
 
 let router = express.Router();
 
@@ -74,7 +75,7 @@ router.use(cors({
 router.use(middleware.authSanitizer);
 
 router.use(middleware.middlewareFilter(
-  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport'],
+  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport', '/analytics/learning/init'],
   middleware.requestSecurityHelper,
 ));
 
@@ -643,6 +644,55 @@ router.route('/alerts').get(
 router.route('/alerts/processdaily').put(
   middleware.checkLibreAPIKey,
   alertsAPI.processDailyAlerts,
+);
+
+// Analytics
+router.route('/analytics/courses')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.getUserAnalyticsCourses,
+  ).post(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('createAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.createAnalyticsCourse,
+  );
+
+router.route('/analytics/courses/:courseID')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourse,
+  ).put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourse,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('deleteAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsCourse,
+  );
+
+router.route('/analytics/courses/:courseID/roster')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourseRoster'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourseRoster,
+  ).put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourseRoster'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourseRoster,
+  );
+
+router.route('/analytics/learning/init').get(
+  analyticsAPI.validate('startLearningAnalyticsFlow'),
+  middleware.checkValidationErrors,
+  analyticsAPI.startLearningAnalyticsFlow,
 );
 
 

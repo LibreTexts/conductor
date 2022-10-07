@@ -87,6 +87,21 @@ export const getLibraryAndPageFromBookID = (bookID) => {
     return ['', ''];
 };
 
+/**
+ * Parses a LibreTexts URL into the library subdomain name and page path.
+ *
+ * @param {string} orig - URL of a LibreTexts book.
+ * @returns {string[]|null[]} The subdomain and page path, or null if invalid.
+ */
+export function parseLibreTextsURL(orig) {
+  const url = new URL(orig);
+  const splitHost = url.hostname.split('.');
+  if (splitHost.length === 3) {
+    return [splitHost[0], url.pathname];
+  }
+  return [null, null];
+};
+
 
 /**
  * Verifies that a provided library shortname is a valid LibreTexts library identifier.
