@@ -107,6 +107,11 @@ const Chat = ({
         onClick: handleOpenNotifyPicker,
       },
       {
+        key: 'support',
+        text: 'Notify LibreTexts Support',
+        value: 'support',
+      },
+      {
         key: 'none',
         text: `Don't notify anyone`,
         value: 'none',

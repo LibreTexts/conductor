@@ -19,7 +19,7 @@ import projectsAPI from './projects.js';
 import usersAPI from './users.js';
 import { validateUUIDArray } from '../util/helpers.js';
 
-const THREAD_NOTIFY_OPTIONS = ['all', 'specific', 'none'];
+const THREAD_NOTIFY_OPTIONS = ['all', 'specific', 'support', 'none'];
 
 /**
  * Creates a new Discussion Thread within a Project.
@@ -258,6 +258,7 @@ const getProjectThreads = (req, res) => {
 async function createThreadMessage(req, res) {
     try {
         const DEFAULT_NOTIFY_SETTING = 'all';
+        const resolvedNotifySetting = req.body.notify || DEFAULT_NOTIFY_SETTING;
 
         const { threadID } = req.params;
         const thread = await Thread.findOne({ threadID }).lean();
@@ -297,7 +298,7 @@ async function createThreadMessage(req, res) {
         ).lean();
 
         const notifyEmails = await getUsersToNotify(
-            req.body.notify || DEFAULT_NOTIFY_SETTING,
+            resolvedNotifySetting,
             req.user.decoded.uuid,
             project,
             null,
@@ -316,20 +317,33 @@ async function createThreadMessage(req, res) {
                 default:
                     discussionKind = 'Project';
             }
-            mailAPI.sendNewProjectMessagesNotification(
-                notifyEmails,
-                project.projectID,
-                project.title,
-                project.orgID,
-                discussionKind,
-                thread.title,
-                message.body,
-                `${user.firstName} ${user.lastName}`,
-            ).catch((e) => debugError(e));
-
-            Thread.updateOne({ threadID }, { lastNotifSent: new Date() }).catch((e) => {
-                debugError(e);
-            });
+            if (resolvedNotifySetting !== 'support') {
+                mailAPI.sendNewProjectMessagesNotification(
+                    notifyEmails,
+                    project.projectID,
+                    project.title,
+                    project.orgID,
+                    discussionKind,
+                    thread.title,
+                    message.body,
+                    `${user.firstName} ${user.lastName}`,
+                ).catch((e) => debugError(e));
+    
+                Thread.updateOne({ threadID }, { lastNotifSent: new Date() }).catch((e) => {
+                    debugError(e);
+                });
+            } else {
+                mailAPI.sendProjectSupportRequest(
+                    notifyEmails,
+                    { projectID: project.projectID, title: project.title },
+                    {
+                        kind: discussionKind,
+                        threadTitle: thread.title,
+                        body: message.body,
+                        author: `${user.firstName} ${user.lastName}`,
+                    },
+                );
+            }
         }
 
         return res.send({
@@ -355,6 +369,7 @@ async function createThreadMessage(req, res) {
 async function createTaskMessage(req, res) {
     try {
         const DEFAULT_NOTIFY_SETTING = 'assigned';
+        const resolvedNotifySetting = req.body.notify || DEFAULT_NOTIFY_SETTING;
 
         const { taskID } = req.params;
         const task = await Task.findOne({ taskID }).lean();
@@ -394,7 +409,7 @@ async function createTaskMessage(req, res) {
         ).lean();
 
         const notifyEmails = await getUsersToNotify(
-            req.body.notify || DEFAULT_NOTIFY_SETTING,
+            resolvedNotifySetting,
             req.user.decoded.uuid,
             project,
             task,
@@ -409,16 +424,29 @@ async function createTaskMessage(req, res) {
                     taskTitle = `${parent.title}/${task.title}`;
                 }
             }
-            mailAPI.sendNewProjectMessagesNotification(
-                notifyEmails,
-                project.projectID,
-                project.title,
-                project.orgID,
-                'Tasks',
-                taskTitle,
-                message.body,
-                `${user.firstName} ${user.lastName}`,
-            ).catch((e) => debugError(e));
+            if (resolvedNotifySetting !== 'support') {
+                mailAPI.sendNewProjectMessagesNotification(
+                    notifyEmails,
+                    project.projectID,
+                    project.title,
+                    project.orgID,
+                    'Tasks',
+                    taskTitle,
+                    message.body,
+                    `${user.firstName} ${user.lastName}`,
+                ).catch((e) => debugError(e));
+            } else {
+                mailAPI.sendProjectSupportRequest(
+                    notifyEmails,
+                    { projectID: project.projectID, title: project.title },
+                    {
+                        kind: 'Tasks',
+                        threadTitle: taskTitle,
+                        body: message.body,
+                        author: `${user.firstName} ${user.lastName}`,
+                    },
+                );
+            }
         }
 
         return res.send({
@@ -710,6 +738,9 @@ async function getUsersToNotify(notifySetting, uuid, project, task = null, notif
             ));
             const emails = await usersAPI.getUserEmails(projectTeam);
             return emails;
+        }
+        if (notifySetting === 'support') {
+            return ['support@libretexts.org'];
         }
         if (notifySetting === 'assigned' && Array.isArray(task?.assignees)) {
             const assignees = task.assignees.filter((item) => item !== uuid);

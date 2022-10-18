@@ -283,6 +283,42 @@ const sendNewProjectMessagesNotification = (recipients, projectID, projectTitle,
     });
 };
 
+/**
+ * Sends a Support Request for a Project (including a message) to the selected emails via the Mailgun API.
+ *
+ * @param {string[]} recipients - Email(s) to notify.
+ * @param {object} project - Information about the project the message was sent in.
+ * @param {string} project.projectID - Identifier of the project.
+ * @param {string} project.title - UI title of the project.
+ * @param {object} message - Information about the message that triggered the notification.
+ * @param {string} message.kind - The discussion category of the thread the message was sent in.
+ * @param {string} message.threadTitle - UI title of the thread the message was sent in.
+ * @param {string} message.body - Original text of the sent message.
+ * @param {string} message.author - Name of the message author.
+ */
+async function sendProjectSupportRequest(recipients, project, message) {
+    let html = `
+        <p>A member of
+         <a href="https://commons.libretexts.org/projects/${project.projectID}" target="_blank" rel="noreferrer">${project.title}</a>
+         <span style="color: #6c757d;">(ID: ${project.projectID})</span>
+         on Conductor has requested support from the LibreTexts team:
+        </p>
+        <p style="margin-left: 15px;">In the <strong>${message.threadTitle}</strong> thread (<em>${message.kind} Discussion</em>), <strong>${message.author}</strong> said:</p>
+    `;
+    if (!isEmptyString(message.body)) {
+        html = `
+            ${html}
+            <p style="margin-left: 15px; border-left: 2px solid #ccc; padding-left: 1%;">${marked.parseInline(truncateString(message.body, 500))}</p>
+        `;
+    }
+    html = `${html}${autoGenNoticeHTML}`;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        html,
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: recipients,
+        subject: `Support Requested: ${project.title}`,
+    });
+}
 
 /**
  * Sends a standard Project Completed notification to the respective group via the Mailgun API.
@@ -540,6 +576,7 @@ export default {
     sendOERIntRequestApproval,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
+    sendProjectSupportRequest,
     sendProjectCompletedAlert,
     sendAssignedToTaskNotification,
     sendAccountRequestConfirmation,
