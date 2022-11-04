@@ -242,7 +242,7 @@ async function getUserAnalyticsCourses(req, res) {
               ],
             },
           },
-        }
+        },
       }, {
         $project: {
           _id: 0,
@@ -250,6 +250,10 @@ async function getUserAnalyticsCourses(req, res) {
           instructors: 0,
           viewers: 0,
           students: 0,
+        },
+      }, {
+        $sort: {
+          title: 1,
         },
       },
     ]);
