@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button, Form, Header, Icon, Message, Popup } from 'semantic-ui-react';
+import { Button, Form, Header, Icon, Popup } from 'semantic-ui-react';
 import DateInput from 'components/DateInput';
 import useForm from 'utils/useForm';
 
@@ -175,9 +175,6 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
           onChange={handleChange}
         />
       </Form.Field>
-      <Message info className="mt-2e">
-        <p>ADAPT Analytics Sharing Keys are still in beta testing.</p>
-      </Message>
       {values.adaptCourseID && (
         <p>
           <strong>Currently linked ADAPT Course:</strong>

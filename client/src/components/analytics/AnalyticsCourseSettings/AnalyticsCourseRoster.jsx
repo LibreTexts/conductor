@@ -8,6 +8,7 @@ import {
   Icon,
   Label,
   Loader,
+  Message,
   Segment,
   Table,
 } from 'semantic-ui-react';
@@ -25,6 +26,7 @@ const AnalyticsCourseRoster = () => {
   const { courseID } = useParams();
 
   // Data
+  const [hasADAPT, setHasADAPT] = useState(false);
   const [students, setStudents] = useState([]);
 
   // UI
@@ -42,6 +44,9 @@ const AnalyticsCourseRoster = () => {
         params: { sort: DEFAULT_SORT_METHOD },
       });
       if (!rosterRes.data.err) {
+        if (rosterRes.data.hasADAPT) {
+          setHasADAPT(rosterRes.data.hasADAPT);
+        }
         if (Array.isArray(rosterRes.data.students)) {
           const roster = rosterRes.data.students.map((item) => {
             return {
@@ -58,7 +63,7 @@ const AnalyticsCourseRoster = () => {
       handleGlobalError(e);
     }
     setLoading(false);
-  }, [courseID, setStudents, setLoading, handleGlobalError]);
+  }, [courseID, setStudents, setHasADAPT, setLoading, handleGlobalError]);
 
   /**
    * Retrieve the list of students from the server on first load.
@@ -195,6 +200,15 @@ const AnalyticsCourseRoster = () => {
           </Button>
         </div>
       </div>
+      {hasADAPT && (
+        <Message info icon>
+          <Icon name="info circle" />
+          <Message.Content>
+            <Message.Header>ADAPT Course Linked</Message.Header>
+            <p>The Analytics Dashboard may use your ADAPT course roster instead of any entries saved here.</p>
+          </Message.Content>
+        </Message>
+      )}
       <Form className="mt-1e">
         <Table>
           <Table.Header>
@@ -250,6 +264,13 @@ const AnalyticsCourseRoster = () => {
                 </Table.Row>
               )
             })}
+            {students.length === 0 && (
+              <Table.Row>
+                <Table.Cell colSpan={4}>
+                  <p className="muted-text text-center"><em>No entries yet.</em></p>
+                </Table.Cell>
+              </Table.Row>
+            )}
           </Table.Body>
           <Table.Footer fullWidth>
             <Table.Row>

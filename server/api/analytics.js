@@ -338,16 +338,19 @@ async function getAnalyticsCourseRoster(req, res) {
     }
 
     const { courseID } = req.params;
-    const course = await AnalyticsCourse.findOne(
-      { courseID },
-      { instructors: 1, students: { firstName: 1, lastName: 1, email: 1 } },
-    ).lean();
+    const course = await AnalyticsCourse.findOne({ courseID }, {
+      instructors: 1,
+      students: { firstName: 1, lastName: 1, email: 1 },
+      adaptCourseID: 1,
+    }).lean();
     if (!course) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
+
+    const hasADAPT = course.adaptCourseID ? true : false;
 
     const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
     if (!foundInstructor) {
@@ -366,6 +369,7 @@ async function getAnalyticsCourseRoster(req, res) {
     return res.send({
       courseID,
       students,
+      hasADAPT,
       err: false,
     });
   } catch (e) {
