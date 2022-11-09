@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button, Form, Header, Icon, Popup } from 'semantic-ui-react';
+import { Button, Form, Header, Icon, Label, Message, Popup } from 'semantic-ui-react';
 import DateInput from 'components/DateInput';
 import useForm from 'utils/useForm';
 
@@ -56,19 +56,21 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
       newErrors.courseStart = true;
       newErrors.courseEnd = true;
     }
-    if (
-      currValues.textbookURL
-      && currValues.textbookURL.trim().length < 1
-      && !currValues.textbookURL.match(/.libretexts.org/i)
-    ) {
-      newErrors.textbookURL = true;
-    }
-    if (
-      (!currValues.textbookURL || currValues.textbookURL.trim().length < 1)
-      && (!currValues.adaptSharingKey || currValues.adaptSharingKey.trim().length < 1)
-    ) {
-      newErrors.textbookURL = true;
-      newErrors.adaptSharingKey = true;
+    if (create) {
+      if (
+        currValues.textbookURL
+        && currValues.textbookURL.trim().length < 1
+        && !currValues.textbookURL.match(/.libretexts.org/i)
+      ) {
+        newErrors.textbookURL = true;
+      }
+      if (
+        (!currValues.textbookURL || currValues.textbookURL.trim().length < 1)
+        && (!currValues.adaptSharingKey || currValues.adaptSharingKey.trim().length < 1)
+      ) {
+        newErrors.textbookURL = true;
+        newErrors.adaptSharingKey = true;
+      }
     }
     return newErrors;
   }
@@ -151,10 +153,51 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
         error={errors.courseEnd}
       />
       <Header as="h3" className="mt-2e mb-1e">Textbook and Homework Configuration</Header>
-      <p className={(errors.textbookURL || errors.adaptSharingKey) ? 'form-error-label' : ''}>
-        <strong>At least one of the following must be provided to {create ? 'create' : 'update'} your course.</strong>
-      </p>
-      <Form.Field error={errors.textbookURL}>
+      {create && (
+        <p className={(errors.textbookURL || errors.adaptSharingKey) ? 'form-error-label' : ''}>
+          <strong>At least one of the following must be provided to create your your course.</strong>
+        </p>
+      )}
+      <Message info icon size="small">
+        <Icon name="info circle" />
+        <Message.Content>
+          <p>
+            These fields can't be edited after course creation. {create && 'LibreText data will be unavailable until manually reviewed by a member of the LibreTexts team.'}
+          </p>
+        </Message.Content>
+      </Message>
+      {(!create && values.courseStatus === 'pending') && (
+        <Message color="violet">
+          <p>
+            <Icon name="clock" className="mr-1e" />
+            This course is pending review by the LibreTexts team. Some data sources may be unavailable until review is completed.
+          </p>
+        </Message>
+      )}
+      {(!create && values.textbookDenied) && (
+        <Message color="red" icon>
+          <Icon name="exclamation triangle" />
+          <Message.Content>
+            <Message.Header>Analytics Access Denied</Message.Header>
+            <p>Your request to access to this textbook's analytics data was denied. If you want to request access again, please delete this Analytics course and create a new one.</p>
+          </Message.Content>
+        </Message>
+      )}
+      {values.textbookID && (
+        <Label className="mb-1e">
+          <span><strong>Linked LibreText:</strong></span>
+          <Label.Detail>
+            <a
+              href={`https://go.libretexts.org/${values.textbookID}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {values.textbookID}
+            </a>
+          </Label.Detail>
+        </Label>
+      )}
+      <Form.Field error={errors.textbookURL} disabled={!create}>
         <label htmlFor="textbookURL" className="inlineblock-display">LibreText URL</label>
         <Popup
           position="top center"
@@ -176,18 +219,20 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
         />
       </Form.Field>
       {values.adaptCourseID && (
-        <p>
-          <strong>Currently linked ADAPT Course:</strong>
-          <a
-            href={`https://adapt.libretexts.org/instructors/courses/${values.courseID}/properties/details`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {values.adaptCourseID}
-          </a>
-        </p>
+        <Label className="mb-1e">
+          <span><strong>Linked ADAPT Course ID:</strong></span>
+          <Label.Detail>
+            <a
+              href={`https://adapt.libretexts.org/instructors/courses/${values.courseID}/properties/details`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {values.adaptCourseID}
+            </a>
+          </Label.Detail>
+        </Label>
       )}
-      <Form.Field error={errors.adaptSharingKey}>
+      <Form.Field error={errors.adaptSharingKey} disabled={!create}>
         <label htmlFor="textbookURL" className="inlineblock-display">ADAPT Analytics Sharing Key</label>
         <Popup
           position="top center"
@@ -225,13 +270,16 @@ AnalyticsCourseSettingsForm.propTypes = {
    * Initial state to pass to the form.
    */
   initialState: PropTypes.shape({
+    courseStatus: PropTypes.string,
     courseTitle: PropTypes.string,
     courseTerm: PropTypes.string,
     courseStart: PropTypes.object,
     courseEnd: PropTypes.object,
     textbookURL: PropTypes.string,
+    textbookID: PropTypes.string,
     adaptCourseID: PropTypes.string,
     adaptSharingKey: PropTypes.string,
+    textbookDenied: PropTypes.bool,
   }),
   /**
    * Handler to activate when the form is submitted. Handler is passed the
@@ -247,13 +295,16 @@ AnalyticsCourseSettingsForm.propTypes = {
 AnalyticsCourseSettingsForm.defaultProps = {
   create: false,
   initialState: {
+    courseStatus: '',
     courseTitle: '',
     courseTerm: '',
     courseStart: null,
     courseEnd: null,
     textbookURL: '',
+    textbookID: '',
     adaptCourseID: '',
     adaptSharingKey: '',
+    textbookDenied: false,
   },
   onSubmit: () => { },
   loading: false,

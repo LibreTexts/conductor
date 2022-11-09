@@ -34,22 +34,28 @@ const GeneralAnalyticsCourseSettings = () => {
       if (!courseRes.data.err) {
         if (courseRes.data.course) {
           const {
+            status: courseStatus,
             title: courseTitle,
             term: courseTerm,
             start: startStr,
             end: endStr,
             textbookURL,
+            textbookID,
             adaptCourseID,
+            textbookDenied,
           } = courseRes.data.course;
           const courseStart = new Date(startStr);
           const courseEnd = new Date(endStr);
           setCourse({
+            courseStatus,
             courseTitle,
             courseTerm,
             courseStart,
             courseEnd,
             textbookURL,
+            textbookID,
             adaptCourseID,
+            textbookDenied,
           });
           setLoadedCourse(true);
         }
@@ -82,8 +88,6 @@ const GeneralAnalyticsCourseSettings = () => {
         courseTerm: term,
         courseStart,
         courseEnd,
-        textbookURL,
-        adaptSharingKey,
       } = formData;
       const startDate = {
         month: `0${courseStart.getMonth() + 1}`.slice(-2),
@@ -102,8 +106,6 @@ const GeneralAnalyticsCourseSettings = () => {
         term,
         start,
         end,
-        textbookURL,
-        adaptSharingKey,
       };
 
       const updateRes = await axios.put(`/analytics/courses/${courseID}`, courseData);

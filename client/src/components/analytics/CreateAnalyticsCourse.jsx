@@ -90,7 +90,6 @@ const CreateAnalyticsCourse = ({ show, onClose }) => {
     <Modal size="large" open={show} onClose={onClose} closeIcon>
       <Modal.Header>Create Analytics Course</Modal.Header>
       <Modal.Content>
-        <p>You can update this information later, if needed.</p>
         <AnalyticsCourseSettingsForm create onSubmit={createCourse} loading={loading} />
       </Modal.Content>
     </Modal>

@@ -8,6 +8,7 @@ import {
   Icon,
   Loader,
   Message,
+  Popup,
   Segment,
   Table,
 } from 'semantic-ui-react';
@@ -150,6 +151,17 @@ const AnalyticsPortal = () => {
                         <Table.Row key={item.courseID}>
                           <Table.Cell>
                             <Link to={`/analytics/${item.courseID}/dashboard`}>{item.title}</Link>
+                            {item.status === 'pending' && (
+                              <Popup
+                                trigger={(
+                                  <Icon name="clock outline" className="ml-05e" />
+                                )}
+                                position="top center"
+                                content={(
+                                  <p className="text-center">This course is awaiting review by the LibreTexts team.</p>
+                                )}
+                              />
+                            )}
                           </Table.Cell>
                           <Table.Cell>{item.term}</Table.Cell>
                           <Table.Cell>{sources.join(', ')}</Table.Cell>

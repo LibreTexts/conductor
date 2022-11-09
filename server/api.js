@@ -647,6 +647,30 @@ router.route('/alerts/processdaily').put(
 );
 
 // Analytics
+router.route('/analytics/accessrequest/:requestID')
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    analyticsAPI.validate('completeAnalyticsAccessRequest'),
+    middleware.checkValidationErrors,
+    analyticsAPI.completeAnalyticsAccessRequest,
+  ).delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    analyticsAPI.validate('deleteAnalyticsAccessRequest'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsAccessRequest,
+  );
+
+router.route('/analytics/accessrequests').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  analyticsAPI.getAnalyticsAccessRequests,
+);
+
 router.route('/analytics/courses')
   .get(
     authAPI.verifyRequest,

@@ -43,6 +43,12 @@ const ControlPanel = () => {
             description: 'View Adoption Reports submitted to the Conductor platform'
         },
         {
+            url: '/controlpanel/analyticsrequests',
+            icon: 'database',
+            title: 'Analytics Access Requests',
+            description: 'View requests to access LibreTexts textbook analytics feeds'
+        },
+        {
             url: '/controlpanel/harvestingrequests',
             icon: 'clipboard',
             title: 'Harvesting Requests',

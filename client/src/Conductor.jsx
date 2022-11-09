@@ -12,6 +12,7 @@ import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';
 import AnalyticsCourseView from 'screens/conductor/analytics/AnalyticsCourseView';
 import AnalyticsPortal from 'screens/conductor/analytics/AnalyticsPortal';
 import AnalyticsRequestAccess from 'screens/conductor/analytics/AnalyticsRequestAccess';
+import AnalyticsRequests from 'screens/conductor/controlpanel/AnalyticsRequests';
 import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings';
 import CollectionsManager from './components/controlpanel/CollectionsManager';
@@ -77,6 +78,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/accountrequests' component={AccountRequests} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
+        <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

@@ -15,6 +15,14 @@ const AnalyticsCourseSchema = new mongoose.Schema({
     index: true,
   },
   /**
+   * Course status, used to identify courses needing approval by the LibreTexts team. 
+   */
+  status: {
+    type: String,
+    required: true,
+    enum: ['pending', 'active'],
+  },
+  /**
    * Type(s) of data being collected for this course.
    */
   types: {
@@ -55,9 +63,21 @@ const AnalyticsCourseSchema = new mongoose.Schema({
    */
   textbookURL: String,
   /**
-   * BookID of the LibreText for this course. Internal use only.
+   * BookID of the LibreText for this course.
    */
   textbookID: String,
+  /**
+   * The URL of the desired LibreText, when awaiting approval by the LibreTexts team.
+   */
+  pendingTextbookURL: String,
+  /**
+   * The BookID of the desired LibreText, when awaiting approval by the LibreTexts team.
+   */
+  pendingTextbookID: String,
+  /**
+   * Indicates the LibreTexts team denied access to the requested LibreText analytics stream.
+   */
+  textbookDenied: Boolean,
   /**
    * Identifier of the ADAPT course related to this Analytics Course.
    */

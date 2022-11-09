@@ -41,7 +41,7 @@ const DeleteAnalyticsCourse = ({ show, onClose, onFinishedDelete, courseID, cour
         <p>Are you sure you want to delete <strong>{courseTitle}</strong>? The course will also be deleted for any collaborators.</p>
         <p>
           This action won't delete collected analytics data, but you'll have to create another course to view it later. If you have concerns about analytics data and would like to request its removal, please{' '}
-          <a href="mailto:info@libretexts.org" target="_blank" rel="noreferrer">contact LibreTexts</a>.
+          <a href="mailto:support@libretexts.org" target="_blank" rel="noreferrer">contact LibreTexts</a>.
         </p>
       </Modal.Content>
       <Modal.Actions>

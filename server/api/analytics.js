@@ -8,7 +8,10 @@ import axios from 'axios';
 import b62 from 'base62-random';
 import { body, param, query } from 'express-validator';
 import AnalyticsCourse from '../models/analyticscourse.js';
+import AnalyticsRequest from '../models/analyticsrequest.js';
+import User from '../models/user.js';
 import usersAPI from './users.js';
+import mailAPI from './mail.js';
 import { parseLibreTextsURL } from '../util/bookutils.js';
 import { getProductionURL } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
@@ -113,6 +116,29 @@ function parseCourseTermDateStr(dateStr, end = false) {
 }
 
 /**
+ * Creates a new Analytics Access Request for an Analytics Course and notifies
+ * the LibreTexts team.
+ *
+ * @param {string} requester - UUID of the requester/course creator.
+ * @param {string} courseID - Identifier of the newly created course.
+ * @returns {Promise<boolean>} True if request created, false otherwise.
+ */
+async function createAnalyticsAccessRequest(requester, courseID) {
+  try {
+    await new AnalyticsRequest({
+      requester,
+      courseID,
+      status: 'open',
+    }).save();
+    await mailAPI.sendAnalyticsAccessRequestCreated();
+    return true;
+  } catch (e) {
+    debugError(e);
+  }
+  return false;
+}
+
+/**
  * Creates and saves a new Analytics Course with the current user as the instructor.
  *
  * @param {express.Request} req - Incoming request object.
@@ -162,11 +188,14 @@ async function createAnalyticsCourse(req, res) {
       start,
       end,
       courseID,
+      status: 'active',
       types: ['learning'],
       instructors: [req.user.decoded.uuid],
       viewers: [],
       students: [],
     };
+
+    let needsApproval = false;
 
     // verify LibreText URL
     if (hasTextbookURL) {
@@ -177,8 +206,10 @@ async function createAnalyticsCourse(req, res) {
           errMsg: conductorErrors.err76,
         });
       }
-      newCourse.textbookURL = req.body.textbookURL;
-      newCourse.textbookID = bookID;
+      newCourse.status = 'pending';
+      newCourse.pendingTextbookURL = req.body.textbookURL;
+      newCourse.pendingTextbookID = bookID;
+      needsApproval = true;
     }
 
     // connect to ADAPT course
@@ -194,6 +225,11 @@ async function createAnalyticsCourse(req, res) {
     }
 
     await new AnalyticsCourse(newCourse).save();
+
+    if (needsApproval) {
+      await createAnalyticsAccessRequest(req.user.decoded.uuid, courseID);
+    }
+
     return res.send({
       courseID,
       err: false,
@@ -250,6 +286,8 @@ async function getUserAnalyticsCourses(req, res) {
           instructors: 0,
           viewers: 0,
           students: 0,
+          pendingTextbookURL: 0,
+          pendingTextbookID: 0,
         },
       }, {
         $sort: {
@@ -293,6 +331,8 @@ async function getAnalyticsCourse(req, res) {
       _id: 0,
       __v: 0,
       students: 0,
+      pendingTextbookURL: 0,
+      pendingTextbookID: 0,
     }).lean();
     if (!course) {
       return res.status(404).send({
@@ -386,6 +426,100 @@ async function getAnalyticsCourseRoster(req, res) {
 }
 
 /**
+ * Retrieves a list of open Analytics Access Requests.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getAnalyticsAccessRequests(_req, res) {
+  try {
+    const requests = await AnalyticsRequest.aggregate([
+      {
+        $match: {
+          status: 'open',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { requester: '$requester' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$uuid', '$$requester'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+              email: 1,
+              instructorProfile: 1,
+              verifiedInstructor: 1,
+            },
+          }],
+          as: 'requester',
+        }
+      }, {
+        $lookup: {
+          from: 'analyticscourses',
+          let: { courseID: '$courseID' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$courseID', '$$courseID'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              courseID: 1,
+              title: 1,
+              pendingTextbookID: 1,
+            },
+          }],
+          as: 'course',
+        },
+      }, {
+        $addFields: {
+          requester: {
+            $cond: [
+              { $gt: [{ $size: '$requester' }, 0] },
+              { $arrayElemAt: ['$requester', 0] },
+              '$$REMOVE',
+            ],
+          },
+          course: {
+            $cond: [
+              { $gt: [{ $size: '$course' }, 0] },
+              { $arrayElemAt: ['$course', 0] },
+              '$$REMOVE',
+            ],
+          },
+        },
+      }, {
+        $sort: {
+          createdAt: -1,
+        }
+      },
+    ]);
+    return res.send({
+      requests,
+      msg: 'Successfully retrieved Analytics Access Requests.',
+      err: false,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Updates general properties of an Analytics Course.
  *
  * @param {express.Request} req - Incoming request object.
@@ -419,53 +553,6 @@ async function updateAnalyticsCourse(req, res) {
     }
 
     const updateObj = {};
-    const currHasADAPT = !!course.adaptCourseID;
-    const hasADAPTSharingKey = (
-      req.body.adaptSharingKey
-      && req.body.adaptSharingKey.trim().length > 0
-    );
-
-    // unsetting Textbook URL
-    if (Object.hasOwn(req.body, 'textbookURL') && req.body.textbookURL.trim().length === 0) {
-      if (!currHasADAPT) {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err75,
-        })
-      }
-      updateObj.textbookURL = '';
-      updateObj.textbookID = '';
-    }
-
-    // verify LibreText URL, if present
-    if (
-      Object.hasOwn(req.body, 'textbookURL')
-      && req.body.textbookURL !== course.textbookURL
-      && req.body.textbookURL.match(/.libretexts.org/i)
-    ) {
-      const [valid, bookID] = await validateTextbookURL(req.body.textbookURL);
-      if (!valid) {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err76,
-        });
-      }
-      updateObj.textbookURL = req.body.textbookURL;
-      updateObj.textbookID = bookID;
-    }
-
-    // connect to new ADAPT course, if present
-    if (hasADAPTSharingKey) {
-      const adaptCourse = await connectADAPTCourse(req.body.adaptSharingKey, courseID);
-      if (!adaptCourse) {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err77,
-        });
-      }
-      updateObj.adaptCourseID = adaptCourse;
-    }
-    
     if (Object.hasOwn(req.body, 'title') && req.body.title !== course.title) {
       updateObj.title = req.body.title;
     }
@@ -558,6 +645,102 @@ async function updateAnalyticsCourseRoster(req, res) {
 }
 
 /**
+ * Closes an Analytics Access Request by marking it as Approved or Denied.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function completeAnalyticsAccessRequest(req, res) {
+  try {
+    const { requestID } = req.params;
+    const { verb, message } = req.body;
+    const isApproved = verb === 'approve';
+    const foundRequest = await AnalyticsRequest.findOne({ _id: requestID }).lean();
+    if (!foundRequest) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const analyticsCourse = await AnalyticsCourse.findOne({ courseID: foundRequest.courseID }).lean();
+    if (!analyticsCourse) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err22,
+      });
+    }
+
+    const requester = await User.findOne({ uuid: foundRequest.requester }, {
+      email: 1,
+      firstName: 1,
+    }).lean();
+    if (!requester) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err22,
+      });
+    }
+
+    const requesterMsgData = { email: requester.email, firstName: requester.firstName };
+    const courseMsgData = { courseID: analyticsCourse.courseID, title: analyticsCourse.title };
+    const courseUpdateObj = {
+      $set: {
+        status: 'active',
+        ...(isApproved ? {
+          textbookURL: analyticsCourse.pendingTextbookURL,
+          textbookID: analyticsCourse.pendingTextbookID,
+        } : {
+          textbookDenied: true,
+        }),
+      },
+      $unset: {
+        pendingTextbookURL: '',
+        pendingTextbookID: '',
+      },
+    };
+    const requestUpdateObj = { status: isApproved ? 'approved' : 'denied' };
+
+    const courseUpdate = await AnalyticsCourse.updateOne({ courseID: foundRequest.courseID }, courseUpdateObj);
+    if (!courseUpdate.acknowledged) {
+      throw (new Error('Course update failed.'));
+    }
+
+    const requestUpdate = await AnalyticsRequest.updateOne({ _id: requestID }, requestUpdateObj);
+    if (!requestUpdate.acknowledged) {
+      throw (new Error('Request approval update failed.'));
+    }
+
+    if (isApproved) {
+      mailAPI.sendAnalyticsAccessRequestApproved(requesterMsgData, courseMsgData).catch((e) => {
+        console.warn('Error sending approval notification:');
+        console.warn(e);
+      });
+    } else {
+      mailAPI.sendAnalyticsAccessRequestDenied(
+        requesterMsgData,
+        courseMsgData,
+        message,
+      ).catch((e) => {
+        console.warn('Error sending denial notification:');
+        console.warn(e);
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: `Analytics Access Request successfully ${isApproved ? 'approved!' : 'marked Denied.'}`,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Deletes an Analytics Course, if the current user is an instructor of record.
  *
  * @param {express.Request} req - Incoming request object.
@@ -595,6 +778,50 @@ async function deleteAnalyticsCourse(req, res) {
     return res.send({
       err: false,
       msg: 'Successfully deleted analytics course.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Deletes an Analytics Access Request. The related Analytics Course may also be deleted,
+ * if specified.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function deleteAnalyticsAccessRequest(req, res) {
+  try {
+    const { requestID } = req.params;
+    const { deleteCourse } = req.query;
+    const foundRequest = await AnalyticsRequest.findOne({ _id: requestID }).lean();
+    if (!foundRequest) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (deleteCourse) {
+      const courseDeletion = await AnalyticsCourse.deleteOne({ courseID: foundRequest.courseID });
+      if (courseDeletion.deletedCount !== 1) {
+        console.warn(`Error occurred deleting course ${foundRequest.courseID}`);
+      }
+    }
+
+    const deletion = await AnalyticsRequest.deleteOne({ _id: requestID });
+    if (!deletion.acknowledged) {
+      throw (new Error('Error deleting request.'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Analytics Access Request was successfully deleted.',
     });
   } catch (e) {
     debugError(e);
@@ -684,6 +911,19 @@ function validateRosterSort(sort) {
 }
 
 /**
+ * Validates a provided Analytics Access Request completion verb.
+ *
+ * @param {string} verb - The provided completion verb.
+ * @returns {boolean} True if valid verb, false otherwise.
+ */
+function validateAccessRequestCompletionVerb(verb) {
+  if (typeof (verb) === 'string') {
+    return ['approve', 'deny'].includes(verb);
+  }
+  return false;
+}
+
+/**
  * Middleware(s) to validate requests contain necessary and/or valid fields.
  *
  * @param {string} method - Method name to validate request for.
@@ -710,8 +950,6 @@ function validate(method) {
         body('term', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 1, max: 100 }),
         body('start', conductorErrors.err1).optional({ checkFalsy: true }).isDate({ format: 'MM-DD-YYYY' }),
         body('end', conductorErrors.err1).optional({ checkFalsy: true }).isDate({ format: 'MM-DD-YYYY' }),
-        body('textbookURL', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
-        body('adaptSharingKey', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 1, max: 100 }),
       ];
     case 'updateAnalyticsCourseRoster':
       return [
@@ -728,6 +966,17 @@ function validate(method) {
       return [
         param('courseID', conductorErrors.err1).exists().isLength({ min: 6, max: 6 }),
       ];
+    case 'completeAnalyticsAccessRequest':
+      return [
+        param('requestID', conductorErrors.err1).exists().isMongoId(),
+        body('verb', conductorErrors.err1).exists().custom(validateAccessRequestCompletionVerb),
+        body('message', conductorErrors.err11).optional({ checkFalsy: true }).isLength({ max: 500 }),
+      ];
+    case 'deleteAnalyticsAccessRequest':
+      return [
+        param('requestID', conductorErrors.err1).exists().isMongoId(),
+        query('deleteCourse', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+      ];
   }
 }
 
@@ -737,8 +986,11 @@ export default {
   getUserAnalyticsCourses,
   getAnalyticsCourse,
   getAnalyticsCourseRoster,
+  getAnalyticsAccessRequests,
   updateAnalyticsCourse,
   updateAnalyticsCourseRoster,
+  completeAnalyticsAccessRequest,
   deleteAnalyticsCourse,
+  deleteAnalyticsAccessRequest,
   validate,
 }
