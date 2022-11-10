@@ -90,7 +90,7 @@ const CreateAnalyticsCourse = ({ show, onClose }) => {
     <Modal size="large" open={show} onClose={onClose} closeIcon>
       <Modal.Header>Create Analytics Course</Modal.Header>
       <Modal.Content>
-        <AnalyticsCourseSettingsForm create onSubmit={createCourse} loading={loading} />
+        <AnalyticsCourseSettingsForm create onSubmit={createCourse} loading={loading} canEdit />
       </Modal.Content>
     </Modal>
   );

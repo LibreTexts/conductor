@@ -83,11 +83,18 @@ const AnalyticsCourseSchema = new mongoose.Schema({
    */
   adaptCourseID: String,
   /**
+   * UUID of the user that initially created the course.
+   */
+  creator: {
+    type: String,
+    required: true,
+  },
+  /**
    * Users who have access to view course data and modify its settings (UUIDs).
    */
   instructors: [String],
   /**
-   * Users who have access to view course data.
+   * Users who have access to view course data (UUIDs).
    */
   viewers: [String],
   /**

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { useHistory, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Accordion, Button, Divider, Icon, Message, Segment } from 'semantic-ui-react';
@@ -15,9 +16,11 @@ const GeneralAnalyticsCourseSettings = () => {
   const { handleGlobalError } = useGlobalError();
   const history = useHistory();
   const { courseID } = useParams();
+  const user = useSelector((state) => state.user);
 
   // Data
   const [course, setCourse] = useState({});
+  const [canEdit, setCanEdit] = useState(false);
   const [loadedCourse, setLoadedCourse] = useState(false);
 
   // UI
@@ -43,6 +46,7 @@ const GeneralAnalyticsCourseSettings = () => {
             textbookID,
             adaptCourseID,
             textbookDenied,
+            creator,
           } = courseRes.data.course;
           const courseStart = new Date(startStr);
           const courseEnd = new Date(endStr);
@@ -56,8 +60,12 @@ const GeneralAnalyticsCourseSettings = () => {
             textbookID,
             adaptCourseID,
             textbookDenied,
+            creator,
           });
           setLoadedCourse(true);
+        }
+        if (courseRes.data.canEdit) {
+          setCanEdit(courseRes.data.canEdit);
         }
       } else {
         throw (new Error(courseRes.data.errMsg));
@@ -65,7 +73,7 @@ const GeneralAnalyticsCourseSettings = () => {
     } catch (e) {
       handleGlobalError(e);
     }
-  }, [courseID, setCourse, setLoadedCourse, handleGlobalError]);
+  }, [courseID, setCourse, setCanEdit, setLoadedCourse, handleGlobalError]);
 
   /**
    * Retrieve information about the course from the server on first load.
@@ -145,6 +153,8 @@ const GeneralAnalyticsCourseSettings = () => {
     history.push('/analytics?courseDeleted=true');
   }
 
+  const isCourseCreator = user.uuid === course.creator;
+
   return (
     <Segment basic className="pane-segment">
       <h2>General Course Settings</h2>
@@ -164,6 +174,7 @@ const GeneralAnalyticsCourseSettings = () => {
             initialState={course}
             onSubmit={submitUpdate}
             loading={loading}
+            canEdit={canEdit}
           />
           <Accordion className="mt-3e mb-2e" panels={[{
             key: 'danger',
@@ -178,6 +189,7 @@ const GeneralAnalyticsCourseSettings = () => {
                     color='red'
                     fluid
                     onClick={handleOpenDeleteCourse}
+                    disabled={!canEdit || !isCourseCreator}
                   >
                     <Icon name='trash alternate' />
                     Delete Course

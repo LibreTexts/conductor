@@ -122,10 +122,16 @@ const AnalyticsPortal = () => {
                   <p>LibreTexts Analytics allows instructors to explore measurements of their students' interactions with LibreTexts open access content in order to gauge understanding of course content and identify potential areas of improvement.</p>
                 </div>
                 <div>
-                  <Button color="green" as={Link} to="/analytics/create">
-                    <Icon name="plus" />
-                    New Course
-                  </Button>
+                  <Button.Group>
+                    <Button as={Link} to="/analytics/invites">
+                      <Icon name="mail outline" />
+                      Invites
+                    </Button>
+                    <Button color="green" as={Link} to="/analytics/create">
+                      <Icon name="plus" />
+                      New Course
+                    </Button>
+                  </Button.Group>
                 </div>
               </div>
               <Loader active={loading} inline="centered" />

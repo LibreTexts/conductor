@@ -700,6 +700,39 @@ router.route('/analytics/courses/:courseID')
     analyticsAPI.deleteAnalyticsCourse,
   );
 
+router.route('/analytics/courses/:courseID/invites')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourseInvites'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourseInvites,
+  ).post(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('createAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.createAnalyticsInvite,
+  );
+
+router.route('/analytics/courses/:courseID/members').get(
+  authAPI.verifyRequest,
+  analyticsAPI.validate('getAnalyticsCourseMembers'),
+  middleware.checkValidationErrors,
+  analyticsAPI.getAnalyticsCourseMembers,
+);
+
+router.route('/analytics/courses/:courseID/members/:uuid')
+  .put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourseMemberAccess'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourseMemberAccess,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('removeAnalyticsCourseMember'),
+    middleware.checkValidationErrors,
+    analyticsAPI.removeAnalyticsCourseMember,
+  );
+
 router.route('/analytics/courses/:courseID/roster')
   .get(
     authAPI.verifyRequest,
@@ -711,6 +744,24 @@ router.route('/analytics/courses/:courseID/roster')
     analyticsAPI.validate('updateAnalyticsCourseRoster'),
     middleware.checkValidationErrors,
     analyticsAPI.updateAnalyticsCourseRoster,
+  );
+
+router.route('/analytics/invites').get(
+  authAPI.verifyRequest,
+  analyticsAPI.getUserAnalyticsInvites,
+);
+
+router.route('/analytics/invites/:inviteID')
+  .put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('acceptAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.acceptAnalyticsInvite,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('deleteAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsInvite,
   );
 
 router.route('/analytics/learning/init').get(

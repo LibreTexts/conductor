@@ -181,7 +181,14 @@ const getBasicAccountInfo = (req, res) => {
 async function checkVerifiedInstructorStatus(uuid) {
     if (uuid) {
         const user = await User.findOne({ uuid }).lean();
-        return !!user.verifiedInstructor;
+        const verified = !!user.verifiedInstructor;
+        let isSuperAdmin = false;
+        if (Array.isArray(user.roles)) {
+            isSuperAdmin = !!(user.roles.find((item) => (
+                item.org === 'libretexts' && item.role === 'superadmin'
+            )));
+        }
+        return verified || isSuperAdmin;
     }
     return false;
 }

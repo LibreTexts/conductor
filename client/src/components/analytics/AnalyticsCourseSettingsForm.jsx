@@ -7,7 +7,7 @@ import useForm from 'utils/useForm';
 /**
  * A reusable form to create an Analytics Course or update its general settings.
  */
-const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }) => {
+const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading, canEdit }) => {
 
   // Data
   const { values, errors, handleChange, handleSubmit } = useForm(
@@ -112,8 +112,9 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
         name="courseTitle"
         onChange={handleChange}
         error={errors.courseTitle}
+        disabled={!canEdit}
       />
-      <Form.Field error={errors.courseTerm} required>
+      <Form.Field error={errors.courseTerm} required disabled={!canEdit}>
         <label htmlFor="courseTerm" className="inlineblock-display">Course Term</label>
         <Popup
           position="top center"
@@ -162,7 +163,7 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
         <Icon name="info circle" />
         <Message.Content>
           <p>
-            These fields can't be edited after course creation. {create && 'LibreText data will be unavailable until manually reviewed by a member of the LibreTexts team.'}
+            These fields can't be edited after course creation. {create && 'LibreText data will be unavailable until this course is manually reviewed by a member of the LibreTexts team.'}
           </p>
         </Message.Content>
       </Message>
@@ -197,7 +198,7 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
           </Label.Detail>
         </Label>
       )}
-      <Form.Field error={errors.textbookURL} disabled={!create}>
+      <Form.Field error={errors.textbookURL} disabled={!create || !canEdit}>
         <label htmlFor="textbookURL" className="inlineblock-display">LibreText URL</label>
         <Popup
           position="top center"
@@ -232,7 +233,7 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
           </Label.Detail>
         </Label>
       )}
-      <Form.Field error={errors.adaptSharingKey} disabled={!create}>
+      <Form.Field error={errors.adaptSharingKey} disabled={!create || !canEdit}>
         <label htmlFor="textbookURL" className="inlineblock-display">ADAPT Analytics Sharing Key</label>
         <Popup
           position="top center"
@@ -253,7 +254,7 @@ const AnalyticsCourseSettingsForm = ({ create, initialState, onSubmit, loading }
           onChange={handleChange}
         />
       </Form.Field>
-      <Button type="submit" color="green" fluid className="mt-2e" loading={loading}>
+      <Button type="submit" color="green" fluid className="mt-2e" loading={loading} disabled={!canEdit}>
         <Icon name={create ? 'plus' : 'save'} />
         {create ? 'Create Course' : 'Save'}
       </Button>
@@ -280,6 +281,7 @@ AnalyticsCourseSettingsForm.propTypes = {
     adaptCourseID: PropTypes.string,
     adaptSharingKey: PropTypes.string,
     textbookDenied: PropTypes.bool,
+    creator: PropTypes.string,
   }),
   /**
    * Handler to activate when the form is submitted. Handler is passed the
@@ -290,6 +292,10 @@ AnalyticsCourseSettingsForm.propTypes = {
    * Indicates data is being loaded or sent.
    */
   loading: PropTypes.bool,
+  /**
+   * Indicates the user has permission to edit course settings.
+   */
+  canEdit: PropTypes.bool,
 };
 
 AnalyticsCourseSettingsForm.defaultProps = {
@@ -305,9 +311,11 @@ AnalyticsCourseSettingsForm.defaultProps = {
     adaptCourseID: '',
     adaptSharingKey: '',
     textbookDenied: false,
+    creator: '',
   },
   onSubmit: () => { },
   loading: false,
+  canEdit: false,
 };
 
 export default AnalyticsCourseSettingsForm;

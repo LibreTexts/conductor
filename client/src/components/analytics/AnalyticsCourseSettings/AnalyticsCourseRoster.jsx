@@ -28,6 +28,7 @@ const AnalyticsCourseRoster = () => {
   // Data
   const [hasADAPT, setHasADAPT] = useState(false);
   const [students, setStudents] = useState([]);
+  const [canEdit, setCanEdit] = useState(false);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -56,6 +57,9 @@ const AnalyticsCourseRoster = () => {
           });
           setStudents(roster);
         }
+        if (rosterRes.data.canEdit) {
+          setCanEdit(rosterRes.data.canEdit);
+        }
       } else {
         throw (new Error(rosterRes.data.errMsg));
       }
@@ -63,7 +67,7 @@ const AnalyticsCourseRoster = () => {
       handleGlobalError(e);
     }
     setLoading(false);
-  }, [courseID, setStudents, setHasADAPT, setLoading, handleGlobalError]);
+  }, [courseID, setStudents, setHasADAPT, setCanEdit, setLoading, handleGlobalError]);
 
   /**
    * Retrieve the list of students from the server on first load.
@@ -194,7 +198,13 @@ const AnalyticsCourseRoster = () => {
           <Loader active={loading} inline="centered" />
         </div>
         <div className="right-flex">
-          <Button color="green" icon labelPosition="left" onClick={handleSaveRoster}>
+          <Button
+            color="green"
+            icon
+            labelPosition="left"
+            onClick={handleSaveRoster}
+            disabled={!canEdit}
+          >
             <Icon name="save" />
             Save Roster
           </Button>
@@ -232,6 +242,7 @@ const AnalyticsCourseRoster = () => {
                       onChange={handleRowDataChange}
                       error={item.firstErr}
                       fluid
+                      disabled={!canEdit}
                     />
                   </Table.Cell>
                   <Table.Cell>
@@ -243,6 +254,7 @@ const AnalyticsCourseRoster = () => {
                       onChange={handleRowDataChange}
                       error={item.lastErr}
                       fluid
+                      disabled={!canEdit}
                     />
                   </Table.Cell>
                   <Table.Cell>
@@ -254,10 +266,17 @@ const AnalyticsCourseRoster = () => {
                       onChange={handleRowDataChange}
                       error={item.emailErr}
                       fluid
+                      disabled={!canEdit}
                     />
                   </Table.Cell>
                   <Table.Cell>
-                    <Button icon color="red" onClick={() => handleRowDelete(item.key)} fluid>
+                    <Button
+                      icon
+                      color="red"
+                      onClick={() => handleRowDelete(item.key)}
+                      fluid
+                      disabled={!canEdit}
+                    >
                       <Icon name="remove circle" />
                     </Button>
                   </Table.Cell>
@@ -275,7 +294,13 @@ const AnalyticsCourseRoster = () => {
           <Table.Footer fullWidth>
             <Table.Row>
               <Table.HeaderCell colSpan={4}>
-                <Button onClick={handleRowAdd} color="blue" icon labelPosition="left">
+                <Button
+                  onClick={handleRowAdd}
+                  color="blue"
+                  icon
+                  labelPosition="left"
+                  disabled={!canEdit}
+                >
                   <Icon name="add user" />
                   Add Row
                 </Button>

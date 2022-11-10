@@ -8,6 +8,7 @@ import axios from 'axios';
 import b62 from 'base62-random';
 import { body, param, query } from 'express-validator';
 import AnalyticsCourse from '../models/analyticscourse.js';
+import AnalyticsInvite from '../models/analyticsinvite.js';
 import AnalyticsRequest from '../models/analyticsrequest.js';
 import User from '../models/user.js';
 import usersAPI from './users.js';
@@ -190,6 +191,7 @@ async function createAnalyticsCourse(req, res) {
       courseID,
       status: 'active',
       types: ['learning'],
+      creator: req.user.decoded.uuid,
       instructors: [req.user.decoded.uuid],
       viewers: [],
       students: [],
@@ -234,6 +236,91 @@ async function createAnalyticsCourse(req, res) {
       courseID,
       err: false,
       msg: 'Successfully created Analytics Course!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Creates and sends an invitation to join an Analytics Course.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function createAnalyticsInvite(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { courseID } = req.params;
+    const { invitee, newRole } = req.body;
+
+    const course = await AnalyticsCourse.findOne({ courseID }).lean();
+    if (!course) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!course.instructors.includes(req.user.decoded.uuid)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const sender = await User.findOne(
+      { uuid: req.user.decoded.uuid },
+      { firstName: 1, lastName: 1 },
+    ).lean();
+
+    const foundInvitee = await User.findOne({ uuid: invitee }).lean();
+    if (!foundInvitee) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    };
+
+    const now = new Date();
+    const expiresAt = new Date().setDate(now.getDate() + 14); // 2 weeks
+    const newInvite = await new AnalyticsInvite({
+      courseID,
+      expiresAt,
+      newRole,
+      accepted: false,
+      sender: req.user.decoded.uuid,
+      invitee: foundInvitee.uuid,
+    }).save();
+
+    mailAPI.sendAnalyticsInvite(
+      { firstName: sender.firstName, lastName: sender.lastName },
+      {
+        email: foundInvitee.email,
+        firstName: foundInvitee.firstName,
+        lastName: foundInvitee.lastName,
+      },
+      { title: course.title },
+      newInvite._id,
+    ).catch((e) => {
+      console.warn('Error sending invitation email:');
+      console.warn(e);
+    });
+
+    return res.send({
+      err: false,
+      msg: 'Invitation successfully sent!',
     });
   } catch (e) {
     debugError(e);
@@ -341,8 +428,8 @@ async function getAnalyticsCourse(req, res) {
       });
     }
 
-    const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
-    if (!foundInstructor) {
+    const canEdit = course.instructors.includes(req.user.decoded.uuid);
+    if (!canEdit && !course.viewers.includes(req.user.decoded.uuid)) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -351,6 +438,7 @@ async function getAnalyticsCourse(req, res) {
 
     return res.send({
       course,
+      canEdit,
       err: false,
       msg: 'Successfully retrieved course.',
     });
@@ -384,6 +472,7 @@ async function getAnalyticsCourseRoster(req, res) {
     const { courseID } = req.params;
     const course = await AnalyticsCourse.findOne({ courseID }, {
       instructors: 1,
+      viewers: 1,
       students: { firstName: 1, lastName: 1, email: 1 },
       adaptCourseID: 1,
     }).lean();
@@ -395,9 +484,8 @@ async function getAnalyticsCourseRoster(req, res) {
     }
 
     const hasADAPT = course.adaptCourseID ? true : false;
-
-    const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
-    if (!foundInstructor) {
+    const canEdit = course.instructors.includes(req.user.decoded.uuid);
+    if (!canEdit && !course.viewers.includes(req.user.decoded.uuid)) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -414,7 +502,121 @@ async function getAnalyticsCourseRoster(req, res) {
       courseID,
       students,
       hasADAPT,
+      canEdit,
       err: false,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a list of members of an Analytics Course.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object. 
+ */
+ async function getAnalyticsCourseMembers(req, res) {
+  try {
+    const MEMBER_PROJECTION = {
+      _id: 0,
+      uuid: 1,
+      firstName: 1,
+      lastName: 1,
+      avatar: 1,
+      role: 1,
+      creator: 1,
+    };
+
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { courseID } = req.params;
+    const courses = await AnalyticsCourse.aggregate([
+      {
+        $match: { courseID }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { instructors: '$instructors', creator: '$creator' },
+          pipeline: [{
+            $match: {
+              $expr: { $in: ['$uuid', '$$instructors'] },
+            },
+          }, {
+            $project: {
+              ...MEMBER_PROJECTION,
+              role: 'instructor',
+              creator: { $eq: ['$uuid', '$$creator'] },
+            },
+          }],
+          as: 'instructors',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { viewers: '$viewers' },
+          pipeline: [{
+            $match: {
+              $expr: { $in: ['$uuid', '$$viewers'] },
+            },
+          }, {
+            $project: {
+              ...MEMBER_PROJECTION,
+              role: 'viewer',
+            },
+          }],
+          as: 'viewers',
+        },
+      }, {
+        $addFields: {
+          members: {
+            $concatArrays: ['$instructors', '$viewers'],
+          },
+        },
+      }, {
+        $project: {
+          _id: 0,
+          members: 1,
+        },
+      },
+    ]);
+
+    if (courses.length < 1) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const results = courses[0].members;
+    const foundUser = results.find((item) => item.uuid === req.user.decoded.uuid);
+    if (!foundUser) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const collator = new Intl.Collator();
+    const members = results.sort((a, b) => (
+      collator.compare(`${a.firstName} ${a.lastName}`, `${b.firstName} ${b.lastName}`)
+    ));
+
+    return res.send({
+      members,
+      canEdit: foundUser.role === 'instructor',
+      err: false,
+      msg: 'Successfully retrieved course members.',
     });
   } catch (e) {
     debugError(e);
@@ -520,6 +722,203 @@ async function getAnalyticsAccessRequests(_req, res) {
 }
 
 /**
+ * Retrieves a list of the current user's open Analytics invitations.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Incoming response object.
+ */
+async function getUserAnalyticsInvites(req, res) {
+  try {
+    const invites = await AnalyticsInvite.aggregate([
+      {
+        $match: {
+          $and: [
+            { invitee: req.user.decoded.uuid },
+            { accepted: false },
+            { $expr: { $gt: ['$expiresAt', '$$NOW'] } },
+          ],
+        },
+      }, {
+        $lookup: {
+          from: 'analyticscourses',
+          let: { courseID: '$courseID' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$courseID', '$$courseID'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              courseID: 1,
+              title: 1,
+            },
+          }],
+          as: 'course',
+        }
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { sender: '$sender' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$uuid', '$$sender'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          }],
+          as: 'sender',
+        },
+      }, {
+        $addFields: {
+          course: { $arrayElemAt: ['$course', 0] },
+          sender: { $arrayElemAt: ['$sender', 0] },
+        },
+      }, {
+        $sort: {
+          'course.title': 1,
+        },
+      }
+    ]);
+    return res.send({
+      invites,
+      err: false,
+      msg: 'Successfully retrieved Analytics Invites.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a list of all invitations for an Analytics Course.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getAnalyticsCourseInvites(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { courseID } = req.params;
+    const course = await AnalyticsCourse.findOne({ courseID }).lean();
+    if (!course) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const members = [...course.instructors, ...course.viewers];
+    if (!members.includes(req.user.decoded.uuid)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const invites = await AnalyticsInvite.aggregate([
+      {
+        $match: {
+          courseID: courseID,
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { invitee: '$invitee' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$uuid', '$$invitee'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          }],
+          as: 'invitee',
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { sender: '$sender' },
+          pipeline: [{
+            $match: {
+              $expr: {
+                $eq: ['$uuid', '$$sender'],
+              },
+            },
+          }, {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          }],
+          as: 'sender',
+        },
+      }, {
+        $addFields: {
+          invitee: { $arrayElemAt: ['$invitee', 0] },
+          sender: { $arrayElemAt: ['$sender', 0] },
+          status: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$accepted', true] }, then: 'accepted' },
+                { case: { $gt: ['$$NOW', '$expiresAt'] }, then: 'expired' },
+              ],
+              default: 'pending',
+            },
+          },
+        },
+      }, {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+    ]);
+
+    return res.send({
+      invites,
+      err: false,
+      msg: 'Successfully retrieved course invitations.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Updates general properties of an Analytics Course.
  *
  * @param {express.Request} req - Incoming request object.
@@ -544,8 +943,7 @@ async function updateAnalyticsCourse(req, res) {
       });
     }
 
-    const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
-    if (!foundInstructor) {
+    if (!course.instructors.includes(req.user.decoded.uuid)) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -616,8 +1014,7 @@ async function updateAnalyticsCourseRoster(req, res) {
       });
     }
 
-    const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
-    if (!foundInstructor) {
+    if (!course.instructors.includes(req.user.decoded.uuid)) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -634,6 +1031,81 @@ async function updateAnalyticsCourseRoster(req, res) {
     return res.send({
       err: false,
       msg: 'Successfully updated analytics course roster!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Updates the access setting for a course member.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object. 
+ */
+ async function updateAnalyticsCourseMemberAccess(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { courseID, uuid } = req.params;
+    const { role } = req.body;
+    const course = await AnalyticsCourse.findOne({ courseID }).lean();
+    if (!course) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    let instructors = course.instructors;
+    let viewers = course.viewers;
+    const members = [...instructors, ...viewers];
+    if (!course.instructors.includes(req.user.decoded.uuid)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    if (!members.includes(uuid)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+    if (uuid === course.creator) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    if (role === 'instructor') {
+      viewers = viewers.filter((item) => item !== uuid);
+      instructors.push(uuid);
+    }
+    if (role === 'viewer') {
+      instructors = instructors.filter((item) => item !== uuid);
+      viewers.push(uuid);
+    }
+
+    const update = await AnalyticsCourse.updateOne({ courseID }, { instructors, viewers });
+    if (!update.acknowledged) {
+      throw (new Error('Error updating course members.'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully updated course members.',
     });
   } catch (e) {
     debugError(e);
@@ -741,7 +1213,108 @@ async function completeAnalyticsAccessRequest(req, res) {
 }
 
 /**
- * Deletes an Analytics Course, if the current user is an instructor of record.
+ * Accepts an Analytics Invite.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function acceptAnalyticsInvite(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { inviteID } = req.params;
+    const invite = await AnalyticsInvite.findOne({ _id: inviteID }).lean();
+    if (!invite) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (req.user.decoded.uuid !== invite.invitee) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    const now = new Date();
+    if (invite.expiresAt < now) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+    if (!course) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err22,
+      });
+    }
+
+    let instructors = course.instructors || [];
+    let viewers = course.viewers || []; 
+    if (invite.newRole === 'instructor') {
+      const instructorSet = new Set(instructors);
+      instructorSet.add(req.user.decoded.uuid);
+      instructors = Array.from(instructorSet);
+    }
+    if (invite.newRole === 'viewer') {
+      const viewerSet = new Set(viewers);
+      viewerSet.add(req.user.decoded.uuid);
+      viewers = Array.from(viewerSet);
+    }
+
+    const courseUpdate = await AnalyticsCourse.updateOne(
+      { courseID: invite.courseID },
+      { instructors, viewers },
+    );
+    if (!courseUpdate.acknowledged) {
+      throw (new Error('Error updating course to accept invite.'));
+    }
+
+    const inviteUpdate = await AnalyticsInvite.updateOne({ _id: inviteID }, {
+      accepted: true,
+      acceptedAt: new Date(),
+    });
+    if (!inviteUpdate.acknowledged) {
+      throw (new Error('Error updating invite to accept.'));
+    }
+
+    const [sender, invitee] = await Promise.all([
+      User.findOne({ uuid: invite.sender }).lean(),
+      User.findOne({ uuid: invite.invitee }).lean(),
+    ]);
+    mailAPI.sendAnalyticsInviteAccepted(
+      { firstName: sender.firstName, email: sender.email },
+      { firstName: invitee.firstName, lastName: invitee.lastName },
+      { title: course.title },
+    ).catch((e) => {
+      console.warn('Error sending invite accepted notification:');
+      console.warn(e);
+    });
+
+    return res.send({
+      err: false,
+      msg: 'Successfully accepted Analytics invite!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Deletes an Analytics Course, if the current user created the course.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
@@ -764,9 +1337,7 @@ async function deleteAnalyticsCourse(req, res) {
         errMsg: conductorErrors.err11,
       });
     }
-
-    const foundInstructor = course.instructors.find((instr) => instr === req.user.decoded.uuid);
-    if (!foundInstructor) {
+    if (req.user.decoded.uuid !== course.creator) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -778,6 +1349,65 @@ async function deleteAnalyticsCourse(req, res) {
     return res.send({
       err: false,
       msg: 'Successfully deleted analytics course.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Removes a member from an Analytics Course.
+ *
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object. 
+ */
+ async function removeAnalyticsCourseMember(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { courseID, uuid } = req.params;
+    const course = await AnalyticsCourse.findOne({ courseID }).lean();
+    if (!course) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!course.instructors.includes(req.user.decoded.uuid)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    if (uuid === course.creator) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const update = await AnalyticsCourse.updateOne({ courseID }, {
+      instructors: course.instructors.filter((item) => item !== uuid),
+      viewers: course.viewers.filter((item) => item !== uuid),
+    });
+    if (!update.acknowledged) {
+      throw (new Error('Error updating course members.'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully updated course members.',
     });
   } catch (e) {
     debugError(e);
@@ -822,6 +1452,66 @@ async function deleteAnalyticsAccessRequest(req, res) {
     return res.send({
       err: false,
       msg: 'Analytics Access Request was successfully deleted.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Allows an invitee or an Analytics Course manager to delete a pending invitation.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function deleteAnalyticsInvite(req, res) {
+  try {
+    const canDoAnalytics = await usersAPI.checkVerifiedInstructorStatus(req.user.decoded.uuid);
+    if (!canDoAnalytics) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const { inviteID } = req.params;
+    const invite = await AnalyticsInvite.findOne({ _id: inviteID }).lean();
+    if (!invite) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      })
+    }
+
+    // Check user has permission to delete invite, if not invitee
+    if (req.user.decoded.uuid !== invite.invitee) {
+      const course = await AnalyticsCourse.findOne({ courseID: invite.courseID }).lean();
+      if (!course) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err22,
+        });
+      }
+      if (!course.instructors.includes(req.user.decoded.uuid)) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
+    }
+
+    const deleteInvite = await AnalyticsInvite.deleteOne({ _id: inviteID });
+    if (!deleteInvite.acknowledged) {
+      throw (new Error('Error deleting invite.'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Invite deleted.',
     });
   } catch (e) {
     debugError(e);
@@ -924,6 +1614,19 @@ function validateAccessRequestCompletionVerb(verb) {
 }
 
 /**
+ * Validates a provided Analytics Course member role setting.
+ *
+ * @param {string} role - The role setting to validate.
+ * @returns {boolean} True if valid role, false otherwise.
+ */
+function validateAnalyticsMemberRole(role) {
+  if (typeof (role) === 'string') {
+    return ['instructor', 'viewer'].includes(role);
+  }
+  return false;
+}
+
+/**
  * Middleware(s) to validate requests contain necessary and/or valid fields.
  *
  * @param {string} method - Method name to validate request for.
@@ -942,6 +1645,12 @@ function validate(method) {
         body('end', conductorErrors.err1).exists().isDate({ format: 'MM-DD-YYYY' }),
         body('textbookURL', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
         body('adaptSharingKey', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 1, max: 100 }),
+      ];
+    case 'createAnalyticsInvite':
+      return [
+        param('courseID', conductorErrors.err1).exists().isLength({ min: 6, max: 6 }),
+        body('invitee', conductorErrors.err1).exists().isUUID(),
+        body('newRole', conductorErrors.err1).exists().custom(validateAnalyticsMemberRole),
       ];
     case 'updateAnalyticsCourse':
       return [
@@ -962,9 +1671,17 @@ function validate(method) {
         query('sort', conductorErrors.err1).optional().custom(validateRosterSort),
       ]
     case 'getAnalyticsCourse':
+    case 'getAnalyticsCourseMembers':
+    case 'getAnalyticsCourseInvites':
     case 'deleteAnalyticsCourse':
       return [
         param('courseID', conductorErrors.err1).exists().isLength({ min: 6, max: 6 }),
+      ];
+    case 'updateAnalyticsCourseMemberAccess':
+      return [
+        param('courseID', conductorErrors.err1).exists().isLength({ min: 6, max: 6 }),
+        param('uuid', conductorErrors.err1).exists().isUUID(),
+        body('role', conductorErrors.err1).exists().custom(validateAnalyticsMemberRole),
       ];
     case 'completeAnalyticsAccessRequest':
       return [
@@ -972,10 +1689,20 @@ function validate(method) {
         body('verb', conductorErrors.err1).exists().custom(validateAccessRequestCompletionVerb),
         body('message', conductorErrors.err11).optional({ checkFalsy: true }).isLength({ max: 500 }),
       ];
+    case 'acceptAnalyticsInvite':
+    case 'deleteAnalyticsInvite':
+      return [
+        param('inviteID', conductorErrors.err1).exists().isMongoId(),
+      ];
     case 'deleteAnalyticsAccessRequest':
       return [
         param('requestID', conductorErrors.err1).exists().isMongoId(),
         query('deleteCourse', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+      ];
+    case 'removeAnalyticsCourseMember':
+      return [
+        param('courseID', conductorErrors.err1).exists().isLength({ min: 6, max: 6 }),
+        param('uuid', conductorErrors.err1).exists().isUUID(),
       ];
   }
 }
@@ -983,14 +1710,22 @@ function validate(method) {
 export default {
   startLearningAnalyticsFlow,
   createAnalyticsCourse,
+  createAnalyticsInvite,
   getUserAnalyticsCourses,
   getAnalyticsCourse,
   getAnalyticsCourseRoster,
+  getAnalyticsCourseMembers,
   getAnalyticsAccessRequests,
+  getUserAnalyticsInvites,
+  getAnalyticsCourseInvites,
   updateAnalyticsCourse,
   updateAnalyticsCourseRoster,
+  updateAnalyticsCourseMemberAccess,
   completeAnalyticsAccessRequest,
+  acceptAnalyticsInvite,
   deleteAnalyticsCourse,
+  removeAnalyticsCourseMember,
   deleteAnalyticsAccessRequest,
+  deleteAnalyticsInvite,
   validate,
 }
