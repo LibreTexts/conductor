@@ -99,6 +99,20 @@ const AnalyticsPortal = () => {
               </Breadcrumb>
             </Segment>
             <Segment>
+              <Message info className="mb-1e">
+                <Message.Content>
+                  <p>
+                    {"Analytics features are still in beta testing. If you believe you've encountered a bug, please "}
+                    <a
+                      href="mailto:support@libretexts.org?subject=Conductor Analytics Bug"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      contact LibreTexts.
+                    </a>
+                  </p>
+                </Message.Content>
+              </Message>
               {showCourseCreated && (
                 <Message icon success className="mb-2e">
                   <Icon name="check circle" />
