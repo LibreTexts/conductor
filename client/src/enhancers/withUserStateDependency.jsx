@@ -47,7 +47,8 @@ const withUserStateDependency = (WrappedComponent) => {
                 firstName: res.data.user.firstName,
                 lastName: res.data.user.lastName,
                 avatar: res.data.user.avatar,
-                roles: res.data.user.roles
+                roles: res.data.user.roles,
+                isVerifiedInstructor: res.data.user.verifiedInstructor,
               }
             });
             loadedUser.current = true;

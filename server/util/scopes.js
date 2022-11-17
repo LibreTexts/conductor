@@ -21,6 +21,7 @@ const accessLevelDescriptions = {
 const scopeSetDescriptions = {
   'user': 'Account and Profile',
   'projects': 'Projects',
+  'analytics': 'Analytics',
 };
 
 /**
@@ -29,7 +30,12 @@ const scopeSetDescriptions = {
 const scopeDescriptions = {
   'user:basicinfo': 'Basic information from your profile, such as name and avatar',
   'user:alerts': 'Your Conductor Alerts',
-  'projects:recent': 'Your recently updated Projects'
+  'projects:recent': 'Your recently updated Projects',
+  'analytics:access': 'Whether you are a verified instructor with Analytics access',
+  'analytics:courses': 'Basic information about your Analytics courses',
+  'analytics:courses:*': 'Detailed information about your Analytics courses',
+  'analytics:courses:*:roster': 'Student rosters from your Analytics courses',
+  'analytics:learning:init': 'Sessions in the Learning Analytics Dashboard',
 };
 
 /**
@@ -54,10 +60,12 @@ function getScopeDescriptions(scopes) {
     if (typeof (currScope) !== 'string') {
       continue;
     }
-    const [access, set, resource] = currScope.split(':');
-    if (!access || !set || !resource) {
+    const [access, set, ...resourceParts] = currScope.split(':');
+    if (!access || !set || !resourceParts) {
       continue;
     }
+
+    const resource = resourceParts.join(':');
 
     foundSets.add(set);
     splitScopes.push({
@@ -100,8 +108,9 @@ function getEndpointAsScope(endpoint, method) {
   if (!endpoint || !method) {
     return 'unknown';
   }
-
-  const procEndpoint = removeLeadingSlash(endpoint).replace(/\//g, ':');
+  
+  const paramRegex = /:([a-z]?[A-Z]?)*(\?)?/gi;
+  const procEndpoint = removeLeadingSlash(endpoint).replace(paramRegex, '*').replace(/\//g, ':');
   let procMethod = 'unknown';
   if (method === 'GET') {
     procMethod = 'read';

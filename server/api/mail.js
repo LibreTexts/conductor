@@ -564,6 +564,141 @@ const sendAlertActivatedNotification = (recipientEmail, recipientName, alertTitl
     });
 };
 
+/**
+ * Sends a notification of a new Analytics Access Request to the LibreTexts team
+ * via the Mailgun API.
+ *
+ * @returns {Promise<object|Error>} A Mailgun API promise.
+ */
+const sendAnalyticsAccessRequestCreated = () => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: ['support@libretexts.org'],
+        subject: 'New Analytics Access Request',
+        html: `
+            <p>Attention:</p>
+            <p>A user has submitted a new Learning Analytics Access Request.<p>
+            <p>This request is available in Conductor.</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification of an Analytics Access Request approval to the original requester
+ * via the Mailgun API.
+ *
+ * @param {object} requester - Information about the original requester.
+ * @param {string} requester.email - Requesting user's email address.
+ * @param {string} requester.firstName - Requesting user's first name.
+ * @param {object} course - Information about the related Analytics Course.
+ * @param {string} course.courseID - Identifier of the Analytics Course.
+ * @param {string} course.title - UI title of the Course.
+ * @returns {Promise<object|Error>} A Mailgun API promise.
+ */
+const sendAnalyticsAccessRequestApproved = (requester, course) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [requester.email],
+        subject: 'Analytics Access Request Approved',
+        html: `
+            <p>Hi ${requester.firstName},</p>
+            <p>Your request to view LibreTexts textbook analytics data in <a href="https://commons.libretexts.org/analytics/${course.courseID}" target="_blank" rel="noreferrer">${course.title}</a> has been approved!</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification of an Analytics Access Request denial to the original requester
+ * via the Mailgun API.
+ *
+ * @param {object} requester - Information about the original requester.
+ * @param {string} requester.email - Requesting user's email address.
+ * @param {string} requester.firstName - Requesting user's first name.
+ * @param {object} course - Information about the related Analytics Course.
+ * @param {string} course.courseID - Identifier of the Analytics Course.
+ * @param {string} course.title - UI title of the Course.
+ * @param {string} [message] - An optional message to the requester to include.
+ * @returns {Promise<object|Error>} A Mailgun API promise.
+ */
+const sendAnalyticsAccessRequestDenied = (requester, course, message = null) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [requester.email],
+        subject: 'Analytics Access Request Denied',
+        html: `
+            <p>Hi ${requester.firstName}</p>
+            <p>Your request to view LibreTexts textbook analytics data in <a href="https://commons.libretexts.org/analytics/${course.courseID}" target="_blank" rel="noreferrer">${course.title}</a> has been denied.</p>
+            ${message
+                ? `
+                    <p>The team member reviewing your request said:</p>
+                    <p style="margin-left: 15px; border-left: 2px solid #ccc; padding-left: 1%;">${marked.parseInline(message)}</p>
+                `
+                : ''
+            }
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification that a user has been invited to join an Analytics Course via the
+ * Mailgun API.
+ *
+ * @param {object} sender - The user who sent the invitation.
+ * @param {string} sender.firstName - Sender's first name.
+ * @param {string} sender.lastName - Sender's last name.
+ * @param {object} invitee - The user being invited.
+ * @param {string} invitee.firstName - Invitee's first name.
+ * @param {string} invitee.email - Invitee's email address.
+ * @param {object} course - The course being shared.
+ * @param {string} course.title - UI title of the course.
+ * @param {string} inviteID - Identifier of the new invitation.
+ * @returns {Promise<object|Error>} A Mailgun API promise.
+ */
+const sendAnalyticsInvite = (sender, invitee, course, _inviteID) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [invitee.email],
+        subject: 'New Invitation to Join Analytics Course',
+        html: `
+            <p>Hi ${invitee.firstName},</p>
+            <p>${sender.firstName} ${sender.lastName} has invited you to join their Analytics course for <strong>${course.title}</strong> on Conductor.</p>
+            <p>To accept or ignore this invitation, visit your Analytics Portal in Conductor.</p>
+            <p><em>Note: This invitation will expire in 14 days. If you haven't done so already, you'll need to verify your status as an instructor at an academic institution in order to view Analytics.</em></p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification that a user has accepted an invite to join an Analytics Course via
+ * the Mailgun API.
+ *
+ * @param {object} sender - The user who sent the original invitation.
+ * @param {string} sender.firstName - Sender's first name.
+ * @param {string} sender.email - Sender's email address.
+ * @param {object} invitee - The user accepting the invitation.
+ * @param {string} invitee.firstName - Invitee's first name.
+ * @param {string} invitee.lastName - Invitee's last name.
+ * @param {object} course - The course being shared.
+ * @param {string} course.title - UI title of the course.
+ */
+const sendAnalyticsInviteAccepted = (sender, invitee, course) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [sender.email],
+        subject: 'Invitation to Analytics Course Accepted',
+        html: `
+            <p>Hi ${sender.firstName},</p>
+            <p>We're just writing to let you know that ${invitee.firstName} ${invitee.lastName} accepted your invitation to join your Analytics course for <strong>${course.title}</strong>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    })
+};
 
 export default {
     sendPasswordReset,
@@ -585,5 +720,10 @@ export default {
     sendPeerReviewInvitation,
     sendPeerReviewNotification,
     sendAutogeneratedProjectsNotification,
-    sendAlertActivatedNotification
+    sendAlertActivatedNotification,
+    sendAnalyticsAccessRequestCreated,
+    sendAnalyticsAccessRequestApproved,
+    sendAnalyticsAccessRequestDenied,
+    sendAnalyticsInvite,
+    sendAnalyticsInviteAccepted,
 }

@@ -17,6 +17,12 @@ const purposeOptions = [
     shortText: 'ADAPT',
     value: 'adapt',
   },
+  {
+    key: 'analytics',
+    text: 'Explore student analytics on Conductor',
+    shortText: 'Analytics',
+    value: 'analytics',
+  },
 ];
 
 /**

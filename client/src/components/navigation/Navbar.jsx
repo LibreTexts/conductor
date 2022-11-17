@@ -38,6 +38,8 @@ const Navbar = (_props) => {
       setActiveItem('home');
     } else if (currentPath.includes('/projects')) {
       setActiveItem('projects');
+    } else if (currentPath.includes('analytics')) {
+      setActiveItem('analytics');
     } else if (currentPath.includes('/search')) {
       // Set the search query in the UI if the URL was visited directly
       if (searchInput === '') {
@@ -113,6 +115,13 @@ const Navbar = (_props) => {
         onClick={(_e, data) => {
           setActiveItem(data.name);
         }}
+      />
+      <Menu.Item
+        name="analytics"
+        as={Link}
+        to="/analytics"
+        active={activeItem === 'analytics'}
+        onClick={(_e, data) => setActiveItem(data.name)}
       />
       <Breakpoint name='desktop'>
         <Menu.Menu position='right'>

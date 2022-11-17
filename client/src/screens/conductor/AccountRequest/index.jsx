@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -15,6 +15,7 @@ import {
   Modal,
   Segment,
 } from 'semantic-ui-react';
+import useQueryParam from 'utils/useQueryParam';
 import useGlobalError from '../../../components/error/ErrorHooks';
 import {
   isEmptyString,
@@ -50,9 +51,10 @@ const AccountRequest = () => {
   // UI
   const [showSuccessModal, setSuccessModal] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
+  const requestSrc = useQueryParam('src');
 
   // Form Data
-  const [purpose, setPurpose] = useState('');
+  const [purpose, setPurpose] = useState(requestSrc === 'analytics' ? 'analytics' : '');
   const [libs, setLibs] = useState([]);
   const [institution, setInstitution] = useState('');
   const [url, setURL] = useState('');
@@ -251,7 +253,7 @@ const AccountRequest = () => {
                   className="cursor-pointer"
                   onClick={() => window.open('https://libretexts.org', '_blank', 'noreferrer')}
                 />
-                <Header as="h1" textAlign="center">Request Instructor Account(s)</Header>
+                <Header as="h1" textAlign="center">Request Instructor Account(s)/Access</Header>
               </Grid.Column>
             </Grid.Row>
           </Grid>
@@ -270,7 +272,8 @@ const AccountRequest = () => {
             <p className="text-center mt-2p">
               {'Accounts are required to modify content on the LibreTexts libraries including editing pages, uploading content, creating new Course Shells, and remixing customized textbooks. '}
               {'Accounts are required to create and modify content on Studio or create courses and assignments on the ADAPT homework system. '}
-              {'Fill out and submit this form to request an Instructor account.'}
+              {'Instructor verification is required to use Analytics on Conductor. '}
+              {'Fill out and submit this form to request an Instructor account or verification.'}
             </p>
             <Message icon positive className="mt-1e mb-1e">
               <Icon name="user circle" />
@@ -284,7 +287,7 @@ const AccountRequest = () => {
                 required
                 id="purpose"
                 fluid
-                label="What do you need accounts for?"
+                label="What do you need accounts for/access to?"
                 options={PURPOSE_OPTIONS}
                 placeholder="Choose purpose..."
                 onChange={handlePurposeChange}

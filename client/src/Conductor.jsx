@@ -9,6 +9,11 @@ import AccountRequest from './screens/conductor/AccountRequest';
 import AccountRequests from './screens/conductor/controlpanel/AccountRequests';
 import AccountSettings from './screens/conductor/AccountSettings';
 import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';
+import AnalyticsCourseView from 'screens/conductor/analytics/AnalyticsCourseView';
+import AnalyticsInvites from 'screens/conductor/analytics/AnalyticsInvites';
+import AnalyticsPortal from 'screens/conductor/analytics/AnalyticsPortal';
+import AnalyticsRequestAccess from 'screens/conductor/analytics/AnalyticsRequestAccess';
+import AnalyticsRequests from 'screens/conductor/controlpanel/AnalyticsRequests';
 import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings';
 import CollectionsManager from './components/controlpanel/CollectionsManager';
@@ -67,10 +72,15 @@ const Conductor = () => {
         <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
         <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
         <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
+        <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
+        <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
+        <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
+        <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} />
         <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/accountrequests' component={AccountRequests} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
+        <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

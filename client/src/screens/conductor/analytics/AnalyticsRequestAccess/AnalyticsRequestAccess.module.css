@@ -1,0 +1,20 @@
+#wrapper {
+  display: grid;
+  justify-items: center;
+  height: 100%;
+  align-items: center;
+  padding: 2% 0;
+}
+
+#container {
+  width: 40%;
+  background: #FFFFFF;
+  box-shadow: 0 2px 4px 0 rgb(34 36 38 / 12%), 0 2px 10px 0 rgb(34 36 38 / 15%);
+  padding: 2em;
+}
+
+#icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

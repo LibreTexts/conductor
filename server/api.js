@@ -28,6 +28,7 @@ import transFeedbackAPI from './api/translationfeedback.js';
 import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
 import CIDDescriptorsAPI from './api/ciddescriptors.js';
+import analyticsAPI from './api/analytics.js';
 
 let router = express.Router();
 
@@ -74,7 +75,7 @@ router.use(cors({
 router.use(middleware.authSanitizer);
 
 router.use(middleware.middlewareFilter(
-  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport'],
+  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport', '/analytics/learning/init'],
   middleware.requestSecurityHelper,
 ));
 
@@ -643,6 +644,130 @@ router.route('/alerts').get(
 router.route('/alerts/processdaily').put(
   middleware.checkLibreAPIKey,
   alertsAPI.processDailyAlerts,
+);
+
+// Analytics
+router.route('/analytics/accessrequest/:requestID')
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    analyticsAPI.validate('completeAnalyticsAccessRequest'),
+    middleware.checkValidationErrors,
+    analyticsAPI.completeAnalyticsAccessRequest,
+  ).delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    analyticsAPI.validate('deleteAnalyticsAccessRequest'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsAccessRequest,
+  );
+
+router.route('/analytics/accessrequests').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  analyticsAPI.getAnalyticsAccessRequests,
+);
+
+router.route('/analytics/courses')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.getUserAnalyticsCourses,
+  ).post(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('createAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.createAnalyticsCourse,
+  );
+
+router.route('/analytics/courses/:courseID')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourse,
+  ).put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourse,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('deleteAnalyticsCourse'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsCourse,
+  );
+
+router.route('/analytics/courses/:courseID/invites')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourseInvites'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourseInvites,
+  ).post(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('createAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.createAnalyticsInvite,
+  );
+
+router.route('/analytics/courses/:courseID/members').get(
+  authAPI.verifyRequest,
+  analyticsAPI.validate('getAnalyticsCourseMembers'),
+  middleware.checkValidationErrors,
+  analyticsAPI.getAnalyticsCourseMembers,
+);
+
+router.route('/analytics/courses/:courseID/members/:uuid')
+  .put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourseMemberAccess'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourseMemberAccess,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('removeAnalyticsCourseMember'),
+    middleware.checkValidationErrors,
+    analyticsAPI.removeAnalyticsCourseMember,
+  );
+
+router.route('/analytics/courses/:courseID/roster')
+  .get(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('getAnalyticsCourseRoster'),
+    middleware.checkValidationErrors,
+    analyticsAPI.getAnalyticsCourseRoster,
+  ).put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('updateAnalyticsCourseRoster'),
+    middleware.checkValidationErrors,
+    analyticsAPI.updateAnalyticsCourseRoster,
+  );
+
+router.route('/analytics/invites').get(
+  authAPI.verifyRequest,
+  analyticsAPI.getUserAnalyticsInvites,
+);
+
+router.route('/analytics/invites/:inviteID')
+  .put(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('acceptAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.acceptAnalyticsInvite,
+  ).delete(
+    authAPI.verifyRequest,
+    analyticsAPI.validate('deleteAnalyticsInvite'),
+    middleware.checkValidationErrors,
+    analyticsAPI.deleteAnalyticsInvite,
+  );
+
+router.route('/analytics/learning/init').get(
+  analyticsAPI.validate('startLearningAnalyticsFlow'),
+  middleware.checkValidationErrors,
+  analyticsAPI.startLearningAnalyticsFlow,
 );
 
 

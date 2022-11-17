@@ -69,6 +69,10 @@ const conductorErrors = {
     'err72': "C-ID Descriptors sync appears to have failed. Check server logs.",
     'err73': "Invalid library selections provided.",
     'err74': "Missing instructor profile data.",
+    'err75': "At least one of a LibreTexts textbook URL or an ADAPT Analytics Sharing Key must be provided.",
+    'err76': "Provided Textbook URL is invalid, private, or not a book coverpage.",
+    'err77': "Provided ADAPT Analytics Sharing Key is invalid.",
+    'err78': "Course end date cannot be before start date.",
 };
 
 export default conductorErrors;

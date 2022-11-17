@@ -27,7 +27,7 @@
    purpose: {
      type: String,
      required: true,
-     enum: ['oer', 'h5p', 'adapt']
+     enum: ['oer', 'h5p', 'adapt', 'analytics'],
    },
    /**
     * List of LibreTexts libraries the requester would like access to if `purpose` is `oer`.
