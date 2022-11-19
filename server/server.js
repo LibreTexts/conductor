@@ -35,14 +35,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 mongoose.Promise = Promise;
-if (process.env.NODE_ENV === 'development') {
-    mongoose.set('debug', true);
-}
-mongoose.connect(process.env.MONGOOSEURI).then(() => {
-    debugDB('Connected to MongoDB Atlas.');
-}).catch((err) => {
-    debugDB(err);
-});
+mongoose.set('debug', process.env.NODE_ENV === 'development');
+
+await mongoose.connect(process.env.MONGOOSEURI).catch((err) => debugDB(err));
+debugDB('Connected to MongoDB Atlas.');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -94,9 +90,12 @@ cliRouter.route('*').get((_req, res) => {
 });
 app.use('/', cliRouter);
 
-app.listen(port, (err) => {
+// Start the server
+const server = app.listen(port, (err) => {
     let startupMsg = '';
-    if (err) debugServer(err);
+    if (err) {
+        debugServer(err);
+    }
     if (process.env.ORG_ID === 'libretexts') {
         startupMsg = `Conductor is listening on ${port}`;
     } else {
@@ -104,3 +103,23 @@ app.listen(port, (err) => {
     }
     debugServer(startupMsg);
 });
+
+/**
+ * Performs a graceful shutdown by closing the server and database connections.
+ */
+function shutdown() {
+    if (server.listening) {
+        console.log('\nConductor is shutting down...');
+        server.close(async () => {
+            await mongoose.disconnect().catch((e) => {
+                console.error('Error gracefully closing MongoDB connection:');
+                console.error(e);
+            });
+            console.log(`Conductor shutdown successfully.`);
+        });
+    }
+}
+
+// Register shutdown signal listeners
+const signals = { 'SIGHUP': 1, 'SIGINT': 2, 'SIGTERM': 15 };
+Object.keys(signals).forEach((signal) => process.on(signal, shutdown));
