@@ -201,7 +201,7 @@ async function createAnalyticsCourse(req, res) {
 
     // verify LibreText URL
     if (hasTextbookURL) {
-      const [valid, bookID] = await validateTextbookURL(req.body.textbookURL);
+      const [valid, bookID] = await validateTextbookURL(req.body.textbookURL.trim());
       if (!valid) {
         return res.status(400).send({
           err: true,
@@ -216,7 +216,7 @@ async function createAnalyticsCourse(req, res) {
 
     // connect to ADAPT course
     if (hasADAPTSharingKey) {
-      const adaptCourse = await connectADAPTCourse(req.body.adaptSharingKey, courseID);
+      const adaptCourse = await connectADAPTCourse(req.body.adaptSharingKey.trim(), courseID);
       if (!adaptCourse) {
         return res.status(400).send({
           err: true,
