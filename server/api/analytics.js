@@ -87,7 +87,7 @@ async function validateTextbookURL(libreURL) {
 async function connectADAPTCourse(sharingKey, newCourseID) {
   try {
     const connectRes = await axios.post(
-      `https://adapt.libretexts.org/analytics-dashboard/sync/${newCourseID}`,
+      `https://adapt.libretexts.org/api/analytics-dashboard/sync/${newCourseID}`,
       null,
       { headers: { Authorization: `Bearer ${sharingKey}` } },
     );
