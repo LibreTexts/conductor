@@ -115,7 +115,7 @@ function shutdown() {
                 console.error('Error gracefully closing MongoDB connection:');
                 console.error(e);
             });
-            console.log(`Conductor shutdown successfully.`);
+            console.log('Conductor shutdown successfully.\n');
         });
     }
 }
