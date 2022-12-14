@@ -1344,6 +1344,22 @@ async function deleteAnalyticsCourse(req, res) {
       });
     }
 
+    // Unlink Conductor's course from the associated ADAPT course
+    if (course.adaptCourseID) {
+      const unsyncRes = await axios.post(
+        `https://adapt.libretexts.org/api/analytics-dashboard/unsync/${courseID}`,
+        null,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ADAPT_LEARNING_ANALYTICS_UNSYNC_TOKEN}`,
+          },
+        },
+      );
+      if (unsyncRes.data?.type !== 'success') {
+        throw (new Error('ADAPT Unsync Error'));
+      }
+    }
+
     await AnalyticsCourse.deleteOne({ courseID });
 
     return res.send({
