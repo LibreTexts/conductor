@@ -1208,6 +1208,22 @@ router.route('/project/:projectID/book/materials/:materialID?')
     projectsAPI.removeProjectBookMaterial,
   );
 
+router.route('/project/:projectID/book/readerresources')
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('getProjectBookReaderResources'), //this is plural
+    middleware.checkValidationErrors,
+    projectsAPI.getProjectBookReaderResources,
+  ).put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('updateProjectBookReaderResources'),
+    middleware.checkValidationErrors,
+    projectsAPI.updateProjectBookReaderResources,
+    //No DELETE ENDPOINT - Reader Resources are only PUT with the new data, even if empty
+);
+
 router.route('/apiclients/:clientID').get(
   authAPI.verifyRequest,
   apiClientsAPI.validate('getAPIClient'),

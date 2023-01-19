@@ -39,6 +39,7 @@ import TextArea from '../TextArea';
 import Messaging from '../Messaging';
 import Chat from '../Chat';
 import DateInput from '../DateInput';
+import ReaderResourcesManager from 'components/ReaderResourcesManager/ReaderResourcesManager';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -252,6 +253,9 @@ const ProjectView = (props) => {
 
   // Manage Ancillary Materials Modal
   const [showMaterialsModal, setShowMaterialsModal] = useState(false);
+
+  // Manage Reader Resources Modal
+  const [showReaderResourcesModal, setShowReaderResourcesModal] = useState(false);
 
 
   /**
@@ -1781,6 +1785,20 @@ const ProjectView = (props) => {
     setShowMaterialsModal(false);
   }
 
+  /**
+   * Sets the Manage Reader Resources modal to open in state.
+   */
+  function handleOpenReaderResourcesModal() {
+    setShowReaderResourcesModal(true);
+  }
+
+  /**
+   * Sets the Manage Reader Resources modal to closed in state.
+   */
+  function handleCloseReaderResourcesModal() {
+    setShowReaderResourcesModal(false);
+  }
+
   // Rendering Helper Booleans
   const hasResourceInfo = project.author || project.license || project.resourceURL;
   const hasNotes = project.notes && !isEmptyString(project.notes);
@@ -2225,6 +2243,17 @@ const ProjectView = (props) => {
                                 onClick={handleOpenMaterialsModal}
                               >
                                   Manage Ancillary Materials
+                              </Button>
+                            </div>
+                          )}
+                          {(canViewDetails && project.hasCommonsBook) && (
+                            <div className="mt-1e">
+                              <Button
+                                color="blue"
+                                compact
+                                onClick={handleOpenReaderResourcesModal}
+                              >
+                                  Manage Reader Resources
                               </Button>
                             </div>
                           )}
@@ -3862,6 +3891,16 @@ const ProjectView = (props) => {
               onClose={handleCloseMaterialsModal}
             />
           )}
+          {/* Manage Reader Resources */}
+          {
+            project.projectID  && (
+              <ReaderResourcesManager
+                projectID={project.projectID}
+                show={showReaderResourcesModal}
+                onClose={handleCloseReaderResourcesModal}
+              />
+            )
+          }
         </Grid.Column>
       </Grid.Row>
     </Grid>

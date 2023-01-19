@@ -168,6 +168,13 @@ const BookSchema = new mongoose.Schema({
    * Meta-tags from the respective library attached to the Book.
    */
   libraryTags: [String],
+  /**
+   * Reader Resources (external links to other resources/materials) attached to the Book.
+   */
+  readerResources: [{
+    name: String,
+    url: String
+  }]
 }, {
   timestamps: true
 });
@@ -183,7 +190,7 @@ BookSchema.index({
   program: 'text',
   license: 'text',
   summary: 'text',
-  libraryTags: 'text',
+  libraryTags: 'text'
 });
 
 const Book = mongoose.model('Book', BookSchema);
