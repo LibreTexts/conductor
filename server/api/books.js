@@ -289,7 +289,6 @@ const syncWithLibraries = (_req, res) => {
         allBooks.forEach((book) => {
             // check if book is valid & unique, otherwise ignore
             if (checkValidImport(book) && !bookIDs.includes(book.zipFilename)) {
-                bookIDs.push(book.zipFilename); // duplicate mitigation
                 let link = ''
                 let author = '';
                 let affiliation = '';
@@ -301,6 +300,20 @@ const syncWithLibraries = (_req, res) => {
                 let program = '';
                 let lastUpdated = '';
                 let libraryTags = [];
+                if (Array.isArray(book.tags)) {
+                  if (book.tags.includes('coverpage:nocommons')) {
+                      return; // don't continue processing this entry
+                  }
+                  book.tags.forEach((tag) => {
+                      if (tag.includes('license:')) {
+                          license = tag.replace('license:', '');
+                      }
+                      if (tag.includes('program:')) {
+                          program = tag.replace('program:', '');
+                      }
+                  });
+                  libraryTags = book.tags;
+                }
                 if (book.link) {
                     link = book.link;
                     if (String(book.link).includes('/Bookshelves/')) {
@@ -327,18 +340,9 @@ const syncWithLibraries = (_req, res) => {
                 if (book.author) author = book.author;
                 if (typeof (book.summary) === 'string') summary = book.summary;
                 if (book.institution) affiliation = book.institution; // Affiliation is referred to as "Institution" in LT API
-                if (book.tags && Array.isArray(book.tags)) {
-                    book.tags.forEach((tag) => {
-                        if (tag.includes('license:')) {
-                            license = tag.replace('license:', '');
-                        }
-                        if (tag.includes('program:')) {
-                            program = tag.replace('program:', '');
-                        }
-                    });
-                    libraryTags = book.tags;
-                }
                 if (typeof (book.lastModified) === 'string') lastUpdated = book.lastModified;
+
+                bookIDs.push(book.zipFilename); // duplicate mitigation
                 processedBooks.push({
                     author,
                     affiliation,
