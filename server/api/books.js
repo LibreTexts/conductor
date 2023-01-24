@@ -1265,6 +1265,12 @@ async function getBookDetail(req, res) {
               { $gt: [{ $size: '$materials' }, 0] },
             ],
           },
+          hasReaderResources: {
+            $and: [
+              { $ifNull: ['$readerResources', false] },
+              { $gt: [{ $size: '$readerResources' }, 0] },
+            ],
+          },
           allowAnonPR: {
             $and: [
               { $ne: [{ $type: '$project.allowAnonPR' }, 'missing'] },
@@ -1305,6 +1311,9 @@ async function getBookDetail(req, res) {
           materials: 0,
           project: 0,
           peerReviews: 0,
+          readerResources: {
+            _id: 0,
+          },
         },
       },
     ]);

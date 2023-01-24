@@ -3118,8 +3118,8 @@ async function getProjectBookReaderResources(req, res) {
     }
 
     let readerResources = [];
-    const bookRes = await Book.findOne({bookID}).lean();
-    if(bookRes.readerResources) readerResources = bookRes.readerResources;
+    const bookRes = await Book.findOne({ bookID }).lean();
+    if (bookRes.readerResources) readerResources = bookRes.readerResources;
 
     return res.send({
       err: false,
@@ -3136,7 +3136,7 @@ async function getProjectBookReaderResources(req, res) {
 }
 
 /**
- * Renames or updates the URL of a Reader Resource (for a Book linked to a Project).
+ * Updates a collection of Reader Resources (for a Book linked to a Project).
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
@@ -3169,12 +3169,12 @@ async function updateProjectBookReaderResources(req, res) {
       });
     }
 
-    const bookRes = await Book.findOne({bookID})
+    const bookRes = await Book.findOne({ bookID });
     if (!bookRes.readerResources) { // error encountered
       throw (new Error('retrieveerror'));
     }
 
-    const bookUpdate = await Book.updateOne({"bookID": bookID,}, {"$set": {"readerResources": newResources}});
+    const bookUpdate = await Book.updateOne({ bookID }, { $set: { readerResources: newResources } });
     if (!bookUpdate) {
       throw (new Error('updatefail'));
     }
