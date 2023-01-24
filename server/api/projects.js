@@ -5,7 +5,7 @@
 
 'use strict';
 import Promise from 'bluebird';
-import express from 'express';
+import express, { urlencoded } from 'express';
 import async from 'async';
 import { body, query, param } from 'express-validator';
 import {
@@ -20,6 +20,7 @@ import multer from 'multer';
 import { v4 } from 'uuid';
 import User from '../models/user.js';
 import Project from '../models/project.js';
+import Book from '../models/book.js';
 import Tag from '../models/tag.js';
 import Task from '../models/task.js';
 import Thread from '../models/thread.js';
@@ -37,6 +38,7 @@ import {
     projectWelcomeMessage,
 } from '../util/projectutils.js';
 import {
+  checkBookIDFormat,
   isValidLicense,
   getBookTOCFromAPI,
   retrieveBookMaterials,
@@ -3083,6 +3085,114 @@ async function moveProjectBookMaterial(req, res) {
 }
 
 /**
+ * Retrieves a list of Reader Resources for a Book linked to a Project.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getProjectBookReaderResources(req, res) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectGeneralPermission(project, req.user.decoded.uuid);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    let readerResources = [];
+    const bookRes = await Book.findOne({bookID}).lean();
+    if(bookRes.readerResources) readerResources = bookRes.readerResources;
+
+    return res.send({
+      err: false,
+      msg: 'Successfully retrieved Reader Resources!',
+      readerResources
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Renames or updates the URL of a Reader Resource (for a Book linked to a Project).
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function updateProjectBookReaderResources(req, res) {
+  try {
+    const newResources = req.body.readerResources;
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const hasPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasPermission) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const bookID = getBookLinkedToProject(project);
+    if (!bookID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err28,
+      });
+    }
+
+    const bookRes = await Book.findOne({bookID})
+    if (!bookRes.readerResources) { // error encountered
+      throw (new Error('retrieveerror'));
+    }
+
+    const bookUpdate = await Book.updateOne({"bookID": bookID,}, {"$set": {"readerResources": newResources}});
+    if (!bookUpdate) {
+      throw (new Error('updatefail'));
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully updated Reader Resource!',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Retrieves the LibreTexts standard identifier of the resource linked to a Project.
  * 
  * @param {object} project - Project information object.
@@ -3417,6 +3527,31 @@ async function validateCIDDescriptors(descriptors) {
 }
 
 /**
+ * Verifies that Reader Resource objects are valid.
+ *
+ * @param {object[]} readerResources - The Reader Resources to attach to the Book attached to a Project.
+ * @returns {boolean} True if data is valid, false otherwise.
+ */
+function validateReaderResources(readerResources) {
+  if (Array.isArray(readerResources)) {
+    if (readerResources.length === 0) {
+      return true; // unsetting Reader Resources
+    }
+    let valid = true;
+    readerResources.forEach((item) => {
+      if (!item.name || item.name.length < 1 || item.name.length > 100) {
+        valid = false;
+      }
+      if (!item.url || item.url.length < 1 || item.url.length > 2048) {
+        valid = false;
+      }
+    });
+    return valid;
+  }
+  return false;
+}
+
+/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -3576,6 +3711,15 @@ const validate = (method) => {
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         param('materialID', conductorErrors.err1).exists().isUUID(),
       ]
+    case 'getProjectBookReaderResources':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10})
+      ]
+    case 'updateProjectBookReaderResources':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10}),
+        body('readerResources', conductorErrors.err1).exists().custom(validateReaderResources)
+      ]
   }
 };
 
@@ -3620,6 +3764,8 @@ export default {
     updateProjectBookMaterialAccess,
     moveProjectBookMaterial,
     removeProjectBookMaterial,
+    getProjectBookReaderResources,
+    updateProjectBookReaderResources,
     checkProjectGeneralPermission,
     checkProjectMemberPermission,
     checkProjectAdminPermission,

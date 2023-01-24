@@ -1,0 +1,20 @@
+.table_row {
+    height: 60px;
+}
+
+.namedescrip_cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.namedescrip_title {
+    font-size: 1.1em;
+}
+
+.upload_progress_label {
+    display: block;
+    text-align: center;
+    margin-bottom: 1em;
+    font-weight: 500;
+}
