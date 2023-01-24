@@ -2,23 +2,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
 import { Button, Modal, Loader, Icon, Table, Form } from "semantic-ui-react";
-import date from "date-and-time";
+import isURL from "validator/lib/isURL";
 import useGlobalError from "../error/ErrorHooks";
-import { truncateString } from "components/util/HelperFunctions";
-import styles from "./ReaderResourcesManager.module.css";
-import * as DOMPurify from "dompurify";
 
 /**
  * Modal tool to manage the Reader Resources set for a Commons Book
  * linked to a Conductor Project.
  */
 const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
-  const TABLE_COLS = [
-    { key: "check", text: "", collapsing: true },
-    { key: "name", text: "Name", width: 8 },
-    { key: "url", text: "URL", width: 8 },
-    { key: "action", text: "", width: 5 },
-  ];
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -74,11 +65,11 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
   function validateRows() {
     let valid = true;
     const validated = resources.map((item) => {
-      if (!item.name || item.name.trim().length < 1 || item.name.length > 100) {
+      if (!item.name || item.name.trim().length < 2 || item.name.trim().length > 100) {
         valid = false;
         item.nameErr = true;
       }
-      if (!item.url || item.url.trim().length < 1 || item.url.length > 2083) {
+      if (!item.url || !isURL(item.url.trim())) {
         valid = false;
         item.urlErr = true;
       }

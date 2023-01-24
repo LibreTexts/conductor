@@ -3181,7 +3181,7 @@ async function updateProjectBookReaderResources(req, res) {
 
     return res.send({
       err: false,
-      msg: 'Successfully updated Reader Resource!',
+      msg: 'Successfully updated Reader Resources!',
     });
   } catch (e) {
     debugError(e);
@@ -3527,31 +3527,6 @@ async function validateCIDDescriptors(descriptors) {
 }
 
 /**
- * Verifies that Reader Resource objects are valid.
- *
- * @param {object[]} readerResources - The Reader Resources to attach to the Book attached to a Project.
- * @returns {boolean} True if data is valid, false otherwise.
- */
-function validateReaderResources(readerResources) {
-  if (Array.isArray(readerResources)) {
-    if (readerResources.length === 0) {
-      return true; // unsetting Reader Resources
-    }
-    let valid = true;
-    readerResources.forEach((item) => {
-      if (!item.name || item.name.length < 1 || item.name.length > 100) {
-        valid = false;
-      }
-      if (!item.url || item.url.length < 1 || item.url.length > 2048) {
-        valid = false;
-      }
-    });
-    return valid;
-  }
-  return false;
-}
-
-/**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
  */
@@ -3718,7 +3693,9 @@ const validate = (method) => {
     case 'updateProjectBookReaderResources':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10}),
-        body('readerResources', conductorErrors.err1).exists().custom(validateReaderResources)
+        body('readerResources').exists().isArray(),
+        body('readerResources.*.name').exists().trim().isLength({ min: 2, max: 100 }),
+        body('readerResources.*.url').exists().trim().isURL(),
       ]
   }
 };
