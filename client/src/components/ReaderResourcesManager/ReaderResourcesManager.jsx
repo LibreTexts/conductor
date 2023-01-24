@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
-import { Button, Modal, Loader, Icon, Table, Form } from "semantic-ui-react";
+import { Button, Form, Icon, Label, Loader, Modal, Table } from "semantic-ui-react";
 import isURL from "validator/lib/isURL";
 import useGlobalError from "../error/ErrorHooks";
 
@@ -94,8 +94,7 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
           { readerResources: resources }
         );
         if (!updateRes.data.err) {
-          setUnsaved(false);
-          onClose();
+          handleClose();
         } else {
           throw new Error(updateRes.data.errMsg);
         }
@@ -128,6 +127,9 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
       { key: crypto.randomUUID(), name: "", url: "" }, //Random key generated, will be replaced by mongo id after saving
     ];
     setResources(updated);
+    if (!unsaved) {
+      setUnsaved(true);
+    }
   }
 
   /**
@@ -152,8 +154,16 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
     }
   }
 
+  /**
+   * Resets internal state, then calls the provided close handler.
+   */
+  function handleClose() {
+    setUnsaved(false);
+    onClose();
+  }
+
   return (
-    <Modal size="fullscreen" open={show} onClose={onClose} {...props}>
+    <Modal size="fullscreen" open={show} onClose={handleClose} {...props}>
       <Modal.Header>Manage Reader Resources</Modal.Header>
       <Modal.Content scrolling>
         <p>
@@ -164,6 +174,9 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
         {!loading ? (
           <>
             <Form className="mt-1e">
+              {unsaved && (
+                <Label icon="warning sign" content="Unsaved Changes" color="yellow" />
+              )}
               <Table>
                 <Table.Header>
                   <Table.Row>
@@ -250,7 +263,7 @@ const ReaderResourcesManager = ({ projectID, show, onClose, ...props }) => {
         )}
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={onClose} color="grey">
+        <Button onClick={handleClose} color="grey">
           Cancel
         </Button>
 
