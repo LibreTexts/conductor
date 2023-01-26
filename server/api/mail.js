@@ -219,6 +219,38 @@ const sendOERIntRequestApproval = (requesterName, recipientAddress, resourceTitl
     });
 };
 
+/**
+ * Sends a standard OER Integration Request Declined notification to the requester via the Mailgun API.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {String} requesterName     - the requesting user's name (null, or 'firstName' or 'firstName lastName')
+ * @param {String} recipientAddress  - the requesting user's email
+ * @param {String} resourceTitle     - the resource's title/name
+ * @param {String} declineReason     - the reason for the request being declined
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendOERIntRequestDecline = (requesterName, recipientAddress, resourceTitle, declineReason) => {
+    let textToSend = `Hi`;
+    let htmlToSend = `<p>Hi`;
+    if (requesterName !== null) {
+        textToSend += ` ${requesterName}, `;
+        htmlToSend += ` ${requesterName},</p>`;
+    } else {
+        textToSend += ', ';
+        htmlToSend += ',</p>';
+    }
+    textToSend += `LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reason(s): ${declineReason}. If you believe this was in error or would like to discuss your request further, please contact LibreTexts at support@libretexts.org and reference the title of your resource. Sincerely, The LibreTexts team` + autoGenNoticeText;
+    htmlToSend += `<p>LibreTexts has declined your OER Integration Request for "${resourceTitle}" for the following reasons(s)</p><p><em>${declineReason}<em></p><p>If you believe this was in error or would like to discuss your request further, please contact LibreTexts at <a href='mailto:support@libretexts.org?subject=${resourceTitle}' target='_blank' rel='noopener noreferrer'>support@libretexts.org</a> and reference the title of your resource.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `LibreTexts OER Integration Request Declined`,
+        text: textToSend,
+        html: htmlToSend
+    });
+};
+
+
 
 /**
  * Sends a standard Project Flagged notification to the respective group via the Mailgun API.
@@ -709,6 +741,7 @@ export default {
     sendOERIntRequestConfirmation,
     sendOERIntRequestAdminNotif,
     sendOERIntRequestApproval,
+    sendOERIntRequestDecline,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,
     sendProjectSupportRequest,

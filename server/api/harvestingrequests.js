@@ -106,6 +106,7 @@ const addRequest = (req, res) => {
  */
 const getRequests = (req, res) => {
     try {
+        console.log(req.query)
         var sComp = String(req.query.startDate).split('-');
         var eComp = String(req.query.endDate).split('-');
         var sM, sD, sY;
@@ -123,6 +124,9 @@ const getRequests = (req, res) => {
             start.setHours(0,0,0,0);
             var end = new Date(eY, eM, eD);
             end.setHours(23,59,59,999);
+            let statusArray = ['open'];
+            if (req.query.includeDeclined) statusArray = ['open', 'declined'];
+
             HarvestingRequest.aggregate([
                 {
                     $match: {
@@ -133,7 +137,7 @@ const getRequests = (req, res) => {
                                     $lte: end
                                 },
                             }, {
-                                status: 'open'
+                                status: { $in: statusArray}
                             }
                         ]
                     }
@@ -199,6 +203,61 @@ const deleteRequest = (req, res) => {
         });
     });
 };
+
+/**
+ * Declines the HarvestingRequest identified by the requestID in
+ * the request body.
+ * NOTE: This function should only be called AFTER
+ *  the validation chain.
+ * VALIDATION: 'declineRequest'
+ */
+const declineRequest = (req, res) => {
+    let harvestReq = {}
+    HarvestingRequest.updateOne({
+        _id: req.body.requestID
+    }, {
+        status: 'declined',
+        declineReason: req.body.declineReason
+    }).then((declineRes) => {
+        if (declineRes.modifiedCount === 1) {
+            return HarvestingRequest.findOne({_id: req.body.requestID})                
+        } else {
+            throw(new Error('declinefail'))
+        }
+    }).then((harvestData) => {
+        harvestReq = harvestData;
+        if (harvestReq.submitter && uuidValidate(harvestReq.submitter) && harvestReq.submitter !== req.decoded.uuid) {
+            return User.findOne({
+                uuid: harvestReq.submitter
+            });
+        } else {
+            return {};
+        }
+    }).then((userData) => {
+        let requesterName = null;
+        if (userData && Object.keys(userData).length > 0) {
+            if (userData.firstName && !isEmptyString(userData.firstName)) {
+                requesterName = userData.firstName;
+            }
+        } else if (harvestReq.name && !isEmptyString(harvestReq.name)) {
+            requesterName = harvestReq.name;
+        }
+        return mailAPI.sendOERIntRequestDecline(requesterName, harvestReq.email, harvestReq.title, harvestReq.declineReason);
+    }).then(() => {
+        // ignore return value of Mailgun call
+        return res.send({
+            err: false,
+            msg: 'OER Integration Request declined.'
+        });
+    }).catch((err) => {
+        let errMsg = conductorErrors.err6;
+        if (err.msg === 'deletefail') errMsg = conductorErrors.err3;
+        return res.send({
+            err: true,
+            errMsg: errMsg
+        });
+    })
+}
 
 
 /**
@@ -334,11 +393,17 @@ const validate = (method) => {
         case 'getRequests':
             return [
                 query('startDate', conductorErrors.err1).exists().custom(threePartDateStringValidator),
-                query('endDate', conductorErrors.err1).exists().custom(threePartDateStringValidator)
+                query('endDate', conductorErrors.err1).exists().custom(threePartDateStringValidator),
+                query('includeDeclined', conductorErrors.err1).exists().isBoolean().toBoolean()
             ]
         case 'deleteRequest':
             return [
                 body('requestID', conductorErrors.err1).exists().isMongoId()
+            ]
+        case 'declineRequest':
+            return [
+                body('requestID', conductorErrors.err1).exists().isMongoId(),
+                body('declineReason', conductorErrors.err1).exists().isLength({min: 1, max: 300})
             ]
         case 'convertRequest':
             return [
@@ -351,6 +416,7 @@ export default {
     addRequest,
     getRequests,
     deleteRequest,
+    declineRequest,
     convertRequest,
     validate
 }
