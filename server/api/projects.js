@@ -1239,24 +1239,37 @@ async function addMemberToProject(req, res) {
         errMsg: conductorErrors.err7,
       });
     }
-  
-    const updateRes = await Project.updateOne({
+
+    await Project.updateOne({
       projectID,
     }, {
       $addToSet: {
         members: uuid,
       }
+    }).then((updatedRes) => {
+      if (updatedRes.modifiedCount !== 1) {
+        throw (new Error('Project update failed.'));
+      }
+      return Project.findOne({projectID})
+    }).then((projectRes) => {
+      if(!projectRes) throw (new Error('Error finding updated project.'))
+      return User.find({'uuid': {$in: projectRes.members}}, '-_id email')
+    }).then((memberRes) => {
+      if(!memberRes) throw (new Error('Error finding updated members.'))
+      let memberEmails = []
+      for (const member of memberRes){
+        memberEmails.push(member.email)
+      }
+      return memberEmails;
+    }).then((memberEmails) => { 
+      mailAPI.sendAddedAsMemberNotification(
+        user.firstName,
+        memberEmails,
+        projectID,
+        project.title,
+    )}).catch((e) => {
+      throw new Error (e)
     });
-    if (updateRes.modifiedCount !== 1) {
-      throw (new Error('Project update failed.'));
-    }
-  
-    mailAPI.sendAddedAsMemberNotification(
-      user.email,
-      user.firstName,
-      projectID,
-      project.title,
-    ).catch((e) => debugError(e));
   
     return res.send({
       err: false,
