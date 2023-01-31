@@ -215,6 +215,16 @@ router.route('/harvestingrequest')
     harvestingRequestsAPI.deleteRequest,
   );
 
+router.route('/harvestingrequest/decline').patch(
+  middleware.checkLibreCommons,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  harvestingRequestsAPI.validate('declineRequest'),
+  middleware.checkValidationErrors,
+  harvestingRequestsAPI.declineRequest
+);
+
 router.route('/harvestingrequest/convert').post(
   middleware.checkLibreCommons,
   authAPI.verifyRequest,

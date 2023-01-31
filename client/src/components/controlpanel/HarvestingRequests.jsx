@@ -12,7 +12,9 @@ import {
   Dropdown,
   Breadcrumb,
   Icon,
-  Checkbox
+  Checkbox,
+  FormInput,
+  TextArea
 } from 'semantic-ui-react';
 import React, { useEffect, useState, forwardRef, useCallback } from 'react';
 import { useSelector } from 'react-redux';
@@ -25,7 +27,8 @@ import DateInput from '../DateInput';
 
 import {
     isEmptyString,
-    normalizeURL
+    normalizeURL,
+    capitalizeFirstLetter
 } from '../util/HelperFunctions.js';
 import {
     getLibGlyphURL,
@@ -67,10 +70,16 @@ const HarvestingRequests = (props) => {
     const [toDate, setToDate] = useState(new Date());
     const [showHRVModal, setShowHRVModal] = useState(false);
     const [sortChoice, setSortChoice] = useState('date');
+    const [includeDeclined, setIncludeDeclined] = useState(false);
 
     // Confirm Deletion Modal
     const [showDelModal, setShowDelModal] = useState(false);
     const [delRequestLoading, setDelRequestLoading] = useState(false);
+
+    // Confirm Decline Modal
+    const [showDeclineModal, setShowDeclineModal] = useState(false);
+    const [declineRequestLoading, setDeclineRequestLoading] = useState(false);
+    const [declineReason, setDeclineReason] = useState('');
 
     // Convert Project Modal
     const [showConvertModal, setShowConvertModal] = useState(false);
@@ -83,7 +92,8 @@ const HarvestingRequests = (props) => {
         { key: 'resname', text: 'Resource Title', value: 'resname' },
         { key: 'reslib', text: 'Resource Library', value: 'reslib' },
         { key: 'license', text: 'License', value: 'license' },
-        { key: 'institution', text: 'Institution', value: 'institution' }
+        { key: 'institution', text: 'Institution', value: 'institution' },
+        { key: 'status', text: 'Status', value: 'status'}
     ];
 
     useEffect(() => {
@@ -98,7 +108,8 @@ const HarvestingRequests = (props) => {
         axios.get('/harvestingrequests', {
             params: {
                 startDate: fromDateString,
-                endDate: toDateString
+                endDate: toDateString,
+                includeDeclined: includeDeclined
             }
         }).then((res) => {
             if (!res.data.err) {
@@ -110,16 +121,16 @@ const HarvestingRequests = (props) => {
         }).catch((err) => {
             handleGlobalError(err);
         });
-    }, [fromDate, toDate, handleGlobalError]);
+    }, [fromDate, toDate, includeDeclined, handleGlobalError]);
 
     /**
-     * Get request whenever date range changes
+     * Get request whenever search params change
      */
     useEffect(() => {
         if (fromDate !== null && toDate !== null) {
             getHarvestingRequests();
         }
-    }, [fromDate, toDate, getHarvestingRequests])
+    }, [fromDate, toDate, includeDeclined, getHarvestingRequests])
 
     useEffect(() => {
         var sorted = [];
@@ -198,6 +209,17 @@ const HarvestingRequests = (props) => {
                     return 0;
                 });
                 break;
+            case 'status':
+                sorted = [...harvestingRequests].sort((a, b) => {
+                    if (a.status < b.status) {
+                        return -1;
+                    }
+                    if (a.status > b.status) {
+                        return 1;
+                    }
+                    return 0;
+                });
+                break;
             default:
                 break; // Silence React Warning
         }
@@ -262,6 +284,40 @@ const HarvestingRequests = (props) => {
             }).catch((err) => {
                 handleGlobalError(err);
                 setDelRequestLoading(false);
+            });
+        }
+    };
+
+    const openDeclineModal = () => {
+        setDeclineRequestLoading(false);
+        setShowDeclineModal(true);
+    };
+
+    const closeDeclineModal = () => {
+        setDeclineRequestLoading(false);
+        setDeclineReason('');
+        setShowDeclineModal(false);
+    };
+
+    const submitDeclineRequest = () => {
+        if (currentRequest._id) {
+            setDeclineRequestLoading(true);
+            axios.patch('/harvestingrequest/decline', {
+                requestID: currentRequest._id,
+                declineReason: declineReason
+            }).then((res) => {
+                if (!res.data.err) {
+                    getHarvestingRequests();
+                    setDeclineReason('')
+                    closeDeclineModal();
+                    closeHRVModal();
+                } else {
+                    handleGlobalError(res.data.errMsg);
+                    setDeclineRequestLoading(false);
+                }
+            }).catch((err) => {
+                handleGlobalError(err);
+                setDeclineRequestLoading(false);
             });
         }
     };
@@ -367,20 +423,30 @@ const HarvestingRequests = (props) => {
                                     inlineLabel={true}
                                     className='mr-2p'
                                 />
-                                <Form>
-                                    <Form.Field inline>
-                                        <label>Sort by</label>
-                                        <Dropdown
-                                            placeholder='Sort by...'
-                                            floating
-                                            selection
-                                            button
-                                            options={sortOptions}
-                                            onChange={(e, { value }) => { setSortChoice(value) }}
-                                            value={sortChoice}
-                                        />
-                                    </Form.Field>
-                                </Form>
+                                <Form className='mt-1p'>
+                                    <Form.Group inline>
+                                        <Form.Field inline>
+                                            <label>Sort by</label>
+                                            <Dropdown
+                                                placeholder='Sort by...'
+                                                floating
+                                                selection
+                                                button
+                                                options={sortOptions}
+                                                onChange={(e, { value }) => { setSortChoice(value) }}
+                                                value={sortChoice}
+                                            />
+                                        </Form.Field>
+
+                                        <Form.Field>
+                                            <Checkbox
+                                                checked={includeDeclined}
+                                                onChange={() => setIncludeDeclined((prev) => !prev)}
+                                                label='Include Declined'
+                                            />
+                                        </Form.Field>
+                                    </Form.Group>
+                                    </Form>
                             </div>
                         </Segment>
                         <Segment>
@@ -424,6 +490,12 @@ const HarvestingRequests = (props) => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
+                                            {(sortChoice === 'status')
+                                                ? <span><em>Status</em></span>
+                                                : <span>Status</span>
+                                            }
+                                        </Table.HeaderCell>
+                                        <Table.HeaderCell>
                                             <span>Name</span>
                                         </Table.HeaderCell>
                                     </Table.Row>
@@ -455,6 +527,9 @@ const HarvestingRequests = (props) => {
                                                         <span>{item.institution}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
+                                                        <span>{capitalizeFirstLetter(item.status)}</span>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
                                                         <span>{item.name}</span>
                                                     </Table.Cell>
                                                 </Table.Row>
@@ -477,7 +552,7 @@ const HarvestingRequests = (props) => {
                         onClose={closeHRVModal}
                         open={showHRVModal}
                     >
-                        <Modal.Header>View Harvesting Request — <em>{parseDateAndTime(currentRequest.createdAt)}</em></Modal.Header>
+                        <Modal.Header>View Harvesting Request — <em>{parseDateAndTime(currentRequest.createdAt)}</em>{currentRequest.status ? ` - ${capitalizeFirstLetter(currentRequest.status)}` : ''}</Modal.Header>
                         <Modal.Content scrolling>
                             <Grid divided='vertically'>
                                 <Grid.Row columns={3}>
@@ -559,7 +634,7 @@ const HarvestingRequests = (props) => {
                         </Modal.Content>
                         <Modal.Actions>
                             <div className='flex-row-div'>
-                                {user.isSuperAdmin &&
+                                {user.isSuperAdmin && 
                                     <div className='ui left-flex'>
                                         <Button
                                             color='red'
@@ -568,17 +643,28 @@ const HarvestingRequests = (props) => {
                                             <Icon name='trash' />
                                             Delete
                                         </Button>
+                                        {currentRequest.status === 'open' && 
+                                            (<Button
+                                                color='orange'
+                                                onClick={openDeclineModal}
+                                            >
+                                                <Icon name='cancel' />
+                                                Decline
+                                            </Button>
+                                        )}
                                     </div>
                                 }
-                                <div className='ui center-flex'>
-                                    <Button
-                                        color='green'
-                                        onClick={openConvertModal}
-                                    >
-                                        <Icon name='share' />
-                                        Convert to Project
-                                    </Button>
-                                </div>
+                                {currentRequest.status === 'open' &&
+                                    (<div className='ui center-flex'>
+                                        <Button
+                                            color='green'
+                                            onClick={openConvertModal}
+                                        >
+                                            <Icon name='share' />
+                                            Convert to Project
+                                        </Button>
+                                    </div>)
+                                }
                                 <div className='ui right-flex'>
                                     <Button
                                         color='blue'
@@ -642,6 +728,39 @@ const HarvestingRequests = (props) => {
                             >
                                 <Icon name='share' />
                                 Convert to Project
+                            </Button>
+                        </Modal.Actions>
+                    </Modal>
+                    {/* Confirm Decline Modal */}
+                    <Modal
+                        open={showDeclineModal}
+                        onClose={closeDeclineModal}
+                    >
+                        <Modal.Header>Confirm Request Decline</Modal.Header>
+                        <Modal.Content>
+                            <p>Are you sure you want to decline this request? The requester will be notified via email with the following reason: </p>
+                            <Form>
+                            <TextArea
+                            value={declineReason}
+                            onChange={(e) => setDeclineReason(e.target.value)}
+                            placeholder="Reason for declining request (limit 300 chars)..."
+                            maxLength="300"
+                            />
+                            </Form>
+                        </Modal.Content>
+                        <Modal.Actions>
+                            <Button
+                                onClick={closeDeclineModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color='orange'
+                                loading={declineRequestLoading}
+                                onClick={submitDeclineRequest}
+                            >
+                                <Icon name='cancel' />
+                                Decline
                             </Button>
                         </Modal.Actions>
                     </Modal>

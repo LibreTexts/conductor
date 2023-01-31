@@ -12,7 +12,7 @@ const HarvestingRequestSchema = new mongoose.Schema({
     status: {
         type: String,
         required: true,
-        default: 'open'     // request status, one of: ['open', 'converted']
+        default: 'open'     // request status, one of: ['open', 'converted', 'declined']
     },
     library: {
         type: String,
@@ -29,7 +29,8 @@ const HarvestingRequestSchema = new mongoose.Schema({
     dateIntegrate: Date,
     comments: String,
     submitter: String,      // user's uuid if submitter was authenticated,
-    addToProject: Boolean   // if user was authenticated, choice to be added to project team upon conversion
+    addToProject: Boolean,   // if user was authenticated, choice to be added to project team upon conversion
+    declineReason: String // reason if request was declined by admin
 }, {
     timestamps: true
 });
