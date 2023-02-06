@@ -391,10 +391,8 @@
     align-items: center;
 }
 
-.task-more-div {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+.task-actions-div {
+    text-align: center;
 }
 
 .task-view-header-crumbs {
