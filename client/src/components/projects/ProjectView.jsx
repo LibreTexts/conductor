@@ -2488,6 +2488,18 @@ const ProjectView = (props) => {
                                               }
                                             </div>
                                             <Popup
+                                              content={<span className='color-semanticred'><em>Delete Task</em></span>}
+                                              trigger={
+                                                <Button
+                                                  icon='trash'
+                                                  color='red'
+                                                  onClick={() => openDeleteTaskModal(item.taskID)}
+                                                  disabled={!userProjectMember}
+                                                />
+                                              }
+                                              position='top center'
+                                            />
+                                            <Popup
                                               content='Add Subtask'
                                               trigger={
                                                 <Button
@@ -2550,6 +2562,18 @@ const ProjectView = (props) => {
                                                             }))
                                                           }
                                                         </div>
+                                                        <Popup
+                                                          content={<span className='color-semanticred'><em>Delete Subtask</em></span>}
+                                                          trigger={
+                                                            <Button
+                                                              icon='trash'
+                                                              color='red'
+                                                              onClick={() => openDeleteTaskModal(subtask.taskID)}
+                                                              disabled={!userProjectMember}
+                                                            />
+                                                          }
+                                                          position='top center'
+                                                        />
                                                         <Popup
                                                           content='View Subtask'
                                                           trigger={
@@ -3233,30 +3257,38 @@ const ProjectView = (props) => {
                       />
                     </div>
                   </div>
-                  <div className='task-more-div'>
-                    <Dropdown
-                      className='button blue'
-                      floating
-                      text='More'
-                      direction='left'
-                    >
-                      <Dropdown.Menu>
-                        <Dropdown.Item
-                          onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}
-                          disabled={!userProjectMember}
-                        >
-                          <Icon name='edit' />
-                          Edit Task
-                        </Dropdown.Item>
-                        <Dropdown.Item
-                          onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
-                          disabled={!userProjectMember}
-                        >
-                          <Icon name='trash' />
-                          Delete Task
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
+                  <div className='task-actions-div'>
+                  <Header sub>Actions</Header>
+                    <div className='flex-row-div left-flex'>
+                      <Popup
+                        key='edit-task'
+                        trigger={
+                          <Button
+                            size='tiny'
+                            icon='pencil'
+                            color='blue'
+                            onClick={() => openManageTaskModal('edit', viewTaskData.taskID)}
+                            disabled={!userProjectMember}
+                          />
+                        }
+                        header={<span><em>Edit Task</em></span>}
+                        position='top center'
+                      />
+                      <Popup
+                        key='delete-task'
+                        trigger={
+                          <Button
+                            size='tiny'
+                            icon='trash'
+                            color='red'
+                            onClick={() => openDeleteTaskModal(viewTaskData.taskID)}
+                            disabled={!userProjectMember}
+                          />
+                        }
+                        header={<span className='color-semanticred'><em>Delete Task</em></span>}
+                        position='top center'
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className='flex-row-div' id='project-task-page'>
