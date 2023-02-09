@@ -7,10 +7,51 @@
 'use strict';
 import express from 'express';
 import { body, param } from 'express-validator';
+import multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization from '../models/organization.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 import authAPI from './auth.js';
+
+const assetStorage = multer.memoryStorage();
+
+/**
+ * Returns a Multer handler to process and validate organization brand asset uploads.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next function run in the middleware chain.
+ * @returns {function} The asset upload handler.
+ */
+function assetUploadHandler(req, res, next) {
+  const assetUploadConfig = multer({
+    storage: assetStorage,
+    fileFilter: (_req, file, cb) => {
+      if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+        return cb(null, false);
+      }
+      return cb(null, true);
+    },
+    limits: {
+      files: 1,
+      fileSize: 5242880,
+    },
+  }).single('assetFile');
+  return assetUploadConfig(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        errMsg = conductorErrors.err79;
+      }
+      return res.send({
+        errMsg,
+        err: true,
+      });
+    }
+    next();
+  });
+}
 
 /**
  * Attempts to retrieve basic information about an Organization given its identifier.
@@ -167,10 +208,6 @@ async function updateOrganizationInfo(req, res) {
       }
     };
 
-    addToUpdateIfPresent('coverPhoto');
-    addToUpdateIfPresent('largeLogo');
-    addToUpdateIfPresent('mediumLogo');
-    addToUpdateIfPresent('smallLogo');
     addToUpdateIfPresent('aboutLink');
     addToUpdateIfPresent('commonsHeader');
     addToUpdateIfPresent('commonsMessage');
@@ -218,6 +255,102 @@ async function updateOrganizationInfo(req, res) {
 }
 
 /**
+ * Uploads a branding asset image to S3 and updates the specified Organization's record.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function updateBrandingImageAsset(req, res) {
+  try {
+    const { orgID, assetName } = req.params;
+
+    if (typeof (req.file) !== 'object') {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const org = await Organization.findOne({ orgID }).lean();
+    if (!org) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const fileExtension = req.file.mimetype?.split('/')[1];
+    const fileKey = `assets/${orgID}_${assetName}.${fileExtension}`;
+    if (typeof (fileExtension) !== 'string') {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+    
+    let assetVersion = 1;
+    if (org[assetName].includes(process.env.AWS_ORGDATA_DOMAIN)) {
+      const assetURLSplit = org[assetName].split('?v=');
+      if (Array.isArray(assetURLSplit) && assetURLSplit.length > 1) {
+        const currAssetVersion = Number.parseInt(assetURLSplit[1]);
+        if (!Number.isNaN(currAssetVersion)) {
+          assetVersion = currAssetVersion + 1;
+        }
+      }
+    }
+
+    const storageClient = new S3Client({
+      credentials: {
+        accessKeyId: process.env.AWS_ORGDATA_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_ORGDATA_SECRET_KEY,
+      },
+      region: process.env.AWS_ORGDATA_REGION,
+    });
+    const uploadCommand = new PutObjectCommand({
+      Bucket: process.env.AWS_ORGDATA_BUCKET,
+      Key: fileKey,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    });
+    const uploadResponse = await storageClient.send(uploadCommand);
+    if (uploadResponse['$metadata']?.httpStatusCode !== 200) {
+      throw new Error('Error uploading asset to S3');
+    }
+    const assetURL = `https://${process.env.AWS_ORGDATA_DOMAIN}/${fileKey}?v=${assetVersion}`;
+
+    const updateRes = await Organization.updateOne({ orgID }, {
+      [assetName]: assetURL,
+    });
+    if (updateRes.modifiedCount !== 1) {
+      throw new Error('Failed to update Organization');
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully updated branding asset.',
+      url: assetURL,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Validates the provided branding asset image name against the list of allowed image fields.
+ *
+ * @param {string} assetName - The name of the asset field to update.
+ * @returns {boolean} True if asset type is valid, false otherwise.
+ */
+function validateBrandingAssetName(assetName) {
+  const assetFields = ['coverPhoto', 'largeLogo', 'mediumLogo', 'smallLogo'];
+  return assetFields.includes(assetName);
+}
+
+/**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  *
  * @param {string} method - Method name to validate request for.
@@ -231,24 +364,27 @@ function validate(method) {
     case 'updateinfo':
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
-        body('coverPhoto', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 2 }),
-        body('largeLogo', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 2 }),
-        body('mediumLogo', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 2 }),
-        body('smallLogo', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 2 }),
         body('aboutLink', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
         body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
         body('mainColor', conductorErrors.err1).optional({ checkFalsy: true }).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
       ];
+    case 'updateBrandingImageAsset':
+      return [
+        param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
+        param('assetName', conductorErrors.err1).exists().isString().custom(validateBrandingAssetName),
+      ];
   }
 }
 
 export default {
-    getOrganizationInfo,
-    getCurrentOrganization,
-    getAllOrganizations,
-    getLibreGridOrganizations,
-    updateOrganizationInfo,
-    validate
+  assetUploadHandler,
+  getOrganizationInfo,
+  getCurrentOrganization,
+  getAllOrganizations,
+  getLibreGridOrganizations,
+  updateOrganizationInfo,
+  updateBrandingImageAsset,
+  validate
 }

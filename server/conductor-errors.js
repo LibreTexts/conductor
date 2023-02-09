@@ -73,6 +73,7 @@ const conductorErrors = {
     'err76': "Provided Textbook URL is invalid, private, or not a book coverpage.",
     'err77': "Provided ADAPT Analytics Sharing Key is invalid.",
     'err78': "Course end date cannot be before start date.",
+    'err79': "Oops, branding asset files must be smaller than 5 MB.",
 };
 
 export default conductorErrors;

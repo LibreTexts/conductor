@@ -148,6 +148,16 @@ router.route('/org/:orgID')
     orgsAPI.updateOrganizationInfo,
   );
 
+router.route('/org/:orgID/branding-images/:assetName').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  orgsAPI.validate('updateBrandingImageAsset'),
+  middleware.checkValidationErrors,
+  orgsAPI.assetUploadHandler,
+  orgsAPI.updateBrandingImageAsset,
+);
+
 
 /* Adoption Reports */
 // (submission route can be anonymous)
