@@ -54,6 +54,7 @@ const OrganizationsManager = () => {
   const [editOrgAboutLinkErr, setEditOrgAboutLinkErr] = useState(false);
   const [editOrgCommonsHeader, setEditOrgCommonsHeader] = useState('');
   const [editOrgCommonsMessage, setEditOrgCommonsMessage] = useState('');
+  const [editOrgCatalogMatchingTags, setEditOrgCatalogMatchingTags] = useState([]);
   const [editOrgLoading, setEditOrgLoading] = useState(false);
 
   // Asset Uploads
@@ -191,32 +192,36 @@ const OrganizationsManager = () => {
    * request to the server, then re-sync
    * Organizations info.
    */
-  function saveChanges() {
+  async function saveChanges() {
     resetFormErrors();
     if (validateForm()) {
       setEditOrgLoading(true);
-      var newData = {};
+      let newData = {
+        catalogMatchingTags: editOrgCatalogMatchingTags.reduce((acc, curr) => {
+          if (curr.value && !acc.includes(curr.value)) {
+            acc.push(curr.value);
+          }
+          return acc;
+        }, []),
+      };
       if (editOrgOriginalData.aboutLink !== editOrgAboutLink) newData.aboutLink = editOrgAboutLink;
       if (editOrgOriginalData.commonsHeader !== editOrgCommonsHeader) newData.commonsHeader = editOrgCommonsHeader;
       if (editOrgOriginalData.commonsMessage !== editOrgCommonsMessage) newData.commonsMessage = editOrgCommonsMessage;
       if (editOrgID !== 'libretexts' && editOrgOriginalData.addToLibreGridList !== editOrgAddToGrid) {
         newData.addToLibreGridList = editOrgAddToGrid;
       }
-      if (Object.keys(newData).length > 0) {
-        axios.put(`/org/${editOrgID}`, newData).then((res) => {
-          if (!res.data.err) {
-            closeEditOrgModal();
-            getOrganizations();
-          } else {
-            handleGlobalError(res.data.errMsg);
-            setEditOrgLoading(false);
-          }
-        }).catch((err) => {
-          handleGlobalError(err);
+      try {
+        const res = await axios.put(`/org/${editOrgID}`, newData);
+        if (!res.data.err) {
+          closeEditOrgModal();
+          getOrganizations();
+        } else {
+          handleGlobalError(res.data.errMsg);
           setEditOrgLoading(false);
-        });
-      } else {
-        closeEditOrgModal();
+        }
+      } catch (err) {
+        handleGlobalError(err);
+        setEditOrgLoading(false);
       }
     }
   };
@@ -241,6 +246,12 @@ const OrganizationsManager = () => {
     if (orgData.commonsHeader) setEditOrgCommonsHeader(orgData.commonsHeader);
     if (orgData.commonsMessage) setEditOrgCommonsMessage(orgData.commonsMessage);
     if (orgData.addToLibreGridList) setEditOrgAddToGrid(orgData.addToLibreGridList);
+    if (Array.isArray(orgData.catalogMatchingTags) && orgData.catalogMatchingTags.length > 0) {
+      setEditOrgCatalogMatchingTags(orgData.catalogMatchingTags.map((tag) => ({
+        key: crypto.randomUUID(),
+        value: tag,
+      })));
+    }
     setShowEditOrgModal(true);
   };
 
@@ -262,6 +273,7 @@ const OrganizationsManager = () => {
     setEditOrgAboutLink('');
     setEditOrgCommonsHeader('');
     setEditOrgCommonsMessage('');
+    setEditOrgCatalogMatchingTags([]);
     setEditOrgLoading(false);
     setCoverPhotoLoading(false);
     setCoverPhotoUploaded(false);
@@ -418,6 +430,27 @@ const OrganizationsManager = () => {
     uploadingStateUpdater(false);
   }
 
+  function handleCatalogMatchTagAdd() {
+    setEditOrgCatalogMatchingTags((prev) => [...prev, { key: crypto.randomUUID(), value: '' }]);
+  }
+
+  function handleCatalogMatchTagEdit(e) {
+    const rowID = e.target.id.split('.')[1];
+    setEditOrgCatalogMatchingTags((prev) => prev.map((item) => {
+      if (rowID === item.key) {
+        return {
+          ...item,
+          value: e.target.value,
+        };
+      }
+      return item;
+    }));
+  }
+
+  function handleCatalogMatchTagDelete(key) {
+    setEditOrgCatalogMatchingTags((prev) => prev.filter((item) => item.key !== key));
+  }
+
   return (
     <Grid className='controlpanel-container' divided='vertically'>
       <Grid.Row>
@@ -558,6 +591,66 @@ const OrganizationsManager = () => {
                     checked={editOrgAddToGrid}
                   />
                 </Form.Field>
+                <Divider />
+                <h4>Commons Catalog Settings</h4>
+                <label htmlFor="bookMatchingTagsTable" className="form-field-label mt-1r">Catalog Matching Tags</label>
+                <p>
+                  {`Use Catalog Matching Tags to customize the Book results that appear in the Campus Commons catalog: 
+                  if a tag entered here is present in a Book's tags, the Book will automatically be included in the potential catalog search results.`}
+                </p>
+                <Table id="catalogMatchingTagsTable" className="mb-2r">
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.HeaderCell scope="col">Tag</Table.HeaderCell>
+                      <Table.HeaderCell scope="col" collapsing>Actions</Table.HeaderCell>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {editOrgCatalogMatchingTags.map((item) => (
+                      <Table.Row key={item.key}>
+                        <Table.Cell>
+                          <Input
+                            key={item.key}
+                            type="text"
+                            id={`value.${item.key}`}
+                            value={item.value}
+                            onChange={handleCatalogMatchTagEdit}
+                            fluid
+                          />
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Button
+                            icon="remove circle"
+                            color="red"
+                            onClick={() => handleCatalogMatchTagDelete(item.key)}
+                          />
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                    {editOrgCatalogMatchingTags.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={2}>
+                          <p className="muted-text text-center">No entries yet</p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                  <Table.Footer fullWidth>
+                    <Table.Row>
+                      <Table.HeaderCell colSpan={2}>
+                        <Button
+                          onClick={handleCatalogMatchTagAdd}
+                          color="blue"
+                          icon
+                          labelPosition="left"
+                        >
+                          <Icon name="add circle" />
+                          Add Tag
+                        </Button>
+                      </Table.HeaderCell>
+                    </Table.Row>
+                  </Table.Footer>
+                </Table>
                 <Divider />
                 <h4>Branding Images</h4>
                 <Form.Field required className="mt-1p">

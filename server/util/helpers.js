@@ -101,11 +101,7 @@ export const threePartDateStringToDate = (value) => {
  */
 export const ensureUniqueStringArray = (arr) => {
     if (Array.isArray(arr)) {
-        let uniqueValues = [];
-        arr.forEach((item) => {
-            if (!uniqueValues.includes(item)) uniqueValues.push(item);
-        });
-        return uniqueValues;
+        return Array.from(new Set(arr.filter((item) => item))); // filter empty strings
     }
     return [];
 };

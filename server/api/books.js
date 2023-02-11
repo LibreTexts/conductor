@@ -810,7 +810,6 @@ async function getCommonsCatalog(req, res) {
     }
 
     if (orgID !== 'libretexts' && !cidFilter) {
-      let hasCustomEntries = false;
       const orgData = await Organization.findOne({ orgID }, {
         _id: 0,
         orgID: 1,
@@ -818,19 +817,22 @@ async function getCommonsCatalog(req, res) {
         shortName: 1,
         abbreviation: 1,
         aliases: 1,
+        catalogMatchingTags: 1,
       }).lean();
       const customCatalog = await CustomCatalog.findOne({ orgID }, {
         _id: 0,
         orgID: 1,
         resources: 1,
       }).lean();
-      if (
+      const hasCustomEntries = (
         customCatalog
         && Array.isArray(customCatalog.resources)
         && customCatalog.resources.length > 0
-      ) {
-        hasCustomEntries = true;
-      }
+      );;
+      const hasCatalogMatchingTags = (
+        Array.isArray(orgData.catalogMatchingTags)
+        && orgData.catalogMatchingTags.length > 0
+      );
 
       const campusNames = buildOrganizationNamesList(orgData);
       if (searchOptions.course) {
@@ -843,34 +845,44 @@ async function getCommonsCatalog(req, res) {
       institutionOptions.push({ course: { $in: campusNames } });
       institutionOptions.push({ publisher: { $in: campusNames } });
 
-      if (hasCustomEntries) {
+      if (hasCustomEntries || hasCatalogMatchingTags) {
         // remove location filter to allow custom entries
         const customSearchOptionsArr = searchOptionsArr.filter((obj) => !obj.location);
 
+        let searchAreaObj = {};
         let customSearchObj = {};
         const idMatchObj = { bookID: { $in: customCatalog.resources }};
+        const tagMatchObj = { libraryTags: { $in: orgData.catalogMatchingTags } };
+        if (hasCustomEntries && hasCatalogMatchingTags) {
+          searchAreaObj = { $or: [idMatchObj, tagMatchObj] };
+        } else if (hasCustomEntries) {
+          searchAreaObj = idMatchObj;
+        } else {
+          searchAreaObj = tagMatchObj;
+        }
+        
         if (customSearchOptionsArr.length > 0 && textSearchTerm) {
           customSearchObj = {
             $text: { $search: textSearchTerm },
             $and: [
               ...customSearchOptionsArr,
-              idMatchObj,
+              searchAreaObj,
             ],
           };
         } else if (customSearchOptionsArr.length > 0) {
           customSearchObj = {
             $and: [
               ...customSearchOptionsArr,
-              idMatchObj,
+              searchAreaObj,
             ],
           };
         } else if (textSearchTerm) {
           customSearchObj = {
-            ...idMatchObj,
+            ...searchAreaObj,
             $text: { $search: textSearchTerm },
           };
         } else {
-          customSearchObj = idMatchObj;
+          customSearchObj = searchAreaObj;
         }
 
         searchQueries.push(Book.aggregate([

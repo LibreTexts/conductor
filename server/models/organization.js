@@ -80,7 +80,11 @@ const OrganizationSchema = new mongoose.Schema({
    * Indicates the Organization's Conductor instance should be listed in the
    * publicly-accessible list of Campus Commons.
    */
-  addToLibreGridList: Boolean, 
+  addToLibreGridList: Boolean,
+  /**
+   * Tags on LibreTexts books used to associate them with the organization.
+   */
+  catalogMatchingTags: [String],
 }, {
   timestamps: true
 });
