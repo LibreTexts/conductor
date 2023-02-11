@@ -4,13 +4,139 @@
 //
 
 'use strict';
-import { body, query } from 'express-validator';
+import { body, query, param } from 'express-validator';
 import b62 from 'base62-random';
 import Collection from '../models/collection.js';
 import conductorErrors from '../conductor-errors.js';
 import { isEmptyString, ensureUniqueStringArray } from '../util/helpers.js';
 import { debugError } from '../debug.js';
 import { checkBookIDFormat } from '../util/bookutils.js';
+import multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const assetStorage = multer.memoryStorage();
+
+/**
+ * Returns a Multer handler to process and validate collection image asset uploads.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next function run in the middleware chain.
+ * @returns {function} The asset upload handler.
+ */
+function assetUploadHandler(req, res, next) {
+  const assetUploadConfig = multer({
+    storage: assetStorage,
+    fileFilter: (_req, file, cb) => {
+      if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+        return cb(null, false);
+      }
+      return cb(null, true);
+    },
+    limits: {
+      files: 1,
+      fileSize: 5242880,
+    },
+  }).single('assetFile');
+  return assetUploadConfig(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        errMsg = conductorErrors.err79;
+      }
+      return res.send({
+        errMsg,
+        err: true,
+      });
+    }
+    next();
+  });
+}
+
+/**
+ * Uploads a collection asset image to S3 and updates the specified Collection's record.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function updateCollectionImageAsset(req, res) {
+    try {
+      const { collID, assetName } = req.params;
+  
+      if (typeof (req.file) !== 'object') {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+  
+      const coll = await Collection.findOne({ collID }).lean();
+      if (!coll) {
+        return res.status(404).send({
+          err: true,
+          errMsg: conductorErrors.err11,
+        });
+      }
+  
+      const fileExtension = req.file.mimetype?.split('/')[1];
+      const fileKey = `assets/${collID}_${assetName}.${fileExtension}`;
+      if (typeof (fileExtension) !== 'string') {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err2,
+        });
+      }
+      
+      let assetVersion = 1;
+      if (coll[assetName].includes(process.env.AWS_COLLECTIONDATA_DOMAIN)) {
+        const assetURLSplit = coll[assetName].split('?v=');
+        if (Array.isArray(assetURLSplit) && assetURLSplit.length > 1) {
+          const currAssetVersion = Number.parseInt(assetURLSplit[1]);
+          if (!Number.isNaN(currAssetVersion)) {
+            assetVersion = currAssetVersion + 1;
+          }
+        }
+      }
+  
+      const storageClient = new S3Client({
+        credentials: {
+          accessKeyId: process.env.AWS_COLLECTIONDATA_ACCESS_KEY,
+          secretAccessKey: process.env.AWS_COLLECTIONDATA_SECRET_KEY,
+        },
+        region: process.env.AWS_COLLECTIONDATA_REGION,
+      });
+      const uploadCommand = new PutObjectCommand({
+        Bucket: process.env.AWS_COLLECTIONDATA_BUCKET,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      });
+      const uploadResponse = await storageClient.send(uploadCommand);
+      if (uploadResponse['$metadata']?.httpStatusCode !== 200) {
+        throw new Error('Error uploading asset to S3');
+      }
+      const assetURL = `https://${process.env.AWS_COLLECTIONDATA_DOMAIN}/${fileKey}?v=${assetVersion}`;
+  
+      const updateRes = await Collection.updateOne({ collID }, {
+        [assetName]: assetURL,
+      });
+      if (updateRes.modifiedCount !== 1) {
+        throw new Error('Failed to update Collection');
+      }
+  
+      return res.send({
+        err: false,
+        msg: 'Successfully updated Collection asset.',
+        url: assetURL,
+      });
+    } catch (e) {
+      debugError(e);
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+  }
 
 /**
  * Creates and saves a new Collection with
@@ -448,6 +574,16 @@ const collectionLocationsSanitizer = (locations) => {
   return sanitizedLocs;
 };
 
+/**
+ * Validates the provided collection asset image name against the list of allowed image fields.
+ *
+ * @param {string} assetName - The name of the asset field to update.
+ * @returns {boolean} True if asset type is valid, false otherwise.
+ */
+function validateCollectionAssetName(assetName) {
+    const assetFields = ['coverPhoto'];
+    return assetFields.includes(assetName);
+  }
 
 /**
  * Sets up the validation chain(s) for methods in this file.
@@ -491,10 +627,17 @@ const validate = (method) => {
                 body('collID', conductorErrors.err1).exists().isString().isLength({ min: 8, max: 8 }),
                 body('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
             ]
+        case 'updateCollectionImageAsset':
+            return [
+                param('collID', conductorErrors.err1).exists().isLength({ min: 8, max: 8 }),
+                param('assetName', conductorErrors.err1).exists().isString().custom(validateCollectionAssetName),
+            ];
     }
 };
 
 export default {
+    assetUploadHandler,
+    updateCollectionImageAsset,
     createCollection,
     editCollection,
     deleteCollection,

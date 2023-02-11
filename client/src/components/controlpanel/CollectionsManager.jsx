@@ -14,8 +14,9 @@ import {
   Input,
   Breadcrumb,
   List,
+  Message
 } from 'semantic-ui-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -72,6 +73,9 @@ const CollectionsManager = () => {
     const [editCollProgErr, setEditCollProgErr] = useState(false);
     const [editCollLocsErr, setEditCollLocsErr] = useState(false);
     const [editCollLoading, setEditCollLoading] = useState(false);
+    const photoRef = useRef(null);
+    const [photoLoading, setPhotoLoading] = useState(false);
+    const [photoUploaded, setPhotoUploaded] = useState(false);
 
     // Manage Resources Modal
     const [showManageResModal, setManageResModal] = useState(false);
@@ -370,10 +374,83 @@ const CollectionsManager = () => {
     const closeEditCollModal = () => {
         setShowEditCollModal(false);
         setEditCollCreate(false);
+        setPhotoUploaded(false)
         resetEditCollFormValues();
         resetEditCollFormErrs();
     };
 
+    /**
+     * Activates the Cover Photo file input selector.
+     */
+    function handleUploadCoverPhoto() {
+        if (photoRef.current) {
+            photoRef.current.click();
+        }
+    }
+
+    /**
+     * Passes the Cover photo file selection event to the asset uploader.
+     *
+     * @param {React.FormEvent<HTMLInputElement>} event - File selection event.
+     */
+    function handleCoverPhotoFileChange(event) {
+        handleAssetUpload(
+        event,
+        'coverPhoto',
+        setEditCollPhoto,
+        setPhotoLoading,
+        setPhotoUploaded,
+        );
+    }
+
+    /**
+   * Uploads a selected asset file to the server, then updates state accordingly.
+   *
+   * @param {React.FormEvent<HTMLInputElement>} event - File selection event.
+   * @param {string} assetName - Name of the asset being uploaded/replaced.
+   * @param {function} assetLinkUpdater - State setter for the respective asset link.
+   * @param {function} uploadingStateUpdater - State setter for the respective asset upload status.
+   * @param {function} uploadSuccessUpdater - State setter for the respective asset upload success flag.
+   */
+  async function handleAssetUpload(event, assetName, assetLinkUpdater, uploadingStateUpdater, uploadSuccessUpdater) {
+    const validFileTypes = ['image/jpeg', 'image/png'];
+    if (!event.target || typeof (event?.target?.files) !== 'object') {
+      return;
+    }
+    if (event.target.files.length !== 1) {
+      handleGlobalError('Only one file can be uploaded at a time.');
+      return;
+    }
+
+    const newAsset = event.target.files[0];
+    if (!(newAsset instanceof File) || !validFileTypes.includes(newAsset.type)) {
+      handleGlobalError('Sorry, that file type is not supported.');
+    }
+
+    uploadingStateUpdater(true);
+    const formData = new FormData();
+    formData.append('assetFile', newAsset);
+
+    try {
+      const uploadRes = await axios.post(
+        `/commons/collection/${editCollID}/assets/${assetName}`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      if (!uploadRes.data.err) {
+        getCollections();
+        uploadSuccessUpdater(true);
+        if (uploadRes.data.url) {
+          assetLinkUpdater(uploadRes.data.url);
+        }
+      } else {
+        throw new Error(uploadRes.data.errMsg);
+      }
+    } catch (e) {
+      handleGlobalError(e);
+    }
+    uploadingStateUpdater(false);
+  }
 
     /**
      * Updates a Collection Search Location choice in the Create/Edit Collection Modal.
@@ -717,17 +794,44 @@ const CollectionsManager = () => {
                                         value={editCollTitle}
                                     />
                                 </Form.Field>
-                                <Form.Field>
-                                    <label>Collection Cover Photo URL <em>(direct link to image download)</em></label>
-                                    <Input
-                                        icon='file image'
-                                        placeholder='Collection Cover Photo...'
-                                        type='url'
-                                        iconPosition='left'
-                                        onChange={(e) => { setEditCollPhoto(e.target.value) }}
-                                        value={editCollPhoto}
-                                    />
-                                </Form.Field>
+                                {(editCollCreate) && 
+                                    <>
+                                        <p><strong>Cover Photo</strong></p>
+                                        <p><em>Save this collection first to upload a Cover Photo.</em></p>
+                                    </>
+                                }
+                                {!editCollCreate && editCollID && (
+                                    <Form.Field required className="mt-2r">
+                                        <label htmlFor='coverPhoto'>Collection Cover Photo</label>
+                                        <p>
+                                            A <em>download link</em> to the collection's cover photo. Resolution should be high enough to avoid blurring on digital screens.
+                                        </p>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png"
+                                            id="conductor-org-coverphoto-upload"
+                                            hidden
+                                            ref={photoRef}
+                                            onChange={handleCoverPhotoFileChange}
+                                        />
+                                        <Button.Group fluid>
+                                            <Button disabled={!editCollPhoto} as="a" href={editCollPhoto} target="_blank" rel="noreferrer">
+                                                <Icon name="external" />
+                                                View Current
+                                            </Button>
+                                            <Button color="blue" onClick={handleUploadCoverPhoto} loading={photoLoading}>
+                                                <Icon name="upload" />
+                                                Upload New
+                                            </Button>
+                                        </Button.Group>
+                                        {photoUploaded && (
+                                            <Message positive>
+                                                <Icon name="check circle" />
+                                                <span>Cover Photo successfully uploaded.</span>
+                                            </Message>
+                                        )}
+                                    </Form.Field>
+                                )}
                                 <Form.Select
                                     fluid
                                     label={<label>Collection Privacy <span className='muted-text'>(defaults to Public)</span></label>}
