@@ -355,6 +355,16 @@ router.route('/commons/collection/removeresource').put(
   collectionsAPI.removeResourceFromCollection,
 );
 
+router.route('/commons/collection/:collID/assets/:assetName').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  collectionsAPI.validate('updateCollectionImageAsset'),
+  middleware.checkValidationErrors,
+  collectionsAPI.assetUploadHandler,
+  collectionsAPI.updateCollectionImageAsset,
+);
+
 // Data export endpoint for 3rd-party content hosts
 router.route('/commons/kbexport').get(
   middleware.checkLibreCommons,
