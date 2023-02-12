@@ -828,7 +828,7 @@ async function getCommonsCatalog(req, res) {
         customCatalog
         && Array.isArray(customCatalog.resources)
         && customCatalog.resources.length > 0
-      );;
+      );
       const hasCatalogMatchingTags = (
         Array.isArray(orgData.catalogMatchingTags)
         && orgData.catalogMatchingTags.length > 0
@@ -851,7 +851,7 @@ async function getCommonsCatalog(req, res) {
 
         let searchAreaObj = {};
         let customSearchObj = {};
-        const idMatchObj = { bookID: { $in: customCatalog.resources }};
+        const idMatchObj = { bookID: { $in: customCatalog?.resources }};
         const tagMatchObj = { libraryTags: { $in: orgData.catalogMatchingTags } };
         if (hasCustomEntries && hasCatalogMatchingTags) {
           searchAreaObj = { $or: [idMatchObj, tagMatchObj] };
