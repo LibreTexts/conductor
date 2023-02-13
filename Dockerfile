@@ -15,4 +15,7 @@ RUN npm install
 
 EXPOSE 5000
 
+HEALTHCHECK --timeout=5s --start-period=5s \
+  CMD wget -nv -t1 --spider http://localhost:5000/health || exit 1
+
 ENTRYPOINT [ "node", "server.js" ]

@@ -17,14 +17,13 @@ import { debug, debugServer, debugDB } from './debug.js';
 import api from './api.js';
 
 // Prevent startup without ORG_ID env variable
-if (!process.env.ORG_ID || process.env.ORG_ID === '') {
+if (!process.env.ORG_ID) {
     debug('[FATAL ERROR]: The ORG_ID environment variable is missing.');
     exit(1);
 }
 
 // Prevent startup without Mailgun env variables
-if (!process.env.MAILGUN_API_KEY || process.env.MAILGUN_API_KEY === '' ||
-    !process.env.MAILGUN_DOMAIN || process.env.MAILGUN_DOMAIN === '') {
+if (!process.env.MAILGUN_API_KEY || !process.env.MAILGUN_DOMAIN) {
     debug('[FATAL ERROR]: The Mailgun environment variables are missing.');
     exit(1);
 }
@@ -82,6 +81,8 @@ app.use(helmet.contentSecurityPolicy({
 
 // Serve API
 app.use('/api/v1', api);
+
+app.use('/health', (_req, res) => res.send({ healthy: true, msg: 'Server appears healthy.' }));
 
 app.use(express.static(path.join(__dirname, '../client/build')));
 let cliRouter = express.Router();
