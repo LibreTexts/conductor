@@ -441,8 +441,7 @@ const CommonsCatalog = () => {
                                 to={`/book/${item.bookID}`}
                                 className="commons-content-card"
                             >
-                                <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}}>
-                                </div>
+                                <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}} />
                                 <Card.Content>
                                     <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>

@@ -94,20 +94,16 @@ const CommonsCollections = (_props) => {
     const VisualMode = () => {
         if (collections.length > 0) {
             return (
-                <Card.Group itemsPerRow={6} stackable>
+                <div className='commons-content-card-grid'>
                     {collections.map((item, index) => {
                         return (
                             <Card
                                 key={index}
                                 as={Link}
                                 to={`/collection/${encodeURI(item.title)}`}
+                                className="commons-content-card commons-content-collection-card"
                             >
-                                <Image
-                                    className='commons-content-card-img'
-                                    src={(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto}
-                                    wrapped
-                                    ui={false}
-                                />
+                                <div className='commons-content-card-img' style={{backgroundImage: `url(${(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto})`}} />
                                 <Card.Content>
                                     <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>
@@ -117,7 +113,7 @@ const CommonsCollections = (_props) => {
                             </Card>
                         )
                     })}
-                </Card.Group>
+                </div>
             )
         } else {
             return (
