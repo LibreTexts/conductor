@@ -432,21 +432,17 @@ const CommonsCatalog = () => {
     const VisualMode = () => {
         if (pageBooks.length > 0) {
             return (
-                <Card.Group itemsPerRow={6} stackable>
+                <div className="commons-content-card-grid">
                     {pageBooks.map((item, index) => {
                         return (
                             <Card
                                 key={index}
                                 as={Link}
                                 to={`/book/${item.bookID}`}
+                                className="commons-content-card"
                             >
-                                <Image
-                                    className='commons-content-card-img'
-                                    src={item.thumbnail}
-                                    wrapped
-                                    ui={false}
-                                    loading='lazy'
-                                />
+                                <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}}>
+                                </div>
                                 <Card.Content>
                                     <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>
@@ -461,7 +457,7 @@ const CommonsCatalog = () => {
                             </Card>
                         )
                     })}
-                </Card.Group>
+                </div>
             )
         } else {
             return (
@@ -776,6 +772,7 @@ const CommonsCatalog = () => {
                                             firstItem={null}
                                             lastItem={null}
                                             onPageChange={setActivePage}
+                                            size='large'
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -867,6 +864,7 @@ const CommonsCatalog = () => {
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={setActivePage}
+                                                size='mini'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -908,6 +906,7 @@ const CommonsCatalog = () => {
                                             firstItem={null}
                                             lastItem={null}
                                             onPageChange={setActivePage}
+                                            size='large'
                                         />
                                     </div>
                                 </div>
@@ -941,6 +940,7 @@ const CommonsCatalog = () => {
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={setActivePage}
+                                                size='mini'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

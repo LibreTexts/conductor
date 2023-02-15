@@ -10,7 +10,7 @@ import {
     Pagination,
 } from 'semantic-ui-react';
 
-const ConductorPagination = ({activePage, totalPages, onPageChange, ...props}) => {
+const ConductorPagination = ({activePage, totalPages, onPageChange,  ...props}) => {
     return (
         <Pagination
             activePage={activePage}
