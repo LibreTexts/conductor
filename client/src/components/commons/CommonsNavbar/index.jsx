@@ -220,12 +220,14 @@ const CommonsNavbar = ({
     <div className="commons-navigation">
       <Breakpoint name="desktop">
         <Menu id="commons-nav" secondary>
+          <h1 className="sr-only">{commonsTitle}</h1>
           <Menu.Item as={Link} to="/">
             <Image
               src={org.mediumLogo}
               id="commons-nav-logo"
-              alt={`${commonsTitle} Home`}
+              alt=""
             />
+            <span class="sr-only">{commonsTitle} Catalog Home</span>
           </Menu.Item>
           <Menu.Menu position="right" id="commons-nav-rightmenu">
             <AboutOrgLink />
@@ -241,11 +243,12 @@ const CommonsNavbar = ({
       </Breakpoint>
       <Breakpoint name="mobileOrTablet">
         <div id="commons-mobilenav">
+          <h1 className="sr-only">{commonsTitle}</h1>
           <div id="commons-mobilenav-left">
             <Image
               src={org.mediumLogo}
               id="commons-mobilenav-logo"
-              alt={org.shortName}
+              alt=""
             />
           </div>
           <div id="commons-mobilenav-right">

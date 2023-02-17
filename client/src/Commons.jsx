@@ -101,11 +101,7 @@ const Commons = () => {
         onMobileMenuToggle={handleNavMobileMenuToggle}
         onMobileCommonsListToggle={handleNavMobileCommonsListToggle}
       />
-      <CommonsJumbotron
-        mainHeader={org.orgID === 'libretexts' ? 'LibreCommons' : 'Campus Commons'}
-        subHeader={org.orgID === 'libretexts' ? 'Welcome to' : org.shortName}
-        backgroundURL={org.coverPhoto}
-      />
+      <CommonsJumbotron backgroundURL={org.coverPhoto} />
       <CommonsMenu activeItem={activeItem} />
       {systemAnnouncement && (
         <SystemAnnouncement title={systemAnnouncement.title} message={systemAnnouncement.message} />
