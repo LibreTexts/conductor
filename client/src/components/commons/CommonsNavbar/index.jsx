@@ -227,7 +227,7 @@ const CommonsNavbar = ({
               id="commons-nav-logo"
               alt=""
             />
-            <span class="sr-only">{commonsTitle} Catalog Home</span>
+            <span className="sr-only">{commonsTitle} Catalog Home</span>
           </Menu.Item>
           <Menu.Menu position="right" id="commons-nav-rightmenu">
             <AboutOrgLink />

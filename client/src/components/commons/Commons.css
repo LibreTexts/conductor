@@ -143,6 +143,7 @@
     flex: 1;
     justify-content: flex-start;
     align-items: center;
+    padding-right: 10px;
 }
 
 .commons-content-pagemenu-center {
@@ -194,6 +195,8 @@
     padding: 5px;
 }
 
+
+
 .commons-content-card {
     height: 400px;
     min-width: 250px;
@@ -202,8 +205,24 @@
     text-overflow: ellipsis;
 }
 
-.commons-content-collection-card {
-    height: 250px;
+.commons-collection-card {
+    min-width: 250px;
+    max-width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
+    height: 325px;
+}
+
+.commons-collection-card-img {
+    display: flex;
+    height: 175px !important;
+    margin: 10px !important;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 .commons-content-card-header {
@@ -220,17 +239,32 @@
     justify-content: center;
     align-items: center;
     background-position: center center;
-    background-size: cover;
+    background-size: contain;
     background-repeat: no-repeat;
 }
 
 .commons-library-card {
     width: 175px !important;
+    height: 225px;
 }
 
 .commons-library-card-img img {
     height: 175px !important;
     background-color: #FFFFFF;
+}
+
+.commons-library-card-header {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-height: 75%;
+    margin-bottom: .4em !important;
+}
+
+.commons-under-dev-card-header {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-height: 75%;
+    margin-bottom: .4em !important;
 }
 
 /* Responsive Styles */

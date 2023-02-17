@@ -72,7 +72,7 @@ const CommonsLibraries = (_props) => {
                                     ui={false}
                                 />
                                 <Card.Content>
-                                    <Card.Header as='h3' className='commons-content-card-header'>{item.name}</Card.Header>
+                                    <Card.Header as='h3' className='commons-library-card-header'>{item.name}</Card.Header>
                                 </Card.Content>
                             </Card>
                         )

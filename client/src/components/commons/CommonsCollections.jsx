@@ -101,9 +101,9 @@ const CommonsCollections = (_props) => {
                                 key={index}
                                 as={Link}
                                 to={`/collection/${encodeURI(item.title)}`}
-                                className="commons-content-card commons-content-collection-card"
+                                className="commons-collection-card"
                             >
-                                <div className='commons-content-card-img' style={{backgroundImage: `url(${(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto})`}} />
+                                <div className='commons-collection-card-img' style={{backgroundImage: `url(${(!item.coverPhoto || item.coverPhoto === '') ? '/mini_logo.png' : item.coverPhoto})`}} />
                                 <Card.Content>
                                     <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Meta>

@@ -202,7 +202,7 @@ const CommonsUnderDevelopment = (_props) => {
                         return (
                             <Card key={`underdev-project-card-${idx}`} {...cardProps}>
                                 <Card.Content>
-                                    <Card.Header as='h3' className='commons-content-card-header'>
+                                    <Card.Header as='h3' className='commons-under-dev-card-header'>
                                         {item.title}
                                     </Card.Header>
                                     <Card.Meta>
@@ -420,6 +420,8 @@ const CommonsUnderDevelopment = (_props) => {
                                                     payload: newActivePage
                                                 });
                                             }}
+                                            size='large'
+                                            siblingRange={0}
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -484,6 +486,8 @@ const CommonsUnderDevelopment = (_props) => {
                                                         payload: newActivePage
                                                     });
                                                 }}
+                                                size='mini'
+                                                siblingRange={0}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -529,6 +533,8 @@ const CommonsUnderDevelopment = (_props) => {
                                                     payload: newActivePage
                                                 });
                                             }}
+                                            size='large'
+                                            siblingRange={0}
                                         />
                                     </div>
                                 </div>
@@ -564,6 +570,8 @@ const CommonsUnderDevelopment = (_props) => {
                                                         payload: newActivePage
                                                     });
                                                 }}
+                                                size='mini'
+                                                siblingRange={0}
                                             />
                                         </Grid.Column>
                                     </Grid.Row>

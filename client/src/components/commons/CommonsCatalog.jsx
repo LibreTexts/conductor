@@ -772,6 +772,7 @@ const CommonsCatalog = () => {
                                             lastItem={null}
                                             onPageChange={setActivePage}
                                             size='large'
+                                            siblingRange={0}
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -859,7 +860,7 @@ const CommonsCatalog = () => {
                                             <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
-                                                siblingRange={1}
+                                                siblingRange={0}
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={setActivePage}
@@ -906,6 +907,7 @@ const CommonsCatalog = () => {
                                             lastItem={null}
                                             onPageChange={setActivePage}
                                             size='large'
+                                            siblingRange={0}
                                         />
                                     </div>
                                 </div>
@@ -935,7 +937,7 @@ const CommonsCatalog = () => {
                                             <ConductorPagination
                                                 activePage={activePage}
                                                 totalPages={totalPages}
-                                                siblingRange={1}
+                                                siblingRange={0}
                                                 firstItem={null}
                                                 lastItem={null}
                                                 onPageChange={setActivePage}
