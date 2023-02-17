@@ -351,6 +351,7 @@ const CommonsHomework = (_props) => {
                                                     payload: newActivePage
                                                 });
                                             }}
+                                            size='large'
                                         />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
@@ -430,6 +431,7 @@ const CommonsHomework = (_props) => {
                                                         payload: newActivePage
                                                     });
                                                 }}
+                                                size='mini'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
@@ -480,6 +482,7 @@ const CommonsHomework = (_props) => {
                                                     payload: newActivePage
                                                 });
                                             }}
+                                            size='large'
                                         />
                                     </div>
                                 </div>
@@ -520,6 +523,7 @@ const CommonsHomework = (_props) => {
                                                         payload: newActivePage
                                                     });
                                                 }}
+                                                size='mini'
                                             />
                                         </Grid.Column>
                                     </Grid.Row>
