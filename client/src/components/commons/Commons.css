@@ -195,46 +195,47 @@
     padding: 5px;
 }
 
-
-
 .commons-content-card {
-    height: 400px;
-    min-width: 250px;
-    max-width: 250px;
-    margin: 0 !important;
-    text-overflow: ellipsis;
-}
-
-.commons-collection-card {
-    min-width: 250px;
-    max-width: 250px;
-    margin: 0 !important;
-    text-overflow: ellipsis;
     height: 325px;
+    width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
 }
 
-.commons-collection-card-img {
-    display: flex;
-    height: 175px !important;
-    margin: 10px !important;
-    text-align: center;
-    justify-content: center;
-    align-items: center;
-    background-position: center center;
-    background-size: contain;
-    background-repeat: no-repeat;
+.commons-content-card-inner-content {
+    border-top: none !important;
+    height: 175px;
+}
+
+.commons-content-card-descrip {
+    max-height: 50px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: break-spaces;
+}
+
+.commons-content-card-affiliation {
+    height: 1.3em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: break-spaces;
 }
 
 .commons-content-card-header {
     text-overflow: ellipsis;
-    max-height: 25%;
+    max-height: 45px;
     overflow: hidden;
     margin-bottom: .4em !important;
 }
 
+.commons-content-card-img-wrapper {
+    margin: 10px 10px 0px 10px;
+    height: 50% !important
+}
+
 .commons-content-card-img {
     display: flex;
-    height: 175px !important;
+    height: 100%;
     text-align: center;
     justify-content: center;
     align-items: center;
@@ -243,6 +244,35 @@
     background-repeat: no-repeat;
 }
 
+/* Collections */
+.commons-collection-card {
+    width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
+    height: 275px;
+}
+
+.commons-collection-card-inner-content {
+    border-top: none !important;
+    height: 150px;
+}
+.commons-collection-card-img-wrapper {
+    margin: 10px 10px 0px 10px;
+    height: 75% !important
+}
+
+.commons-collection-card-img {
+    display: flex;
+    height: 100%;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* Libraries */
 .commons-library-card {
     width: 175px !important;
     height: 225px;

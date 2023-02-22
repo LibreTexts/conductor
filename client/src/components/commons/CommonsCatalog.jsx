@@ -34,7 +34,7 @@ import {
     catalogDisplayOptions,
     catalogLocationOptions
 } from '../util/CatalogOptions.js';
-import { updateParams, isEmptyString } from '../util/HelperFunctions.js';
+import { updateParams, isEmptyString, truncateString } from '../util/HelperFunctions.js';
 
 const CommonsCatalog = () => {
 
@@ -441,16 +441,18 @@ const CommonsCatalog = () => {
                                 to={`/book/${item.bookID}`}
                                 className="commons-content-card"
                             >
-                                <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}} />
-                                <Card.Content>
-                                    <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
+                                <div className='commons-content-card-img-wrapper'>
+                                    <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}} />
+                                </div>
+                                <Card.Content className='commons-content-card-inner-content'>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{truncateString(item.title, 55)}</Card.Header>
                                     <Card.Meta>
                                         <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Card.Meta>
-                                    <Card.Description>
-                                        <p>{item.author}</p>
-                                        <p><em>{item.affiliation}</em></p>
+                                    <Card.Description >
+                                        <p className='commons-content-card-author'>{truncateString(item.author, 55)}</p>
+                                        <p className='commons-content-card-affiliation'><em>{truncateString(item.affiliation, 30)}</em></p>
                                     </Card.Description>
                                 </Card.Content>
                             </Card>
