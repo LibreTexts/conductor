@@ -445,13 +445,13 @@ const CommonsCatalog = () => {
                                     <div className='commons-content-card-img' style={{backgroundImage: `url(${item.thumbnail})`}} />
                                 </div>
                                 <Card.Content className='commons-content-card-inner-content'>
-                                    <Card.Header as='h3' className='commons-content-card-header'>{truncateString(item.title, 55)}</Card.Header>
+                                    <Card.Header as='h3' className='commons-content-card-header'>{truncateString(item.title, 50)}</Card.Header>
                                     <Card.Meta>
                                         <Image src={getLibGlyphURL(item.library)} className='library-glyph' />
                                         {getLibraryName(item.library)}
                                     </Card.Meta>
                                     <Card.Description >
-                                        <p className='commons-content-card-author'>{truncateString(item.author, 55)}</p>
+                                        <p className='commons-content-card-author'>{truncateString(item.author, 50)}</p>
                                         <p className='commons-content-card-affiliation'><em>{truncateString(item.affiliation, 30)}</em></p>
                                     </Card.Description>
                                 </Card.Content>
