@@ -13,6 +13,7 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import Promise from 'bluebird';
 import helmet from 'helmet';
+import noCache from 'nocache';
 import { debug, debugServer, debugDB } from './debug.js';
 import api from './api.js';
 
@@ -43,6 +44,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
+app.use(noCache()) // Disable caching with Cache-Control header
+app.set('etag', false) // Disable etag headers to prevent caching
 app.use(helmet.contentSecurityPolicy({
     directives: {
         baseUri: ["'self'"],
