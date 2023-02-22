@@ -4,16 +4,18 @@
   "description": "The LibreTexts Conductor platform web app.",
   "proxy": "http://localhost:5000",
   "scripts": {
-    "start": "BROWSER=none PORT=3000 react-scripts start",
-    "build": "INLINE_RUNTIME_CHUNK=false react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "vite --port 3000",
+    "build": "tsc && vite build",
+    "serve": "vite preview"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^12.8.3",
+    "@types/node": "^18.14.0",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
     "axios": "^0.26.0",
     "date-and-time": "^0.14.2",
     "date-fns": "^2.26.0",
@@ -39,6 +41,7 @@
     "semantic-ui-css": "git+https://github.com/Semantic-Org/Semantic-UI-CSS.git",
     "semantic-ui-react": "^2.1.2",
     "style-it": "^2.1.4",
+    "typescript": "^4.9.5",
     "validator": "^13.7.0",
     "web-vitals": "^0.2.4"
   },
@@ -62,8 +65,12 @@
     ]
   },
   "devDependencies": {
+    "@types/date-and-time": "^0.13.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^3.1.0",
     "react-error-overlay": "6.0.9",
-    "react-scripts": "5.0.1",
-    "sass": "^1.43.4"
+    "sass": "^1.43.4",
+    "vite": "^4.1.4",
+    "vite-tsconfig-paths": "^4.0.5"
   }
 }

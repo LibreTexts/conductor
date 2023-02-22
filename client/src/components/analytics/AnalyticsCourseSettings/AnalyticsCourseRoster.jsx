@@ -12,7 +12,7 @@ import {
   Segment,
   Table,
 } from 'semantic-ui-react';
-import useGlobalError from 'components/error/ErrorHooks';
+import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
  * An interface to view and manage the student roster of an Analytics Course.

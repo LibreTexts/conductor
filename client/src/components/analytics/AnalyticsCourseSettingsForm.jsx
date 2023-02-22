@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button, Form, Header, Icon, Label, Message, Popup } from 'semantic-ui-react';
-import DateInput from 'components/DateInput';
-import useForm from 'utils/useForm';
+import DateInput from '../../components/DateInput';
+import useForm from '../../utils/useForm';
 
 /**
  * A reusable form to create an Analytics Course or update its general settings.

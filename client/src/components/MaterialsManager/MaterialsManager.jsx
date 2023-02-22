@@ -16,7 +16,7 @@ import useGlobalError from '../error/ErrorHooks';
 import styles from './MaterialsManager.module.css';
 
 /**
- * Modal tool to manage the Ancillary Materials set for a Commons Book
+ * Modal tool to manage the Project Materials set for a Commons Book
  * linked to a Conductor Project.
  */
 const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
@@ -381,9 +381,11 @@ const MaterialsManager = ({ projectID, show, onClose, ...props }) => {
 
   return (
     <Modal size="fullscreen" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Manage Ancillary Materials</Modal.Header>
+      <Modal.Header>Manage Project Materials</Modal.Header>
       <Modal.Content scrolling>
-        <p>If your resource has ancillary materials, use this tool to upload and organize them. Materials will be visible to the public on Commons via the resource's catalog entry.</p>
+        <p>Use this tool to upload and organize project files and supporting materials.</p>
+        <p><strong>Note: </strong>If your project is linked to a book on Commons and the file's access level is set to 'Public', the file  
+        will be <strong>visible to the public</strong> on Commons via the resource's catalog entry.</p>
         <Button.Group fluid widths="6">
           <Button color="green" onClick={handleShowUploader}>
             <Icon name="upload" />

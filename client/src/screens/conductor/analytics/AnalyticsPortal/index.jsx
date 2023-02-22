@@ -13,10 +13,10 @@ import {
   Table,
 } from 'semantic-ui-react';
 import axios from 'axios';
-import CreateAnalyticsCourse from 'components/analytics/CreateAnalyticsCourse';
-import useGlobalError from 'components/error/ErrorHooks';
+import CreateAnalyticsCourse from '../../../../components/analytics/CreateAnalyticsCourse';
+import useGlobalError from '../../../../components/error/ErrorHooks';
 import styles from './AnalyticsPortal.module.css';
-import useQueryParam from 'utils/useQueryParam';
+import useQueryParam from '../../../../utils/useQueryParam';
 
 /**
  * The main entry portal to a user's Analytics Courses.

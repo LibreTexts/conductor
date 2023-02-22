@@ -10,7 +10,7 @@ import {
   Table,
 } from 'semantic-ui-react';
 import date from 'date-and-time';
-import ViewAnalyticsRequest from 'components/analytics/ViewAnalyticsRequest';
+import ViewAnalyticsRequest from '../../../../components/analytics/ViewAnalyticsRequest';
 import useGlobalError from '../../../../components/error/ErrorHooks';
 
 /**

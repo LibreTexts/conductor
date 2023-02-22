@@ -181,7 +181,7 @@ const Login = () => {
 
     const initSSOLogin = () => {
         if (process.env.NODE_ENV === 'production') {
-            let domains = String(process.env.REACT_APP_PRODUCTION_URLS).split(',');
+            let domains = String(process.env.VITE_PRODUCTION_URLS).split(',');
             Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: domains[0], sameSite: 'lax'});
         } else {
             Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});

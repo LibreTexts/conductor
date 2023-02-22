@@ -28,8 +28,8 @@ AuthHelper.isAuthenticated = () => {
 AuthHelper.logout = (user, authExpired, location) => {
     if (process.env.NODE_ENV === 'production') {
         let domain = 'libretexts.org'; // default to LibreTexts if it can't be found in env
-        if (process.env.REACT_APP_PRODUCTION_URLS) {
-            domain = String(process.env.REACT_APP_PRODUCTION_URLS).split(',')[0];
+        if (process.env.VITE_PRODUCTION_URLS) {
+            domain = String(process.env.VITE_PRODUCTION_URLS).split(',')[0];
         }
         Cookies.remove('conductor_access', { path: '/', domain: domain, secure: false });
     } else {
