@@ -39,7 +39,7 @@ import TextArea from '../TextArea';
 import Messaging from '../Messaging';
 import Chat from '../Chat';
 import DateInput from '../DateInput';
-import ReaderResourcesManager from '../ReaderResourcesManager/ReaderResourcesManager';
+import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {
@@ -251,7 +251,7 @@ const ProjectView = (props) => {
 
   // TODO: Finish flagDescripErr implementation
 
-  // Manage Project Materials Modal
+  // Manage Ancillary Materials Modal
   const [showMaterialsModal, setShowMaterialsModal] = useState(false);
 
   // Manage Reader Resources Modal
@@ -1772,14 +1772,14 @@ const ProjectView = (props) => {
   };
 
   /**
-   * Sets the Manage Project Materials modal to open in state.
+   * Sets the Manage Ancillary Materials modal to open in state.
    */
   function handleOpenMaterialsModal() {
     setShowMaterialsModal(true);
   }
 
   /**
-   * Sets the Manage Project Materials modal to closed in state.
+   * Sets the Manage Ancillary Materials modal to closed in state.
    */
   function handleCloseMaterialsModal() {
     setShowMaterialsModal(false);
@@ -2235,14 +2235,14 @@ const ProjectView = (props) => {
                               </a>
                             </div>
                           )}
-                          {(canViewDetails) && (
+                          {(canViewDetails && project.hasCommonsBook) && (
                             <div className="mt-1e">
                               <Button
                                 color="blue"
                                 compact
                                 onClick={handleOpenMaterialsModal}
                               >
-                                  Manage Project Materials
+                                  Manage Ancillary Materials
                               </Button>
                             </div>
                           )}
@@ -3915,7 +3915,7 @@ const ProjectView = (props) => {
               <Button onClick={closePinnedModal} color='blue'>Done</Button>
             </Modal.Actions>
           </Modal>
-          {/* Manage Project Materials */}
+          {/* Manage Ancillary Materials */}
           {project.projectID && (
             <MaterialsManager
               projectID={project.projectID}

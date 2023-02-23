@@ -350,8 +350,8 @@ const AdoptionReport = (props) => {
                 };
             }
             let postURL = "";
-            if (org.orgID !== 'libretexts' && process.env.REACT_APP_ADOPTIONREPORT_URL) {
-              postURL = process.env.REACT_APP_ADOPTIONREPORT_URL;
+            if (org.orgID !== 'libretexts' && import.meta.env.VITE_ADOPTIONREPORT_URL) {
+              postURL = import.meta.env.VITE_ADOPTIONREPORT_URL;
             } else {
               postURL = '/adoptionreport';
             }
