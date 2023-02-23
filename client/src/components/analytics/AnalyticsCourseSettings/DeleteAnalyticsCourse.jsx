@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { Button, Icon, Modal } from 'semantic-ui-react';
-import useGlobalError from 'components/error/ErrorHooks';
+import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
  * A modal tool to delete an Analytics Course.

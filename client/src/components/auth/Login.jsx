@@ -115,7 +115,7 @@ const Login = () => {
     const submitLogin = () => {
         setSubmitLoading(true);
         resetFormErrors();
-        if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true')) {
+        if (validateForm() && (import.meta.env.VITE_DISABLE_CONDUCTOR !== 'true')) {
             var userData = {
                 email: email,
                 password: password
@@ -180,8 +180,8 @@ const Login = () => {
     };
 
     const initSSOLogin = () => {
-        if (process.env.NODE_ENV === 'production') {
-            let domains = String(process.env.REACT_APP_PRODUCTION_URLS).split(',');
+        if (import.meta.env.VITE_MODE === 'production') {
+            let domains = String(import.meta.env.VITE_PRODUCTION_URLS).split(',');
             Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: domains[0], sameSite: 'lax'});
         } else {
             Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});
@@ -240,20 +240,20 @@ const Login = () => {
                             <p>Your authentication method appears to have expired. Please login again.</p>
                         </Message>
                     }
-                    {process.env.REACT_APP_DISABLE_CONDUCTOR === 'true' &&
+                    {import.meta.env.VITE_DISABLE_CONDUCTOR === 'true' &&
                         <Message negative>
                             <Message.Header>Conductor is disabled</Message.Header>
                             <p>Sorry, access to Conductor is currently disabled.</p>
                         </Message>
                     }
-                    {process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true' &&
+                    {import.meta.env.VITE_RESTRICT_CONDUCTOR === 'true' &&
                         <Message warning>
                             <Message.Header>Conductor is restricted.</Message.Header>
                             <p>Access to Conductor is currently restricted. Only pre-registered users may log in.</p>
                         </Message>
                     }
                     <Button
-                        disabled={(process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true') || (process.env.REACT_APP_DISABLE_CONDUCTOR === 'true')}
+                        disabled={(import.meta.env.VITE_RESTRICT_CONDUCTOR === 'true') || (import.meta.env.VITE_DISABLE_CONDUCTOR === 'true')}
                         fluid
                         color='teal'
                         onClick={initSSOLogin}
@@ -261,7 +261,7 @@ const Login = () => {
                         <Icon name='globe'/> Campus Login (SSO)
                     </Button>
                     <Button
-                        disabled={(process.env.REACT_APP_RESTRICT_CONDUCTOR === 'true') || (process.env.REACT_APP_DISABLE_CONDUCTOR === 'true')}
+                        disabled={(import.meta.env.VITE_RESTRICT_CONDUCTOR === 'true') || (import.meta.env.VITE_DISABLE_CONDUCTOR === 'true')}
                         fluid
                         color='green'
                         className='mt-1p'
@@ -314,7 +314,7 @@ const Login = () => {
                             color='blue'
                             size='large'
                             fluid
-                            disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                            disabled={import.meta.env.VITE_DISABLE_CONDUCTOR === 'true'}
                             loading={submitLoading}
                             onClick={submitLogin}
                         >

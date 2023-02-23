@@ -5,7 +5,7 @@ import { useHistory } from 'react-router-dom';
 import axios from 'axios';
 import { Modal } from 'semantic-ui-react';
 import AnalyticsCourseSettingsForm from './AnalyticsCourseSettingsForm';
-import useGlobalError from 'components/error/ErrorHooks';
+import useGlobalError from '../../components/error/ErrorHooks';
 
 /**
  * A modal tool to create a new Analytics Course.

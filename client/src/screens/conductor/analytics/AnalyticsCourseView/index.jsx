@@ -3,10 +3,10 @@ import { Link, useHistory, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { Breadcrumb, Button, Grid, Header, Icon, Loader, Message, Segment } from 'semantic-ui-react';
-import AnalyticsCourseSettings from 'components/analytics/AnalyticsCourseSettings';
-import LearningAnalyticsDashboard from 'components/analytics/LearningAnalyticsDashboard';
-import useQueryParam from 'utils/useQueryParam';
-import useGlobalError from 'components/error/ErrorHooks';
+import AnalyticsCourseSettings from '../../../../components/analytics/AnalyticsCourseSettings';
+import LearningAnalyticsDashboard from '../../../../components/analytics/LearningAnalyticsDashboard';
+import useQueryParam from '../../../../utils/useQueryParam';
+import useGlobalError from '../../../../components/error/ErrorHooks';
 import styles from './AnalyticsCourseView.module.css';
 
 /**

@@ -39,7 +39,7 @@ import TextArea from '../TextArea';
 import Messaging from '../Messaging';
 import Chat from '../Chat';
 import DateInput from '../DateInput';
-import ReaderResourcesManager from 'components/ReaderResourcesManager/ReaderResourcesManager';
+import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import { MentionsInput, Mention } from 'react-mentions'
 
 import {

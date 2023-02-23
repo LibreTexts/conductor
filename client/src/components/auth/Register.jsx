@@ -126,7 +126,7 @@ const Register = () => {
      */
     const submitRegister = () => {
         resetFormErrors();
-        if (validateForm() && (process.env.REACT_APP_DISABLE_CONDUCTOR !== 'true') && (process.env.REACT_APP_RESTRICT_CONDUCTOR !== 'true')) {
+        if (validateForm() && (import.meta.env.VITE_DISABLE_CONDUCTOR !== 'true') && (import.meta.env.VITE_RESTRICT_CONDUCTOR !== 'true')) {
             setSubmitLoading(true);
             var userData = {
                 firstName: firstName,
@@ -261,7 +261,7 @@ const Register = () => {
                             color='green'
                             size='large'
                             fluid
-                            disabled={process.env.REACT_APP_DISABLE_CONDUCTOR === 'true'}
+                            disabled={import.meta.env.VITE_DISABLE_CONDUCTOR === 'true'}
                             loading={submitLoading}
                             onClick={submitRegister}
                         >

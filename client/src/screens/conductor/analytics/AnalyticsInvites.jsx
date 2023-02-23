@@ -14,8 +14,8 @@ import {
 } from 'semantic-ui-react';
 import axios from 'axios';
 import date from 'date-and-time';
-import { getAnalyticsMemberAccessText } from 'utils/analyticsHelpers';
-import useGlobalError from 'components/error/ErrorHooks';
+import { getAnalyticsMemberAccessText } from '../../../utils/analyticsHelpers';
+import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
  * Lists invites to access Analytics Courses that the user has received.

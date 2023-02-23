@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { Button, Form, Icon, Modal } from 'semantic-ui-react';
-import { analyticsCourseAccessOptions } from 'utils/analyticsHelpers';
-import useGlobalError from 'components/error/ErrorHooks';
+import { analyticsCourseAccessOptions } from '../../../utils/analyticsHelpers';
+import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
  * A modal tool to invite a user to join an Analytics Course.

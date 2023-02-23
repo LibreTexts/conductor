@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { Button, Checkbox, Grid, Header, Icon, Label, Modal, Popup } from 'semantic-ui-react';
-import TextArea from 'components/TextArea';
+import TextArea from '../../components/TextArea';
 import useGlobalError from '../error/ErrorHooks';
 
 /**

@@ -15,7 +15,7 @@ import {
   Modal,
   Segment,
 } from 'semantic-ui-react';
-import useQueryParam from 'utils/useQueryParam';
+import useQueryParam from '../../../utils/useQueryParam';
 import useGlobalError from '../../../components/error/ErrorHooks';
 import {
   isEmptyString,

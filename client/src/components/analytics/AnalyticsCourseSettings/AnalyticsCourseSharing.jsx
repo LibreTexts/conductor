@@ -15,8 +15,8 @@ import InviteAnalyticsMember from './InviteAnalyticsMember';
 import {
   analyticsCourseAccessOptions,
   getAnalyticsMemberAccessText,
-} from 'utils/analyticsHelpers';
-import useGlobalError from 'components/error/ErrorHooks';
+} from '../../../utils/analyticsHelpers';
+import useGlobalError from '../../../components/error/ErrorHooks';
 
 /**
  * An interface to manage access control for an Analytics Course.
