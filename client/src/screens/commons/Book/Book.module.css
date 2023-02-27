@@ -68,6 +68,14 @@
   margin-left: 0.5em;
 }
 
+.project_file_title {
+  font-size: 0.8em !important;
+}
+
+.project_file_descrip {
+  font-size: 0.7em !important;
+}
+
 @media only screen and (max-width: 1024px) {
   .grid {
     grid-template-columns: none;

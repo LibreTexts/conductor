@@ -7,11 +7,11 @@ import useGlobalError from '../error/ErrorHooks';
 /**
  * Modal tool to rename an Ancillary Material entry.
  */
-const EditMaterial = ({
+const EditFile = ({
   show,
   onClose,
   projectID,
-  materialID,
+  fileID,
   currentName,
   currentDescrip,
   onFinishedEdit,
@@ -115,7 +115,7 @@ const EditMaterial = ({
   }
 
   /**
-   * Submits the material edit request to the server (if form is valid) and
+   * Submits the file edit request to the server (if form is valid) and
    * closes the modal on completion.
    */
   async function handleEdit() {
@@ -131,7 +131,7 @@ const EditMaterial = ({
           editObj.description = descrip;
         }
         if (Object.keys(editObj).length > 0) {
-          const editRes = await axios.put(`/project/${projectID}/book/materials/${materialID}`, editObj);
+          const editRes = await axios.put(`/project/${projectID}/files/${fileID}`, editObj);
           if (!editRes.data.err) {
             setLoading(false);
             onFinishedEdit();
@@ -151,7 +151,7 @@ const EditMaterial = ({
 
   return (
     <Modal open={show} onClose={onClose}>
-      <Modal.Header>Edit Material</Modal.Header>
+      <Modal.Header>Edit File</Modal.Header>
       <Modal.Content>
         <Form onSubmit={handleSubmit}>
           <Form.Field error={nameError}>
@@ -159,7 +159,7 @@ const EditMaterial = ({
             <input
               id="namefield"
               type="text"
-              placeholder="Material Name..."
+              placeholder="File Name..."
               value={name}
               onChange={handleNameChange}
             />
@@ -189,7 +189,7 @@ const EditMaterial = ({
   )
 };
 
-EditMaterial.propTypes = {
+EditFile.propTypes = {
   /**
    * Sets the modal to open or closed.
    */
@@ -199,32 +199,32 @@ EditMaterial.propTypes = {
    */
   onClose: PropTypes.func,
   /**
-   * Identifier of the project materials belong to.
+   * Identifier of the project files belong to.
    */
   projectID: PropTypes.string.isRequired,
   /**
-   * Identifier of the materials entry to work on.
+   * Identifier of the files entry to work on.
    */
-  materialID: PropTypes.string.isRequired,
+  fileID: PropTypes.string.isRequired,
   /**
-   * Current name of the materials entry.
+   * Current name of the files entry.
    */
   currentName: PropTypes.string,
   /**
-   * Current description of the materials entry.
+   * Current description of the files entry.
    */
   currentDescrip: PropTypes.string,
   /**
-   * Handler to activate when the materials entry has been edited.
+   * Handler to activate when the files entry has been edited.
    */
   onFinishedEdit: PropTypes.func,
 };
 
-EditMaterial.defaultProps = {
+EditFile.defaultProps = {
   onClose: () => { },
   currentName: '',
   currentDescrip: '',
   onFinishedEdit: () => { },
 };
 
-export default EditMaterial;
+export default EditFile;

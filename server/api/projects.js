@@ -36,17 +36,18 @@ import {
     getLibreTextInformation,
     progressThreadDefaultMessage,
     projectWelcomeMessage,
+    retrieveAllProjectFiles,
+    retrieveProjectFiles,
+    PROJECT_FILES_S3_CLIENT_CONFIG,
+    updateProjectFiles,
+    downloadProjectFile,
+    computeStructureAccessSettings,
+    PROJECT_FILES_ACCESS_SETTINGS,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
   isValidLicense,
   getBookTOCFromAPI,
-  retrieveBookMaterials,
-  retrieveAllBookMaterials,
-  MATERIALS_S3_CLIENT_CONFIG,
-  updateBookMaterials,
-  downloadBookMaterial,
-  computeStructureAccessSettings,
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
 import { isEmptyString, assembleUrl } from '../util/helpers.js';
@@ -81,7 +82,7 @@ const projectListingProjection = {
 const projectStatusOptions = ['completed', 'available', 'open'];
 const projectVisibilityOptions = ['private', 'public'];
 
-const materialsStorage = multer.memoryStorage();
+const filesStorage = multer.memoryStorage();
 
 /**
  * Creates a new, empty Project within the current Organization.
@@ -530,7 +531,6 @@ async function updateProject(req, res) {
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
         const projURLInfo = await getLibreTextInformation(updateObj.projectURL);
-        console.log(projURLInfo);
         if (projURLInfo.lib && projURLInfo.lib !== '') {
           updateObj.libreLibrary = projURLInfo.lib;
         }
@@ -2389,16 +2389,16 @@ const autoGenerateProjects = (newBooks) => {
 };
 
 /**
- * Multer handler to process and validate Book Materials uploads.
+ * Multer handler to process and validate Project File uploads.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  * @param {express.NextFunction} next - The next middleware to call.
- * @returns {function} The Materials upload handler.
+ * @returns {function} The Project File upload handler.
  */
- function materialUploadHandler(req, res, next) {
-  const materialUploadConfig = multer({
-    storage: materialsStorage,
+ function fileUploadHandler(req, res, next) {
+  const fileUploadConfig = multer({
+    storage: filesStorage,
     limits: {
       files: 10,
       fileSize: 100000000,
@@ -2409,8 +2409,8 @@ const autoGenerateProjects = (newBooks) => {
       }
       return cb(null, true);
     },
-  }).array('materials', 10);
-  return materialUploadConfig(req, res, (err) => {
+  }).array('files', 10);
+  return fileUploadConfig(req, res, (err) => {
     if (err) {
       let errMsg = conductorErrors.err53;
       if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
@@ -2429,13 +2429,13 @@ const autoGenerateProjects = (newBooks) => {
 }
 
 /**
- * Uploads Ancillary Materials for a Book linked to a Project to the corresponding folder
- * in S3 and updates the Materials list.
+ * Uploads Files linked to a Project to the corresponding folder
+ * in S3 and updates the Files list.
  *
  * @param {express.Request} req - Incoming request object. 
  * @param {express.Response} res - Outgoing response object.
  */
- async function addProjectBookMaterials(req, res) {
+ async function addProjectFile(req, res) {
   try {
     const projectID = req.params.projectID;
     const project = await Project.findOne({ projectID }).lean();
@@ -2446,8 +2446,8 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasPermission) {
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasTeamPermission) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2465,16 +2465,15 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    const bookID = `${project.libreLibrary}-${project.libreCoverID}`;
-    const materials = await retrieveAllBookMaterials(bookID);
-    if (!materials) {
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) {
       throw (new Error('retrieveerror'));
     }
 
     let parent = '';
     let accessSetting = 'public'; // default
     if (req.body.parentID && req.body.parentID !== '') {
-      const foundParent = materials.find((obj) => obj.materialID === req.body.parentID);
+      const foundParent = files.find((obj) => obj.fileID === req.body.parentID);
       if (!foundParent || foundParent.storageType === 'file') {
         return res.status(400).send({
           err: true,
@@ -2487,25 +2486,25 @@ const autoGenerateProjects = (newBooks) => {
       }
     }
 
-    const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
-    const materialEntries = [];
+    const fileEntries = [];
 
     if (providedFiles) { // Adding a file
       const uploadCommands = [];
       req.files.forEach((file) => {
         const newID = v4();
-        const fileKey = assembleUrl([bookID, newID]);
+        const fileKey = assembleUrl([projectID, newID]);
         const contentType = file.mimetype || 'application/octet-stream';
         uploadCommands.push(new PutObjectCommand({
-          Bucket: process.env.AWS_MATERIALS_BUCKET,
+          Bucket: process.env.AWS_PROJECTFILES_BUCKET,
           Key: fileKey,
           Body: file.buffer,
           ContentDisposition: `inline; filename=${file.originalname}`,
           ContentType: contentType,
         }));
-        materialEntries.push({
-          materialID: newID,
+        fileEntries.push({
+          fileID: newID,
           name: file.originalname,
           access: accessSetting,
           size: file.size,
@@ -2523,25 +2522,26 @@ const autoGenerateProjects = (newBooks) => {
           errMsg: conductorErrors.err65,
         });
       }
-      materialEntries.push({
-        materialID: v4(),
+      fileEntries.push({
+        fileID: v4(),
         name: req.body.folderName,
         size: 0,
         createdBy: req.user.decoded.uuid,
         storageType: 'folder',
         parent,
+        access: accessSetting
       });
     }
 
-    const updated = [...materials, ...materialEntries];
-    const bookUpdate = await updateBookMaterials(bookID, updated);
-    if (!bookUpdate) {
+    const updated = [...files, ...fileEntries];
+    const fileUpdate = await updateProjectFiles(projectID, updated);
+    if (!fileUpdate) {
       throw (new Error('updatefail'));
     }
 
     return res.send({
       err: false,
-      msg: 'Succesfully uploaded materials!',
+      msg: 'Succesfully uploaded files!',
     });
   } catch (e) {
     debugError(e);
@@ -2553,14 +2553,14 @@ const autoGenerateProjects = (newBooks) => {
 }
 
 /**
- * Retrieves a download URL for a single Book Material linked to a Project.
+ * Retrieves a download URL for a single File linked to a Project.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function getProjectBookMaterial(req, res) {
+async function getProjectFileDownloadURL(req, res) {
   try {
-    const { projectID, materialID } = req.params;
+    const { projectID, fileID } = req.params;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2569,15 +2569,7 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
-    const downloadURL = await downloadBookMaterial(bookID, materialID, req);
+    const downloadURL = await downloadProjectFile(projectID, fileID, req);
     if (downloadURL === null) {
       return res.status(404).send({
         err: true,
@@ -2605,14 +2597,15 @@ async function getProjectBookMaterial(req, res) {
 }
 
 /**
- * Retrieves a list of Ancillary Materials for a Book linked to a Project.
+ * Retrieves a list of Files linked to a Project.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
- async function getProjectBookMaterials(req, res) {
+ async function getProjectFiles(req, res) {
   try {
     const projectID = req.params.projectID;
+    const fileID = req.params.fileID || '';
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2621,33 +2614,25 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectGeneralPermission(project, req.user.decoded.uuid);
-    if (!hasPermission) {
+    if (!checkProjectGeneralPermission(project, req.user.decoded.uuid)) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-    const materialID = req.params.materialID || '';
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user.decoded.uuid)
 
-    const [materials, path] = await retrieveBookMaterials(bookID, materialID, true);
-    if (!materials) { // error encountered
+    const [files, path] = await retrieveProjectFiles(projectID, fileID, hasTeamPermission);
+    if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
 
     return res.send({
       err: false,
-      msg: 'Successfully retrieved materials!',
-      path,
-      materials,
+      msg: 'Successfully retrieved files!',
+      files,
+      path
     });
   } catch (e) {
     debugError(e);
@@ -2659,14 +2644,14 @@ async function getProjectBookMaterial(req, res) {
 }
 
 /**
- * Renames or updates the description of an Ancillary Material (for a Book linked to a Project).
+ * Renames or updates the description of a Project File.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
- async function updateProjectBookMaterial(req, res) {
+ async function updateProjectFile(req, res) {
   try {
-    const projectID = req.params.projectID;
+    const {projectID, fileID } = req.params;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2675,23 +2660,14 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasPermission) {
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasTeamPermission) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
-    const materialID = req.params.materialID;
     const { name, description } = req.body;
 
     // check if there are any updates to perform (account for unsetting the description)
@@ -2702,12 +2678,12 @@ async function getProjectBookMaterial(req, res) {
       });
     }
 
-    const materials = await retrieveAllBookMaterials(bookID);
-    if (!materials) { // error encountered
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
 
-    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    const foundObj = files.find((obj) => obj.fileID === fileID);
     if (!foundObj) {
       return res.status(400).send({
         err: true,
@@ -2727,8 +2703,8 @@ async function getProjectBookMaterial(req, res) {
       }
     }
 
-    const updated = materials.map((obj) => {
-      if (obj.materialID === foundObj.materialID) {
+    const updated = files.map((obj) => {
+      if (obj.fileID === foundObj.fileID) {
         const updateObj = { ...obj };
         if (processedName) {
           updateObj.name = processedName;
@@ -2742,10 +2718,10 @@ async function getProjectBookMaterial(req, res) {
     });
 
     if (foundObj.storageType === 'file') {
-      const fileKey = `${bookID}/${materialID}`;
-      const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+      const fileKey = `${projectID}/${fileID}`;
+      const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const s3File = await storageClient.send(new GetObjectCommand({
-        Bucket: process.env.AWS_MATERIALS_BUCKET,
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
         Key: fileKey,
       }));
 
@@ -2755,8 +2731,8 @@ async function getProjectBookMaterial(req, res) {
       }
 
       await storageClient.send(new CopyObjectCommand({
-        Bucket: process.env.AWS_MATERIALS_BUCKET,
-        CopySource: `${process.env.AWS_MATERIALS_BUCKET}/${fileKey}`,
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        CopySource: `${process.env.AWS_PROJECTFILES_BUCKET}/${fileKey}`,
         Key: fileKey,
         ContentDisposition: `inline; filename=${processedName}`,
         ContentType: newContentType,
@@ -2764,14 +2740,14 @@ async function getProjectBookMaterial(req, res) {
       }));
     }
 
-    const bookUpdate = await updateBookMaterials(bookID, updated);
-    if (!bookUpdate) {
+    const projectUpdate = await updateProjectFiles(projectID, updated);
+    if (!projectUpdate) {
       throw (new Error('updatefail'));
     }
 
     return res.send({
       err: false,
-      msg: 'Successfully updated material!',
+      msg: 'Successfully updated file!',
     });
   } catch (e) {
     debugError(e);
@@ -2783,14 +2759,15 @@ async function getProjectBookMaterial(req, res) {
 }
 
 /**
- * Updates the access/visibility setting of an Ancillary Material (for a Book linked to a Project).
+ * Updates the access/visibility setting of a Project File.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgiong response object.
  */
-async function updateProjectBookMaterialAccess(req, res) {
+async function updateProjectFileAccess(req, res) {
   try {
-    const projectID = req.params.projectID;
+    const {projectID, fileID} = req.params;
+    const newAccess = req.body.newAccess;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2799,30 +2776,20 @@ async function updateProjectBookMaterialAccess(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasPermission) {
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasTeamPermission) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
-    const materials = await retrieveAllBookMaterials(bookID);
-    if (!materials) {
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) {
       throw (new Error('retrieveerror'));
     }
 
-    const materialID = req.params.materialID;
-    const newAccess = req.body.newAccess;
-    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    const foundObj = files.find((obj) => obj.fileID === fileID);
     if (!foundObj) {
       return res.status(400).send({
         err: true,
@@ -2830,15 +2797,15 @@ async function updateProjectBookMaterialAccess(req, res) {
       });
     }
 
-    /* Update material and any children */
+    /* Update file and any children */
     const entriesToUpdate = [];
 
     const findChildEntriesToUpdate = (parentID) => {
-      materials.forEach((obj) => {
+      files.forEach((obj) => {
         if (obj.parent === parentID) {
           entriesToUpdate.push(obj);
           if (obj.storageType === 'folder') {
-            findChildEntriesToUpdate(obj.materialID);
+            findChildEntriesToUpdate(obj.fileID);
           }
         }
       });
@@ -2846,11 +2813,11 @@ async function updateProjectBookMaterialAccess(req, res) {
 
     entriesToUpdate.push(foundObj);
     if (foundObj.storageType === 'folder') {
-      findChildEntriesToUpdate(foundObj.materialID);
+      findChildEntriesToUpdate(foundObj.fileID);
     }
 
-    let updated = materials.map((obj) => {
-      const foundUpdater = entriesToUpdate.find((upd) => upd.materialID === obj.materialID);
+    let updated = files.map((obj) => {
+      const foundUpdater = entriesToUpdate.find((upd) => upd.fileID === obj.fileID);
       if (foundUpdater) {
         return {
           ...obj,
@@ -2859,19 +2826,19 @@ async function updateProjectBookMaterialAccess(req, res) {
       }
       return obj;
     });
-
+    
     /* Recalculate access for all file system entries */
     updated = computeStructureAccessSettings(updated);
 
     /* Save updates */
-    const bookUpdate = await updateBookMaterials(bookID, updated);
-    if (!bookUpdate) {
+    const projectUpdate = await updateProjectFiles(projectID, updated);
+    if (!projectUpdate) {
       throw (new Error('updatefail'));
     }
 
     return res.send({
       err: false,
-      msg: 'Successfully updated material access setting!',
+      msg: 'Successfully updated file access setting!',
     });
   } catch (e) {
     debugError(e);
@@ -2883,12 +2850,12 @@ async function updateProjectBookMaterialAccess(req, res) {
 }
 
 /**
- * Moves an Ancillary Material to a new parent (for a Book linked to a Project).
+ * Moves a Project File to a new parent.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object. 
  */
-async function moveProjectBookMaterial(req, res) {
+async function moveProjectFile(req, res) {
   try {
     const projectID = req.params.projectID;
     const project = await Project.findOne({ projectID }).lean();
@@ -2899,38 +2866,30 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasPermission) {
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasTeamPermission) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
     const newParentID = req.body.newParent;
-    const materialID = req.params.materialID;
+    const fileID = req.params.fileID;
     let newParentIsRoot = false;
     if (newParentID === '') {
       newParentIsRoot = true;
     } 
 
-    const materials = await retrieveAllBookMaterials(bookID);
-    if (!materials) { // error encountered
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
 
-    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    const foundObj = files.find((obj) => obj.fileID === fileID);
     let foundNewParent = null;
     if (!newParentIsRoot) {
-      foundNewParent = materials.find((obj) => obj.materialID === newParentID);
+      foundNewParent = files.find((obj) => obj.fileID === newParentID);
     }
     if (!foundObj || (!newParentIsRoot && !foundNewParent)) {
       return res.status(400).send({
@@ -2940,7 +2899,7 @@ async function moveProjectBookMaterial(req, res) {
     }
 
     if (
-      materialID === newParentID
+      fileID === newParentID
       || (!newParentIsRoot && foundNewParent.storageType === 'file')
     ) {
       return res.status(400).send({
@@ -2949,8 +2908,8 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    let updated = materials.map((obj) => {
-      if (obj.materialID === materialID) {
+    let updated = files.map((obj) => {
+      if (obj.fileID === fileID) {
         return {
           ...obj,
           parent: newParentID,
@@ -2961,14 +2920,14 @@ async function moveProjectBookMaterial(req, res) {
 
     updated = computeStructureAccessSettings(updated);
 
-    const bookUpdate = await updateBookMaterials(bookID, updated);
-    if (!bookUpdate) {
+    const projectUpdate = await updateProjectFiles(projectID, updated);
+    if (!projectUpdate) {
       throw (new Error('updatefail'));
     }
 
     return res.send({
       err: false,
-      msg: 'Successfully moved material!',
+      msg: 'Successfully moved file!',
     });
   } catch (e) {
     debugError(e);
@@ -2980,15 +2939,16 @@ async function moveProjectBookMaterial(req, res) {
 }
 
 /**
- * Deletes an Ancillary Material (for a Book linked to a Project) in S3 and updates the Materials
- * list. Multiple materials can be deleted by specifying a folder identifier.
+ * Deletes a Project File in S3 and updates the Files
+ * list. Multiple files  can be deleted by specifying a folder identifier.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing resposne object.
  */
- async function removeProjectBookMaterial(req, res) {
+ async function removeProjectFile(req, res) {
   try {
     const projectID = req.params.projectID;
+    const fileID = req.params.fileID;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2997,29 +2957,20 @@ async function moveProjectBookMaterial(req, res) {
       });
     }
 
-    const hasPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasPermission) {
+    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
+    if (!hasTeamPermission) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
       });
     }
 
-    const bookID = getBookLinkedToProject(project);
-    if (!bookID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
-    const materialID = req.params.materialID;
-    const materials = await retrieveAllBookMaterials(bookID);
-    if (!materials) { // error encountered
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
 
-    const foundObj = materials.find((obj) => obj.materialID === materialID);
+    const foundObj = files.find((obj) => obj.fileID === fileID);
     if (!foundObj) {
       return res.status(400).send({
         err: true,
@@ -3030,10 +2981,10 @@ async function moveProjectBookMaterial(req, res) {
     const objsToDelete = [];
 
     const findChildObjectsRecursive = (parent = null) =>  {
-      materials.forEach((obj) => {
+      files.forEach((obj) => {
         if (parent && obj.parent === parent) {
           if (obj.storageType === 'folder') {
-            findChildObjectsRecursive(obj.materialID);
+            findChildObjectsRecursive(obj.fileID);
           }
           objsToDelete.push(obj);
         }
@@ -3042,23 +2993,23 @@ async function moveProjectBookMaterial(req, res) {
 
     objsToDelete.push(foundObj);
     if (foundObj.storageType === 'folder') {
-      findChildObjectsRecursive(foundObj.materialID);
+      findChildObjectsRecursive(foundObj.fileID);
     }
 
-    const objectIDs = objsToDelete.map((obj) => obj.materialID);
+    const objectIDs = objsToDelete.map((obj) => obj.fileID);
     const filesToDelete = objsToDelete.map((obj) => {
       if (obj.storageType === 'file') {
         return {
-          Key: `${bookID}/${obj.materialID}`,
+          Key: `${projectID}/${obj.fileID}`,
         };
       }
       return null;
     }).filter((obj) => obj !== null);
 
     if (filesToDelete.length > 0) {
-      const storageClient = new S3Client(MATERIALS_S3_CLIENT_CONFIG);
+      const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const deleteRes = await storageClient.send(new DeleteObjectsCommand({
-        Bucket: process.env.AWS_MATERIALS_BUCKET,
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
         Delete: {
           Objects: filesToDelete,
         }
@@ -3071,8 +3022,8 @@ async function moveProjectBookMaterial(req, res) {
       }
     }
 
-    let updated = materials.map((obj) => {
-      if (objectIDs.includes(obj.materialID)) {
+    let updated = files.map((obj) => {
+      if (objectIDs.includes(obj.fileID)) {
         return null;
       }
       return obj;
@@ -3080,14 +3031,14 @@ async function moveProjectBookMaterial(req, res) {
 
     updated = computeStructureAccessSettings(updated);
 
-    const bookUpdate = await updateBookMaterials(bookID, updated);
-    if (!bookUpdate) {
+    const projectUpdate = await updateProjectFiles(projectID, updated);
+    if (!projectUpdate) {
       throw (new Error('updatefail'));
     }
 
     return res.send({
       err: false,
-      msg: `Successfully deleted materials!`,
+      msg: `Successfully deleted files!`,
     });
   } catch (e) {
     return res.status(500).send({
@@ -3476,13 +3427,13 @@ const validateProjectRole = (role) => {
 };
 
 /**
- * Validates a provided Book Ancillary Material access/visibility setting.
+ * Validates a provided Project File access/visibility setting.
  *
  * @param {string} access - The setting identifier to validate. 
  * @returns {boolean} True if valid role, false otherwise. 
  */
-const validateMaterialAccessSetting = (access) => {
-  return ['public', 'users'].includes(access);
+const validateFileAccessSetting = (access) => {
+  return PROJECT_FILES_ACCESS_SETTINGS.includes(access)
 };
 
 /**
@@ -3659,45 +3610,45 @@ const validate = (method) => {
           body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
           body('merge', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
       ]
-    case 'addProjectBookMaterials':
+    case 'addProjectFile':
       return [
         param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
         body('parentID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('folderName', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
       ]
-    case 'getProjectBookMaterial':
+    case 'getProjectFiles':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+        param('fileID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
       ]
-    case 'getProjectBookMaterials':
+    case 'getProjectFileDownloadUrl':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
       ]
-    case 'updateProjectBookMaterial':
+    case 'updateProjectFile':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).exists().isUUID(),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
         body('name', conductorErrors.err1).optional().isLength({ min: 1, max: 100 }),
         body('description', conductorErrors.err1).optional().isLength({ max: 500 }),
       ]
-    case 'updateProjectBookMaterialAccess':
+    case 'updateProjectFileAccess':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).exists().isUUID(),
-        body('newAccess', conductorErrors.err1).exists().isString().custom(validateMaterialAccessSetting),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
+        body('newAccess', conductorErrors.err1).exists().isString().custom(validateFileAccessSetting),
       ]
-    case 'moveProjectBookMaterial':
+    case 'moveProjectFile':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).exists().isUUID(),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
         body('newParent', conductorErrors.err1).exists().isString(),
       ]
-    case 'removeProjectBookMaterial':
+    case 'removeProjectFile':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('materialID', conductorErrors.err1).exists().isUUID(),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
       ]
     case 'getProjectBookReaderResources':
       return [
@@ -3746,14 +3697,14 @@ export default {
     updateA11YReviewSectionItem,
     importA11YSectionsFromTOC,
     autoGenerateProjects,
-    materialUploadHandler,
-    addProjectBookMaterials,
-    getProjectBookMaterial,
-    getProjectBookMaterials,
-    updateProjectBookMaterial,
-    updateProjectBookMaterialAccess,
-    moveProjectBookMaterial,
-    removeProjectBookMaterial,
+    fileUploadHandler,
+    addProjectFile,
+    getProjectFileDownloadURL,
+    getProjectFiles,
+    updateProjectFile,
+    updateProjectFileAccess,
+    moveProjectFile,
+    removeProjectFile,
     getProjectBookReaderResources,
     updateProjectBookReaderResources,
     checkProjectGeneralPermission,

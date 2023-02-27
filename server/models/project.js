@@ -5,8 +5,62 @@
  */
 
 import mongoose from 'mongoose';
-import { projectClassifications } from '../util/projectutils.js';
+import { projectClassifications, PROJECT_FILES_ACCESS_SETTINGS } from '../util/projectutils.js';
 import { a11ySectionReviewSchema } from '../util/a11yreviewutils.js';
+
+const FilesSchema = new mongoose.Schema();
+FilesSchema.add({
+  /**
+   * Unique identifier of the file entry.
+   */
+  fileID: {
+    type: String,
+    required: true,
+  },
+  /**
+   * UI-name of the file entry.
+   */
+  name: String,
+  /**
+   * Indicates which users can download the file on Commons.
+   */
+  access: {
+    type: String,
+    enum: PROJECT_FILES_ACCESS_SETTINGS,
+  },
+  /**
+   * Indicates whether the entry is a "file" or "folder".
+   */
+  storageType: {
+    type: String,
+    enum: ['file', 'folder'],
+    default: 'file',
+  },
+  /**
+   * Entry size in bytes, set to 0 if entry is a "folder".
+   */
+  size: {
+    type: Number,
+    default: 0,
+  },
+  /**
+   * UI text describing the entry and its contents.
+   */
+  description: String,
+  /**
+   * Identifier of the immediate parent in the hierarchy. Empty string if the
+   * entry is at the top-level of the hierarchy.
+   */
+  parent: String,
+  /**
+   * UUID of the user that uploaded or created the entry.
+   */
+  createdBy: String,
+  /**
+   * Number of times the entry has been downloaded on Commons, if entry is a "file".
+   */
+  downloadCount: Number,
+});
 
 const ProjectSchema = new mongoose.Schema({
   /**
@@ -195,6 +249,10 @@ const ProjectSchema = new mongoose.Schema({
    * The C-ID Descriptor(s) applicable to this Project.
    */
   cidDescriptors: [String],
+  /**
+   * Project Files associated with the Book.
+   */
+  files: [FilesSchema],
 }, {
   timestamps: true
 });

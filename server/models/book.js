@@ -5,60 +5,6 @@
 
 import mongoose from 'mongoose';
 
-const MaterialsSchema = new mongoose.Schema();
-MaterialsSchema.add({
-  /**
-   * Unique identifier of the material entry.
-   */
-  materialID: {
-    type: String,
-    required: true,
-  },
-  /**
-   * UI-name of the material entry.
-   */
-  name: String,
-  /**
-   * Indicates which users can download the file on Commons.
-   */
-  access: {
-    type: String,
-    enum: ['public', 'users', 'mixed'],
-  },
-  /**
-   * Indicates whether the entry is a "file" or "folder".
-   */
-  storageType: {
-    type: String,
-    enum: ['file', 'folder'],
-    default: 'file',
-  },
-  /**
-   * Entry size in bytes, set to 0 if entry is a "folder".
-   */
-  size: {
-    type: Number,
-    default: 0,
-  },
-  /**
-   * UI text describing the entry and its contents.
-   */
-  description: String,
-  /**
-   * Identifier of the immediate parent in the hierarchy. Empty string if the
-   * entry is at the top-level of the hierarchy.
-   */
-  parent: String,
-  /**
-   * UUID of the user that uploaded or created the entry.
-   */
-  createdBy: String,
-  /**
-   * Number of times the entry has been downloaded on Commons, if entry is a "file".
-   */
-  downloadCount: Number,
-});
-
 const BookSchema = new mongoose.Schema({
   /**
    * LibreTexts standard text identifier in the format 'library-coverPageID'.
@@ -160,10 +106,6 @@ const BookSchema = new mongoose.Schema({
    * ISO timestamp of the most recent (page-level) update within the Book.
    */
   lastUpdated: String,
-  /**
-   * Ancillary Materials associated with the Book.
-   */
-  materials: [MaterialsSchema],
   /**
    * Meta-tags from the respective library attached to the Book.
    */

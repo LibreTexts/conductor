@@ -93,6 +93,12 @@ const peerReviewSevenPointLikertOptions = [
     'Strongly Agree'
 ];
 
+const PROJECT_FILES_ACCESS_SETTINGS = [
+  { key: 'public',  value: 'public',  text: 'Public (visible on Commons)'          },
+  { key: 'users',   value: 'users',   text: 'All Conductor Users' },
+  { key: 'team', value: 'team', text: 'Project Team Members'},
+];
+
 
 /**
  * Accepts an internal Task status value and attempts to return the UI-ready
@@ -374,7 +380,25 @@ const checkProjectMemberPermission = (project, user) => {
     return false;
 };
 
+/**
+ * Returns the UI-ready representation of a Project File access/visibility setting.
+ *
+ * @param {string} access - The internal access setting.
+ * @returns {string} The UI-ready representation.
+ */
+const getFilesAccessText = (access) => {
+  const foundSetting = [
+    ...PROJECT_FILES_ACCESS_SETTINGS,
+    { key: 'mixed', text: 'Mixed', value: 'mixed' },
+  ].find((setting) => setting.value === access);
+  if (foundSetting) {
+    return foundSetting.text;
+  }
+  return 'Unknown';
+};
+
 export {
+    PROJECT_FILES_ACCESS_SETTINGS,
     visibilityOptions,
     statusOptions,
     createTaskOptions,
@@ -396,5 +420,6 @@ export {
     constructProjectTeam,
     checkCanViewProjectDetails,
     checkProjectAdminPermission,
-    checkProjectMemberPermission
+    checkProjectMemberPermission,
+    getFilesAccessText
 }

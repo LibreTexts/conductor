@@ -3,8 +3,12 @@
 // projectutils.js
 //
 import axios from 'axios';
-import { stringContainsOneOfSubstring, getProductionURL } from './helpers.js';
+import { stringContainsOneOfSubstring, getProductionURL, assembleUrl } from './helpers.js';
 import { libraryNameKeys } from './librariesmap.js';
+import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
+import { debugError } from '../debug.js';
+import Project from '../models/project.js';
+import base64 from 'base-64';
 
 export const projectClassifications = [
     'harvesting',
@@ -38,6 +42,16 @@ Conductor also promotes collaboration and organization among everyone on your OE
 You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/10%3A_Commons_and_Conductor).
 `;
 
+
+export const PROJECT_FILES_S3_CLIENT_CONFIG = {
+    credentials: {
+        accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+    },
+    region: process.env.AWS_PROJECTFILES_REGION,
+};
+
+export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'team'];
 
 /**
  * Validates that a given classification string is one of the
@@ -143,3 +157,348 @@ export const getLibreTextInformation = (url) => {
         return textInfo;
     });
 };
+
+/**
+ * Retrieves all Project Files for a Project stored in the database as a flat array.
+ * Generally reserved for internal use.
+ *
+ * @param {string} projectID - LibreTexts standard project identifier
+ * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
+ * @returns {Promise<object[]|null>} All Project Files listings, or null if error encountered.
+ */
+export async function retrieveAllProjectFiles(projectID, hasTeamPermission) {
+  try {
+    const projectResults = await Project.aggregate([
+      {
+        $match: { projectID },
+      }, {
+        $unwind: {
+          path: '$files',
+          preserveNullAndEmptyArrays: true,
+        },
+      }, {
+        $addFields: {
+          files: {
+            createdDate: { $dateToString: { date: '$files._id' } },
+          },
+        },
+      }, {
+        $lookup: {
+          from: 'users',
+          let: { createdBy: "$files.createdBy" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$uuid', '$$createdBy' ] },
+              }
+            }, {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+              }
+            }
+          ],
+          as: 'files.uploader',
+        },
+      }, {
+        $addFields: {
+          'files.uploader': {
+            $arrayElemAt: ['$files.uploader', 0],
+          },
+        },
+      }, {
+        $group: {
+          _id: '$_id',
+          files: { $push: '$files' },
+        },
+      },
+    ]);
+    if (projectResults.length < 1) {
+      throw (new Error('Project not found.'));
+    }
+    const project = projectResults[0];
+    if (!Array.isArray(project.files)) {
+      return [];
+    }
+    
+    // If user is not team member, don't return Project Team Member only files
+    const accessFiltered = (files) => {
+      if(hasTeamPermission) {
+        return files;
+      } else {
+        return files.filter((file) => file.access !== 'team')
+      }
+    }
+
+    const sorted = accessFiltered(project.files).sort((a, b) => {
+      if (a.name < b.name) {
+        return -1;
+      }
+      if (a.name > b.name) {
+        return 1;
+      }
+      return 0;
+    });
+    return sorted;
+  } catch (e) {
+    debugError(e);
+    return null;
+  }
+}
+
+/**
+ * Retrieves a list of Project Files for a Project in hierarchical format.
+ *
+ * @param {string} projectID - The LibreTexts standard project identifier.
+ * @param {string} [filesKey=''] - The folder identifier to restrict the search to, if desired.
+ * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
+ * @param {boolean} [publicOnly=false] - Only return Public files regardless of user access level
+ * @param {boolean} [details=false] - Include additional details about each file, such as uploader.
+ * @returns {Promise<[object[], object[]]|[null, null]>} A 2-tuple containing the list of files and the path
+ * leading to the results, or nulls if error encountered.
+ */
+export async function retrieveProjectFiles(projectID, filesKey = '', hasTeamPermission, publicOnly = false, details = false) {
+  try {
+    let path = [{
+      fileID: '',
+      name: '',
+    }];
+
+    const allFiles = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!allFiles) {
+      throw (new Error('retrieveerror'));
+    }
+    if (allFiles.length === 0) {
+      return [[], path];
+    }
+    
+    const getPublicOnly = (files) => {
+      if(publicOnly) {
+      return files.filter((file) => ['public', 'mixed'].includes(file.access))
+      }
+      return files
+    }
+
+    const cleanedResults = getPublicOnly(allFiles);
+
+    let foundFolder;
+    if (filesKey !== '') {
+      foundFolder = cleanedResults.find((obj) => obj.fileID === filesKey);
+      if (!foundFolder) {
+        return [null, null]
+      }
+    }
+    const foundEntries = cleanedResults.filter((obj) => obj.parent === filesKey);
+    const buildParentPath = (obj) => {
+      let pathNodes = [];
+      pathNodes.push({
+        fileID: obj.fileID,
+        name: obj.name,
+      });
+      if (obj.parent !== '') {
+        const parent = cleanedResults.find((pParent) => pParent.fileID === obj.parent);
+        if (parent) {
+          pathNodes = [...buildParentPath(parent), ...pathNodes];
+        }
+      }
+      return pathNodes;
+    };
+
+    if (foundFolder) {
+      path.push(...buildParentPath(foundFolder));
+    }
+
+    const buildChildList = (obj) => {
+      const currObj = obj;
+      let children = [];
+      if (!details) {
+        ['_id', 'createdby', 'downloadCount', 'uploader'].forEach((key) => delete currObj[key]);
+      }
+      if (obj.storageType !== 'folder') {
+        return currObj;
+      }
+      const foundChildren = cleanedResults.filter((childObj) => childObj.parent === currObj.fileID);
+      if (foundChildren.length > 0) {
+        children = foundChildren.map((childObj) => buildChildList(childObj));
+        children = sortProjectFiles(children);
+      }
+      return {
+        ...currObj,
+        children,
+      }
+    };
+
+    const sortedResults = sortProjectFiles(foundEntries.map((obj) => buildChildList(obj)));
+
+    return [sortedResults, path];
+  } catch (e) {
+    debugError(e);
+    return [null, null];
+  }
+}
+
+/**
+ * Generates a pre-signed download URL for a Project File, if access settings allow.
+ *
+ * @param {string} projectID - Identifier of the project to search in.
+ * @param {string} fileID - Identifier of the file in the Project's files list.
+ * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
+ * @param {boolean} [publicOnly=false] - Only return file if public regardless of user access level
+ * @param {express.Request} req - Original network request object, for determining file access.
+ * @returns {Promise<string|null|false>} The pre-signed url or null if not found,
+ *  or false if unauthorized.
+ */
+export async function downloadProjectFile(projectID, fileID, hasTeamPermission, publicOnly = false, req) {
+  try {
+    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    if (!files) { // error encountered 
+      throw (new Error('retrieveerror'));
+    }
+
+    const foundFile = files.find((obj) => (
+      obj.fileID === fileID && obj.storageType === 'file'
+    ));
+    if (!foundFile) {
+      return null;
+    }
+    if (foundFile.access === 'users') {
+      if (!req.user?.decoded?.uuid) {
+        return false;
+      }
+    }
+
+    //If public only requested and file access does not match, return false
+    if(publicOnly && foundFile.access !== 'public') {
+      return false
+    }
+
+    const fileURL = assembleUrl([
+      'https://',
+      process.env.AWS_PROJECTFILES_DOMAIN,
+      projectID,
+      foundFile.fileID,
+    ]);
+    const exprDate = new Date();
+    exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
+    const privKey = base64.decode(process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY);
+
+    const signedURL = getSignedUrl({
+      url: fileURL,
+      keyPairId: process.env.AWS_PROJECTFILES_KEYPAIR_ID,
+      dateLessThan: exprDate,
+      privateKey: privKey,
+    });
+
+    /* Update download count */
+    let downloadCount = 1;
+    if (typeof (foundFile.downloadCount) === 'number') {
+      downloadCount = foundFile.downloadCount + 1;
+    }
+    const updated = files.map((obj) => {
+      if (obj.fileID === foundFile.fileID) {
+        return {
+          ...obj,
+          downloadCount,
+        };
+      }
+      return obj;
+    });
+    const projectUpdate = await updateProjectFiles(projectID, updated);
+    if (!projectUpdate) {
+      debugError(`Error occurred updating ${projectID}/${fileID} download count.`);
+    }
+
+    return signedURL;
+  } catch (e) {
+    debugError(e);
+    return null;
+  }
+}
+
+/**
+ * Computes the access settings of folder within a Project Files file system.
+ * Does not update the database.
+ *
+ * @param {object[]} files - The full array of Files, with any access updates applied.
+ * @returns {object[]} The array of Files with folder access settings fully computed.
+ */
+export function computeStructureAccessSettings(files) {
+  let toUpdate = [];
+
+  const computeFolderAccess = (folder) => {
+    const uniqueSettings = new Set();
+    uniqueSettings.add(folder.access)
+    const children = files.filter((obj) => obj.parent === folder.fileID);
+    children.forEach((child) => {
+      if (child.storageType === 'file') {
+        uniqueSettings.add(child.access);
+      }
+      if (child.storageType === 'folder') {
+        uniqueSettings.add(computeFolderAccess(child));
+      }
+    });
+    const foundSettings = Array.from(uniqueSettings);
+    let newSetting = null;
+    if (foundSettings.length > 1) {
+      newSetting = 'mixed';
+    }
+    if (foundSettings.length === 1) {
+      newSetting = foundSettings[0];
+    }
+    if (newSetting !== folder.access) {
+      toUpdate.push({
+        ...folder,
+        access: newSetting,
+      });
+      return newSetting;
+    }
+    return folder.access;
+  };
+
+  const topLevel = files.filter((obj) => obj.storageType === 'folder' && obj.parent === '');
+  topLevel.forEach((obj) => computeFolderAccess(obj));
+
+  return files.map((obj) => {
+    const foundUpdate = toUpdate.find((upd) => upd.fileID === obj.fileID);
+    if (foundUpdate) {
+      return foundUpdate;
+    }
+    return obj;
+  });
+}
+
+/**
+ * Stores an update to a Project's files array in the database.
+ *
+ * @param {string} projectID - Identifier of the Project to update.
+ * @param {object[]} updatedFiles - The full array of Files, with updated entries.
+ * @return {Promise<boolean>} True if successful, false otherwise.
+ */
+export async function updateProjectFiles(projectID, updatedFiles) {
+  try {
+    await Project.updateOne(
+      { projectID },
+      { files: updatedFiles },
+    );
+    return true;
+  } catch (e) {
+    debugError(e);
+    return false;
+  }
+}
+
+/**
+ * Sorts an array of Project Files based on the name of each entry, in natural alphanumeric order.
+ *
+ * @param {object[]} arr - Array of Files entries.
+ * @returns {object[]} The sorted array.
+ */
+export function sortProjectFiles(arr) {
+  if (!Array.isArray(arr)) {
+    return arr;
+  }
+  const collator = new Intl.Collator();
+  return arr.sort((a, b) => collator.compare(a.name, b.name));
+}

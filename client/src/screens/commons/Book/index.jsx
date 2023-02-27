@@ -9,7 +9,9 @@ import {
   Button,
   Breadcrumb,
   Modal,
-  List
+  List,
+  Search,
+  Popup
 } from 'semantic-ui-react';
 import { PieChart } from 'react-minimal-pie-chart';
 import axios from 'axios';
@@ -25,12 +27,13 @@ import { isEmptyString } from '../../../components/util/HelperFunctions.js';
 import { getLicenseColor } from '../../../components/util/BookHelpers.js';
 import { getPeerReviewAuthorText } from '../../../components/util/ProjectHelpers.js';
 import AdoptionReport from '../../../components/adoptionreport/AdoptionReport.jsx';
-import CommonsMaterials from '../../../components/commons/CommonsMaterials/index.jsx';
 import TreeView from '../../../components/TreeView';
 import PeerReview from '../../../components/peerreview/PeerReview.jsx';
 import PeerReviewView from '../../../components/peerreview/PeerReviewView.jsx';
 import StarRating from '../../../components/peerreview/StarRating.jsx';
 import styles from './Book.module.css';
+import FileIcon from '../../../components/FileIcon/index.jsx';
+import { truncateString } from '../../../components/util/HelperFunctions.js';
 
 /**
  * Displays a Commons Catalog Book entry and related information.
@@ -76,15 +79,28 @@ const CommonsBook = () => {
   const [loadedData, setLoadedData] = useState(false);
   const [loadedTOC, setLoadedTOC] = useState(false);
   const [loadedLicensing, setLoadedLicensing] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
   const [showTOC, setShowTOC] = useState(false);
-  const [showMaterials, setShowMaterials] = useState(false);
   const [showLicensing, setShowLicensing] = useState(false);
+
+  // Project Files
+  const [projFiles, setProjFiles] = useState([]);
+  const [currDirectory, setCurrDirectory] = useState('');
+  const [currDirPath, setCurrDirPath] = useState([
+    {
+      fileID: "",
+      name: "",
+    },
+  ]);
+
+  // File Search
+  const [fileSearchLoading, setFileSearchLoading] = useState(false);
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
+  const [fileSearchResults, setFileSearchResults] = useState([]);
 
   // TOC
   const [bookTOC, setBookTOC] = useState([]);
-
-  // Materials
-  const [materials, setMaterials] = useState([]);
 
   // Licensing Report
   const [foundCLR, setFoundCLR] = useState(false);
@@ -254,39 +270,6 @@ const CommonsBook = () => {
   }, [bookID, setPRReviews]);
 
   /**
-   * Retrieves a list/hierarchy of any available Ancillary Materials for the book
-   * from the server and saves it to state.
-   */
-  const getMaterials = useCallback(async () => {
-    try {
-      const matRes = await axios.get(`/commons/book/${bookID}/materials`);
-      if (!matRes.data.err) {
-        if (Array.isArray(matRes.data.materials) && matRes.data.materials.length > 0) {
-          const disableRestrictedRecursive = (arr) => {
-            return arr.map((obj) => {
-              let children = undefined;
-              if (Array.isArray(obj.children)) {
-                children = disableRestrictedRecursive(obj.children);
-              }
-              return {
-                ...obj,
-                disabled: obj.access === 'users' && !isConductorUser,
-                children,
-              };
-            });
-          };
-          const accessMapped = disableRestrictedRecursive(matRes.data.materials);
-          setMaterials(accessMapped);
-        }
-      } else {
-        throw (new Error(matRes.data.errMsg));
-      }
-    } catch (e) {
-      console.error(e); // fail silently
-    }
-  }, [bookID, isConductorUser, setMaterials]);
-
-  /**
    * Load information about the Book from the server catalog.
    */
   const getBook = useCallback(async () => {
@@ -309,9 +292,6 @@ const CommonsBook = () => {
           if (bookData.hasPeerReviews) {
             getPeerReviews();
           }
-          if (bookData.hasMaterials) {
-            getMaterials();
-          }
           getTOC();
         }
       } else {
@@ -321,7 +301,7 @@ const CommonsBook = () => {
       handleGlobalError(e);
     }
     setLoadedData(true);
-  }, [bookID, getTOC, getPeerReviews, getMaterials, setBook, setPRAllow,
+  }, [bookID, getTOC, getPeerReviews, setBook, setPRAllow,
       setPRProjectID, setLoadedData, handleGlobalError]);
 
   /**
@@ -368,10 +348,10 @@ const CommonsBook = () => {
     if (searchParams.get('peerreview') === 'show' && prAllow) {
       setPRShow(true);
     }
-    if (searchParams.get('materials') === 'show' && materials?.length > 0) {
-      setShowMaterials(true);
+    if (searchParams.get('files') === 'show') {
+      setShowFiles(true)
     }
-  }, [location, prAllow, materials, setShowAdoptionReport, setPRShow, setShowMaterials]);
+  }, [location, prAllow, setShowAdoptionReport, setPRShow, setShowFiles]);
 
   /**
    * Updates state and localStorage with the user's preference to display a Book's Table of Contents.
@@ -431,17 +411,104 @@ const CommonsBook = () => {
   }
 
   /**
-   * Opens the Ancillary Materials modal.
+   * Refresh Project Files when currDirectory (folder) changes
    */
-  function handleOpenMaterials() {
-    setShowMaterials(true);
+  useEffect(() => {
+    getProjectFiles();
+  }, [getProjectFiles])
+
+  /**
+   * Load the Files list from the server, prepare it for the UI, then save it to state.
+   */
+  const getProjectFiles = useCallback(async () => {
+    setLoadingFiles(true);
+    axios.get(`/commons/book/${bookID}/files/${currDirectory}`).then((res) => {
+      if (!res.data.err) {
+        if (Array.isArray(res.data.files)) {
+          setProjFiles(res.data.files);
+        }
+        if (Array.isArray(res.data.path)) {
+          setCurrDirPath(res.data.path);
+        }
+      } else {
+        throw new Error(res.data.errMsg);
+      }
+      if(!res.data.err) {
+        setProjFiles(res.data.files)
+      }
+      else {
+        handleGlobalError(res.data.errMsg)
+      }
+      setLoadingFiles(false)
+    }).catch((err) => {
+      handleGlobalError(err);
+      setLoadingFiles(false);
+    });
+  }, [bookID, currDirectory, setProjFiles, setCurrDirPath, setLoadingFiles, handleGlobalError])
+
+  /**
+   * Updates state with the a new directory to bring into view.
+   *
+   * @param {string} directoryID - Identifier of the directory entry.
+   */
+  function handleDirectoryClick(directoryID) {
+    setCurrDirectory(directoryID);
+  }
+
+  const handleChangeFilesVis = () => {
+    setShowFiles(!showFiles);
+    localStorage.setItem('commons_show_files', !showFiles);
+  };
+
+  const handleFileSearch = (_e, { value }) => {
+    setFileSearchLoading(true);
+    setFileSearchQuery(value);
+    let searchRegExp = new RegExp(value.toLowerCase(), 'g');
+    let results = projFiles.filter((file) => {
+      let descripString = String(file.name).toLowerCase() + ' ' + String(file.description).toLocaleLowerCase();
+      if (value !== '') {
+        let match = descripString.match(searchRegExp);
+        if (match !== null && match.length > 0) {
+          return file;
+        }
+      }
+      return false;
+    }).map((item) => {
+      return {
+        id: item.fileID,
+        title: item.name,
+      }
+    });
+    setFileSearchResults(results);
+    setFileSearchLoading(false);
+  };
+
+  const handleFileSearchSelect = (resultID) => {
+    const foundFile = projFiles.find((file) => file.fileID === resultID)
+    if(foundFile){
+      if(foundFile.storageType === 'folder') handleDirectoryClick(foundFile.fileID)
+      if(foundFile.storageType === 'file') handleDownloadFile(foundFile.fileID)
+    }
   }
 
   /**
-   * Closes the Ancillary Materials modal.
+   * Requests a download link from the server for a File entry, then opens it in a new tab.
+   *
+   * @param {string} fileID - Identifier of the File to download.
    */
-  function handleCloseMaterials() {
-    setShowMaterials(false);
+  async function handleDownloadFile(fileID) {
+    try {
+      const downloadRes = await axios.get(`/commons/book/${bookID}/files/${fileID}/download`);
+      if (!downloadRes.data.err) {
+        if (typeof (downloadRes.data.url) === 'string') {
+          window.open(downloadRes.data.url, '_blank', 'noreferrer');
+        }
+      } else {
+        throw (new Error(downloadRes.data.errMsg));
+      }
+    } catch (e) {
+      handleGlobalError(e);
+    }
   }
 
   /**
@@ -695,6 +762,44 @@ const CommonsBook = () => {
     );
   }
 
+  /**
+   * Generates path breadcrumbs based on the current directory in view.
+   *
+   * @returns {React.ReactElement} The generated breadcrumbs.
+   */
+  function DirectoryBreadcrumbs() {
+    const nodes = [];
+    currDirPath.forEach((item, idx) => {
+      let shouldLink = true;
+      let name = item.name;
+      if (item.name === "" && item.fileID === "") {
+        name = "Files";
+      } else {
+        nodes.push(
+          <Breadcrumb.Divider
+            key={`divider-${item.fileID}`}
+            icon="right chevron"
+          />
+        );
+      }
+      if (idx === currDirPath.length - 1) {
+        shouldLink = false; // don't click active directory
+      }
+      nodes.push(
+        <span
+          key={`section-${item.fileID}`}
+          onClick={
+            shouldLink ? () => handleDirectoryClick(item.fileID) : undefined
+          }
+          className={shouldLink ? "text-link" : ""}
+        >
+          {name}
+        </span>
+      );
+    });
+    return <Breadcrumb>{nodes}</Breadcrumb>;
+  }
+
   return (
     <div className="commons-page-container">
       <Segment.Group raised>
@@ -783,16 +888,6 @@ const CommonsBook = () => {
                   <span>View Homework on ADAPT</span>
                 </Button>
               )}
-              {materials.length > 0 && (
-                <Button
-                  icon="folder open"
-                  content="View Ancillary Materials"
-                  color="blue"
-                  fluid
-                  onClick={handleOpenMaterials}
-                  className="mt-05r"
-                />
-              )}
               <Button.Group fluid vertical labeled icon color="blue" className="mt-2r">
                 {accessLinks.map((item) => (
                   <Button
@@ -815,6 +910,148 @@ const CommonsBook = () => {
                   <p className={styles.meta_largefont}>{book.summary}</p>
                 </Segment>
               )}
+                  {showFiles &&
+                      <Segment.Group size='large' raised className='mb-4p'>
+                        <Segment>
+                          <div className='ui dividing header'>
+                            <div className='hideablesection'>
+                              <h3 className='header'>
+                                Files
+                              </h3>
+                              <div className='button-container'>
+                                <Button
+                                compact
+                                floated='right'
+                                onClick={() => { setFileSearchQuery(''); handleChangeFilesVis() }}
+                                >
+                                Hide
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className='flex-row-div'>
+                            <div className='left-flex ml-05e'>
+                              <DirectoryBreadcrumbs />
+                            </div>
+                            <div className='right-flex'>
+                              <Search
+                                input={{
+                                  icon: 'search',
+                                  iconPosition: 'left',
+                                  placeholder: 'Search files...'
+                                }}
+                                loading={fileSearchLoading}
+                                onResultSelect={(_e, {result} ) => handleFileSearchSelect(result.id)}
+                                onSearchChange={handleFileSearch}
+                                results={fileSearchResults}
+                                value={fileSearchQuery}
+                                size='mini'
+                              />
+                            </div>
+                          </div>
+                        </Segment>
+                        <Segment loading={loadingFiles} className={(projFiles.length === 0) ? 'muted-segment' : ''}>
+                          {(projFiles.length > 0)
+                            ? (
+                              <List divided verticalAlign='middle'>
+                                {projFiles.map((file, idx) => {
+                                  return (
+                                    <List.Item key={file.fileID}>
+                                      <div className='flex-col-div'>
+                                        <div className='flex-row-div'>
+                                          <div className='left-flex'>
+                                            <div className='project-file-title-column'>
+                                              <div className={file.description ? 'mb-01e' : ''}>
+                                              {file.storageType === 'folder' ? (
+                                                <Icon name="folder outline" />
+                                                ) : (
+                                                <FileIcon filename={file.name} />
+                                                )}
+                                                {file.storageType === 'folder' ? (
+                                                <span
+                                                  className={`text-link ${styles.project_file_title}`}
+                                                  onClick={() => handleDirectoryClick(file.fileID)}
+                                                  >
+                                                  {file.name}
+                                                </span>
+                                                ) : (
+                                                <span className={styles.project_file_title}>{file.name}</span>
+                                              )}
+                                              </div>
+                                              <div>
+                                                {file.description && (
+                                                  <span className={`muted-text ml-2e ${styles.project_file_descrip}`}>{truncateString(file.description, 100)}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className='right-flex'>
+                                            <Popup
+                                              content='Download File'
+                                              trigger={
+                                                (file.storageType === 'file') && (
+                                                  <Button
+                                                    icon
+                                                    size="small"
+                                                    title="Download file (opens in new tab)"
+                                                    onClick={() => handleDownloadFile(file.fileID)}
+                                                  >
+                                                    <Icon name="download" />
+                                                  </Button>
+                                                )
+                                              }
+                                              position='top center'
+                                            />
+                                            <Popup
+                                              content='Open Folder'
+                                              trigger={
+                                                (file.storageType === 'folder') && (
+                                                  <Button
+                                                    icon
+                                                    size="small"
+                                                    title="Open Folder"
+                                                    onClick={() => handleDirectoryClick(file.fileID)}
+                                                  >
+                                                    <Icon name="folder open outline" />
+                                                  </Button>
+                                                )
+                                              }
+                                              position='top center'
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </List.Item>
+                                  )
+                                })}
+                              </List>
+                            )
+                            : (
+                              <div>
+                                <p className='text-center muted-text'><em>No files yet.</em></p>
+                              </div>
+                            )
+                          }
+                        </Segment>
+                      </Segment.Group>
+                  }
+              {!showFiles &&
+                  <Segment>
+                  <div className='hiddensection'>
+                    <div className='header-container'>
+                      <Header as='h3'>Files</Header>
+                    </div>
+                    <div className='button-container'>
+                      <Button
+                        floated='right'
+                        onClick={handleChangeFilesVis}
+                      >
+                        Show
+                      </Button>
+                    </div>
+                  </div>
+                </Segment>
+              }
               {showTOC ? (
                 <Segment loading={!loadedTOC}>
                   <div className='ui dividing header'>
@@ -970,13 +1207,6 @@ const CommonsBook = () => {
         onClose={handleClosePeerReviewView}
         peerReviewData={prViewData}
         publicView={true}
-      />
-      <CommonsMaterials
-        show={showMaterials}
-        onClose={handleCloseMaterials}
-        bookID={bookID}
-        materials={materials}
-        hasLockedFileAccess={isConductorUser}
       />
     </div>
   )

@@ -33,7 +33,8 @@ import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
-import MaterialsManager from '../MaterialsManager/MaterialsManager';
+import FilesManager from '../FilesManager/FilesManager';
+import FileIcon from '../FileIcon';
 import ProjectProgressBar from './ProjectProgressBar';
 import TextArea from '../TextArea';
 import Messaging from '../Messaging';
@@ -87,8 +88,10 @@ const ProjectView = (props) => {
   // UI
   const [loadingData, setLoadingData] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const [showProjectCreated, setShowProjectCreated] = useState(false);
   const [showDiscussion, setShowDiscussion] = useState(true);
+  const [showFiles, setShowFiles] = useState(true);
   const [showReviewerCrumb, setShowReviewerCrumb] = useState(false);
   const [showJoinComingSoon, setShowJoinComingSoon] = useState(false);
 
@@ -251,9 +254,6 @@ const ProjectView = (props) => {
 
   // TODO: Finish flagDescripErr implementation
 
-  // Manage Ancillary Materials Modal
-  const [showMaterialsModal, setShowMaterialsModal] = useState(false);
-
   // Manage Reader Resources Modal
   const [showReaderResourcesModal, setShowReaderResourcesModal] = useState(false);
 
@@ -276,6 +276,11 @@ const ProjectView = (props) => {
     if (localStorage.getItem('conductor_show_projectdiscussion') !== null) {
       if (localStorage.getItem('conductor_show_projectdiscussion') === 'true') {
         setShowDiscussion(true);
+      }
+    }
+    if (localStorage.getItem('conductor_show_projectfiles') !== null) {
+      if (localStorage.getItem('conductor_show_projectfiles') === 'true') {
+        setShowFiles(true);
       }
     }
   }, []);
@@ -413,7 +418,6 @@ const ProjectView = (props) => {
       return item;
     });
   };
-
 
   const getProjectTasks = () => {
     setLoadingTasks(true);
@@ -952,7 +956,6 @@ const ProjectView = (props) => {
     });
   };
 
-
   const handleTaskSearch = (_e, { value }) => {
     setTaskSearchLoading(true);
     setTaskSearchQuery(value);
@@ -1285,6 +1288,11 @@ const ProjectView = (props) => {
   const handleChangeDiscussionVis = () => {
     setShowDiscussion(!showDiscussion);
     localStorage.setItem('conductor_show_projectdiscussion', !showDiscussion);
+  };
+
+  const handleChangeFilesVis = () => {
+    setShowFiles(!showFiles);
+    localStorage.setItem('conductor_show_projectfiles', !showFiles);
   };
 
   const getParentTaskName = (taskID) => {
@@ -1772,20 +1780,6 @@ const ProjectView = (props) => {
   };
 
   /**
-   * Sets the Manage Ancillary Materials modal to open in state.
-   */
-  function handleOpenMaterialsModal() {
-    setShowMaterialsModal(true);
-  }
-
-  /**
-   * Sets the Manage Ancillary Materials modal to closed in state.
-   */
-  function handleCloseMaterialsModal() {
-    setShowMaterialsModal(false);
-  }
-
-  /**
    * Sets the Manage Reader Resources modal to open in state.
    */
   function handleOpenReaderResourcesModal() {
@@ -2240,17 +2234,6 @@ const ProjectView = (props) => {
                               <Button
                                 color="blue"
                                 compact
-                                onClick={handleOpenMaterialsModal}
-                              >
-                                  Manage Ancillary Materials
-                              </Button>
-                            </div>
-                          )}
-                          {(canViewDetails && project.hasCommonsBook) && (
-                            <div className="mt-1e">
-                              <Button
-                                color="blue"
-                                compact
                                 onClick={handleOpenReaderResourcesModal}
                               >
                                   Manage Reader Resources
@@ -2361,6 +2344,31 @@ const ProjectView = (props) => {
                         className='mb-2p'
                       >
                         <p><em>You don't have permission to view this project's Discussion yet.</em></p>
+                      </Segment>
+                    </Grid.Column>
+                  }
+                </Grid.Row>
+                <Grid.Row>
+                  {showFiles &&
+                    <FilesManager
+                      projectID={props.match.params.id}
+                      toggleFilesManager={handleChangeFilesVis}
+                      canViewDetails={canViewDetails}
+                    />
+                  }
+                  {!showFiles &&
+                    <Grid.Column>
+                      <Segment
+                        raised
+                        clearing
+                      >
+                        <Header as='h2' className='project-hiddensection-heading'>Files</Header>
+                        <Button
+                          floated='right'
+                          onClick={handleChangeFilesVis}
+                        >
+                          Show
+                        </Button>
                       </Segment>
                     </Grid.Column>
                   }
@@ -3915,14 +3923,6 @@ const ProjectView = (props) => {
               <Button onClick={closePinnedModal} color='blue'>Done</Button>
             </Modal.Actions>
           </Modal>
-          {/* Manage Ancillary Materials */}
-          {project.projectID && (
-            <MaterialsManager
-              projectID={project.projectID}
-              show={showMaterialsModal}
-              onClose={handleCloseMaterialsModal}
-            />
-          )}
           {/* Manage Reader Resources */}
           {
             project.projectID  && (

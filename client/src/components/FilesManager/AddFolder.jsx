@@ -5,7 +5,7 @@ import { Modal, Form, Button, Icon } from 'semantic-ui-react';
 import useGlobalError from '../error/ErrorHooks';
 
 /**
- * Modal tool to add a new folder to an Ancillary Materials list.
+ * Modal tool to add a new folder to an Project Files list.
  */
 const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd }) => {
 
@@ -72,7 +72,7 @@ const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd })
     if (validateForm()) {
       setLoading(true);
       try {
-        const createRes = await axios.post(`/project/${projectID}/book/materials/`, {
+        const createRes = await axios.post(`/project/${projectID}/files`, {
           parentID: parentDirectory,
           folderName,
         });
@@ -127,7 +127,7 @@ AddFolder.propTypes = {
    */
   onClose: PropTypes.func,
   /**
-   * Identifier of the project materials are being added to.
+   * Identifier of the project files are being added to.
    */
   projectID: PropTypes.string.isRequired,
   /**
