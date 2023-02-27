@@ -3,13 +3,13 @@ import PropTypes from 'prop-types';
 import { Modal, Icon, Button, Form } from 'semantic-ui-react';
 import axios from 'axios';
 import FileIcon from '../FileIcon';
-import { MATERIALS_ACCESS_SETTINGS } from '../util/BookHelpers';
+import { PROJECT_FILES_ACCESS_SETTINGS } from '../util/ProjectHelpers';
 import useGlobalError from '../error/ErrorHooks';
 
 /**
- * Modal tool to set the access/visibility setting of Ancillary Materials entries.
+ * Modal tool to set the access/visibility setting of Project Files entries.
  */
-const ChangeAccess = ({ show, onClose, projectID, materials, onFinishedChange }) => {
+const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => {
 
   const DEFAULT_ACCESS_SETTING = 'public';
 
@@ -76,10 +76,10 @@ const ChangeAccess = ({ show, onClose, projectID, materials, onFinishedChange })
     if (validateForm()) {
       setLoading(true);
       try {
-        for (let i = 0, n = materials.length; i < n; i += 1) {
-          const currMaterial = materials[i];
+        for (let i = 0, n = files.length; i < n; i += 1) {
+          const currFile = files[i];
           const updateRes = await axios.put(
-            `/project/${projectID}/book/material/${currMaterial.materialID}/access`,
+            `/project/${projectID}/files/${currFile.fileID}/access`,
             { newAccess },
           );
           if (updateRes.data.err) {
@@ -97,16 +97,16 @@ const ChangeAccess = ({ show, onClose, projectID, materials, onFinishedChange })
 
   return (
     <Modal open={show} onClose={onClose}>
-      <Modal.Header>Change Material Access</Modal.Header>
+      <Modal.Header>Change File Access</Modal.Header>
       <Modal.Content>
         <p>
           <strong>WARNING: </strong>
-          {`You're about to change the access setting on the following material(s). `}
+          {`You're about to change the access setting on the following file(s). `}
           <strong>Changing access to a folder will also change access to all of its files and subdirectories.</strong>
         </p>
         <ul>
-          {materials.map((obj) => (
-            <li key={obj.materialID}>
+          {files.map((obj) => (
+            <li key={obj.fileID}>
               {obj.storageType === 'folder' ? (
                 <Icon name="folder outline" />
               ) : (
@@ -122,7 +122,7 @@ const ChangeAccess = ({ show, onClose, projectID, materials, onFinishedChange })
             fluid
             placeholder="Access..."
             error={settingError}
-            options={MATERIALS_ACCESS_SETTINGS}
+            options={PROJECT_FILES_ACCESS_SETTINGS}
             value={newAccess}
             onChange={handleSettingChange}
           />
@@ -149,18 +149,18 @@ ChangeAccess.propTypes = {
    */
   onClose: PropTypes.func,
   /**
-   * Identifier of the project materials belong to.
+   * Identifier of the project files belong to.
    */
   projectID: PropTypes.string.isRequired,
   /**
-   * Array of materials to modify.
+   * Array of files to modify.
    */
-  materials: PropTypes.arrayOf(PropTypes.shape({
-    materialID: PropTypes.string.isRequired,
+  files: PropTypes.arrayOf(PropTypes.shape({
+    fileID: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,
   })).isRequired,
   /**
-   * Handler to activate when the given material(s) have been modified.
+   * Handler to activate when the given files(s) have been modified.
    */
   onFinishedChange: PropTypes.func,
 };

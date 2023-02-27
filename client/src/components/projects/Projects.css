@@ -327,6 +327,18 @@
     font-size: 1.25rem !important;
 }
 
+/** Files **/
+.project-file-title {
+    font-size: 1.1em !important;
+}
+
+.project-file-description {
+    font-size: 0.8em !important; 
+}
+
+.project-file-left-column {
+    flex-direction: column;
+}
 
 /** Tasks **/
 .project-task-list {

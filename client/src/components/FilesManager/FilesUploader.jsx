@@ -5,12 +5,12 @@ import { Button, Modal } from 'semantic-ui-react';
 import ProgressBar from '../ProgressBar';
 import useGlobalError from '../error/ErrorHooks';
 import FileUploader from '../FileUploader';
-import styles from './MaterialsManager.module.css';
+import styles from './FilesManager.module.css';
 
 /**
- * Modal interface to upload Ancillary Materials to a Project/Book.
+ * Modal interface to upload Project Files to a Project.
  */
-const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, onFinishedUpload, ...props }) => {
+const FilesUploader = ({ show, onClose, directory, projectID, uploadPath, onFinishedUpload, ...props }) => {
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -32,11 +32,11 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
     const formData = new FormData();
     formData.append('parentID', uploadPath);
     Array.from(files).forEach((file) => {
-      formData.append('materials', file);
+      formData.append('files', file);
     });
     try {
       const uploadRes = await axios.post(
-        `/project/${projectID}/book/materials`,
+        `/project/${projectID}/files`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -67,7 +67,7 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
 
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Upload Materials</Modal.Header>
+      <Modal.Header>Upload Files</Modal.Header>
       <Modal.Content>
         {!loading ? (
           <div>
@@ -96,7 +96,7 @@ const MaterialsUploader = ({ show, onClose, directory, projectID, uploadPath, on
   )
 };
 
-MaterialsUploader.propTypes = {
+FilesUploader.propTypes = {
   /**
    * Sets the modal to open or closed.
    */
@@ -110,7 +110,7 @@ MaterialsUploader.propTypes = {
    */
   directory: PropTypes.string.isRequired,
   /**
-   * Identifier of the project materials are being added to.
+   * Identifier of the project Files are being added to.
    */
   projectID: PropTypes.string.isRequired,
   /**
@@ -123,10 +123,10 @@ MaterialsUploader.propTypes = {
   onFinishedUpload: PropTypes.func,
 };
 
-MaterialsUploader.defaultProps = {
+FilesUploader.defaultProps = {
   onClose: () => { },
   uploadPath: '',
   onFinishedUpload: () => { },
 };
 
-export default MaterialsUploader;
+export default FilesUploader;

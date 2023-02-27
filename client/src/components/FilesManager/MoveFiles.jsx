@@ -7,9 +7,9 @@ import FileTree from '../FileTree';
 import useGlobalError from '../error/ErrorHooks';
 
 /**
- * Modal tool to move Ancillary Materials between folders in the set.
+ * Modal tool to move Project Files between folders in the set.
  */
-const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, onFinishedMove }) => {
+const MoveFiles = ({ show, onClose, projectID, files, currentDirectory, onFinishedMove }) => {
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -20,28 +20,28 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
   const [locations, setLocations] = useState([]);
 
   /**
-   * Retrieve the list of Materials for the server, determine which are valid new locations
-   * for the provided Materials, and save the hierarchy to state.
+   * Retrieve the list of Files for the server, determine which are valid new locations
+   * for the provided Files, and save the hierarchy to state.
    */
   const getMoveLocations = useCallback(async () => {
     try {
       setLoadingLocs(true);
-      const locsRes = await axios.get(`/project/${projectID}/book/materials/`);
+      const locsRes = await axios.get(`/project/${projectID}/files`);
       if (!locsRes.data.err) {
-        const foundLocs = locsRes.data.materials;
+        const foundLocs = locsRes.data.files;
         if (Array.isArray(foundLocs)) {
-          const selectedIDs = materials.map((obj) => obj.materialID);
+          const selectedIDs = files.map((obj) => obj.fileID);
           const filterRecursive = (arr) => {
             let passes = [];
             arr.forEach((obj) => {
-              if (obj.storageType === 'folder' && !selectedIDs.includes(obj.materialID)) {
+              if (obj.storageType === 'folder' && !selectedIDs.includes(obj.fileID)) {
                 let children = [];
                 if (Array.isArray(obj.children)) {
                   children = filterRecursive(obj.children);
                 }
                 passes.push({
                   ...obj,
-                  disabled: obj.materialID === currentDirectory,
+                  disabled: obj.fileID === currentDirectory,
                   children,
                 });
               }
@@ -49,7 +49,7 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
             return passes;
           };
           const enabledFolders = [{
-            materialID: '',
+            fileID: '',
             name: 'Root',
             storageType: 'folder',
             children: filterRecursive(foundLocs),
@@ -65,7 +65,7 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
       setLoadingLocs(false);
       handleGlobalError(e);
     }
-  }, [materials, currentDirectory, projectID, setLoadingLocs, setLocations, handleGlobalError]);
+  }, [files, currentDirectory, projectID, setLoadingLocs, setLocations, handleGlobalError]);
 
   /**
    * Load potential locations on open.
@@ -82,10 +82,10 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
   async function handleMove(targetID) {
     setLoading(true);
     try {
-      for (let i = 0, n = materials.length; i < n; i += 1) {
-        const currMaterial = materials[i];
+      for (let i = 0, n = files.length; i < n; i += 1) {
+        const currFile = files[i];
         const moveRes = await axios.put(
-          `/project/${projectID}/book/material/${currMaterial.materialID}/move`,
+          `/project/${projectID}/files/${currFile.fileID}/move`,
           { newParent: targetID },
         );
         if (moveRes.data.err) {
@@ -102,14 +102,14 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
 
   return (
     <Modal open={show} onClose={onClose}>
-      <Modal.Header>Move Materials</Modal.Header>
+      <Modal.Header>Move Files</Modal.Header>
       <Modal.Content scrolling>
         {!loading ? (
           <>
             <p>Select a new location for the following files:</p>
             <ul>
-              {materials.map((obj) => (
-                <li key={obj.materialID}>
+              {files.map((obj) => (
+                <li key={obj.fileID}>
                   {obj.storageType === 'folder' ? (
                     <Icon name="folder outline" />
                   ) : (
@@ -123,7 +123,7 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
             {!loadingLocs ? (
               <FileTree
                 items={locations}
-                nodeIdentifierKey="materialID"
+                nodeIdentifierKey="fileID"
                 nodeTypeKey="storageType"
                 onFolderActionClick={handleMove}
                 folderAction={(
@@ -147,7 +147,7 @@ const MoveMaterials = ({ show, onClose, projectID, materials, currentDirectory, 
   )
 };
 
-MoveMaterials.propTypes = {
+MoveFiles.propTypes = {
   /**
    * Sets the modal to open or closed.
    */
@@ -157,14 +157,14 @@ MoveMaterials.propTypes = {
    */
   onClose: PropTypes.func,
   /**
-   * Identifier of the project materials belong to.
+   * Identifier of the project files belong to.
    */
   projectID: PropTypes.string.isRequired,
   /**
-   * Array of materials to be deleted.
+   * Array of files to be deleted.
    */
-  materials: PropTypes.arrayOf(PropTypes.shape({
-    materialID: PropTypes.string.isRequired,
+  files: PropTypes.arrayOf(PropTypes.shape({
+    fileID: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,
     storageType: PropTypes.string.isRequired,
   })).isRequired,
@@ -173,15 +173,15 @@ MoveMaterials.propTypes = {
    */
   currentDirectory: PropTypes.string,
   /**
-   * Handler to activate when the given material(s) have been moved.
+   * Handler to activate when the given files(s) have been moved.
    */
   onFinishedMove: PropTypes.func,
 };
 
-MoveMaterials.defaultProps = {
+MoveFiles.defaultProps = {
   onClose: () => { },
   currentDirectory: '',
   onFinishedMove: () => { },
 };
 
-export default MoveMaterials;
+export default MoveFiles;

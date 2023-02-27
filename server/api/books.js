@@ -39,9 +39,8 @@ import {
     genLMSFileLink,
     genPermalink,
     getBookTOCFromAPI,
-    retrieveBookMaterials,
-    downloadBookMaterial,
 } from '../util/bookutils.js';
+import { retrieveProjectFiles, downloadProjectFile } from '../util/projectutils.js';
 import { buildPeerReviewAggregation } from '../util/peerreviewutils.js';
 import { libraryNameKeys } from '../util/librariesmap.js';
 import { getBrowserKeyForLib } from '../util/mtkeys.js';
@@ -1271,12 +1270,6 @@ async function getBookDetail(req, res) {
               '$projectID', // undefined
             ],
           },
-          hasMaterials: {
-            $and: [
-              { $ifNull: ['$materials', false] },
-              { $gt: [{ $size: '$materials' }, 0] },
-            ],
-          },
           hasReaderResources: {
             $and: [
               { $ifNull: ['$readerResources', false] },
@@ -1529,6 +1522,112 @@ async function getBookSummary(req, res) {
 };
 
 /**
+ * Makes a request to a Book's respective Project to retrieve the public Project Files.
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getBookFiles'
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getBookFiles(req, res) {
+  try {
+    const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
+    const fileID = req.params.fileID || '';
+    if (isEmptyString(lib) || isEmptyString(coverID)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const project = await Project.findOne({
+      $and: [
+        { libreLibrary: lib },
+        { libreCoverID: coverID },
+        { visibility: 'public' },
+      ],
+    }).lean();
+    if (!project) {
+      return res.send({
+        err: false,
+        msg: 'No Projects associated with this resource.',
+      });
+    }
+
+    const [files, path] = await retrieveProjectFiles(project.projectID, fileID, false, true)
+    return res.send({
+      err: false,
+      files,
+      path
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
+
+/**
+ * Makes a request to a Book's respective Project to retrieve a signed download URL for a given file
+ * NOTE: This function should only be called AFTER the validation chain.
+ * VALIDATION: 'getBookFiles'
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function downloadBookFile(req, res) {
+  try {
+    const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
+    const fileID = req.params.fileID
+    if (isEmptyString(lib) || isEmptyString(coverID)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const project = await Project.findOne({
+      $and: [
+        { libreLibrary: lib },
+        { libreCoverID: coverID },
+        { visibility: 'public' },
+      ],
+    }).lean();
+    if (!project) {
+      return res.send({
+        err: false,
+        msg: 'No Projects associated with this resource.',
+      });
+    }
+
+    const downloadURL = await downloadProjectFile(project.projectID, fileID, false, true, req);
+    if (downloadURL === null) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    } else if (downloadURL === false) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully generated download link!',
+      url: downloadURL,
+    });
+  } catch (e) {
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+};
+
+/**
  * Retrieves a Book's Table of Contents via an internal call to the LibreTexts API.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookTOC'
@@ -1595,76 +1694,6 @@ async function getLicenseReport(req, res) {
     });
   }
 };
-
-/**
- * Retrieves a download URL for a single Book Ancillary Material.
- *
- * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object.
- */
-async function getBookMaterial(req, res) {
-  try {
-    const { bookID, materialID } = req.params;
-
-    const downloadURL = await downloadBookMaterial(bookID, materialID, req);
-
-    if (downloadURL === null) {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err63,
-      });
-    } else if (downloadURL === false) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
-    return res.send({
-      err: false,
-      msg: 'Successfuly generated download link!',
-      url: downloadURL,
-    });
-  } catch (e) {
-    debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
-
-/**
- * Retrieves a list of Book Materials from S3.
- *
- * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object.
- */
-async function getBookMaterials(req, res) {
-  try {
-    const bookID = req.params.bookID;
-    const materialID = req.params.materialID || '';
-    
-    const [materials, path] = await retrieveBookMaterials(bookID, materialID);
-
-    if (!materials) { // error encountered
-      throw (new Error('retrieveerror'));
-    }
-
-    return res.send({
-      err: false,
-      msg: 'Successfully retrieved materials!',
-      path,
-      materials,
-    });
-  } catch (e) {
-    debugError(e);
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
 
 /**
  * Generates a JSON file containing Commons Books listings for use by 3rd parties.
@@ -1817,15 +1846,15 @@ const validate = (method) => {
       return [
         query('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat)
       ]
-    case 'getBookMaterial':
+    case 'getBookFiles':
       return [
         param('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat),
-        param('materialID', conductorErrors.err1).exists().isUUID(),
+        param('fileID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID()
       ]
-    case 'getBookMaterials':
+    case 'downloadBookFile':
       return [
         param('bookID', conductorErrors.err1).exists().custom(checkBookIDFormat),
-        param('materialID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+        param('fileID', conductorErrors.err1).exists().isUUID()
       ]
   }
 };
@@ -1840,11 +1869,11 @@ export default {
     getCatalogFilterOptions,
     addBookToCustomCatalog,
     removeBookFromCustomCatalog,
+    getBookFiles,
+    downloadBookFile,
     getBookSummary,
     getBookTOC,
     getLicenseReport,
-    getBookMaterials,
-    getBookMaterial,
     retrieveKBExport,
     validate
 }
