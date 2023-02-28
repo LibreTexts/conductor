@@ -51,7 +51,7 @@ export const PROJECT_FILES_S3_CLIENT_CONFIG = {
     region: process.env.AWS_PROJECTFILES_REGION,
 };
 
-export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'team'];
+export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'team', 'mixed'];
 
 /**
  * Validates that a given classification string is one of the
