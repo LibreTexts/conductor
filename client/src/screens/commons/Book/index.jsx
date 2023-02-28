@@ -270,6 +270,35 @@ const CommonsBook = () => {
   }, [bookID, setPRReviews]);
 
   /**
+   * Load the Files list from the server, prepare it for the UI, then save it to state.
+   */
+  const getProjectFiles = useCallback(async () => {
+    setLoadingFiles(true);
+    axios.get(`/commons/book/${bookID}/files/${currDirectory}`).then((res) => {
+      if (!res.data.err) {
+        if (Array.isArray(res.data.files)) {
+          setProjFiles(res.data.files);
+        }
+        if (Array.isArray(res.data.path)) {
+          setCurrDirPath(res.data.path);
+        }
+      } else {
+        throw new Error(res.data.errMsg);
+      }
+      if(!res.data.err) {
+        setProjFiles(res.data.files)
+      }
+      else {
+        handleGlobalError(res.data.errMsg)
+      }
+      setLoadingFiles(false)
+    }).catch((err) => {
+      handleGlobalError(err);
+      setLoadingFiles(false);
+    });
+  }, [bookID, currDirectory, setProjFiles, setCurrDirPath, setLoadingFiles, handleGlobalError]);
+
+  /**
    * Load information about the Book from the server catalog.
    */
   const getBook = useCallback(async () => {
@@ -416,35 +445,6 @@ const CommonsBook = () => {
   useEffect(() => {
     getProjectFiles();
   }, [getProjectFiles])
-
-  /**
-   * Load the Files list from the server, prepare it for the UI, then save it to state.
-   */
-  const getProjectFiles = useCallback(async () => {
-    setLoadingFiles(true);
-    axios.get(`/commons/book/${bookID}/files/${currDirectory}`).then((res) => {
-      if (!res.data.err) {
-        if (Array.isArray(res.data.files)) {
-          setProjFiles(res.data.files);
-        }
-        if (Array.isArray(res.data.path)) {
-          setCurrDirPath(res.data.path);
-        }
-      } else {
-        throw new Error(res.data.errMsg);
-      }
-      if(!res.data.err) {
-        setProjFiles(res.data.files)
-      }
-      else {
-        handleGlobalError(res.data.errMsg)
-      }
-      setLoadingFiles(false)
-    }).catch((err) => {
-      handleGlobalError(err);
-      setLoadingFiles(false);
-    });
-  }, [bookID, currDirectory, setProjFiles, setCurrDirPath, setLoadingFiles, handleGlobalError])
 
   /**
    * Updates state with the a new directory to bring into view.
