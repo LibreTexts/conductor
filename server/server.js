@@ -84,10 +84,10 @@ app.use('/api/v1', api);
 
 app.use('/health', (_req, res) => res.send({ healthy: true, msg: 'Server appears healthy.' }));
 
-app.use(express.static(path.join(__dirname, '../client/build')));
+app.use(express.static(path.join(__dirname, '../client/dist')));
 let cliRouter = express.Router();
 cliRouter.route('*').get((_req, res) => {
-    res.sendFile(path.resolve('../client/build/index.html'));
+    res.sendFile(path.resolve('../client/dist/index.html'));
 });
 app.use('/', cliRouter);
 
