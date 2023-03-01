@@ -1,0 +1,16 @@
+{
+  "name": "conductor",
+  "version": "1.0.0",
+  "description": "The LibreTexts Conductor Platform.",
+  "main": "server/server.js",
+  "author": "LibreTexts <info@libretexts.org>",
+  "license": "MIT",
+  "scripts": {
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.4.4",
+    "@commitlint/config-conventional": "^17.4.4",
+    "husky": "^8.0.0"
+  }
+}
