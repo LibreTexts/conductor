@@ -1,7 +1,8 @@
 {
-  "name": "conductor-client",
+  "name": "@conductor/client",
   "version": "0.1.0",
   "description": "The LibreTexts Conductor platform web app.",
+  "author": "LibreTexts <info@libretexts.org>",
   "scripts": {
     "start": "vite --port 3000",
     "build": "tsc && vite build",

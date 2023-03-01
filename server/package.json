@@ -1,5 +1,5 @@
 {
-  "name": "libretexts-conductor",
+  "name": "@conductor/server",
   "version": "1.0.0",
   "description": "The LibreTexts Conductor platform server.",
   "main": "server.js",
@@ -42,7 +42,7 @@
     "util": "^0.12.4",
     "uuid": "^8.3.1"
   },
-  "author": "Ethan Turner <ethanaturner13@gmail.com>",
+  "author": "LibreTexts <info@libretexts.org>",
   "devDependencies": {
     "eslint": "^8.3.0",
     "eslint-config-airbnb-base": "^15.0.0",
