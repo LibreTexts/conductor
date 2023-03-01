@@ -26,10 +26,10 @@ AuthHelper.isAuthenticated = () => {
  * @param {object} [location] - An object containing the document's current location (URL).
  */
 AuthHelper.logout = (user, authExpired, location) => {
-    if (import.meta.MODE === 'production') {
+    if (import.meta.env.MODE === 'production') {
         let domain = 'libretexts.org'; // default to LibreTexts if it can't be found in env
-        if (import.meta.VITE_PRODUCTION_URLS) {
-            domain = String(import.meta.VITE_PRODUCTION_URLS).split(',')[0];
+        if (import.meta.env.VITE_PRODUCTION_URLS) {
+            domain = String(import.meta.env.VITE_PRODUCTION_URLS).split(',')[0];
         }
         Cookies.remove('conductor_access', { path: '/', domain: domain, secure: false });
     } else {
