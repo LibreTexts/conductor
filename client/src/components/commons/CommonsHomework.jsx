@@ -193,16 +193,17 @@ const CommonsHomework = (_props) => {
     const VisualMode = () => {
         if (pageCourses.length > 0) {
             return (
-                <Card.Group itemsPerRow={6} stackable>
+                <div className='commons-content-card-grid'>
                     {pageCourses.map((item, index) => {
                         return (
                             <Card
                                 key={index}
+                                className='commons-hw-card'
                             >
                                 <Card.Content>
                                     <Card.Header as='h3' className='commons-content-card-header'>{item.title}</Card.Header>
                                     <Card.Description>
-                                        {truncateString(item.description, 250)}
+                                        <p className='commons-hw-card-descrip'>{truncateString(item.description, 200)}</p>
                                     </Card.Description>
                                 </Card.Content>
                                 <Card.Content extra>
@@ -217,7 +218,7 @@ const CommonsHomework = (_props) => {
                             </Card>
                         )
                     })}
-                </Card.Group>
+                </div>
             )
         } else {
             return (
