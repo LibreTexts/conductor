@@ -181,7 +181,7 @@ const Login = () => {
 
     const initSSOLogin = () => {
         if (import.meta.env.VITE_MODE === 'production') {
-            let domains = String(import.meta.env.VITE_PRODUCTION_URLS).split(',');
+            const domains = import.meta.env.VITE_PRODUCTION_URLS ? import.meta.env.VITE_PRODUCTION_URLS.split(',') : ['libretexts.org'];
             Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: domains[0], sameSite: 'lax'});
         } else {
             Cookies.set('conductor_sso_redirect', window.location.hostname, { domain: 'localhost', sameSite: 'lax'});
