@@ -8,7 +8,10 @@ import { libraryNameKeys } from './librariesmap.js';
 import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
 import { debugError } from '../debug.js';
 import Project from '../models/project.js';
+import User from '../models/user.js';
 import base64 from 'base-64';
+import projectsAPI from '../api/projects.js';
+import usersAPI from '../api/users.js';
 
 export const projectClassifications = [
     'harvesting',
@@ -36,7 +39,7 @@ export const textUseOptions = [
 export const progressThreadDefaultMessage = `*This thread was automatically created by Conductor. Use it to discuss your project's progress, or create another to the left!*`;
 
 export const projectWelcomeMessage = `Welcome to your new Conductor project!
-The Conductor is an increasingly powerful project planning and curation tool. If your text is available on the LibreTexts bookshelves, it is also listed on Commons. Using Conductor, you can collect and curate Peer Reviews to continuously improve the quality of your new resource. Conductor also provides a place for your ancillary materials such as slide decks, a syllabus, notes, etc., all of which can be public (available to all) or restricted to instructors. You can use the *Accessibility* tab of your new project or our Accessibility Checker tool in the library editor to ensure your resource is available to all readers.
+The Conductor is an increasingly powerful project planning and curation tool. If your text is available on the LibreTexts bookshelves, it is also listed on Commons. Using Conductor, you can collect and curate Peer Reviews to continuously improve the quality of your new resource. Conductor also provides a place for your project files such as slide decks, a syllabus, notes, etc., all of which can be public (available to all) or restricted to instructors. You can use the *Accessibility* tab of your new project or our Accessibility Checker tool in the library editor to ensure your resource is available to all readers.
 Conductor improves communication between the LibreTexts team and our community of authors. Projects needing help can be flagged for review. The platform streamlines adoption reporting and account requests into one convenient place. Users submitting a Harvesting Request can be added to the project to stay up-to-date with its progress in real-time.
 Conductor also promotes collaboration and organization among everyone on your OER team (including LibreTexts project liaisons) by providing messaging and task/to-do lists. Tasks can have dependencies and due dates and are visible in a calendar or Gantt chart view.
 You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/10%3A_Commons_and_Conductor).
@@ -51,7 +54,7 @@ export const PROJECT_FILES_S3_CLIENT_CONFIG = {
     region: process.env.AWS_PROJECTFILES_REGION,
 };
 
-export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'team', 'mixed'];
+export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'instructors', 'team', 'mixed'];
 
 /**
  * Validates that a given classification string is one of the
@@ -159,14 +162,45 @@ export const getLibreTextInformation = (url) => {
 };
 
 /**
+ * Takes an array of files and only returns those which requesting user
+ * has access to view or modify. Inteded for internal middleware-like use.
+ * 
+ * @param {string} projectID - LibreTexts standard project identifier
+ * @param {array} files - Array of files to be filtered
+ * @param {boolean} [publicOnly=false] - Return only public files, regardless of user access level
+ * @param {string} [userID=''] - UUID of the user initiating request (if provided)
+ * @returns {Promise<object[]|null>} Filtered project files, or null if error occured
+ */
+export async function filterFilesByAccess(projectID, files, publicOnly=false, userID='') {
+  let authorizedLevels = ['public', 'mixed'] // Base Levels
+  if(!publicOnly){
+      if(userID){
+        let user = await User.findOne({uuid: userID})
+        if(user){
+          authorizedLevels.push('users');
+          if(projectsAPI.checkProjectMemberPermission(projectID, user)){
+            authorizedLevels.push('team');
+          }
+          if(usersAPI.checkVerifiedInstructorStatus(userID)) {
+            authorizedLevels.push('instructors');
+          }
+        }
+      }
+      return files.filter((file) => authorizedLevels.includes(file.access))
+    }
+   return files.filter((file) => authorizedLevels.includes(file.access))
+}
+
+/**
  * Retrieves all Project Files for a Project stored in the database as a flat array.
  * Generally reserved for internal use.
  *
  * @param {string} projectID - LibreTexts standard project identifier
- * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
+ * @param {boolean} [publicOnly=false] - Only return public files regardless of user access
+ * @param {string} [userID=''] - Uuid of user initiating request (if provided)
  * @returns {Promise<object[]|null>} All Project Files listings, or null if error encountered.
  */
-export async function retrieveAllProjectFiles(projectID, hasTeamPermission) {
+export async function retrieveAllProjectFiles(projectID, publicOnly = false, userID = '') {
   try {
     const projectResults = await Project.aggregate([
       {
@@ -222,17 +256,8 @@ export async function retrieveAllProjectFiles(projectID, hasTeamPermission) {
     if (!Array.isArray(project.files)) {
       return [];
     }
-    
-    // If user is not team member, don't return Project Team Member only files
-    const accessFiltered = (files) => {
-      if(hasTeamPermission) {
-        return files;
-      } else {
-        return files.filter((file) => file.access !== 'team')
-      }
-    }
 
-    const sorted = accessFiltered(project.files).sort((a, b) => {
+    const sorted = (await filterFilesByAccess(projectID, project.files, publicOnly, userID)).sort((a, b) => {
       if (a.name < b.name) {
         return -1;
       }
@@ -253,44 +278,35 @@ export async function retrieveAllProjectFiles(projectID, hasTeamPermission) {
  *
  * @param {string} projectID - The LibreTexts standard project identifier.
  * @param {string} [filesKey=''] - The folder identifier to restrict the search to, if desired.
- * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
  * @param {boolean} [publicOnly=false] - Only return Public files regardless of user access level
+ * @param {string} [userID=''] - Uuid of user initating request (if provided)
  * @param {boolean} [details=false] - Include additional details about each file, such as uploader.
  * @returns {Promise<[object[], object[]]|[null, null]>} A 2-tuple containing the list of files and the path
  * leading to the results, or nulls if error encountered.
  */
-export async function retrieveProjectFiles(projectID, filesKey = '', hasTeamPermission, publicOnly = false, details = false) {
+export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=false, userID='', details = false) {
   try {
     let path = [{
       fileID: '',
       name: '',
     }];
 
-    const allFiles = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const allFiles = await retrieveAllProjectFiles(projectID, publicOnly, userID);
     if (!allFiles) {
       throw (new Error('retrieveerror'));
     }
     if (allFiles.length === 0) {
       return [[], path];
     }
-    
-    const getPublicOnly = (files) => {
-      if(publicOnly) {
-      return files.filter((file) => ['public', 'mixed'].includes(file.access))
-      }
-      return files
-    }
-
-    const cleanedResults = getPublicOnly(allFiles);
 
     let foundFolder;
     if (filesKey !== '') {
-      foundFolder = cleanedResults.find((obj) => obj.fileID === filesKey);
+      foundFolder = allFiles.find((obj) => obj.fileID === filesKey);
       if (!foundFolder) {
         return [null, null]
       }
     }
-    const foundEntries = cleanedResults.filter((obj) => obj.parent === filesKey);
+    const foundEntries = allFiles.filter((obj) => obj.parent === filesKey);
     const buildParentPath = (obj) => {
       let pathNodes = [];
       pathNodes.push({
@@ -298,7 +314,7 @@ export async function retrieveProjectFiles(projectID, filesKey = '', hasTeamPerm
         name: obj.name,
       });
       if (obj.parent !== '') {
-        const parent = cleanedResults.find((pParent) => pParent.fileID === obj.parent);
+        const parent = allFiles.find((pParent) => pParent.fileID === obj.parent);
         if (parent) {
           pathNodes = [...buildParentPath(parent), ...pathNodes];
         }
@@ -319,7 +335,7 @@ export async function retrieveProjectFiles(projectID, filesKey = '', hasTeamPerm
       if (obj.storageType !== 'folder') {
         return currObj;
       }
-      const foundChildren = cleanedResults.filter((childObj) => childObj.parent === currObj.fileID);
+      const foundChildren = allFiles.filter((childObj) => childObj.parent === currObj.fileID);
       if (foundChildren.length > 0) {
         children = foundChildren.map((childObj) => buildChildList(childObj));
         children = sortProjectFiles(children);
@@ -344,15 +360,14 @@ export async function retrieveProjectFiles(projectID, filesKey = '', hasTeamPerm
  *
  * @param {string} projectID - Identifier of the project to search in.
  * @param {string} fileID - Identifier of the file in the Project's files list.
- * @param {boolean} hasTeamPermission - Include files with Project Team Members Only or Superadmin access
  * @param {boolean} [publicOnly=false] - Only return file if public regardless of user access level
- * @param {express.Request} req - Original network request object, for determining file access.
+ * @param {string?} [userID=''] - Uuid of user initiating request (if provided)
  * @returns {Promise<string|null|false>} The pre-signed url or null if not found,
  *  or false if unauthorized.
  */
-export async function downloadProjectFile(projectID, fileID, hasTeamPermission, publicOnly = false, req) {
+export async function downloadProjectFile(projectID, fileID, publicOnly = false, userID = '') {
   try {
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, publicOnly, userID);
     if (!files) { // error encountered 
       throw (new Error('retrieveerror'));
     }
@@ -362,16 +377,6 @@ export async function downloadProjectFile(projectID, fileID, hasTeamPermission, 
     ));
     if (!foundFile) {
       return null;
-    }
-    if (foundFile.access === 'users') {
-      if (!req.user?.decoded?.uuid) {
-        return false;
-      }
-    }
-
-    //If public only requested and file access does not match, return false
-    if(publicOnly && foundFile.access !== 'public') {
-      return false
     }
 
     const fileURL = assembleUrl([

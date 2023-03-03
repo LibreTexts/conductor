@@ -96,6 +96,7 @@ const peerReviewSevenPointLikertOptions = [
 const PROJECT_FILES_ACCESS_SETTINGS = [
   { key: 'public',  value: 'public',  text: 'Public (visible on Commons)'          },
   { key: 'users',   value: 'users',   text: 'All Conductor Users' },
+  { key: 'instructors', value: 'instructors', text: 'Verified Instructors'},
   { key: 'team', value: 'team', text: 'Project Team Members'},
 ];
 
