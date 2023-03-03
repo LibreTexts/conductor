@@ -16,7 +16,7 @@ import './styles/global.css';
  */
 const Platform = () => {
   /* Configure global Axios defaults */
-  axios.defaults.baseURL = (import.meta.env.VITE_MODE === 'development') ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1` : '/api/v1';
+  axios.defaults.baseURL = (import.meta.env.MODE === 'development') ? `${import.meta.env.VITE_DEV_BASE_URL}/api/v1` : '/api/v1';
   axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
   axios.defaults.headers.post['Content-Type'] = 'application/json';
   axios.defaults.withCredentials = true;

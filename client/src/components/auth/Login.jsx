@@ -180,7 +180,7 @@ const Login = () => {
     };
 
     const initSSOLogin = () => {
-        if (import.meta.env.VITE_MODE === 'production') {
+        if (import.meta.env.MODE === 'production') {
             const domains = import.meta.env.VITE_PRODUCTION_URLS ? import.meta.env.VITE_PRODUCTION_URLS.split(',') : ['libretexts.org'];
             Cookies.set('conductor_sso_redirect', window.location.protocol + "//" + window.location.hostname, { domain: domains[0], sameSite: 'lax'});
         } else {
