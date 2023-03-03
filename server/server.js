@@ -64,7 +64,7 @@ app.use(helmet.contentSecurityPolicy({
         scriptSrc: [
             "'self'",
             'https://*.libretexts.org',
-            "'sha256-vr8P/3UUYbbQp32B/lr8C9cGDdP0LmPEdMLlces6xMk='", // gtag.js inline
+            "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
             '*.googletagmanager.com', // gtag.js,
             '*.ssa.gov', // ANDI,
             'https://ajax.googleapis.com' // Google CDN (jQuery for ANDI)
