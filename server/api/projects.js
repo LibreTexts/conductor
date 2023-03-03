@@ -2446,14 +2446,6 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasTeamPermission) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
     if (
       isEmptyString(project.projectURL)
       || isEmptyString(project.libreLibrary)
@@ -2465,7 +2457,7 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) {
       throw (new Error('retrieveerror'));
     }
@@ -2569,7 +2561,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const downloadURL = await downloadProjectFile(projectID, fileID, req);
+    const downloadURL = await downloadProjectFile(projectID, fileID, undefined, req.user.decoded.uuid);
     if (downloadURL === null) {
       return res.status(404).send({
         err: true,
@@ -2621,9 +2613,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user.decoded.uuid)
-
-    const [files, path] = await retrieveProjectFiles(projectID, fileID, hasTeamPermission);
+    const [files, path] = await retrieveProjectFiles(projectID, fileID, undefined, req.user.decoded.uuid);
     if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
@@ -2660,14 +2650,6 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasTeamPermission) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
     const { name, description } = req.body;
 
     // check if there are any updates to perform (account for unsetting the description)
@@ -2678,7 +2660,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
@@ -2776,15 +2758,7 @@ async function updateProjectFileAccess(req, res) {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasTeamPermission) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) {
       throw (new Error('retrieveerror'));
     }
@@ -2866,14 +2840,6 @@ async function moveProjectFile(req, res) {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasTeamPermission) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
     const newParentID = req.body.newParent;
     const fileID = req.params.fileID;
     let newParentIsRoot = false;
@@ -2881,7 +2847,7 @@ async function moveProjectFile(req, res) {
       newParentIsRoot = true;
     } 
 
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
@@ -2957,15 +2923,7 @@ async function moveProjectFile(req, res) {
       });
     }
 
-    const hasTeamPermission = checkProjectMemberPermission(project, req.user);
-    if (!hasTeamPermission) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
-      });
-    }
-
-    const files = await retrieveAllProjectFiles(projectID, hasTeamPermission);
+    const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
