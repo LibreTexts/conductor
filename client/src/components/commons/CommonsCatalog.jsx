@@ -13,13 +13,14 @@ import {
     Button,
     Form
 } from 'semantic-ui-react';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.jsx';
-import ConductorPagination from '../util/ConductorPagination.jsx';
+const ConductorPagination = React.lazy(() => import('../util/ConductorPagination.jsx'));
 import axios from 'axios';
 import queryString from 'query-string';
+import LoadingSpinner from '../LoadingSpinner';
 
 import {
     libraryOptions,
@@ -767,15 +768,17 @@ const CommonsCatalog = () => {
                                         <ResultsText />
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
-                                        <ConductorPagination
-                                            activePage={activePage}
-                                            totalPages={totalPages}
-                                            firstItem={null}
-                                            lastItem={null}
-                                            onPageChange={setActivePage}
-                                            size='large'
-                                            siblingRange={0}
-                                        />
+                                        <Suspense fallback={<LoadingSpinner />}>
+                                            <ConductorPagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={setActivePage}
+                                                size='large'
+                                                siblingRange={0}
+                                            />
+                                        </Suspense>
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <Dropdown
@@ -859,15 +862,17 @@ const CommonsCatalog = () => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <ConductorPagination
-                                                activePage={activePage}
-                                                totalPages={totalPages}
-                                                siblingRange={0}
-                                                firstItem={null}
-                                                lastItem={null}
-                                                onPageChange={setActivePage}
-                                                size='mini'
-                                            />
+                                            <Suspense fallback={<LoadingSpinner />}>
+                                                <ConductorPagination
+                                                    activePage={activePage}
+                                                    totalPages={totalPages}
+                                                    siblingRange={0}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={setActivePage}
+                                                    size='mini'
+                                                />
+                                            </Suspense>
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>
@@ -902,15 +907,17 @@ const CommonsCatalog = () => {
                                         <ResultsText />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
-                                        <ConductorPagination
-                                            activePage={activePage}
-                                            totalPages={totalPages}
-                                            firstItem={null}
-                                            lastItem={null}
-                                            onPageChange={setActivePage}
-                                            size='large'
-                                            siblingRange={0}
-                                        />
+                                        <Suspense fallback={<LoadingSpinner />}>
+                                            <ConductorPagination
+                                                activePage={activePage}
+                                                totalPages={totalPages}
+                                                firstItem={null}
+                                                lastItem={null}
+                                                onPageChange={setActivePage}
+                                                size='large'
+                                                siblingRange={0}
+                                            />
+                                        </Suspense>
                                     </div>
                                 </div>
                             </Breakpoint>
@@ -936,15 +943,17 @@ const CommonsCatalog = () => {
                                     </Grid.Row>
                                     <Grid.Row columns={1}>
                                         <Grid.Column className='commons-pagination-mobile-container'>
-                                            <ConductorPagination
-                                                activePage={activePage}
-                                                totalPages={totalPages}
-                                                siblingRange={0}
-                                                firstItem={null}
-                                                lastItem={null}
-                                                onPageChange={setActivePage}
-                                                size='mini'
-                                            />
+                                            <Suspense fallback={<LoadingSpinner />}>
+                                                <ConductorPagination
+                                                    activePage={activePage}
+                                                    totalPages={totalPages}
+                                                    siblingRange={0}
+                                                    firstItem={null}
+                                                    lastItem={null}
+                                                    onPageChange={setActivePage}
+                                                    size='mini'
+                                                />
+                                            </Suspense>
                                         </Grid.Column>
                                     </Grid.Row>
                                 </Grid>

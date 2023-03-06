@@ -19,7 +19,7 @@ import {
     Divider
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
@@ -28,9 +28,10 @@ import queryString from 'query-string';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
-import ProjectCard from '../../../components/projects/ProjectCard';
+const ProjectCard = React.lazy(() => import('../../../components/projects/ProjectCard'));
 import Breakpoint from '../../../components/util/Breakpoints.jsx';
 import TextArea from '../../../components/TextArea';
+import LoadingSpinner from '../../../components/LoadingSpinner';
 
 import {
     truncateString,
@@ -683,7 +684,9 @@ const Home = (props) => {
                     {(pinnedProjects.length > 0) && (
                       <Segment basic loading={!loadedAllPinned}>
                         <Card.Group itemsPerRow={2}>
-                          {pinnedProjects.map((item) => <ProjectCard project={item} key={item.projectID} />)}
+                            <Suspense fallback={<LoadingSpinner/>}>
+                                {pinnedProjects.map((item) => <ProjectCard project={item} key={item.projectID} />)}
+                            </Suspense>
                         </Card.Group>
                       </Segment>
                     )}
@@ -710,14 +713,18 @@ const Home = (props) => {
                         >
                             <Card.Group itemsPerRow={2}>
                                 {(recentProjects.length > 0) &&
-                                    recentProjects.map((item) => (
-                                      <ProjectCard
-                                        project={item}
-                                        key={item.projectID}
-                                        showPinButton={true}
-                                        onPin={pinProject}
-                                      />
-                                    ))
+                                    <Suspense fallback={<LoadingSpinner />}>
+                                        {
+                                            recentProjects.map((item) => (
+                                                <ProjectCard
+                                                    project={item}
+                                                    key={item.projectID}
+                                                    showPinButton={true}
+                                                    onPin={pinProject}
+                                                />
+                                            ))
+                                        }
+                                    </Suspense>
                                 }
                                 {(recentProjects.length === 0) &&
                                     <p>You don't have any projects right now.</p>
