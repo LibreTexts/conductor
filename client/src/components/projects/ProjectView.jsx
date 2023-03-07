@@ -42,6 +42,7 @@ import Chat from '../Chat';
 import DateInput from '../DateInput';
 import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import { MentionsInput, Mention } from 'react-mentions'
+import Breakpoint from '../util/Breakpoints';
 
 import {
   isEmptyString,
@@ -2025,7 +2026,9 @@ const ProjectView = (props) => {
                           onClick={openEditInfoModal}
                         >
                           <Icon name='edit' />
+                          <Breakpoint name='desktop'>
                           Edit Properties
+                          </Breakpoint>
                         </Button>
                       }
                       {userProjectAdmin &&
@@ -2034,7 +2037,9 @@ const ProjectView = (props) => {
                           onClick={openTeamModal}
                         >
                           <Icon name='users' />
+                          <Breakpoint name='desktop'>
                           Manage Team
+                          </Breakpoint>
                         </Button>
                       }
                       <Button
@@ -2043,7 +2048,9 @@ const ProjectView = (props) => {
                         to={`${props.match.url}/timeline`}
                       >
                         <Icon name='clock outline' />
+                        <Breakpoint name='desktop'>
                         Timeline
+                        </Breakpoint>
                       </Button>
                       <Button
                         color='orange'
@@ -2051,7 +2058,9 @@ const ProjectView = (props) => {
                         to={`${props.match.url}/peerreview`}
                       >
                         <Icon name='clipboard list' />
-                        Peer Review
+                        <Breakpoint name='desktop'>
+                          Peer Review
+                        </Breakpoint>
                       </Button>
                       <Button
                         color='teal'
@@ -2059,7 +2068,9 @@ const ProjectView = (props) => {
                         to={`${props.match.url}/accessibility`}
                       >
                         <Icon name='universal access' />
+                        <Breakpoint name='desktop'>
                         Accessibility
+                        </Breakpoint>
                       </Button>
                       <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                         <Dropdown.Menu>
@@ -2393,31 +2404,37 @@ const ProjectView = (props) => {
                                 results={taskSearchResults}
                                 value={taskSearchQuery}
                               />
-                            </div>
+                              </div>
                             <div className='right-flex'>
-                              <Button.Group>
+                              <Button.Group fluid>
                                 <Button
                                   color='olive'
                                   as={Link}
                                   to={`${props.match.url}/timeline`}
                                 >
                                   <Icon name='clock outline' />
-                                  Timeline
+                                  <Breakpoint name='desktop'>
+                                    Timeline
+                                  </Breakpoint>
                                 </Button>
                                 <Button
                                   color='orange'
                                   onClick={expandCollapseAllTasks}
                                 >
                                   <Icon name='arrows alternate vertical' />
-                                  Expand/Collapse All
+                                  <Breakpoint name='desktop'>
+                                    Expand/Collapse All
+                                  </Breakpoint>
                                 </Button>
                                 <Button
                                   color='purple'
                                   disabled={!userProjectMember}
                                   onClick={openBatchModal}
                                 >
-                                  <Icon name='add circle' />
-                                  Batch Add
+                                  <Icon name='clone' />
+                                  <Breakpoint name='desktop'>
+                                    Batch Add
+                                  </Breakpoint>
                                 </Button>
                                 <Button
                                   color='green'
@@ -2426,12 +2443,13 @@ const ProjectView = (props) => {
                                   disabled={!userProjectMember}
                                 >
                                   <Icon name='add' />
-                                  Add Task
+                                  <Breakpoint name='desktop'>
+                                    Add Task
+                                  </Breakpoint>
                                 </Button>
                               </Button.Group>
-
+                              </div>
                             </div>
-                          </div>
                         </Segment>
                         <Segment loading={loadingTasks} className={(projTasks.length === 0) ? 'muted-segment' : ''}>
                           {(projTasks.length > 0)
