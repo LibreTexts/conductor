@@ -205,18 +205,22 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                     </div>
                     <div className='right-flex'>
                         <Button
-                            icon='trash'
+                            icon
                             color='red'         
                             onClick={openDelThreadModal}
                             disabled={activeThread === ''}
                             className='mr-2p'
-                        />
+                            fluid
+                        >
+                            <Icon name='trash'/>
+                        </Button>
                         <Button
                             color='olive'
                             onClick={openNewThreadModal}
+                            fluid
+                            icon
                         >
-                            <Icon name='plus' />
-                            New
+                           <Icon name='add'/>
                         </Button>
                     </div>
                 </div>
@@ -252,7 +256,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                         })
                     }
                     {(loadedThreads && threads.length === 0) &&
-                        <p className='text-center muted-text mt-4r'><em>No threads yet. Create one above!</em></p>
+                        <p className='text-center muted-text mt-4r pa-2p'><em>No threads yet. Create one above!</em></p>
                     }
                     {(!loadedThreads) &&
                         <Loader active inline='centered' className='mt-4r' />
