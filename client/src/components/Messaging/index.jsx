@@ -211,6 +211,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                             disabled={activeThread === ''}
                             className='mr-2p'
                             fluid
+                            aria-label='Delete Thread'
                         >
                             <Icon name='trash'/>
                         </Button>
@@ -219,6 +220,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                             onClick={openNewThreadModal}
                             fluid
                             icon
+                            aria-label='Add Thread'
                         >
                            <Icon name='add'/>
                         </Button>

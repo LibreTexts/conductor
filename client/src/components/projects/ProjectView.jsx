@@ -2024,6 +2024,7 @@ const ProjectView = (props) => {
                           color='blue'
                           loading={editModalLoading}
                           onClick={openEditInfoModal}
+                          aria-label='Edit Properties'
                         >
                           <Icon name='edit' />
                           <Breakpoint name='desktop'>
@@ -2035,6 +2036,7 @@ const ProjectView = (props) => {
                         <Button
                           color='violet'
                           onClick={openTeamModal}
+                          aria-label='Manage Team'
                         >
                           <Icon name='users' />
                           <Breakpoint name='desktop'>
@@ -2046,6 +2048,7 @@ const ProjectView = (props) => {
                         color='olive'
                         as={Link}
                         to={`${props.match.url}/timeline`}
+                        aria-label='Timeline'
                       >
                         <Icon name='clock outline' />
                         <Breakpoint name='desktop'>
@@ -2056,6 +2059,7 @@ const ProjectView = (props) => {
                         color='orange'
                         as={Link}
                         to={`${props.match.url}/peerreview`}
+                        aria-label='Peer Review'
                       >
                         <Icon name='clipboard list' />
                         <Breakpoint name='desktop'>
@@ -2066,6 +2070,7 @@ const ProjectView = (props) => {
                         color='teal'
                         as={Link}
                         to={`${props.match.url}/accessibility`}
+                        aria-label='Accessibility'
                       >
                         <Icon name='universal access' />
                         <Breakpoint name='desktop'>
@@ -2411,6 +2416,7 @@ const ProjectView = (props) => {
                                   color='olive'
                                   as={Link}
                                   to={`${props.match.url}/timeline`}
+                                  aria-label='Timeline'
                                 >
                                   <Icon name='clock outline' />
                                   <Breakpoint name='desktop'>
@@ -2420,6 +2426,7 @@ const ProjectView = (props) => {
                                 <Button
                                   color='orange'
                                   onClick={expandCollapseAllTasks}
+                                  aria-label='Expand or Collapse All'
                                 >
                                   <Icon name='arrows alternate vertical' />
                                   <Breakpoint name='desktop'>
@@ -2430,6 +2437,7 @@ const ProjectView = (props) => {
                                   color='purple'
                                   disabled={!userProjectMember}
                                   onClick={openBatchModal}
+                                  aria-label='Batch Add'
                                 >
                                   <Icon name='clone' />
                                   <Breakpoint name='desktop'>
@@ -2441,6 +2449,7 @@ const ProjectView = (props) => {
                                   loading={mngTaskLoading}
                                   onClick={() => openManageTaskModal('add')}
                                   disabled={!userProjectMember}
+                                  aria-label='Add Task'
                                 >
                                   <Icon name='add' />
                                   <Breakpoint name='desktop'>
