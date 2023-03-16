@@ -917,32 +917,6 @@ router.route('/projects/tags/org').get(
   projectsAPI.getOrgTags,
 );
 
-router.route('/project/:projectID?')
-  .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    projectsAPI.validate('getProject'),
-    middleware.checkValidationErrors,
-    projectsAPI.getProject,
-  ).post(
-    authAPI.verifyRequest,
-    projectsAPI.validate('createProject'),
-    middleware.checkValidationErrors,
-    projectsAPI.createProject,
-  ).put(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    projectsAPI.validate('updateProject'),
-    middleware.checkValidationErrors,
-    projectsAPI.updateProject,
-  ).delete(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    projectsAPI.validate('deleteProject'),
-    middleware.checkValidationErrors,
-    projectsAPI.deleteProject,
-  );
-
 router.route('/project/flag').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -1185,6 +1159,32 @@ router.route('/project/accessibility/section/item').put(
   middleware.checkValidationErrors,
   projectsAPI.updateA11YReviewSectionItem,
 );
+
+router.route('/project/:projectID?')
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('getProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.getProject,
+  ).post(
+    authAPI.verifyRequest,
+    projectsAPI.validate('createProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.createProject,
+  ).put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('updateProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.updateProject,
+  ).delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    projectsAPI.validate('deleteProject'),
+    middleware.checkValidationErrors,
+    projectsAPI.deleteProject,
+  );
 
 router.route('/project/:projectID/files/:fileID/access').put(
   authAPI.verifyRequest,
