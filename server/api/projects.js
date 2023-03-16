@@ -2602,7 +2602,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    if (!checkProjectGeneralPermission(project, req.user.decoded.uuid)) {
+    if (!checkProjectGeneralPermission(project, req.user)) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
