@@ -937,6 +937,7 @@ router.route('/project')
     projectsAPI.updateProject,
   ).delete(
     authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     projectsAPI.validate('deleteProject'),
     middleware.checkValidationErrors,
     projectsAPI.deleteProject,
