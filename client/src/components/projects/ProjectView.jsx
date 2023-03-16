@@ -940,11 +940,7 @@ const ProjectView = (props) => {
    */
   const submitDeleteProject = () => {
     setDeleteProjModalLoading(true);
-    axios.delete('/project', {
-      data: {
-        projectID: props.match.params.id
-      }
-    }).then((res) => {
+    axios.delete(`/project/${props.match.params.id}`).then((res) => {
       setDeleteProjModalLoading(false);
       if (!res.data.err) {
         props.history.push('/projects?projectDeleted=true');

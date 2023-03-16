@@ -5,7 +5,7 @@
 
 'use strict';
 import Promise from 'bluebird';
-import express, { urlencoded } from 'express';
+import express from 'express';
 import async from 'async';
 import { body, query, param } from 'express-validator';
 import {
@@ -152,46 +152,42 @@ async function createProject(req, res) {
  * Deletes the Project identified by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'deleteProject'
- * @param {Object} req - the express.js request object.
- * @param {Object} res - the express.js response object.
+ * @param {express.Request} req - the express.js request object.
+ * @param {express.Response} res - the express.js response object.
  */
-const deleteProject = (req, res) => {
-    Project.findOne({
-        projectID: req.body.projectID
-    }).lean().then((project) => {
-        if (project) {
-            if (checkProjectAdminPermission(project, req.user)) {
-                return Project.deleteOne({
-                    projectID: req.body.projectID
-                });
-            } else {
-                throw (new Error('unauth'));
-            }
-        } else {
-            throw (new Error('notfound'));
-        }
-    }).then((deleteRes) => {
-        if (deleteRes.deletedCount === 1) {
-            // TODO: Delete threads, messages, and tasks
-            return res.send({
-                err: false,
-                msg: 'Successfully deleted project.'
-            });
-        } else {
-            throw (new Error('deletefail')); // handle as generic error below
-        }
-    }).catch((err) => {
-        var errMsg = conductorErrors.err6;
-        if (err.message === 'notfound') errMsg = conductorErrors.err11;
-        else if (err.message === 'unauth') errMsg = conductorErrors.err8;
-        else debugError(err);
-        return res.send({
-            err: false,
-            errMsg: errMsg
-        });
-    });
-};
+async function deleteProject(req, res) {
+  try {
+    const project = await Project.findOne({ projectID: req.params.projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    if (!checkProjectAdminPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
 
+    const deleteRes = await Project.deleteOne({ projectID: req.params.projectID });
+    if (deleteRes.deletedCount !== 1) {
+      throw new Error('not deleted');
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully deleted project.',
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Retrieves information about the Project identified by the projectID in
@@ -3461,7 +3457,7 @@ const validate = (method) => {
       ]
     case 'deleteProject':
       return [
-          body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
       ]
     case 'updateProject':
       return [

@@ -917,7 +917,7 @@ router.route('/projects/tags/org').get(
   projectsAPI.getOrgTags,
 );
 
-router.route('/project')
+router.route('/project/:projectID?')
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
