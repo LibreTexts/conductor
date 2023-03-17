@@ -304,31 +304,25 @@ router.route('/commons/collections/all').get(
   collectionsAPI.getAllCollections,
 );
 
-router.route('/commons/collection').get(
+router.route('/commons/collection/:collID?').get(
   collectionsAPI.validate('getCollection'),
   middleware.checkValidationErrors,
   collectionsAPI.getCollection,
-);
-
-router.route('/commons/collection/create').post(
+).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
   collectionsAPI.validate('createCollection'),
   middleware.checkValidationErrors,
   collectionsAPI.createCollection,
-);
-
-router.route('/commons/collection/edit').put(
+).put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
   collectionsAPI.validate('editCollection'),
   middleware.checkValidationErrors,
   collectionsAPI.editCollection,
-);
-
-router.route('/commons/collection/delete').put(
+).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),

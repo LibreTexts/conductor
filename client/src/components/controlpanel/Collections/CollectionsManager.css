@@ -1,0 +1,250 @@
+/**
+ * collectionssManager.css
+ * Styles relevant to the collectionss Manager
+ */
+
+.collections-manager-itemized-glyph {
+    width: 1.18em;
+}
+
+/* Containers */
+.collections-manager-container {
+    margin: 1% !important;
+    width: calc(100% - 2%);
+}
+
+
+#collections-manager-mobilelinks {
+    margin: 0;
+    padding: 0;
+    background-color: #127BC4;
+    color: #FFFFFF;
+    text-align: center;
+}
+
+.collections-manager-mobilelinks-item {
+    margin: 0 !important;
+}
+
+#collections-manager-mobilemenu {
+    margin: 0;
+    padding: 0;
+    background-color: #127BC4;
+    color: #FFFFFF;
+}
+
+/* Catalog Branding */
+#collections-manager-intro-header {
+    font-size: 1.5em;
+}
+
+#collections-manager-intro-message {
+    font-size: 1.1em;
+}
+
+
+/* Search and Filters */
+#collections-manager-searchbar-container {
+    margin-top: 1rem;
+    width: 100%;
+    padding-left: 15%;
+    padding-right: 15%;
+}
+
+#collections-manager-search-input {
+    box-shadow: 0px 0px 1px 0px #c2c2c2;
+    -webkit-box-shadow: 0px 0px 1px 0px #c2c2c2;
+}
+
+#collections-manager-searchbtns-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 1rem;
+    width: 100%;
+    padding-left: 25%;
+    padding-right: 25%;
+}
+
+#collections-manager-search-button {
+    background-color: #127BC4 !important;
+    color: #FFFFFF !important;
+    height: 40px !important;
+}
+
+#collections-manager-reset-button {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    height: 40px;
+}
+
+#collections-manager-advancedsrch-button {
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+#collections-manager-advancedsrch-button i {
+    margin: 0;
+}
+
+#collections-manager-advancedsrch-button span {
+    padding-left: 1%;
+    padding-right: 1%;
+}
+
+#collections-manager-advancedsrch-container {
+    display: none;
+}
+
+.collections-manager-advancedsrch-row {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    margin-top: 0.25em;
+    justify-content: center;
+    align-items: center;
+}
+
+.collections-manager-advancedsrch-show {
+    display: block !important;
+}
+
+.collections-manager-advancedsrch-hide {
+    display: none !important;
+}
+
+#collections-manager-filters-desktop {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.collections-manager-filter {
+    margin-top: 0.25rem !important;
+}
+
+/* Pagination */
+.collections-manager-pagemenu {
+    display: flex;
+    height: 40px;
+}
+
+.collections-manager-pagemenu-left {
+    display: flex;
+    flex: 1;
+    justify-content: flex-start;
+    align-items: center;
+    padding-right: 10px;
+}
+
+.collections-manager-pagemenu-center {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+
+.collections-manager-pagemenu-right {
+    display: flex;
+    flex: 1;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.collections-manager-pagemenu-dropdown {
+    margin-left: 1rem;
+    margin-right: 1rem;
+    min-width: 5em !important;
+}
+
+.collections-manager-pagination-mobile-container {
+    display: flex !important;
+    justify-content: center !important;
+}
+
+/* Content */
+.collections-manager {
+    background-color: #F4F4F4 !important;
+}
+
+.collections-manager-itemized {
+    padding: 0 !important;
+}
+
+.collections-manager-card-grid {
+    align-items: center;
+    justify-items: center;
+    max-width: 100%;
+    display: grid;
+    gap: 1rem;
+    display: grid;
+    overflow-wrap: normal;
+    overflow-x: auto;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-rows: repeat(auto, 50vh);
+    justify-content: space-between;
+    padding: 5px;
+}
+
+/* Collections card */
+.collections-manager-card {
+    width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
+    height: 275px;
+}
+
+.collections-manager-card-inner-content {
+    border-top: none !important;
+    height: 150px;
+}
+.collections-manager-card-img-wrapper {
+    margin: 10px 10px 0px 10px;
+    height: 75% !important
+}
+
+.collections-manager-card-img {
+    display: flex;
+    height: 100%;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* Small to medium devices (under 768px) */
+@media only screen and (max-width: 768px) {
+    #collections-manager-searchbar-container {
+        padding-left: 2%;
+        padding-right: 2%;
+    }
+
+    #collections-manager-searchbtns-container {
+        padding-left: 10%;
+        padding-right: 10%;
+    }
+
+    .collections-manager-filter {
+        display: block;
+        width: 100%;
+    }
+
+    .collections-manager-advancedsrch-row {
+        margin-top: 1em;
+    }
+
+    .collections-manager-library-card-img img {
+        height: auto !important;
+    }
+}
