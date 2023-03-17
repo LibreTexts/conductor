@@ -11,7 +11,7 @@ import {
 } from 'semantic-ui-react';
 import { getLibGlyphURL } from '../util/LibraryOptions.js';
 import AuthHelper from '../util/AuthHelper.js';
-import Breakpoint from '../util/Breakpoints.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
 import withUserStateDependency from '../../enhancers/withUserStateDependency';
 import './Navbar.css';
 

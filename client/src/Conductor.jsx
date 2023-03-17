@@ -16,7 +16,7 @@ import AnalyticsRequestAccess from './screens/conductor/analytics/AnalyticsReque
 import AnalyticsRequests from './screens/conductor/controlpanel/AnalyticsRequests';
 import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings';
-import CollectionsManager from './components/controlpanel/CollectionsManager';
+import CollectionsManager from './components/controlpanel/Collections/CollectionsManager';
 import ControlPanel from './components/controlpanel/ControlPanel';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';

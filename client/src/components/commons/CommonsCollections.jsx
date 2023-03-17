@@ -17,9 +17,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import queryString from 'query-string';
 
-import Breakpoint from '../util/Breakpoints.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
 import useGlobalError from '../error/ErrorHooks.js';
-import { catalogDisplayOptions } from '../util/CatalogOptions.js';
+import { catalogDisplayOptions } from '../util/CatalogOptions.ts';
 import { updateParams } from '../util/HelperFunctions.js';
 
 const CommonsCollections = (_props) => {

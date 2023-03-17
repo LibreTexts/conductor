@@ -12,7 +12,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
-import Breakpoint from '../util/Breakpoints.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
 import axios from 'axios';
 
 import useGlobalError from '../error/ErrorHooks.js';

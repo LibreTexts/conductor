@@ -27,7 +27,7 @@ import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
 import AlertModal from '../alerts/AlertModal.jsx';
-import ConductorPagination from '../util/ConductorPagination.jsx';
+import ConductorPagination from '../util/ConductorPagination.tsx';
 
 import {
     getClassificationText,

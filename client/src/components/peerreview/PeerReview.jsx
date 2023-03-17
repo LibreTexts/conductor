@@ -18,7 +18,7 @@ import axios from 'axios';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-import Breakpoint from '../util/Breakpoints.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
 import TextArea from '../TextArea';
 import StarRating from './StarRating.jsx';
 
