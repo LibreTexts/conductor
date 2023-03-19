@@ -200,7 +200,7 @@
     width: 250px;
     margin: 0 !important;
     text-overflow: ellipsis;
-    height: 275px;
+    height: 300px;
 }
 
 .collections-manager-card-inner-content {
@@ -221,6 +221,15 @@
     background-position: center center;
     background-size: contain;
     background-repeat: no-repeat;
+}
+
+.collections-manager-card-actions-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    position: absolute;
+    bottom: 10px;
+    right: 5px;
 }
 
 /* Small to medium devices (under 768px) */

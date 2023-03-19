@@ -66,7 +66,7 @@ router.use(cors({
     }
     return callback(null, 'https://libretexts.org'); // default
   },
-  methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
   maxAge: 7200,
@@ -304,34 +304,8 @@ router.route('/commons/collections/all').get(
   collectionsAPI.getAllCollections,
 );
 
-router.route('/commons/collection/:collID?').get(
-  collectionsAPI.validate('getCollection'),
-  middleware.checkValidationErrors,
-  collectionsAPI.getCollection,
-).post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('createCollection'),
-  middleware.checkValidationErrors,
-  collectionsAPI.createCollection,
-).put(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('editCollection'),
-  middleware.checkValidationErrors,
-  collectionsAPI.editCollection,
-).delete(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('deleteCollection'),
-  middleware.checkValidationErrors,
-  collectionsAPI.deleteCollection,
-);
-
-router.route('/commons/collection/addresource').put(
+//These are defined first because of the nature in which route params fall-through
+router.route('/commons/collection/:collID/resources').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
@@ -340,7 +314,7 @@ router.route('/commons/collection/addresource').put(
   collectionsAPI.addResourceToCollection,
 );
 
-router.route('/commons/collection/removeresource').put(
+router.route('/commons/collection/:collID/resources/:resourceID').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
@@ -357,6 +331,34 @@ router.route('/commons/collection/:collID/assets/:assetName').post(
   middleware.checkValidationErrors,
   collectionsAPI.assetUploadHandler,
   collectionsAPI.updateCollectionImageAsset,
+);
+// end
+
+router.route('/commons/collection/:collID?').get(
+  collectionsAPI.validate('getCollection'),
+  middleware.checkValidationErrors,
+  collectionsAPI.getCollection,
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  collectionsAPI.validate('createCollection'),
+  middleware.checkValidationErrors,
+  collectionsAPI.createCollection,
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  collectionsAPI.validate('editCollection'),
+  middleware.checkValidationErrors,
+  collectionsAPI.editCollection,
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  collectionsAPI.validate('deleteCollection'),
+  middleware.checkValidationErrors,
+  collectionsAPI.deleteCollection,
 );
 
 // Data export endpoint for 3rd-party content hosts

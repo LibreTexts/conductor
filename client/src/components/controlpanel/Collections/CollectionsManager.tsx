@@ -3,85 +3,58 @@ import "./CollectionsManager.css";
 
 import {
   Grid,
-  Card,
-  Image,
   Header,
   Segment,
-  Form,
-  Table,
-  Modal,
   Button,
   Dropdown,
   Icon,
-  Pagination,
   Input,
   Breadcrumb,
-  List,
-  Message,
 } from "semantic-ui-react";
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-  ReactElement,
-} from "react";
+import { useEffect, useState, useCallback, ReactElement } from "react";
 import Breakpoint from "../../util/Breakpoints";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 import axios from "axios";
-
-import { getShelvesNameText } from "../../util/BookHelpers.js";
-import {
-  isEmptyString,
-  basicArraysEqual,
-  truncateString,
-} from "../../util/HelperFunctions.js";
 import useGlobalError from "../../error/ErrorHooks.js";
 import {
   Collection,
   CollectionDirectoryPathObj,
   CollectionResource,
-  GenericKeyTextValueObj,
-  Organization,
 } from "../../../types";
-import { useTypedSelector } from "../../../state/hooks";
 import EditCollection from "./EditCollection";
 import DeleteCollection from "./DeleteCollection";
 import CollectionCard from "./CollectionCard";
 import ConductorPagination, {
   ResultsText,
 } from "../../util/ConductorPagination";
-import { catalogDisplayOptions } from "../../util/CatalogOptions";
 import { catalogItemsPerPageOptions } from "../../util/PaginationOptions.js";
+import { collectionSortOptions } from "../../util/CollectionHelpers";
 import {
-  getLibraryName,
-  getLibGlyphURL,
-  getLibGlyphAltText,
-} from "../../util/LibraryOptions";
-import {
-  collectionSortOptions,
-  collectionPrivacyOptions,
-} from "../../util/CollectionHelpers";
+  checkIsBook,
+  checkIsCollection,
+  checkIsCollectionResource,
+} from "../../util/TypeHelpers";
+import AddResources from "./AddResources";
 
 const CollectionsManager = () => {
   // Global State
   const { handleGlobalError } = useGlobalError();
-
+  
   // Data
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [displayColls, setDisplayColls] = useState<Collection[]>([]);
-  const [pageColls, setPageColls] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<
+    Collection[] | CollectionResource[]
+  >([]);
+  const [pageColls, setPageColls] = useState<
+    Collection[] | CollectionResource[]
+  >([]);
 
   // UI
+  const [rootMode, setRootMode] = useState<boolean>(true);
+  const [activeCollection, setActiveCollection] = useState<Collection>();
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(12);
   const [loadedData, setLoadedData] = useState<boolean>(false);
-  const [searchString, setSearchString] = useState<string>("");
-  const [sortChoice, setSortChoice] = useState<string>("title");
-  const [displayChoice, setDisplayChoice] = useState<string>("visual");
-  const [currDirectory, setCurrDirectory] = useState<string>("");
   const [currDirPath, setCurrDirPath] = useState<CollectionDirectoryPathObj[]>([
     {
       collID: "",
@@ -93,7 +66,13 @@ const CollectionsManager = () => {
   const [showEditCollectionModal, setShowEditCollectionModal] =
     useState<boolean>(false);
   const [collectionToEdit, setCollectionToEdit] = useState<Collection>();
-  const [createMode, setCreateMode] = useState<boolean>(false);
+  const [editCollModalMode, setEditCollModalMode] = useState<
+    "create" | "edit" | "nest"
+  >("create");
+
+  // Add Resources Modal
+  const [showAddResourcesModal, setShowAddResourcesModal] =
+    useState<boolean>(false);
 
   // Delete Collection Modal
   const [showDeleteCollectionModal, setShowDeleteCollectionModal] =
@@ -106,42 +85,40 @@ const CollectionsManager = () => {
    */
   const getCollections = useCallback(() => {
     let searchUrl = "/commons/collections/all";
-    if (currDirectory !== "") {
-      searchUrl = `/commons/collection/${currDirectory}`;
+    if (currDirPath.at(-1)?.collID !== "") {
+      searchUrl = `/commons/collection/${currDirPath.at(-1)?.collID}`;
     }
     axios
       .get(searchUrl)
       .then((res) => {
         if (!res.data.err) {
-          console.log(res.data)
-          if(currDirectory !== '') {
-            if(res.data.coll && typeof res.data.coll === 'object'){
-              console.log(res.data.coll.resources)
-              setCurrDirPath([...currDirPath, {
-                collID: res.data.coll.collID,
-                name: res.data.coll.title
-              }])
+          if (currDirPath.at(-1)?.collID !== "") {
+            if (res.data.coll && typeof res.data.coll === "object") {
+              setRootMode(false);
+              setActiveCollection(res.data.coll);
+              setCollections(res.data.coll.resources);
             } else {
-              handleGlobalError('Error processing server response')
+              handleGlobalError("Error processing server response");
             }
-          }
-          else {
-            if(Array.isArray(res.data.colls) && res.data.colls.length > 0) {
+          } else {
+            if (Array.isArray(res.data.colls) && res.data.colls.length > 0) {
+              setRootMode(true);
               setCollections(res.data.colls);
             } else {
-              handleGlobalError('Error processing server response')
+              handleGlobalError("Error processing server response");
             }
           }
         } else {
           handleGlobalError(res.data.errMsg);
         }
+
         setLoadedData(true);
       })
       .catch((err) => {
         handleGlobalError(err);
         setLoadedData(true);
       });
-  }, [currDirectory, setCollections, setLoadedData, handleGlobalError]);
+  }, [currDirPath, setCollections, setLoadedData, handleGlobalError]);
 
   /**
    * Set page title and retrieve collections
@@ -150,7 +127,7 @@ const CollectionsManager = () => {
   useEffect(() => {
     document.title = "LibreTexts Conductor | Collections Manager";
     getCollections();
-  }, [getCollections, currDirectory]);
+  }, [getCollections, currDirPath]);
 
   /**
    * Track changes to the number of collections loaded
@@ -158,137 +135,165 @@ const CollectionsManager = () => {
    * set of collections to display.
    */
   useEffect(() => {
-    setTotalPages(Math.ceil(displayColls.length / itemsPerPage));
+    setTotalPages(Math.ceil(collections.length / itemsPerPage));
     setPageColls(
-      displayColls.slice(
+      collections.slice(
         (activePage - 1) * itemsPerPage,
         activePage * itemsPerPage
       )
     );
-  }, [itemsPerPage, displayColls, activePage]);
-
-  /**
-   * Filter and sort collections according to
-   * user's choices, then update the list.
-   */
-  useEffect(() => {
-    filterAndSortColls();
-  }, [collections, searchString, sortChoice]);
-
-  /**
-   * Filter and sort collections according
-   * to current filters and sort
-   * choice.
-   */
-  const filterAndSortColls = () => {
-    setLoadedData(false);
-    let filtered = collections.filter((coll) => {
-      var include = true;
-      var descripString = String(coll.title).toLowerCase();
-      if (
-        searchString !== "" &&
-        String(descripString).indexOf(String(searchString).toLowerCase()) === -1
-      ) {
-        include = false;
-      }
-      if (include) {
-        return coll;
-      } else {
-        return false;
-      }
-    });
-    if (sortChoice === "title") {
-      const sorted = [...filtered].sort((a, b) => {
-        var normalA = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        var normalB = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        if (normalA < normalB) {
-          return -1;
-        }
-        if (normalA > normalB) {
-          return 1;
-        }
-        return 0;
-      });
-      setDisplayColls(sorted);
-    } else if (sortChoice === "resources") {
-      const sorted = [...filtered].sort((a, b) => {
-        if (a.resources < b.resources) {
-          return -1;
-        }
-        if (a.resources > b.resources) {
-          return 1;
-        }
-        return 0;
-      });
-      setDisplayColls(sorted);
-    }
-    setLoadedData(true);
-  };
+  }, [itemsPerPage, collections, activePage]);
 
   /**
    * Open the Create/Edit Collection Modal in Create mode
    */
   const openCreateCollModal = () => {
     setShowEditCollectionModal(true);
-    setCreateMode(true);
+    setEditCollModalMode("create");
     setCollectionToEdit(undefined);
   };
 
   /**
    * Open the Create/Edit Collection Modal in Edit mode and set all fields
    * to their existing values.
-   * @param {object} coll - The collection to inspect.
    */
-  const openEditCollModal = (coll: Collection) => {
-    setCollectionToEdit(coll);
+  const openEditCollModal = () => {
+    if (rootMode) return;
+    setEditCollModalMode("edit");
+    setCollectionToEdit(activeCollection);
     setShowEditCollectionModal(true);
   };
 
   /**
    * Close the Create/Edit Collection Modal and reset all fields to their default values.
+   * This is used if the user aborted changes.
    */
   const closeEditCollModal = () => {
     setShowEditCollectionModal(false);
-    setCollectionToEdit(undefined);
+    setEditCollModalMode("create");
+    getCollections();
+  };
+
+  /**
+   * Close the Create/Edit Collection Modal and reset all fields to their default values.
+   * This is used if the user saved changes.
+   */
+  const closeEditCollModalOnSuccess = () => {
+    setShowEditCollectionModal(false);
+    setEditCollModalMode("create");
+    getCollections();
+  };
+
+  /**
+   * Open the Create/Edit Collection Modal in Nest mode
+   */
+  const openNestCollModal = () => {
+    setShowEditCollectionModal(true);
+    setEditCollModalMode("nest");
+    setCollectionToEdit(activeCollection);
+  };
+
+  /**
+   * Open the Add Resources Modal
+   */
+  const openAddResourcesModal = () => {
+    setShowAddResourcesModal(true);
+    setCollectionToEdit(activeCollection);
+  };
+
+  /**
+   * Close Add Resources Modal and reset state where necessary
+   */
+  const closeAddResourcesModal = () => {
+    setShowAddResourcesModal(false);
+    getCollections();
   };
 
   /**
    * Open the Delete Collection Modal and
    * set the Collection to be deleted.
-   * @param {Collection} coll - Collection to be deleted
    */
-  const openDelCollModal = (coll: Collection) => {
-    setCollectionToDelete(coll);
+  const openDelCollModal = () => {
+    setCollectionToDelete(activeCollection);
     setShowDeleteCollectionModal(true);
   };
 
   /**
    * Close the Delete Collection Modal
    * and reset Collection to be deleted.
+   * This is used if user aborted changes
    */
   const closeDelCollModal = () => {
-    setShowDeleteCollectionModal(true);
+    setShowDeleteCollectionModal(false);
     setCollectionToDelete(undefined);
   };
 
-  const performSearch = () => {
-    console.log("performing search");
-  };
-
-  const resetSearch = () => {
-    setSearchString("");
+  /**
+   * Close the Delete Collection Modal and reset all fields to their default values.
+   * This is used if the user saved changes.
+   */
+  const closeDeleteModalOnSuccess = () => {
+    setShowDeleteCollectionModal(false);
+    setCollectionToDelete(undefined);
+    setCurrDirPath([
+      {
+        collID: "",
+        name: "",
+      },
+    ]);
   };
 
   /**
    * Updates state with the a new collection to bring into view.
    * @param {string} collectionID - Identifier of the collection entry.
    */
-  function handleDirectoryClick(collectionID: string) {
-    setCurrDirectory(collectionID);
+  function handleDirectoryClick(collectionID: string, collName: string) {
+    const existingItem = currDirPath.findIndex(
+      (path) => path.collID === collectionID
+    );
+
+    if (existingItem > -1) {
+      setCurrDirPath([...currDirPath.slice(0, existingItem + 1)]);
+    } else {
+      setCurrDirPath([
+        ...currDirPath,
+        { collID: collectionID, name: collName },
+      ]);
+    }
+  }
+
+  /**
+   * Navigates user to the Commons entry for the book
+   * @param {string} bookID - Identifier of the book
+   */
+  function handleBookClick(bookID: string) {
+    window.open(`/book/${bookID}`, '_blank')
+  }
+
+  function handleDeleteItem(item: CollectionResource) {
+    if (!checkIsCollectionResource(item)) return;
+
+    let axiosReq;
+    if (checkIsCollection(item.resourceData)) {
+      axiosReq = axios.delete(
+        `/commons/collection/${item.resourceData.collID}`
+      );
+    } else {
+      axiosReq = axios.delete(
+        `/commons/collection/${activeCollection?.collID}/resources/${item.resourceID}`
+      );
+    }
+    axiosReq
+      .then((res) => {
+        if (!res.data.err) {
+          getCollections();
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+      })
+      .catch((err) => {
+        handleGlobalError(err);
+      });
   }
 
   /**
@@ -307,14 +312,38 @@ const CollectionsManager = () => {
       );
     } else {
       return (
-        <Button.Group fluid>
-          <Button color="olive">
-            <Icon name="folder open" />
-            Nest Collection
+        <Button.Group>
+          <Button
+            color="red"
+            onClick={openDelCollModal}
+            aria-label="Delete Collection"
+          >
+            <Icon name="trash" />
+            <Breakpoint name="desktop">Delete Collection</Breakpoint>
           </Button>
-          <Button color="green">
+          <Button
+            color="blue"
+            onClick={openEditCollModal}
+            aria-label="Edit Collection"
+          >
+            <Icon name="edit" />
+            <Breakpoint name="desktop">Edit Properties</Breakpoint>
+          </Button>
+          <Button
+            color="olive"
+            onClick={openNestCollModal}
+            aria-label="Add Nested Collection"
+          >
+            <Icon name="folder open" />
+            <Breakpoint name="desktop">Add Nested Collection</Breakpoint>
+          </Button>
+          <Button
+            color="green"
+            onClick={openAddResourcesModal}
+            aria-label="Add Resource"
+          >
             <Icon name="plus" />
-            Add Resource
+            <Breakpoint name="desktop">Add Resource</Breakpoint>
           </Button>
         </Button.Group>
       );
@@ -325,30 +354,13 @@ const CollectionsManager = () => {
    * Generates path breadcrumbs based on the current Collection in view.
    * @returns {React.ReactElement} The generated breadcrumbs.
    */
-  const DirectoryBreadcrumbs = useMemo(() => {
+  function DirectoryBreadcrumbs() {
     const nodes: ReactElement[] = [];
     currDirPath.forEach((item, idx) => {
       let shouldLink = true;
       let name = item.name;
       if (item.name === "" && item.collID === "") {
-        nodes.push(
-          <>
-            <Breadcrumb.Section
-              as={Link}
-              to="/controlpanel"
-              key={"controlpanel"}
-            >
-              Control Panel
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider
-              icon="right chevron"
-              key={"control-panel-divider"}
-            />
-            <Breadcrumb.Section active key={"collections-manager"}>
-              Collections Manager
-            </Breadcrumb.Section>
-          </>
-        );
+        name = "Collections Manager";
       } else {
         nodes.push(
           <Breadcrumb.Divider
@@ -360,68 +372,45 @@ const CollectionsManager = () => {
       if (idx === currDirPath.length - 1) {
         shouldLink = false; // don't click active directory
       }
-      nodes.push(
-        <span
-          key={`section-${item.collID}`}
-          onClick={
-            shouldLink ? () => handleDirectoryClick(item.collID) : undefined
-          }
-          className={shouldLink ? "text-link" : ""}
-        >
-          {name}
-        </span>
-      );
+      const foundExisting = nodes.find((value) => {
+        value.key == `section-${item.collID}`; // don't add additional breadcrumb if it already exists/is active
+      });
+      if (!foundExisting) {
+        nodes.push(
+          <span
+            key={`section-${item.collID}`}
+            onClick={
+              shouldLink
+                ? () => handleDirectoryClick(item.collID, item.name)
+                : undefined
+            }
+            className={shouldLink ? "text-link" : ""}
+          >
+            {name}
+          </span>
+        );
+      }
     });
     return <Breadcrumb>{nodes}</Breadcrumb>;
-  }, [currDirPath]);
-
-  const MemoizedCollCardList = useMemo(
-    () => (
-      <div className="collections-manager-card-grid">
-        {pageColls.map((item) => {
-          return (
-            <CollectionCard item={item} onClickCB={handleDirectoryClick} />
-          );
-        })}
-      </div>
-    ),
-    [pageColls]
-  );
-
-  const MemoizedCollItemList = useMemo(
-    () => (
-      <>
-        {pageColls.map((item) => (
-          <Table.Row key={item.collID}>
-            <Table.Cell></Table.Cell>
-            <Table.Cell>
-              <p>
-                <strong>
-                  <Link to={`/collection/${item.collID}`}>{item.title}</Link>
-                </strong>
-              </p>
-            </Table.Cell>
-            <Table.Cell>
-              <p>{item.title}</p>
-            </Table.Cell>
-            <Table.Cell>
-              <p>{item.program}</p>
-            </Table.Cell>
-            <Table.Cell>
-              <p>
-                <em>{item.privacy}</em>
-              </p>
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </>
-    ),
-    [pageColls]
-  );
+  }
 
   const VisualMode = () => {
-    if (pageColls.length > 0) {
-      return MemoizedCollCardList;
+    if (pageColls.length > 0 && Object.keys(pageColls[0]).length > 0) {
+      return (
+        <div className="collections-manager-card-grid">
+          {pageColls.map((item) => {
+            return (
+              <CollectionCard
+                key={checkIsCollection(item) ? item.collID : item.resourceID}
+                item={item}
+                onClickCollCB={handleDirectoryClick}
+                onClickBookCB={handleBookClick}
+                onDeleteCB={handleDeleteItem}
+              />
+            );
+          })}
+        </div>
+      );
     } else {
       return (
         <p className="text-center mt-2e mb-2e">
@@ -431,51 +420,8 @@ const CollectionsManager = () => {
     }
   };
 
-  const ItemizedMode = () => {
-    return (
-      <Table celled title="Search Results">
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell scope="col">
-              <Image
-                centered
-                src={getLibGlyphURL("")}
-                className="collections-manager-itemized-glyph"
-                alt={getLibGlyphAltText("")}
-              />
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Title</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Subject</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Author</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Affiliation</Header>
-            </Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {pageColls.length > 0 && MemoizedCollItemList}
-          {pageColls.length === 0 && (
-            <Table.Row>
-              <Table.Cell colSpan={5}>
-                <p className="text-center">
-                  <em>No results found.</em>
-                </p>
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table.Body>
-      </Table>
-    );
-  };
-
   return (
-    <Grid className="controlpanel-container" divided="vertically">
+    <Grid className="controlpanel-container" divided="vertically" padded>
       <Grid.Row>
         <Grid.Column width={16}>
           <Header className="component-header">Collections Manager</Header>
@@ -484,23 +430,18 @@ const CollectionsManager = () => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Segment.Group>
-            <Segment>{DirectoryBreadcrumbs}</Segment>
             <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <Input
-                    icon="search"
-                    iconPosition="left"
-                    placeholder="Search here..."
-                    onChange={(e) => {
-                      setSearchString(e.target.value);
-                    }}
-                    value={searchString}
-                  />
-                </div>
-                <div className="right-flex">
-                  <ActionItems />
-                </div>
+              <Breadcrumb>
+                <Breadcrumb.Section as={Link} to="/controlpanel">
+                  <span className="text-link">Control Panel</span>
+                </Breadcrumb.Section>
+                <Breadcrumb.Divider icon="right chevron" />
+              </Breadcrumb>
+              <DirectoryBreadcrumbs />
+            </Segment>
+            <Segment padded>
+              <div className="flex-row-div right-flex">
+                <ActionItems />
               </div>
             </Segment>
             <Segment>
@@ -518,8 +459,12 @@ const CollectionsManager = () => {
                       value={itemsPerPage}
                       aria-label="Number of results to display per page"
                     />
+                    <ResultsText
+                      resultsCount={collections.length}
+                      totalCount={collections.length}
+                    />
                   </div>
-                  <div className="collections-manager-pagemenu-center">
+                  <div className="collections-manager-pagemenu-right">
                     <ConductorPagination
                       activePage={activePage}
                       totalPages={totalPages}
@@ -528,32 +473,6 @@ const CollectionsManager = () => {
                       onPageChange={() => setActivePage}
                       size="large"
                       siblingRange={0}
-                    />
-                  </div>
-                  <div className="collections-manager-pagemenu-right">
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={collectionSortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                      aria-label="Sort results by"
-                    />
-                    <Dropdown
-                      placeholder="Display mode..."
-                      floating
-                      selection
-                      button
-                      options={catalogDisplayOptions}
-                      onChange={(_e, { value }) => {
-                        setDisplayChoice(value as string);
-                      }}
-                      value={displayChoice}
-                      aria-label="Set results display mode"
                     />
                   </div>
                 </div>
@@ -575,36 +494,9 @@ const CollectionsManager = () => {
                           aria-label="Number of results to display per page"
                         />
                       </div>
-                    </Grid.Column>
-                  </Grid.Row>
-                  <Grid.Row columns={1}>
-                    <Grid.Column>
-                      <Dropdown
-                        placeholder="Display mode..."
-                        floating
-                        selection
-                        button
-                        options={catalogDisplayOptions}
-                        onChange={(_e, { value }) => {
-                          setDisplayChoice(value as string);
-                        }}
-                        value={displayChoice}
-                        fluid
-                        aria-label="Set results display mode"
-                      />
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={collectionSortOptions}
-                        onChange={(_e, { value }) => {
-                          setSortChoice(value as string);
-                        }}
-                        value={sortChoice}
-                        fluid
-                        className="collections-manager-filter"
-                        aria-label="Sort results by"
+                      <ResultsText
+                        resultsCount={collections.length}
+                        totalCount={collections.length}
                       />
                     </Grid.Column>
                   </Grid.Row>
@@ -625,16 +517,12 @@ const CollectionsManager = () => {
               </Breakpoint>
             </Segment>
             <Segment
-              className={
-                displayChoice === "visual"
-                  ? "collections-manager"
-                  : "collections-manager collections-manager-itemized"
-              }
+              className="collections-manager"
               loading={!loadedData}
               aria-live="polite"
               aria-busy={!loadedData}
             >
-              {displayChoice === "visual" ? <VisualMode /> : <ItemizedMode />}
+              <VisualMode />
             </Segment>
             <Segment>
               <Breakpoint name="desktop">
@@ -651,7 +539,10 @@ const CollectionsManager = () => {
                       value={itemsPerPage}
                       aria-label="Number of results to display per page"
                     />
-                    {/* TODO: Results Text */}
+                    <ResultsText
+                      resultsCount={collections.length}
+                      totalCount={collections.length}
+                    />
                   </div>
                   <div className="collections-manager-pagemenu-right">
                     <ConductorPagination
@@ -703,9 +594,21 @@ const CollectionsManager = () => {
             </Segment>
             <EditCollection
               show={showEditCollectionModal}
-              createMode={createMode}
+              mode={editCollModalMode}
               collectionToEdit={collectionToEdit}
               onCloseFunc={closeEditCollModal}
+              onSuccessFunc={closeEditCollModalOnSuccess}
+            />
+            <AddResources
+              show={showAddResourcesModal}
+              onCloseFunc={closeAddResourcesModal}
+              collectionToEdit={collectionToEdit}
+            />
+            <DeleteCollection
+              show={showDeleteCollectionModal}
+              onCloseFunc={closeDelCollModal}
+              onDeleteSuccess={closeDeleteModalOnSuccess}
+              collectionToDelete={collectionToDelete}
             />
           </Segment.Group>
         </Grid.Column>

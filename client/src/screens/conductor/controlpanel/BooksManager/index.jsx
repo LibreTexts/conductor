@@ -67,16 +67,6 @@ const BooksManager = () => {
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [syncFinished, setSyncFinished] = useState(false);
 
-  // Add to Collection Modal
-  const [showATCModal, setShowATCModal] = useState(false);
-  const [atcBookID, setATCBookID] = useState('');
-  const [atcBookTitle, setATCBookTitle] = useState('');
-  const [atcCollections, setATCCollections] = useState([]);
-  const [atcCollectionID, setATCCollectionID] = useState('');
-  const [atcCollectionErr, setATCCollectionErr] = useState(false);
-  const [atcLoadedColls, setATCLoadedColls] = useState(false);
-  const [atcFinishedAdd, setATCFinishedAdd] = useState(true);
-
   // Enable/Disable on Commons Modal
   const [showEOCModal, setShowEOCModal] = useState(false);
   const [eocEnableMode, setEOCEnableMode] = useState(true);
@@ -178,109 +168,6 @@ const BooksManager = () => {
   }
 
   /**
-   * Loads all Collections from the server and enters them in state. If the 'bookID' parameter
-   * is specified, any collections containing that book are disabled in the list.
-   *
-   * @param {string} bookID - Book identifier used to filter possible collections.
-   */
-  async function getCollections(bookID) {
-    try {
-      setATCLoadedColls(false);
-      const collRes = await axios.get('/commons/collections/all', {
-        params: {
-          detailed: "true",
-        },
-      });
-      if (!collRes.data.err) {
-        if (Array.isArray(collRes.data.colls)) {
-          let collOptions = [
-            { key: '', text: 'Clear...', value: '' },
-          ];
-          for (let i = 0, n = collRes.data.colls.length; i < n; i += 1) {
-            const coll = collRes.data.colls[i];
-            if (Array.isArray(coll.resources)) {
-              let newEntry = {
-                key: coll.collID,
-                value: coll.collID,
-              };
-              if (coll.resources.includes(bookID)) {
-                newEntry = {
-                  ...newEntry,
-                  text: `${coll.title} (Book is already in Collection)`,
-                  disabled: true,
-                };
-              } else {
-                newEntry.text = coll.title;
-              }
-              collOptions.push(newEntry);
-            }
-          }
-          setATCCollections(collOptions);
-        }
-      } else {
-        handleGlobalError(collRes.data.errMsg);
-      }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-    setATCLoadedColls(true);
-  }
-
-  /**
-   * Opens the Add to Collection modal and enters book information into state.
-   *
-   * @param {string} bookID - The identifier of the book to add.
-   * @param {string} bookTitle - Title of the book to add. 
-   */
-  function openATCModal(bookID, bookTitle) {
-    if (!isEmptyString(bookID)) {
-      getCollections(bookID);
-      setATCBookID(bookID);
-      setATCBookTitle(bookTitle);
-      setShowATCModal(true);
-    }
-  }
-
-  /**
-   * Closes the Add to Collection modal and resets its state.
-   */
-  function closeATCModal() {
-    setShowATCModal(false);
-    setATCBookTitle('');
-    setATCCollections([]);
-    setATCCollectionErr(false);
-    setATCLoadedColls(false);
-    setATCFinishedAdd(true);
-    setATCCollectionID('');
-  }
-
-  /**
-   * Sends a request to the server to add a Book to a Collection, then closes the Add
-   * to Collection modal.
-   */
-  async function submitAddToCollection() {
-    setATCCollectionErr(false);
-    if (!isEmptyString(atcCollectionID) && !isEmptyString(atcBookID)) {
-      try {
-        const addRes = await axios.put('/commons/collection/addresource', {
-          collID: atcCollectionID,
-          bookID: atcBookID,
-        });
-        if (!addRes.data.err) {
-          closeATCModal();
-        } else {
-          handleGlobalError(addRes.data.errMsg);
-        }
-      } catch (e) {
-        handleGlobalError(e);
-      }
-      setATCFinishedAdd(true);
-    } else {
-      setATCCollectionErr(true);
-    }
-  }
-
-  /**
    * Opens the Enable on Commons modal and saves mode setting and book information in sate.
    *
    * @param {string} mode - The mode to open the modal in, either 'enable' or 'disable'. 
@@ -377,17 +264,6 @@ const BooksManager = () => {
   }
 
   /**
-   * Updates the selected Collection in the Add to Collection modal state.
-   *
-   * @param {React.ChangeEvent} _e - The event that activated the handler. 
-   * @param {object} data - Data passed from the calling component.
-   * @param {string} data.value - The selected Collection's identifier.
-   */
-  function handleCollectionToAddChange(_e, { value }) {
-    setATCCollectionID(value);
-  }
-
-  /**
    * Renders a button to Enable or Disable a book on Commons depending on the
    * Book's current state and the current Organization.
    *
@@ -454,10 +330,6 @@ const BooksManager = () => {
         <Table.Cell textAlign="center">
           <Button.Group vertical fluid>
             {renderEnableOnCommonsButton(book)}
-            <Button color="teal" onClick={() => openATCModal(book.bookID, book.title)}>
-              <Icon name="add" />
-              Add to Collection
-            </Button>
             {book.links?.online ? (
               <Button
                 color="blue"
@@ -648,42 +520,6 @@ const BooksManager = () => {
                   Done
                 </Button>
               }
-            </Modal.Actions>
-          </Modal>
-          {/* Add to Collection Modal */}
-          <Modal
-            open={showATCModal}
-            closeOnDimmerClick={false}
-          >
-            <Modal.Header>Add to Collection</Modal.Header>
-            <Modal.Content>
-              <p>Choose a collection to add <em>{atcBookTitle}</em> to:</p>
-              <Dropdown
-                placeholder="Choose Collection..."
-                floating
-                selection
-                options={atcCollections}
-                onChange={handleCollectionToAddChange}
-                value={atcCollectionID}
-                error={atcCollectionErr}
-                loading={!atcLoadedColls}
-                fluid
-              />
-            </Modal.Content>
-            <Modal.Actions>
-              <Button
-                onClick={closeATCModal}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={submitAddToCollection}
-                color="green"
-                loading={!atcFinishedAdd}
-              >
-                <Icon name="add" />
-                Add
-              </Button>
             </Modal.Actions>
           </Modal>
           {/* Enable/Disable on Commons Modal */}

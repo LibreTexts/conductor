@@ -1,26 +1,25 @@
-import React, { useState, useEffect, useRef, FC, ReactElement } from "react";
+import { useState, useEffect, useRef, FC, ReactElement } from "react";
 import { Form, Modal, Button, Icon, Input, Message } from "semantic-ui-react";
 import axios from "axios";
-
 import { getShelvesNameText } from "../../util/BookHelpers.js";
-import { isEmptyString, basicArraysEqual } from "../../util/HelperFunctions.js";
-import { itemsPerPageOptions } from "../../util/PaginationOptions.js";
 import useGlobalError from "../../error/ErrorHooks.js";
 import { Collection, CollectionLocations } from "../../../types";
-import { useForm, useFormState, useFieldArray } from "react-hook-form";
+import { useForm, useFormState } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks.js";
 import { collectionPrivacyOptions } from "../../util/CollectionHelpers.js";
 
 type EditCollectionProps = {
   show: boolean;
-  createMode: boolean;
+  mode: "edit" | "create" | "nest";
   onCloseFunc: () => void;
+  onSuccessFunc: () => void;
   collectionToEdit?: Collection;
 };
 const EditCollection: FC<EditCollectionProps> = ({
   show,
-  createMode,
+  mode,
   onCloseFunc,
+  onSuccessFunc,
   collectionToEdit,
 }): ReactElement => {
   const { handleGlobalError } = useGlobalError();
@@ -31,13 +30,19 @@ const EditCollection: FC<EditCollectionProps> = ({
     trigger,
     reset: resetForm,
     handleSubmit,
-    register: registerFormField,
     setValue: setFormValue,
     getValues: getFormValue,
-    watch: watchFormValues,
+    setError: setFormError,
     formState: { errors, isDirty },
   } = useForm<Collection>({
     defaultValues: {
+      orgID: "",
+      collID: "",
+      parentID: "",
+      title: "",
+      coverPhoto: "",
+      program: "",
+      locations: [],
       autoManage: false,
     },
   });
@@ -46,28 +51,53 @@ const EditCollection: FC<EditCollectionProps> = ({
   const photoRef = useRef(null);
   const [photoLoading, setPhotoLoading] = useState<boolean>(false);
   const [photoUploaded, setPhotoUploaded] = useState<boolean>(false);
-  const [editCollPhoto, setEditCollPhoto] = useState<boolean>(false);
 
   useEffect(() => {
-    if (createMode) {
-      resetForm();
+    if (["edit"].includes(mode)) {
+      resetForm(collectionToEdit); // Load existing values if editing
     } else {
-      resetForm(collectionToEdit);
+      // Cleanup on close/exit
+      setPhotoLoading(false);
+      setPhotoUploaded(false);
+      resetForm({
+        orgID: "",
+        collID: "",
+        parentID: undefined,
+        title: "",
+        coverPhoto: "",
+        program: "",
+        privacy: undefined,
+        locations: [],
+        autoManage: false,
+        collectionCount: undefined,
+        resourceCount: undefined,
+      });
     }
-  }, [createMode, collectionToEdit]);
+  }, [mode, collectionToEdit, show]);
 
   const submitForm = (d: Collection) => {
     setLoading(true);
+    if (["nest"].includes(mode) && collectionToEdit?.collID) {
+      d.parentID = collectionToEdit.collID;
+    } else if (["nest"].includes(mode) && !collectionToEdit?.collID) {
+      return handleGlobalError("Could not get parent ID");
+    }
+
+    if (!validateLocations(d)) return;
     let axiosReq;
-    if (createMode) {
-      axiosReq = axios.post("/commons/collection/create", d);
+    if (["nest", "create"].includes(mode)) {
+      axiosReq = axios.post("/commons/collection", d);
     } else {
-      axiosReq = axios.patch("/commons/collection/edit", d);
+      axiosReq = axios.patch(
+        `/commons/collection/${collectionToEdit?.collID}`,
+        d
+      );
     }
 
     axiosReq
       .then((res) => {
         if (!res.data.err) {
+          onSuccessFunc();
         } else {
           handleGlobalError(res.data.errMsg);
         }
@@ -79,6 +109,28 @@ const EditCollection: FC<EditCollectionProps> = ({
   };
 
   /**
+   * If Collection will be auto-managed, determines if at least one search location has been selected
+   * @param {Collection} coll - Collection to validate
+   * @returns {Boolean} - true if valid or not auto-manage, valid otherwise
+   */
+  function validateLocations(coll: Collection): boolean {
+    let isValid = true;
+    if (!coll.autoManage) isValid = true;
+    if (coll.autoManage && coll.locations.length < 1) {
+      isValid = false;
+    }
+
+    if (!isValid) {
+      setFormError("locations", {
+        types: {
+          locationSelection: "At least one location is required.",
+        },
+      });
+    }
+    return isValid;
+  }
+
+  /**
    * Passes the Cover photo file selection event to the asset uploader.
    *
    * @param {React.FormEvent<HTMLInputElement>} event - File selection event.
@@ -87,10 +139,16 @@ const EditCollection: FC<EditCollectionProps> = ({
     handleAssetUpload(
       event,
       "coverPhoto",
-      setEditCollPhoto,
+      setCollectionCoverPhoto,
       setPhotoLoading,
       setPhotoUploaded
     );
+  }
+
+  function setCollectionCoverPhoto(coverPhotoUrl: string) {
+    if (coverPhotoUrl && collectionToEdit) {
+      collectionToEdit.coverPhoto = coverPhotoUrl;
+    }
   }
 
   /**
@@ -161,15 +219,36 @@ const EditCollection: FC<EditCollectionProps> = ({
     uploadingStateUpdater(false);
   }
 
+  function handleLocationsChange(newValue?: string) {
+    if (!newValue) return;
+    let existingData = getFormValue("locations");
+    if (!existingData) {
+      existingData = [];
+    }
+
+    if (existingData.includes(newValue)) {
+      existingData.splice(existingData.indexOf(newValue));
+      setFormValue("locations", existingData);
+      return;
+    }
+
+    setFormValue("locations", [...existingData, newValue]);
+  }
+
   return (
     <Modal open={show} closeOnDimmerClick={false}>
-      <Modal.Header>{createMode ? "Create" : "Edit"} Collection</Modal.Header>
+      <Modal.Header>
+        {["nest", "create"].includes(mode) ? "Create" : "Edit"} Collection
+      </Modal.Header>
       <Modal.Content>
-        {createMode && (
+        {["create", "nest"].includes(mode) && (
           <p>
             <em>
               This collection will be created inside of{" "}
-              <strong>{org.shortName}</strong>.
+              <strong>
+                {org.shortName}
+                {collectionToEdit?.collID ? `: ${collectionToEdit.title}` : "."}
+              </strong>
             </em>
           </p>
         )}
@@ -179,6 +258,7 @@ const EditCollection: FC<EditCollectionProps> = ({
             <Form.Input
               name="title"
               fluid
+              value={getFormValue("title") || ""}
               placeholder="Collection Title..."
               onChange={async (e, { name, value }) => {
                 setFormValue(name, value);
@@ -187,7 +267,7 @@ const EditCollection: FC<EditCollectionProps> = ({
               error={errors.title ? true : false}
             />
           </Form.Field>
-          {createMode && (
+          {["create", "nest"].includes(mode) && (
             <>
               <p>
                 <strong>Collection Cover Photo</strong>
@@ -197,11 +277,10 @@ const EditCollection: FC<EditCollectionProps> = ({
               </p>
             </>
           )}
-          {!createMode && collectionToEdit?.collID && (
+          {["edit"].includes(mode) && collectionToEdit?.collID && (
             <Form.Field required className="mt-2r">
               <label htmlFor="coverPhoto">Collection Cover Photo</label>
               <p>
-                A <em>download link</em> to the collection's cover photo.
                 Resolution should be high enough to avoid blurring on digital
                 screens.
               </p>
@@ -215,9 +294,9 @@ const EditCollection: FC<EditCollectionProps> = ({
               />
               <Button.Group fluid>
                 <Button
-                  disabled={!editCollPhoto}
+                  disabled={!collectionToEdit.coverPhoto}
                   as="a"
-                  href={editCollPhoto}
+                  href={collectionToEdit.coverPhoto}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -250,6 +329,7 @@ const EditCollection: FC<EditCollectionProps> = ({
                 <span className="muted-text">(defaults to Public)</span>
               </label>
             }
+            value={getFormValue("privacy") || "public"}
             placeholder="Collection Privacy..."
             options={collectionPrivacyOptions}
             onChange={async (e, { name, value }) => {
@@ -266,13 +346,14 @@ const EditCollection: FC<EditCollectionProps> = ({
               setFormValue("autoManage", checked ?? false);
               await trigger("autoManage");
             }}
+            checked={getFormValue("autoManage") || false}
             error={errors.autoManage ? true : false}
           />
           <Form.Field
             className="mt-2p"
             error={useFormState({ control }).errors.program}
           >
-            <label className={getFormValue('autoManage') ? '': 'muted-text'}>
+            <label className={getFormValue("autoManage") ? "" : "muted-text"}>
               Program Meta-Tag{" "}
               <span className="muted-text">(used to match resources)</span>
             </label>
@@ -282,6 +363,7 @@ const EditCollection: FC<EditCollectionProps> = ({
               icon="tag"
               placeholder="Meta-Tag"
               type="text"
+              value={getFormValue("program") || ""}
               iconPosition="left"
               onChange={async (e, { name, value }) => {
                 setFormValue(name, value);
@@ -291,18 +373,21 @@ const EditCollection: FC<EditCollectionProps> = ({
             />
           </Form.Field>
           <Form.Group grouped>
-            <label className={getFormValue('autoManage') ? '': 'muted-text'}>
+            <label className={getFormValue("autoManage") ? "" : "muted-text"}>
               Locations to Search{" "}
               <span className="muted-text">(at least one required)</span>
             </label>
             {Object.values(CollectionLocations).map((option, index) => {
               return (
                 <Form.Checkbox
+                  key={index}
                   disabled={!getFormValue("autoManage") ?? true}
                   name="locations"
                   label={getShelvesNameText(option)}
+                  value={option}
+                  checked={getFormValue("locations")?.includes(option) ?? false}
                   onChange={async (e, { name, value }) => {
-                    setFormValue("locations", value as CollectionLocations);
+                    handleLocationsChange(value?.toString());
                     await trigger("locations");
                   }}
                   error={errors.locations ? true : false}
@@ -315,12 +400,12 @@ const EditCollection: FC<EditCollectionProps> = ({
       <Modal.Actions>
         <Button onClick={onCloseFunc}>Cancel</Button>
         <Button
-          color={createMode ? "green" : "blue"}
+          color={["nest", "create"].includes(mode) ? "green" : "blue"}
           onClick={handleSubmit(submitForm)}
           loading={loading}
         >
-          <Icon name={createMode ? "add" : "edit"} />
-          {createMode ? "Create" : "Edit"}
+          <Icon name={["nest", "create"].includes(mode) ? "add" : "edit"} />
+          {["nest", "create"].includes(mode) ? "Create" : "Edit"}
         </Button>
       </Modal.Actions>
     </Modal>

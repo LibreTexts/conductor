@@ -5,12 +5,6 @@ export const DEFAULT_COLL_LOCS = <CollectionLocations[]>[
   CollectionLocations.CENTRAL,
 ];
 
-export const displayCollectionCounts = (resources: CollectionResource[]) => {
-  const resourcesCount = resources.filter(item => item.resourceType === CollectionResourceType.RESOURCE).length;
-  const nestedCollectionsCount = resources.filter(item => item.resourceType === CollectionResourceType.COLLECTION).length;
-  return { resourcesCount, nestedCollectionsCount }
-}
-
 export const collectionSortOptions: GenericKeyTextValueObj<string>[] = [
   { key: "title", text: "Sort by Title", value: "title" },
   {

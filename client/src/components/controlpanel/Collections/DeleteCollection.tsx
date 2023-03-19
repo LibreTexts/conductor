@@ -6,20 +6,36 @@ import { Collection } from "../../../types";
 
 type DeleteCollectionProps = {
   show: boolean;
-  collectionToDelete: Collection;
-  onCloseFunc: Function;
+  onCloseFunc: () => void;
+  onDeleteSuccess: () => void;
+  collectionToDelete?: Collection;
 };
 const DeleteCollection: FC<DeleteCollectionProps> = ({
   show,
-  collectionToDelete,
   onCloseFunc,
+  onDeleteSuccess,
+  collectionToDelete,
 }): ReactElement => {
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleDeleteCollection = () => {
-    console.log("delete collection");
+    if (!collectionToDelete) return;
+    setLoading(true);
+    axios
+      .delete(`/commons/collection/${collectionToDelete.collID}`)
+      .then((res) => {
+        if (!res.data.err) {
+          onDeleteSuccess();
+        } else {
+          handleGlobalError(res.data.errMsg);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        handleGlobalError(err);
+      });
   };
 
   return (
@@ -28,12 +44,12 @@ const DeleteCollection: FC<DeleteCollectionProps> = ({
       <Modal.Content scrolling>
         <p>
           Are you sure you want to delete{" "}
-          <strong>{collectionToDelete.title}</strong>{" "}
-          <span className="muted-text">({collectionToDelete.collID})</span>?
+          <strong>{collectionToDelete?.title}</strong>{" "}
+          <span className="muted-text">({collectionToDelete?.collID})</span>?
         </p>
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={onCloseFunc()}>Cancel</Button>
+        <Button onClick={onCloseFunc}>Cancel</Button>
         <Button color="red" loading={loading} onClick={handleDeleteCollection}>
           <Icon name="delete" />
           Delete

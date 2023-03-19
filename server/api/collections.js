@@ -4,7 +4,8 @@
 //
 
 "use strict";
-import { body, query, param } from "express-validator";
+import util from "util";
+import { body, query, param, oneOf } from "express-validator";
 import b62 from "base62-random";
 import Collection from "../models/collection.js";
 import conductorErrors from "../conductor-errors.js";
@@ -77,7 +78,6 @@ async function updateCollectionImageAsset(req, res) {
         errMsg: conductorErrors.err11,
       });
     }
-
     const fileExtension = req.file.mimetype?.split("/")[1];
     const fileKey = `assets/${collID}_${assetName}.${fileExtension}`;
     if (typeof fileExtension !== "string") {
@@ -179,10 +179,15 @@ const createCollection = (req, res) => {
   if (Array.isArray(req.body.locations)) {
     collectionData.locations = req.body.locations;
   }
+  if (req.body.parentID) {
+    collectionData.parentID = req.body.parentID;
+  }
   new Collection(collectionData)
     .save()
     .then((newDoc) => {
-      if (newDoc) {
+      if (newDoc && newDoc.parentID) {
+        updateParent(newDoc.collID, newDoc.parentID);
+      } else if (newDoc && !newDoc.parentID) {
         return res.send({
           err: false,
           msg: "Collection successfully created.",
@@ -199,6 +204,43 @@ const createCollection = (req, res) => {
         errMsg: conductorErrors.err6,
       });
     });
+
+  function updateParent(collID, parentID) {
+    let collectionToAdd = [
+      {
+        resourceType: "collection",
+        resourceID: collID,
+      },
+    ];
+    Collection.updateOne(
+      { collID: parentID },
+      {
+        $addToSet: {
+          resources: {
+            $each: collectionToAdd,
+          },
+        },
+      }
+    )
+      .then((updateRes) => {
+        if (updateRes.modifiedCount === 1) {
+          return res.send({
+            err: false,
+            msg: "Collection successfully created.",
+            collID: collID,
+          });
+        } else {
+          throw new Error("updatefailed");
+        }
+      })
+      .catch((err) => {
+        debugError(err);
+        return res.status(500).send({
+          err: true,
+          errMsg: conductorErrors.err6,
+        });
+      });
+  }
 };
 
 /**
@@ -236,7 +278,6 @@ const editCollection = (req, res) => {
   }
   Collection.updateOne({ collID: req.body.collID }, updateData)
     .then((updateRes) => {
-      console.log(updateRes);
       if (updateRes.modifiedCount === 1) {
         return res.send({
           err: false,
@@ -262,26 +303,57 @@ const editCollection = (req, res) => {
  *  the validation chain.
  * VALIDATION: 'deleteCollection'
  */
-const deleteCollection = (req, res) => {
-  Collection.deleteOne({ collID: req.body.collID })
-    .then((deleteRes) => {
-      if (deleteRes.deletedCount === 1) {
-        return res.send({
-          err: false,
-          msg: "Collection successfully deleted.",
-        });
-      } else {
-        throw conductorErrors.err3;
-      }
-    })
-    .catch((err) => {
-      debugError(err);
-      return res.status(500).send({
+async function deleteCollection(req, res) {
+  const collToDelete = await Collection.findOne({
+    collID: req.params.collID,
+  }).lean();
+  if (collToDelete) {
+    if (collToDelete && collToDelete.parentID) {
+      const { updated } = await updateParent(
+        req.params.collID,
+        collToDelete.parentID
+      );
+      if (!updated) throw new Error("updatefailed");
+    }
+
+    const { deleted } = await deleteDoc(req.params.collID);
+
+    if (deleted) {
+      return res.send({
+        err: false,
+        msg: "Collection successfully deleted.",
+      });
+    } else {
+      return res.send({
         err: true,
         errMsg: conductorErrors.err6,
       });
-    });
-};
+    }
+  }
+
+  async function updateParent(collID, parentID) {
+    const updateRes = await Collection.updateOne(
+      { collID: parentID },
+      {
+        $pull: {
+          resources: { resourceID: collID },
+        },
+      }
+    );
+    if (updateRes.modifiedCount === 1) {
+      return { updated: true };
+    }
+    throw new Error("updatefailed");
+  }
+
+  async function deleteDoc(collID) {
+    const deletedRes = await Collection.deleteOne({ collID: collID });
+    if (deletedRes.deletedCount === 1) {
+      return { deleted: true };
+    }
+    throw new Error("delete failed");
+  }
+}
 
 /**
  * Returns all PUBLIC Collections for the
@@ -294,8 +366,30 @@ const getCommonsCollections = (_req, res) => {
   Collection.aggregate([
     {
       $match: {
-        orgID: process.env.ORG_ID,
-        privacy: "public",
+        $and: [
+          {
+            $expr: {
+              $eq: ["$orgID", process.env.ORG_ID],
+            },
+          },
+          {
+            $expr: {
+              $eq: ["$privacy", "public"],
+            },
+          },
+          {
+            $or: [
+              {
+                $expr: {
+                  $eq: ["$parentID", ""],
+                },
+              },
+              {
+                parentID: { $exists: false },
+              },
+            ],
+          },
+        ],
       },
     },
     {
@@ -367,17 +461,47 @@ const getAllCollections = (req, res) => {
     projectObj.resources = 1;
   } else {
     // collapse resources field to list length by default
-    projectObj.resources = {
-      $size: {$match: 
-        {'$resource.resourceType': 'resource'}
-
-    }
-  }
+    projectObj.collectionCount = {
+      $size: {
+        $filter: {
+          input: "$resources",
+          as: "currResource",
+          cond: { $eq: ["$$currResource.resourceType", "collection"] },
+        },
+      },
+    };
+    projectObj.resourceCount = {
+      $size: {
+        $filter: {
+          input: "$resources",
+          as: "currResource",
+          cond: { $eq: ["$$currResource.resourceType", "resource"] },
+        },
+      },
+    };
   }
   Collection.aggregate([
     {
       $match: {
-        orgID: process.env.ORG_ID,
+        $and: [
+          {
+            $expr: {
+              $eq: ["$orgID", process.env.ORG_ID],
+            },
+          },
+          {
+            $or: [
+              {
+                $expr: {
+                  $eq: ["$parentID", ""],
+                },
+              },
+              {
+                parentID: { $exists: false },
+              },
+            ],
+          },
+        ],
       },
     },
     {
@@ -423,14 +547,7 @@ const getCollection = (req, res) => {
   Collection.aggregate([
     {
       $match: {
-        $or: [
-          {
-            collID: req.params.collID,
-          },
-          {
-            title: req.body.title,
-          },
-        ],
+        collID: req.params.collID,
       },
     },
     {
@@ -443,14 +560,21 @@ const getCollection = (req, res) => {
       $lookup: {
         from: "books",
         let: {
-          bookID: "$bookID",
+          resourceType: "$resources.resourceType",
           resourceID: "$resources.resourceID",
         },
         pipeline: [
           {
             $match: {
               $expr: {
-                $eq: ["$bookID", "$$resourceID"],
+                $and: [
+                  {
+                    $eq: ["$$resourceType", "resource"],
+                  },
+                  {
+                    $eq: ["$bookID", "$$resourceID"],
+                  },
+                ],
               },
             },
           },
@@ -460,27 +584,36 @@ const getCollection = (req, res) => {
               __v: 0,
             },
           },
-          {
-            $sort: {
-              bookID: 1,
-            },
-          },
         ],
-        as: "bookResults",
+        as: "bookRes",
+      },
+    },
+    {
+      $addFields: {
+        "resources.book": {
+          $arrayElemAt: ["$bookRes", 0],
+        },
       },
     },
     {
       $lookup: {
         from: "collections",
         let: {
-          collID: "$collID",
+          resourceType: "$resources.resourceType",
           resourceID: "$resources.resourceID",
         },
         pipeline: [
           {
             $match: {
               $expr: {
-                $eq: ["$collID", "$$resourceID"],
+                $and: [
+                  {
+                    $eq: ["$$resourceType", "collection"],
+                  },
+                  {
+                    $eq: ["$collID", "$$resourceID"],
+                  },
+                ],
               },
             },
           },
@@ -490,46 +623,76 @@ const getCollection = (req, res) => {
               __v: 0,
             },
           },
-          {
-            $sort: {
-              collID: 1,
-            },
-          },
         ],
-        as: "collectionResults",
+        as: "collectionRes",
+      },
+    },
+    {
+      $addFields: {
+        "resources.collection": {
+          $arrayElemAt: ["$collectionRes", 0],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id",
+        orgID: {
+          $first: "$orgID",
+        },
+        collID: {
+          $first: "$collID",
+        },
+        title: {
+          $first: "$title",
+        },
+        coverPhoto: {
+          $first: "$coverPhoto",
+        },
+        privacy: {
+          $first: "$privacy",
+        },
+        resources: {
+          $push: "$resources",
+        },
+        autoManage: {
+          $first: "$autoManage",
+        },
+        program: {
+          $first: "$program",
+        },
+        locations: {
+          $first: "$locations",
+        },
       },
     },
     {
       $project: {
         _id: 0,
-        orgID: 1,
-        collID: 1,
-        title: 1,
-        coverPhoto: 1,
-        privacy: 1,
-        resources: {
-            $concatArrays: [ "$bookResults", "$collectionResults" ] 
-            }
-         }
-    }
+        __v: 0
+      },
+    },
   ])
     .then((collections) => {
-      let combinedResources = [];
-      collections.forEach((coll) => {
-        combinedResources.push(coll.resources)
-      })
-      collections[0].resources = combinedResources;
-      if (collections.length > 0) {
-        return res.send({
-          err: false,
-          coll: collections[0],
-        });
-      } else {
+      if (collections.length < 1) {
         return res.send({
           err: true,
           errMsg: conductorErrors.err11,
         });
       }
+
+      const collection = collections[0];
+      if (Array.isArray(collection.resources)) {
+        collection.resources = collection.resources.map((item) => ({
+          resourceType: item.resourceType,
+          resourceID: item.resourceID,
+          resourceData: item.book || item.collection,
+        }));
+      }
+      return res.send({
+        err: false,
+        coll: collection,
+      });
     })
     .catch((err) => {
       debugError(err);
@@ -551,11 +714,21 @@ const getCollection = (req, res) => {
  * VALIDATION: 'addCollResource'
  */
 const addResourceToCollection = (req, res) => {
+  let resourcesToAdd = [];
+  req.body.books.forEach((bookID) => {
+    resourcesToAdd.push({
+      resourceType: "resource",
+      resourceID: bookID,
+    });
+  });
+
   Collection.updateOne(
-    { collID: req.body.collID },
+    { collID: req.params.collID },
     {
       $addToSet: {
-        resources: req.body.bookID,
+        resources: {
+          $each: resourcesToAdd,
+        },
       },
     }
   )
@@ -600,10 +773,17 @@ const addResourceToCollection = (req, res) => {
  */
 const removeResourceFromCollection = (req, res) => {
   Collection.updateOne(
-    { collID: req.body.collID },
     {
-      $pullAll: {
-        resources: [req.body.bookID],
+      collID: req.params.collID,
+      resources: {
+        $elemMatch: {
+          resourceID: req.params.resourceID,
+        },
+      },
+    },
+    {
+      $pull: {
+        resources: { resourceID: req.params.resourceID },
       },
     }
   )
@@ -678,6 +858,25 @@ function validateCollectionAssetName(assetName) {
 }
 
 /**
+ * Iterates through a given array and verifies all elements are in proper bookID format
+ * @param {Array} arr - The array to validate
+ * @returns {boolean} True if array is valid, false otherwise
+ */
+function validateIsBookIDArray(arr) {
+  if (Array.isArray(arr) && arr.length > 0) {
+    let valid = true;
+    arr.forEach((id) => {
+      if (!checkBookIDFormat(id)) {
+        valid = false;
+      }
+    });
+    return valid;
+  } else {
+    return false;
+  }
+}
+
+/**
  * Sets up the validation chain(s) for methods in this file.
  */
 const validate = (method) => {
@@ -708,6 +907,9 @@ const validate = (method) => {
           .isArray()
           .customSanitizer(ensureUniqueStringArray)
           .customSanitizer(collectionLocationsSanitizer),
+        body("parentID", conductorErrors.err1)
+          .optional({ checkFalsy: true })
+          .isString({ min: 8, max: 8 }),
       ];
     case "editCollection":
       return [
@@ -739,6 +941,9 @@ const validate = (method) => {
           .isArray()
           .customSanitizer(ensureUniqueStringArray)
           .customSanitizer(collectionLocationsSanitizer),
+        body("parentID", conductorErrors.err1)
+          .optional({ checkFalsy: true })
+          .isString({ min: 8, max: 8 }),
       ];
     case "deleteCollection":
       return [
@@ -760,7 +965,9 @@ const validate = (method) => {
           .exists()
           .isString()
           .isLength({ min: 8, max: 8 }),
-        body("bookID", conductorErrors.err1).exists().custom(checkBookIDFormat),
+        body("books", conductorErrors.err1)
+          .exists()
+          .custom(validateIsBookIDArray),
       ];
     case "remCollResource":
       return [
@@ -768,7 +975,15 @@ const validate = (method) => {
           .exists()
           .isString()
           .isLength({ min: 8, max: 8 }),
-        body("bookID", conductorErrors.err1).exists().custom(checkBookIDFormat),
+        oneOf([
+          param("resourceID", conductorErrors.err1)
+            .exists()
+            .isString()
+            .isLength({ min: 8, max: 8 }),
+          param("resourceID", conductorErrors.err1)
+            .exists()
+            .custom(checkBookIDFormat),
+        ]),
       ];
     case "updateCollectionImageAsset":
       return [
