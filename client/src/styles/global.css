@@ -279,6 +279,10 @@ body {
     padding-right: 2% !important;
 }
 
+.pr-4p {
+    padding-right: 4% !important;
+}
+
 /** padding-all **/
 .pa-2p {
     padding: 2% 2% !important;

@@ -14,9 +14,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
-import Breakpoint from '../util/Breakpoints.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
 import useGlobalError from '../error/ErrorHooks.js';
-import { catalogDisplayOptions } from '../util/CatalogOptions.js';
+import { catalogDisplayOptions } from '../util/CatalogOptions.ts';
 
 const CommonsLibraries = (_props) => {
 

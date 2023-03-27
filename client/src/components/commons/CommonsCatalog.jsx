@@ -16,8 +16,8 @@ import {
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useHistory } from 'react-router-dom';
-import Breakpoint from '../util/Breakpoints.jsx';
-import ConductorPagination from '../util/ConductorPagination.jsx';
+import Breakpoint from '../util/Breakpoints.tsx';
+import ConductorPagination from '../util/ConductorPagination.tsx';
 import axios from 'axios';
 import queryString from 'query-string';
 
@@ -33,8 +33,9 @@ import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
     catalogDisplayOptions,
     catalogLocationOptions
-} from '../util/CatalogOptions.js';
+} from '../util/CatalogOptions.ts';
 import { updateParams, isEmptyString, truncateString } from '../util/HelperFunctions.js';
+import { ResultsText } from '../util/ConductorPagination.tsx';
 
 const CommonsCatalog = () => {
 
@@ -527,14 +528,6 @@ const CommonsCatalog = () => {
         )
     };
 
-    const ResultsText = () => (
-        <span>
-            {' items per page of '}
-            <strong>{numResultBooks.toLocaleString()}</strong>
-            {' '}results from {numTotalBooks.toLocaleString()} available.
-        </span>
-    );
-
     return (
         <Grid className='commons-container'>
             <Grid.Row>
@@ -764,7 +757,7 @@ const CommonsCatalog = () => {
                                             value={itemsPerPage}
                                             aria-label='Number of results to display per page'
                                         />
-                                        <ResultsText />
+                                        <ResultsText resultsCount={numResultBooks} totalCount={numTotalBooks} />
                                     </div>
                                     <div className='commons-content-pagemenu-center'>
                                         <ConductorPagination
@@ -822,7 +815,7 @@ const CommonsCatalog = () => {
                                                     value={itemsPerPage}
                                                     aria-label='Number of results to display per page'
                                                 />
-                                                <ResultsText />
+                                                <ResultsText resultsCount={numResultBooks} totalCount={numTotalBooks} />
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>
@@ -899,7 +892,7 @@ const CommonsCatalog = () => {
                                             value={itemsPerPage}
                                             aria-label='Number of results to display per page'
                                         />
-                                        <ResultsText />
+                                        <ResultsText resultsCount={numResultBooks} totalCount={numTotalBooks} />
                                     </div>
                                     <div className='commons-content-pagemenu-right'>
                                         <ConductorPagination
@@ -930,7 +923,7 @@ const CommonsCatalog = () => {
                                                     value={itemsPerPage}
                                                     aria-label='Number of results to display per page'
                                                 />
-                                                <ResultsText />
+                                                <ResultsText resultsCount={numResultBooks} totalCount={numTotalBooks} />
                                             </div>
                                         </Grid.Column>
                                     </Grid.Row>

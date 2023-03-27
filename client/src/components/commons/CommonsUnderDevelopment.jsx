@@ -18,10 +18,10 @@ import { Link, useLocation, useHistory } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 
-import Breakpoint from '../util/Breakpoints.jsx';
-import ConductorPagination from '../util/ConductorPagination.jsx';
+import Breakpoint from '../util/Breakpoints.tsx'
+import ConductorPagination from '../util/ConductorPagination.tsx';
 import useGlobalError from '../error/ErrorHooks.js';
-import { catalogDisplayOptions } from '../util/CatalogOptions.js';
+import { catalogDisplayOptions } from '../util/CatalogOptions.ts';
 import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
     getClassificationText,

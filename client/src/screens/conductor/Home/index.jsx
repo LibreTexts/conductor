@@ -29,7 +29,7 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 import ProjectCard from '../../../components/projects/ProjectCard';
-import Breakpoint from '../../../components/util/Breakpoints.jsx';
+import Breakpoint from '../../../components/util/Breakpoints.tsx';
 import TextArea from '../../../components/TextArea';
 
 import {

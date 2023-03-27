@@ -1,5 +1,5 @@
 import userReducer from './userReducer.js';
-import orgReducer from './orgReducer.js';
+import orgReducer from './orgReducer';
 import filterReducer from './filterReducer.js';
 import errorReducer from './errorReducer.js';
 import { checkCampusAdmin, checkSuperAdmin } from '../components/util/HelperFunctions.js';

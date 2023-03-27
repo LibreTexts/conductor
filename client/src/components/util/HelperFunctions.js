@@ -16,6 +16,13 @@ const isEmptyString = (str) => {
     }
 };
 
+/**
+ * Accepts an array and checks if it is empty (length === 0).
+ * @param {Array} arr - The array to check.
+ * @returns {Boolean} True if the array is empty, false if non-empty or not an array.
+ */
+const isEmptyArray = (arr) => Array.isArray(arr) && arr.length === 0;
+
 
 /**
  * Accepts a string and returns it truncated to the specified length. If the string is already shorter
@@ -219,6 +226,7 @@ function setsEqual(set1, set2) {
 
 export {
     isEmptyString,
+    isEmptyArray,
     truncateString,
     capitalizeFirstLetter,
     updateParams,
