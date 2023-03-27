@@ -39,7 +39,7 @@ import ProjectProgressBar from './ProjectProgressBar';
 import TextArea from '../TextArea';
 import Messaging from '../Messaging';
 import Chat from '../Chat';
-import DateInput from '../DateInput';
+import DateInput from '../DateInput/index.tsx';
 import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import { MentionsInput, Mention } from 'react-mentions'
 import Breakpoint from '../util/Breakpoints';
@@ -3083,19 +3083,24 @@ const ProjectView = (props) => {
                   />
                 </Form.Field>
                 {(mngTaskMode === 'add') &&
+                <Form.Field inline>
                   <DateInput
                     value={mngTaskStartDate}
                     onChange={(value) => setMngTaskStartDate(value)}
                     label='Start Date'
+                    inlineLabel={false}
                   />
+                  </Form.Field>
                 }
                 {(mngTaskMode === 'add') &&
+                <Form.Field inline>
                   <DateInput
                     value={mngTaskEndDate}
                     className='mt-2p'
                     onChange={(value) => setMngTaskEndDate(value)}
                     label='End Date'
                   />
+                  </Form.Field>
                 }
               </Form>
             </Modal.Content>
@@ -3189,21 +3194,27 @@ const ProjectView = (props) => {
                       </div>
                     }
                     {viewTaskStartDateEdit &&
-                      <div className='task-detail-textdiv'>
-                        <DateInput
-                          value={viewTaskStartDateNew}
-                          className='mt-2p'
-                          onChange={(value) => setViewTaskStartDateNew(value)}
-                        />
+                      <div className='task-detail-textdiv mt-3p'>
+                        <Form>
+                          <Form.Group inline>
+                            <Form.Field inline>
+                            <DateInput
+                              value={viewTaskStartDateNew}
+                              className='mt-2p'
+                              onChange={(value) => setViewTaskStartDateNew(value)}
+                            />
+                        </Form.Field>
                         <Button
                           icon
-                          className='mt-2p ml-1p'
+                          className='mt-1p'
                           onClick={() => saveTaskDate('start')}
                           color='green'
                           loading={viewTaskStartDateLoading}
                         >
                           <Icon name='save outline' />
                         </Button>
+                        </Form.Group>
+                        </Form>
                       </div>
                     }
                   </div>
@@ -3230,21 +3241,27 @@ const ProjectView = (props) => {
                       </div>
                     }
                     {viewTaskEndDateEdit &&
-                      <div className='task-detail-textdiv'>
-                        <DateInput
-                          value={viewTaskEndDateNew}
-                          className='mt-2p'
-                          onChange={(value) => setViewTaskEndDateNew(value)}
-                        />
-                        <Button
-                          icon
-                          className='mt-2p ml-1p'
-                          onClick={() => saveTaskDate('end')}
-                          color='green'
-                          loading={viewTaskEndDateLoading}
-                        >
-                          <Icon name='save outline' />
-                        </Button>
+                      <div className='task-detail-textdiv mt-3p'>
+                        <Form>
+                          <Form.Group inline>
+                            <Form.Field inline>
+                              <DateInput
+                                value={viewTaskEndDateNew}
+                                className='mt-2p'
+                                onChange={(value) => setViewTaskEndDateNew(value)}
+                              />
+                            </Form.Field>
+                            <Button
+                            icon
+                            className='mt-2p'
+                            onClick={() => saveTaskDate('end')}
+                            color='green'
+                            loading={viewTaskEndDateLoading}
+                          >
+                            <Icon name='save outline' />
+                          </Button>
+                          </Form.Group>
+                        </Form>
                       </div>
                     }
                   </div>

@@ -3,7 +3,7 @@
     vertical-align: baseline;
     font-size: .92857143em;
     font-weight: 700;
-    color: rgba(0,0,0,.87);
+    color: rgba(0, 0, 0, .87);
     text-transform: none;
 }
 
@@ -21,4 +21,18 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+}
+
+.rdp-dialog {
+    z-index: 50;
+    background-color: white;
+    border-radius: 8px;
+    border: 0.5px solid gray
+}
+
+@media screen and (max-width: 900px) {
+    .conductor-date-input.inline {
+        flex-direction: column;
+        align-items: baseline;
+    }
 }

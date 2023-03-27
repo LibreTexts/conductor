@@ -14,7 +14,7 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import AdoptionReportView from '../../../../components/AdoptionReportView';
-import DateInput from '../../../../components/DateInput';
+import DateInput from '../../../../components/DateInput/index.tsx';
 import {
   isEmptyString,
   truncateString,
@@ -25,7 +25,7 @@ import {
   getLibraryName
 } from '../../../../components/util/LibraryOptions';
 import useGlobalError from '../../../../components/error/ErrorHooks';
-import 'react-day-picker/lib/style.css';
+import 'react-day-picker/dist/style.css';
 
 /**
  * The Adoption Reports interface allows administrators to view LibreText Adoption Reports
@@ -257,33 +257,37 @@ const AdoptionReports = () => {
             </Segment>
             <Segment>
               <div className="flex-row-div">
-                <DateInput
-                  value={fromDate}
-                  onChange={handleFromDateChange}
-                  label="From"
-                  inlineLabel={true}
-                  className="mr-2p"
-                />
-                <DateInput
-                  value={toDate}
-                  onChange={handleToDateChange}
-                  label="To"
-                  inlineLabel={true}
-                  className="mr-2p"
-                />
-                <Form>
+              <Form>
+                <Form.Group inline>
                   <Form.Field inline>
-                    <label htmlFor="sort-reports">Sort by</label>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={SORT_OPTIONS}
-                      onChange={handleSortChoiceChange}
-                      value={sortChoice}
-                    />
-                  </Form.Field>
+                      <DateInput
+                        value={fromDate}
+                        onChange={(value) => handleFromDateChange(value)}
+                        label="From"
+                        inlineLabel={true}
+                      />
+                    </Form.Field>
+                    <Form.Field inline>
+                      <DateInput
+                        value={toDate}
+                        onChange={(value) => handleToDateChange(value)}
+                        label="To"
+                        inlineLabel={true}
+                      />
+                    </Form.Field>
+                    <Form.Field inline>
+                      <label htmlFor="sort-reports">Sort by</label>
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={SORT_OPTIONS}
+                        onChange={handleSortChoiceChange}
+                        value={sortChoice}
+                      />
+                    </Form.Field>
+                  </Form.Group>
                 </Form>
               </div>
             </Segment>
