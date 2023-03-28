@@ -1,8 +1,8 @@
-import { ChangeEventHandler, useRef, useState, memo } from "react";
+import { ChangeEventHandler, memo, useEffect, useRef, useState } from "react";
 import FocusTrap from "focus-trap-react";
 import { DayPicker } from "react-day-picker";
 import { usePopper } from "react-popper";
-import { isDate, format, parse, isValid } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import "./DateInput.css";
 import "react-day-picker/dist/style.css";
 
@@ -36,6 +36,17 @@ const DateInput = ({
   const popper = usePopper(popperRef.current, popperElement, {
     placement: "bottom-start",
   });
+
+  useEffect(() => {
+    if (value) {
+      const initValue = typeof (value) === 'string' ? value : value.toLocaleDateString();
+      const date = parse(initValue, "MM/dd/yyyy", new Date());
+      if (isValid(date)) {
+        setInputValue(initValue);
+        setSelected(date);
+      }
+    }
+  }, [value, setSelected, setInputValue]);
 
   const closePopper = () => {
     setIsPopperOpen(false);

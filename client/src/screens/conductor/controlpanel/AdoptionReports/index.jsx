@@ -25,7 +25,6 @@ import {
   getLibraryName
 } from '../../../../components/util/LibraryOptions';
 import useGlobalError from '../../../../components/error/ErrorHooks';
-import 'react-day-picker/dist/style.css';
 
 /**
  * The Adoption Reports interface allows administrators to view LibreText Adoption Reports
