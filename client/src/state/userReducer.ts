@@ -4,50 +4,63 @@
 //
 
 /* Utils */
-import Cookies from 'js-cookie';
-
+import Cookies from "js-cookie";
+import { User } from "../types";
+import { AnyAction } from "redux";
 /* User */
-const userInitialState = {
-  uuid: '',
-  authType: '',
-  firstName: '',
-  lastName: '',
-  avatar: '/favicon-96x96.png',
-  roles: [],
+const userInitialState = <User>{
+  uuid: "",
+  authType: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  avatar: "/favicon-96x96.png",
+  roles: [
+    {
+      org: "",
+      role: "",
+    },
+  ],
+  pinnedProjects: undefined,
+  authorizedApps: undefined,
+  instructorProfile: undefined,
   isAuthenticated: false,
   isCampusAdmin: false,
   isSuperAdmin: false,
   isVerifiedInstructor: false,
 };
 
-export default function userReducer(state = userInitialState, action) {
+export default function userReducer(
+  state = userInitialState,
+  action: AnyAction
+) {
   switch (action.type) {
-    case 'SET_AUTH':
+    case "SET_AUTH":
       return {
         ...state,
-        isAuthenticated: true
-      }
-    case 'CHECK_AUTH':
-      if (Cookies.get('conductor_access') !== undefined) {
+        isAuthenticated: true,
+      };
+    case "CHECK_AUTH":
+      if (Cookies.get("conductor_access") !== undefined) {
         return {
           ...state,
-          isAuthenticated: true
-        }
+          isAuthenticated: true,
+        };
       } else {
         return state;
       }
-    case 'CLEAR_AUTH':
+    case "CLEAR_AUTH":
       return {
         ...state,
-        isAuthenticated: false
-      }
-    case 'SET_USER_NAME':
+        isAuthenticated: false,
+      };
+    case "SET_USER_NAME":
       return {
         ...state,
         firstName: action.payload.firstName,
-        lastName: action.payload.lastName
-      }
-    case 'SET_USER_INFO':
+        lastName: action.payload.lastName,
+      };
+    case "SET_USER_INFO":
       return {
         ...state,
         uuid: action.payload.uuid,
@@ -59,10 +72,10 @@ export default function userReducer(state = userInitialState, action) {
         isCampusAdmin: action.payload.isCampusAdmin,
         isSuperAdmin: action.payload.isSuperAdmin,
         isVerifiedInstructor: action.payload.isVerifiedInstructor,
-      }
-    case 'CLEAR_USER_INFO':
+      };
+    case "CLEAR_USER_INFO":
       return userInitialState;
     default:
       return state;
   }
-};
+}
