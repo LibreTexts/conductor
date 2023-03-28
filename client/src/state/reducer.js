@@ -1,4 +1,4 @@
-import userReducer from './userReducer.js';
+import userReducer from './userReducer';
 import orgReducer from './orgReducer';
 import filterReducer from './filterReducer.js';
 import errorReducer from './errorReducer.js';

@@ -17,6 +17,10 @@
     margin: 0 0 0 0.5em !important;
 }
 
+.home-unverified-label {
+    cursor: pointer;
+}
+
 /* Announcements */
 
 .announcement:hover {

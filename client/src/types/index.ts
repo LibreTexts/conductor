@@ -4,12 +4,21 @@ import {
   CollectionPrivacyOptions,
   CollectionResourceType,
   CollectionDirectoryPathObj,
-  CollectionLocations
+  CollectionLocations,
 } from "./Collection";
-import { Book, BookLinks, ReaderResource} from './Book';
+import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization } from "./Organization";
 import { GenericKeyTextValueObj } from "./Misc";
+import { Announcement } from "./Announcement";
+import { a11ySectionReviewSchema } from "./a11y";
+import {
+  Project,
+  ProjectFile,
+  ProjectClassification,
+  ProjectStatus,
+} from "./Project";
+import { User } from "./User";
 
 export type {
   Organization,
@@ -20,11 +29,18 @@ export type {
   CollectionDirectoryPathObj,
   Book,
   BookLinks,
-  ReaderResource
+  ReaderResource,
+  Announcement,
+  a11ySectionReviewSchema,
+  Project,
+  ProjectFile,
+  User,
 };
 
 export {
   CollectionPrivacyOptions,
   CollectionResourceType,
-  CollectionLocations
+  CollectionLocations,
+  ProjectClassification,
+  ProjectStatus,
 };
