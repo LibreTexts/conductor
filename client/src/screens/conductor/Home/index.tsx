@@ -521,18 +521,21 @@ const Home = () => {
   const AccountStatus = ({ user }: { user: User }) => {
     if (user.isVerifiedInstructor) {
       return (
-        <Label aria-label="User is a verified instructor">
+        <Label aria-label="User is a verified instructor" color="green">
+          <Icon name="check circle outline" />
           Verified Instructor
         </Label>
       );
     } else {
       return (
         <Label
-          aria-label="Create Instructor Account Request"
+          as="a"
+          target="_blank"
+          href="/accountrequest"
+          aria-label="Unverified user, submit an account request (opens in new tab)"
           className="home-unverified-label"
-          onClick={() => window.open("/accountrequest", "_blank")}
         >
-          Unverified Account
+          Unverified User
         </Label>
       );
     }
