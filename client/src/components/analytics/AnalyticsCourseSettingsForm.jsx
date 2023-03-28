@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button, Form, Header, Icon, Label, Message, Popup } from 'semantic-ui-react';
-import DateInput from '../../components/DateInput';
+import DateInput from '../DateInput/index.tsx';
 import useForm from '../../utils/useForm';
 
 /**

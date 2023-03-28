@@ -23,7 +23,7 @@ import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 
-import DateInput from '../DateInput';
+import DateInput from '../DateInput/index.tsx';
 
 import {
     isEmptyString,
@@ -359,33 +359,6 @@ const HarvestingRequests = (props) => {
         }
     };
 
-
-    const FromDateInput = forwardRef(({ value, onClick }, ref) => (
-        <Form.Input
-            value={value}
-            ref={ref}
-            onClick={onClick}
-            iconPosition='left'
-            icon='calendar'
-            placeholder='From...'
-            inline
-            label='From'
-        />
-    ));
-
-    const ToDateInput = forwardRef(({ value, onClick }, ref) => (
-        <Form.Input
-            value={value}
-            ref={ref}
-            onClick={onClick}
-            iconPosition='left'
-            icon='calendar'
-            placeholder='To...'
-            inline
-            label='To'
-        />
-    ));
-
     return (
         <Grid className='controlpanel-container' divided='vertically'>
             <Grid.Row>
@@ -409,22 +382,24 @@ const HarvestingRequests = (props) => {
                         </Segment>
                         <Segment>
                             <div id='adoptionreports-filteroptions'>
-                                <DateInput
-                                    value={fromDate}
-                                    onChange={(value) => setFromDate(value)}
-                                    label='From'
-                                    inlineLabel={true}
-                                    className='mr-2p'
-                                />
-                                <DateInput
-                                    value={toDate}
-                                    onChange={(value) => setToDate(value)}
-                                    label='To'
-                                    inlineLabel={true}
-                                    className='mr-2p'
-                                />
                                 <Form className='mt-1p'>
                                     <Form.Group inline>
+                                        <Form.Field inline>
+                                            <DateInput
+                                                value={fromDate}
+                                                onChange={(value) => setFromDate(value)}
+                                                label='From'
+                                                inlineLabel={true}
+                                            />
+                                        </Form.Field>
+                                        <Form.Field inline>
+                                            <DateInput
+                                                value={toDate}
+                                                onChange={(value) => setToDate(value)}
+                                                label='To'
+                                                inlineLabel={true}
+                                            />
+                                        </Form.Field>
                                         <Form.Field inline>
                                             <label>Sort by</label>
                                             <Dropdown

@@ -17,7 +17,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import date from 'date-and-time';
 
-import DateInput from '../DateInput';
+import DateInput from '../DateInput/index.tsx';
 
 import useGlobalError from '../error/ErrorHooks.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
