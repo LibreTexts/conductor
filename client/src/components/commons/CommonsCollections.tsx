@@ -97,7 +97,7 @@ const CommonsCollections = () => {
   }, [location.search]);
 
   const getCollections = useCallback(() => {
-    let searchUrl = "/commons/collections/all";
+    let searchUrl = "/commons/collections";
     if (currDirPath.at(-1)?.collID !== "") {
       searchUrl = `/commons/collection/${currDirPath.at(-1)?.collID}`;
     }

@@ -274,7 +274,7 @@ const CollectionsManager = () => {
     if (!checkIsCollectionResource(item)) return;
 
     let axiosReq;
-    if (checkIsCollection(item.resourceData)) {
+    if (item.resourceData && checkIsCollection(item.resourceData)) {
       axiosReq = axios.delete(
         `/commons/collection/${item.resourceData.collID}`
       );

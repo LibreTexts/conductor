@@ -24,7 +24,7 @@ const CollectionCard = ({
       return (item as Collection).coverPhoto;
     }
 
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
         return (item.resourceData as Collection).coverPhoto;
       }
@@ -41,7 +41,7 @@ const CollectionCard = ({
       return (item as Collection).collID;
     }
 
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
         return (item.resourceData as Collection).collID;
       }
@@ -57,7 +57,7 @@ const CollectionCard = ({
       return (item as Collection).title;
     }
 
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
         return (item.resourceData as Collection).title;
       }
@@ -77,7 +77,7 @@ const CollectionCard = ({
     if (checkIsCollection(item)) {
       return false;
     }
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
         return false;
       }
@@ -96,22 +96,16 @@ const CollectionCard = ({
     if (checkIsCollection(item)) {
       return (
         <>
-          <Card.Meta>{item.collectionCount ?? 0} collections</Card.Meta>
           <Card.Meta>{item.resourceCount ?? 0} resources</Card.Meta>
         </>
       );
     }
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
-        let nestedColls = item.resourceData.resources.filter((a) => a.resourceType === 'collection')
-        let nestedResources = item.resourceData.resources.filter((a) => a.resourceType === 'resource')
         return (
           <>
             <Card.Meta>
-              {nestedColls.length ?? 0} collections
-            </Card.Meta>
-            <Card.Meta>
-              {nestedResources.length ?? 0} resources
+              {item.resourceData.resources.length ?? 0} resources
             </Card.Meta>
           </>
         );
@@ -146,7 +140,7 @@ const CollectionCard = ({
         </>
       );
     }
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsBook(item.resourceData)) {
         return (
           <>
@@ -179,7 +173,7 @@ const CollectionCard = ({
       }
       return;
     }
-    if (checkIsCollectionResource(item)) {
+    if (checkIsCollectionResource(item) && item.resourceData) {
       if (checkIsCollection(item.resourceData)) {
         if (onClickCollCB) {
           onClickCollCB(

@@ -32,7 +32,6 @@ export type Collection = {
   program: string;
   locations: string[];
   autoManage: boolean;
-  collectionCount?: number;
   resourceCount?: number;
 };
 

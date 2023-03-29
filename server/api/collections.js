@@ -362,7 +362,15 @@ async function deleteCollection(req, res) {
  * Requests are safe to be anonymous/
  * public.
  */
-const getCommonsCollections = (_req, res) => {
+const getCommonsCollections = (req, res) => {
+  const projectObj = {
+    orgID: 1,
+    collID: 1,
+    title: 1,
+    coverPhoto: 1,
+    resourceCount: { $size: "$resources" },
+    ...(req.query.detailed === "true" && { resources: 1 }),
+  };
   Collection.aggregate([
     {
       $match: {
@@ -406,15 +414,7 @@ const getCommonsCollections = (_req, res) => {
       },
     },
     {
-      $project: {
-        orgID: 1,
-        collID: 1,
-        title: 1,
-        coverPhoto: 1,
-        resources: {
-          $size: "$resources",
-        },
-      },
+      $project: projectObj,
     },
   ])
     .then((colls) => {
@@ -447,7 +447,7 @@ const getCommonsCollections = (_req, res) => {
  *             list to its length.
  */
 const getAllCollections = (req, res) => {
-  let projectObj = {
+  const projectObj = {
     orgID: 1,
     collID: 1,
     title: 1,
@@ -456,30 +456,9 @@ const getAllCollections = (req, res) => {
     program: 1,
     locations: 1,
     autoManage: 1,
+    resourceCount: { $size: "$resources" },
+    ...(req.query.detailed === "true" && { resources: 1 }),
   };
-  if (req.query.detailed === "true") {
-    projectObj.resources = 1;
-  } else {
-    // collapse resources field to list length by default
-    projectObj.collectionCount = {
-      $size: {
-        $filter: {
-          input: "$resources",
-          as: "currResource",
-          cond: { $eq: ["$$currResource.resourceType", "collection"] },
-        },
-      },
-    };
-    projectObj.resourceCount = {
-      $size: {
-        $filter: {
-          input: "$resources",
-          as: "currResource",
-          cond: { $eq: ["$$currResource.resourceType", "resource"] },
-        },
-      },
-    };
-  }
   Collection.aggregate([
     {
       $match: {
