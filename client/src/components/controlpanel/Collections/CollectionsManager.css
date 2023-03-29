@@ -197,19 +197,19 @@
 
 /* Collections card */
 .collections-manager-card {
-    width: 250px;
+    width: 290px;
     margin: 0 !important;
     text-overflow: ellipsis;
-    height: 300px;
+    height: 325px;
 }
 
 .collections-manager-card-inner-content {
     border-top: none !important;
-    height: 150px;
+    height: 175px;
 }
 .collections-manager-card-img-wrapper {
     margin: 10px 10px 0px 10px;
-    height: 75% !important
+    height: 50% !important
 }
 
 .collections-manager-card-img {
