@@ -69,7 +69,6 @@ const EditCollection: FC<EditCollectionProps> = ({
         privacy: undefined,
         locations: [],
         autoManage: false,
-        collectionCount: undefined,
         resourceCount: undefined,
       });
     }
