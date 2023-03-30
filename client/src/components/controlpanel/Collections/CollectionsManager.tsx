@@ -10,6 +10,7 @@ import {
   Icon,
   Input,
   Breadcrumb,
+  PaginationProps,
 } from "semantic-ui-react";
 import { useEffect, useState, useCallback, ReactElement } from "react";
 import Breakpoint from "../../util/Breakpoints";
@@ -39,7 +40,7 @@ import AddResources from "./AddResources";
 const CollectionsManager = () => {
   // Global State
   const { handleGlobalError } = useGlobalError();
-  
+
   // Data
   const [collections, setCollections] = useState<
     Collection[] | CollectionResource[]
@@ -244,6 +245,19 @@ const CollectionsManager = () => {
   };
 
   /**
+   * Updates the Active Page selection in state.
+   *
+   * @param {React.ChangeEvent} _e - The event that activated the handler.
+   * @param {object} data - Data passed from the calling component.
+   */
+  function handleActivePageChange(_e: any, data: PaginationProps) {
+    if (data.activePage && typeof data.activePage === "number") {
+      return setActivePage(data.activePage);
+    }
+    setActivePage(1);
+  }
+
+  /**
    * Updates state with the a new collection to bring into view.
    * @param {string} collectionID - Identifier of the collection entry.
    */
@@ -267,7 +281,7 @@ const CollectionsManager = () => {
    * @param {string} bookID - Identifier of the book
    */
   function handleBookClick(bookID: string) {
-    window.open(`/book/${bookID}`, '_blank')
+    window.open(`/book/${bookID}`, "_blank");
   }
 
   function handleDeleteItem(item: CollectionResource) {
@@ -460,7 +474,7 @@ const CollectionsManager = () => {
                       aria-label="Number of results to display per page"
                     />
                     <ResultsText
-                      resultsCount={collections.length}
+                      resultsCount={pageColls.length}
                       totalCount={collections.length}
                     />
                   </div>
@@ -470,7 +484,7 @@ const CollectionsManager = () => {
                       totalPages={totalPages}
                       firstItem={null}
                       lastItem={null}
-                      onPageChange={() => setActivePage}
+                      onPageChange={handleActivePageChange}
                       size="large"
                       siblingRange={0}
                     />
@@ -495,7 +509,7 @@ const CollectionsManager = () => {
                         />
                       </div>
                       <ResultsText
-                        resultsCount={collections.length}
+                        resultsCount={pageColls.length}
                         totalCount={collections.length}
                       />
                     </Grid.Column>
@@ -508,7 +522,7 @@ const CollectionsManager = () => {
                         siblingRange={0}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={() => setActivePage}
+                        onPageChange={handleActivePageChange}
                         size="mini"
                       />
                     </Grid.Column>
@@ -540,7 +554,7 @@ const CollectionsManager = () => {
                       aria-label="Number of results to display per page"
                     />
                     <ResultsText
-                      resultsCount={collections.length}
+                      resultsCount={pageColls.length}
                       totalCount={collections.length}
                     />
                   </div>
@@ -550,7 +564,7 @@ const CollectionsManager = () => {
                       totalPages={totalPages}
                       firstItem={null}
                       lastItem={null}
-                      onPageChange={() => setActivePage}
+                      onPageChange={handleActivePageChange}
                       size="large"
                       siblingRange={0}
                     />
@@ -573,6 +587,10 @@ const CollectionsManager = () => {
                           value={itemsPerPage}
                           aria-label="Number of results to display per page"
                         />
+                        <ResultsText
+                          resultsCount={pageColls.length}
+                          totalCount={collections.length}
+                        />
                       </div>
                     </Grid.Column>
                   </Grid.Row>
@@ -584,7 +602,7 @@ const CollectionsManager = () => {
                         siblingRange={0}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={() => setActivePage}
+                        onPageChange={handleActivePageChange}
                         size="mini"
                       />
                     </Grid.Column>
