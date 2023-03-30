@@ -9,8 +9,6 @@ import CommonsCollectionView from './components/commons/CommonsCollectionView';
 import CommonsFooter from './components/commons/CommonsFooter';
 import CommonsHomework from './components/commons/CommonsHomework';
 import CommonsJumbotron from './components/commons/CommonsJumbotron';
-import CommonsLibraries from './components/commons/CommonsLibraries';
-import CommonsLibraryEntry from './components/commons/CommonsLibraryEntry';
 import CommonsMenu from './components/commons/CommonsMenu';
 import CommonsNavbar from './components/commons/CommonsNavbar';
 import CommonsUnderDevelopment from './components/commons/CommonsUnderDevelopment';
@@ -112,8 +110,6 @@ const Commons = () => {
         <Route exact path='/collections' component={CommonsCollections} />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/homework' key='homework' component={CommonsHomework} />,
-          <Route exact path='/libraries' key='libraries' component={CommonsLibraries} />,
-          <Route exact path='/libraries/:lib' key='library' component={CommonsLibraryEntry} />,
           <Route exact path='/underdevelopment' key='underdev' component={CommonsUnderDevelopment} />,
         ]}
         <Route exact path='/collection/:id' component={CommonsCollectionView} />
