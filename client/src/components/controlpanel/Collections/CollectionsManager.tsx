@@ -101,7 +101,7 @@ const CollectionsManager = () => {
               handleGlobalError("Error processing server response");
             }
           } else {
-            if (Array.isArray(res.data.colls) && res.data.colls.length > 0) {
+            if (Array.isArray(res.data.colls)) {
               setRootMode(true);
               setCollections(res.data.colls);
             } else {
