@@ -36,8 +36,6 @@ const Platform = () => {
     '/collection/:id',
     '/book/:id',
     '/homework',
-    '/libraries',
-    '/libraries/:lib',
     '/underdevelopment',
   ];
   const standalonePaths = [
