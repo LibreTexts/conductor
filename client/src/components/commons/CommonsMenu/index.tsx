@@ -33,8 +33,9 @@ const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
    * @returns {object[]} An array of objects containing identifier keys and corresponding UI text.
    */
   const generateMenuOptions = () => {
+    let collectionsText = org.collectionsDisplayLabel ?? 'Collections';
     const catalog = { key: "catalog", text: "Catalog" };
-    const collections = { key: "collections", text: "Collections" };
+    const collections = { key: "collections", text: `${collectionsText}` };
     if (org.orgID === "libretexts") {
       return [
         catalog,

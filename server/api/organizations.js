@@ -10,7 +10,7 @@ import { body, param } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization from '../models/organization.js';
-import { ensureUniqueStringArray } from '../util/helpers.js';
+import { ensureUniqueStringArray, isEmptyString } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 import authAPI from './auth.js';
@@ -212,8 +212,14 @@ async function updateOrganizationInfo(req, res) {
     addToUpdateIfPresent('aboutLink');
     addToUpdateIfPresent('commonsHeader');
     addToUpdateIfPresent('commonsMessage');
+    addToUpdateIfPresent('collectionsDisplayLabel');
     addToUpdateIfPresent('mainColor');
     addToUpdateIfPresent('catalogMatchingTags');
+
+    if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel)){
+      // Reset label to 'Collections' if empty string was passed 
+      updateObj.collectionsDisplayLabel = 'Collections'
+    }
 
     if (
       Object.hasOwn(req.body, 'addToLibreGridList')
@@ -369,6 +375,7 @@ function validate(method) {
         body('aboutLink', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
         body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
+        body('collectionsDisplayLabel', conductorErrors.err1).optional({checkFalsy: true}).isLength({ max: 200 }),
         body('mainColor', conductorErrors.err1).optional({ checkFalsy: true }).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('catalogMatchingTags', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),

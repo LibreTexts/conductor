@@ -17,7 +17,8 @@ const orgInitialState = <Organization>{
     smallLogo: '',
     aboutLink: '',
     commonsHeader: '',
-    commonsMessage: ''
+    commonsMessage: '',
+    collectionsDisplayLabel: 'Collections'
 };
 
 export default function orgReducer(

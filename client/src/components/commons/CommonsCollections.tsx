@@ -50,6 +50,7 @@ const CommonsCollections = () => {
   const location = useLocation();
   const history = useHistory();
   const org = useTypedSelector((state) => state.org);
+  const CUSTOM_LABEL = org.collectionsDisplayLabel ?? "Collections";
 
   // UI
   const displayChoice = useTypedSelector(
@@ -81,9 +82,9 @@ const CommonsCollections = () => {
    */
   useEffect(() => {
     if (org.orgID !== "libretexts") {
-      document.title = `${org.shortName} Commons | Collections`;
+      document.title = `${org.shortName} Commons | ${CUSTOM_LABEL}`;
     } else {
-      document.title = "LibreCommons | Collections";
+      document.title = `LibreCommons | Collections`;
     }
   }, [org]);
 
@@ -219,7 +220,7 @@ const CommonsCollections = () => {
       let shouldLink = true;
       let name = item.name;
       if (item.name === "" && item.collID === "") {
-        name = "Collections";
+        name = `${CUSTOM_LABEL}`;
       } else {
         nodes.push(
           <Breadcrumb.Divider
@@ -287,7 +288,7 @@ const CommonsCollections = () => {
               <Breakpoint name="desktop">
                 <div className="commons-content-pagemenu">
                   <div className="commons-content-pagemenu-left">
-                    <Header as="h2">Collections</Header>
+                    <Header as="h2">{CUSTOM_LABEL}</Header>
                   </div>
                 </div>
               </Breakpoint>
@@ -296,7 +297,7 @@ const CommonsCollections = () => {
                   <Grid.Row>
                     <Grid.Column>
                       <Header as="h2" textAlign="center">
-                        Collections
+                        {CUSTOM_LABEL}
                       </Header>
                     </Grid.Column>
                   </Grid.Row>
@@ -468,8 +469,3 @@ const CommonsCollections = () => {
 };
 
 export default CommonsCollections;
-
-/*
-as={Link}
-to={`/collections/${item.id}`}
-*/

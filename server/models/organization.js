@@ -69,6 +69,10 @@ const OrganizationSchema = new mongoose.Schema({
    */
   commonsMessage: String,
   /**
+   * Custom label for collections to display on Campus Commomns (ie Departments, Colleges, etc.)
+   */
+  collectionsDisplayLabel: String,
+  /**
    * The hex representation of the Organization's main branding color.
    */
   mainColor: String,
