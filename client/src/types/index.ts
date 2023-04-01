@@ -19,6 +19,7 @@ import {
   ProjectStatus,
 } from "./Project";
 import { User } from "./User";
+import { Homework, AdaptAssignment } from "./Homework";
 
 export type {
   Organization,
@@ -35,6 +36,8 @@ export type {
   Project,
   ProjectFile,
   User,
+  Homework,
+  AdaptAssignment
 };
 
 export {
