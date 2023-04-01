@@ -485,7 +485,7 @@ const getAllCollections = (req, res) => {
     },
     {
       $sort: {
-        title: -1,
+        title: 1,
       },
     },
     {
