@@ -36,10 +36,12 @@ import {
   checkIsCollectionResource,
 } from "../../util/TypeHelpers";
 import AddResources from "./AddResources";
+import { useTypedSelector } from "../../../state/hooks";
 
 const CollectionsManager = () => {
   // Global State
   const { handleGlobalError } = useGlobalError();
+  const org = useTypedSelector((state) => state.org);
 
   // Data
   const [collections, setCollections] = useState<
@@ -454,8 +456,25 @@ const CollectionsManager = () => {
               <DirectoryBreadcrumbs />
             </Segment>
             <Segment padded>
-              <div className="flex-row-div right-flex">
-                <ActionItems />
+              <div className="flex-row-div">
+                <div className="left-flex">
+                  {org.collectionsDisplayLabel && (
+                    <span>
+                      These collections will appear as{" "}
+                      <strong className="text-bold">
+                        {org.collectionsDisplayLabel}
+                      </strong>{" "}
+                      in your Campus Commons. You can change this label in{" "}
+                      <a href="/controlpanel/campussettings" target="_blank">
+                        Campus Settings
+                      </a>
+                      .
+                    </span>
+                  )}
+                </div>
+                <div className="right-flex">
+                  <ActionItems />
+                </div>
               </div>
             </Segment>
             <Segment>
