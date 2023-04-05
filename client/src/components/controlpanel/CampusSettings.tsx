@@ -47,6 +47,7 @@ const CampusSettings = () => {
       commonsHeader: "",
       commonsMessage: "",
       collectionsDisplayLabel: "Collections",
+      collectionsMessage: "",
     },
   });
 
@@ -128,7 +129,7 @@ const CampusSettings = () => {
         if (!res.data.err) {
           if (res.data.updatedOrg) {
             dispatch({
-              type: 'SET_ORG_INFO',
+              type: "SET_ORG_INFO",
               payload: res.data.updatedOrg,
             });
           }
@@ -634,6 +635,32 @@ const CampusSettings = () => {
                       await trigger("collectionsDisplayLabel");
                     }}
                     error={errors.collectionsDisplayLabel ? true : false}
+                  />
+                </Form.Field>
+                <Form.Field>
+                  <label htmlFor="collectionsDisplayLabel">
+                    <span>Collections Message </span>
+                    <Popup
+                      content={
+                        <span>
+                          A block of text placed at the top of the Collections
+                          interface, used to welcome users to the Collections.
+                          <strong> This text is optional.</strong>
+                        </span>
+                      }
+                      trigger={<Icon name="info circle" />}
+                    />
+                  </label>
+                  <Form.Input
+                    id="collectionsMessage"
+                    type="text"
+                    name="collectionsMessage"
+                    value={getFormValue("collectionsMessage") || ""}
+                    onChange={async (e, { name, value }) => {
+                      setFormValue(name, value, { shouldDirty: true });
+                      await trigger("collectionsMessage");
+                    }}
+                    error={errors.collectionsMessage ? true : false}
                   />
                 </Form.Field>
               </Form>

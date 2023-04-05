@@ -284,29 +284,30 @@ const CommonsCollections = () => {
       <Grid.Row>
         <Grid.Column>
           <Segment.Group raised>
-            <Segment>
+            <Segment padded>
               <Breakpoint name="desktop">
-                <div className="commons-content-pagemenu">
-                  <div className="commons-content-pagemenu-left">
-                    <Header as="h2">{CUSTOM_LABEL}</Header>
-                  </div>
-                </div>
+                <Header id="commons-intro-header" as="h2">
+                  {CUSTOM_LABEL}
+                </Header>
+                {org.collectionsMessage && (
+                  <p id="commons-intro-message">{org.collectionsMessage}</p>
+                )}
               </Breakpoint>
               <Breakpoint name="mobile">
-                <Grid>
-                  <Grid.Row>
-                    <Grid.Column>
-                      <Header as="h2" textAlign="center">
-                        {CUSTOM_LABEL}
-                      </Header>
-                    </Grid.Column>
-                  </Grid.Row>
-                </Grid>
+                <Header id="commons-intro-header" as="h2" textAlign="center">
+                  {CUSTOM_LABEL}
+                </Header>
+                {org.collectionsMessage && (
+                  <p id="commons-intro-message">{org.collectionsMessage}</p>
+                )}
               </Breakpoint>
             </Segment>
-            <Segment>
-              <DirectoryBreadcrumbs />
-            </Segment>
+            {/* Don't display breadcrumbs if at root */}
+            {activeCollection && (
+              <Segment padded>
+                <DirectoryBreadcrumbs />
+              </Segment>
+            )}
             <Segment>
               <Breakpoint name="desktop">
                 <div className="collections-manager-pagemenu">

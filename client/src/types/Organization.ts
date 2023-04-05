@@ -13,6 +13,7 @@ export type Organization = {
   commonsHeader: string;
   commonsMessage: string;
   collectionsDisplayLabel?: string;
+  collectionsMessage?: string;
   mainColor: string;
   defaultProjectLead: string;
   addToLibreGridList: boolean;
@@ -29,4 +30,5 @@ export type CampusSettingsOpts = Pick<
   | "commonsHeader"
   | "commonsMessage"
   | "collectionsDisplayLabel"
+  | "collectionsMessage"
 >;
