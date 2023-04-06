@@ -22,12 +22,6 @@ if (!process.env.ORG_ID) {
     exit(1);
 }
 
-// Prevent startup without Mailgun env variables
-if (!process.env.MAILGUN_API_KEY || !process.env.MAILGUN_DOMAIN) {
-    debug('[FATAL ERROR]: The Mailgun environment variables are missing.');
-    exit(1);
-}
-
 const app = express();
 const port = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
