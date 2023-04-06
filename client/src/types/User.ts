@@ -1,3 +1,5 @@
+import { Organization } from "./Organization";
+
 export type User = {
   uuid: string;
   firstName: string;
@@ -6,18 +8,13 @@ export type User = {
   avatar: string;
   roles: [
     {
-      org: string;
+      org: Organization;
       role: string;
     }
   ];
   authType: string;
   pinnedProjects?: [string];
-  authorizedApps?: [
-    {
-      clientID: string;
-      authorizedAt: string;
-    }
-  ];
+  authorizedApps?: AuthorizedApp[];
   instructorProfile?: {
     institution: string;
     facultyURL: string;
@@ -26,4 +23,26 @@ export type User = {
   isVerifiedInstructor: boolean;
   isCampusAdmin: boolean;
   isSuperAdmin: boolean;
+  createdAt?: string;
+};
+
+export type Account = Pick<
+  User,
+  | "avatar"
+  | "authType"
+  | "firstName"
+  | "lastName"
+  | "email"
+  | "roles"
+  | "isVerifiedInstructor"
+  | "instructorProfile"
+  | "createdAt"
+>;
+
+export type AuthorizedApp = {
+  clientID: string;
+  authorizedAt: string;
+  name: string;
+  infoURL: string;
+  icon: string;
 };

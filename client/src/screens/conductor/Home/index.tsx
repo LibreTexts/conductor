@@ -35,6 +35,7 @@ import { Announcement, Project, User } from "../../../types";
 import ProjectCard from "../../../components/projects/ProjectCard";
 import Breakpoint from "../../../components/util/Breakpoints";
 import TextArea from "../../../components/TextArea";
+import AccountStatus from "../../../components/util/AccountStatus";
 
 import {
   truncateString,
@@ -512,32 +513,6 @@ const Home = () => {
           handleGlobalError(err);
           setAVModalLoading(false);
         });
-    }
-  };
-
-  /**
-   * Displays the appropriate text based on the user's status as a verified instructor
-   */
-  const AccountStatus = ({ user }: { user: User }) => {
-    if (user.isVerifiedInstructor) {
-      return (
-        <Label aria-label="User is a verified instructor" color="green">
-          <Icon name="check circle outline" />
-          Verified Instructor
-        </Label>
-      );
-    } else {
-      return (
-        <Label
-          as="a"
-          target="_blank"
-          href="/accountrequest"
-          aria-label="Unverified user, submit an account request (opens in new tab)"
-          className="home-unverified-label"
-        >
-          Unverified User
-        </Label>
-      );
     }
   };
 

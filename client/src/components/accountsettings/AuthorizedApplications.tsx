@@ -1,28 +1,32 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
-import { Button, Divider, Image, List, Modal, Segment } from 'semantic-ui-react';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import useGlobalError from '../error/ErrorHooks';
+import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
+import {
+  Button,
+  Divider,
+  Image,
+  List,
+  Modal,
+  Segment,
+} from "semantic-ui-react";
+import { format, parseISO } from "date-fns";
+import useGlobalError from "../error/ErrorHooks";
+import { AuthorizedApp } from "../../types";
 
 /**
  * The Authorized Applications pane lists partner applications that the user has authorized to
  * access their account (e.g., via OAuth) and allows access to be revoked.
  */
 const AuthorizedApplications = () => {
-
   // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
 
   // UI
-  const [loading, setLoading] = useState(false);
-  const [showRevoke, setShowRevoke] = useState(false);
-  const [revokeApp, setRevokeApp] = useState(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showRevoke, setShowRevoke] = useState<boolean>(false);
+  const [revokeApp, setRevokeApp] = useState<AuthorizedApp>();
 
   // Data
-  const [apps, setApps] = useState([]);
-
-  date.plugin(ordinal);
+  const [apps, setApps] = useState<AuthorizedApp[]>([]);
 
   /**
    * Retrieve the user's authorized applications from the server and save them to state.
@@ -30,13 +34,13 @@ const AuthorizedApplications = () => {
   const getAuthorizedApplications = useCallback(async () => {
     setLoading(true);
     try {
-      const appsRes = await axios.get('/user/authorizedapps');
+      const appsRes = await axios.get("/user/authorizedapps");
       if (!appsRes.data.err) {
         if (Array.isArray(appsRes.data.apps)) {
           setApps(appsRes.data.apps);
         }
       } else {
-        throw (new Error(appsRes.data.errMsg));
+        throw new Error(appsRes.data.errMsg);
       }
     } catch (e) {
       handleGlobalError(e);
@@ -58,12 +62,18 @@ const AuthorizedApplications = () => {
   async function submitRevokeAccess() {
     setLoading(true);
     try {
-      const revokeRes = await axios.delete(`/user/authorizedapps/${revokeApp.clientID}`);
+      if (!revokeApp) {
+        throw new Error("Error loading app to revoke.");
+      }
+
+      const revokeRes = await axios.delete(
+        `/user/authorizedapps/${revokeApp.clientID}`
+      );
       if (!revokeRes.data.err) {
         getAuthorizedApplications();
         handleCloseRevokeAccess();
       } else {
-        throw (new Error(revokeRes.data.errMsg));
+        throw new Error(revokeRes.data.errMsg);
       }
     } catch (e) {
       handleGlobalError(e);
@@ -76,7 +86,7 @@ const AuthorizedApplications = () => {
    *
    * @param {object} app - Information about the app to revoke.
    */
-  function handleOpenRevokeAccess(app) {
+  function handleOpenRevokeAccess(app: any) {
     setRevokeApp(app);
     setShowRevoke(true);
   }
@@ -86,26 +96,38 @@ const AuthorizedApplications = () => {
    */
   function handleCloseRevokeAccess() {
     setShowRevoke(false);
-    setRevokeApp(null);
+    setRevokeApp(undefined);
   }
 
   return (
     <Segment basic className="pane-segment" loading={loading}>
       <h2>Authorized Applications</h2>
       <Divider />
-      <p>You gave the applications below access to view and/or data in your Conductor account. Remove access for applications you no longer use.</p>
-      <List divided relaxed="very" verticalAlign="middle" className="mt-2e mb-2e">
+      <p>
+        You gave the applications below access to view and/or data in your
+        Conductor account. Remove access for applications you no longer use.
+      </p>
+      <List
+        divided
+        relaxed="very"
+        verticalAlign="middle"
+        className="mt-2e mb-2e"
+      >
         {apps.map((item) => {
-          const authDate = new Date(item.authorizedAt);
-          const authTimeDisplay = date.format(authDate, 'MMM DDD, YYYY');
+          const parsedDate = format(
+            parseISO(item.authorizedAt),
+            "MMM dd, yyyy"
+          ).toString();
           return (
             <List.Item key={item.clientID}>
               <Image avatar src={item.icon} />
               <List.Content>
                 <List.Header className="mb-05e">{item.name}</List.Header>
-                <span className="muted-text">Authorized on {authTimeDisplay}</span>
+                <span className="muted-text">Authorized on {parsedDate}</span>
                 <span className="ml-05e mr-05e">&#8226;</span>
-                <a href={item.infoURL} target="_blank" rel="noreferrer">Vendor Information</a>
+                <a href={item.infoURL} target="_blank" rel="noreferrer">
+                  Vendor Information
+                </a>
               </List.Content>
               <List.Content floated="right">
                 <Button
@@ -116,24 +138,32 @@ const AuthorizedApplications = () => {
                 </Button>
               </List.Content>
             </List.Item>
-          )
+          );
         })}
         {apps.length === 0 && (
-          <p className="muted-text mt-1e mb-1e text-center"><em>No apps authorized yet.</em></p>
+          <p className="muted-text mt-1e mb-1e text-center">
+            <em>No apps authorized yet.</em>
+          </p>
         )}
       </List>
       <Modal open={showRevoke} onClose={handleCloseRevokeAccess}>
         <Modal.Header>Revoke Application Access</Modal.Header>
         <Modal.Content>
-          <p>Are you sure you want to revoke account access from <strong>{revokeApp?.name}</strong>? You'll need to re-authorize this application if you wish to use it again in the future.</p>
+          <p>
+            Are you sure you want to revoke account access from{" "}
+            <strong>{revokeApp?.name}</strong>? You'll need to re-authorize this
+            application if you wish to use it again in the future.
+          </p>
         </Modal.Content>
         <Modal.Actions>
-          <Button color="red" onClick={submitRevokeAccess} loading={loading}>Revoke Access</Button>
+          <Button color="red" onClick={submitRevokeAccess} loading={loading}>
+            Revoke Access
+          </Button>
           <Button onClick={handleCloseRevokeAccess}>Cancel</Button>
         </Modal.Actions>
       </Modal>
     </Segment>
-  )
+  );
 };
 
 export default AuthorizedApplications;
