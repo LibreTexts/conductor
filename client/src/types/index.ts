@@ -18,7 +18,7 @@ import {
   ProjectClassification,
   ProjectStatus,
 } from "./Project";
-import { User } from "./User";
+import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
 
 export type {
@@ -37,6 +37,8 @@ export type {
   Project,
   ProjectFile,
   User,
+  Account,
+  AuthorizedApp,
   Homework,
   AdaptAssignment
 };

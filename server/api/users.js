@@ -150,9 +150,9 @@ const getBasicAccountInfo = (req, res) => {
             };
             account.createdAt = user._id.getTimestamp();
             if (user.authType === 'sso') {
-                account.authMethod = 'sso';
+                account.authType = 'sso';
             } else {
-                account.authMethod = 'Traditional';
+                account.authType = 'Traditional';
             }
             account.roles = processUserRoles(user.roleOrgs, user.roles);
             return res.send({
@@ -418,12 +418,11 @@ const getUsersList = (_req, res) => {
     ]).then((users) => {
         let processedUsers = users.map((user) => {
             if (user.authType !== null) {
-                if (user.authType === 'traditional') user.authMethod = 'Traditional';
-                else if (user.authType === 'sso') user.authMethod = 'SSO';
+                if (user.authType === 'traditional') user.authType = 'Traditional';
+                else if (user.authType === 'sso') user.authType = 'SSO';
             } else {
-                user.authMethod = 'Traditional';
+                user.authType = 'Traditional';
             }
-            delete user.authType;
             return user;
         });
         return res.send({
@@ -537,9 +536,9 @@ const getUserInfoAdmin = (req, res) => {
             };
             account.createdAt = user._id.getTimestamp();
             if (user.authType === 'sso') {
-                account.authMethod = 'SSO';
+                account.authType = 'SSO';
             } else {
-                account.authMethod = 'Traditional';
+                account.authType = 'Traditional';
             }
             account.roles = processUserRoles(user.roleOrgs, user.roles);
             return res.send({

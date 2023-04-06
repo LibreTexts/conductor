@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
-import axios from 'axios';
-import {
-  Segment,
-  Divider,
-  Form,
-  Button,
-  Icon,
-  Modal,
-} from 'semantic-ui-react';
-import AuthHelper from '../util/AuthHelper';
-import { isEmptyString, validatePassword } from '../util/HelperFunctions';
-import useGlobalError from '../error/ErrorHooks';
+import { useState } from "react";
+import PropTypes from "prop-types";
+import axios from "axios";
+import { Segment, Divider, Form, Button, Icon, Modal } from "semantic-ui-react";
+import AuthHelper from "../util/AuthHelper";
+import { isEmptyString, validatePassword } from "../util/HelperFunctions";
+import useGlobalError from "../error/ErrorHooks";
+import { Account } from "../../types";
 
 /**
  * The Account Security pane allows users to update their login and access information,
  * such as email and password.
  */
-const AccountSecurity = ({ account, onDataChange }) => {
-
+const AccountSecurity = ({
+  account,
+  onDataChange,
+}: {
+  account: Account;
+  onDataChange: Function;
+}) => {
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
 
@@ -27,14 +26,14 @@ const AccountSecurity = ({ account, onDataChange }) => {
   const [passChangeLoading, setPassChangeLoading] = useState(false);
 
   // Update Email Form
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [emailErr, setEmailErr] = useState(false);
   const [showEmailUpdateSuccess, setShowEmailUpdateSuccess] = useState(false);
 
   // Change Password Form
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [currPassword, setCurrPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [currPassword, setCurrPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [currPassErr, setCurrPassErr] = useState(false);
   const [newPassErr, setNewPassErr] = useState(false);
 
@@ -73,15 +72,15 @@ const AccountSecurity = ({ account, onDataChange }) => {
     if (validatePasswordChangeForm()) {
       setPassChangeLoading(true);
       try {
-        const changeRes = await axios.put('/auth/changepassword', {
+        const changeRes = await axios.put("/auth/changepassword", {
           currentPassword: currPassword,
           newPassword: newPassword,
         });
         if (!changeRes.data.err) {
           AuthHelper.logout();
-          window.location.assign('/login?passchange=true');
+          window.location.assign("/login?passchange=true");
         } else {
-          throw (new Error(changeRes.data.errMsg));
+          throw new Error(changeRes.data.errMsg);
         }
       } catch (e) {
         handleGlobalError(e);
@@ -98,12 +97,12 @@ const AccountSecurity = ({ account, onDataChange }) => {
     if (!isEmptyString(email)) {
       setEmailChangeLoading(true);
       try {
-        const emailRes = await axios.put('/user/email', { email });
+        const emailRes = await axios.put("/user/email", { email });
         if (!emailRes.data.err) {
           setShowEmailUpdateSuccess(true);
           onDataChange();
         } else {
-          throw (new Error(emailRes.data.errMsg));
+          throw new Error(emailRes.data.errMsg);
         }
       } catch (e) {
         handleGlobalError(e);
@@ -124,25 +123,25 @@ const AccountSecurity = ({ account, onDataChange }) => {
    *
    * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler.
    */
-  function handleEmailChange(e) {
+  function handleEmailChange(e: any) {
     setEmail(e.target.value);
   }
 
   /**
    * Updates state with changes to the current password input.
    *
-   * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler. 
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler.
    */
-  function handleCurrPassChange(e) {
+  function handleCurrPassChange(e: any) {
     setCurrPassword(e.target.value);
   }
 
   /**
    * Updates state with changes to the new password input and performs real-time validation.
    *
-   * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler. 
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler.
    */
-  function handleNewPassChange(e) {
+  function handleNewPassChange(e: any) {
     if (validatePassword(e.target.value)) {
       setNewPassErr(false);
     } else {
@@ -162,21 +161,23 @@ const AccountSecurity = ({ account, onDataChange }) => {
     <Segment basic className="pane-segment">
       <h2>Security</h2>
       <Divider />
-      {(account.authMethod !== 'Traditional') &&
-        <p><em>Your account information is managed by an external identity provider. To update these values, please use your SSO provider's methods.</em></p>
-      }
-      <Segment
-        raised
-        disabled={account.authMethod !== 'Traditional'}
-      >
+      {account.authType !== "Traditional" && (
+        <p>
+          <em>
+            Your account information is managed by an external identity
+            provider. To update these values, please use your SSO provider's
+            methods.
+          </em>
+        </p>
+      )}
+      <Segment raised disabled={account.authType !== "Traditional"}>
         <h3>Update Email</h3>
         <p>
-          <strong>Caution: </strong> Updating your email here will change the email you use to login to Conductor.
+          <strong>Caution: </strong> Updating your email here will change the
+          email you use to login to Conductor.
         </p>
         <Form noValidate>
-          <Form.Field
-            error={emailErr}
-          >
+          <Form.Field error={emailErr}>
             <label htmlFor="updateEmail"></label>
             <Form.Input
               id="updateEmail"
@@ -200,15 +201,10 @@ const AccountSecurity = ({ account, onDataChange }) => {
           </Button>
         </Form>
       </Segment>
-      <Segment
-        raised
-        disabled={account.authMethod !== 'Traditional'}
-      >
+      <Segment raised disabled={account.authType !== "Traditional"}>
         <h3>Change Password</h3>
         <Form noValidate>
-          <Form.Field
-            error={currPassErr}
-          >
+          <Form.Field error={currPassErr}>
             <label htmlFor="currentPassword">Current Password</label>
             <Form.Input
               id="currentPassword"
@@ -221,16 +217,14 @@ const AccountSecurity = ({ account, onDataChange }) => {
               value={currPassword}
             />
           </Form.Field>
-          <Form.Field
-            error={newPassErr}
-          >
+          <Form.Field error={newPassErr}>
             <label htmlFor="newPassword">
               New Password
               <span
                 className="text-link float-right"
                 onClick={handleToggleShowNewPassword}
               >
-                {showNewPassword ? 'Hide' : 'Show'}
+                {showNewPassword ? "Hide" : "Show"}
               </span>
             </label>
             <Form.Input
@@ -243,7 +237,12 @@ const AccountSecurity = ({ account, onDataChange }) => {
               onChange={handleNewPassChange}
               value={newPassword}
             />
-            <p className="mt-2p mb-2p text-center"><em>Password must be longer than 8 characters and must contain at least one number. Never reuse passwords between sites.</em></p>
+            <p className="mt-2p mb-2p text-center">
+              <em>
+                Password must be longer than 8 characters and must contain at
+                least one number. Never reuse passwords between sites.
+              </em>
+            </p>
             <p className="mt-2p mb-2p text-center">
               <strong>You will need to log in again after updating.</strong>
             </p>
@@ -267,37 +266,19 @@ const AccountSecurity = ({ account, onDataChange }) => {
         <Modal.Header>Email Updated</Modal.Header>
         <Modal.Content scrolling>
           <p>Your email was updated succesfully!</p>
-          <p>You can now use it to login to Conductor. Email notifications will now be sent to this address.</p>
+          <p>
+            You can now use it to login to Conductor. Email notifications will
+            now be sent to this address.
+          </p>
         </Modal.Content>
         <Modal.Actions>
-          <Button
-            color="blue"
-            onClick={handleCloseEmailUpdateSuccess}
-          >
+          <Button color="blue" onClick={handleCloseEmailUpdateSuccess}>
             Done
           </Button>
         </Modal.Actions>
       </Modal>
     </Segment>
   );
-};
-
-AccountSecurity.propTypes = {
-  /**
-   * User profile/account data.
-   */
-  account: PropTypes.shape({
-    authMethod: PropTypes.string,
-  }),
-  /**
-   * Handler to activate when the server's data may have changed.
-   */
-  onDataChange: PropTypes.func,
-};
-
-AccountSecurity.defaultProps = {
-  account: { },
-  onDataChange: () => { },
 };
 
 export default AccountSecurity;

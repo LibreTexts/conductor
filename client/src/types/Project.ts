@@ -1,3 +1,4 @@
+import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
 
 export type ProjectFile = {
@@ -40,7 +41,7 @@ export type Project = {
   peerProgress: number;
   a11yProgress: number;
   classification: ProjectClassification;
-  leads: [string];
+  leads: User[];
   liaisons: [string];
   members: [string];
   auditors: [string];

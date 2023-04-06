@@ -1,5 +1,4 @@
-import React, { useRef, useState } from 'react';
-import PropTypes from 'prop-types';
+import { useRef, useState } from 'react';
 import axios from 'axios';
 import {
   Grid,
@@ -15,12 +14,13 @@ import {
   Loader,
 } from 'semantic-ui-react';
 import useGlobalError from '../error/ErrorHooks';
+import { Account } from '../../types';
 
 /**
  * The Account Overview pane displays general Conductor account information and allows
  * users to edit their name or avatar.
  */
-const AccountOverview = ({ account, onDataChange }) => {
+const AccountOverview = ({ account, onDataChange }: {account: Account, onDataChange: Function}) => {
 
   const DEFAULT_AVATAR = '/mini_logo.png';
 
@@ -95,16 +95,16 @@ const AccountOverview = ({ account, onDataChange }) => {
    *
    * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler. 
    */
-  function handleFirstNameChange(e) {
+  function handleFirstNameChange(e: any) {
     setFirstName(e.target.value);
   }
 
   /**
    * Updates state with changes to the Last Name field.
    *
-   * @param {React.ChangeEvent<HTMLInputElement} e - Event that activated the handler. 
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler. 
    */
-  function handleLastNameChange(e) {
+  function handleLastNameChange(e: any) {
     setLastName(e.target.value);
   }
 
@@ -136,7 +136,7 @@ const AccountOverview = ({ account, onDataChange }) => {
    */
   function handleUploadAvatar() {
     if (avatarUploadRef.current) {
-      avatarUploadRef.current.click();
+      (avatarUploadRef.current as HTMLInputElement).click();
     }
   }
 
@@ -145,7 +145,7 @@ const AccountOverview = ({ account, onDataChange }) => {
    *
    * @param {React.ChangeEvent<HTMLInputElement>} event - Event that activated the handler.
    */
-  async function handleAvatarUploadFileChange(event) {
+  async function handleAvatarUploadFileChange(event: any) {
     const validFileTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (!event.target || typeof (event?.target?.files) !== 'object') {
       return;
@@ -213,7 +213,7 @@ const AccountOverview = ({ account, onDataChange }) => {
             >
               <Button
                 fluid
-                disabled={account?.authMethod !== 'Traditional'}
+                disabled={account?.authType !== 'Traditional'}
                 onClick={handleOpenEditName}
                 icon="male"
                 content="Edit Name"
@@ -237,8 +237,8 @@ const AccountOverview = ({ account, onDataChange }) => {
               : <p><em>Unknown</em></p>
             }
             <Header sub>Authentication Method</Header>
-            {(account?.authMethod)
-              ? <p>{account.authMethod}</p>
+            {(account?.authType)
+              ? <p>{account.authType}</p>
               : <p><em>Unknown</em></p>
             }
             <Header sub>Account Creation Date</Header>
@@ -335,30 +335,6 @@ const AccountOverview = ({ account, onDataChange }) => {
       </Modal>
     </Segment>
   );
-};
-
-AccountOverview.propTypes = {
-  /**
-   * User profile/account data.
-   */
-  account: PropTypes.shape({
-    avatar: PropTypes.string,
-    authMethod: PropTypes.string,
-    firstName: PropTypes.string,
-    lastName: PropTypes.string,
-    email: PropTypes.string,
-    createdAt: PropTypes.string,
-    roles: PropTypes.arrayOf(PropTypes.object),
-  }),
-  /**
-   * Handler to activate when the server's data may have changed.
-   */
-  onDataChange: PropTypes.func,
-};
-
-AccountOverview.defaultProps = {
-  account: { },
-  onDataChange: () => { },
 };
 
 export default AccountOverview;

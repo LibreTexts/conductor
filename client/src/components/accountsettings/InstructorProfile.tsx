@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
 import {
   Button,
   Card,
@@ -14,20 +13,30 @@ import {
   Modal,
   Popup,
   Segment,
-} from 'semantic-ui-react';
-import { normalizeURL, truncateString } from '../util/HelperFunctions';
-import useGlobalError from '../error/ErrorHooks';
+} from "semantic-ui-react";
+import { normalizeURL, truncateString } from "../util/HelperFunctions";
+import { useTypedSelector } from "../../state/hooks";
+import useGlobalError from "../error/ErrorHooks";
+import { Account } from "../../types";
+import AccountStatus from "../util/AccountStatus";
 
 /**
  * The Instructor Profile pane displays the user's saved Instructor Status Verification data and
  * allows them to update or remove their status verification.
  */
-const InstructorProfile = ({ account, onDataChange }) => {
-
-  const DEFAULT_AVATAR = '/mini_logo.png';
+const InstructorProfile = ({
+  account,
+  onDataChange,
+}: {
+  account: Account;
+  onDataChange: Function;
+}) => {
+  const DEFAULT_AVATAR = "/mini_logo.png";
 
   // Global Error Handling
-  const { handleGlobalError } = useGlobalError(0);
+  const { handleGlobalError } = useGlobalError();
+
+  const user = useTypedSelector((state) => state.user);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -37,8 +46,8 @@ const InstructorProfile = ({ account, onDataChange }) => {
   const [verifiedStatus, setVerifiedStatus] = useState(false);
 
   // Edit Instructor Profile Modal
-  const [institution, setInstitution] = useState('');
-  const [facultyURL, setFacultyURL] = useState('');
+  const [institution, setInstitution] = useState("");
+  const [facultyURL, setFacultyURL] = useState("");
   const [institutionErr, setInstitutionErr] = useState(false);
   const [facultyURLErr, setFacultyURLErr] = useState(false);
 
@@ -46,7 +55,7 @@ const InstructorProfile = ({ account, onDataChange }) => {
    * Set state based on passed props.
    */
   useEffect(() => {
-    if (account.verifiedInstructor) {
+    if (account.isVerifiedInstructor) {
       setVerifiedStatus(true);
     }
   }, [account, setVerifiedStatus]);
@@ -68,8 +77,8 @@ const InstructorProfile = ({ account, onDataChange }) => {
     let validForm = true;
     // Allow unsetting, but both must be completed at once
     if (
-      institution.length > 100
-      || (institution.length === 0 && facultyURL.length > 0)
+      institution.length > 100 ||
+      (institution.length === 0 && facultyURL.length > 0)
     ) {
       setInstitutionErr(true);
       validForm = false;
@@ -90,7 +99,7 @@ const InstructorProfile = ({ account, onDataChange }) => {
     if (validateEditForm()) {
       setLoading(true);
       try {
-        const updateRes = await axios.put('/user/instructorprofile', {
+        const updateRes = await axios.put("/user/instructorprofile", {
           institution,
           facultyURL,
         });
@@ -99,7 +108,7 @@ const InstructorProfile = ({ account, onDataChange }) => {
           handleCloseEditProfile();
           onDataChange();
         } else {
-          throw (new Error(updateRes.data.errMsg));
+          throw new Error(updateRes.data.errMsg);
         }
       } catch (e) {
         setLoading(false);
@@ -112,10 +121,12 @@ const InstructorProfile = ({ account, onDataChange }) => {
    * Opens the Edit Instructor Profile modal.
    */
   function handleOpenEditProfile() {
-    if (account?.instructorProfile?.institution) {
+    if (!(account && account.instructorProfile)) return;
+
+    if (account.instructorProfile.institution) {
       setInstitution(account.instructorProfile.institution);
     }
-    if (account?.instructorProfile.facultyURL) {
+    if (account.instructorProfile.facultyURL) {
       setFacultyURL(account.instructorProfile.facultyURL);
     }
     resetEditFormErrors();
@@ -135,12 +146,12 @@ const InstructorProfile = ({ account, onDataChange }) => {
    *
    * @param {React.ChangeEvent<HTMLInputElement>} e - Event that activated the handler.
    */
-  function handleInputChange(e) {
+  function handleInputChange(e: any) {
     switch (e.target.id) {
-      case 'institution':
+      case "institution":
         setInstitution(e.target.value);
         break;
-      case 'facultyURL':
+      case "facultyURL":
         setFacultyURL(e.target.value);
         break;
       default:
@@ -155,59 +166,39 @@ const InstructorProfile = ({ account, onDataChange }) => {
       <p>
         {`LibreTexts uses your Instructor Profile to verify your identity and status at an academic
        institution when you submit an `}
-        <Link to="/accountrequest">Account Request</Link>.
-        If you need to update your information, you can do so below.
+        <Link to="/accountrequest">Account Request</Link>. If you need to update
+        your information, you can do so below.
       </p>
       <Card raised fluid className="mt-1e mb-2e">
         <Card.Content>
           <div className="flex-row-div">
             <div className="left-flex">
               <Image avatar src={account?.avatar || DEFAULT_AVATAR} alt="" />
-              <span className="ml-05e text-header">{account?.firstName} {account?.lastName}</span>
+              <span className="ml-05e text-header">
+                {account?.firstName} {account?.lastName}
+              </span>
             </div>
             <div className="right-flex">
-              <Label color={verifiedStatus ? 'green' : undefined}>
-                <Icon name={verifiedStatus ? 'check' : 'times circle outline'} />
-                Instructor Status
-                <Label.Detail>
-                  {verifiedStatus ? 'Verified' : 'Not Yet Verified'}
-                  <Popup
-                    trigger={(
-                      <span
-                        className={`ml-05e underline-hover${verifiedStatus ? '' : ' muted-text'}`}
-                      >
-                        ?
-                      </span>
-                    )}
-                    position="left center"
-                    content={(
-                      <p className="text-center">
-                        {verifiedStatus
-                          ? `A member of the LibreTexts team has verified your status as an instructor.
-                             You won't have to reverify, even if you move institutions.`
-                          : `You haven't yet been verified as an instructor by the LibreTexts team.
-                             The LibreTexts team can verify you if you submit an Account Request.
-                             Your Conductor experience won't be impacted by this.`
-                        }
-                      </p>
-                    )}
-                  />
-                </Label.Detail>
-              </Label>
+              <AccountStatus user={user} />
             </div>
           </div>
           <Card.Description className="mt-1e">
             <p>
-              <Header sub as="span">Institution:</Header>
+              <Header sub as="span">
+                Institution:
+              </Header>
               {account?.instructorProfile?.institution ? (
                 <span> {account.instructorProfile.institution}</span>
               ) : (
-                <span><em> Not set</em></span>
+                <span>
+                  <em> Not set</em>
+                </span>
               )}
             </p>
             <p>
-              <Header sub as="span">Verification URL:</Header>
-              {' '}
+              <Header sub as="span">
+                Verification URL:
+              </Header>{" "}
               {account?.instructorProfile?.facultyURL ? (
                 <a
                   href={normalizeURL(account.instructorProfile.facultyURL)}
@@ -218,7 +209,9 @@ const InstructorProfile = ({ account, onDataChange }) => {
                   {truncateString(account.instructorProfile.facultyURL, 75)}
                 </a>
               ) : (
-                <span><em>Not set</em></span>
+                <span>
+                  <em>Not set</em>
+                </span>
               )}
             </p>
           </Card.Description>
@@ -280,31 +273,6 @@ const InstructorProfile = ({ account, onDataChange }) => {
       </Modal>
     </Segment>
   );
-};
-
-InstructorProfile.propTypes = {
-  /**
-   * User profile/account data.
-   */
-  account: PropTypes.shape({
-    avatar: PropTypes.string,
-    firstName: PropTypes.string,
-    lastName: PropTypes.string,
-    instructorProfile: PropTypes.shape({
-      institution: PropTypes.string,
-      facultyURL: PropTypes.string,
-    }),
-    verifiedInstructor: PropTypes.bool,
-  }),
-  /**
-   * Handler to activate when the server's data may have changed.
-   */
-  onDataChange: PropTypes.func,
-};
-
-InstructorProfile.defaultProps = {
-  account: {},
-  onDataChange: () => { },
 };
 
 export default InstructorProfile;

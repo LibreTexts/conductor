@@ -14,50 +14,54 @@ import {
   Breadcrumb,
   List
 } from 'semantic-ui-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useTypedSelector } from '../../state/hooks';
 import axios from 'axios';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import useGlobalError from '../error/ErrorHooks.js';
+import { User } from '../../types';
 
 const UsersManager = () => {
 
     // Global State
     const { handleGlobalError } = useGlobalError();
-    const org = useSelector((state) => state.org);
-    const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
-    const isCampusAdmin = useSelector((state) => state.user.isCampusAdmin);
+    const org = useTypedSelector((state) => state.org);
+    const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+    const isCampusAdmin = useTypedSelector((state) => state.user.isCampusAdmin);
 
     // Data
-    const [allUsers, setAllUsers] = useState([]);
-    const [displayUsers, setDisplayUsers] = useState([]);
-    const [pageUsers, setPageUsers] = useState([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [displayUsers, setDisplayUsers] = useState<User[]>([]);
+    const [pageUsers, setPageUsers] = useState<User[]>([]);
 
     // UI
-    const [activePage, setActivePage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [loadedData, setLoadedData] = useState(false);
+    const [activePage, setActivePage] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(1);
+    const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+    const [loadedData, setLoadedData] = useState<boolean>(false);
 
-    const [searchString, setSearchString] = useState('');
-    const [sortChoice, setSortChoice] = useState('first');
+    const [searchString, setSearchString] = useState<string>('');
+    const [sortChoice, setSortChoice] = useState<string>('first');
 
     // Manage Roles Modal
-    const [showManageUserModal, setShowManageUserModal] = useState(false);
-    const [manageUserUUID, setManageUserUUID] = useState('');
-    const [manageUserName, setManageUserName] = useState('');
-    const [manageUserRoles, setManageUserRoles] = useState([]);
-    const [manageUserOrgRole, setManageUserOrgRole] = useState('');
-    const [manageUserOrgRoleText, setManageUserOrgRoleText] = useState('');
-    const [manageUserLoading, setManageUserLoading] = useState(false);
+    const [showManageUserModal, setShowManageUserModal] = useState<boolean>(false);
+    const [manageUserUUID, setManageUserUUID] = useState<string>('');
+    const [manageUserName, setManageUserName] = useState<string>('');
+
+    //TODO: Determine correct typing here
+    const [manageUserRoles, setManageUserRoles] = useState<any[]>([]);
+
+    const [manageUserOrgRole, setManageUserOrgRole] = useState<string>('');
+    const [manageUserOrgRoleText, setManageUserOrgRoleText] = useState<string>('');
+    const [manageUserLoading, setManageUserLoading] = useState<boolean>(false);
 
     // Delete User Modal
-    const [showDelUserModal, setShowDelUserModal] = useState(false);
-    const [delUserUUID, setDelUserUUID] = useState('');
-    const [delUserName, setDelUserName] = useState('');
-    const [delUserLoading, setDelUserLoading] = useState(false);
+    const [showDelUserModal, setShowDelUserModal] = useState<boolean>(false);
+    const [delUserUUID, setDelUserUUID] = useState<string>('');
+    const [delUserName, setDelUserName] = useState<string>('');
+    const [delUserLoading, setDelUserLoading] = useState<boolean>(false);
 
     const sortOptions = [
         { key: 'first', text: 'Sort by First Name', value: 'first' },
@@ -132,7 +136,7 @@ const UsersManager = () => {
         let filtered = allUsers.filter((user) => {
             var include = true;
             var descripString = String(user.firstName).toLowerCase() + String(user.lastName).toLowerCase()
-                                + String(user.email).toLowerCase() + String(user.authMethod).toLowerCase();
+                                + String(user.email).toLowerCase() + String(user.authType).toLowerCase();
             if (searchString !== '' && String(descripString).indexOf(String(searchString).toLowerCase()) === -1) {
                 include = false;
             }
@@ -183,8 +187,8 @@ const UsersManager = () => {
             setDisplayUsers(sorted);
         } else if (sortChoice === 'auth') {
             const sorted = [...filtered].sort((a, b) => {
-                var normalA = String(a.authMethod).toLowerCase().replace(/[^A-Za-z]+/g, "");
-                var normalB = String(b.authMethod).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalA = String(a.authType).toLowerCase().replace(/[^A-Za-z]+/g, "");
+                var normalB = String(b.authType).toLowerCase().replace(/[^A-Za-z]+/g, "");
                 if (normalA < normalB) {
                     return -1;
                 }
@@ -205,7 +209,7 @@ const UsersManager = () => {
      * either the Super Admin or Campus Admin
      * interface with the relevant information.
      */
-    const getUserRoles = (uuid) => {
+    const getUserRoles = (uuid: string) => {
         setManageUserLoading(true);
         axios.get('/user/roles', {
             params: {
@@ -249,7 +253,7 @@ const UsersManager = () => {
      * role specified by @newRole, then closes the Modal.
      * For use in the Campus Administrator interface.
      */
-    const campusAdminSetRole = (newRole) => {
+    const campusAdminSetRole = (newRole: string) => {
         axios.put('/user/role/update', {
             uuid: manageUserUUID,
             orgID: org.orgID,
@@ -275,7 +279,7 @@ const UsersManager = () => {
      * User's roles.
      * For use in the Super Administrator interface.
      */
-    const superSetOrgRole = (uuid, orgID, newRole) => {
+    const superSetOrgRole = (uuid: string, orgID: string, newRole: string) => {
         setManageUserLoading(true);
         if (uuid !== '') {
             axios.put('/user/role/update', {
@@ -302,7 +306,7 @@ const UsersManager = () => {
      * set its respective values to the
      * requested user.
      */
-    const openManageUserModal = (uuid, firstName, lastName) => {
+    const openManageUserModal = (uuid: string, firstName: string, lastName: string) => {
         if ((uuid !== '') && (firstName !== '') && (lastName !== '')) {
             setManageUserUUID(uuid);
             setManageUserName(firstName + ' ' + lastName);
@@ -361,7 +365,7 @@ const UsersManager = () => {
      * set its respective values to the
      * requested user.
      */
-    const openDelUserModal = (uuid, firstName, lastName) => {
+    const openDelUserModal = (uuid: string, firstName: string, lastName: string) => {
         if ((uuid !== '') && (firstName !== '') && (lastName !== '')) {
             setDelUserUUID(uuid);
             setDelUserName(firstName + ' ' + lastName);
@@ -414,7 +418,7 @@ const UsersManager = () => {
                                             selection
                                             button
                                             options={sortOptions}
-                                            onChange={(_e, { value }) => { setSortChoice(value) }}
+                                            onChange={(_e, { value }) => { setSortChoice(value as string) }}
                                             value={sortChoice}
                                         />
                                     </Grid.Column>
@@ -439,7 +443,7 @@ const UsersManager = () => {
                                         selection
                                         options={itemsPerPageOptions}
                                         onChange={(_e, { value }) => {
-                                            setItemsPerPage(value);
+                                            setItemsPerPage(value as number);
                                         }}
                                         value={itemsPerPage}
                                     />
@@ -452,7 +456,7 @@ const UsersManager = () => {
                                         firstItem={null}
                                         lastItem={null}
                                         onPageChange={(_e, data) => {
-                                            setActivePage(data.activePage)
+                                            setActivePage(data.activePage as number)
                                         }}
                                     />
                                 </div>
@@ -482,8 +486,8 @@ const UsersManager = () => {
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
                                             {(sortChoice === 'auth')
-                                                ? <span><em>Auth Method</em></span>
-                                                : <span>Auth Method</span>
+                                                ? <span><em>Auth Type</em></span>
+                                                : <span>Auth Type</span>
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
@@ -506,7 +510,7 @@ const UsersManager = () => {
                                                         <p>{item.email}</p>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <p>{item.authMethod}</p>
+                                                        <p>{item.authType}</p>
                                                     </Table.Cell>
                                                     <Table.Cell textAlign='center'>
                                                         <Button.Group vertical fluid>
