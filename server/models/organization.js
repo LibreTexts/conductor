@@ -73,6 +73,10 @@ const OrganizationSchema = new mongoose.Schema({
    */
   collectionsDisplayLabel: String,
   /**
+   * Custom welcome text to display on the Campus Collections catalog, if desired.
+   */
+  collectionsMessage: String,
+  /**
    * The hex representation of the Organization's main branding color.
    */
   mainColor: String,
