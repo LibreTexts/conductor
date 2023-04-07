@@ -255,9 +255,6 @@ const editCollection = (req, res) => {
   if (req.body.title) {
     updateData.title = req.body.title;
   }
-  if (req.body.coverPhoto) {
-    updateData.coverPhoto = req.body.coverPhoto;
-  }
   if (req.body.privacy) {
     updateData.privacy = req.body.privacy;
   }
@@ -900,10 +897,6 @@ const validate = (method) => {
           .optional({ checkFalsy: true })
           .isString()
           .isLength({ min: 3 }),
-        body("coverPhoto", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .isString()
-          .isLength({ min: 2 }),
         body("privacy", conductorErrors.err1)
           .optional({ checkFalsy: true })
           .isString()
