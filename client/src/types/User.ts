@@ -8,7 +8,7 @@ export type User = {
   avatar: string;
   roles: [
     {
-      org: Organization;
+      org: Organization | string;
       role: string;
     }
   ];

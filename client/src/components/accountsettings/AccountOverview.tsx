@@ -14,7 +14,7 @@ import {
   Loader,
 } from 'semantic-ui-react';
 import useGlobalError from '../error/ErrorHooks';
-import { Account } from '../../types';
+import { Account, Organization } from '../../types';
 
 /**
  * The Account Overview pane displays general Conductor account information and allows
@@ -251,19 +251,20 @@ const AccountOverview = ({ account, onDataChange }: {account: Account, onDataCha
               ? (
                 <List verticalAlign="middle" celled relaxed>
                   {account.roles.map((item, idx) => {
-                    let org = 'Unknown Organization';
-                    if (item.org) {
-                      if (item.org.shortName) {
-                        org = item.org.shortName;
-                      } else if (item.org.name) {
-                        org = item.org.name;
+                    let orgName = 'Unknown Organization';
+                    const org = item?.org as Organization;
+                    if (org) {
+                      if (org.shortName) {
+                        orgName = org.shortName;
+                      } else if (org.name) {
+                        orgName = org.name;
                       }
                     }
                     return (
                       <List.Item key={idx}>
                         <List.Icon name="building" />
                         <List.Content>
-                          <List.Header>{org}</List.Header>
+                          <List.Header>{orgName}</List.Header>
                           <List.Description>
                             {item.role || 'Unknown Role'}
                           </List.Description>
