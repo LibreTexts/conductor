@@ -2442,17 +2442,6 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
-    if (
-      isEmptyString(project.projectURL)
-      || isEmptyString(project.libreLibrary)
-      || isEmptyString(project.libreCoverID)
-    ) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err28,
-      });
-    }
-
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) {
       throw (new Error('retrieveerror'));
