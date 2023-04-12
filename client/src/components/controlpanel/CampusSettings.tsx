@@ -19,7 +19,9 @@ import {
 } from "semantic-ui-react";
 import { isEmptyString } from "../util/HelperFunctions.js";
 import useGlobalError from "../error/ErrorHooks.js";
+import CtlTextInput from "../ControlledInputs/CtlTextInput.js";
 import "./ControlPanel.css";
+import { required } from "../../utils/formRules.js";
 
 const CampusSettings = () => {
   // Global State and Error Handling
@@ -114,9 +116,6 @@ const CampusSettings = () => {
    */
   const saveChanges = (d: CampusSettingsOpts) => {
     setLoadedData(false);
-    if (!validateAboutLink(d)) {
-      setLoadedData(true);
-    }
     if (!isDirty) {
       setSavedData(true);
       setLoadedData(true);
@@ -307,18 +306,6 @@ const CampusSettings = () => {
       handleGlobalError(e);
     }
     uploadingStateUpdater(false);
-  }
-
-  function validateAboutLink(data: CampusSettingsOpts): boolean {
-    let validInput = true;
-    if (isEmptyString(data.aboutLink)) {
-      validInput = false;
-      setFormError("aboutLink", {
-        message: "This field is required.",
-      });
-      return validInput;
-    }
-    return validInput;
   }
 
   return (
@@ -543,16 +530,11 @@ const CampusSettings = () => {
                       trigger={<Icon name="info circle" />}
                     />
                   </label>
-                  <Form.Input
+                  <CtlTextInput
                     id="campusAbout"
-                    type="url"
                     name="aboutLink"
-                    value={getFormValue("aboutLink") || ""}
-                    onChange={async (e, { name, value }) => {
-                      setFormValue(name, value, { shouldDirty: true });
-                      await trigger("aboutLink");
-                    }}
-                    error={errors.aboutLink ? true : false}
+                    control={control}
+                    rules={required}
                   />
                 </Form.Field>
                 <Divider />
@@ -572,16 +554,10 @@ const CampusSettings = () => {
                       trigger={<Icon name="info circle" />}
                     />
                   </label>
-                  <Form.Input
+                  <CtlTextInput
                     id="campusCommonsHeader"
-                    type="text"
                     name="commonsHeader"
-                    value={getFormValue("commonsHeader") || ""}
-                    onChange={async (e, { name, value }) => {
-                      setFormValue(name, value, { shouldDirty: true });
-                      await trigger("commonsHeader");
-                    }}
-                    error={errors.commonsHeader ? true : false}
+                    control={control}
                   />
                 </Form.Field>
                 <Form.Field>
@@ -598,16 +574,10 @@ const CampusSettings = () => {
                       trigger={<Icon name="info circle" />}
                     />
                   </label>
-                  <Form.Input
+                  <CtlTextInput
                     id="campusCommonsMessage"
-                    type="text"
                     name="commonsMessage"
-                    value={getFormValue("commonsMessage") || ""}
-                    onChange={async (e, { name, value }) => {
-                      setFormValue(name, value, { shouldDirty: true });
-                      await trigger("commonsMessage");
-                    }}
-                    error={errors.commonsMessage ? true : false}
+                    control={control}
                   />
                 </Form.Field>
                 <Form.Field>
@@ -625,16 +595,10 @@ const CampusSettings = () => {
                       trigger={<Icon name="info circle" />}
                     />
                   </label>
-                  <Form.Input
+                  <CtlTextInput
                     id="collectionsDisplayLabel"
-                    type="text"
                     name="collectionsDisplayLabel"
-                    value={getFormValue("collectionsDisplayLabel") || ""}
-                    onChange={async (e, { name, value }) => {
-                      setFormValue(name, value, { shouldDirty: true });
-                      await trigger("collectionsDisplayLabel");
-                    }}
-                    error={errors.collectionsDisplayLabel ? true : false}
+                    control={control}
                   />
                 </Form.Field>
                 <Form.Field>
@@ -651,16 +615,10 @@ const CampusSettings = () => {
                       trigger={<Icon name="info circle" />}
                     />
                   </label>
-                  <Form.Input
+                  <CtlTextInput
                     id="collectionsMessage"
-                    type="text"
                     name="collectionsMessage"
-                    value={getFormValue("collectionsMessage") || ""}
-                    onChange={async (e, { name, value }) => {
-                      setFormValue(name, value, { shouldDirty: true });
-                      await trigger("collectionsMessage");
-                    }}
-                    error={errors.collectionsMessage ? true : false}
+                    control={control}
                   />
                 </Form.Field>
               </Form>
