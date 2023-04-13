@@ -13,6 +13,7 @@ import {
   Button,
   Form,
   PaginationProps,
+  Checkbox,
 } from "semantic-ui-react";
 import { useEffect, useState, useRef } from "react";
 import { useTypedSelector } from "../../state/hooks";
@@ -41,7 +42,13 @@ import {
   truncateString,
 } from "../util/HelperFunctions.js";
 import { ResultsText } from "../util/ConductorPagination";
-import { Book, GenericKeyTextValueObj, User } from "../../types";
+import {
+  Book,
+  CatalogLocation,
+  GenericKeyTextValueObj,
+  User,
+} from "../../types";
+import { isCatalogLocation } from "../../utils/typeHelpers";
 import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
 
 const CommonsCatalog = () => {
@@ -86,8 +93,8 @@ const CommonsCatalog = () => {
   };
   const [searchString, setSearchString] = useState<string>("");
   const [libraryFilter, setLibraryFilter] = useState<string>("");
-  const [locationFilter, setLocationFilter] = useState<string>(
-    org.orgID === "libretexts" ? "central" : "campus"
+  const [locationFilter, setLocationFilter] = useState<CatalogLocation>(
+    org.orgID === "libretexts" ? "all" : "campus"
   );
   const [subjectFilter, setSubjectFilter] = useState<string>("");
   const [authorFilter, setAuthorFilter] = useState<string>("");
@@ -97,6 +104,10 @@ const CommonsCatalog = () => {
   const [courseFilter, setCourseFilter] = useState<string>("");
   const [pubFilter, setPubFilter] = useState<string>("");
   const [cidFilter, setCIDFilter] = useState<string>("");
+  const [includeCentral, setIncludeCentral] = useState<boolean>(
+    org.orgID === "libretexts" ? true : false
+  );
+  const [includeCampus, setIncludeCampus] = useState<boolean>(true);
 
   const [subjectOptions, setSubjectOptions] = useState<
     GenericKeyTextValueObj<string>[]
@@ -148,6 +159,19 @@ const CommonsCatalog = () => {
     }
   }, [org]);
 
+  useEffect(() => {
+    if (includeCampus && includeCentral) {
+      setLocationFilter("all");
+    } else if (includeCampus && !includeCentral) {
+      setLocationFilter("campus");
+    } else if (!includeCampus && includeCentral) {
+      setLocationFilter("central");
+    } else {
+      //Fallback to all if both are unchecked
+      setLocationFilter("all");
+    }
+  }, [includeCampus, includeCentral]);
+
   /**
    * Build the new search URL and push it onto the history stack.
    * Change to location triggers the network request to fetch results.
@@ -183,7 +207,7 @@ const CommonsCatalog = () => {
     setSearchString("");
     setLibraryFilter("");
     setSubjectFilter("");
-    setLocationFilter(org.orgID === "libretexts" ? "central" : "campus");
+    setLocationFilter(org.orgID === "libretexts" ? "all" : "campus");
     setAuthorFilter("");
     setLicenseFilter("");
     setAffilFilter("");
@@ -476,8 +500,22 @@ const CommonsCatalog = () => {
     if (
       params.location !== undefined &&
       params.location !== locationFilter &&
-      typeof params.location === "string"
+      typeof params.location === "string" &&
+      isCatalogLocation(params.location)
     ) {
+      if (params.location === "all") {
+        setIncludeCampus(true);
+        setIncludeCentral(true);
+      } else if (params.location === "campus") {
+        setIncludeCampus(true);
+        setIncludeCentral(false);
+      } else if (params.location === "central") {
+        setIncludeCampus(false);
+        setIncludeCentral(true);
+      } else {
+        setIncludeCampus(false);
+        setIncludeCentral(false);
+      }
       setLocationFilter(params.location);
     }
     if (
@@ -777,20 +815,6 @@ const CommonsCatalog = () => {
                     aria-label="Library filter"
                   />
                   <Dropdown
-                    placeholder="Location"
-                    floating
-                    search
-                    selection
-                    button
-                    options={catalogLocationOptions}
-                    onChange={(_e, { value }) => {
-                      setLocationFilter(value as string);
-                    }}
-                    value={locationFilter}
-                    className="commons-filter"
-                    aria-label="Location filter"
-                  />
-                  <Dropdown
                     placeholder="Subject"
                     floating
                     search
@@ -804,11 +828,6 @@ const CommonsCatalog = () => {
                     loading={!loadedFilters}
                     className="commons-filter"
                   />
-                </div>
-                <div
-                  id="commons-advancedsrch-row2"
-                  className="commons-advancedsrch-row"
-                >
                   <Dropdown
                     placeholder="Author"
                     floating
@@ -823,6 +842,11 @@ const CommonsCatalog = () => {
                     loading={!loadedFilters}
                     className="commons-filter"
                   />
+                </div>
+                <div
+                  id="commons-advancedsrch-row2"
+                  className="commons-advancedsrch-row"
+                >
                   <Dropdown
                     placeholder="Affiliation"
                     floating
@@ -849,11 +873,6 @@ const CommonsCatalog = () => {
                     value={licenseFilter}
                     className="commons-filter"
                   />
-                </div>
-                <div
-                  id="commons-advancedsrch-row3"
-                  className="commons-advancedsrch-row"
-                >
                   <Dropdown
                     placeholder="Instructor/Remixer"
                     floating
@@ -870,6 +889,11 @@ const CommonsCatalog = () => {
                     loading={!loadedFilters}
                     className="commons-filter"
                   />
+                </div>
+                <div
+                  id="commons-advancedsrch-row3"
+                  className="commons-advancedsrch-row"
+                >
                   <Dropdown
                     placeholder="Campus or Course"
                     floating
@@ -898,11 +922,6 @@ const CommonsCatalog = () => {
                     loading={!loadedFilters}
                     className="commons-filter"
                   />
-                </div>
-                <div
-                  id="commons-advancedsrch-row3"
-                  className="commons-advancedsrch-row"
-                >
                   <Dropdown
                     placeholder="C-ID"
                     floating
@@ -917,6 +936,37 @@ const CommonsCatalog = () => {
                     className="commons-filter"
                   />
                 </div>
+                <div
+                  id="commons-advancedsrch-row5"
+                  className="commons-advancedsrch-row mt-1r"
+                >
+                  <Checkbox
+                    label="Central Bookshelves"
+                    checked={includeCentral}
+                    onChange={(e, data) =>
+                      setIncludeCentral(data.checked ?? true)
+                    }
+                  />
+                  <Checkbox
+                    className="ml-2r"
+                    label="Campus Bookshelves"
+                    checked={includeCampus}
+                    onChange={(e, data) =>
+                      setIncludeCampus(data.checked ?? true)
+                    }
+                  />
+                </div>
+                {!includeCampus && !includeCentral && (
+                  <div
+                    id="commons-advancedsrch-row6"
+                    className="commons-advancedsrch-row mt-1r"
+                  >
+                    <p style={{ fontStyle: "italic" }}>
+                      No bookshelves selected. All bookshelves will be included
+                      by default.
+                    </p>
+                  </div>
+                )}
               </div>
             </Segment>
             <Segment>
