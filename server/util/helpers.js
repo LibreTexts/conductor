@@ -3,6 +3,7 @@
 // helpers.js
 //
 import { validate as uuidValidate } from 'uuid';
+import isHexColor from "validator/es/lib/isHexColor";
 
 /**
  * Checks that a string has a (trimmed) length greater than 0.
@@ -221,4 +222,25 @@ export function assembleUrl(parts) {
     }
   }
   return url;
+}
+
+/**
+ * @description Ensures a given string is a safe hex code for use in styling
+ * @param {string} hexString - unsafe string to check
+ * @returns {string} - sanitized hex code with '#' prepended, empty string if sanitizing failed
+ */
+export function sanitizeCustomColor(hexString) {
+  if (typeof hexString !== "string" || hexString.length < 6) {
+    return "";
+  }
+
+  if (hexString.charAt(0) !== "#") {
+    hexString = `#${hexString}`;
+  }
+
+  if (isHexColor(hexString)) {
+    return hexString;
+  }
+
+  return "";
 }

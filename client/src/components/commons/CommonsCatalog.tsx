@@ -42,6 +42,7 @@ import {
 } from "../util/HelperFunctions.js";
 import { ResultsText } from "../util/ConductorPagination";
 import { Book, GenericKeyTextValueObj, User } from "../../types";
+import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
 
 const CommonsCatalog = () => {
   const { handleGlobalError } = useGlobalError();
@@ -723,6 +724,14 @@ const CommonsCatalog = () => {
                   fluid
                   id="commons-search-button"
                   onClick={performSearch}
+                  style={
+                    org.orgID !== "libretexts" && org.primaryColor
+                      ? { backgroundColor: `${sanitizeCustomColor(org.primaryColor)} !important` }
+                      : ""
+                  }
+                  className={
+                    org.orgID === "libretexts" ? "commons-search-button-bg" : ""
+                  }
                 >
                   Search Catalog
                 </Button>

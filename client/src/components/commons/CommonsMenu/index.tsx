@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../../state/hooks";
-import { Menu, SemanticWIDTHS } from "semantic-ui-react";
+import { Menu, SemanticCOLORS, SemanticWIDTHS } from "semantic-ui-react";
 import Breakpoint from "../../util/Breakpoints";
 import "./CommonsMenu.css";
+import { sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
 
 /**
  * A menu providing navigation around the Commons interfaces.
@@ -21,6 +22,7 @@ const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
         : (2 as SemanticWIDTHS),
     id: "commons-menu",
     stackable: true,
+    style: {backgroundColor: `${org.primaryColor ? sanitizeCustomColor(org.primaryColor) : '#127BC4'}`}
   };
   const mobileMenuProps = {
     ...menuProps,
