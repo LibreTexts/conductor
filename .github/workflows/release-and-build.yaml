@@ -3,9 +3,19 @@ name: Release SemVer and Build Docker Image
 on: workflow_dispatch
 
 jobs:
+  check_authorization:
+    name: Check authorization to release new version
+    runs-on: ubuntu-latest
+    outputs:
+      isAuthorized: ${{ steps.check-auth.outputs.is_authorized }}
+    steps:
+      - name: check-auth
+        id: check-auth
+        run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
   release:
     name: Release new semantic version
-    if: ${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}
+    needs: check_authorization
+    if: needs.check_authorization.outputs.isAuthorized == 'true'
     runs-on: ubuntu-latest
     outputs:
       didRelease: ${{ steps.semver.outputs.new_release_published }}
