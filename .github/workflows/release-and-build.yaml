@@ -5,6 +5,7 @@ on: workflow_dispatch
 jobs:
   release:
     name: Release new semantic version
+    if: ${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}
     runs-on: ubuntu-latest
     outputs:
       didRelease: ${{ steps.semver.outputs.new_release_published }}
@@ -12,11 +13,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
       - name: semantic-release
         uses: cycjimmy/semantic-release-action@v3
         id: semver
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.LIBREBOT_ACCESS_TOKEN }}
   build:
     name: Build Docker image
     needs: release
