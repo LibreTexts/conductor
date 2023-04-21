@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 import Breakpoint from '../util/Breakpoints.tsx';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import { catalogDisplayOptions } from '../util/CatalogOptions.ts';
 
 const CommonsLibraries = (_props) => {

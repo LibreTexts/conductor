@@ -16,7 +16,7 @@ import {
   analyticsCourseAccessOptions,
   getAnalyticsMemberAccessText,
 } from '../../../utils/analyticsHelpers';
-import useGlobalError from '../../../components/error/ErrorHooks';
+import useGlobalError from '../../error/ErrorHooks';
 
 /**
  * An interface to manage access control for an Analytics Course.

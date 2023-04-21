@@ -14,7 +14,7 @@ import axios from 'axios';
 import queryString from 'query-string';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const ResetPassword = (props) => {
 

@@ -28,7 +28,7 @@ import TextArea from '../TextArea';
 import { peerReviewPromptTypes } from '../util/ProjectHelpers';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const PeerReviewRubricManage = (props) => {
 

@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Accordion, Button, Divider, Icon, Message, Segment } from 'semantic-ui-react';
 import AnalyticsCourseSettingsForm from '../AnalyticsCourseSettingsForm';
 import DeleteAnalyticsCourse from './DeleteAnalyticsCourse';
-import useGlobalError from '../../../components/error/ErrorHooks';
+import useGlobalError from '../../error/ErrorHooks';
 
 /**
  * An interface for users to modify the general properties and settings of an Analytics Course.

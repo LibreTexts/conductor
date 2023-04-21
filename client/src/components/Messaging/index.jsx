@@ -20,7 +20,7 @@ import {
     isEmptyString,
     truncateString
 } from '../util/HelperFunctions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import './Messaging.css';
 
 /**

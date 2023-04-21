@@ -78,7 +78,7 @@ import {
   getRoadmapStepName
 } from '../util/RoadmapOptions.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const ProjectView = (props) => {
 
@@ -769,7 +769,11 @@ const ProjectView = (props) => {
             setEditModalLoading(false);
           }
         }).catch((err) => {
-          handleGlobalError(err);
+          if(err.toJSON().status === 409){
+            handleGlobalError(err, 'View Project', err.response.data.projectID ?? 'unknown')
+          } else {
+            handleGlobalError(err);
+          }
           setEditModalLoading(false);
         });
       } else {

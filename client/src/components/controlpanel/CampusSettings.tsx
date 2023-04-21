@@ -18,7 +18,7 @@ import {
   Segment,
 } from "semantic-ui-react";
 import { isEmptyString } from "../util/HelperFunctions.js";
-import useGlobalError from "../error/ErrorHooks.js";
+import useGlobalError from "../error/ErrorHooks";
 import CtlTextInput from "../ControlledInputs/CtlTextInput.js";
 import "./ControlPanel.css";
 import { required } from "../../utils/formRules.js";

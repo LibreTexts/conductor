@@ -21,7 +21,7 @@ import ordinal from 'date-and-time/plugin/ordinal';
 
 import AlertModal from './AlertModal.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const MyAlerts = (_props) => {
 

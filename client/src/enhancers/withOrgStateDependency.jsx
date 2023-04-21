@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { Dimmer, Loader } from 'semantic-ui-react';
-import useGlobalError from '../components/error/ErrorHooks.js';
+import useGlobalError from '../components/error/ErrorHooks';
 
 /**
  * Wraps a component to ensure that the current Organization's information

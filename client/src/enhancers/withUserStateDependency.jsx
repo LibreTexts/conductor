@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
-import useGlobalError from '../components/error/ErrorHooks.js';
+import useGlobalError from '../components/error/ErrorHooks';
 
 /**
  * Wraps a component to attempt to load the currently authenticated user's

@@ -38,7 +38,7 @@ import {
     checkProjectMemberPermission
 } from '../util/ProjectHelpers.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const ProjectAccessibility = (props) => {
 

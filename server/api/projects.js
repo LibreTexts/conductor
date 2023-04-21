@@ -43,6 +43,7 @@ import {
     downloadProjectFile,
     computeStructureAccessSettings,
     PROJECT_FILES_ACCESS_SETTINGS,
+    checkIfBookLinkedToProject,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -526,18 +527,49 @@ async function updateProject(req, res) {
       /* If the Project URL is a LibreTexts link, gather more information */
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
-        const projURLInfo = await getLibreTextInformation(updateObj.projectURL);
-        if (projURLInfo.lib && projURLInfo.lib !== '') {
+        const projURLInfo = await getLibreTextInformation(
+          updateObj.projectURL.toString()
+        );
+        if (
+          !projURLInfo.lib ||
+          !projURLInfo.hasOwnProperty("id") ||
+          projURLInfo.lib == "" ||
+          projURLInfo.id == ""
+        ) {
+          throw new Error("Error checking for LibreTexts book");
+        }
+
+        const otherProject = await checkIfBookLinkedToProject(
+          projURLInfo.lib,
+          projURLInfo.id
+        );
+
+        if (otherProject) {
+          return res.status(409).send({
+            err: true,
+            errMsg: conductorErrors.err80,
+            projectID: `${
+              typeof otherProject === "string" ? otherProject : ""
+            }`,
+          });
+        }
+
+        if (projURLInfo.lib && projURLInfo.lib !== "") {
           updateObj.libreLibrary = projURLInfo.lib;
         }
-        if (projURLInfo.hasOwnProperty('id') && projURLInfo.id !== '') {
+        if (projURLInfo.hasOwnProperty("id") && projURLInfo.id !== "") {
           updateObj.libreCoverID = projURLInfo.id;
         }
-        if (projURLInfo.shelf && projURLInfo.shelf !== '') {
+        if (projURLInfo.shelf && projURLInfo.shelf !== "") {
           updateObj.libreShelf = projURLInfo.shelf;
-        } else if (projURLInfo.campus && projURLInfo.campus !== '') {
+        } else if (projURLInfo.campus && projURLInfo.campus !== "") {
           updateObj.libreCampus = projURLInfo.campus;
         }
+      } else {
+        // Clear values if projectUrl is being updated to non-LibreTexts URL
+        updateObj.libreLibrary = "";
+        updateObj.libreShelf = "";
+        updateObj.libreCampus = "";
       }
     }
     if (req.body.hasOwnProperty('adaptURL') && req.body.adaptURL !== project.adaptURL) {

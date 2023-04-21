@@ -22,7 +22,7 @@ import axios from 'axios';
 
 import PeerReview from '../peerreview/PeerReview.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import { isEmptyString } from '../util/HelperFunctions';
 
 const PeerReviewRubrics = (props) => {

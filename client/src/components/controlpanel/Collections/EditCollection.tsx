@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, FC, ReactElement } from "react";
 import { Form, Modal, Button, Icon, Input, Message } from "semantic-ui-react";
 import axios from "axios";
 import { getShelvesNameText } from "../../util/BookHelpers.js";
-import useGlobalError from "../../error/ErrorHooks.js";
+import useGlobalError from "../../error/ErrorHooks";
 import { Collection, CollectionLocations } from "../../../types";
 import { useForm, useFormState } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks.js";
