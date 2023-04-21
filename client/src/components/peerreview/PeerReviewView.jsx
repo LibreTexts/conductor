@@ -25,7 +25,7 @@ import {
 
 import StarRating from './StarRating.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const PeerReviewView = ({
     peerReviewID,

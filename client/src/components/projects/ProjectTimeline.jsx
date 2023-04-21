@@ -32,7 +32,7 @@ import enUS from 'date-fns/locale/en-US';
 import { checkCanViewProjectDetails } from '../util/ProjectHelpers.js';
 import { roadmapSteps } from '../util/RoadmapOptions.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 
 const GanttView = ({

@@ -19,7 +19,7 @@ import {
   getVisibilityText,
 } from "../util/ProjectHelpers.js";
 import { truncateString } from "../util/HelperFunctions.js";
-import useGlobalError from "../error/ErrorHooks.js";
+import useGlobalError from "../error/ErrorHooks";
 import { Project, User } from "../../types";
 
 interface MatchParams {

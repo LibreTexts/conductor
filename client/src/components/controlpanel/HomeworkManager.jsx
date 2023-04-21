@@ -23,7 +23,7 @@ import {
     truncateString
 } from '../util/HelperFunctions.js';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const HomeworkManager = (_props) => {
 

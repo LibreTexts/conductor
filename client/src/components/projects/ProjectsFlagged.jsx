@@ -29,7 +29,7 @@ import {
     getVisibilityText
 } from '../util/ProjectHelpers.js';
 import { truncateString } from '../util/HelperFunctions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const ProjectsFlagged = (props) => {
 

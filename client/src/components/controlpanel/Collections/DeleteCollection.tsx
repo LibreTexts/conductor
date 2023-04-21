@@ -1,7 +1,7 @@
 import { useState, FC, ReactElement } from "react";
 import { Modal, Button, Icon } from "semantic-ui-react";
 import axios from "axios";
-import useGlobalError from "../../error/ErrorHooks.js";
+import useGlobalError from "../../error/ErrorHooks";
 import { Collection } from "../../../types";
 
 type DeleteCollectionProps = {

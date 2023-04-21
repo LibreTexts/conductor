@@ -19,7 +19,7 @@ import date from 'date-and-time';
 
 import DateInput from '../DateInput/index.tsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import { isEmptyString } from '../util/HelperFunctions.js';
 import { libraryOptions } from '../util/LibraryOptions.js';
 import { licenseOptions } from '../util/LicenseOptions.js';

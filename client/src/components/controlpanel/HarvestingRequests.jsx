@@ -38,7 +38,7 @@ import { getLicenseText } from '../util/LicenseOptions.js';
 import {
     getTextUse
 } from '../util/HarvestingMasterOptions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const HarvestingRequests = (props) => {
 

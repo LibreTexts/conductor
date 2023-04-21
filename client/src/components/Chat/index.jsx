@@ -17,7 +17,7 @@ import {
 } from 'semantic-ui-react';
 import TextArea from '../TextArea';
 import { isEmptyString } from '../util/HelperFunctions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
 
 /**

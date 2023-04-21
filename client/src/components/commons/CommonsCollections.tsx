@@ -26,7 +26,7 @@ import axios from "axios";
 import queryString from "query-string";
 
 import Breakpoint from "../util/Breakpoints";
-import useGlobalError from "../error/ErrorHooks.js";
+import useGlobalError from "../error/ErrorHooks";
 import { catalogDisplayOptions } from "../util/CatalogOptions";
 import { catalogItemsPerPageOptions } from "../util/PaginationOptions";
 import { updateParams } from "../util/HelperFunctions.js";

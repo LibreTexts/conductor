@@ -29,7 +29,7 @@ import {
   getLibraryName,
 } from "../util/LibraryOptions.js";
 import { licenseOptions } from "../util/LicenseOptions.js";
-import useGlobalError from "../error/ErrorHooks.js";
+import useGlobalError from "../error/ErrorHooks";
 import { catalogItemsPerPageOptions } from "../util/PaginationOptions.js";
 import {
   catalogDisplayOptions,

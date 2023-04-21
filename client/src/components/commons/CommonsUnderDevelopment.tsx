@@ -22,7 +22,7 @@ import queryString from "query-string";
 
 import Breakpoint from "../util/Breakpoints";
 import ConductorPagination from "../util/ConductorPagination";
-import useGlobalError from "../error/ErrorHooks.js";
+import useGlobalError from "../error/ErrorHooks";
 import { catalogDisplayOptions } from "../util/CatalogOptions";
 import { catalogItemsPerPageOptions } from "../util/PaginationOptions.js";
 import {

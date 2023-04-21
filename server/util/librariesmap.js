@@ -692,7 +692,8 @@ const libraryNameKeys = [
     'phys',
     'socialsci',
     'stats',
-    'workforce'
+    'workforce',
+    'ukrayinska'
 ];
 
 export {

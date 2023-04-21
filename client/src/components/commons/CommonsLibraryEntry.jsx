@@ -15,7 +15,7 @@ import { useLocation, useHistory } from 'react-router-dom';
 import Breakpoint from '../util/Breakpoints.tsx';
 import axios from 'axios';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const CommonsLibraryEntry = (props) => {
 

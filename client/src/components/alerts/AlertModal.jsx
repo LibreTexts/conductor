@@ -20,7 +20,7 @@ import {
   getAlertProjectLocationFilterText
 } from '../util/AlertHelpers.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const AlertModal = ({
   open,
