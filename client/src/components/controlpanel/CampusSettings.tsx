@@ -661,7 +661,7 @@ const CampusSettings = () => {
                 </Form.Field>
                 <Divider />
                 <h3>Branding Colors</h3>
-                <Form.Field>
+                <Form.Field disabled={org?.orgID === 'libretexts'}>
                   <label htmlFor="campusPrimaryColor">
                     <span>Campus Primary Color </span>
                     <Popup
@@ -685,12 +685,14 @@ const CampusSettings = () => {
                     <div
                       className="controlpanel-branding-color-preview-box"
                       style={{
-                        backgroundColor: `${watchedPrimaryColor?.toString()}`,
+                        backgroundColor: watchedPrimaryColor?.toString()
+                          ? sanitizeCustomColor(watchedPrimaryColor.toString())
+                          : '',
                       }}
                     />
                   </div>
                 </Form.Field>
-                <Form.Field>
+                <Form.Field disabled={org?.orgID === 'libretexts'}>
                   <label htmlFor="campusFooterColor">
                     <span>Campus Footer Color </span>
                     <Popup
@@ -715,7 +717,9 @@ const CampusSettings = () => {
                     <div
                       className="controlpanel-branding-color-preview-box"
                       style={{
-                        backgroundColor: `${watchedFooterColor?.toString()}`,
+                        backgroundColor: watchedFooterColor?.toString()
+                          ? sanitizeCustomColor(watchedFooterColor.toString())
+                          : '',
                       }}
                     />
                   </div>
