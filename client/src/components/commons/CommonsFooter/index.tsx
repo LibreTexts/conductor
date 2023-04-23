@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { Icon, Image, SemanticICONS } from "semantic-ui-react";
 import "./CommonsFooter.css";
 import { useTypedSelector } from "../../../state/hooks";
+import { sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
 
 /**
  * Signals the bottom of all Commons interfaces, with LibreTexts contact links.
@@ -57,7 +58,7 @@ const CommonsFooter = () => {
       className={org.orgID === "libretexts" ? "libretexts-footer" : ""}
       style={
         org.orgID !== "libretexts" && org.footerColor
-          ? { backgroundColor: `${org.footerColor}` }
+          ? { backgroundColor: sanitizeCustomColor(org.footerColor) }
           : {}
       }
     >
