@@ -22,6 +22,8 @@ import useGlobalError from "../error/ErrorHooks.js";
 import CtlTextInput from "../ControlledInputs/CtlTextInput.js";
 import "./ControlPanel.css";
 import { required } from "../../utils/formRules.js";
+import isHexColor from "validator/es/lib/isHexColor.js";
+import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers.js";
 
 const CampusSettings = () => {
   // Global State and Error Handling
@@ -33,6 +35,7 @@ const CampusSettings = () => {
     control,
     register,
     trigger,
+    watch,
     reset: resetForm,
     handleSubmit,
     setValue: setFormValue,
@@ -50,12 +53,16 @@ const CampusSettings = () => {
       commonsMessage: "",
       collectionsDisplayLabel: "Collections",
       collectionsMessage: "",
+      primaryColor: "",
+      footerColor: "",
     },
   });
 
   // UI
   const [loadedData, setLoadedData] = useState(false);
   const [savedData, setSavedData] = useState(false);
+  const watchedPrimaryColor = watch("primaryColor");
+  const watchedFooterColor = watch("footerColor");
 
   // Asset Uploads
   const coverPhotoRef = useRef(null);
@@ -121,6 +128,37 @@ const CampusSettings = () => {
       setLoadedData(true);
       return;
     }
+
+    let primaryColorErr = false;
+    let footerColorErr = false;
+
+    if (
+      getFormValue("primaryColor") &&
+      !isHexColor(getFormValue("primaryColor")!)
+    ) {
+      setFormError("primaryColor", {
+        message: "Not a valid hex color.",
+      });
+      primaryColorErr = true;
+    }
+
+    if (
+      getFormValue("footerColor") &&
+      !isHexColor(getFormValue("footerColor")!)
+    ) {
+      setFormError("footerColor", {
+        message: "Not a valid hex color.",
+      });
+      footerColorErr = true;
+    }
+
+    if (primaryColorErr || footerColorErr) {
+      setLoadedData(true);
+      return;
+    }
+
+    d.primaryColor = sanitizeCustomColor(getFormValue('primaryColor') ?? '');
+    d.footerColor = sanitizeCustomColor(getFormValue('footerColor') ?? '');
 
     axios
       .put(`/org/${org.orgID}`, d)
@@ -620,6 +658,71 @@ const CampusSettings = () => {
                     name="collectionsMessage"
                     control={control}
                   />
+                </Form.Field>
+                <Divider />
+                <h3>Branding Colors</h3>
+                <Form.Field disabled={org?.orgID === 'libretexts'}>
+                  <label htmlFor="campusPrimaryColor">
+                    <span>Campus Primary Color </span>
+                    <Popup
+                      content={
+                        <span>
+                          A custom hex color code string (e.g. #FFF000) that
+                          will change the color of various regions in Commons.
+                          <strong> This is optional.</strong>
+                        </span>
+                      }
+                      trigger={<Icon name="info circle" />}
+                    />
+                  </label>
+                  <CtlTextInput
+                    id="primaryColor"
+                    name="primaryColor"
+                    control={control}
+                  />
+                  <div className="controlpanel-branding-color-preview-wrapper">
+                    <span>Primary Color Preview</span>
+                    <div
+                      className="controlpanel-branding-color-preview-box"
+                      style={{
+                        backgroundColor: watchedPrimaryColor?.toString()
+                          ? sanitizeCustomColor(watchedPrimaryColor.toString())
+                          : '',
+                      }}
+                    />
+                  </div>
+                </Form.Field>
+                <Form.Field disabled={org?.orgID === 'libretexts'}>
+                  <label htmlFor="campusFooterColor">
+                    <span>Campus Footer Color </span>
+                    <Popup
+                      content={
+                        <span>
+                          A custom hex color code string (e.g. #FFF000) that
+                          will change the page footer in Commons. This should be
+                          a lighter color than your Primary Color.
+                          <strong> This is optional.</strong>
+                        </span>
+                      }
+                      trigger={<Icon name="info circle" />}
+                    />
+                  </label>
+                  <CtlTextInput
+                    id="footerColor"
+                    name="footerColor"
+                    control={control}
+                  />
+                  <div className="controlpanel-branding-color-preview-wrapper">
+                    <span>Footer Color Preview</span>
+                    <div
+                      className="controlpanel-branding-color-preview-box"
+                      style={{
+                        backgroundColor: watchedFooterColor?.toString()
+                          ? sanitizeCustomColor(watchedFooterColor.toString())
+                          : '',
+                      }}
+                    />
+                  </div>
                 </Form.Field>
               </Form>
               <Button

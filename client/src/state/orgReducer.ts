@@ -18,7 +18,9 @@ const orgInitialState = <Organization>{
     aboutLink: '',
     commonsHeader: '',
     commonsMessage: '',
-    collectionsDisplayLabel: 'Collections'
+    collectionsDisplayLabel: 'Collections',
+    primaryColor: '',
+    footerColor: ''
 };
 
 export default function orgReducer(

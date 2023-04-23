@@ -14,7 +14,8 @@ export type Organization = {
   commonsMessage: string;
   collectionsDisplayLabel?: string;
   collectionsMessage?: string;
-  mainColor: string;
+  primaryColor?: string;
+  footerColor?: string;
   defaultProjectLead: string;
   addToLibreGridList: boolean;
   catalogMatchingTags: string[];
@@ -31,4 +32,6 @@ export type CampusSettingsOpts = Pick<
   | "commonsMessage"
   | "collectionsDisplayLabel"
   | "collectionsMessage"
+  | "primaryColor"
+  | "footerColor"
 >;

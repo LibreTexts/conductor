@@ -67,9 +67,12 @@
 }
 
 #commons-search-button {
-    background-color: #127BC4 !important;
     color: #FFFFFF !important;
     height: 40px !important;
+}
+
+.commons-search-button-bg {
+    background-color: #127BC4 !important;
 }
 
 #commons-reset-button {
@@ -256,6 +259,7 @@
     border-top: none !important;
     height: 150px;
 }
+
 .commons-collection-card-img-wrapper {
     margin: 10px 10px 0px 10px;
     height: 75% !important
