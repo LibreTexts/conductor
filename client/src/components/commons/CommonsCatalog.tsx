@@ -726,11 +726,11 @@ const CommonsCatalog = () => {
                   onClick={performSearch}
                   style={
                     org.orgID !== "libretexts" && org.primaryColor
-                      ? { backgroundColor: `${sanitizeCustomColor(org.primaryColor)} !important` }
-                      : ""
+                      ? { backgroundColor: sanitizeCustomColor(org.primaryColor) }
+                      : {}
                   }
                   className={
-                    org.orgID === "libretexts" ? "commons-search-button-bg" : ""
+                    (org.orgID === "libretexts" || !org.primaryColor) ? "commons-search-button-bg" : ""
                   }
                 >
                   Search Catalog

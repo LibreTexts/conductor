@@ -55,7 +55,11 @@ const CommonsFooter = () => {
   return (
     <div
       id="commons-footer"
-      className={org.orgID === "libretexts" ? "libretexts-footer" : ""}
+      className={
+        org.orgID === "libretexts"
+          ? "libretexts-footer"
+          : (org.footerColor ? "" : "libregrid-footer")
+      }
       style={
         org.orgID !== "libretexts" && org.footerColor
           ? { backgroundColor: sanitizeCustomColor(org.footerColor) }

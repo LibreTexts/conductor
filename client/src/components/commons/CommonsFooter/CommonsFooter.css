@@ -18,6 +18,10 @@
   color: #FFFFFF;
 }
 
+.libregrid-footer {
+  background-color: #ccecfd;
+}
+
 .footer-row {
   display: flex;
   flex: 1;
