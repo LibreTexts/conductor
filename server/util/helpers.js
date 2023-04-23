@@ -3,7 +3,7 @@
 // helpers.js
 //
 import { validate as uuidValidate } from 'uuid';
-import isHexColor from "validator/es/lib/isHexColor";
+import validator from 'validator';
 
 /**
  * Checks that a string has a (trimmed) length greater than 0.
@@ -238,7 +238,7 @@ export function sanitizeCustomColor(hexString) {
     hexString = `#${hexString}`;
   }
 
-  if (isHexColor(hexString)) {
+  if (validator.isHexColor(hexString)) {
     return hexString;
   }
 
