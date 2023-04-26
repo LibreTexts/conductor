@@ -27,7 +27,7 @@ import { isEmptyString } from '../../../components/util/HelperFunctions.js';
 import { getLicenseColor } from '../../../components/util/BookHelpers.js';
 import { getPeerReviewAuthorText } from '../../../components/util/ProjectHelpers.js';
 import AdoptionReport from '../../../components/adoptionreport/AdoptionReport.jsx';
-import TreeView from '../../../components/TreeView';
+import TreeView from '../../../components/TreeView/index.jsx';
 import PeerReview from '../../../components/peerreview/PeerReview.jsx';
 import PeerReviewView from '../../../components/peerreview/PeerReviewView.jsx';
 import StarRating from '../../../components/peerreview/StarRating.jsx';
@@ -773,7 +773,7 @@ const CommonsBook = () => {
       let shouldLink = true;
       let name = item.name;
       if (item.name === "" && item.fileID === "") {
-        name = "Files";
+        name = "Assets";
       } else {
         nodes.push(
           <Breadcrumb.Divider
@@ -916,7 +916,7 @@ const CommonsBook = () => {
                           <div className='ui dividing header'>
                             <div className='hideablesection'>
                               <h3 className='header'>
-                                Files
+                                Assets
                               </h3>
                               <div className='button-container'>
                                 <Button
@@ -938,7 +938,7 @@ const CommonsBook = () => {
                                 input={{
                                   icon: 'search',
                                   iconPosition: 'left',
-                                  placeholder: 'Search files...'
+                                  placeholder: 'Search assets...'
                                 }}
                                 loading={fileSearchLoading}
                                 onResultSelect={(_e, {result} ) => handleFileSearchSelect(result.id)}
@@ -987,13 +987,13 @@ const CommonsBook = () => {
                                           </div>
                                           <div className='right-flex'>
                                             <Popup
-                                              content='Download File'
+                                              content='Download Asset'
                                               trigger={
                                                 (file.storageType === 'file') && (
                                                   <Button
                                                     icon
                                                     size="small"
-                                                    title="Download file (opens in new tab)"
+                                                    title="Download asset (opens in new tab)"
                                                     onClick={() => handleDownloadFile(file.fileID)}
                                                   >
                                                     <Icon name="download" />
@@ -1028,7 +1028,7 @@ const CommonsBook = () => {
                             )
                             : (
                               <div>
-                                <p className='text-center muted-text'><em>No files yet.</em></p>
+                                <p className='text-center muted-text'><em>No assets yet.</em></p>
                               </div>
                             )
                           }
@@ -1039,7 +1039,7 @@ const CommonsBook = () => {
                   <Segment>
                   <div className='hiddensection'>
                     <div className='header-container'>
-                      <Header as='h3'>Files</Header>
+                      <Header as='h3'>Assets</Header>
                     </div>
                     <div className='button-container'>
                       <Button
