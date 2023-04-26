@@ -124,13 +124,13 @@ export const getTextUse = (use) => {
  * @returns {Object} An object with information about the LibreText (lib, id, shelf, campus).
  */
 export async function getLibreTextInformation(url) {
+  let textInfo = {
+    lib: "",
+    id: "",
+    shelf: "",
+    campus: "",
+  };
   try {
-    let textInfo = {
-      lib: "",
-      id: "",
-      shelf: "",
-      campus: "",
-    };
 
     if (typeof url !== "string") {
       throw new Error("Invalid URL argument");
