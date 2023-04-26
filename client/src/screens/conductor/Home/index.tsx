@@ -551,7 +551,7 @@ const Home = () => {
                   {user.firstName}
                 </Header>
                 <div className="d-flex">
-                  <AccountStatus user={user} />
+                  <AccountStatus verifiedInstructor={user.verifiedInstructor} />
                 </div>
               </Menu.Item>
               {(user.isSuperAdmin || user.isCampusAdmin) && (

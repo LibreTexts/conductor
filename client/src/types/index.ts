@@ -20,6 +20,7 @@ import {
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
+import { AccountRequest, AccountRequestPurpose } from "./AccountRequest";
 import { CatalogLocation } from "./Catalog";
 
 export type {
@@ -42,7 +43,8 @@ export type {
   AuthorizedApp,
   Homework,
   AdaptAssignment,
-  CatalogLocation
+  AccountRequest,
+  CatalogLocation,
 };
 
 export {
@@ -51,4 +53,5 @@ export {
   CollectionLocations,
   ProjectClassification,
   ProjectStatus,
+  AccountRequestPurpose,
 };

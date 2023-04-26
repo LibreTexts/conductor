@@ -3,16 +3,16 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
-'use strict';
-import express from 'express';
-import { body, param } from 'express-validator';
-import User from '../models/user.js';
-import AccountRequest from '../models/accountrequest.js';
-import conductorErrors from '../conductor-errors.js';
-import { ensureUniqueStringArray } from '../util/helpers.js';
-import { debugError } from '../debug.js';
-import LibrariesMap from '../util/librariesmap.js';
-import mailAPI from './mail.js';
+"use strict";
+import express from "express";
+import { body, param } from "express-validator";
+import User from "../models/user.js";
+import AccountRequest from "../models/accountrequest.js";
+import conductorErrors from "../conductor-errors.js";
+import { ensureUniqueStringArray } from "../util/helpers.js";
+import { debugError } from "../debug.js";
+import LibrariesMap from "../util/librariesmap.js";
+import mailAPI from "./mail.js";
 
 /**
  * Creates a new AccountRequest and notifies the LibreTexts team.
@@ -22,7 +22,9 @@ import mailAPI from './mail.js';
  */
 async function submitRequest(req, res) {
   try {
-    const foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    const foundUser = await User.findOne({
+      uuid: req.user.decoded.uuid,
+    }).lean();
     if (!foundUser) {
       return res.status(400).send({
         err: true,
@@ -40,36 +42,39 @@ async function submitRequest(req, res) {
 
     // Add instructor profile to user record
     if (!instructorProfile) {
-      const updateRes = await User.updateOne({ uuid: req.user.decoded.uuid }, {
-        instructorProfile: {
-          institution: req.body.institution,
-          facultyURL: req.body.facultyURL,
-        },
-      });
+      const updateRes = await User.updateOne(
+        { uuid: req.user.decoded.uuid },
+        {
+          instructorProfile: {
+            institution: req.body.institution,
+            facultyURL: req.body.facultyURL,
+          },
+        }
+      );
       if (updateRes.modifiedCount !== 1) {
-        throw (new Error("Couldn't update User instructor profile"));
+        throw new Error("Couldn't update User instructor profile");
       }
     }
 
     await new AccountRequest({
       requester: foundUser.uuid,
-      status: 'open',
+      status: "open",
       purpose: req.body.purpose,
       libraries: req.body.libraries,
       moreInfo: req.body.moreInfo,
     }).save();
-  
+
     // Notify LibreTexts team
     mailAPI.sendAccountRequestAdminNotif();
     // Send confirmation to user
     mailAPI.sendAccountRequestConfirmation(
       `${foundUser.firstName} ${foundUser.lastName}`,
-      foundUser.email,
+      foundUser.email
     );
-  
+
     return res.send({
       err: false,
-      msg: 'Account Request successfully submitted.',
+      msg: "Account Request successfully submitted.",
     });
   } catch (e) {
     debugError(e);
@@ -83,90 +88,76 @@ async function submitRequest(req, res) {
 /**
  * Retrieves all Account Requests.
  *
- * @param {express.Request} req - Incoming request object. 
- * @param {express.Response} res - Outgoing response object. 
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
  */
 async function getRequests(_req, res) {
   try {
+    let page = 1;
+    let offset = 0;
+    let OFFSET_MULTIPLIER = 25;
+    let LIMIT = 25;
+
+    if (_req.query.page && Number.isInteger(parseInt(_req.query.page))) {
+      page = parseInt(_req.query.page);
+      if (page > 1) {
+        offset = (page - 1) * OFFSET_MULTIPLIER;
+      }
+    }
+    
     const requests = await AccountRequest.aggregate([
       {
         $lookup: {
-          from: 'users',
-          let: { requester: '$requester' },
-          pipeline: [{
-            $match: {
-              $expr: {
-                $eq: ['$uuid', '$$requester'],
+          from: "users",
+          let: { requester: "$requester" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$uuid", "$$requester"],
+                },
               },
             },
-          }, {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              firstName: 1,
-              lastName: 1,
-              avatar: 1,
-              email: 1,
-              instructorProfile: 1,
-              verifiedInstructor: 1,
+            {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1,
+                email: 1,
+                instructorProfile: 1,
+                verifiedInstructor: 1,
+              },
             },
-          }],
-          as: 'requester',
+          ],
+          as: "requester",
         },
-      }, {
+      },
+      {
         $addFields: {
           requester: {
             $cond: [
-              { $gt: [{ $size: '$requester' }, 0] },
-              { $arrayElemAt: ['$requester', 0] },
-              '$$REMOVE',
-            ],
-          }
-        },
-      }, {
-        $addFields: {
-          name: {
-            $cond: [
-              { 
-                $and: [
-                  { $ne: [{ $type: '$requester.firstName' }, 'missing'] },
-                  { $ne: [{ $type: '$requester.lastName' }, 'missing'] },
-                ],
-              },
-              { $concat: ['$requester.firstName', ' ', '$requester.lastName'] },
-              '$name',
-            ],
-          },
-          email: {
-            $cond: [
-              { $ne: [{ $type: '$requester.email' }, 'missing'] },
-              '$requester.email',
-              '$email',
-            ],
-          },
-          institution: {
-            $cond: [
-              { $ne: [{ $type: '$requester.instructorProfile.institution' }, 'missing'] },
-              '$requester.instructorProfile.institution',
-              '$institution',
-            ],
-          },
-          facultyURL: {
-            $cond: [
-              { $ne: [{ $type: '$requester.instructorProfile.facultyURL' }, 'missing'] },
-              '$requester.instructorProfile.facultyURL',
-              '$facultyURL',
+              { $gt: [{ $size: "$requester" }, 0] },
+              { $arrayElemAt: ["$requester", 0] },
+              "$$REMOVE",
             ],
           },
         },
-      }, {
+      },
+      {
         $sort: {
           createdAt: -1,
         },
       },
+      { $skip: offset },
+      { $limit: LIMIT },
     ]);
+
+    const totalCount = await AccountRequest.countDocuments();
     return res.send({
       requests,
+      totalCount,
       err: false,
     });
   } catch (e) {
@@ -187,7 +178,9 @@ async function getRequests(_req, res) {
 async function completeRequest(req, res) {
   try {
     const { requestID } = req.params;
-    const foundRequest = await AccountRequest.findOne({ _id: requestID }).lean();
+    const foundRequest = await AccountRequest.findOne({
+      _id: requestID,
+    }).lean();
     if (!foundRequest) {
       return res.status(404).send({
         err: true,
@@ -199,7 +192,9 @@ async function completeRequest(req, res) {
     let name = foundRequest.name;
     let email = foundRequest.email;
     if (foundRequest.requester) {
-      const foundUser = await User.findOne({ uuid: foundRequest.requester }).lean();
+      const foundUser = await User.findOne({
+        uuid: foundRequest.requester,
+      }).lean();
       if (foundUser) {
         name = `${foundUser.firstName} ${foundUser.lastName}`;
         email = foundUser.email;
@@ -220,14 +215,14 @@ async function completeRequest(req, res) {
 
     const updateRes = await AccountRequest.updateOne(
       { _id: requestID },
-      { status: 'completed' },
+      { status: "completed" }
     );
     if (updateRes.modifiedCount === 1) {
       mailAPI.sendAccountRequestApprovalNotification(name, email);
     }
     return res.send({
       err: false,
-      msg: 'Succesfully marked Account Request as complete.',
+      msg: "Succesfully marked Account Request as complete.",
     });
   } catch (e) {
     debugError(e);
@@ -251,7 +246,7 @@ async function deleteRequest(req, res) {
     if (deleteRes.deletedCount === 1) {
       return res.send({
         err: false,
-        msg: 'Account Request successfully deleted.',
+        msg: "Account Request successfully deleted.",
       });
     }
     return res.status(404).send({
@@ -271,7 +266,7 @@ async function deleteRequest(req, res) {
  * Validates the provided "purpose" field of a submitted request. If the request if for LibreTexts
  * libraries access, the `libraries` field is also validated.
  *
- * @param {string} purpose - Purpose of Account Request. 
+ * @param {string} purpose - Purpose of Account Request.
  * @param {object} data - Data passed from the validation library.
  * @param {object} data.req - Information about the original network request, including body.
  * @returns {boolean} True if valid purpose (and libraries, if applicable), false otherwise.
@@ -279,22 +274,22 @@ async function deleteRequest(req, res) {
  *  list of libraries were provided.
  */
 function validateRequestPurpose(purpose, { req }) {
-  const validPurposes = ['oer', 'h5p', 'adapt', 'analytics'];
-  if (typeof (purpose) !== 'string') {
+  const validPurposes = ["oer", "h5p", "adapt", "analytics"];
+  if (typeof purpose !== "string") {
     return false;
   }
   const isValidPurpose = validPurposes.includes(purpose);
   if (!isValidPurpose) {
     return false;
   }
-  if (purpose !== 'oer') {
+  if (purpose !== "oer") {
     return true;
   }
   if (
-    isValidPurpose
-    && Array.isArray(req.body.libraries)
-    && req.body.libraries.length > 0
-    && req.body.libraries.length < 4
+    isValidPurpose &&
+    Array.isArray(req.body.libraries) &&
+    req.body.libraries.length > 0 &&
+    req.body.libraries.length < 4
   ) {
     let validArray = true;
     req.body.libraries.forEach((item) => {
@@ -307,39 +302,44 @@ function validateRequestPurpose(purpose, { req }) {
       return true;
     }
   }
-  throw (new Error(conductorErrors.err73));
+  throw new Error(conductorErrors.err73);
 }
 
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  *
- * @param {string} method - Method name to validate request for. 
+ * @param {string} method - Method name to validate request for.
  */
 function validate(method) {
   switch (method) {
-    case 'submitRequest':
+    case "submitRequest":
       return [
-        body('purpose', conductorErrors.err1).exists().custom(validateRequestPurpose),
-        body('institution', conductorErrors.err1).optional().isLength({ min: 2, max: 100 }),
-        body('facultyURL', conductorErrors.err1).optional().isURL(),
-        body('libraries', conductorErrors.err1).optional().customSanitizer(ensureUniqueStringArray),
-        body('moreInfo', conductorErrors.err1).optional().isBoolean().toBoolean(),
+        body("purpose", conductorErrors.err1)
+          .exists()
+          .custom(validateRequestPurpose),
+        body("institution", conductorErrors.err1)
+          .optional()
+          .isLength({ min: 2, max: 100 }),
+        body("facultyURL", conductorErrors.err1).optional().isURL(),
+        body("libraries", conductorErrors.err1)
+          .optional()
+          .customSanitizer(ensureUniqueStringArray),
+        body("moreInfo", conductorErrors.err1)
+          .optional()
+          .isBoolean()
+          .toBoolean(),
       ];
-    case 'completeRequest':
-      return [
-        param('requestID', conductorErrors.err1).exists().isMongoId(),
-      ];
-    case 'deleteRequest':
-      return [
-        param('requestID', conductorErrors.err1).exists().isMongoId(),
-      ];
+    case "completeRequest":
+      return [param("requestID", conductorErrors.err1).exists().isMongoId()];
+    case "deleteRequest":
+      return [param("requestID", conductorErrors.err1).exists().isMongoId()];
   }
 }
 
 export default {
-    submitRequest,
-    getRequests,
-    completeRequest,
-    deleteRequest,
-    validate
-}
+  submitRequest,
+  getRequests,
+  completeRequest,
+  deleteRequest,
+  validate,
+};
