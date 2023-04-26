@@ -681,9 +681,14 @@ async function getCommonsCatalog(req, res) {
     setStringIfPresent(searchOptions, req.query.affiliation, 'affiliation');
     setStringIfPresent(searchOptions, req.query.course, 'course');
     setStringIfPresent(searchOptions, req.query.publisher, 'publisher');
-
-    if (req.query.location && !isEmptyString(req.query.location)) {
-      searchOptions.location = req.query.location;
+    
+    if(req.query.location && !isEmptyString(req.query.location)) {
+      if(req.query.location === "all") {
+        // Set to both locations if "all", otherwise use string passed in query
+        searchOptions.location = {$in: ["central", "campus"]}
+      } else {
+        searchOptions.location = req.query.location;
+      }
     } else {
       if (orgID === 'libretexts') {
         searchOptions.location = 'central'; // default to Central Bookshelves
@@ -808,7 +813,7 @@ async function getCommonsCatalog(req, res) {
       }
     }
 
-    if (orgID !== 'libretexts' && !cidFilter) {
+    if (orgID !== 'libretexts' && req.query.location !== "all" && !cidFilter) {
       const orgData = await Organization.findOne({ orgID }, {
         _id: 0,
         orgID: 1,
@@ -841,8 +846,10 @@ async function getCommonsCatalog(req, res) {
         campusNames.unshift(searchOptions.publisher);
       }
 
-      institutionOptions.push({ course: { $in: campusNames } });
-      institutionOptions.push({ publisher: { $in: campusNames } });
+      if (req.query.location === "campus") {
+        institutionOptions.push({ course: { $in: campusNames } });
+        institutionOptions.push({ publisher: { $in: campusNames } });
+      }
 
       if (hasCustomEntries || hasCatalogMatchingTags) {
         // remove location filter to allow custom entries
@@ -1827,6 +1834,7 @@ const validate = (method) => {
         query('publisher', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
         query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
         query('cidDescriptor', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
+        query('location', conductorErrors.err1).optional({checkFalsy: true}).isString().isIn(["central", "campus", "all"])
       ]
     case 'getMasterCatalog':
       return [

@@ -20,6 +20,7 @@ import {
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
+import { CatalogLocation } from "./Catalog";
 
 export type {
   Organization,
@@ -40,7 +41,8 @@ export type {
   Account,
   AuthorizedApp,
   Homework,
-  AdaptAssignment
+  AdaptAssignment,
+  CatalogLocation
 };
 
 export {
