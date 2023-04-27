@@ -1,0 +1,1 @@
+export type CatalogLocation = "central" | "campus" | "all";

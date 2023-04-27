@@ -73,6 +73,7 @@
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
     "@types/react-router-dom": "^5.3.3",
+    "@types/validator": "^13.7.15",
     "@vitejs/plugin-react": "^3.1.0",
     "react-error-overlay": "6.0.9",
     "sass": "^1.43.4",

@@ -2,6 +2,20 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTypedSelector } from "../../state/hooks";
 import { AxiosError } from "axios";
+import {
+  hasErrorData,
+  hasErrorDataErrors,
+  hasErrorDataMsg,
+  hasErrorStatusCode,
+  hasMessage,
+  hasResponse,
+} from "../../utils/typeHelpers";
+
+type ConductorErrorInterface = {
+  response: unknown;
+  message: string;
+};
+
 function useGlobalError() {
   const dispatch = useDispatch();
   const error = useTypedSelector((state) => state.error);
@@ -26,7 +40,7 @@ function useGlobalError() {
             message: errObj.message,
             status: statusCode,
             relevantLinkTitle,
-            relevantLinkHREF
+            relevantLinkHREF,
           },
         });
       } else if (typeof errObj === "string") {
@@ -36,7 +50,7 @@ function useGlobalError() {
             message: errObj,
             status: statusCode,
             relevantLinkTitle,
-            relevantLinkHREF
+            relevantLinkHREF,
           },
         });
       } else {
@@ -46,7 +60,7 @@ function useGlobalError() {
             message: errObj.toString(),
             status: statusCode,
             relevantLinkTitle,
-            relevantLinkHREF
+            relevantLinkHREF,
           },
         });
       }
@@ -70,46 +84,96 @@ function useGlobalError() {
    * the global error modal
    */
   const handleGlobalError = useCallback(
-    (err: { response: Record<string, any>; message: string }, relevantLinkTitle?: string, relevantLinkHREF?: string) => {
+    (err: unknown, relevantLinkTitle?: string, relevantLinkHREF?: string) => {
+      let message = "Error processing request";
       console.error(err);
-      let message = "";
-      if (typeof err.response === "object") {
-        if (err.response.data) {
-          if (err.response.data.errMsg !== undefined) {
-            message = err.response.data.errMsg;
-          } else {
-            message = "Error processing request.";
-          }
-          if (err.response.data.errors) {
-            if (err.response.data.errors.length > 0) {
-              message = message.replace(/\./g, ": ");
-              err.response.data.errors.forEach(
-                (elem: Record<string, any>, idx: number) => {
-                  if (elem.param) {
-                    message +=
-                      String(elem.param).charAt(0).toUpperCase() +
-                      String(elem.param).slice(1);
-                    if (idx + 1 !== err.response.data.errors.length) {
-                      message += ", ";
-                    } else {
-                      message += ".";
-                    }
-                  }
-                }
-              );
-            }
-          }
-        } else {
-          message = "Error processing request.";
-        }
-      } else if (typeof err.message === "string") {
-        message = err.message;
-      } else if (typeof err === "string") {
+
+      if (typeof err === "string") {
         message = err;
-      } else {
-        message = err.toString();
       }
-      setError(message, err.response.statusCode, relevantLinkTitle, relevantLinkHREF);
+
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        hasMessage(err) &&
+        err.message
+      ) {
+        message = err.message;
+      }
+
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        hasResponse(err) &&
+        typeof err.response === "object" &&
+        err.response !== null
+      )
+        if (
+          typeof err === "object" &&
+          err.response &&
+          typeof err.response === "object" &&
+          err.response !== null &&
+          hasErrorData(err.response)
+        ) {
+          if (
+            err.response.data !== null &&
+            hasErrorDataMsg(err.response.data) &&
+            err.response.data.errMsg !== undefined
+          ) {
+            message = err.response.data.errMsg;
+          }
+        }
+
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        hasResponse(err) &&
+        err.response &&
+        typeof err.response === "object" &&
+        hasErrorData(err.response) &&
+        typeof err.response.data === "object" &&
+        err.response.data !== null &&
+        hasErrorDataErrors(err.response.data)
+      ) {
+        if (err.response.data.errors.length > 0) {
+          message = message.replace(/\./g, ": ");
+          err.response.data.errors.forEach(
+            (elem: Record<string, any>, idx: number) => {
+              if (elem.param) {
+                message +=
+                  String(elem.param).charAt(0).toUpperCase() +
+                  String(elem.param).slice(1);
+                if (
+                  hasErrorData(err.response) &&
+                  hasErrorDataErrors(err.response.data) &&
+                  idx + 1 !== err.response.data.errors.length
+                ) {
+                  message += ", ";
+                } else {
+                  message += ".";
+                }
+              }
+            }
+          );
+        }
+      }
+
+      let statusCode;
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        hasResponse(err) &&
+        err.response &&
+        typeof err.response === "object" &&
+        hasErrorStatusCode(err.response) &&
+        err.response.statusCode !== undefined
+      ) {
+        statusCode = err.response.statusCode;
+      } else {
+        statusCode = undefined;
+      }
+
+      setError(message, statusCode, relevantLinkTitle, relevantLinkHREF);
     },
     [setError]
   );

@@ -10,7 +10,7 @@ import { body, param } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization from '../models/organization.js';
-import { ensureUniqueStringArray, isEmptyString } from '../util/helpers.js';
+import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
 import authAPI from './auth.js';
@@ -209,12 +209,19 @@ async function updateOrganizationInfo(req, res) {
       }
     };
 
+    if(req.body.primaryColor) {
+      updateObj.primaryColor = sanitizeCustomColor(req.body.primaryColor)
+    }
+
+    if(req.body.footerColor) {
+      updateObj.footerColor = sanitizeCustomColor(req.body.footerColor)
+    }
+
     addToUpdateIfPresent('aboutLink');
     addToUpdateIfPresent('commonsHeader');
     addToUpdateIfPresent('commonsMessage');
     addToUpdateIfPresent('collectionsDisplayLabel');
     addToUpdateIfPresent('collectionsMessage');
-    addToUpdateIfPresent('mainColor');
     addToUpdateIfPresent('catalogMatchingTags');
 
     if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel)){
@@ -378,7 +385,8 @@ function validate(method) {
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
         body('collectionsDisplayLabel', conductorErrors.err1).optional({checkFalsy: true}).isLength({ max: 200 }),
         body('collectionsMessage', conductorErrors.err1).optional({checkFalsy: true}).isLength({max: 500}),
-        body('mainColor', conductorErrors.err1).optional({ checkFalsy: true }).isHexColor(),
+        body('primaryColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
+        body('footerColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('catalogMatchingTags', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
       ];

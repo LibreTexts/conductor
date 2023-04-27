@@ -41,7 +41,7 @@
     box-shadow: 0 2px 25px 0 rgb(34 36 38 / 5%) inset;
     background: #f9fafb;
     padding: 1%;
-    border: 1px solid rgba(34,36,38,.15);
+    border: 1px solid rgba(34, 36, 38, .15);
     border-radius: .28571429rem;
 }
 
@@ -51,7 +51,7 @@
     background: #fbfcfc;
     box-shadow: 0 2px 25px 0 rgb(34 36 38 / 2%) inset;
     border-radius: .28571429rem;
-    border: 1px solid rgba(34,36,38,.1);
+    border: 1px solid rgba(34, 36, 38, .1);
 }
 
 .peerreview-rubricedit-editblockbtn {
@@ -60,4 +60,18 @@
 
 .peerreview-rubricedit-label {
     padding: 0.05em 1em 0.05em 0.05em !important;
+}
+
+.controlpanel-branding-color-preview-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.controlpanel-branding-color-preview-box {
+    width: 15px;
+    height: 15px;
+    border: 0.5px solid black;
+    border-radius: 2px;
+    margin-left: 5px;
 }
