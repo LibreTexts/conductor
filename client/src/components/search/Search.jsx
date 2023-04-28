@@ -40,7 +40,7 @@ import {
 import { truncateString } from '../util/HelperFunctions.js';
 import { catalogItemsPerPageOptions } from '../util/PaginationOptions.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const Search = (_props) => {
 

@@ -20,7 +20,7 @@ import { useTypedSelector } from '../../state/hooks';
 import axios from 'axios';
 
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import { User } from '../../types';
 
 const UsersManager = () => {

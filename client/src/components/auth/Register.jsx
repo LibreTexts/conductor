@@ -19,7 +19,7 @@ import {
     validatePassword
 } from '../util/HelperFunctions.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const Register = () => {
 

@@ -16,7 +16,7 @@ import { useEffect, useState, useCallback, ReactElement } from "react";
 import Breakpoint from "../../util/Breakpoints";
 import { Link, useHistory } from "react-router-dom";
 import axios from "axios";
-import useGlobalError from "../../error/ErrorHooks.js";
+import useGlobalError from "../../error/ErrorHooks";
 import {
   Collection,
   CollectionDirectoryPathObj,

@@ -17,7 +17,7 @@ import { PieChart } from 'react-minimal-pie-chart';
 import axios from 'axios';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-import useGlobalError from '../../../components/error/ErrorHooks.js';
+import useGlobalError from '../../../components/error/ErrorHooks';
 import {
   getLibGlyphURL,
   getLibraryName,

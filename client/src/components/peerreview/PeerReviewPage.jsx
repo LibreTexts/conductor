@@ -12,7 +12,7 @@ import axios from 'axios';
 
 import PeerReview from './PeerReview.jsx';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const PeerReviewPage = (props) => {
 

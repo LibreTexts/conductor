@@ -11,7 +11,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const TranslationFeedbackExport = (props) => {
 

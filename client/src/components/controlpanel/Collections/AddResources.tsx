@@ -31,7 +31,7 @@ import {
 } from "../../util/HelperFunctions.js";
 import { getLicenseText } from "../../util/LicenseOptions.js";
 import { getLibGlyphURL, getLibraryName } from "../../util/LibraryOptions.js";
-import useGlobalError from "../../error/ErrorHooks.js";
+import useGlobalError from "../../error/ErrorHooks";
 import { Book, Collection, CollectionLocations } from "../../../types";
 import { itemsPerPageOptions } from "../../util/PaginationOptions.js";
 

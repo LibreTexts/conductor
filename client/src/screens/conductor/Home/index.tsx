@@ -42,7 +42,7 @@ import {
   capitalizeFirstLetter,
   isEmptyString,
 } from "../../../components/util/HelperFunctions.js";
-import useGlobalError from "../../../components/error/ErrorHooks.js";
+import useGlobalError from "../../../components/error/ErrorHooks";
 
 const Home = () => {
   const { handleGlobalError } = useGlobalError();

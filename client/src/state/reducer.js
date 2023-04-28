@@ -1,7 +1,7 @@
 import userReducer from './userReducer';
 import orgReducer from './orgReducer';
 import filterReducer from './filterReducer.js';
-import errorReducer from './errorReducer.js';
+import errorReducer from './errorReducer';
 import { checkCampusAdmin, checkSuperAdmin } from '../components/util/HelperFunctions.js';
 
 const rootReducer = (state = {}, action) => {

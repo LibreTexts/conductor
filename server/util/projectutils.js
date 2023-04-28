@@ -2,38 +2,59 @@
 // LibreTexts Conductor
 // projectutils.js
 //
-import axios from 'axios';
-import { stringContainsOneOfSubstring, getProductionURL, assembleUrl } from './helpers.js';
-import { libraryNameKeys } from './librariesmap.js';
-import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
-import { debugError } from '../debug.js';
-import Project from '../models/project.js';
-import User from '../models/user.js';
-import base64 from 'base-64';
-import projectsAPI from '../api/projects.js';
-import usersAPI from '../api/users.js';
+import axios from "axios";
+import {
+  stringContainsOneOfSubstring,
+  getProductionURL,
+  assembleUrl,
+} from "./helpers.js";
+import { libraryNameKeys } from "./librariesmap.js";
+import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
+import { debugError } from "../debug.js";
+import Project from "../models/project.js";
+import User from "../models/user.js";
+import base64 from "base-64";
+import projectsAPI from "../api/projects.js";
+import usersAPI from "../api/users.js";
 
 export const projectClassifications = [
-    'harvesting',
-    'curation',
-    'construction',
-    'technology',
-    'librefest',
-    'coursereport',
-    'adoptionrequest',
-    'miscellaneous'
+  "harvesting",
+  "curation",
+  "construction",
+  "technology",
+  "librefest",
+  "coursereport",
+  "adoptionrequest",
+  "miscellaneous",
 ];
 
 export const constrRoadmapSteps = [
-    '1', '2', '3', '4', '5a', '5b', '5c', '6', '7', '8', '9', '10', '11', '12'
+  "1",
+  "2",
+  "3",
+  "4",
+  "5a",
+  "5b",
+  "5c",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
 ];
 
 export const textUseOptions = [
-    { key: 'empty', text: 'Clear...', value: '' },
-    { key: 'primary', text: 'As the primary textbook', value: 'primary' },
-    { key: 'supplement', text: 'As supplementary material', value: 'supplement' },
-    { key: 'remix', text: 'As part of a remix that I am creating for my class', value: 'remix' },
-    { key: 'other', text: 'Other (please explain in comments)', value: 'other' },
+  { key: "empty", text: "Clear...", value: "" },
+  { key: "primary", text: "As the primary textbook", value: "primary" },
+  { key: "supplement", text: "As supplementary material", value: "supplement" },
+  {
+    key: "remix",
+    text: "As part of a remix that I am creating for my class",
+    value: "remix",
+  },
+  { key: "other", text: "Other (please explain in comments)", value: "other" },
 ];
 
 export const progressThreadDefaultMessage = `*This thread was automatically created by Conductor. Use it to discuss your project's progress, or create another to the left!*`;
@@ -45,16 +66,21 @@ Conductor also promotes collaboration and organization among everyone on your OE
 You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/10%3A_Commons_and_Conductor).
 `;
 
-
 export const PROJECT_FILES_S3_CLIENT_CONFIG = {
-    credentials: {
-        accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
-        secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
-    },
-    region: process.env.AWS_PROJECTFILES_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+  },
+  region: process.env.AWS_PROJECTFILES_REGION,
 };
 
-export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'instructors', 'team', 'mixed'];
+export const PROJECT_FILES_ACCESS_SETTINGS = [
+  "public",
+  "users",
+  "instructors",
+  "team",
+  "mixed",
+];
 
 /**
  * Validates that a given classification string is one of the
@@ -63,9 +89,8 @@ export const PROJECT_FILES_ACCESS_SETTINGS = ['public', 'users', 'instructors', 
  * @returns {Boolean} true if valid classification, false otherwise
  */
 export const validateProjectClassification = (classification) => {
-    return projectClassifications.includes(classification);
+  return projectClassifications.includes(classification);
 };
-
 
 /**
  * Validates that a given Construction Roadmap step name is one of the
@@ -74,9 +99,8 @@ export const validateProjectClassification = (classification) => {
  * @returns {Boolean} true if valid step, false otherwise.
  */
 export const validateRoadmapStep = (step) => {
-    return constrRoadmapSteps.includes(step);
+  return constrRoadmapSteps.includes(step);
 };
-
 
 /**
  * Retrieves the UI-ready representation of a Text Use option.
@@ -84,111 +108,151 @@ export const validateRoadmapStep = (step) => {
  * @returns {String} The UI-ready representation, or an empty string if not found.
  */
 export const getTextUse = (use) => {
-    if (use !== '') {
-        let foundUse = textUseOptions.find((item) => {
-            return item.value === use;
-        });
-        if (foundUse !== undefined) return foundUse.text;
-    } else {
-        return '';
-    }
+  if (use !== "") {
+    let foundUse = textUseOptions.find((item) => {
+      return item.value === use;
+    });
+    if (foundUse !== undefined) return foundUse.text;
+  } else {
+    return "";
+  }
 };
-
 
 /**
  * Retrieves basic information about a LibreText and its location via the LibreTexts API.
  * @param {String} url - The LibreTexts url to retrieve information about.
  * @returns {Object} An object with information about the LibreText (lib, id, shelf, campus).
  */
-export const getLibreTextInformation = (url) => {
-    let textInfo = {
-        lib: '',
-        id: '',
-        shelf: '',
-        campus: ''
-    }
-    return new Promise((resolve, reject) => {
-        if (typeof (url) === 'string') {
-            let subdomainSearch = stringContainsOneOfSubstring(url, libraryNameKeys, true);
-            if (subdomainSearch.hasOwnProperty('substr') && subdomainSearch.substr !== '') {
-                textInfo.lib = subdomainSearch.substr;
-                let libNames = libraryNameKeys.join('|');
-                let libreURLRegex = new RegExp(`(http(s)?:\/\/)?(${libNames}).libretexts.org\/`, 'i');
-                let path = url.replace(libreURLRegex, '');
-                resolve(axios.put('https://api.libretexts.org/endpoint/info', {
-                    subdomain: subdomainSearch.substr,
-                    path: path,
-                    dreamformat: 'json'
-                }, { headers: { 'Origin': getProductionURL() } }));
-            }
-        }
-        reject();
-    }).then((axiosRes) => {
-        if (axiosRes.data) {
-            let apiData = axiosRes.data;
-            if (apiData.hasOwnProperty('@id') && typeof (apiData['@id']) === 'string') {
-                textInfo.id = apiData['@id'];
-            }
-            if (apiData.hasOwnProperty('path') && typeof (apiData.path) === 'object') {
-                if (apiData.path.hasOwnProperty('#text') && typeof (apiData.path['#text'] === 'string')) {
-                    let foundPath = apiData.path['#text'];
-                    let bookshelfRegex = new RegExp('Bookshelves\/', 'i');
-                    let courseRegex = new RegExp('Courses\/', 'i');
-                    if (bookshelfRegex.test(foundPath)) {
-                        let intraShelfPath = foundPath.replace(bookshelfRegex, '');
-                        let pathComponents = intraShelfPath.split('/');
-                        if (Array.isArray(pathComponents) && pathComponents.length > 1) {
-                            let mainShelf = decodeURIComponent(pathComponents[0]).replace(/_/g, ' ');
-                            if (pathComponents.length > 2) {
-                                mainShelf += `/${decodeURIComponent(pathComponents[1]).replace(/_/g, ' ')}`;
-                            }
-                            textInfo.shelf = mainShelf;
-                        }
-                    } else if (courseRegex.test(foundPath)) {
-                        let intraShelfPath = foundPath.replace(courseRegex, '');
-                        let pathComponents = intraShelfPath.split('/');
-                        if (Array.isArray(pathComponents) && pathComponents.length > 0) {
-                            textInfo.campus = decodeURIComponent(pathComponents[0]).replace(/_/g, ' ');
-                        }
-                    }
-                }
-            }
+export async function getLibreTextInformation(url) {
+  let textInfo = {
+    lib: "",
+    id: "",
+    shelf: "",
+    campus: "",
+  };
+  try {
 
+    if (typeof url !== "string") {
+      throw new Error("Invalid URL argument");
+    }
+
+    let subdomainSearch = stringContainsOneOfSubstring(
+      url,
+      libraryNameKeys,
+      true
+    );
+
+    if (
+      !(
+        subdomainSearch.hasOwnProperty("substr") &&
+        subdomainSearch.substr !== ""
+      )
+    ) {
+      throw new Error("Subdomain search failed.");
+    }
+
+    textInfo.lib = subdomainSearch.substr;
+    let libNames = libraryNameKeys.join("|");
+    let libreURLRegex = new RegExp(
+      `(http(s)?:\/\/)?(${libNames}).libretexts.org\/`,
+      "i"
+    );
+    let path = url.replace(libreURLRegex, "");
+
+    let apiRes = await axios.put(
+      "https://api.libretexts.org/endpoint/info",
+      {
+        subdomain: subdomainSearch.substr,
+        path: path,
+        dreamformat: "json",
+      },
+      { headers: { Origin: getProductionURL() } }
+    );
+
+    if (!apiRes.data) {
+      throw new Error("Server returned null or invalid data.");
+    }
+
+    let apiData = apiRes.data;
+    if (apiData.hasOwnProperty("@id") && typeof apiData["@id"] === "string") {
+      textInfo.id = apiData["@id"];
+    }
+    if (apiData.hasOwnProperty("path") && typeof apiData.path === "object") {
+      if (
+        apiData.path.hasOwnProperty("#text") &&
+        typeof (apiData.path["#text"] === "string")
+      ) {
+        let foundPath = apiData.path["#text"];
+        let bookshelfRegex = new RegExp("Bookshelves/", "i");
+        let courseRegex = new RegExp("Courses/", "i");
+        if (bookshelfRegex.test(foundPath)) {
+          let intraShelfPath = foundPath.replace(bookshelfRegex, "");
+          let pathComponents = intraShelfPath.split("/");
+          if (Array.isArray(pathComponents) && pathComponents.length > 1) {
+            let mainShelf = decodeURIComponent(pathComponents[0]).replace(
+              /_/g,
+              " "
+            );
+            if (pathComponents.length > 2) {
+              mainShelf += `/${decodeURIComponent(pathComponents[1]).replace(
+                /_/g,
+                " "
+              )}`;
+            }
+            textInfo.shelf = mainShelf;
+          }
+        } else if (courseRegex.test(foundPath)) {
+          let intraShelfPath = foundPath.replace(courseRegex, "");
+          let pathComponents = intraShelfPath.split("/");
+          if (Array.isArray(pathComponents) && pathComponents.length > 0) {
+            textInfo.campus = decodeURIComponent(pathComponents[0]).replace(
+              /_/g,
+              " "
+            );
+          }
         }
-        return textInfo;
-    }).catch((_err) => {
-        return textInfo;
-    });
-};
+      }
+    }
+    return textInfo;
+  } catch (err) {
+    debugError(err);
+    return textInfo;
+  }
+}
 
 /**
  * Takes an array of files and only returns those which requesting user
  * has access to view or modify. Inteded for internal middleware-like use.
- * 
+ *
  * @param {string} projectID - LibreTexts standard project identifier
  * @param {array} files - Array of files to be filtered
  * @param {boolean} [publicOnly=false] - Return only public files, regardless of user access level
  * @param {string} [userID=''] - UUID of the user initiating request (if provided)
  * @returns {Promise<object[]|null>} Filtered project files, or null if error occured
  */
-export async function filterFilesByAccess(projectID, files, publicOnly=false, userID='') {
-  let authorizedLevels = ['public', 'mixed'] // Base Levels
-  if(!publicOnly){
-      if(userID){
-        let user = await User.findOne({uuid: userID})
-        if(user){
-          authorizedLevels.push('users');
-          if(projectsAPI.checkProjectMemberPermission(projectID, user)){
-            authorizedLevels.push('team');
-          }
-          if(usersAPI.checkVerifiedInstructorStatus(userID)) {
-            authorizedLevels.push('instructors');
-          }
+export async function filterFilesByAccess(
+  projectID,
+  files,
+  publicOnly = false,
+  userID = ""
+) {
+  let authorizedLevels = ["public", "mixed"]; // Base Levels
+  if (!publicOnly) {
+    if (userID) {
+      let user = await User.findOne({ uuid: userID });
+      if (user) {
+        authorizedLevels.push("users");
+        if (projectsAPI.checkProjectMemberPermission(projectID, user)) {
+          authorizedLevels.push("team");
+        }
+        if (usersAPI.checkVerifiedInstructorStatus(userID)) {
+          authorizedLevels.push("instructors");
         }
       }
-      return files.filter((file) => authorizedLevels.includes(file.access))
     }
-   return files.filter((file) => authorizedLevels.includes(file.access))
+    return files.filter((file) => authorizedLevels.includes(file.access));
+  }
+  return files.filter((file) => authorizedLevels.includes(file.access));
 }
 
 /**
@@ -200,64 +264,76 @@ export async function filterFilesByAccess(projectID, files, publicOnly=false, us
  * @param {string} [userID=''] - Uuid of user initiating request (if provided)
  * @returns {Promise<object[]|null>} All Project Files listings, or null if error encountered.
  */
-export async function retrieveAllProjectFiles(projectID, publicOnly = false, userID = '') {
+export async function retrieveAllProjectFiles(
+  projectID,
+  publicOnly = false,
+  userID = ""
+) {
   try {
     const projectResults = await Project.aggregate([
       {
         $match: { projectID },
-      }, {
+      },
+      {
         $unwind: {
-          path: '$files',
+          path: "$files",
           preserveNullAndEmptyArrays: true,
         },
-      }, {
+      },
+      {
         $addFields: {
           files: {
-            createdDate: { $dateToString: { date: '$files._id' } },
+            createdDate: { $dateToString: { date: "$files._id" } },
           },
         },
-      }, {
+      },
+      {
         $lookup: {
-          from: 'users',
+          from: "users",
           let: { createdBy: "$files.createdBy" },
           pipeline: [
             {
               $match: {
-                $expr: { $eq: ['$uuid', '$$createdBy' ] },
-              }
-            }, {
+                $expr: { $eq: ["$uuid", "$$createdBy"] },
+              },
+            },
+            {
               $project: {
                 _id: 0,
                 uuid: 1,
                 firstName: 1,
                 lastName: 1,
-              }
-            }
+              },
+            },
           ],
-          as: 'files.uploader',
+          as: "files.uploader",
         },
-      }, {
+      },
+      {
         $addFields: {
-          'files.uploader': {
-            $arrayElemAt: ['$files.uploader', 0],
+          "files.uploader": {
+            $arrayElemAt: ["$files.uploader", 0],
           },
         },
-      }, {
+      },
+      {
         $group: {
-          _id: '$_id',
-          files: { $push: '$files' },
+          _id: "$_id",
+          files: { $push: "$files" },
         },
       },
     ]);
     if (projectResults.length < 1) {
-      throw (new Error('Project not found.'));
+      throw new Error("Project not found.");
     }
     const project = projectResults[0];
     if (!Array.isArray(project.files)) {
       return [];
     }
 
-    const sorted = (await filterFilesByAccess(projectID, project.files, publicOnly, userID)).sort((a, b) => {
+    const sorted = (
+      await filterFilesByAccess(projectID, project.files, publicOnly, userID)
+    ).sort((a, b) => {
       if (a.name < b.name) {
         return -1;
       }
@@ -284,26 +360,38 @@ export async function retrieveAllProjectFiles(projectID, publicOnly = false, use
  * @returns {Promise<[object[], object[]]|[null, null]>} A 2-tuple containing the list of files and the path
  * leading to the results, or nulls if error encountered.
  */
-export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=false, userID='', details = false) {
+export async function retrieveProjectFiles(
+  projectID,
+  filesKey = "",
+  publicOnly = false,
+  userID = "",
+  details = false
+) {
   try {
-    let path = [{
-      fileID: '',
-      name: '',
-    }];
+    let path = [
+      {
+        fileID: "",
+        name: "",
+      },
+    ];
 
-    const allFiles = await retrieveAllProjectFiles(projectID, publicOnly, userID);
+    const allFiles = await retrieveAllProjectFiles(
+      projectID,
+      publicOnly,
+      userID
+    );
     if (!allFiles) {
-      throw (new Error('retrieveerror'));
+      throw new Error("retrieveerror");
     }
     if (allFiles.length === 0) {
       return [[], path];
     }
 
     let foundFolder;
-    if (filesKey !== '') {
+    if (filesKey !== "") {
       foundFolder = allFiles.find((obj) => obj.fileID === filesKey);
       if (!foundFolder) {
-        return [null, null]
+        return [null, null];
       }
     }
     const foundEntries = allFiles.filter((obj) => obj.parent === filesKey);
@@ -313,8 +401,10 @@ export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=
         fileID: obj.fileID,
         name: obj.name,
       });
-      if (obj.parent !== '') {
-        const parent = allFiles.find((pParent) => pParent.fileID === obj.parent);
+      if (obj.parent !== "") {
+        const parent = allFiles.find(
+          (pParent) => pParent.fileID === obj.parent
+        );
         if (parent) {
           pathNodes = [...buildParentPath(parent), ...pathNodes];
         }
@@ -330,12 +420,16 @@ export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=
       const currObj = obj;
       let children = [];
       if (!details) {
-        ['_id', 'createdby', 'downloadCount', 'uploader'].forEach((key) => delete currObj[key]);
+        ["_id", "createdby", "downloadCount", "uploader"].forEach(
+          (key) => delete currObj[key]
+        );
       }
-      if (obj.storageType !== 'folder') {
+      if (obj.storageType !== "folder") {
         return currObj;
       }
-      const foundChildren = allFiles.filter((childObj) => childObj.parent === currObj.fileID);
+      const foundChildren = allFiles.filter(
+        (childObj) => childObj.parent === currObj.fileID
+      );
       if (foundChildren.length > 0) {
         children = foundChildren.map((childObj) => buildChildList(childObj));
         children = sortProjectFiles(children);
@@ -343,10 +437,12 @@ export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=
       return {
         ...currObj,
         children,
-      }
+      };
     };
 
-    const sortedResults = sortProjectFiles(foundEntries.map((obj) => buildChildList(obj)));
+    const sortedResults = sortProjectFiles(
+      foundEntries.map((obj) => buildChildList(obj))
+    );
 
     return [sortedResults, path];
   } catch (e) {
@@ -365,29 +461,37 @@ export async function retrieveProjectFiles(projectID, filesKey = '', publicOnly=
  * @returns {Promise<string|null|false>} The pre-signed url or null if not found,
  *  or false if unauthorized.
  */
-export async function downloadProjectFile(projectID, fileID, publicOnly = false, userID = '') {
+export async function downloadProjectFile(
+  projectID,
+  fileID,
+  publicOnly = false,
+  userID = ""
+) {
   try {
     const files = await retrieveAllProjectFiles(projectID, publicOnly, userID);
-    if (!files) { // error encountered 
-      throw (new Error('retrieveerror'));
+    if (!files) {
+      // error encountered
+      throw new Error("retrieveerror");
     }
 
-    const foundFile = files.find((obj) => (
-      obj.fileID === fileID && obj.storageType === 'file'
-    ));
+    const foundFile = files.find(
+      (obj) => obj.fileID === fileID && obj.storageType === "file"
+    );
     if (!foundFile) {
       return null;
     }
 
     const fileURL = assembleUrl([
-      'https://',
+      "https://",
       process.env.AWS_PROJECTFILES_DOMAIN,
       projectID,
       foundFile.fileID,
     ]);
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
-    const privKey = base64.decode(process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY);
+    const privKey = base64.decode(
+      process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
+    );
 
     const signedURL = getSignedUrl({
       url: fileURL,
@@ -398,7 +502,7 @@ export async function downloadProjectFile(projectID, fileID, publicOnly = false,
 
     /* Update download count */
     let downloadCount = 1;
-    if (typeof (foundFile.downloadCount) === 'number') {
+    if (typeof foundFile.downloadCount === "number") {
       downloadCount = foundFile.downloadCount + 1;
     }
     const updated = files.map((obj) => {
@@ -412,7 +516,9 @@ export async function downloadProjectFile(projectID, fileID, publicOnly = false,
     });
     const projectUpdate = await updateProjectFiles(projectID, updated);
     if (!projectUpdate) {
-      debugError(`Error occurred updating ${projectID}/${fileID} download count.`);
+      debugError(
+        `Error occurred updating ${projectID}/${fileID} download count.`
+      );
     }
 
     return signedURL;
@@ -434,20 +540,20 @@ export function computeStructureAccessSettings(files) {
 
   const computeFolderAccess = (folder) => {
     const uniqueSettings = new Set();
-    uniqueSettings.add(folder.access)
+    uniqueSettings.add(folder.access);
     const children = files.filter((obj) => obj.parent === folder.fileID);
     children.forEach((child) => {
-      if (child.storageType === 'file') {
+      if (child.storageType === "file") {
         uniqueSettings.add(child.access);
       }
-      if (child.storageType === 'folder') {
+      if (child.storageType === "folder") {
         uniqueSettings.add(computeFolderAccess(child));
       }
     });
     const foundSettings = Array.from(uniqueSettings);
     let newSetting = null;
     if (foundSettings.length > 1) {
-      newSetting = 'mixed';
+      newSetting = "mixed";
     }
     if (foundSettings.length === 1) {
       newSetting = foundSettings[0];
@@ -462,7 +568,9 @@ export function computeStructureAccessSettings(files) {
     return folder.access;
   };
 
-  const topLevel = files.filter((obj) => obj.storageType === 'folder' && obj.parent === '');
+  const topLevel = files.filter(
+    (obj) => obj.storageType === "folder" && obj.parent === ""
+  );
   topLevel.forEach((obj) => computeFolderAccess(obj));
 
   return files.map((obj) => {
@@ -483,10 +591,7 @@ export function computeStructureAccessSettings(files) {
  */
 export async function updateProjectFiles(projectID, updatedFiles) {
   try {
-    await Project.updateOne(
-      { projectID },
-      { files: updatedFiles },
-    );
+    await Project.updateOne({ projectID }, { files: updatedFiles });
     return true;
   } catch (e) {
     debugError(e);
@@ -506,4 +611,33 @@ export function sortProjectFiles(arr) {
   }
   const collator = new Intl.Collator();
   return arr.sort((a, b) => collator.compare(a.name, b.name));
+}
+
+/**
+ * Checks if any project exists with the given book associated with it.
+ * If another project has the book linked, returns the projectID, otherwise false (true if error encountered)
+ * @param {string} libreLibrary
+ * @param {string} libreCoverID
+ * @returns {Promise<string | boolean>}
+ */
+export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
+  try {
+    if (!(libreLibrary && libreCoverID)) {
+      throw new Error("Invalid params passed to checkIfBookLinkedToProject");
+    }
+    const foundProjects = await Project.find({
+      $and: [{ libreLibrary }, { libreCoverID }],
+    });
+
+    if (foundProjects && foundProjects.length > 0) {
+      return foundProjects[0].projectID;
+    } else if (foundProjects && foundProjects.length === 0) {
+      return false;
+    } else {
+      return true;
+    }
+  } catch (err) {
+    debugError(err);
+    return true;
+  }
 }

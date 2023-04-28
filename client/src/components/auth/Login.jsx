@@ -19,7 +19,7 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 
 const Login = () => {
 

@@ -26,7 +26,7 @@ import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
 import axios from 'axios';
 
-import useGlobalError from '../error/ErrorHooks.js';
+import useGlobalError from '../error/ErrorHooks';
 import {
     checkCanViewProjectDetails,
     checkProjectAdminPermission,

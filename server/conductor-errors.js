@@ -74,6 +74,7 @@ const conductorErrors = {
     'err77': "Provided ADAPT Analytics Sharing Key is invalid.",
     'err78': "Course end date cannot be before start date.",
     'err79': "Oops, branding asset files must be smaller than 5 MB.",
+    'err80': "Oops, another Project already has that Book associated with it."
 };
 
 export default conductorErrors;
