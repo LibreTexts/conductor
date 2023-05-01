@@ -34,10 +34,10 @@ import useGlobalError from '../error/ErrorHooks';
 
 
 const PeerReview = ({
-    projectID,
-    rubricID,
-    isPublicView,
-    demoView,
+    projectID='',
+    rubricID='',
+    isPublicView=false,
+    demoView=false,
     open,
     onClose,
     ...props

@@ -1,4 +1,4 @@
-import { CatalogLocation } from "../types";
+import { CatalogLocation, LicenseReport } from "../types";
 
 export function isCatalogLocation(
   location: string
@@ -28,4 +28,14 @@ export function hasErrorDataErrors(obj: any): obj is { errors: any[] } {
 
 export function hasErrorStatusCode(obj: any): obj is { statusCode: number } {
   return "statusCode" in obj;
+}
+
+export function isLicenseReport(obj: any): obj is LicenseReport {
+  return (
+    "coverID" in obj &&
+    "id" in obj &&
+    "library" in obj &&
+    "timestamp" in obj &&
+    "runtime" in obj
+  );
 }
