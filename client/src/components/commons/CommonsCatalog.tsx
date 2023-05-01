@@ -168,9 +168,18 @@ const CommonsCatalog = () => {
       setLocationFilter("central");
     } else {
       //Fallback to all if both are unchecked
+      setIncludeCampus(true);
+      setIncludeCentral(true);
       setLocationFilter("all");
     }
   }, [includeCampus, includeCentral]);
+
+  /**
+   * Watch selected locations and automatically re-search
+   */
+  useEffect(() => {
+    performSearch();
+  }, [locationFilter]);
 
   /**
    * Build the new search URL and push it onto the history stack.
@@ -764,11 +773,17 @@ const CommonsCatalog = () => {
                   onClick={performSearch}
                   style={
                     org.orgID !== "libretexts" && org.primaryColor
-                      ? { backgroundColor: sanitizeCustomColor(org.primaryColor) }
+                      ? {
+                          backgroundColor: sanitizeCustomColor(
+                            org.primaryColor
+                          ),
+                        }
                       : {}
                   }
                   className={
-                    (org.orgID === "libretexts" || !org.primaryColor) ? "commons-search-button-bg" : ""
+                    org.orgID === "libretexts" || !org.primaryColor
+                      ? "commons-search-button-bg"
+                      : ""
                   }
                 >
                   Search Catalog
@@ -936,10 +951,23 @@ const CommonsCatalog = () => {
                     className="commons-filter"
                   />
                 </div>
-                <div
-                  id="commons-advancedsrch-row5"
-                  className="commons-advancedsrch-row mt-1r"
-                >
+                {!includeCampus && !includeCentral && (
+                  <div
+                    id="commons-advancedsrch-row6"
+                    className="commons-advancedsrch-row mt-1r"
+                  >
+                    <p style={{ fontStyle: "italic" }}>
+                      No bookshelves selected. All bookshelves will be included
+                      by default.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Segment>
+            <Segment>
+              <Breakpoint name="desktop">
+                <div className="mt-05p mb-05p flex-row-div">
+                  <p className="mr-1p">Search Locations: </p>
                   <Checkbox
                     label="Central Bookshelves"
                     checked={includeCentral}
@@ -956,21 +984,6 @@ const CommonsCatalog = () => {
                     }
                   />
                 </div>
-                {!includeCampus && !includeCentral && (
-                  <div
-                    id="commons-advancedsrch-row6"
-                    className="commons-advancedsrch-row mt-1r"
-                  >
-                    <p style={{ fontStyle: "italic" }}>
-                      No bookshelves selected. All bookshelves will be included
-                      by default.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </Segment>
-            <Segment>
-              <Breakpoint name="desktop">
                 <div className="commons-content-pagemenu">
                   <div className="commons-content-pagemenu-left">
                     <span>Displaying </span>
@@ -1033,6 +1046,24 @@ const CommonsCatalog = () => {
                   <Grid.Row columns={1}>
                     <Grid.Column>
                       <div className="center-flex flex-wrap">
+                        <p className="mr-1p">Search Locations: </p>
+                        <div className="mb-2r flex-row-div px-auto">
+                          <Checkbox
+                            label="Central Bookshelves"
+                            checked={includeCentral}
+                            onChange={(e, data) =>
+                              setIncludeCentral(data.checked ?? true)
+                            }
+                          />
+                          <Checkbox
+                            className="ml-2r"
+                            label="Campus Bookshelves"
+                            checked={includeCampus}
+                            onChange={(e, data) =>
+                              setIncludeCampus(data.checked ?? true)
+                            }
+                          />
+                        </div>
                         <span>Displaying </span>
                         <Dropdown
                           className="commons-content-pagemenu-dropdown"
