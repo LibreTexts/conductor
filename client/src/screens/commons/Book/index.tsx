@@ -995,18 +995,15 @@ const CommonsBook = () => {
               )}
               {isConductorUser && book.projectID && (
                 <Button
+                  as="a"
                   icon="file alternate outline"
                   content="View Conductor Project"
                   color="blue"
                   fluid
-                  onClick={() => {
-                    window.open(
-                      `/projects/${book.projectID}`,
-                      "_blank",
-                      "_noreferrer"
-                    );
-                  }}
                   className="mt-2e"
+                  href={`/projects/${book.projectID}`}
+                  target="_blank"
+                  rel="noreferrer"
                 />
               )}
               <Button
