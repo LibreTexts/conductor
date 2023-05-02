@@ -19,7 +19,7 @@ const AnalyticsRequestAccess = () => {
    * instructor (have access).
    */
   useEffect(() => {
-    if (user.isVerifiedInstructor) {
+    if (user.verifiedInstructor) {
       history.push('/analytics');
     }
   }, [user, history]);

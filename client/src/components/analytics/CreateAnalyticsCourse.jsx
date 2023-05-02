@@ -25,7 +25,7 @@ const CreateAnalyticsCourse = ({ show, onClose }) => {
    * access to analytics features.
    */
   useEffect(() => {
-    if (!user.isVerifiedInstructor) {
+    if (!user.verifiedInstructor) {
       history.push('/analytics/requestaccess');
     }
   }, [user, history]);

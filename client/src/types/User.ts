@@ -20,7 +20,7 @@ export type User = {
     facultyURL: string;
   };
   isAuthenticated: boolean;
-  isVerifiedInstructor: boolean;
+  verifiedInstructor: boolean;
   isCampusAdmin: boolean;
   isSuperAdmin: boolean;
   createdAt?: string;
@@ -34,7 +34,7 @@ export type Account = Pick<
   | "lastName"
   | "email"
   | "roles"
-  | "isVerifiedInstructor"
+  | "verifiedInstructor"
   | "instructorProfile"
   | "createdAt"
 >;

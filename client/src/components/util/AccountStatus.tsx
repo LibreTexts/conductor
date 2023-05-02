@@ -3,8 +3,14 @@ import { User } from "../../types";
 /**
  * Displays the appropriate text based on the user's status as a verified instructor
  */
-const AccountStatus = ({ user }: { user: User }) => {
-  if (user.isVerifiedInstructor) {
+const AccountStatus = ({
+  verifiedInstructor,
+  thirdPerson,
+}: {
+  verifiedInstructor: boolean;
+  thirdPerson?: boolean;
+}) => {
+  if (verifiedInstructor) {
     return (
       <Label aria-label="User is a verified instructor" color="green">
         <Popup
@@ -17,37 +23,39 @@ const AccountStatus = ({ user }: { user: User }) => {
           position="top center"
           content={
             <p className="text-center">
-              A member of the LibreTexts team has verified your status as an
-              instructor. You won't have to reverify, even if you move
-              institutions.
-            </p>
-          }
-        />
-      </Label>
-    );
-  } else {
-    return (
-      <Label
-        as="a"
-        target="_blank"
-        href="/accountrequest"
-        aria-label="Unverified user, submit an account request (opens in new tab)"
-        className="home-unverified-label"
-      >
-        <Popup
-          trigger={<span>Unverified User</span>}
-          position="top center"
-          content={
-            <p className="text-center">
-              You haven't yet been verified as an instructor by the LibreTexts
-              team. The LibreTexts team can verify you if you submit an Account
-              Request. Your Conductor experience won't be impacted by this.
+              A member of the LibreTexts team has verified{" "}
+              {thirdPerson ? "their" : "your"} status as an instructor.{" "}
+              {thirdPerson ? "They" : "You"} won't have to reverify, even if{" "}
+              {thirdPerson ? "they" : "you"} move institutions.
             </p>
           }
         />
       </Label>
     );
   }
+  return (
+    <Label
+      as="a"
+      target="_blank"
+      href="/accountrequest"
+      aria-label="Unverified user, submit an account request (opens in new tab)"
+      className="home-unverified-label"
+    >
+      <Popup
+        trigger={<span>Unverified User</span>}
+        position="top center"
+        content={
+          <p className="text-center">
+            {thirdPerson ? "They" : "You"} haven't yet been verified as an
+            instructor by the LibreTexts team. The LibreTexts team can verify{" "}
+            {thirdPerson ? "them" : "you"} if {thirdPerson ? "they" : "you"}{" "}
+            submit an Account Request. The Conductor experience won't be
+            impacted by this.
+          </p>
+        }
+      />
+    </Label>
+  );
 };
 
 export default AccountStatus;

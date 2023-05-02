@@ -55,7 +55,7 @@ const InstructorProfile = ({
    * Set state based on passed props.
    */
   useEffect(() => {
-    if (account.isVerifiedInstructor) {
+    if (account.verifiedInstructor) {
       setVerifiedStatus(true);
     }
   }, [account, setVerifiedStatus]);
@@ -179,7 +179,7 @@ const InstructorProfile = ({
               </span>
             </div>
             <div className="right-flex">
-              <AccountStatus user={user} />
+              <AccountStatus verifiedInstructor={user.verifiedInstructor} />
             </div>
           </div>
           <Card.Description className="mt-1e">
