@@ -22,6 +22,15 @@ import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
 import { AccountRequest, AccountRequestPurpose } from "./AccountRequest";
 import { CatalogLocation } from "./Catalog";
+import { PeerReview } from "./PeerReview";
+import { PeerReviewRubric } from "./PeerReviewRubric";
+import { BaseDocument } from "./BaseDocument";
+import {
+  LicenseReport,
+  License,
+  LicenseReportMeta,
+  LicenseReportText,
+} from "./LicenseReport";
 
 export type {
   Organization,
@@ -45,6 +54,13 @@ export type {
   AdaptAssignment,
   AccountRequest,
   CatalogLocation,
+  PeerReview,
+  PeerReviewRubric,
+  BaseDocument,
+  LicenseReport,
+  License,
+  LicenseReportMeta,
+  LicenseReportText,
 };
 
 export {

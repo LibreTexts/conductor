@@ -3,9 +3,9 @@ import { a11ySectionReviewSchema } from "./a11y";
 
 export type ProjectFile = {
   fileID: string;
-  name: String;
+  name: string;
   access: ["public", "users", "instructors", "team", "mixed"];
-  storageType: ["file", "folder"];
+  storageType: "file" | "folder";
   size: number;
   description: string;
   parent: string;

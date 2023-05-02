@@ -28,7 +28,7 @@ import StarRating from './StarRating.jsx';
 import useGlobalError from '../error/ErrorHooks';
 
 const PeerReviewView = ({
-    peerReviewID,
+    peerReviewID='',
     peerReviewData,
     open,
     onClose,
