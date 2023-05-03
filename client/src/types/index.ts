@@ -21,6 +21,7 @@ import {
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
 import { CatalogLocation } from "./Catalog";
+import { CommonsMetrics } from "./CommonsMetrics";
 
 export type {
   Organization,
@@ -42,7 +43,8 @@ export type {
   AuthorizedApp,
   Homework,
   AdaptAssignment,
-  CatalogLocation
+  CatalogLocation,
+  CommonsMetrics,
 };
 
 export {

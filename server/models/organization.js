@@ -69,6 +69,10 @@ const OrganizationSchema = new mongoose.Schema({
    */
   commonsMessage: String,
   /**
+   * Determines if Commons Metrics header (ie book count, project count, etc) should be shown
+   */
+  showCommonsMetrics: Boolean,
+  /**
    * Custom label for collections to display on Campus Commomns (ie Departments, Colleges, etc.)
    */
   collectionsDisplayLabel: String,

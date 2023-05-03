@@ -50,6 +50,7 @@ import {
 } from "../../types";
 import { isCatalogLocation } from "../../utils/typeHelpers";
 import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
+import CommonsMetrics from "./CommonsMetrics";
 
 const CommonsCatalog = () => {
   const { handleGlobalError } = useGlobalError();
@@ -739,6 +740,9 @@ const CommonsCatalog = () => {
                 </Breakpoint>
               </Segment>
             )}
+            {(org.orgID === "libretexts" || org.showCommonsMetrics) && (
+              <CommonsMetrics />
+            )}
             <Segment>
               <div id="commons-searchbar-container">
                 <Form onSubmit={performSearch}>
@@ -764,11 +768,17 @@ const CommonsCatalog = () => {
                   onClick={performSearch}
                   style={
                     org.orgID !== "libretexts" && org.primaryColor
-                      ? { backgroundColor: sanitizeCustomColor(org.primaryColor) }
+                      ? {
+                          backgroundColor: sanitizeCustomColor(
+                            org.primaryColor
+                          ),
+                        }
                       : {}
                   }
                   className={
-                    (org.orgID === "libretexts" || !org.primaryColor) ? "commons-search-button-bg" : ""
+                    org.orgID === "libretexts" || !org.primaryColor
+                      ? "commons-search-button-bg"
+                      : ""
                   }
                 >
                   Search Catalog

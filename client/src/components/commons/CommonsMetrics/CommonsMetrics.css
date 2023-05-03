@@ -1,0 +1,30 @@
+.commons-metrics-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    align-items: center;
+    backdrop-filter: blur(10px);
+}
+
+.commons-metrics-data-wrapper {
+    display: flex;
+    flex-direction: column;
+    color: black;
+    text-align: center;
+    margin-left: 2rem;
+    margin-right: 2rem;
+}
+
+.commons-metrics-data-title {
+    margin-top: 1rem;
+    font-size: clamp(1.5em, 2.5vw, 3em);
+    font-weight: 700
+}
+
+.commons-metrics-data-subtitle {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: clamp(0.75em, 0.75vw, 3em);
+    font-size: 1.25rem;
+    font-weight: 500;
+}

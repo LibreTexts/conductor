@@ -29,6 +29,7 @@ import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
 import CIDDescriptorsAPI from './api/ciddescriptors.js';
 import analyticsAPI from './api/analytics.js';
+import metricsAPI from './api/metrics.js'
 
 let router = express.Router();
 
@@ -1266,6 +1267,10 @@ router.route('/c-ids').get(
 router.route('/c-ids/sync/automated').put(
   middleware.checkLibreAPIKey,
   CIDDescriptorsAPI.runAutomatedSyncCIDDescriptors,
+);
+
+router.route('/metrics').get(
+  metricsAPI.getConductorMetrics
 );
 
 export default router;

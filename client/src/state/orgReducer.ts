@@ -18,6 +18,7 @@ const orgInitialState = <Organization>{
     aboutLink: '',
     commonsHeader: '',
     commonsMessage: '',
+    showCommonsMetrics: false,
     collectionsDisplayLabel: 'Collections',
     primaryColor: '',
     footerColor: ''

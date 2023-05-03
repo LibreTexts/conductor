@@ -220,6 +220,7 @@ async function updateOrganizationInfo(req, res) {
     addToUpdateIfPresent('aboutLink');
     addToUpdateIfPresent('commonsHeader');
     addToUpdateIfPresent('commonsMessage');
+    addToUpdateIfPresent('showCommonsMetrics');
     addToUpdateIfPresent('collectionsDisplayLabel');
     addToUpdateIfPresent('collectionsMessage');
     addToUpdateIfPresent('catalogMatchingTags');
@@ -383,6 +384,7 @@ function validate(method) {
         body('aboutLink', conductorErrors.err1).optional({ checkFalsy: true }).isURL(),
         body('commonsHeader', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 200 }),
         body('commonsMessage', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ max: 500 }),
+        body('showCommonsMetrics', conductorErrors.err1).optional({checkFalsy: true}).isBoolean(),
         body('collectionsDisplayLabel', conductorErrors.err1).optional({checkFalsy: true}).isLength({ max: 200 }),
         body('collectionsMessage', conductorErrors.err1).optional({checkFalsy: true}).isLength({max: 500}),
         body('primaryColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),

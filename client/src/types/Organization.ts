@@ -12,6 +12,7 @@ export type Organization = {
   aboutLink: string;
   commonsHeader: string;
   commonsMessage: string;
+  showCommonsMetrics: boolean;
   collectionsDisplayLabel?: string;
   collectionsMessage?: string;
   primaryColor?: string;
@@ -30,6 +31,7 @@ export type CampusSettingsOpts = Pick<
   | "aboutLink"
   | "commonsHeader"
   | "commonsMessage"
+  | "showCommonsMetrics"
   | "collectionsDisplayLabel"
   | "collectionsMessage"
   | "primaryColor"
