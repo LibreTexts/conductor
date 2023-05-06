@@ -1,12 +1,6 @@
 name: Build Docker Image
 
 on:
-  workflow_call:
-    inputs:
-      version:
-        description: 'Semantic version to label the Docker image under'
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       version:
@@ -21,8 +15,6 @@ jobs:
     outputs:
       isAuthorized: ${{ steps.check-auth.outputs.is_authorized }}
     steps:
-      - name: log-caller
-        run: echo "::debug::Workflow triggered by:${{ github.triggering_actor }}"
       - name: check-auth
         id: check-auth
         run: echo "is_authorized=${{ contains(secrets.DEPLOYMENT_AUTHORIZED_USERS, github.triggering_actor) }}" >> $GITHUB_OUTPUT
@@ -42,4 +34,4 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ghcr.io/libretexts/conductor:${{ inputs.version  }}
+          tags: ghcr.io/libretexts/conductor:${{ inputs.version }}

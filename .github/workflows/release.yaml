@@ -34,9 +34,3 @@ jobs:
           GIT_AUTHOR_EMAIL: dev@libretexts.org
           GIT_COMMITTER_NAME: libretexts-bot
           GIT_COMMITTER_EMAIL: dev@libretexts.org
-  build_docker:
-    uses: ./.github/workflows/docker.yml
-    needs: release
-    if: needs.release.outputs.didRelease == 'true'
-    with:
-      version: needs.release.outputs.newVersion
