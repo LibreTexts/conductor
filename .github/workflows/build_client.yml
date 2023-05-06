@@ -1,0 +1,21 @@
+name: Build Client
+
+on: pull_request
+
+jobs:
+  build_client:
+    name: build_client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./client
+      - name: Run build
+        run: npm run build
+        working-directory: ./client
