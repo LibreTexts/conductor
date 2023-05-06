@@ -13,12 +13,12 @@ RUN npm ci && npm run build
 WORKDIR /usr/src/conductor/server
 RUN npm ci
 
-# Install TypeScript runtime
-RUN npm install -g ts-node
+# Build server
+RUN npm run build
 
 EXPOSE 5000
 
 HEALTHCHECK --timeout=5s --start-period=30s \
   CMD wget -nv -t1 --spider http://localhost:5000/health || exit 1
 
-ENTRYPOINT [ "ts-node", "--esm", "server.ts" ]
+ENTRYPOINT [ "node", "dist/server.js" ]

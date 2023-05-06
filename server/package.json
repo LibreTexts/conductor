@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "ts-node --esm server.ts",
-    "dev": "nodemon"
+    "start:prod": "node dist/server.js",
+    "dev": "nodemon",
+    "build": "tsc --build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.54.1",

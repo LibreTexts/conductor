@@ -85,10 +85,11 @@ app.use("/health", (_req, res) =>
   res.send({ healthy: true, msg: "Server appears healthy." })
 );
 
-app.use(express.static(path.join(__dirname, "../client/dist")));
+// Serve frontend assets. Use directories relative to server/dist
+app.use(express.static(path.join(__dirname, "../../client/dist")));
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
-  res.sendFile(path.resolve("../client/dist/index.html"));
+  res.sendFile(path.resolve("../../client/dist/index.html"));
 });
 app.use("/", cliRouter);
 
