@@ -42,7 +42,7 @@ import {
 } from '../util/bookutils.js';
 import { retrieveProjectFiles, downloadProjectFile } from '../util/projectutils.js';
 import { buildPeerReviewAggregation } from '../util/peerreviewutils.js';
-import { libraryNameKeys } from '../util/librariesmap.js';
+import { libraryNameKeys, unsupportedSyncLibraryNameKeys } from '../util/librariesmap.js';
 import { getBrowserKeyForLib } from '../util/mtkeys.js';
 import projectsAPI from './projects.js';
 import alertsAPI from './alerts.js';
@@ -209,11 +209,20 @@ const autoGenerateCollections = () => {
       const currBook = allBooksFound[i];
       const collIdx = collections.findIndex((coll) => coll.program === currBook.program);
       if (collIdx > -1) {
+        const resourcesById = collections[collIdx].resources?.map((item) => {
+          if (item.resourceType === 'resource') {
+            return item.resourceID;
+          }
+          return null;
+        }).filter((i) => !!i) || [];
         if (!Array.isArray(collections[collIdx].newListings)) {
           collections[collIdx].newListings = [];
         }
-        if (!collections[collIdx].resources?.includes(currBook.bookID)) {
-          collections[collIdx].newListings.push(currBook.bookID);
+        if (!resourcesById.includes(currBook.bookID)) {
+          collections[collIdx].newListings.push({
+            resourceType: 'resource',
+            resourceID: currBook.bookID,
+          });
         }
       }
     }
@@ -236,6 +245,9 @@ const autoGenerateCollections = () => {
           }
         });
       }
+    }
+    if (collOps.length < 1) {
+      return {};
     }
     return Collection.bulkWrite(collOps, { ordered: false });
   }).then((updateRes) => {
@@ -273,7 +285,8 @@ const syncWithLibraries = (_req, res) => {
     let generatedProjects = false; // did create new projects
     let updatedCollections = false; // did update auto-managed Collections
     // Build list(s) of HTTP requests to be performed
-    libraryNameKeys.forEach((lib) => {
+    const libsToSync = libraryNameKeys.filter((key) => !unsupportedSyncLibraryNameKeys.includes(key));
+    libsToSync.forEach((lib) => {
         shelvesRequests.push(axios.get(generateBookshelvesURL(lib)));
         coursesRequests.push(axios.get(generateCoursesURL(lib)));
     });
@@ -475,6 +488,7 @@ const syncWithLibraries = (_req, res) => {
             ordered: false
         });
     }).catch((writeErr) => {
+        debugError(writeErr);
         /* Catch intermediate errors with bulkWrite, try to recover */
         if (writeErr.result?.nMatched > 0) {
             // Some imports failed (silent)

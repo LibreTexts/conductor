@@ -284,7 +284,7 @@ const processInstantProjectAlerts = (newProjectIds) => {
   let newProjects = [];
   return Promise.try(() => {
     if (Array.isArray(newProjectIds) && newProjectIds.length > 0) {
-      newProjectIds.forEach((projectId) => projectDBIds.push(mongoose.Types.ObjectId(projectId.toString())));
+      newProjectIds.forEach((projectId) => projectDBIds.push(new mongoose.Types.ObjectId(projectId.toString())));
       aggregations.push(Alert.aggregate([
         {
           $match: {
@@ -416,7 +416,7 @@ const processInstantBookAlerts = (newBookIds) => {
   let newBooks = [];
   return Promise.try(() => {
     if (Array.isArray(newBookIds) && newBookIds.length > 0) {
-      newBookIds.forEach((bookId) => bookDBIds.push(mongoose.Types.ObjectId(bookId.toString())));
+      newBookIds.forEach((bookId) => bookDBIds.push(new mongoose.Types.ObjectId(bookId.toString())));
       aggregations.push(Alert.aggregate([
         {
           $match: {
@@ -537,7 +537,7 @@ const processInstantHomeworkAlerts = (newHomeworkIds) => {
   let newHomeworks = [];
   return Promise.try(() => {
     if (Array.isArray(newHomeworkIds) && newHomeworkIds.length > 0) {
-      newHomeworkIds.forEach((homeworkId) => homeworkDBIds.push(mongoose.Types.ObjectId(homeworkId.toString())));
+      newHomeworkIds.forEach((homeworkId) => homeworkDBIds.push(new mongoose.Types.ObjectId(homeworkId.toString())));
       aggregations.push(Alert.aggregate([
         {
           $match: {
