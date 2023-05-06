@@ -1,5 +1,6 @@
 {
     "watch": ["*.*"],
     "ext": "ts,js,mjs,json",
-    "exec": "ts-node --esm server.ts"
+    "exec": "ts-node --esm server.ts",
+    "ignore": ["public/"]
   }
