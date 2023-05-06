@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface TaskInterface extends Document {
   orgID: string;
@@ -15,7 +15,7 @@ export interface TaskInterface extends Document {
   createdBy?: string;
 }
 
-const TaskSchema: Schema<TaskInterface> = new Schema(
+const TaskSchema = new Schema<TaskInterface>(
   {
     orgID: {
       // organization identifier string
@@ -66,6 +66,6 @@ const TaskSchema: Schema<TaskInterface> = new Schema(
   }
 );
 
-const Task: Model<TaskInterface> = model("Task", TaskSchema);
+const Task = model<TaskInterface>("Task", TaskSchema);
 
 export default Task;

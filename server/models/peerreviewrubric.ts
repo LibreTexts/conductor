@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface PeerReviewRubricInterface extends Document {
   orgID: string;
@@ -40,7 +40,7 @@ export interface PeerReviewRubricInterface extends Document {
   ];
 }
 
-const PeerReviewRubricSchema: Schema<PeerReviewRubricInterface> = new Schema(
+const PeerReviewRubricSchema = new Schema<PeerReviewRubricInterface>(
   {
     orgID: {
       // the organization the rubric was created in
@@ -133,7 +133,7 @@ const PeerReviewRubricSchema: Schema<PeerReviewRubricInterface> = new Schema(
   }
 );
 
-const PeerReviewRubric: Model<PeerReviewRubricInterface> = model(
+const PeerReviewRubric = model<PeerReviewRubricInterface>(
   "PeerReviewRubric",
   PeerReviewRubricSchema
 );

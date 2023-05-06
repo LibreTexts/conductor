@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export enum AnalyticsCourseStatus {
   PENDING = "pending",
@@ -33,7 +33,7 @@ export interface AnalyticsCourseInterface extends Document {
   }[];
 }
 
-const AnalyticsCourseSchema: Schema<AnalyticsCourseInterface> = new Schema(
+const AnalyticsCourseSchema = new Schema<AnalyticsCourseInterface>(
   {
     /**
      * Unique internal identifier of the course.
@@ -150,7 +150,7 @@ const AnalyticsCourseSchema: Schema<AnalyticsCourseInterface> = new Schema(
     timestamps: true,
   }
 );
-const AnalyticsCourse: Model<AnalyticsCourseInterface> = model(
+const AnalyticsCourse = model<AnalyticsCourseInterface>(
   "AnalyticsCourse",
   AnalyticsCourseSchema
 );

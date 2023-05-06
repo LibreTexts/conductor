@@ -1,12 +1,12 @@
 /**
  * Nested model used inside Collections
  */
-import { model, Model, Document, Schema } from "mongoose";
+import { model, Document, Schema } from "mongoose";
 export interface ResourceInterface extends Document {
   resourceType: "resource" | "collection";
   resourceID: string;
 }
-export const ResourceSchema: Schema<ResourceInterface> = new Schema({
+export const ResourceSchema = new Schema<ResourceInterface>({
   resourceType: {
     type: String,
     default: "resource",
@@ -18,6 +18,6 @@ export const ResourceSchema: Schema<ResourceInterface> = new Schema({
   },
 });
 
-const Resource: Model<ResourceInterface> = model("Resource", ResourceSchema);
+const Resource = model<ResourceInterface>("Resource", ResourceSchema);
 
 export default Resource;

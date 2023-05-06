@@ -7,15 +7,18 @@ COPY . .
 
 # Install client dependencies and build frontend
 WORKDIR /usr/src/conductor/client
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # Install server dependencies
 WORKDIR /usr/src/conductor/server
-RUN npm install
+RUN npm ci
+
+# Install TypeScript runtime
+RUN npm install -g ts-node
 
 EXPOSE 5000
 
-HEALTHCHECK --timeout=5s --start-period=5s \
+HEALTHCHECK --timeout=5s --start-period=30s \
   CMD wget -nv -t1 --spider http://localhost:5000/health || exit 1
 
-ENTRYPOINT [ "node", "server.js" ]
+ENTRYPOINT [ "ts-node", "--esm", "server.ts" ]

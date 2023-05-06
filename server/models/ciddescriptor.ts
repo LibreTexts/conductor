@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface CIDDescriptorInterface extends Document {
   descriptor: string;
@@ -8,7 +8,7 @@ export interface CIDDescriptorInterface extends Document {
   expires?: Date;
 }
 
-const CIDDescriptorSchema: Schema<CIDDescriptorInterface> = new Schema(
+const CIDDescriptorSchema = new Schema<CIDDescriptorInterface>(
   {
     /**
      * The C-ID descriptor.
@@ -48,7 +48,7 @@ CIDDescriptorSchema.index({
   description: "text",
 });
 
-const CIDDescriptor: Model<CIDDescriptorInterface> = model(
+const CIDDescriptor = model<CIDDescriptorInterface>(
   "CIDDescriptor",
   CIDDescriptorSchema
 );

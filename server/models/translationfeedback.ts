@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface TranslationFeedbackInterface extends Document {
   language: string;
@@ -10,8 +10,7 @@ export interface TranslationFeedbackInterface extends Document {
   }[];
 }
 
-const TranslationFeedbackSchema: Schema<TranslationFeedbackInterface> =
-  new Schema(
+const TranslationFeedbackSchema = new Schema<TranslationFeedbackInterface>(
     {
       language: {
         // the target translation lanuage
@@ -41,7 +40,7 @@ const TranslationFeedbackSchema: Schema<TranslationFeedbackInterface> =
     }
   );
 
-const TranslationFeedback: Model<TranslationFeedbackInterface> = model(
+const TranslationFeedback = model<TranslationFeedbackInterface>(
   "TranslationFeedback",
   TranslationFeedbackSchema
 );

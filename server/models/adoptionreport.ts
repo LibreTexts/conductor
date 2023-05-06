@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface AdoptionReportInterface extends Document {
   email: string;
@@ -33,7 +33,7 @@ export interface AdoptionReportInterface extends Document {
   comments?: string;
 }
 
-const AdoptionReportSchema: Schema<AdoptionReportInterface> = new Schema(
+const AdoptionReportSchema = new Schema<AdoptionReportInterface>(
   {
     email: {
       type: String,
@@ -86,7 +86,7 @@ const AdoptionReportSchema: Schema<AdoptionReportInterface> = new Schema(
   }
 );
 
-const AdoptionReport: Model<AdoptionReportInterface> = model(
+const AdoptionReport = model<AdoptionReportInterface>(
   "AdoptionReport",
   AdoptionReportSchema
 );

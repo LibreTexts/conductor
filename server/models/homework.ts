@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface HomeworkInterface extends Document {
   hwID: string;
@@ -13,7 +13,7 @@ export interface HomeworkInterface extends Document {
   adaptOpen?: boolean;
 }
 
-const HomeworkSchema: Schema<HomeworkInterface> = new Schema(
+const HomeworkSchema = new Schema<HomeworkInterface>(
   {
     hwID: {
       // base62 11-digit identifier
@@ -53,6 +53,6 @@ const HomeworkSchema: Schema<HomeworkInterface> = new Schema(
   }
 );
 
-const Homework: Model<HomeworkInterface> = model("Homework", HomeworkSchema);
+const Homework = model<HomeworkInterface>("Homework", HomeworkSchema);
 
 export default Homework;

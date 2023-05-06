@@ -1,4 +1,4 @@
-import { model, Model, Document, Schema } from "mongoose";
+import { model, Document, Schema } from "mongoose";
 
 export interface TagInterface extends Document {
   orgID?: string;
@@ -6,7 +6,7 @@ export interface TagInterface extends Document {
   title?: string;
 }
 
-const TagSchema: Schema<TagInterface> = new Schema(
+const TagSchema = new Schema<TagInterface>(
   {
     /**
      * Organization identifier string.
@@ -30,6 +30,6 @@ TagSchema.index({
   title: "text",
 });
 
-const Tag: Model<TagInterface> = model("Tag", TagSchema);
+const Tag = model<TagInterface>("Tag", TagSchema);
 
 export default Tag;

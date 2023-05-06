@@ -5,7 +5,7 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 export interface APIClientInterface extends Document {
   clientID: string;
   clientSecret: string;
@@ -21,7 +21,7 @@ export interface APIClientInterface extends Document {
   refreshTokenLifetime?: number;
 }
 
-const APIClientSchema: Schema<APIClientInterface> = new Schema({
+const APIClientSchema = new Schema<APIClientInterface>({
   /**
    * Unique internal identifier of the client.
    */
@@ -94,7 +94,7 @@ const APIClientSchema: Schema<APIClientInterface> = new Schema({
   refreshTokenLifetime: Number,
 });
 
-const APIClient: Model<APIClientInterface> = model(
+const APIClient = model<APIClientInterface>(
   "APIClient",
   APIClientSchema
 );

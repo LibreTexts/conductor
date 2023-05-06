@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export enum AlertResource {
   PROJECT = "project",
@@ -17,7 +17,7 @@ export interface AlertInterface extends Document {
   lastTriggered?: Date;
 }
 
-const AlertSchema: Schema<AlertInterface> = new Schema(
+const AlertSchema = new Schema<AlertInterface>(
   {
     orgID: {
       // the OrgID of the instance the Alert was created in
@@ -59,5 +59,5 @@ const AlertSchema: Schema<AlertInterface> = new Schema(
   }
 );
 
-const Alert: Model<AlertInterface> = model("Alert", AlertSchema);
+const Alert = model<AlertInterface>("Alert", AlertSchema);
 export default Alert;

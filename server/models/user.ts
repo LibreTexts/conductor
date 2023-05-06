@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface UserInterface extends Document {
   uuid: string;
@@ -31,7 +31,7 @@ export interface UserInterface extends Document {
   verifiedInstructor?: boolean;
 }
 
-const UserSchema: Schema<UserInterface> = new Schema(
+const UserSchema = new Schema<UserInterface>(
   {
     uuid: {
       type: String,
@@ -116,6 +116,6 @@ const UserSchema: Schema<UserInterface> = new Schema(
   }
 );
 
-const User: Model<UserInterface> = model("User", UserSchema);
+const User = model<UserInterface>("User", UserSchema);
 
 export default User;

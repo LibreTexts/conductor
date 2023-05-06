@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 import { ReaderResource } from "../types";
 
 export interface BookInterface extends Document {
@@ -28,7 +28,7 @@ export interface BookInterface extends Document {
   readerResources: ReaderResource[];
 }
 
-const BookSchema: Schema<BookInterface> = new Schema(
+const BookSchema = new Schema<BookInterface>(
   {
     /**
      * LibreTexts standard text identifier in the format 'library-coverPageID'.
@@ -163,6 +163,6 @@ BookSchema.index({
   libraryTags: "text",
 });
 
-const Book: Model<BookInterface> = model("Book", BookSchema);
+const Book = model<BookInterface>("Book", BookSchema);
 
 export default Book;

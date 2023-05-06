@@ -2,10 +2,10 @@
   "name": "@conductor/server",
   "version": "1.0.0",
   "description": "The LibreTexts Conductor platform server.",
-  "main": "server.js",
+  "main": "server.ts",
   "type": "module",
   "scripts": {
-    "start": "ts-node --esm server",
+    "start": "ts-node --esm server.ts",
     "dev": "nodemon"
   },
   "dependencies": {
@@ -39,6 +39,7 @@
     "path": "^0.12.7",
     "sharp": "^0.30.3",
     "swagger-ui-express": "^4.1.6",
+    "ts-node": "^10.9.1",
     "util": "^0.12.4",
     "uuid": "^8.3.1",
     "validator": "^13.9.0"
@@ -54,7 +55,6 @@
     "eslint": "^8.3.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.3",
-    "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },
   "eslintConfig": {

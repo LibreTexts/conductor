@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface AnnouncementInterface extends Document {
   author: string;
@@ -8,7 +8,7 @@ export interface AnnouncementInterface extends Document {
   expires?: Date;
 }
 
-const AnnouncementSchema: Schema<AnnouncementInterface> = new Schema(
+const AnnouncementSchema = new Schema<AnnouncementInterface>(
   {
     author: {
       // announcement author (UUID)
@@ -37,7 +37,7 @@ const AnnouncementSchema: Schema<AnnouncementInterface> = new Schema(
   }
 );
 
-const Announcement: Model<AnnouncementInterface> = model(
+const Announcement = model<AnnouncementInterface>(
   "Announcement",
   AnnouncementSchema
 );

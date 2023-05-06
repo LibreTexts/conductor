@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface AnalyticsInviteInterface extends Document {
   courseID: string;
@@ -10,7 +10,7 @@ export interface AnalyticsInviteInterface extends Document {
   newRole: "instructor" | "viewer";
 }
 
-const AnalyticsInviteSchema: Schema<AnalyticsInviteInterface> = new Schema(
+const AnalyticsInviteSchema = new Schema<AnalyticsInviteInterface>(
   {
     /**
      * Identifier of the course being shared.
@@ -62,7 +62,7 @@ const AnalyticsInviteSchema: Schema<AnalyticsInviteInterface> = new Schema(
   }
 );
 
-const AnalyticsInvite: Model<AnalyticsInviteInterface> = model(
+const AnalyticsInvite = model<AnalyticsInviteInterface>(
   "AnalyticsInvite",
   AnalyticsInviteSchema
 );

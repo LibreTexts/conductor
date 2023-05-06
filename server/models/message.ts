@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 export interface MessageInterface extends Document {
   messageID: string;
   thread?: string;
@@ -7,7 +7,7 @@ export interface MessageInterface extends Document {
   author: string;
 }
 
-const MessageSchema: Schema<MessageInterface> = new Schema(
+const MessageSchema = new Schema<MessageInterface>(
   {
     messageID: {
       // base62 15-digit identifier
@@ -37,6 +37,6 @@ const MessageSchema: Schema<MessageInterface> = new Schema(
   }
 );
 
-const Message: Model<MessageInterface> = model("Message", MessageSchema);
+const Message = model<MessageInterface>("Message", MessageSchema);
 
 export default Message;

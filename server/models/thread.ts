@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface ThreadInterface extends Document {
   threadID: string;
@@ -9,7 +9,7 @@ export interface ThreadInterface extends Document {
   lastNotifSent?: Date;
 }
 
-const ThreadSchema: Schema<ThreadInterface> = new Schema(
+const ThreadSchema = new Schema<ThreadInterface>(
   {
     threadID: {
       // base62 14-digit identifier
@@ -45,6 +45,6 @@ const ThreadSchema: Schema<ThreadInterface> = new Schema(
   }
 );
 
-const Thread: Model<ThreadInterface> = model("Thread", ThreadSchema);
+const Thread = model<ThreadInterface>("Thread", ThreadSchema);
 
 export default Thread;

@@ -1,4 +1,4 @@
-import { model, Model, Document, Schema } from "mongoose";
+import { model, Document, Schema } from "mongoose";
 export interface OrganizationInterface extends Document {
   orgID: string;
   name: string;
@@ -21,7 +21,7 @@ export interface OrganizationInterface extends Document {
   catalogMatchingTags?: string[];
 }
 
-const OrganizationSchema: Schema<OrganizationInterface> = new Schema(
+const OrganizationSchema = new Schema<OrganizationInterface>(
   {
     /**
      * Internal identifier of the Organization.
@@ -115,7 +115,7 @@ const OrganizationSchema: Schema<OrganizationInterface> = new Schema(
   }
 );
 
-const Organization: Model<OrganizationInterface> = model(
+const Organization = model<OrganizationInterface>(
   "Organization",
   OrganizationSchema
 );

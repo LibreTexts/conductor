@@ -1,5 +1,5 @@
-import { model, Model, Schema, Document } from "mongoose";
-import Resource, { ResourceInterface, ResourceSchema } from "../models/resource.js";
+import { model, Schema, Document } from "mongoose";
+import Resource, { ResourceInterface } from "../models/resource.js";
 
 export interface CollectionInterface extends Document {
   orgID: string;
@@ -14,7 +14,7 @@ export interface CollectionInterface extends Document {
   parentID: string;
 }
 
-const CollectionSchema: Schema<CollectionInterface> = new Schema(
+const CollectionSchema = new Schema<CollectionInterface>(
   {
     orgID: {
       // the organization's internal identifier string
@@ -68,7 +68,7 @@ const CollectionSchema: Schema<CollectionInterface> = new Schema(
   }
 );
 
-const Collection: Model<CollectionInterface> = model(
+const Collection = model<CollectionInterface>(
   "Collection",
   CollectionSchema
 );

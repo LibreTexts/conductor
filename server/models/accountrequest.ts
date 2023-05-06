@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export enum AccountRequestStatus {
   OPEN = "open",
@@ -19,7 +19,7 @@ export interface AccountRequestInterface extends Document {
   moreInfo: boolean;
 }
 
-const AccountRequestSchema: Schema<AccountRequestInterface> = new Schema(
+const AccountRequestSchema = new Schema<AccountRequestInterface>(
   {
     /**
      * Current status of the request.
@@ -57,7 +57,7 @@ const AccountRequestSchema: Schema<AccountRequestInterface> = new Schema(
   }
 );
 
-const AccountRequest: Model<AccountRequestInterface> = model(
+const AccountRequest = model<AccountRequestInterface>(
   "AccountRequest",
   AccountRequestSchema
 );

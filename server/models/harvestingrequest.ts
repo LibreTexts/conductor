@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface HarvestingRequestInterface extends Document {
   email: string;
@@ -17,7 +17,7 @@ export interface HarvestingRequestInterface extends Document {
   declineReason?: string;
 }
 
-const HarvestingRequestSchema: Schema<HarvestingRequestInterface> = new Schema(
+const HarvestingRequestSchema = new Schema<HarvestingRequestInterface>(
   {
     email: {
       type: String,
@@ -55,7 +55,7 @@ const HarvestingRequestSchema: Schema<HarvestingRequestInterface> = new Schema(
   }
 );
 
-const HarvestingRequest: Model<HarvestingRequestInterface> = model(
+const HarvestingRequest = model<HarvestingRequestInterface>(
   "HarvestingRequest",
   HarvestingRequestSchema
 );

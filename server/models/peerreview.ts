@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 import { peerReviewAuthorTypes } from "../util/peerreviewutils.js";
 
 export interface PeerReviewInterface extends Document {
@@ -36,7 +36,7 @@ export interface PeerReviewInterface extends Document {
   }[];
 }
 
-const PeerReviewSchema: Schema<PeerReviewInterface> = new Schema(
+const PeerReviewSchema = new Schema<PeerReviewInterface>(
   {
     projectID: {
       // the Project the Peer Review submission is for
@@ -163,7 +163,7 @@ const PeerReviewSchema: Schema<PeerReviewInterface> = new Schema(
   }
 );
 
-const PeerReview: Model<PeerReviewInterface> = model(
+const PeerReview = model<PeerReviewInterface>(
   "PeerReview",
   PeerReviewSchema
 );

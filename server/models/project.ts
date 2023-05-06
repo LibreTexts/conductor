@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 import {
   projectClassifications,
   PROJECT_FILES_ACCESS_SETTINGS,
@@ -17,7 +17,7 @@ export interface FilesInterface extends Document {
   downloadCount?: number;
 }
 
-const FilesSchema: Schema<FilesInterface> = new Schema();
+const FilesSchema = new Schema<FilesInterface>();
 FilesSchema.add({
   /**
    * Unique identifier of the file entry.
@@ -123,7 +123,7 @@ export interface ProjectInterface extends Document {
   files?: (typeof FilesSchema)[];
 }
 
-const ProjectSchema: Schema<ProjectInterface> = new Schema(
+const ProjectSchema = new Schema<ProjectInterface>(
   {
     /**
      * Organization identifier string.
@@ -321,6 +321,6 @@ const ProjectSchema: Schema<ProjectInterface> = new Schema(
   }
 );
 
-const Project: Model<ProjectInterface> = model("Project", ProjectSchema);
+const Project = model<ProjectInterface>("Project", ProjectSchema);
 
 export default Project;

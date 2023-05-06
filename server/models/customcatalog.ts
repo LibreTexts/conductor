@@ -1,11 +1,11 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export interface CustomCatalogInterface extends Document {
   orgID: string;
   resources: string[];
 }
 
-const CustomCatalogSchema: Schema<CustomCatalogInterface> = new Schema(
+const CustomCatalogSchema = new Schema<CustomCatalogInterface>(
   {
     orgID: {
       // the organization's internal identifier string (one custom catalog/organization)
@@ -20,7 +20,7 @@ const CustomCatalogSchema: Schema<CustomCatalogInterface> = new Schema(
   }
 );
 
-const CustomCatalog: Model<CustomCatalogInterface> = model(
+const CustomCatalog = model<CustomCatalogInterface>(
   "CustomCatalog",
   CustomCatalogSchema
 );

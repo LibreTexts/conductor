@@ -1,4 +1,4 @@
-import { model, Model, Schema, Document } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 
 export enum AnalyticsRequestStatus {
   OPEN = "open",
@@ -12,7 +12,7 @@ export interface AnalyticsRequestInterface extends Document {
   courseID: string;
 }
 
-const AnalyticsRequestSchema: Schema<AnalyticsRequestInterface> = new Schema(
+const AnalyticsRequestSchema = new Schema<AnalyticsRequestInterface>(
   {
     /**
      * Current status of the request.
@@ -41,7 +41,7 @@ const AnalyticsRequestSchema: Schema<AnalyticsRequestInterface> = new Schema(
   }
 );
 
-const AnalyticsRequest: Model<AnalyticsRequestInterface> = model(
+const AnalyticsRequest = model<AnalyticsRequestInterface>(
   "AnalyticsRequest",
   AnalyticsRequestSchema
 );
