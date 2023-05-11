@@ -89,7 +89,7 @@ app.use("/health", (_req, res) =>
 app.use(express.static(path.join(__dirname, "../../client/dist")));
 let cliRouter = express.Router();
 cliRouter.route("*").get((_req, res) => {
-  res.sendFile(path.resolve("../../client/dist/index.html"));
+  res.sendFile(path.resolve(__dirname, "../../client/dist/index.html"));
 });
 app.use("/", cliRouter);
 
