@@ -1,4 +1,3 @@
-import React from 'react';
 import { Route, Switch } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
@@ -18,11 +17,14 @@ import BooksManager from './screens/conductor/controlpanel/BooksManager';
 import CampusSettings from './components/controlpanel/CampusSettings';
 import CollectionsManager from './components/controlpanel/Collections/CollectionsManager';
 import ControlPanel from './components/controlpanel/ControlPanel';
+import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
 import Login from './components/auth/Login';
+import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
+import ManageParticipants from './screens/conductor/controlpanel/EventsManager/ManageParticipants';
 import MyAlerts from './components/alerts/MyAlerts';
 import Navbar from './components/navigation/Navbar';
 import OrganizationsManager from './components/controlpanel/OrganizationsManager';
@@ -84,6 +86,9 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
+        <PrivateRoute exact path='/controlpanel/eventsmanager' component={EventsManager} />
+        <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
+        <PrivateRoute exact path='/controlpanel/eventsmanager/edit/:eventID/participants' component={ManageParticipants} />
         <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
         <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
         <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />

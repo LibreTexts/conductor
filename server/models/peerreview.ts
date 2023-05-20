@@ -1,5 +1,15 @@
 import { model, Schema, Document } from "mongoose";
 import { peerReviewAuthorTypes } from "../util/peerreviewutils.js";
+import {
+  CustomFormHeadingType,
+  CustomFormPromptType,
+  CustomFormTextBlockType,
+} from "../types/CustomForm";
+import {
+  CustomFormHeadingSchema,
+  CustomFormPromptSchema,
+  CustomFormTextBlockSchema
+} from "../util/CustomFormSchemas.js";
 
 export interface PeerReviewInterface extends Document {
   projectID: string;
@@ -11,29 +21,9 @@ export interface PeerReviewInterface extends Document {
   anonAuthor: boolean;
   authorType: "student" | "instructor";
   rating?: number;
-  headings?: {
-    text: string;
-    order: number;
-  }[];
-  textBlocks?: {
-    text: string;
-    order: number;
-  }[];
-  responses: {
-    promptType: string;
-    promptText: string;
-    promptRequired: boolean;
-    likertResponse?: number;
-    textResponse?: string;
-    dropdownResponse?: string;
-    checkboxResponse?: boolean;
-    promptOptions?: {
-      key?: string;
-      value?: string;
-      text?: string;
-    }[];
-    order: number;
-  }[];
+  headings?: CustomFormHeadingType[];
+  textBlocks?: CustomFormTextBlockType[];
+  responses: CustomFormPromptType[];
 }
 
 const PeerReviewSchema = new Schema<PeerReviewInterface>(
@@ -81,91 +71,15 @@ const PeerReviewSchema = new Schema<PeerReviewInterface>(
       min: 0,
       max: 5,
     },
-    headings: [
-      {
-        // form sub-headings or "sections"
-        text: {
-          type: String,
-          required: true,
-        },
-        order: {
-          // the position of the heading within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
-    textBlocks: [
-      {
-        // text blocks for instructions/more details
-        text: {
-          type: String,
-          required: true,
-        },
-        order: {
-          // the position of the heading within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
-    responses: [
-      {
-        // forms prompts/question responses
-        promptType: {
-          // the prompt type, e.g.: ['3-likert', '5-likert', '7-likert', 'text', 'dropdown']
-          type: String,
-          required: true,
-        },
-        promptText: {
-          // the prompt instructions/text, in simple Markdown
-          type: String,
-          required: true,
-        },
-        promptRequired: {
-          // indicates answering the prompt was required to submit the review
-          type: Boolean,
-          default: false,
-        },
-        likertResponse: {
-          // if the prompt is a Likert scale, the response radio number (1-[3,5,7] for [3,5,7]-point scale)
-          type: Number,
-          min: 1,
-          max: 7,
-        },
-        textResponse: String,
-        dropdownResponse: String,
-        checkboxResponse: {
-          type: Boolean,
-          default: false,
-        },
-        promptOptions: [
-          {
-            // dropdown option entries, if the prompt is of promptType 'dropdown'
-            key: String,
-            value: String,
-            text: String,
-          },
-        ],
-        order: {
-          // the position of the prompt within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
+    headings: [CustomFormHeadingSchema],
+    textBlocks: [CustomFormTextBlockSchema],
+    responses: [CustomFormPromptSchema],
   },
   {
     timestamps: true,
   }
 );
 
-const PeerReview = model<PeerReviewInterface>(
-  "PeerReview",
-  PeerReviewSchema
-);
+const PeerReview = model<PeerReviewInterface>("PeerReview", PeerReviewSchema);
 
 export default PeerReview;

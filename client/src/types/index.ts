@@ -31,6 +31,14 @@ import {
   LicenseReportMeta,
   LicenseReportText,
 } from "./LicenseReport";
+import { OrgEventParticipant, OrgEvent } from "./OrgEvent";
+import {
+  CustomFormBlockType,
+  CustomFormHeading,
+  CustomFormPrompt,
+  CustomFormPromptType,
+  CustomFormTextBlock,
+} from "./CustomForm";
 
 export type {
   Organization,
@@ -61,6 +69,13 @@ export type {
   License,
   LicenseReportMeta,
   LicenseReportText,
+  OrgEventParticipant,
+  OrgEvent,
+  CustomFormBlockType,
+  CustomFormHeading,
+  CustomFormPrompt,
+  CustomFormPromptType,
+  CustomFormTextBlock,
 };
 
 export {

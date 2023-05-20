@@ -29,6 +29,7 @@ import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
 import CIDDescriptorsAPI from './api/ciddescriptors.js';
 import analyticsAPI from './api/analytics.js';
+import orgEventsAPI from './api/orgevents.js'
 
 let router = express.Router();
 
@@ -1249,6 +1250,35 @@ router.route('/project/:projectID/book/readerresources')
     projectsAPI.updateProjectBookReaderResources,
     //No DELETE ENDPOINT - Reader Resources are only PUT with the new data, even if empty
 );
+router.route('/orgevents')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.getOrgEvents // this is plural
+)
+
+router.route('/orgevents/:eventID?')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.getOrgEvent
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate('createOrgEvent'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.createOrgEvent
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate('updateOrgEvent'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.updateOrgEvent
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.cancelOrgEvent
+)
 
 router.route('/apiclients/:clientID').get(
   authAPI.verifyRequest,

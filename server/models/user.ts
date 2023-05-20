@@ -1,6 +1,6 @@
 import { model, Schema, Document } from "mongoose";
 
-export interface UserInterface extends Document {
+export type UserInterface = Document & {
   uuid: string;
   firstName: string;
   lastName: string;
@@ -30,6 +30,18 @@ export interface UserInterface extends Document {
   };
   verifiedInstructor?: boolean;
 }
+
+export type SanitizedUserInterface = Omit<
+  UserInterface,
+  | "hash"
+  | "salt"
+  | "authSub"
+  | "lastResetAttempt"
+  | "resetToken"
+  | "tokenExpiry"
+  | "customAvatar"
+  | "isSystem"
+>;
 
 const UserSchema = new Schema<UserInterface>(
   {

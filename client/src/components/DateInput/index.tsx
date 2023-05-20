@@ -5,14 +5,15 @@ import { usePopper } from "react-popper";
 import { format, parse, isValid } from "date-fns";
 import "./DateInput.css";
 import "react-day-picker/dist/style.css";
+import "../../styles/global.css"
 
-interface DateInputProps {
+export interface DateInputProps {
   value: Date | string;
   onChange: (date: Date | string) => void;
   label: string | undefined;
   inlineLabel: boolean;
-  required: boolean;
-  className: string;
+  required?: boolean;
+  className?: string;
   error: boolean;
 }
 
@@ -83,7 +84,7 @@ const DateInput = ({
       <div
         ref={popperRef}
         onClick={handleOpenDialog}
-        className={`conductor-date-input${inlineLabel ? " inline" : ""}`}
+        className={`conductor-date-input${inlineLabel ? " inline" : ""} ${className}`}
       >
         {label !== null && (
           <label
