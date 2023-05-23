@@ -5,11 +5,11 @@
  */
 
 'use strict';
-import express from 'express';
+import express, {Request, Response, NextFunction} from 'express';
 import { body, param } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import Organization from '../models/organization.js';
+import Organization, { OrganizationInterface } from '../models/organization.js';
 import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../util/helpers.js';
 import conductorErrors from '../conductor-errors.js';
 import { debugError } from '../debug.js';
@@ -25,7 +25,7 @@ const assetStorage = multer.memoryStorage();
  * @param {express.NextFunction} next - The next function run in the middleware chain.
  * @returns {function} The asset upload handler.
  */
-function assetUploadHandler(req, res, next) {
+function assetUploadHandler(req: Request, res: Response, next: NextFunction) {
   const assetUploadConfig = multer({
     storage: assetStorage,
     fileFilter: (_req, file, cb) => {
@@ -61,7 +61,7 @@ function assetUploadHandler(req, res, next) {
  * @param {string} orgID - The internal identifier.
  * @returns {Promise<object|null>} The Organization info object, or null if not found.
  */
-async function lookupOrganization(orgID) {
+async function lookupOrganization(orgID: string) {
   if (!orgID || typeof (orgID) !== 'string') {
     return null;
   }
@@ -85,7 +85,7 @@ async function lookupOrganization(orgID) {
  * @param {express.Request} req - The incoming request object.
  * @param {express.Response} res - The outgoing response object. 
  */
-async function getOrganizationInfo(req, res) {
+async function getOrganizationInfo(req: Request, res: Response) {
   const org = await lookupOrganization(req.params.orgID);
   if (!org) {
     return res.status(400).send({
@@ -105,8 +105,8 @@ async function getOrganizationInfo(req, res) {
  * @param {express.Request} req - The incoming request object.
  * @param {express.Response} res - The outgoing response object.
  */
-async function getCurrentOrganization(_req, res) {
-  const org = await lookupOrganization(process.env.ORG_ID);
+async function getCurrentOrganization(_req: Request, res: Response) {
+  const org = await lookupOrganization(process.env.ORG_ID ?? '');
   if (!org) {
     return res.send({
       err: true,
@@ -125,7 +125,7 @@ async function getCurrentOrganization(_req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object. 
  */
-async function getAllOrganizations(_req, res) {
+async function getAllOrganizations(_req: Request, res: Response) {
   try {
     const orgs = await Organization.aggregate([
       {
@@ -157,7 +157,7 @@ async function getAllOrganizations(_req, res) {
  * @param {express.Request} _req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function getLibreGridOrganizations(_req, res) {
+async function getLibreGridOrganizations(_req: Request, res: Response) {
   try {
     const orgs = await Organization.aggregate([
       {
@@ -196,14 +196,14 @@ async function getLibreGridOrganizations(_req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function updateOrganizationInfo(req, res) {
+async function updateOrganizationInfo(req: Request, res: Response) {
   try {
     const { orgID } = req.params;
 
     // Build update object
-    const updateObj = {};
+    const updateObj: Partial<OrganizationInterface> = {};
 
-    const addToUpdateIfPresent = (key) => {
+    const addToUpdateIfPresent = (key: keyof OrganizationInterface) => {
       if (Object.hasOwn(req.body, key)) {
         updateObj[key] = req.body[key];
       }
@@ -224,7 +224,7 @@ async function updateOrganizationInfo(req, res) {
     addToUpdateIfPresent('collectionsMessage');
     addToUpdateIfPresent('catalogMatchingTags');
 
-    if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel)){
+    if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
       // Reset label to 'Collections' if empty string was passed 
       updateObj.collectionsDisplayLabel = 'Collections'
     }
@@ -232,11 +232,13 @@ async function updateOrganizationInfo(req, res) {
     if (
       Object.hasOwn(req.body, 'addToLibreGridList')
       && orgID !== 'libretexts'
+      //@ts-ignore
       && Array.isArray(req.user?.roles)
     ) {
       const isCampusAdmin = authAPI.checkHasRole(
+        //@ts-ignore
         { roles: req.user.roles },
-        process.env.ORG_ID,
+        process.env.ORG_ID ?? '',
         'campusadmin',
       );
       if (isCampusAdmin) {
@@ -276,7 +278,7 @@ async function updateOrganizationInfo(req, res) {
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
-async function updateBrandingImageAsset(req, res) {
+async function updateBrandingImageAsset(req: Request, res: Response) {
   try {
     const { orgID, assetName } = req.params;
 
@@ -305,7 +307,10 @@ async function updateBrandingImageAsset(req, res) {
     }
     
     let assetVersion = 1;
+    
+    // @ts-ignore
     if (org[assetName].includes(process.env.AWS_ORGDATA_DOMAIN)) {
+      //@ts-ignore
       const assetURLSplit = org[assetName].split('?v=');
       if (Array.isArray(assetURLSplit) && assetURLSplit.length > 1) {
         const currAssetVersion = Number.parseInt(assetURLSplit[1]);
@@ -317,8 +322,8 @@ async function updateBrandingImageAsset(req, res) {
 
     const storageClient = new S3Client({
       credentials: {
-        accessKeyId: process.env.AWS_ORGDATA_ACCESS_KEY,
-        secretAccessKey: process.env.AWS_ORGDATA_SECRET_KEY,
+        accessKeyId: process.env.AWS_ORGDATA_ACCESS_KEY ?? '',
+        secretAccessKey: process.env.AWS_ORGDATA_SECRET_KEY ?? '',
       },
       region: process.env.AWS_ORGDATA_REGION,
     });
@@ -361,7 +366,7 @@ async function updateBrandingImageAsset(req, res) {
  * @param {string} assetName - The name of the asset field to update.
  * @returns {boolean} True if asset type is valid, false otherwise.
  */
-function validateBrandingAssetName(assetName) {
+function validateBrandingAssetName(assetName: string) {
   const assetFields = ['coverPhoto', 'largeLogo', 'mediumLogo', 'smallLogo'];
   return assetFields.includes(assetName);
 }
@@ -371,7 +376,7 @@ function validateBrandingAssetName(assetName) {
  *
  * @param {string} method - Method name to validate request for.
  */
-function validate(method) {
+function validate(method: string) {
   switch (method) {
     case 'getinfo':
       return [
