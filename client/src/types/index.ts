@@ -9,7 +9,7 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj } from "./Misc";
+import { GenericKeyTextValueObj, TimeZoneOption } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
@@ -31,13 +31,15 @@ import {
   LicenseReportMeta,
   LicenseReportText,
 } from "./LicenseReport";
-import { OrgEventParticipant, OrgEvent } from "./OrgEvent";
+import { OrgEventParticipant, OrgEvent, OrgEventParticipantFormResponse } from "./OrgEvent";
 import {
   CustomFormBlockType,
   CustomFormHeading,
   CustomFormPrompt,
   CustomFormPromptType,
   CustomFormTextBlock,
+  CustomFormUIType,
+  CustomFormElement,
 } from "./CustomForm";
 
 export type {
@@ -47,6 +49,7 @@ export type {
   CollectionResource,
   ControlledInputProps,
   GenericKeyTextValueObj,
+  TimeZoneOption,
   CollectionDirectoryPathObj,
   Book,
   BookLinks,
@@ -69,6 +72,7 @@ export type {
   License,
   LicenseReportMeta,
   LicenseReportText,
+  OrgEventParticipantFormResponse,
   OrgEventParticipant,
   OrgEvent,
   CustomFormBlockType,
@@ -76,6 +80,8 @@ export type {
   CustomFormPrompt,
   CustomFormPromptType,
   CustomFormTextBlock,
+  CustomFormUIType,
+  CustomFormElement,
 };
 
 export {

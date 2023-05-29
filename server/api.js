@@ -1277,7 +1277,18 @@ router.route('/orgevents/:eventID?')
 ).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
+  orgEventsAPI.validate('cancelOrgEvent'),
+  middleware.checkValidationErrors,
   orgEventsAPI.cancelOrgEvent
+)
+
+router.route('/orgevents/:eventID/register')
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate('submitRegistration'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.submitRegistration
 )
 
 router.route('/apiclients/:clientID').get(

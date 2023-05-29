@@ -1,24 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useHistory } from "react-router-dom";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import {
   Breadcrumb,
   Button,
-  Dropdown,
   Grid,
   Header,
   Icon,
-  Input,
   Pagination,
   Segment,
   Table,
 } from "semantic-ui-react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
-import { itemsPerPageOptions } from "../../../../components/util/PaginationOptions";
 import "../../../../components/controlpanel/ControlPanel.css";
-import { GenericKeyTextValueObj, OrgEvent } from "../../../../types";
-import { parseSortOption } from "../../../../utils/misc";
 import { format as formatDate, parseISO } from "date-fns";
+import { OrgEvent } from "../../../../types";
 const COLUMNS = [
   { key: "title", text: "Title" },
   { key: "regOpen", text: "Reg Open Date" },
@@ -28,13 +24,12 @@ const COLUMNS = [
 ];
 
 /**
- * The Books Manager interface allows administrators to manage the Books
- * displayed in their Campus Commons and add them to Collections.
+ * The Events Manager interface allows Campus Administrators to create events
+ * with custom registration forms for participants
  */
 const EventsManager = () => {
   // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
-  const history = useHistory();
 
   // Data
   const [orgEvents, setOrgEvents] = useState<OrgEvent[]>([]);
@@ -82,7 +77,12 @@ const EventsManager = () => {
       <Table.Row {...props}>
         <Table.Cell>
           <span>
-            <strong>{orgEvent.title}</strong>
+            <a
+              href={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}
+              target="_blank"
+            >
+              {orgEvent.title}
+            </a>
           </span>
         </Table.Cell>
         <Table.Cell>
@@ -90,7 +90,8 @@ const EventsManager = () => {
             {formatDate(
               parseISO(orgEvent.regOpenDate.toString()),
               "MM/dd/yyyy hh:mm aa"
-            )}
+            )}{" "}
+            ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
@@ -98,7 +99,8 @@ const EventsManager = () => {
             {formatDate(
               parseISO(orgEvent.regCloseDate.toString()),
               "MM/dd/yyyy hh:mm aa"
-            )}
+            )}{" "}
+            ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
@@ -106,7 +108,8 @@ const EventsManager = () => {
             {formatDate(
               parseISO(orgEvent.startDate.toString()),
               "MM/dd/yyyy hh:mm aa"
-            )}
+            )}{" "}
+            ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
@@ -114,30 +117,9 @@ const EventsManager = () => {
             {formatDate(
               parseISO(orgEvent.endDate.toString()),
               "MM/dd/yyyy hh:mm aa"
-            )}
+            )}{" "}
+            ({orgEvent.timeZone.abbrev})
           </span>
-        </Table.Cell>
-        <Table.Cell textAlign="center">
-          <Button.Group vertical fluid>
-            <Button
-              color="green"
-              as="a"
-              href={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}/participants`}
-              target="_blank"
-            >
-              <Icon name="eye" />
-              View Attendees
-            </Button>
-            <Button
-              color="blue"
-              as="a"
-              href={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}
-              target="_blank"
-            >
-              <Icon name="edit" />
-              Edit
-            </Button>
-          </Button.Group>
         </Table.Cell>
       </Table.Row>
     );
@@ -198,9 +180,6 @@ const EventsManager = () => {
                         <span>{item.text}</span>
                       </Table.HeaderCell>
                     ))}
-                    <Table.HeaderCell>
-                      <span>Actions</span>
-                    </Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>

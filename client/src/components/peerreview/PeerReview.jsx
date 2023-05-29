@@ -21,12 +21,10 @@ import DOMPurify from 'dompurify';
 import Breakpoint from '../util/Breakpoints.tsx';
 import TextArea from '../TextArea';
 import StarRating from './StarRating.jsx';
+import LikertScale from '../CustomForms/LikertScale';
 
 import {
     peerReviewAuthorTypes,
-    peerReviewThreePointLikertOptions,
-    peerReviewFivePointLikertOptions,
-    peerReviewSevenPointLikertOptions
 } from '../util/ProjectHelpers.js';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
@@ -322,55 +320,6 @@ const PeerReview = ({
     const handleCloseReview = () => {
         setShowSuccess(false);
         if (typeof (onClose) === 'function') onClose();
-    };
-
-
-    /**
-     * Renders a Likert Scale response input.
-     * @param {Object} props - Props to pass to the Likert Scale.
-     * @param {Number} props.points - The number of Likert points to render (3,5,7).
-     * @param {Number} props.promptOrder - The 'order' property of the containing prompt.
-     * @param {Number} props.pointChecked - The value of the currently checked point.
-     * @param {Function} props.onPointChange - The handler to run when the checked point is changed.
-     * @param {Boolean} props.error - If the scale is in an error state.
-     * @returns {JSX.Element} A div containing the rendered Likert Scale.
-     */
-    const LikertScale = ({ points, promptOrder, pointChecked, onPointChange, error }) => {
-        let pointOptions = [];
-        if (points === 3) {
-            pointOptions = peerReviewThreePointLikertOptions;
-        } else if (points === 5) {
-            pointOptions = peerReviewFivePointLikertOptions;
-        } else if (points === 7) {
-            pointOptions = peerReviewSevenPointLikertOptions;
-        }
-        return (
-            <div className='likert-row'>
-                {(pointOptions.map((item, idx) => {
-                    let likertIndex = idx + 1;
-                    return (
-                        <div className='likert-option' key={`prompt-${promptOrder}-container-${likertIndex}`}>
-                            <input
-                                type='radio'
-                                name={`prompt-${promptOrder}`}
-                                value={likertIndex}
-                                id={`prompt-${promptOrder}-${likertIndex}`}
-                                checked={pointChecked === likertIndex}
-                                onChange={(e) => {
-                                    if (onPointChange !== undefined) onPointChange(e.target.value);
-                                }}
-                            />
-                            <label
-                                htmlFor={`prompt-${promptOrder}-${likertIndex}`}
-                                className={`${error ? 'form-error-label' : ''}`}
-                            >
-                                {item}
-                            </label>
-                        </div>
-                    )
-                }))}
-            </div>
-        )
     };
 
 

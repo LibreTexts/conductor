@@ -24,9 +24,19 @@ export type CustomFormPrompt = {
   promptRequired: boolean;
   promptOptions?: GenericKeyTextValueObj<string>[];
   order: number;
+  value?: string | number | boolean;
 };
 
 export type CustomFormBlockType =
   | CustomFormHeading
   | CustomFormTextBlock
   | CustomFormPrompt;
+
+export type CustomFormUIType = "heading" | "textBlock" | "prompt";
+
+/**
+ * UI-Ready mapping of CustomFormBlockType
+ */
+export type CustomFormElement = CustomFormBlockType & {
+  uiType: CustomFormUIType;
+};

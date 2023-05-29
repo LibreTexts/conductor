@@ -1,49 +1,15 @@
-import { model, Schema, Document, SchemaType, Types } from "mongoose";
+import { model, Schema, Document } from "mongoose";
 import {
   CustomFormHeadingType,
   CustomFormPromptType,
   CustomFormTextBlockType,
+  TimeZoneOption,
 } from "../types";
 import {
   CustomFormHeadingSchema,
   CustomFormPromptSchema,
   CustomFormTextBlockSchema,
 } from "../util/CustomFormSchemas.js";
-import User from "./user.js";
-
-export interface OrgEventParticipantInterface extends Document {
-  user: Types.ObjectId;
-  paymentStatus: "na" | "unpaid" | "paid";
-  formResponses: { promptNum: number; responseVal?: string }[];
-}
-
-export const OrgEventParticipantSchema =
-  new Schema<OrgEventParticipantInterface>();
-OrgEventParticipantSchema.add({
-  user: {
-    type: Schema.Types.ObjectId,
-    ref: User,
-    required: true,
-  },
-  paymentStatus: {
-    type: String,
-    enum: ["na", "unpaid", "paid"],
-    required: true,
-  },
-  formResponses: [
-    {
-      promptNum: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      responseVal: {
-        type: String,
-        required: false,
-      },
-    },
-  ],
-});
 
 export interface OrgEventInterface extends Document {
   orgID: string;
@@ -55,10 +21,10 @@ export interface OrgEventInterface extends Document {
   regCloseDate: Date;
   startDate: Date;
   endDate: Date;
+  timeZone: TimeZoneOption;
   headings: CustomFormHeadingType[];
   textBlocks: CustomFormTextBlockType[];
   prompts: CustomFormPromptType[];
-  participants: (typeof OrgEventParticipantSchema)[];
   createdBy: string;
   canceled: boolean;
 }
@@ -101,10 +67,13 @@ const OrgEventSchema = new Schema<OrgEventInterface>(
       type: Date,
       required: true,
     },
+    timeZone: {
+      type: Object,
+      required: true,
+    },
     headings: [CustomFormHeadingSchema],
     textBlocks: [CustomFormTextBlockSchema],
     prompts: [CustomFormPromptSchema],
-    participants: [OrgEventParticipantSchema],
     canceled: {
       type: Boolean,
       default: false,

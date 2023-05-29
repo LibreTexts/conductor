@@ -18,6 +18,7 @@ import CampusSettings from './components/controlpanel/CampusSettings';
 import CollectionsManager from './components/controlpanel/Collections/CollectionsManager';
 import ControlPanel from './components/controlpanel/ControlPanel';
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
+import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
@@ -96,6 +97,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
         <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
         <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
+        <PrivateRoute exact path='/events/:orgID/:eventID' component={EventRegistration} />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
           <PrivateRoute exact path="/accountrequest" key="accountrequest" component={AccountRequest} unAuthSrc="accountrequest" />

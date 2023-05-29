@@ -1,4 +1,5 @@
 import { BaseDocument } from "./BaseDocument";
+import { TimeZoneOption } from "./Misc";
 import {
   CustomFormHeading,
   CustomFormTextBlock,
@@ -6,10 +7,17 @@ import {
 } from "./CustomForm";
 import { User } from "./User";
 
+export type OrgEventParticipantFormResponse = {
+  promptNum: number;
+  responseVal?: string;
+};
+
 export type OrgEventParticipant = BaseDocument & {
   user: User;
+  orgID: string;
+  eventID: string;
   paymentStatus: "na" | "unpaid" | "paid";
-  formResponses: { promptNum: number; responseVal?: string }[];
+  formResponses: OrgEventParticipantFormResponse[];
 };
 
 export type OrgEvent = BaseDocument & {
@@ -23,6 +31,7 @@ export type OrgEvent = BaseDocument & {
   regCloseDate: Date;
   startDate: Date;
   endDate: Date;
+  timeZone: TimeZoneOption;
   headings: CustomFormHeading[];
   textBlocks: CustomFormTextBlock[];
   prompts: CustomFormPrompt[];

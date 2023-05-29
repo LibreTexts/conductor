@@ -1,10 +1,10 @@
-import { Modal, Button, Icon } from "semantic-ui-react";
+import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
 
-interface DeleteBlockModalProps {
+interface DeleteBlockModalProps extends ModalProps {
   show: boolean;
   blockType: "heading" | "textBlock" | "prompt";
   onSave: () => void;
-  onClose: () => void;
+  onRequestClose: () => void;
   loading?: boolean;
 }
 
@@ -12,11 +12,12 @@ const DeleteBlockModal: React.FC<DeleteBlockModalProps> = ({
   show,
   blockType,
   onSave,
-  onClose,
+  onRequestClose,
   loading,
+  ...rest
 }) => {
   return (
-    <Modal open={show} onClose={onClose}>
+    <Modal open={show} onClose={() => onRequestClose()} {...rest}>
       <Modal.Header>Delete Block</Modal.Header>
       <Modal.Content>
         <p>
@@ -25,8 +26,8 @@ const DeleteBlockModal: React.FC<DeleteBlockModalProps> = ({
         </p>
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button loading={loading ?? false} color="red" onClick={onSave}>
+        <Button onClick={() => onRequestClose()}>Cancel</Button>
+        <Button loading={loading ?? false} color="red" onClick={() => onSave()}>
           <Icon name="trash" />
           Delete Block
         </Button>

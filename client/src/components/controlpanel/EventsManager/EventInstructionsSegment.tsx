@@ -1,7 +1,7 @@
-import { Segment, Button, Header } from "semantic-ui-react";
+import { Segment, Button, Header, SegmentProps } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 
-interface EventInstructionsSegmentProps {
+interface EventInstructionsSegmentProps extends SegmentProps {
   show: boolean;
   toggleVisibility: () => void;
 }
@@ -9,12 +9,13 @@ interface EventInstructionsSegmentProps {
 const EventInstructionsSegment: React.FC<EventInstructionsSegmentProps> = ({
   show,
   toggleVisibility,
+  ...rest
 }) => {
   const org = useTypedSelector((state) => state.org);
 
   if (!show) {
     return (
-      <Segment color="blue">
+      <Segment color="blue" {...rest}>
         <div className="hiddensection">
           <div className="header-container">
             <Header as="h3">Editing Instructions</Header>
@@ -30,7 +31,7 @@ const EventInstructionsSegment: React.FC<EventInstructionsSegmentProps> = ({
   }
 
   return (
-    <Segment raised color="blue">
+    <Segment color="blue" {...rest}>
       <div className="ui dividing header">
         <div className="hideablesection">
           <h3 className="header">Editing Instructions</h3>
@@ -118,9 +119,13 @@ const EventInstructionsSegment: React.FC<EventInstructionsSegmentProps> = ({
         </li>
       </ul>
       <p>
-        Editing a registration form <strong>will not</strong> affect previous
-        submissons: a snapshot of the registration form is taken at the time of
-        submission.
+        Events are{" "}
+        <strong>
+          only editable until the first participant has registered.
+        </strong>{" "}
+        Once participants have began registering for the event, you can only
+        cancel the event if it has been misconfigured. Individual participants
+        can be dropped from the event if necessary.
       </p>
       <p>
         <strong>

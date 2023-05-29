@@ -210,6 +210,10 @@ body {
     color: #e7bdbc;
 }
 
+.disabled-input {
+    opacity: 0.45;
+}
+
 .hiddensection {
     display: flex;
     flex-direction: row;
@@ -637,6 +641,14 @@ body {
     flex: 1;
     justify-content: flex-end;
     align-items: center;
+}
+
+.justify-evenly {
+    justify-content: space-evenly;
+}
+
+.justify-between {
+    justify-content: space-between;
 }
 
 .flex-wrap {

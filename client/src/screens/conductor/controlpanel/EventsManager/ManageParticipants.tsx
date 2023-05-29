@@ -3,26 +3,22 @@ import {
   Header,
   Segment,
   Breadcrumb,
-  Button,
-  Label,
-  Icon,
-  Divider,
   Table,
   Pagination,
+  Button,
+  Icon,
 } from "semantic-ui-react";
 import { Link, useHistory, useParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { OrgEvent, OrgEventParticipant } from "../../../../types";
+import {
+  OrgEvent,
+  OrgEventParticipant,
+  OrgEventParticipantFormResponse,
+} from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { isEmptyString } from "../../../../components/util/HelperFunctions";
 import axios from "axios";
-const COLUMNS = [
-  { key: "title", text: "Title" },
-  { key: "regOpen", text: "Reg Open Date" },
-  { key: "regClose", text: "Reg Close Date" },
-  { key: "startDate", text: "Event Start Date" },
-  { key: "endDate", text: "Event End Date" },
-];
+import { getLikertResponseText } from "../../../../components/util/LikertHelpers";
 
 const ManageParticipants = () => {
   // Global State and Error Handling
@@ -37,8 +33,14 @@ const ManageParticipants = () => {
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
+  const [pageParticipants, setPageParticipants] = useState<
+    OrgEventParticipant[]
+  >([]);
   const [loadedData, setLoadedData] = useState<boolean>(true);
+  const [tableColumns, setTableColumns] = useState<
+    { key: string; text: string }[]
+  >([]);
 
   /**
    * Set page title on initial load.
@@ -59,18 +61,63 @@ const ManageParticipants = () => {
         handleGlobalError("No Event ID provided");
       }
 
-      let res = await axios.get(`/orgevents/${orgEventID}`);
+      const res = await axios.get(`/orgevents/${orgEventID}`);
       setLoadedData(true);
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
       }
 
-      //resetForm(res.data.orgEvent);
+      setOrgEvent(res.data.orgEvent);
+      if (Array.isArray(res.data.orgEvent.participants)) {
+        setTotalItems(res.data.orgEvent.participants.length);
+      }
     } catch (err) {
       setLoadedData(true);
       handleGlobalError(err);
     }
   }, [document.location.search, routeParams, setLoadedData, handleGlobalError]);
+
+  useEffect(() => {
+    if (!orgEvent?.participants) return;
+    setTotalPages(Math.ceil(orgEvent.participants.length / itemsPerPage));
+    setPageParticipants(
+      orgEvent.participants.slice(
+        (activePage - 1) * itemsPerPage,
+        activePage * itemsPerPage
+      )
+    );
+  }, [orgEvent, itemsPerPage, activePage, setTotalPages, setPageParticipants]);
+  /**
+   * Get registration form prompts and prepare them for table UI
+   */
+  useEffect(() => {
+    if (!orgEvent || !orgEvent.prompts) return;
+    setTableColumns([
+      ...tableColumns,
+      ...orgEvent.prompts.map((p) => {
+        return {
+          key: p.promptText,
+          text: p.promptText,
+        };
+      }),
+    ]);
+  }, [orgEvent]);
+
+  function getResponseValText(prompt: OrgEventParticipantFormResponse): string {
+    const foundPrompt = orgEvent?.prompts.find(
+      (p) => p.order === prompt.promptNum
+    );
+    if (!foundPrompt) return "";
+
+    if (["3-likert", "5-likert", "7-likert"].includes(foundPrompt.promptType)) {
+      return getLikertResponseText(
+        foundPrompt.promptType,
+        parseInt(prompt.responseVal ?? "")
+      );
+    }
+
+    return prompt.responseVal ?? "";
+  }
 
   function TableRow({
     participant,
@@ -81,23 +128,24 @@ const ManageParticipants = () => {
     return (
       <Table.Row {...props}>
         <Table.Cell>
-          <span>
-            <strong>{participant.user.firstName}</strong>
-          </span>
+          <span>{participant.user.firstName}</span>
         </Table.Cell>
         <Table.Cell>
-          <span>RegDate</span>
+          <span>{participant.user.lastName}</span>
         </Table.Cell>
-        <Table.Cell>
-          <span>CloseDate</span>
+        {participant.formResponses.map((r) => {
+          return (
+            <Table.Cell key={r.promptNum}>{getResponseValText(r)}</Table.Cell>
+          );
+        })}
+        <Table.Cell textAlign="center">
+          <Button.Group vertical fluid>
+            <Button color="red">
+              <Icon name="cancel" />
+              Drop
+            </Button>
+          </Button.Group>
         </Table.Cell>
-        <Table.Cell>
-          <span>Start</span>
-        </Table.Cell>
-        <Table.Cell>
-          <span>EndDate</span>
-        </Table.Cell>
-        <Table.Cell textAlign="center">actions</Table.Cell>
       </Table.Row>
     );
   }
@@ -121,7 +169,10 @@ const ManageParticipants = () => {
                     Control Panel
                   </Breadcrumb.Section>
                   <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section as={Link} to='/controlpanel/eventsmanager'>
+                  <Breadcrumb.Section
+                    as={Link}
+                    to="/controlpanel/eventsmanager"
+                  >
                     Events Manager
                   </Breadcrumb.Section>
                   <Breadcrumb.Divider icon="right chevron" />
@@ -133,6 +184,12 @@ const ManageParticipants = () => {
             </Segment>
             <Segment loading={!loadedData}>
               <div className="flex-row-div">
+                <div className="left-flex">
+                  <span>
+                    Displaying {pageParticipants.length} of {totalItems}{" "}
+                    participants.
+                  </span>
+                </div>
                 <div className="right-flex">
                   <Pagination
                     activePage={activePage}
@@ -150,32 +207,37 @@ const ManageParticipants = () => {
               <Table striped celled fixed>
                 <Table.Header>
                   <Table.Row>
-                    {COLUMNS.map((item) => (
+                    <Table.HeaderCell key="firstName">
+                      <span>First Name</span>
+                    </Table.HeaderCell>
+                    <Table.HeaderCell key="lastName">
+                      <span>Last Name</span>
+                    </Table.HeaderCell>
+                    {tableColumns.map((item) => (
                       <Table.HeaderCell key={item.key}>
                         <span>{item.text}</span>
                       </Table.HeaderCell>
                     ))}
-                    <Table.HeaderCell>
+                    <Table.HeaderCell key="actions">
                       <span>Actions</span>
                     </Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {orgEvent?.participants &&
-                    orgEvent.participants.length > 0 &&
-                    orgEvent.participants.map((item) => (
+                  {pageParticipants &&
+                    pageParticipants.length > 0 &&
+                    pageParticipants.map((item) => (
                       <TableRow participant={item} key={item.user.uuid} />
                     ))}
-                  {orgEvent?.participants &&
-                    orgEvent.participants.length === 0 && (
-                      <Table.Row>
-                        <Table.Cell colSpan={6}>
-                          <p className="text-center">
-                            <em>No participants found.</em>
-                          </p>
-                        </Table.Cell>
-                      </Table.Row>
-                    )}
+                  {pageParticipants && pageParticipants.length === 0 && (
+                    <Table.Row>
+                      <Table.Cell colSpan={6}>
+                        <p className="text-center">
+                          <em>No participants found.</em>
+                        </p>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
                 </Table.Body>
               </Table>
               <div className="flex-row-div">

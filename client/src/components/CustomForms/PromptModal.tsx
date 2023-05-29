@@ -7,16 +7,18 @@ import {
   List,
   Popup,
   Header,
+  ModalProps,
 } from "semantic-ui-react";
 import { CustomFormPromptType, GenericKeyTextValueObj } from "../../types";
+import { customFormPromptTypes } from "./CustomFormPromptTypes";
 
-interface PromptModalProps {
+interface PromptModalProps extends ModalProps {
   show: boolean;
   mode: "add" | "edit";
   promptType: string;
   promptText: string;
   promptReq: boolean;
-  options: GenericKeyTextValueObj<string>[];
+  dropdownOptions: GenericKeyTextValueObj<string>[];
   newOptionValue: string;
   promptTypeError: boolean;
   textError: boolean;
@@ -38,7 +40,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
   promptType,
   promptText,
   promptReq,
-  options,
+  dropdownOptions,
   newOptionValue,
   promptTypeError,
   textError,
@@ -53,14 +55,15 @@ const PromptModal: React.FC<PromptModalProps> = ({
   onSave,
   onClose,
   loading,
+  ...rest
 }) => {
   return (
-    <Modal open={show} onClose={onClose}>
+    <Modal open={show} onClose={onClose} {...rest}>
       <Modal.Header>{mode === "add" ? "Add" : "Edit"} Prompt</Modal.Header>
       <Modal.Content>
         <Form noValidate>
           <Form.Select
-            options={options}
+            options={customFormPromptTypes}
             value={promptType}
             onChange={(_e, { value }) =>
               onChangePromptType(value as CustomFormPromptType)
@@ -83,7 +86,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
                 error={textError}
               />
               <Form.Group inline>
-                <label>Set Required?</label>
+                <label>Response Required?</label>
                 <Form.Radio
                   label="Yes"
                   checked={promptReq === true}
@@ -102,7 +105,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
                     <span className="muted-text">(up to 25)</span>
                   </Header>
                   <List divided>
-                    {options.map((item, idx) => {
+                    {dropdownOptions.map((item, idx) => {
                       return (
                         <List.Item key={idx}>
                           <div className="flex-row-div">
@@ -160,7 +163,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
                         </List.Item>
                       );
                     })}
-                    {options.length < 25 && (
+                    {dropdownOptions.length < 25 && (
                       <List.Item key="new">
                         <Input
                           type="text"

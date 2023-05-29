@@ -29,7 +29,7 @@ export type UserInterface = Document & {
     facultyURL?: string;
   };
   verifiedInstructor?: boolean;
-}
+};
 
 export type SanitizedUserInterface = Omit<
   UserInterface,
@@ -42,6 +42,12 @@ export type SanitizedUserInterface = Omit<
   | "customAvatar"
   | "isSystem"
 >;
+
+/**
+ * Query SELECT params to ignore sensitive data
+ */
+export const SanitizedUserSelectQuery =
+  "-hash -salt -authSub -lastResetAttempt -resetToken -tokenExpiry -customAvatar -authType -roles -isSystem";
 
 const UserSchema = new Schema<UserInterface>(
   {

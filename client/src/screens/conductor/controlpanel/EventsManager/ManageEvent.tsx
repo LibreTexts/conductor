@@ -9,7 +9,6 @@ import {
   Breadcrumb,
   Message,
   Divider,
-  Label,
   Form,
   Accordion,
 } from "semantic-ui-react";
@@ -25,11 +24,10 @@ import TextBlockModal from "../../../../components/CustomForms/TextBlockModal";
 import PromptModal from "../../../../components/CustomForms/PromptModal";
 import DeleteBlockModal from "../../../../components/CustomForms/DeleteBlockModal";
 import {
-  CustomFormBlockType,
-  CustomFormHeading,
   CustomFormPrompt,
   CustomFormPromptType,
-  CustomFormTextBlock,
+  CustomFormUIType,
+  CustomFormElement,
   GenericKeyTextValueObj,
   OrgEvent,
 } from "../../../../types";
@@ -40,6 +38,15 @@ import { useTypedSelector } from "../../../../state/hooks";
 import CtlDateInput from "../../../../components/ControlledInputs/CtlDateInput";
 import { format, parseISO } from "date-fns";
 import CancelEventModalProps from "../../../../components/controlpanel/EventsManager/CancelEventModal";
+import {
+  handleDeleteBlock,
+  handleMoveBlock,
+  parseAndSortElements,
+} from "../../../../utils/customFormHelpers";
+import EditableFormBlock from "../../../../components/CustomForms/EditableFormBlock";
+import CtlTimeInput from "../../../../components/ControlledInputs/CtlTimeInput";
+import { PTDefaultTimeZone } from "../../../../components/TimeZoneInput";
+import CtlTimeZoneInput from "../../../../components/ControlledInputs/CtlTimeZoneInput";
 
 const ManageEvent = () => {
   // Global State
@@ -62,22 +69,23 @@ const ManageEvent = () => {
       startDate: new Date(),
       endDate: new Date(),
       regFee: 0,
+      headings: [],
+      textBlocks: [],
+      prompts: [],
+      timeZone: PTDefaultTimeZone,
     },
   });
 
   // UI
   const [manageMode, setManageMode] = useState<"create" | "edit">("create");
+  const [canEdit, setCanEdit] = useState<boolean>(true);
   const [loadedOrgEvent, setLoadedOrgEvent] = useState<boolean>(false);
-  const [showInstructions, setShowInstructions] = useState<boolean>(true);
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
   const [showChangesWarning, setShowChangesWarning] = useState(false);
   const [changesSaving, setChangesSaving] = useState(false);
 
   // Data
-  const [eventID, setEventID] = useState<string>("");
-  const [orgEvent, setOrgEvent] = useState<OrgEvent>({} as OrgEvent);
-  const [allElements, setAllElements] = useState<CustomFormBlockType[]>([]);
-  const [rubricTitle, setRubricTitle] = useState("");
-  const [rubricTitleErr, setRubricTitleErr] = useState(false);
+  const [allElements, setAllElements] = useState<CustomFormElement[]>([]);
 
   // Add/Edit Heading Modal
   const [showHeadingModal, setShowHeadingModal] = useState(false);
@@ -113,88 +121,66 @@ const ManageEvent = () => {
 
   // Delete Block Modal
   const [showDBModal, setShowDBModal] = useState(false);
-  const [dbType, setDBType] = useState<"heading" | "textBlock" | "prompt">(
-    "prompt"
-  );
-  const [dbBlock, setDBBlock] = useState<CustomFormBlockType>();
+  const [dbType, setDBType] = useState<CustomFormUIType>("prompt");
+  const [dbBlock, setDBBlock] = useState<CustomFormElement>();
   const [dbLoading, setDBLoading] = useState<boolean>(false);
 
   // Cancel Event Modal
   const [showCancelEventModal, setShowCancelEventModal] =
     useState<boolean>(false);
 
-  type elementArr = CustomFormBlockType & {
-    uiType: string;
-  };
+  useEffect(() => {
+    console.log(getValues("regOpenDate"));
+  }, [watchValue("regOpenDate")]);
 
   /**
    * Processes all rubric elements for UI presentation whenever the rubric state changes.
    */
   useEffect(() => {
-    let allElem: elementArr[] = [];
-    if (Array.isArray(orgEvent.headings)) {
-      let headings = orgEvent.headings.map((item) => {
-        return {
-          ...item,
-          uiType: "heading",
-        };
-      });
-      allElem = [...allElem, ...headings];
-    }
-    if (Array.isArray(orgEvent.textBlocks)) {
-      let textBlocks = orgEvent.textBlocks.map((item) => {
-        return {
-          ...item,
-          uiType: "textBlock",
-        };
-      });
-      allElem = [...allElem, ...textBlocks];
-    }
-    if (Array.isArray(orgEvent.prompts)) {
-      let prompts = orgEvent.prompts.map((item) => {
-        return {
-          ...item,
-          uiType: "prompt",
-        };
-      });
-      allElem = [...allElem, ...prompts];
-    }
-    allElem.sort((a, b) => {
-      let aOrder = a.order;
-      let bOrder = b.order;
-      if (typeof aOrder !== "number") aOrder = 1;
-      if (typeof bOrder !== "number") bOrder = 1;
-      if (aOrder < bOrder) return -1;
-      if (aOrder > bOrder) return 1;
-      return 0;
+    let allElem = parseAndSortElements({
+      getValueFn: getValues,
+      onError: (err) => handleGlobalError(err),
     });
     setAllElements(allElem);
-  }, [orgEvent, setAllElements]);
+  }, [
+    setAllElements,
+    watchValue("prompts"),
+    watchValue("headings"),
+    watchValue("textBlocks"),
+  ]);
 
   /**
    * Retrieves the current Org Event configuration from the server.
    */
   const getOrgEvent = useCallback(async () => {
     try {
-      let orgEventID = routeParams.eventID;
-      if (!orgEventID || isEmptyString(orgEventID)) {
+      if (!routeParams.eventID || isEmptyString(routeParams.eventID)) {
         handleGlobalError("No Event ID provided");
       }
 
-      let res = await axios.get(`/orgevents/${orgEventID}`);
+      const res = await axios.get(`/orgevents/${routeParams.eventID}`);
       setLoadedOrgEvent(true);
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
       }
-
       resetForm(res.data.orgEvent);
+
+      // If participants have started registering, do not allow editing
+      if (
+        Array.isArray(res.data.orgEvent.participants) &&
+        res.data.orgEvent.participants.length > 0
+      ) {
+        setCanEdit(false);
+      }
     } catch (err) {
       setLoadedOrgEvent(true);
       handleGlobalError(err);
     }
   }, [
-    document.location.search,
-    eventID,
+    routeParams,
+    resetForm,
+    setCanEdit,
+    isEmptyString,
     setShowChangesWarning,
     setLoadedOrgEvent,
     handleGlobalError,
@@ -209,7 +195,6 @@ const ManageEvent = () => {
     if (routeParams.mode === "edit" && routeParams.eventID) {
       document.title = "LibreTexts Conductor | Events | Edit Event";
       setManageMode("edit");
-      setEventID(routeParams.eventID);
       getOrgEvent();
     } else {
       document.title = "LibreTexts Conductor | Events | Create Event";
@@ -225,9 +210,8 @@ const ManageEvent = () => {
       }
     });
   }, [
-    location.search,
+    routeParams,
     setManageMode,
-    setEventID,
     setLoadedOrgEvent,
     setShowInstructions,
     getOrgEvent,
@@ -235,15 +219,12 @@ const ManageEvent = () => {
 
   const validateForm = () => {
     let valid = true;
-    if (rubricTitle.length < 3 || rubricTitle.length > 201) {
-      valid = false;
-      setRubricTitleErr(true);
-    }
+    //TODO
     return valid;
   };
 
   /**
-   * Processes the Rubric configuration in state and saves it to the server, then exits editing mode.
+   * Processes the Event configuration in state and saves it to the server, then returns to Events Manager
    */
   const saveEventChanges = async () => {
     try {
@@ -252,6 +233,7 @@ const ManageEvent = () => {
         setChangesSaving(false);
       }
 
+      console.log(getValues());
       if (routeParams.mode === "create") {
         let createRes = await axios.post("/orgevents", getValues());
         setChangesSaving(false);
@@ -313,7 +295,9 @@ const ManageEvent = () => {
     setHMLoading(false);
     setHMError(false);
     if (mode === "edit" && order && order > 0) {
-      let editHeading = orgEvent.headings.find((item) => item.order === order);
+      let editHeading = [...getValues("headings")].find(
+        (item) => item.order === order
+      );
       if (editHeading !== undefined && typeof editHeading.text === "string") {
         setHMMode("edit");
         setHMHeading(editHeading.text);
@@ -348,7 +332,7 @@ const ManageEvent = () => {
     }
 
     setHMLoading(true);
-    let headings = orgEvent.headings;
+    let headings = [...getValues("headings")];
     if (hmMode === "edit") {
       let editHeading = headings.find((item) => item.order === hmOrder);
       let editHeadingIdx = headings.findIndex((item) => item.order === hmOrder);
@@ -360,15 +344,14 @@ const ManageEvent = () => {
         headings[editHeadingIdx] = editedHeading;
       }
     } else {
-      headings.push({
-        text: hmHeading.trim(),
-        order: getLastOrdering() + 1,
-      });
+      setValue("headings", [
+        ...getValues("headings"),
+        {
+          text: hmHeading.trim(),
+          order: getLastOrdering() + 1,
+        },
+      ]);
     }
-    setOrgEvent({
-      ...orgEvent,
-      headings: headings,
-    });
     setUnsavedChanges();
     closeHeadingModal();
   };
@@ -378,7 +361,9 @@ const ManageEvent = () => {
     setTMError(false);
 
     if (mode === "edit" && order && order > 0) {
-      let editText = orgEvent.textBlocks.find((item) => item.order === order);
+      let editText = [...getValues("textBlocks")].find(
+        (item) => item.order === order
+      );
       if (!editText) return;
       setTMMode("edit");
       setTMText(editText.text);
@@ -412,8 +397,8 @@ const ManageEvent = () => {
     }
 
     setTMLoading(true);
-    if (!Array.isArray(orgEvent.textBlocks)) return;
-    let textBlocks = [...orgEvent.textBlocks];
+    if (!Array.isArray(getValues("textBlocks"))) return;
+    let textBlocks = [...getValues("textBlocks")];
     if (tmMode === "edit") {
       let editItem = textBlocks.find((item) => item.order === tmOrder);
       let editIdx = textBlocks.findIndex((item) => item.order === tmOrder);
@@ -427,15 +412,14 @@ const ManageEvent = () => {
       }; // try to preserve other fields, such as a DB ID
       textBlocks.splice(editIdx, 1, newTextBlock);
     } else {
-      textBlocks.push({
-        text: tmText.trim(),
-        order: getLastOrdering() + 1,
-      });
+      setValue("textBlocks", [
+        ...getValues("textBlocks"),
+        {
+          text: tmText.trim(),
+          order: getLastOrdering() + 1,
+        },
+      ]);
     }
-    setOrgEvent({
-      ...orgEvent,
-      textBlocks: textBlocks,
-    });
     setUnsavedChanges();
     closeTextModal();
   };
@@ -446,7 +430,9 @@ const ManageEvent = () => {
     setPMTextError(false);
     setPMDropdownError(false);
     if (mode === "edit" && order && order > 0) {
-      let editPrompt = orgEvent.prompts.find((item) => item.order === order);
+      let editPrompt = [...getValues("prompts")].find(
+        (item) => item.order === order
+      );
       if (
         editPrompt !== undefined &&
         typeof editPrompt.promptType === "string"
@@ -527,7 +513,7 @@ const ManageEvent = () => {
     if (!validatePromptForm()) {
       setPMLoading(false);
     }
-    let prompts = [...orgEvent.prompts];
+    let prompts = [...getValues("prompts")];
     if (pmMode === "edit") {
       let editPrompt = prompts.find((item) => item.order === pmOrder);
       let editPromptIdx = prompts.findIndex((item) => item.order === pmOrder);
@@ -540,21 +526,21 @@ const ManageEvent = () => {
         }; // try to preserve other fields, such as a DB ID.
         if (pmType === "dropdown") editedPrompt.promptOptions = pmDropdownOpts;
         prompts[editPromptIdx] = editedPrompt;
+        setValue("prompts", prompts);
       }
     } else {
       let newPrompt: CustomFormPrompt = {
         promptType: pmType,
         promptText: pmText.trim(),
         promptRequired: pmRequired,
+        value: "",
         order: getLastOrdering() + 1,
       };
       if (pmType === "dropdown") newPrompt.promptOptions = pmDropdownOpts;
       prompts.push(newPrompt);
+      setValue("prompts", [...getValues("prompts"), newPrompt]);
     }
-    setOrgEvent({
-      ...orgEvent,
-      prompts: prompts,
-    });
+
     setUnsavedChanges();
     closePromptModal();
   };
@@ -616,118 +602,45 @@ const ManageEvent = () => {
   };
 
   /**
-   * Changes a block's order in state and shifts nearby blocks to maintain ordering.
-   * @param {Object} blockToMove - The block's current state.
-   * @param {String} direction - The direction to move the block in the rubric.
+   * Determines which modal to open based on the block's type.
+   * @param {number} order - The order # of the block to edit
    */
-  const handleMoveBlock = (
-    blockToMove: CustomFormBlockType,
-    direction: "up" | "down"
-  ) => {
-    if (
-      typeof blockToMove.order === "number" &&
-      ((blockToMove.order > 1 && direction === "up") ||
-        (blockToMove.order > 0 && direction === "down"))
-    ) {
-      // don't move a block already at the top
-      const moveBlocks = (arr: CustomFormBlockType[]) => {
-        return arr.map((item) => {
-          if (direction === "up") {
-            if (item.order === blockToMove.order - 1) {
-              // moving block up, block above needs to move down
-              return {
-                ...item,
-                order: item.order + 1,
-              };
-            } else if (item.order === blockToMove.order) {
-              return {
-                ...item,
-                order: item.order - 1,
-              };
-            }
-          } else if (direction === "down") {
-            if (item.order === blockToMove.order + 1) {
-              // moving block down, block below needs to move up
-              return {
-                ...item,
-                order: item.order - 1,
-              };
-            } else if (item.order === blockToMove.order) {
-              return {
-                ...item,
-                order: item.order + 1,
-              };
-            }
-          }
-          return item; // leave other blocks alone
-        });
-      };
+  const handleRequestEditBlock = (order: number) => {
+    const foundElement = allElements.find((el) => el.order === order);
+    if (!foundElement) return;
 
-      /* move the blocks */
-      let headings = moveBlocks([...orgEvent.headings]);
-      let textBlocks = moveBlocks([...orgEvent.textBlocks]);
-      let prompts = moveBlocks([...orgEvent.prompts]);
-      setOrgEvent({
-        ...orgEvent,
-        headings: headings as CustomFormHeading[],
-        textBlocks: textBlocks as CustomFormTextBlock[],
-        prompts: prompts as CustomFormPrompt[],
-      });
-      setUnsavedChanges();
+    if (foundElement.uiType === "heading") {
+      openHeadingModal("edit", order);
+    } else if (foundElement.uiType === "prompt") {
+      openPromptModal("edit", order);
+    } else if (foundElement.uiType === "textBlock") {
+      openTextModal("edit", order);
     }
   };
 
   /**
-   * Removes a block from state and shifts nearby blocks to maintain ordering.
-   */
-  const handleDeleteBlock = () => {
-    if (!dbBlock) return;
-
-    const deleteBlockAndReorder = (arr: CustomFormBlockType[]) => {
-      return arr
-        .map((item) => {
-          if (item.order === dbBlock.order) {
-            // delete block by setting null
-            return null;
-          }
-          if (item.order > dbBlock.order) {
-            // blocks below need to be moved up
-            return {
-              ...item,
-              order: item.order - 1,
-            };
-          }
-          return item;
-        })
-        .filter((item) => item !== null); // delete block by removing null
-    };
-
-    setDBLoading(true);
-    /* delete the block and reorder other blocks */
-    let headings = deleteBlockAndReorder([...orgEvent.headings]);
-    let textBlocks = deleteBlockAndReorder([...orgEvent.textBlocks]);
-    let prompts = deleteBlockAndReorder([...orgEvent.prompts]);
-    setOrgEvent({
-      ...orgEvent,
-      headings: headings as CustomFormHeading[],
-      textBlocks: textBlocks as CustomFormTextBlock[],
-      prompts: prompts as CustomFormPrompt[],
-    });
-    setUnsavedChanges();
-    closeDeleteBlockModal();
-  };
-
-  /**
    * Opens the Delete Block modal and saves the block to manipulate into state for later usage.
-   * @param {Object} block - The block object to manipulate.
+   * @param {number} order - The order # of the block to delete
    * @param {String} type - The block's type (UI-ready).
    */
-  const openDeleteBlockModal = (block: CustomFormBlockType) => {
+  const openDeleteBlockModal = (order: number) => {
     setDBLoading(false);
-    //TODO: Accurately get type of block
-    let blockType: "heading" | "prompt" | "textBlock" = "heading";
+    let foundElement = allElements.find((el) => el.order === order);
+    if (!foundElement) return;
+
+    let blockType: "heading" | "prompt" | "textBlock";
+    if (foundElement.uiType === "heading") {
+      blockType = "heading";
+    } else if (foundElement.uiType === "prompt") {
+      blockType = "prompt";
+    } else if (foundElement.uiType === "textBlock") {
+      blockType = "textBlock";
+    } else {
+      return;
+    }
+
     setDBType(blockType);
-    setDBBlock(block);
+    setDBBlock(foundElement);
     setShowDBModal(true);
   };
 
@@ -738,7 +651,7 @@ const ManageEvent = () => {
     setShowDBModal(false);
     setDBLoading(false);
     setDBType("heading");
-    setDBBlock({} as CustomFormBlockType);
+    setDBBlock(undefined);
   };
 
   /**
@@ -747,12 +660,7 @@ const ManageEvent = () => {
    */
   const getLastOrdering = () => {
     let lastOrdering = 0;
-    let allBlocks = [];
-    let headings = [...orgEvent.headings];
-    let textBlocks = [...orgEvent.textBlocks];
-    let prompts = [...orgEvent.prompts];
-    allBlocks = [...headings, ...textBlocks, ...prompts];
-    allBlocks.forEach((block) => {
+    allElements.forEach((block) => {
       if (block.order > lastOrdering) {
         lastOrdering = block.order;
       }
@@ -809,19 +717,28 @@ const ManageEvent = () => {
               </div>
             </Segment>
             <Segment loading={!loadedOrgEvent}>
+              <EventInstructionsSegment
+                show={showInstructions}
+                toggleVisibility={() => setShowInstructions(!showInstructions)}
+                className="mb-4p"
+              />
               {showChangesWarning && (
                 <Message
                   warning
                   icon="warning sign"
                   content="You have unsaved changes!"
-                  className="mt-1p mb-2p"
+                  className="mt-1p"
                 />
               )}
-              <EventInstructionsSegment
-                show={showInstructions}
-                toggleVisibility={() => setShowInstructions(!showInstructions)}
-              />
-              <Segment className="mt-4p mb-3p">
+              {!canEdit && (
+                <Message
+                  warning
+                  icon="warning sign"
+                  content="Participants have already registered for this Event. You cannot make changes at this time."
+                  className="mt-1p"
+                />
+              )}
+              <Segment className="mt-1p mb-3p">
                 <Header as="p" size="medium">
                   General Event Settings
                 </Header>
@@ -832,54 +749,109 @@ const ManageEvent = () => {
                     rules={required}
                     label="Event Title"
                     placeholder="Enter Event Title..."
+                    disabled={!canEdit}
                   />
-                  <CtlDateInput
-                    name="regOpenDate"
-                    control={control}
-                    rules={required}
-                    label="Registration Open Date"
-                    value={getValues("regOpenDate")}
-                    inlineLabel
-                    error={false}
-                    className="my-2p"
-                  />
-                  <CtlDateInput
-                    name="regCloseDate"
-                    control={control}
-                    rules={required}
-                    label="Registration Close Date"
-                    value={getValues("regCloseDate")}
-                    inlineLabel
-                    error={false}
-                    className="my-2p"
-                  />
-                  <CtlDateInput
-                    name="startDate"
-                    control={control}
-                    rules={required}
-                    label="Event Start Date"
-                    value={getValues("startDate")}
-                    inlineLabel
-                    error={false}
-                    className="my-2p"
-                  />
-                  <CtlDateInput
-                    name="endDate"
-                    control={control}
-                    rules={required}
-                    label="Event End Date"
-                    value={getValues("endDate")}
-                    inlineLabel
-                    error={false}
-                    className="my-2p"
-                  />
+                  <div className="flex-row-div left-flex">
+                    <CtlDateInput
+                      name="regOpenDate"
+                      control={control}
+                      rules={required}
+                      label="Registration Open Date"
+                      value={getValues("regOpenDate")}
+                      error={false}
+                      className="my-2p"
+                      disabled={!canEdit}
+                    />
+                    <CtlTimeInput
+                      label="Registration Open Time"
+                      value={getValues("regOpenDate")}
+                      name="regOpenDate"
+                      control={control}
+                      className="my-2p ml-2p"
+                      disabled={!canEdit}
+                    />
+                    <CtlTimeZoneInput
+                      name="timeZone"
+                      control={control}
+                      label="Time Zone (applies to all dates/times)"
+                      value={getValues("timeZone")}
+                      className="my-2p ml-2p"
+                      disabled={!canEdit}
+                      //onChange={setSelectedTimezone}
+                    />
+                  </div>
+                  <div className="flex-row-div left-flex">
+                    <CtlDateInput
+                      name="regCloseDate"
+                      control={control}
+                      rules={required}
+                      label="Registration Close Date"
+                      value={getValues("regCloseDate")}
+                      error={false}
+                      className="my-2p"
+                      disabled={!canEdit}
+                    />
+                    <CtlTimeInput
+                      label="Registration Close Time"
+                      value={getValues("regCloseDate")}
+                      name="regCloseDate"
+                      control={control}
+                      className="my-2p ml-2p"
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div className="flex-row-div left-flex">
+                    <CtlDateInput
+                      name="startDate"
+                      control={control}
+                      rules={required}
+                      label="Event Start Date"
+                      value={getValues("startDate")}
+                      error={false}
+                      className="my-2p"
+                      disabled={!canEdit}
+                    />
+                    <CtlTimeInput
+                      label="Event Start Time"
+                      value={getValues("startDate")}
+                      name="startDate"
+                      control={control}
+                      className="my-2p ml-2p"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div className="flex-row-div left-flex">
+                    <CtlDateInput
+                      name="endDate"
+                      control={control}
+                      rules={required}
+                      label="Event End Date"
+                      value={getValues("endDate")}
+                      error={false}
+                      className="my-2p"
+                      disabled={!canEdit}
+                    />
+                    <CtlTimeInput
+                      label="Event End Time"
+                      value={getValues("endDate")}
+                      name="endDate"
+                      control={control}
+                      className="my-2p ml-2p"
+                      disabled={!canEdit}
+                    />
+                  </div>
                   {org.orgID === "libretexts" && (
                     <CtlTextInput
                       name="regFee"
                       control={control}
                       rules={required}
                       label="Registration Fee"
+                      icon="dollar sign"
+                      iconPosition="left"
                       placeholder="Enter Fee.."
+                      type="number"
+                      disabled={!canEdit}
                     />
                   )}
                   {/*Danger zone options only applicable when editing */}
@@ -919,82 +891,67 @@ const ManageEvent = () => {
                   )}
                 </Form>
               </Segment>
-              <div className="peerreview-rubricedit-container">
-                <Header as="p" size="large">
-                  New Peer Review
+              <Segment className="peerreview-rubricedit-container">
+                <Header as="p" size="medium">
+                  Registration Form
                 </Header>
+
                 {allElements.map((item) => {
-                  let itemType = "prompt";
-                  let responseType = "N/A";
                   return (
-                    <Segment key={item.order}>
-                      <Label
-                        attached="top left"
-                        className="peerreview-rubricedit-label"
-                      >
-                        <Button.Group size="tiny">
-                          <Button
-                            icon="arrow up"
-                            onClick={() => handleMoveBlock(item, "up")}
-                          />
-                          <Button
-                            icon="arrow down"
-                            onClick={() => handleMoveBlock(item, "down")}
-                          />
-                        </Button.Group>
-                        <span className="ml-1r">
-                          <strong>#{item.order}:</strong> {itemType}
-                        </span>
-                      </Label>
-                      <div className="flex-row-div">
-                        <div className="left-flex">
-                          {/* TODO: Render blocks */}
-                        </div>
-                        <div className="right-flex">
-                          <Button.Group>
-                            <Button
-                              className="peerreview-rubricedit-editblockbtn"
-                              color="teal"
-                              onClick={() => {
-                                //TODO: on click handler
-                              }}
-                            >
-                              <Icon name="pencil" />
-                              Edit {itemType}
-                            </Button>
-                            <Button
-                              color="red"
-                              onClick={() => openDeleteBlockModal(item)}
-                            >
-                              <Icon name="trash" />
-                              Delete
-                            </Button>
-                          </Button.Group>
-                        </div>
-                      </div>
-                    </Segment>
+                    <EditableFormBlock
+                      item={item}
+                      key={item.order}
+                      onMove={(item, direction) =>
+                        handleMoveBlock({
+                          allElems: allElements,
+                          blockToMove: item,
+                          direction: direction,
+                          getValueFn: getValues,
+                          setValueFn: setValue,
+                          onError: (err) => handleGlobalError(err),
+                          onFinish: () => setUnsavedChanges(),
+                        })
+                      }
+                      onRequestEdit={(order) => handleRequestEditBlock(order)}
+                      onRequestDelete={(order) => openDeleteBlockModal(order)}
+                      disabled={!canEdit}
+                    />
                   );
                 })}
+
                 <div className="peerreview-rubricedit-placeholder">
                   <Button.Group fluid color="blue">
-                    <Button onClick={() => openHeadingModal}>
+                    <Button
+                      onClick={() => openHeadingModal("add")}
+                      disabled={!canEdit}
+                    >
                       <Icon name="heading" />
                       Add Heading
                     </Button>
-                    <Button onClick={() => openTextModal}>
+                    <Button
+                      onClick={() => openTextModal("add")}
+                      disabled={!canEdit}
+                    >
                       <Icon name="paragraph" />
                       Add Text
                     </Button>
-                    <Button onClick={() => openPromptModal}>
+                    <Button
+                      onClick={() => openPromptModal("add")}
+                      disabled={!canEdit}
+                    >
                       <Icon name="question" />
                       Add Prompt
                     </Button>
                   </Button.Group>
                 </div>
-              </div>
+              </Segment>
               <Divider className="mt-2p" />
               <Button.Group fluid>
-                <Button as={Link} to="/controlpanel/peerreviewrubrics">
+                <Button
+                  as={Link}
+                  to="/controlpanel/eventsmanager"
+                  disabled={!canEdit}
+                >
                   <Icon name="cancel" />
                   Discard Changes
                 </Button>
@@ -1002,6 +959,7 @@ const ManageEvent = () => {
                   color="green"
                   loading={changesSaving}
                   onClick={saveEventChanges}
+                  disabled={!canEdit}
                 >
                   <Icon name="save" />
                   <span>Save Changes</span>
@@ -1030,13 +988,13 @@ const ManageEvent = () => {
             loading={tmLoading}
           />
           <PromptModal
-            options={[]}
             promptType={pmType}
             promptTypeError={pmTypeError}
             promptText={pmText}
             promptReq={pmRequired}
             textError={pmTextError}
             dropdownError={pmDropdownError}
+            dropdownOptions={pmDropdownOpts}
             newOptionValue={pmDropdownNew}
             onChangeNewOptionValue={(n) => setPMDropdownNew(n)}
             onChangePromptType={(newVal) => setPMType(newVal)}
@@ -1057,8 +1015,23 @@ const ManageEvent = () => {
           />
           <DeleteBlockModal
             show={showDBModal}
-            onSave={handleDeleteBlock}
-            onClose={closeDeleteBlockModal}
+            onSave={() =>
+              handleDeleteBlock({
+                dbBlock: dbBlock,
+                setValueFn: setValue,
+                getValueFn: getValues,
+                onError: (err) => handleGlobalError(err),
+                onStart: () => {
+                  setDBLoading(true);
+                },
+                onFinish: () => {
+                  setDBLoading(false);
+                  setUnsavedChanges();
+                  closeDeleteBlockModal();
+                },
+              })
+            }
+            onRequestClose={() => closeDeleteBlockModal()}
             blockType={dbType}
             loading={dbLoading}
           />

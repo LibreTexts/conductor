@@ -1,19 +1,17 @@
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import OrgEvent, {
-  OrgEventInterface,
-  OrgEventParticipantInterface,
-  OrgEventParticipantSchema,
-} from "../models/orgevent.js";
+import OrgEvent, { OrgEventInterface } from "../models/orgevent.js";
 import { Request, Response } from "express";
 import { param, body } from "express-validator";
 import {
   TypedReqBody,
+  TypedReqBodyWithUser,
   TypedReqParams,
   TypedReqParamsAndBody,
+  TypedReqParamsAndBodyWithUser,
   TypedReqQuery,
-} from "../types/Express.js";
-import { parseISO } from "date-fns";
+} from "../types";
+import { parseISO, isBefore, isAfter } from "date-fns";
 import b62 from "base62-random";
 import { getPaginationOffset } from "../util/helpers.js";
 import {
@@ -22,7 +20,15 @@ import {
   conductor500Err,
   conductorErr,
 } from "../util/errorutils.js";
-import User, { SanitizedUserInterface, UserInterface } from "../models/user.js";
+import User, {
+  SanitizedUserInterface,
+  SanitizedUserSelectQuery,
+  UserInterface,
+} from "../models/user.js";
+import OrgEventParticipant, {
+  OrgEventParticipantInterface,
+} from "../models/orgeventparticipant.js";
+import authAPI from "./auth.js";
 
 async function getOrgEvents(
   req: TypedReqQuery<{ activePage?: number }>,
@@ -77,29 +83,30 @@ async function getOrgEvent(
       orgID: process.env.ORG_ID,
       eventID: searchID,
       canceled: { $ne: true },
-    })
-      .populate<{
-        participants: {
-          user: SanitizedUserInterface;
-        }[];
-      }>({
-        path: "participants",
-        populate: {
-          path: "user",
-          model: "User",
-          select:
-            "-hash -salt -authSub -lastResetAttempt -resetToken -tokenExpiry -customAvatar -isSystem",
-        },
-      })
-      .lean();
+    }).lean();
 
     if (!foundOrgEvent) {
       return conductor404Err(res);
     }
 
+    let foundParticipants = await OrgEventParticipant.find({
+      eventID: searchID,
+    })
+      .populate<{
+        user: SanitizedUserInterface;
+      }>({
+        path: "user",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
+      .lean();
+
     return res.send({
       err: false,
-      orgEvent: foundOrgEvent,
+      orgEvent: {
+        ...foundOrgEvent,
+        participants: foundParticipants,
+      },
     });
   } catch (err) {
     debugError(err);
@@ -108,26 +115,22 @@ async function getOrgEvent(
 }
 
 async function createOrgEvent(
-  req: TypedReqBody<OrgEventInterface>,
+  req: TypedReqBodyWithUser<OrgEventInterface>,
   res: Response
 ) {
   try {
-    let regOpenDate = parseISO(req.body.regOpenDate.toString());
-    let regCloseDate = parseISO(req.body.regCloseDate.toString());
-    let startDate = parseISO(req.body.startDate.toString());
-    let endDate = parseISO(req.body.endDate.toString());
+    // Check authorization (only campus/super admins can create events)
+    if (!req.user || !process.env.ORG_ID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
 
-    let testUser = await User.findOne({
-      uuid: "ef262019-a38e-4fe7-8573-0cf3d5bc235f",
-    })
-      .orFail()
-      .lean();
-
-    let testParticpant = {
-      user: testUser._id,
-      paymentStatus: "paid",
-      formResponses: [],
-    };
+    const regOpenDate = parseISO(req.body.regOpenDate.toString());
+    const regCloseDate = parseISO(req.body.regCloseDate.toString());
+    const startDate = parseISO(req.body.startDate.toString());
+    const endDate = parseISO(req.body.endDate.toString());
 
     const orgEvent = new OrgEvent({
       orgID: process.env.ORG_ID,
@@ -137,10 +140,9 @@ async function createOrgEvent(
       regCloseDate,
       startDate,
       endDate,
-      participants: [testParticpant],
     });
 
-    let newDoc = orgEvent.save();
+    let newDoc = await orgEvent.save();
     if (!newDoc) throw new Error();
 
     return res.send({
@@ -155,22 +157,31 @@ async function createOrgEvent(
 }
 
 async function updateOrgEvent(
-  req: TypedReqParamsAndBody<{ eventID?: string }, OrgEventInterface>,
+  req: TypedReqParamsAndBodyWithUser<{ eventID?: string }, OrgEventInterface>,
   res: Response
 ) {
   try {
+    // Check authorization (only campus/super admins can create events)
+    if (!req.user || !process.env.ORG_ID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+
     const searchID = req.params.eventID?.toString();
     if (!searchID) {
       return conductor400Err(res);
     }
 
-    let regOpenDate = parseISO(req.body.regOpenDate.toString());
-    let regCloseDate = parseISO(req.body.regCloseDate.toString());
-    let startDate = parseISO(req.body.startDate.toString());
-    let endDate = parseISO(req.body.endDate.toString());
-
     // Strip eventID and cancellation flag from update obj
     const { eventID, canceled, ...updateBody } = req.body;
+
+    // Parse dates
+    const regOpenDate = parseISO(req.body.regOpenDate.toString());
+    const regCloseDate = parseISO(req.body.regCloseDate.toString());
+    const startDate = parseISO(req.body.startDate.toString());
+    const endDate = parseISO(req.body.endDate.toString());
 
     const updateObj = {
       ...updateBody,
@@ -180,26 +191,31 @@ async function updateOrgEvent(
       endDate,
     };
 
+    const orgToUpdate = await OrgEvent.findOne({
+      orgID: process.env.ORG_ID,
+      eventID: req.body.eventID,
+    }).lean();
+
+    if (!orgToUpdate) {
+      return conductor404Err(res);
+    }
+
+    if (!_runOrgEventPreflightChecks(orgToUpdate, "update")) {
+      return conductor400Err(res);
+    }
+
     // Save updates
-    const updated = await OrgEvent.findOneAndUpdate(
+    await OrgEvent.updateOne(
       {
         orgID: process.env.ORG_ID,
         eventID: req.body.eventID,
       },
-      updateObj,
-      {
-        new: true,
-        lean: true,
-      }
+      updateObj
     );
-
-    if (!updated) {
-      return conductor404Err(res);
-    }
 
     return res.send({
       err: false,
-      orgEvent: updated,
+      msg: "Event successfully updated.",
     });
   } catch (err) {
     debugError(err);
@@ -208,14 +224,10 @@ async function updateOrgEvent(
 }
 
 async function cancelOrgEvent(
-  req: TypedReqParams<{ eventID?: string }>,
+  req: TypedReqParams<{ eventID: string }>,
   res: Response
 ) {
   try {
-    if (!req.params.eventID) {
-      return conductor400Err(res);
-    }
-
     const orgEvent = await OrgEvent.findOneAndUpdate(
       {
         orgID: process.env.ORG_ID,
@@ -241,6 +253,106 @@ async function cancelOrgEvent(
   }
 }
 
+async function submitRegistration(
+  req: TypedReqParamsAndBody<{ eventID: string }, OrgEventParticipantInterface>,
+  res: Response
+) {
+  try {
+    const { user: userID, orgID, paymentStatus, formResponses } = req.body;
+
+    const foundUser = await User.findOne({
+      uuid: userID,
+    }).lean();
+
+    //Provided UUID not valid
+    if (!foundUser) {
+      return conductor400Err(res);
+    }
+
+    const orgEvent = await OrgEvent.findOne({
+      orgID: process.env.ORG_ID,
+      eventID: req.params.eventID,
+    }).lean();
+
+    if (!orgEvent) {
+      return conductor404Err(res);
+    }
+
+    if (!orgEvent.regOpenDate || !orgEvent.regCloseDate) {
+      return conductor500Err(res);
+    }
+
+    // Check if registration is available for this event
+    if (!_runOrgEventPreflightChecks(orgEvent, "register")) {
+      return conductor400Err(res);
+    }
+
+    const participant = new OrgEventParticipant({
+      user: foundUser._id,
+      orgID,
+      eventID: req.params.eventID,
+      paymentStatus,
+      formResponses,
+    });
+
+    const newDoc = await participant.save();
+    if (!newDoc) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      msg: "Registration successfully submitted.",
+      participant: newDoc,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Checks if the OrgEvent is valid and can be updated or registered for.
+ * @param {OrgEventInterface} orgEvent - OrgEvent document
+ * @param {string} action - The action being performed on the OrgEvent. Either "update" or "register"
+ * @returns {boolean} - Returns true if preflight checks pass and action can be performed, false otherwise
+ */
+async function _runOrgEventPreflightChecks(
+  orgEvent: OrgEventInterface,
+  action: "update" | "register"
+): Promise<boolean> {
+  if (!orgEvent) return false;
+
+  // Check if registration is open at time of request
+  if (action === "register") {
+    if (
+      isBefore(new Date(), orgEvent.regOpenDate) ||
+      isAfter(new Date(), orgEvent.regCloseDate)
+    ) {
+      return false;
+    }
+  }
+
+  if (action === "update") {
+    // Check if event is canceled
+    if (orgEvent.canceled) {
+      return false;
+    }
+
+    // Check if any participants have registered for event
+    const participants = await OrgEventParticipant.find({
+      orgID: process.env.ORG_ID,
+      eventID: orgEvent.eventID,
+    }).lean();
+
+    if (participants.length > 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
@@ -257,6 +369,22 @@ function validate(method: string) {
         body("regFee", conductorErrors)
           .optional({ checkFalsy: true })
           .isDecimal({ force_decimal: true }),
+        body("headings", conductorErrors.err1).exists().isArray(),
+        body("prompts", conductorErrors.err1).exists().isArray(),
+        body("textBlocks", conductorErrors.err1).exists().isArray(),
+        body("timeZone", conductorErrors.err1).exists().isObject(),
+      ];
+    case "cancelOrgEvent":
+      return [param("eventID", conductorErrors.err1).exists().isString()];
+    case "submitRegistration":
+      return [
+        param("eventID", conductorErrors.err1).exists().isString(),
+        body("user", conductorErrors.err1).exists().isUUID(),
+        body("orgID", conductorErrors.err1)
+          .exists()
+          .isLength({ min: 2, max: 50 }),
+        body("paymentStatus", conductorErrors.err1).exists().isString(),
+        body("formResponses", conductorErrors.err1).exists().isArray(),
       ];
   }
 }
@@ -267,5 +395,6 @@ export default {
   createOrgEvent,
   updateOrgEvent,
   cancelOrgEvent,
+  submitRegistration,
   validate,
 };
