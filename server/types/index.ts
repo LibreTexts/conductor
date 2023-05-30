@@ -8,7 +8,9 @@ import {
   TypedReqQuery,
   TypedReqQueryWithUser,
   TypedReqParams,
-  TypeReqParamsWithUser,
+  TypedReqParamsWithUser,
+  TypedReqParamsAndQuery,
+  TypedReqParamsAndQueryWithUser,
   TypedReqParamsAndBody,
   TypedReqParamsAndBodyWithUser,
 } from "./Express";
@@ -31,7 +33,9 @@ export type {
   TypedReqQuery,
   TypedReqQueryWithUser,
   TypedReqParams,
-  TypeReqParamsWithUser,
+  TypedReqParamsWithUser,
+  TypedReqParamsAndQuery,
+  TypedReqParamsAndQueryWithUser,
   TypedReqParamsAndBody,
   TypedReqParamsAndBodyWithUser,
 };

@@ -15,7 +15,7 @@ const EventInstructionsSegment: React.FC<EventInstructionsSegmentProps> = ({
 
   if (!show) {
     return (
-      <Segment color="blue" {...rest}>
+      <Segment {...rest}>
         <div className="hiddensection">
           <div className="header-container">
             <Header as="h3">Editing Instructions</Header>
@@ -31,7 +31,7 @@ const EventInstructionsSegment: React.FC<EventInstructionsSegmentProps> = ({
   }
 
   return (
-    <Segment color="blue" {...rest}>
+    <Segment {...rest} className="mb-1p">
       <div className="ui dividing header">
         <div className="hideablesection">
           <h3 className="header">Editing Instructions</h3>

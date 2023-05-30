@@ -20,6 +20,17 @@ export type OrgEventParticipant = BaseDocument & {
   formResponses: OrgEventParticipantFormResponse[];
 };
 
+export type OrgEventFeeWaiver = BaseDocument & {
+  name: string;
+  eventID: string;
+  percentage: number;
+  code: string;
+  expirationDate: Date;
+  timeZone: TimeZoneOption;
+  createdBy: string;
+  active: boolean;
+};
+
 export type OrgEvent = BaseDocument & {
   _id: string;
   orgID: string;
@@ -36,6 +47,7 @@ export type OrgEvent = BaseDocument & {
   textBlocks: CustomFormTextBlock[];
   prompts: CustomFormPrompt[];
   participants: OrgEventParticipant[];
+  feeWaivers: OrgEventFeeWaiver[];
   createdBy: string;
   canceled: boolean;
 };

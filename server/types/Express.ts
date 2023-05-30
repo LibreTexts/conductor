@@ -68,8 +68,28 @@ export interface TypedReqParams<T> extends Express.Request {
  * (only suitable for authenticated endpoints)
  * @type {T} T - The type interface of the params object
  */
-export interface TypeReqParamsWithUser<T>
+export interface TypedReqParamsWithUser<T>
   extends TypedReqParams<T>,
+    TypedReqWithUser {}
+
+/**
+ * Req with params object of type T and query object of type K
+ * @type {T} T - The type interface of the params object
+ * @type {K} K - The type interface of the params object
+ */
+export interface TypedReqParamsAndQuery<T, K>
+  extends TypedReqParams<T>,
+    TypedReqQuery<K> {}
+
+/**
+ * Req with params object of type T and query object of type K and extracted User
+ * (only suitable for authenticated endpoints)
+ * @type {T} T - The type interface of the params object
+ * @type {K} K - The type interface of the params object
+ */
+export interface TypedReqParamsAndQueryWithUser<T, K>
+  extends TypedReqParams<T>,
+    TypedReqQuery<K>,
     TypedReqWithUser {}
 
 /**

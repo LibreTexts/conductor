@@ -1,5 +1,6 @@
 import { model, Schema, Document, SchemaType, Types } from "mongoose";
 import User from "./user.js";
+import OrgEventFeeWaiver from "./orgeventfeewaiver.js";
 
 export interface OrgEventParticipantInterface extends Document {
   user: Types.ObjectId;
@@ -7,6 +8,7 @@ export interface OrgEventParticipantInterface extends Document {
   eventID: string;
   paymentStatus: "na" | "unpaid" | "paid";
   formResponses: { promptNum: number; responseVal?: string }[];
+  feeWaiver?: Types.ObjectId;
 }
 
 const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
@@ -43,6 +45,11 @@ const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
       },
     },
   ],
+  feeWaiver: {
+    type: Schema.Types.ObjectId,
+    ref: OrgEventFeeWaiver,
+    required: false,
+  }
 });
 
 const OrgEventParticipant = model<OrgEventParticipantInterface>(

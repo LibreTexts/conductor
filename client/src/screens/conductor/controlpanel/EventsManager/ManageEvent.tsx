@@ -9,8 +9,6 @@ import {
   Breadcrumb,
   Message,
   Divider,
-  Form,
-  Accordion,
 } from "semantic-ui-react";
 import { useEffect, useState, useCallback } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
@@ -32,21 +30,18 @@ import {
   OrgEvent,
 } from "../../../../types";
 import { useForm } from "react-hook-form";
-import CtlTextInput from "../../../../components/ControlledInputs/CtlTextInput";
-import { required } from "../../../../utils/formRules";
 import { useTypedSelector } from "../../../../state/hooks";
-import CtlDateInput from "../../../../components/ControlledInputs/CtlDateInput";
-import { format, parseISO } from "date-fns";
-import CancelEventModalProps from "../../../../components/controlpanel/EventsManager/CancelEventModal";
+import { format as formatDate, parseISO } from "date-fns";
 import {
   handleDeleteBlock,
   handleMoveBlock,
   parseAndSortElements,
 } from "../../../../utils/customFormHelpers";
 import EditableFormBlock from "../../../../components/CustomForms/EditableFormBlock";
-import CtlTimeInput from "../../../../components/ControlledInputs/CtlTimeInput";
 import { PTDefaultTimeZone } from "../../../../components/TimeZoneInput";
-import CtlTimeZoneInput from "../../../../components/ControlledInputs/CtlTimeZoneInput";
+import EventSettingsModal from "../../../../components/controlpanel/EventsManager/EventSettingsModal";
+import ParticipantsSegment from "../../../../components/controlpanel/EventsManager/ParticipantsSegment";
+import FeeWaiversSegment from "../../../../components/controlpanel/EventsManager/FeeWaiversSegment";
 
 const ManageEvent = () => {
   // Global State
@@ -87,6 +82,9 @@ const ManageEvent = () => {
   // Data
   const [allElements, setAllElements] = useState<CustomFormElement[]>([]);
 
+  // Event Settings Modal
+  const [showEventSettingsModal, setShowEventSettingsModal] = useState(false);
+
   // Add/Edit Heading Modal
   const [showHeadingModal, setShowHeadingModal] = useState(false);
   const [hmMode, setHMMode] = useState<"add" | "edit">("add");
@@ -124,14 +122,6 @@ const ManageEvent = () => {
   const [dbType, setDBType] = useState<CustomFormUIType>("prompt");
   const [dbBlock, setDBBlock] = useState<CustomFormElement>();
   const [dbLoading, setDBLoading] = useState<boolean>(false);
-
-  // Cancel Event Modal
-  const [showCancelEventModal, setShowCancelEventModal] =
-    useState<boolean>(false);
-
-  useEffect(() => {
-    console.log(getValues("regOpenDate"));
-  }, [watchValue("regOpenDate")]);
 
   /**
    * Processes all rubric elements for UI presentation whenever the rubric state changes.
@@ -671,57 +661,50 @@ const ManageEvent = () => {
   return (
     <Grid className="controlpanel-container" divided="vertically">
       <Grid.Row>
-        <Grid.Column width={16}>
+        <Grid.Column>
           <Header className="component-header">
             {manageMode === "create" ? "Create" : "Edit"} Event
           </Header>
         </Grid.Column>
       </Grid.Row>
       <Grid.Row>
-        <Grid.Column width={16}>
+        <Grid.Column>
           <Segment.Group>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <Breadcrumb>
-                    <Breadcrumb.Section as={Link} to="/controlpanel">
-                      Control Panel
-                    </Breadcrumb.Section>
-                    <Breadcrumb.Divider icon="right chevron" />
-                    <Breadcrumb.Section
-                      as={Link}
-                      to="/controlpanel/eventsmanager"
-                    >
-                      Events Manager
-                    </Breadcrumb.Section>
-                    <Breadcrumb.Divider icon="right chevron" />
-                    <Breadcrumb.Section active>
-                      {manageMode === "create" ? "Create" : "Edit"} Event
-                    </Breadcrumb.Section>
-                  </Breadcrumb>
-                </div>
-                <div className="right-flex">
-                  <span className="muted-text">
-                    Last Updated:{" "}
-                    <em>
-                      {format(
-                        parseISO(
-                          getValues("updatedAt")?.toString() ??
-                            new Date().toISOString()
-                        ),
-                        "MM/dd/yyyy h:mm aa"
-                      )}
-                    </em>
-                  </span>
-                </div>
+            <Segment className="flex-row-div flex-row-verticalcenter">
+              <div className="left-flex">
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section
+                    as={Link}
+                    to="/controlpanel/eventsmanager"
+                  >
+                    Events Manager
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>
+                    {manageMode === "create" ? "Create" : "Edit"} Event
+                  </Breadcrumb.Section>
+                </Breadcrumb>
+              </div>
+              <div className="right-flex">
+                <span className="muted-text">
+                  Last Updated:{" "}
+                  <em>
+                    {formatDate(
+                      parseISO(
+                        getValues("updatedAt")?.toString() ??
+                          new Date().toISOString()
+                      ),
+                      "MM/dd/yyyy h:mm aa"
+                    )}
+                  </em>
+                </span>
               </div>
             </Segment>
             <Segment loading={!loadedOrgEvent}>
-              <EventInstructionsSegment
-                show={showInstructions}
-                toggleVisibility={() => setShowInstructions(!showInstructions)}
-                className="mb-4p"
-              />
               {showChangesWarning && (
                 <Message
                   warning
@@ -738,235 +721,227 @@ const ManageEvent = () => {
                   className="mt-1p"
                 />
               )}
-              <Segment className="mt-1p mb-3p">
-                <Header as="p" size="medium">
-                  General Event Settings
-                </Header>
-                <Form noValidate>
-                  <CtlTextInput
-                    name="title"
-                    control={control}
-                    rules={required}
-                    label="Event Title"
-                    placeholder="Enter Event Title..."
-                    disabled={!canEdit}
-                  />
-                  <div className="flex-row-div left-flex">
-                    <CtlDateInput
-                      name="regOpenDate"
-                      control={control}
-                      rules={required}
-                      label="Registration Open Date"
-                      value={getValues("regOpenDate")}
-                      error={false}
-                      className="my-2p"
-                      disabled={!canEdit}
-                    />
-                    <CtlTimeInput
-                      label="Registration Open Time"
-                      value={getValues("regOpenDate")}
-                      name="regOpenDate"
-                      control={control}
-                      className="my-2p ml-2p"
-                      disabled={!canEdit}
-                    />
-                    <CtlTimeZoneInput
-                      name="timeZone"
-                      control={control}
-                      label="Time Zone (applies to all dates/times)"
-                      value={getValues("timeZone")}
-                      className="my-2p ml-2p"
-                      disabled={!canEdit}
-                      //onChange={setSelectedTimezone}
-                    />
-                  </div>
-                  <div className="flex-row-div left-flex">
-                    <CtlDateInput
-                      name="regCloseDate"
-                      control={control}
-                      rules={required}
-                      label="Registration Close Date"
-                      value={getValues("regCloseDate")}
-                      error={false}
-                      className="my-2p"
-                      disabled={!canEdit}
-                    />
-                    <CtlTimeInput
-                      label="Registration Close Time"
-                      value={getValues("regCloseDate")}
-                      name="regCloseDate"
-                      control={control}
-                      className="my-2p ml-2p"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                  <div className="flex-row-div left-flex">
-                    <CtlDateInput
-                      name="startDate"
-                      control={control}
-                      rules={required}
-                      label="Event Start Date"
-                      value={getValues("startDate")}
-                      error={false}
-                      className="my-2p"
-                      disabled={!canEdit}
-                    />
-                    <CtlTimeInput
-                      label="Event Start Time"
-                      value={getValues("startDate")}
-                      name="startDate"
-                      control={control}
-                      className="my-2p ml-2p"
-                      disabled={!canEdit}
-                    />
-                  </div>
+              <Grid padded="horizontally" relaxed>
+                <Grid.Row className="mt-1p">
+                  <Grid.Column>
+                    <Header
+                      as="h2"
+                      dividing
+                      className="flex-row-div flex-row-verticalcenter"
+                    >
+                      <span>General Settings</span>
+                      <div className="right-flex">
+                        <Button
+                          color="blue"
+                          onClick={() => setShowEventSettingsModal(true)}
+                        >
+                          <Icon name="edit" />
+                          Edit
+                        </Button>
+                      </div>
+                    </Header>
+                    <Segment.Group size="large" raised className="mb-4p">
+                      <Segment loading={!loadedOrgEvent}>
+                        <Grid divided>
+                          <Grid.Row columns={2}>
+                            <Grid.Column>
+                              <Header as="h4">Event Information</Header>
+                              <p>
+                                <Header sub as="span">
+                                  Title:
+                                </Header>
+                                <span> {getValues("title")}</span>
+                              </p>
 
-                  <div className="flex-row-div left-flex">
-                    <CtlDateInput
-                      name="endDate"
-                      control={control}
-                      rules={required}
-                      label="Event End Date"
-                      value={getValues("endDate")}
-                      error={false}
-                      className="my-2p"
-                      disabled={!canEdit}
-                    />
-                    <CtlTimeInput
-                      label="Event End Time"
-                      value={getValues("endDate")}
-                      name="endDate"
-                      control={control}
-                      className="my-2p ml-2p"
-                      disabled={!canEdit}
-                    />
-                  </div>
-                  {org.orgID === "libretexts" && (
-                    <CtlTextInput
-                      name="regFee"
-                      control={control}
-                      rules={required}
-                      label="Registration Fee"
-                      icon="dollar sign"
-                      iconPosition="left"
-                      placeholder="Enter Fee.."
-                      type="number"
-                      disabled={!canEdit}
-                    />
-                  )}
-                  {/*Danger zone options only applicable when editing */}
-                  {getValues("eventID") && (
-                    <Accordion
-                      className="mt-2p"
-                      panels={[
-                        {
-                          key: "danger",
-                          title: {
-                            content: (
-                              <span className="color-semanticred">
-                                <strong>Danger Zone</strong>
-                              </span>
-                            ),
-                          },
-                          content: {
-                            content: (
-                              <div>
-                                <p className="color-semanticred">
-                                  Use caution with the options in this area!
+                              <p>
+                                <Header sub as="span">
+                                  Event Start Date:
+                                </Header>
+                                <span>
+                                  {" "}
+                                  {/* {formatDate(
+                        parseISO(getValues("startDate").toISOString()),
+                        "MM/dd/yyyy hh:mm aa"
+                      )}{" "}
+                      ({getValues("timeZone.abbrev")}) */}
+                                </span>
+                              </p>
+                              <p>
+                                <Header sub as="span">
+                                  Event End Date:
+                                </Header>
+                                <span>
+                                  {" "}
+                                  {getValues("endDate").toString()}
+                                  {/* {formatDate(
+                                  parseISO(getValues("endDate").toISOString()),
+                                  "MM/dd/yyyy"
+                                )} */}
+                                  ({getValues("timeZone.abbrev")})
+                                </span>
+                              </p>
+                            </Grid.Column>
+                            <Grid.Column>
+                              <Header as="h4">Registration Information</Header>
+                              <p>
+                                <Header sub as="span">
+                                  <strong>Registration Open Date:</strong>{" "}
+                                </Header>
+                                <span>
+                                  {" "}
+                                  {/* {formatDate(
+                        parseISO(getValues("regOpenDate").toISOString()),
+                        "MM/dd/yyyy hh:mm aa"
+                      )}{" "}
+                      ({getValues("timeZone.abbrev")}) */}
+                                </span>
+                              </p>
+                              <p>
+                                <Header sub as="span">
+                                  <strong>Registration Close Date:</strong>{" "}
+                                </Header>
+                                <span>
+                                  {" "}
+                                  {/* {formatDate(
+                        parseISO(getValues("regCloseDate").toISOString()),
+                        "MM/dd/yyyy hh:mm aa"
+                      )}{" "}
+                      (getValues("timeZone.abbrev")}) */}
+                                </span>
+                              </p>
+                              {org.orgID === "libretexts" && (
+                                <p>
+                                  <Header sub as="span">
+                                    <strong>Registration Fee:</strong>
+                                  </Header>
+                                  <span> ${getValues("regFee")}</span>
                                 </p>
-                                <Button
-                                  color="red"
-                                  fluid
-                                  onClick={() => setShowCancelEventModal(true)}
-                                >
-                                  <Icon name="trash alternate" />
-                                  Cancel Event
-                                </Button>
-                              </div>
-                            ),
-                          },
-                        },
-                      ]}
-                    />
-                  )}
-                </Form>
-              </Segment>
-              <Segment className="peerreview-rubricedit-container">
-                <Header as="p" size="medium">
-                  Registration Form
-                </Header>
+                              )}
+                            </Grid.Column>
+                          </Grid.Row>
+                        </Grid>
+                      </Segment>
+                    </Segment.Group>
+                  </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                  <FeeWaiversSegment
+                    orgEvent={getValues()}
+                    loading={!loadedOrgEvent}
+                    canEdit={canEdit}
+                    onUpdate={getOrgEvent}
+                  />
+                </Grid.Row>
+                <Grid.Row>
+                  <ParticipantsSegment
+                    orgEvent={getValues()}
+                    loading={!loadedOrgEvent}
+                    canEdit={canEdit}
+                  />
+                </Grid.Row>
+                <Grid.Row>
+                  <Grid.Column>
+                    <Header as="h2" dividing>
+                      Registration Form
+                    </Header>
+                    <Segment.Group size="large" raised className="mb-4p">
+                      <Segment className="peerreview-rubricedit-container">
+                        <EventInstructionsSegment
+                          show={showInstructions}
+                          toggleVisibility={() =>
+                            setShowInstructions(!showInstructions)
+                          }
+                        />
 
-                {allElements.map((item) => {
-                  return (
-                    <EditableFormBlock
-                      item={item}
-                      key={item.order}
-                      onMove={(item, direction) =>
-                        handleMoveBlock({
-                          allElems: allElements,
-                          blockToMove: item,
-                          direction: direction,
-                          getValueFn: getValues,
-                          setValueFn: setValue,
-                          onError: (err) => handleGlobalError(err),
-                          onFinish: () => setUnsavedChanges(),
-                        })
-                      }
-                      onRequestEdit={(order) => handleRequestEditBlock(order)}
-                      onRequestDelete={(order) => openDeleteBlockModal(order)}
-                      disabled={!canEdit}
-                    />
-                  );
-                })}
+                        {allElements.map((item) => {
+                          return (
+                            <EditableFormBlock
+                              item={item}
+                              key={item.order}
+                              onMove={(item, direction) =>
+                                handleMoveBlock({
+                                  allElems: allElements,
+                                  blockToMove: item,
+                                  direction: direction,
+                                  getValueFn: getValues,
+                                  setValueFn: setValue,
+                                  onError: (err) => handleGlobalError(err),
+                                  onFinish: () => setUnsavedChanges(),
+                                })
+                              }
+                              onRequestEdit={(order) =>
+                                handleRequestEditBlock(order)
+                              }
+                              onRequestDelete={(order) =>
+                                openDeleteBlockModal(order)
+                              }
+                              disabled={!canEdit}
+                            />
+                          );
+                        })}
 
-                <div className="peerreview-rubricedit-placeholder">
-                  <Button.Group fluid color="blue">
-                    <Button
-                      onClick={() => openHeadingModal("add")}
-                      disabled={!canEdit}
-                    >
-                      <Icon name="heading" />
-                      Add Heading
-                    </Button>
-                    <Button
-                      onClick={() => openTextModal("add")}
-                      disabled={!canEdit}
-                    >
-                      <Icon name="paragraph" />
-                      Add Text
-                    </Button>
-                    <Button
-                      onClick={() => openPromptModal("add")}
-                      disabled={!canEdit}
-                    >
-                      <Icon name="question" />
-                      Add Prompt
-                    </Button>
-                  </Button.Group>
-                </div>
-              </Segment>
-              <Divider className="mt-2p" />
-              <Button.Group fluid>
-                <Button
-                  as={Link}
-                  to="/controlpanel/eventsmanager"
-                  disabled={!canEdit}
-                >
-                  <Icon name="cancel" />
-                  Discard Changes
-                </Button>
-                <Button
-                  color="green"
-                  loading={changesSaving}
-                  onClick={saveEventChanges}
-                  disabled={!canEdit}
-                >
-                  <Icon name="save" />
-                  <span>Save Changes</span>
-                </Button>
-              </Button.Group>
+                        <div className="peerreview-rubricedit-placeholder">
+                          <Button.Group fluid color="blue">
+                            <Button
+                              onClick={() => openHeadingModal("add")}
+                              disabled={!canEdit}
+                            >
+                              <Icon name="heading" />
+                              Add Heading
+                            </Button>
+                            <Button
+                              onClick={() => openTextModal("add")}
+                              disabled={!canEdit}
+                            >
+                              <Icon name="paragraph" />
+                              Add Text
+                            </Button>
+                            <Button
+                              onClick={() => openPromptModal("add")}
+                              disabled={!canEdit}
+                            >
+                              <Icon name="question" />
+                              Add Prompt
+                            </Button>
+                          </Button.Group>
+                        </div>
+                        <Divider />
+                        <Button.Group fluid>
+                          <Button
+                            as={Link}
+                            to="/controlpanel/eventsmanager"
+                            disabled={!canEdit}
+                          >
+                            <Icon name="cancel" />
+                            Discard Changes
+                          </Button>
+                          <Button
+                            color="green"
+                            loading={changesSaving}
+                            onClick={saveEventChanges}
+                            disabled={!canEdit}
+                          >
+                            <Icon name="save" />
+                            <span>Save Registration Form</span>
+                          </Button>
+                        </Button.Group>
+                      </Segment>
+                    </Segment.Group>
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
             </Segment>
           </Segment.Group>
+          <EventSettingsModal
+            show={showEventSettingsModal}
+            canEdit={canEdit}
+            getValuesFn={getValues}
+            watchValuesFn={watchValue}
+            control={control}
+            onClose={() => setShowEventSettingsModal(false)}
+            onRequestSave={saveEventChanges}
+            onRequestCancelEvent={handleCancelEvent}
+          />
           <HeadingModal
             show={showHeadingModal}
             value={hmHeading}
@@ -1034,12 +1009,6 @@ const ManageEvent = () => {
             onRequestClose={() => closeDeleteBlockModal()}
             blockType={dbType}
             loading={dbLoading}
-          />
-          <CancelEventModalProps
-            show={showCancelEventModal}
-            eventID={watchValue("eventID")}
-            onClose={() => setShowCancelEventModal(false)}
-            onConfirm={handleCancelEvent}
           />
         </Grid.Column>
       </Grid.Row>

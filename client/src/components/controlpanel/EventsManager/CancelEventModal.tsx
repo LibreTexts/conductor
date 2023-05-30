@@ -9,7 +9,7 @@ type CancelEventModalProps = {
   onConfirm: () => void;
 };
 
-const CancelEventModalProps: React.FC<CancelEventModalProps> = ({
+const CancelEventModal: React.FC<CancelEventModalProps> = ({
   eventID,
   show,
   onClose,
@@ -18,7 +18,6 @@ const CancelEventModalProps: React.FC<CancelEventModalProps> = ({
 }) => {
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
-
   const org = useTypedSelector((state) => state.org);
 
   return (
@@ -52,4 +51,4 @@ const CancelEventModalProps: React.FC<CancelEventModalProps> = ({
   );
 };
 
-export default CancelEventModalProps;
+export default CancelEventModal;

@@ -1282,6 +1282,13 @@ router.route('/orgevents/:eventID?')
   orgEventsAPI.cancelOrgEvent
 )
 
+router.route('/orgevents/:eventID/participants')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.getOrgEventParticipants
+)
+
 router.route('/orgevents/:eventID/register')
 .post(
   authAPI.verifyRequest,
@@ -1289,6 +1296,15 @@ router.route('/orgevents/:eventID/register')
   orgEventsAPI.validate('submitRegistration'),
   middleware.checkValidationErrors,
   orgEventsAPI.submitRegistration
+)
+
+router.route('/orgevents/:eventID/feewaiver')
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate('createFeeWaiver'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.createFeeWaiver
 )
 
 router.route('/apiclients/:clientID').get(
