@@ -46,24 +46,26 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
 
   useEffect(() => {
     getOrgParticipants();
-  }, []);
+  }, [orgEvent]);
 
   const getOrgParticipants = useCallback(async () => {
     try {
+      if (!orgEvent.eventID) return;
       setLoadedData(false);
       const res = await axios.get(
         `/orgevents/${orgEvent.eventID}/participants?page=${activePage}`
       );
-      if (res.data.err || !res.data.participants || !res.data.totalCount) {
+
+      if (res.data.err || !res.data.participants) {
         handleGlobalError(res.data.errMsg);
         return;
       }
 
-      console.log(res);
-
       setParticipants(res.data.participants);
-      setTotalItems(res.data.totalCount);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
+      setTotalItems(res.data.totalCount ?? 0);
+      setTotalPages(
+        res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
+      );
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -130,14 +132,6 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
             <Table.Cell key={r.promptNum}>{getResponseValText(r)}</Table.Cell>
           );
         })}
-        <Table.Cell textAlign="center">
-          <Button.Group vertical fluid>
-            <Button color="red">
-              <Icon name="cancel" />
-              Drop
-            </Button>
-          </Button.Group>
-        </Table.Cell>
       </Table.Row>
     );
   }
@@ -149,26 +143,6 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
         <Segment loading={!loadedData}>
-          <div className="flex-row-div">
-            <div className="left-flex">
-              <p style={{ fontSize: "0.9em" }}>
-                Displaying {participants.length} of {totalItems} participants.
-              </p>
-            </div>
-            <div className="right-flex">
-              <Pagination
-                activePage={activePage}
-                totalPages={totalPages}
-                firstItem={null}
-                lastItem={null}
-                onPageChange={(e, data) =>
-                  setActivePage(
-                    parseInt(data.activePage?.toString() ?? "1") ?? 1
-                  )
-                }
-              />
-            </div>
-          </div>
           <Table striped celled size="small">
             <Table.Header>
               <Table.Row>
@@ -183,9 +157,6 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                     <span>{item.text}</span>
                   </Table.HeaderCell>
                 ))}
-                <Table.HeaderCell key="actions">
-                  <span>Actions</span>
-                </Table.HeaderCell>
               </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -206,6 +177,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
             </Table.Body>
           </Table>
           <div className="flex-row-div">
+            <div className="left-flex">
+              <p style={{ fontSize: "0.9em" }}>
+                Displaying {participants.length} of {totalItems} participants.
+              </p>
+            </div>
             <div className="right-flex">
               <Pagination
                 activePage={activePage}

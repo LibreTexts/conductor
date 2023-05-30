@@ -12,6 +12,7 @@ import { OrgEvent, OrgEventParticipant } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import { OrgEventFeeWaiver } from "../../../types/OrgEvent";
 import FeeWaiverModal from "./FeeWaiverModal";
+import { format as formatDate, parseISO } from "date-fns";
 const TABLE_COLUMNS = [
   { key: "name", text: "Name" },
   { key: "code", text: "Code" },
@@ -76,7 +77,11 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
         </Table.Cell>
         <Table.Cell>
           <span>
-            {feeWaiver.expirationDate.toString()} ({feeWaiver.timeZone.abbrev})
+            {formatDate(
+              parseISO(feeWaiver.expirationDate.toString()),
+              "MM/dd/yyyy hh:mm aa"
+            )}{" "}
+            ({feeWaiver.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell textAlign="center">

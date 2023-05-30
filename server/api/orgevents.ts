@@ -31,6 +31,7 @@ import OrgEventParticipant, {
   OrgEventParticipantInterface,
 } from "../models/orgeventparticipant.js";
 import authAPI from "./auth.js";
+import mailAPI from "./mail.js";
 import OrgEventFeeWaiver, {
   OrgEventFeeWaiverInterface,
 } from "../models/orgeventfeewaiver.js";
@@ -94,6 +95,12 @@ async function getOrgEvent(
       return conductor404Err(res);
     }
 
+    // We don't populate the participants here for performance because we just need to know if any exist
+    // There is a separate endpoint for getting participants
+    const foundParticipants = await OrgEventParticipant.find({
+      eventID: req.params.eventID,
+    }).lean();
+
     const foundFeeWaivers = await OrgEventFeeWaiver.find({
       orgID: process.env.ORG_ID,
       eventID: searchID,
@@ -103,6 +110,7 @@ async function getOrgEvent(
       err: false,
       orgEvent: {
         ...foundOrgEvent,
+        participants: foundParticipants,
         feeWaivers: foundFeeWaivers,
       },
     });
@@ -374,6 +382,8 @@ async function submitRegistration(
     if (!newDoc) {
       return conductor500Err(res);
     }
+
+    mailAPI.sendOrgEventRegistrationConfirmation(foundUser, orgEvent);
 
     return res.send({
       err: false,

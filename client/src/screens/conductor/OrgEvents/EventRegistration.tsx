@@ -39,7 +39,9 @@ import {
 } from "../../../utils/customFormHelpers";
 import AuthenticatedStatusMessage from "../../../components/CustomForms/AuthenticatedStatusMessage";
 import { isBefore, isAfter, parseISO } from "date-fns";
-import RegistrationOpenStatusMessage from "../../../components/CustomForms/RegistrationOpenStatusMessage";
+import useQueryParam from "../../../utils/useQueryParam";
+import RegistrationOpenStatusMessage from "../../../components/controlpanel/EventsManager/RegistrationOpenStatusMessage";
+import RegistrationSuccessMessage from "../../../components/controlpanel/EventsManager/RegistrationSuccessMessage";
 
 /**
  * Loads registration form template for submission
@@ -50,7 +52,11 @@ const EventRegistration = () => {
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
   const history = useHistory();
-  const routeParams = useParams<{ orgID: string; eventID?: string }>();
+  const routeParams = useParams<{
+    orgID: string;
+    eventID?: string;
+    status?: "success";
+  }>();
 
   const {
     control,
@@ -78,12 +84,14 @@ const EventRegistration = () => {
    */
   const getOrgEvent = useCallback(async () => {
     try {
-      let orgEventID = routeParams.eventID;
+      if (routeParams.status === "success") return; // don't load event if we are just showing success message
+
+      const orgEventID = routeParams.eventID;
       if (!orgEventID || isEmptyString(orgEventID)) {
         handleGlobalError("No Event ID provided");
       }
 
-      let res = await axios.get(`/orgevents/${orgEventID}`);
+      const res = await axios.get(`/orgevents/${orgEventID}`);
       setLoadedOrgEvent(true);
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
@@ -238,7 +246,12 @@ const EventRegistration = () => {
           </Grid>
         </Grid.Column>
       </Grid.Row>
-      {!canActivate && (
+      {routeParams.status === "success" && (
+        <RegistrationSuccessMessage
+          paid={useQueryParam("paid") ? true : false}
+        />
+      )}
+      {!canActivate && !routeParams.status && (
         <Grid.Row>
           <Grid.Column mobile={16} computer={10}>
             <Segment raised>
@@ -250,7 +263,7 @@ const EventRegistration = () => {
           </Grid.Column>
         </Grid.Row>
       )}
-      {canActivate && (
+      {canActivate && !routeParams.status && (
         <Grid.Row>
           <Grid.Column mobile={16} computer={10}>
             <Segment.Group raised className="mb-4r">

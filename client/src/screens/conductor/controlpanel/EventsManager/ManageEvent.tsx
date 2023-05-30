@@ -42,6 +42,7 @@ import { PTDefaultTimeZone } from "../../../../components/TimeZoneInput";
 import EventSettingsModal from "../../../../components/controlpanel/EventsManager/EventSettingsModal";
 import ParticipantsSegment from "../../../../components/controlpanel/EventsManager/ParticipantsSegment";
 import FeeWaiversSegment from "../../../../components/controlpanel/EventsManager/FeeWaiversSegment";
+import EventSettingsSegment from "../../../../components/controlpanel/EventsManager/EventSettingsSegment";
 
 const ManageEvent = () => {
   // Global State
@@ -663,7 +664,7 @@ const ManageEvent = () => {
       <Grid.Row>
         <Grid.Column>
           <Header className="component-header">
-            {manageMode === "create" ? "Create" : "Edit"} Event
+            {manageMode === "create" ? "Create Event" : `${getValues("title")}`}
           </Header>
         </Grid.Column>
       </Grid.Row>
@@ -685,7 +686,9 @@ const ManageEvent = () => {
                   </Breadcrumb.Section>
                   <Breadcrumb.Divider icon="right chevron" />
                   <Breadcrumb.Section active>
-                    {manageMode === "create" ? "Create" : "Edit"} Event
+                    {manageMode === "create"
+                      ? "Create Event"
+                      : `${getValues("title")}`}
                   </Breadcrumb.Section>
                 </Breadcrumb>
               </div>
@@ -741,86 +744,12 @@ const ManageEvent = () => {
                       </div>
                     </Header>
                     <Segment.Group size="large" raised className="mb-4p">
-                      <Segment loading={!loadedOrgEvent}>
-                        <Grid divided>
-                          <Grid.Row columns={2}>
-                            <Grid.Column>
-                              <Header as="h4">Event Information</Header>
-                              <p>
-                                <Header sub as="span">
-                                  Title:
-                                </Header>
-                                <span> {getValues("title")}</span>
-                              </p>
-
-                              <p>
-                                <Header sub as="span">
-                                  Event Start Date:
-                                </Header>
-                                <span>
-                                  {" "}
-                                  {/* {formatDate(
-                        parseISO(getValues("startDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      ({getValues("timeZone.abbrev")}) */}
-                                </span>
-                              </p>
-                              <p>
-                                <Header sub as="span">
-                                  Event End Date:
-                                </Header>
-                                <span>
-                                  {" "}
-                                  {getValues("endDate").toString()}
-                                  {/* {formatDate(
-                                  parseISO(getValues("endDate").toISOString()),
-                                  "MM/dd/yyyy"
-                                )} */}
-                                  ({getValues("timeZone.abbrev")})
-                                </span>
-                              </p>
-                            </Grid.Column>
-                            <Grid.Column>
-                              <Header as="h4">Registration Information</Header>
-                              <p>
-                                <Header sub as="span">
-                                  <strong>Registration Open Date:</strong>{" "}
-                                </Header>
-                                <span>
-                                  {" "}
-                                  {/* {formatDate(
-                        parseISO(getValues("regOpenDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      ({getValues("timeZone.abbrev")}) */}
-                                </span>
-                              </p>
-                              <p>
-                                <Header sub as="span">
-                                  <strong>Registration Close Date:</strong>{" "}
-                                </Header>
-                                <span>
-                                  {" "}
-                                  {/* {formatDate(
-                        parseISO(getValues("regCloseDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      (getValues("timeZone.abbrev")}) */}
-                                </span>
-                              </p>
-                              {org.orgID === "libretexts" && (
-                                <p>
-                                  <Header sub as="span">
-                                    <strong>Registration Fee:</strong>
-                                  </Header>
-                                  <span> ${getValues("regFee")}</span>
-                                </p>
-                              )}
-                            </Grid.Column>
-                          </Grid.Row>
-                        </Grid>
-                      </Segment>
+                      <EventSettingsSegment
+                        getValuesFn={getValues}
+                        org={org}
+                        manageMode={manageMode}
+                        loading={!loadedOrgEvent}
+                      />
                     </Segment.Group>
                   </Grid.Column>
                 </Grid.Row>

@@ -8,6 +8,7 @@ import formData from 'form-data';
 import { marked } from 'marked';
 import util from 'util';
 import { isEmptyString, truncateString } from '../util/helpers.js';
+import { format } from 'date-fns';
 
 let mailgun = null;
 
@@ -732,6 +733,30 @@ const sendAnalyticsInviteAccepted = (sender, invitee, course) => {
     })
 };
 
+/**
+ * Sends a notification that a user has accepted an invite to join an Analytics Course via
+ * the Mailgun API.
+ *
+ * @param {object} sender - The user who sent the original invitation.
+ * @param {object} course - The course being shared.
+ * @param {string} course.title - UI title of the course.
+ */
+const sendOrgEventRegistrationConfirmation = (participant, orgEvent) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
+        to: [participant.email],
+        subject: 'Registration Confirmation',
+        html: `
+            <p>Hi ${participant.firstName},</p>
+            <p>We're just writing to let you know that your registration for ${orgEvent.title} has been confirmed! We look forward to you joining us!</p>
+            <p>Remember, ${orgEvent.title} starts at ${format(orgEvent.startDate, 'h:mm a')} on ${format(orgEvent.startDate, 'EEEE, MMMM d, yyyy')}.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    })
+};
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -759,4 +784,5 @@ export default {
     sendAnalyticsAccessRequestDenied,
     sendAnalyticsInvite,
     sendAnalyticsInviteAccepted,
+    sendOrgEventRegistrationConfirmation
 }

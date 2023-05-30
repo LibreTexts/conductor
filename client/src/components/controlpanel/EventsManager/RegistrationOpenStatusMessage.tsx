@@ -1,7 +1,7 @@
 import { Message, Icon, MessageProps } from "semantic-ui-react";
 import { isBefore, isAfter, format as formatDate, parseISO } from "date-fns";
-import Breakpoint from "../util/Breakpoints";
-import { TimeZoneOption } from "../../types";
+import Breakpoint from "../../util/Breakpoints";
+import { TimeZoneOption } from "../../../types";
 
 interface RegistrationOpenStatusMessageProps extends MessageProps {
   regOpenDate?: Date;
@@ -26,7 +26,9 @@ const RegistrationOpenStatusMessage: React.FC<
 
   //The registration open date is in the future
   const getNotOpenText = () => {
-    if (!regOpenDate || !timeZone || !timeZone.abbrev) return "";
+    if (!regOpenDate || !timeZone || !timeZone.abbrev) {
+      return "Sorry, registration for this event is not open yet. Please check back later."; //fallback to basic message if we don't have the data we need
+    }
 
     return `Registration for this event opens on 
     ${formatDate(parseISO(regOpenDate.toString()), "MM/dd/yyyy")}
@@ -38,7 +40,10 @@ const RegistrationOpenStatusMessage: React.FC<
 
   //The registration close date is in the past
   const getClosedText = () => {
-    if (!regCloseDate || !timeZone || !timeZone.abbrev) return "";
+    if (!regCloseDate || !timeZone || !timeZone.abbrev) {
+      return "Sorry, registration for this event has already closed."; //fallback to basic message if we don't have the data we need
+    }
+
     return `Sorry, registration for this event closed on
     ${formatDate(parseISO(regCloseDate.toString()), "MM/dd/yyyy")} at
     ${formatDate(parseISO(regCloseDate.toString()), "hh:mm aa")} (${
