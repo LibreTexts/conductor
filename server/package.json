@@ -42,6 +42,7 @@
     "path": "^0.12.7",
     "react-timezone-select": "^2.1.1",
     "sharp": "^0.30.3",
+    "stripe": "^12.7.0",
     "swagger-ui-express": "^4.1.6",
     "ts-node": "^10.9.1",
     "util": "^0.12.4",

@@ -194,11 +194,10 @@ const EventRegistration = () => {
         return;
       }
 
-      let registrationSubmission: OrgEventParticipant = {
+      let registrationSubmission: Omit<OrgEventParticipant, "paymentStatus"> = {
         user: user.uuid,
         orgID: org.orgID,
         eventID: getValues("eventID"),
-        paymentStatus: "na",
         formResponses: extractPromptResponses(allElements),
       };
 
@@ -208,6 +207,12 @@ const EventRegistration = () => {
       );
 
       console.log(res);
+
+      if (!res.data.err && res.data.checkoutURL) {
+        window.location.assign(res.data.checkoutURL);
+      } else {
+        history.push('/success');
+      }
     } catch (err) {
       handleGlobalError(err);
       return;

@@ -6,6 +6,7 @@
 'use strict';
 import express from 'express';
 import cors from 'cors';
+import bodyParser from 'body-parser';
 import middleware from './middleware.js'; // Route middleware
 import authAPI from './api/auth.js';
 import usersAPI from './api/users.js';
@@ -29,12 +30,16 @@ import OAuth from './api/oauth.js';
 import apiClientsAPI from './api/apiclients.js';
 import CIDDescriptorsAPI from './api/ciddescriptors.js';
 import analyticsAPI from './api/analytics.js';
-import orgEventsAPI from './api/orgevents.js'
+import orgEventsAPI from './api/orgevents.js';
+import paymentsAPI from './api/payments.js';
 
 let router = express.Router();
 
 const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
 const apiAuthRoutes = ['/oauth2.0/authorize', '/oauth2.0/accessToken'];
+
+router.use(middleware.middlewareFilter(['/payments/webhook'], bodyParser.json()));
+router.use(bodyParser.urlencoded({ extended: false }));
 
 router.use(cors({
   origin: function (origin, callback) {
@@ -76,7 +81,13 @@ router.use(cors({
 router.use(middleware.authSanitizer);
 
 router.use(middleware.middlewareFilter(
-  [...ssoRoutes, ...apiAuthRoutes, '/commons/kbexport', '/analytics/learning/init'],
+  [
+    ...ssoRoutes,
+    ...apiAuthRoutes,
+    '/commons/kbexport',
+    '/analytics/learning/init',
+    '/payments/webhook',
+  ],
   middleware.requestSecurityHelper,
 ));
 
@@ -1323,6 +1334,11 @@ router.route('/c-ids').get(
 router.route('/c-ids/sync/automated').put(
   middleware.checkLibreAPIKey,
   CIDDescriptorsAPI.runAutomatedSyncCIDDescriptors,
+);
+
+router.route('/payments/webhook').post(
+  express.raw({ type: 'application/json' }),
+  paymentsAPI.processStripeWebhookEvent,
 );
 
 export default router;

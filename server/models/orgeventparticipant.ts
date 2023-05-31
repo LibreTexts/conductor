@@ -6,9 +6,10 @@ export interface OrgEventParticipantInterface extends Document {
   user: Types.ObjectId;
   orgID: string;
   eventID: string;
-  paymentStatus: "na" | "unpaid" | "paid";
+  paymentStatus: "na" | "unpaid" | "paid" | "waived" | "partial_waived";
   formResponses: { promptNum: number; responseVal?: string }[];
   feeWaiver?: Types.ObjectId;
+  amountPaid?: number;
 }
 
 const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
@@ -17,7 +18,6 @@ const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
     ref: User,
     required: true,
     index: true,
-    unique: true, //Participants can only register once
   },
   orgID: {
     type: String,
@@ -49,7 +49,8 @@ const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
     type: Schema.Types.ObjectId,
     ref: OrgEventFeeWaiver,
     required: false,
-  }
+  },
+  amountPaid: Number,
 });
 
 const OrgEventParticipant = model<OrgEventParticipantInterface>(
