@@ -177,6 +177,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               iconPosition="left"
               placeholder="Enter Fee.."
               type="number"
+              min="0"
               disabled={!canEdit}
             />
           )}

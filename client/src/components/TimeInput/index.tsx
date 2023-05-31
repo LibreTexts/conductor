@@ -57,7 +57,7 @@ const TimeInput = ({
         )}
         <input
           type="text"
-          placeholder={"mm/dd/yyyy"}
+          placeholder={"hh:mm am/pm"}
           onChange={() => {}} //Void onChange to prevent react warnings
           value={value}
           disabled={disabled}

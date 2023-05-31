@@ -584,8 +584,9 @@ async function _validateFeeWaiver(code: string, eventID: string): Promise<OrgEve
     if (!foundWaiver) return null;
 
     if (!foundWaiver.active) return null;
-
-    if (isAfter(new Date(), foundWaiver.expirationDate)) return null;
+    
+    const utcNow = new Date(new Date().toUTCString());
+    if (isAfter(utcNow, foundWaiver.expirationDate)) return null;
 
     return foundWaiver;
   } catch (err) {
@@ -632,7 +633,7 @@ async function setRegistrationPaidStatus(checkoutSession: Stripe.Checkout.Sessio
 
     // make idempotent: Stripe may send event multiple times
     if (participant.paymentStatus === 'unpaid') {
-      debug(`Participant ${participant._id} does not required payment status update but received PaymentIntent ${paymentIntent.id}.`);
+      debug(`Participant ${participant._id} does not require payment status update but received PaymentIntent ${paymentIntent.id}.`);
       return res.send({
         err: false,
         msg: 'No registration status update necessary.',
@@ -684,10 +685,8 @@ async function _runOrgEventPreflightChecks(
 
     // Check if registration is open at time of request
     if (action === "register") {
-      if (
-        isBefore(new Date(), orgEvent.regOpenDate) ||
-        isAfter(new Date(), orgEvent.regCloseDate)
-      ) {
+      const utcNow = new Date(new Date().toUTCString());
+      if (isBefore(utcNow, orgEvent.regOpenDate) || isAfter(utcNow, orgEvent.regCloseDate)) {
         return false;
       }
     }
@@ -731,7 +730,8 @@ function validate(method: string) {
         body("endDate", conductorErrors.err1).exists().isString(),
         body("regFee", conductorErrors)
           .optional({ checkFalsy: true })
-          .isDecimal({ force_decimal: true }),
+          .isDecimal({ force_decimal: true, })
+          .custom((value) => value >= 0),
         body("headings", conductorErrors.err1).exists().isArray(),
         body("prompts", conductorErrors.err1).exists().isArray(),
         body("textBlocks", conductorErrors.err1).exists().isArray(),

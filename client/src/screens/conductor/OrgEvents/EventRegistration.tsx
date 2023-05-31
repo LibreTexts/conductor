@@ -275,6 +275,14 @@ const EventRegistration = () => {
             <Segment.Group raised className="mb-4r">
               <Segment>
                 <AuthenticatedStatusMessage user={user} />
+                {!!getValues("regFee") && (
+                  <Message info>
+                    <Message.Content>
+                      <Icon name="dollar" />
+                      <span className="ml-1p">There is a <strong>${getValues('regFee')}</strong> registration fee for this event.</span>
+                    </Message.Content>
+                  </Message>
+                )}
               </Segment>
               <Segment loading={!loadedOrgEvent}>
                 <Form noValidate className="peerreview-form">
@@ -314,13 +322,13 @@ const EventRegistration = () => {
                   </p>
                 )}
                 <Button
-                  color="green"
+                  color={!!getValues('regFee') ? "blue": "green"}
                   className="mt-4p"
                   fluid
                   onClick={submitReview}
                 >
-                  <Icon name="arrow down cart" />
-                  Submit Registration
+                  {!!getValues('regFee') && <Icon name="cart" />}
+                  {!!getValues('regFee') ? `Proceed to Payment - $${getValues('regFee')}` : "Submit Registration"}
                 </Button>
               </Segment>
             </Segment.Group>
