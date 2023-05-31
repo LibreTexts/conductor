@@ -79,6 +79,13 @@ const ManageEvent = () => {
   // Data
   const [allElements, setAllElements] = useState<CustomFormElement[]>([]);
 
+  // Participants Segment
+  const [loadedParticipants, setLoadedParticipants] = useState<boolean>(false);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
+  const [activePage, setActivePage] = useState<number>(1);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
+
   // Event Settings Modal
   const [showEventSettingsModal, setShowEventSettingsModal] = useState(false);
 
@@ -173,6 +180,41 @@ const ManageEvent = () => {
     handleGlobalError,
   ]);
 
+  const getOrgParticipants = useCallback(async () => {
+    try {
+      if (!routeParams.eventID || manageMode === "create") return;
+      setLoadedParticipants(false);
+      const res = await axios.get(
+        `/orgevents/${routeParams.eventID}/participants?page=${activePage}`
+      );
+
+      if (res.data.err || !res.data.participants) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      resetForm({ participants: res.data.participants });
+      setTotalItems(res.data.totalCount ?? 0);
+      setTotalPages(
+        res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
+      );
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadedParticipants(true);
+    }
+  }, [
+    routeParams,
+    manageMode,
+    resetForm,
+    activePage,
+    itemsPerPage,
+    setLoadedParticipants,
+    setTotalItems,
+    setTotalPages,
+    handleGlobalError,
+  ]);
+
   /**
    * Loads current rubric configuration and initializes editing mode, if applicable.
    */
@@ -187,6 +229,7 @@ const ManageEvent = () => {
       document.title = "LibreTexts Conductor | Events | Create Event";
       setManageMode("create");
       setLoadedOrgEvent(true);
+      setShowEventSettingsModal(true); // Show Event Settings modal on first load
     }
 
     // Hook to force Markdown links to open in new window
@@ -220,12 +263,13 @@ const ManageEvent = () => {
         setChangesSaving(false);
       }
 
-      console.log(getValues());
       if (routeParams.mode === "create") {
-        let createRes = await axios.post("/orgevents", getValues());
+        const createRes = await axios.post("/orgevents", getValues());
         setChangesSaving(false);
-        if (!createRes.data.err) {
-          history.push("/controlpanel/eventsmanager");
+        if (!createRes.data.err && createRes.data.orgEvent.eventID) {
+          history.push(
+            `/controlpanel/eventsmanager/edit/${createRes.data.orgEvent.eventID}`
+          );
           return;
         }
         handleGlobalError(createRes.data.errMsg);
@@ -716,7 +760,7 @@ const ManageEvent = () => {
                 <Message
                   warning
                   icon="warning sign"
-                  content="Participants have already registered for this Event. You cannot make changes at this time."
+                  content="Participants have already started registering for this Event. Some settings cannot be changed."
                   className="mt-1p"
                 />
               )}
@@ -749,111 +793,123 @@ const ManageEvent = () => {
                     </Segment.Group>
                   </Grid.Column>
                 </Grid.Row>
-                <Grid.Row>
-                  <FeeWaiversSegment
-                    orgEvent={getValues()}
-                    loading={!loadedOrgEvent}
-                    canEdit={canEdit}
-                    onUpdate={getOrgEvent}
-                  />
-                </Grid.Row>
-                <Grid.Row>
-                  <ParticipantsSegment
-                    orgEvent={getValues()}
-                    loading={!loadedOrgEvent}
-                    canEdit={canEdit}
-                  />
-                </Grid.Row>
-                <Grid.Row>
-                  <Grid.Column>
-                    <Header as="h2" dividing>
-                      Registration Form
-                    </Header>
-                    <Segment.Group size="large" raised className="mb-4p">
-                      <Segment className="peerreview-rubricedit-container">
-                        <EventInstructionsSegment
-                          show={showInstructions}
-                          toggleVisibility={() =>
-                            setShowInstructions(!showInstructions)
-                          }
-                        />
-
-                        {allElements.map((item) => {
-                          return (
-                            <EditableFormBlock
-                              item={item}
-                              key={item.order}
-                              onMove={(item, direction) =>
-                                handleMoveBlock({
-                                  allElems: allElements,
-                                  blockToMove: item,
-                                  direction: direction,
-                                  getValueFn: getValues,
-                                  setValueFn: setValue,
-                                  onError: (err) => handleGlobalError(err),
-                                  onFinish: () => setUnsavedChanges(),
-                                })
+                {org.orgID === "libretexts" && manageMode === "edit" && (
+                  <Grid.Row>
+                    <FeeWaiversSegment
+                      orgEvent={getValues()}
+                      loading={!loadedOrgEvent}
+                      canEdit={canEdit}
+                      onUpdate={getOrgEvent}
+                    />
+                  </Grid.Row>
+                )}
+                {manageMode === "edit" && (
+                  <>
+                    <Grid.Row>
+                      <ParticipantsSegment
+                        participants={getValues("participants")}
+                        orgEvent={getValues()}
+                        loading={loadedParticipants}
+                        canEdit={canEdit}
+                        activePage={activePage}
+                        onChangeActivePage={(page) => setActivePage(page)}
+                        totalItems={totalItems}
+                        totalPages={totalPages}
+                        itemsPerPage={itemsPerPage}
+                      />
+                    </Grid.Row>
+                    <Grid.Row>
+                      <Grid.Column>
+                        <Header as="h2" dividing>
+                          Registration Form
+                        </Header>
+                        <Segment.Group size="large" raised className="mb-4p">
+                          <Segment className="peerreview-rubricedit-container">
+                            <EventInstructionsSegment
+                              show={showInstructions}
+                              toggleVisibility={() =>
+                                setShowInstructions(!showInstructions)
                               }
-                              onRequestEdit={(order) =>
-                                handleRequestEditBlock(order)
-                              }
-                              onRequestDelete={(order) =>
-                                openDeleteBlockModal(order)
-                              }
-                              disabled={!canEdit}
                             />
-                          );
-                        })}
 
-                        <div className="peerreview-rubricedit-placeholder">
-                          <Button.Group fluid color="blue">
-                            <Button
-                              onClick={() => openHeadingModal("add")}
-                              disabled={!canEdit}
-                            >
-                              <Icon name="heading" />
-                              Add Heading
-                            </Button>
-                            <Button
-                              onClick={() => openTextModal("add")}
-                              disabled={!canEdit}
-                            >
-                              <Icon name="paragraph" />
-                              Add Text
-                            </Button>
-                            <Button
-                              onClick={() => openPromptModal("add")}
-                              disabled={!canEdit}
-                            >
-                              <Icon name="question" />
-                              Add Prompt
-                            </Button>
-                          </Button.Group>
-                        </div>
-                        <Divider />
-                        <Button.Group fluid>
-                          <Button
-                            as={Link}
-                            to="/controlpanel/eventsmanager"
-                            disabled={!canEdit}
-                          >
-                            <Icon name="cancel" />
-                            Discard Changes
-                          </Button>
-                          <Button
-                            color="green"
-                            loading={changesSaving}
-                            onClick={saveEventChanges}
-                            disabled={!canEdit}
-                          >
-                            <Icon name="save" />
-                            <span>Save Registration Form</span>
-                          </Button>
-                        </Button.Group>
-                      </Segment>
-                    </Segment.Group>
-                  </Grid.Column>
-                </Grid.Row>
+                            {allElements.map((item) => {
+                              return (
+                                <EditableFormBlock
+                                  item={item}
+                                  key={item.order}
+                                  onMove={(item, direction) =>
+                                    handleMoveBlock({
+                                      allElems: allElements,
+                                      blockToMove: item,
+                                      direction: direction,
+                                      getValueFn: getValues,
+                                      setValueFn: setValue,
+                                      onError: (err) => handleGlobalError(err),
+                                      onFinish: () => setUnsavedChanges(),
+                                    })
+                                  }
+                                  onRequestEdit={(order) =>
+                                    handleRequestEditBlock(order)
+                                  }
+                                  onRequestDelete={(order) =>
+                                    openDeleteBlockModal(order)
+                                  }
+                                  disabled={!canEdit}
+                                />
+                              );
+                            })}
+
+                            <div className="peerreview-rubricedit-placeholder">
+                              <Button.Group fluid color="blue">
+                                <Button
+                                  onClick={() => openHeadingModal("add")}
+                                  disabled={!canEdit}
+                                >
+                                  <Icon name="heading" />
+                                  Add Heading
+                                </Button>
+                                <Button
+                                  onClick={() => openTextModal("add")}
+                                  disabled={!canEdit}
+                                >
+                                  <Icon name="paragraph" />
+                                  Add Text
+                                </Button>
+                                <Button
+                                  onClick={() => openPromptModal("add")}
+                                  disabled={!canEdit}
+                                >
+                                  <Icon name="question" />
+                                  Add Prompt
+                                </Button>
+                              </Button.Group>
+                            </div>
+                            <Divider />
+                            <Button.Group fluid>
+                              <Button
+                                as={Link}
+                                to="/controlpanel/eventsmanager"
+                                disabled={!canEdit}
+                              >
+                                <Icon name="cancel" />
+                                Discard Changes
+                              </Button>
+                              <Button
+                                color="green"
+                                loading={changesSaving}
+                                onClick={saveEventChanges}
+                                disabled={!canEdit}
+                              >
+                                <Icon name="save" />
+                                <span>Save Registration Form</span>
+                              </Button>
+                            </Button.Group>
+                          </Segment>
+                        </Segment.Group>
+                      </Grid.Column>
+                    </Grid.Row>
+                  </>
+                )}
               </Grid>
             </Segment>
           </Segment.Group>

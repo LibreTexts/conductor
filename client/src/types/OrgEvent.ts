@@ -16,7 +16,7 @@ export type OrgEventParticipant = BaseDocument & {
   user: User;
   orgID: string;
   eventID: string;
-  paymentStatus: "na" | "unpaid" | "paid";
+  paymentStatus: "na" | "unpaid" | "paid" | "waived" | "partial_waived" | "refunded";
   formResponses: OrgEventParticipantFormResponse[];
 };
 

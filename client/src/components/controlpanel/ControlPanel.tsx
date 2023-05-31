@@ -57,6 +57,12 @@ const ControlPanel = () => {
             description: 'View requests to access LibreTexts textbook analytics feeds'
         },
         {
+            url: '/controlpanel/eventsmanager',
+            icon: 'calendar alternate outline',
+            title: 'Events Manager',
+            description: 'View and manage Events on the Conductor platform'
+        },
+        {
             url: '/controlpanel/harvestingrequests',
             icon: 'clipboard',
             title: 'Harvesting Requests',
@@ -73,7 +79,7 @@ const ControlPanel = () => {
             icon: 'tasks',
             title: 'Homework Manager',
             description: 'View and manage Homework resources listed on the LibreCommons'
-        }
+        },
     ];
 
 

@@ -63,7 +63,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
       <Modal.Header>
         <div className="flex-row-div">
           <div className="left-flex">
-            <span>Edit Event Settings</span>
+            <span>Event Settings</span>
           </div>
         </div>
       </Modal.Header>
@@ -86,7 +86,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValuesFn("regOpenDate")}
               error={false}
               className="my-2p"
-              disabled={!canEdit}
             />
             <CtlTimeInput
               label="Registration Open Time"
@@ -94,7 +93,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               name="regOpenDate"
               control={control}
               className="my-2p ml-2p"
-              disabled={!canEdit}
             />
             <CtlTimeZoneInput
               name="timeZone"
@@ -102,8 +100,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               label="Time Zone (applies to all dates/times)"
               value={getValuesFn("timeZone")}
               className="my-2p ml-2p"
-              disabled={!canEdit}
-              //onChange={setSelectedTimezone}
             />
           </div>
           <div className="flex-row-div left-flex">
@@ -115,7 +111,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValuesFn("regCloseDate")}
               error={false}
               className="my-2p"
-              disabled={!canEdit}
             />
             <CtlTimeInput
               label="Registration Close Time"
@@ -123,7 +118,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               name="regCloseDate"
               control={control}
               className="my-2p ml-2p"
-              disabled={!canEdit}
             />
           </div>
           <div className="flex-row-div left-flex">
@@ -135,7 +129,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValuesFn("startDate")}
               error={false}
               className="my-2p"
-              disabled={!canEdit}
             />
             <CtlTimeInput
               label="Event Start Time"
@@ -143,7 +136,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               name="startDate"
               control={control}
               className="my-2p ml-2p"
-              disabled={!canEdit}
             />
           </div>
 
@@ -156,7 +148,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               value={getValuesFn("endDate")}
               error={false}
               className="my-2p"
-              disabled={!canEdit}
             />
             <CtlTimeInput
               label="Event End Time"
@@ -164,7 +155,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               name="endDate"
               control={control}
               className="my-2p ml-2p"
-              disabled={!canEdit}
             />
           </div>
           {org.orgID === "libretexts" && (

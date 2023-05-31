@@ -1,4 +1,4 @@
-import { Button, Icon, Modal, Form } from "semantic-ui-react";
+import { Button, Icon, Modal, Form, Accordion } from "semantic-ui-react";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import useGlobalError from "../../error/ErrorHooks";
 import { useState, useEffect } from "react";
@@ -157,11 +157,41 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
               className="my-2p ml-2p"
             />
           </div>
+          {/*Danger zone options only applicable when editing */}
+          {getValues("code") && (
+            <Accordion
+              panels={[
+                {
+                  key: "danger",
+                  title: {
+                    content: (
+                      <span className="color-semanticred">
+                        <strong>Danger Zone</strong>
+                      </span>
+                    ),
+                  },
+                  content: {
+                    content: (
+                      <div>
+                        <p className="color-semanticred">
+                          Use caution with the options in this area!
+                        </p>
+                        <Button color="red" fluid>
+                          <Icon name="trash alternate" />
+                          Deactivate Fee Waiver
+                        </Button>
+                      </div>
+                    ),
+                  },
+                },
+              ]}
+            />
+          )}
         </Form>
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose} color="grey">
-          Go Back
+          Cancel
         </Button>
         <Button onClick={handleSave} color="green">
           <Icon name="save" />

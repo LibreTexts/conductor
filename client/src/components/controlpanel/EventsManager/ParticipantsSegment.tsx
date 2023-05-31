@@ -21,67 +21,32 @@ import PaymentStatusLabel from "./PaymentStatusLabel";
 
 type ParticipantsSegmentProps = {
   orgEvent: OrgEvent;
+  participants: OrgEventParticipant[];
   loading: boolean;
   canEdit: boolean;
+  activePage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onChangeActivePage: (page: number) => void;
 };
 
 const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   orgEvent,
+  participants,
   loading,
   canEdit,
+  activePage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onChangeActivePage,
   ...rest
 }) => {
-  // Global State and Error Handling
-  const { handleGlobalError } = useGlobalError();
-
   // UI
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
-  const [participants, setParticipants] = useState<OrgEventParticipant[]>([]);
-  const [loadedData, setLoadedData] = useState<boolean>(true);
   const [tableColumns, setTableColumns] = useState<
     { key: string; text: string }[]
   >([]);
-
-  useEffect(() => {
-    getOrgParticipants();
-  }, [orgEvent]);
-
-  const getOrgParticipants = useCallback(async () => {
-    try {
-      if (!orgEvent.eventID) return;
-      setLoadedData(false);
-      const res = await axios.get(
-        `/orgevents/${orgEvent.eventID}/participants?page=${activePage}`
-      );
-
-      if (res.data.err || !res.data.participants) {
-        handleGlobalError(res.data.errMsg);
-        return;
-      }
-
-      setParticipants(res.data.participants);
-      setTotalItems(res.data.totalCount ?? 0);
-      setTotalPages(
-        res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
-      );
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadedData(true);
-    }
-  }, [
-    orgEvent,
-    activePage,
-    itemsPerPage,
-    setLoadedData,
-    setParticipants,
-    setTotalItems,
-    setTotalPages,
-    handleGlobalError,
-  ]);
 
   /**
    * Get registration form prompts and prepare them for table UI
@@ -146,7 +111,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         Participants
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
-        <Segment loading={!loadedData}>
+        <Segment loading={loading}>
           <Table striped celled size="small">
             <Table.Header>
               <Table.Row>
@@ -172,7 +137,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 participants.map((item) => (
                   <TableRow participant={item} key={item.user.uuid} />
                 ))}
-              {participants && participants.length === 0 && (
+              {(!participants || participants.length === 0) && (
                 <Table.Row>
                   <Table.Cell colSpan={6}>
                     <p className="text-center">
@@ -186,7 +151,8 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
           <div className="flex-row-div">
             <div className="left-flex">
               <p style={{ fontSize: "0.9em" }}>
-                Displaying {participants.length} of {totalItems} participants.
+                Displaying {participants ? participants.length : 0} of{" "}
+                {totalItems} participants.
               </p>
             </div>
             <div className="right-flex">
@@ -196,7 +162,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 firstItem={null}
                 lastItem={null}
                 onPageChange={(e, data) =>
-                  setActivePage(
+                  onChangeActivePage(
                     parseInt(data.activePage?.toString() ?? "1") ?? 1
                   )
                 }

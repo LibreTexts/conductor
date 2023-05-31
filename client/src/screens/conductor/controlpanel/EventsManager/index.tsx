@@ -17,8 +17,8 @@ import { format as formatDate, parseISO } from "date-fns";
 import { OrgEvent } from "../../../../types";
 const COLUMNS = [
   { key: "title", text: "Title" },
-  { key: "regOpen", text: "Reg Open Date" },
-  { key: "regClose", text: "Reg Close Date" },
+  { key: "regOpen", text: "Registration Open Date" },
+  { key: "regClose", text: "Registration Close Date" },
   { key: "startDate", text: "Event Start Date" },
   { key: "endDate", text: "Event End Date" },
 ];
@@ -157,21 +157,6 @@ const EventsManager = () => {
               </div>
             </Segment>
             <Segment loading={!loadedData}>
-              <div className="flex-row-div">
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(e, data) =>
-                      setActivePage(
-                        parseInt(data.activePage?.toString() ?? "1") ?? 1
-                      )
-                    }
-                  />
-                </div>
-              </div>
               <Table striped celled fixed>
                 <Table.Header>
                   <Table.Row>

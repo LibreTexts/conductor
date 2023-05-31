@@ -5,17 +5,18 @@ import conductorErrors from "../conductor-errors.js";
  * Returns error response based on provided params
  * @param {Response} res - Express Response object
  * @param {number} statusCode - HTTP status code
- * @param {string} msg - keyof conductorErrors
+ * @param {string} msgKey - keyof conductorErrors
  * @returns
  */
 export function conductorErr(
   res: Response,
   statusCode: number,
-  msg: keyof typeof conductorErrors
+  msgKey: keyof typeof conductorErrors
 ) {
+  const msgVal = conductorErrors[msgKey];
   return res.status(statusCode).send({
     err: true,
-    errMsg: msg,
+    errMsg: msgVal,
   });
 }
 

@@ -58,15 +58,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                   Registration URL:
                 </Header>
                 <a
-                  href={`${org.domain}/events/${org.orgID}/${getValuesFn(
-                    "eventID"
-                  )}`}
+                  href={`${org.domain}/events/${getValuesFn("eventID")}`}
                   target="_blank"
                 >
                   {" "}
-                  {`${org.domain}/events/${org.orgID}/${getValuesFn(
-                    "eventID"
-                  )}`}
+                  {`${org.domain}/events/${getValuesFn("eventID")}`}
                 </a>
                 <Icon
                   name="copy"
@@ -75,9 +71,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                   style={{ cursor: "pointer" }}
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `${org.domain}/events/${org.orgID}/${getValuesFn(
-                        "eventID"
-                      )}`
+                      `${org.domain}/events/${getValuesFn("eventID")}`
                     );
                     alert("Copied registration form URL to clipboard");
                   }}

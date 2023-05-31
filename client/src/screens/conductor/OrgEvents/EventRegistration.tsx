@@ -3,7 +3,6 @@ import {
   Header,
   Segment,
   Icon,
-  Loader,
   Grid,
   Form,
   Message,
@@ -16,7 +15,6 @@ import DOMPurify from "dompurify";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { isEmptyString } from "../../../components/util/HelperFunctions";
 import { useTypedSelector } from "../../../state/hooks";
-import Breakpoint from "../../../components/util/Breakpoints";
 import {
   CustomFormElement,
   CustomFormPrompt,
@@ -24,7 +22,7 @@ import {
   OrgEventParticipant,
 } from "../../../types";
 import { useHistory, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { get, useForm } from "react-hook-form";
 import {
   isCustomFormHeadingOrTextBlock,
   isCustomFormPromptBlock,
@@ -53,7 +51,6 @@ const EventRegistration = () => {
   const org = useTypedSelector((state) => state.org);
   const history = useHistory();
   const routeParams = useParams<{
-    orgID: string;
     eventID?: string;
     status?: "success";
   }>();
@@ -77,7 +74,27 @@ const EventRegistration = () => {
   const [canActivate, setCanActivate] = useState<boolean>(false);
   const [loadedOrgEvent, setLoadedOrgEvent] = useState<boolean>(false);
   const [orgLogoUrl, setOrgLogoUrl] = useState<string>("");
+  const [feeWaiverCode, setFeeWaiverCode] = useState<string>("");
   const [formError, setFormError] = useState<boolean>(false);
+
+  /**
+   * Retrieves the current Org configuration from the server.
+   */
+  const getOrg = useCallback(async () => {
+    try {
+      if (!getValues("orgID")) return;
+      const res = await axios.get(`/org/${getValues("orgID")}`);
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      if (!res.data.largeLogo) return;
+      setOrgLogoUrl(res.data.largeLogo);
+    } catch (err) {
+      handleGlobalError(err);
+    }
+  }, [getValues("orgID"), setOrgLogoUrl, handleGlobalError]);
 
   /**
    * Retrieves the current Org Event configuration from the server.
@@ -89,38 +106,24 @@ const EventRegistration = () => {
       const orgEventID = routeParams.eventID;
       if (!orgEventID || isEmptyString(orgEventID)) {
         handleGlobalError("No Event ID provided");
+        return;
       }
 
       const res = await axios.get(`/orgevents/${orgEventID}`);
       setLoadedOrgEvent(true);
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
+        return;
       }
 
       resetForm(res.data.orgEvent);
     } catch (err) {
+      handleGlobalError(err);
+      return;
+    } finally {
       setLoadedOrgEvent(true);
-      handleGlobalError(err);
     }
-  }, [routeParams, setLoadedOrgEvent, handleGlobalError]);
-
-  /**
-   * Retrieves the current Org configuration from the server.
-   */
-  const getOrg = useCallback(async () => {
-    try {
-      const res = await axios.get(`/org/${routeParams.orgID}`);
-      if (res.data.err) {
-        handleGlobalError(res.data.errMsg);
-        return;
-      }
-
-      if (!res.data.largeLogo) return;
-      setOrgLogoUrl(res.data.largeLogo);
-    } catch (err) {
-      handleGlobalError(err);
-    }
-  }, [routeParams, setOrgLogoUrl, handleGlobalError]);
+  }, [routeParams, setLoadedOrgEvent, resetForm, isEmptyString]);
 
   useEffect(() => {
     if (!watchValue("regOpenDate") || !watchValue("regCloseDate")) return;
@@ -139,8 +142,6 @@ const EventRegistration = () => {
   useEffect(() => {
     document.title = "LibreTexts Conductor | Events Registration";
     getOrgEvent();
-    getOrg();
-
     // Hook to force Markdown links to open in new window
     DOMPurify.addHook("afterSanitizeAttributes", function (node) {
       if ("target" in node) {
@@ -148,7 +149,7 @@ const EventRegistration = () => {
         node.setAttribute("rel", "noopener noreferrer");
       }
     });
-  }, [routeParams, getOrgEvent, getOrg]);
+  }, []);
 
   /**
    * Processes all rubric elements for UI presentation whenever the rubric state changes.
@@ -194,24 +195,26 @@ const EventRegistration = () => {
         return;
       }
 
-      let registrationSubmission: Omit<OrgEventParticipant, "paymentStatus"> = {
-        user: user.uuid,
-        orgID: org.orgID,
-        eventID: getValues("eventID"),
-        formResponses: extractPromptResponses(allElements),
-      };
+      const registrationSubmission: Omit<OrgEventParticipant, "paymentStatus"> =
+        {
+          user: user.uuid,
+          orgID: org.orgID,
+          eventID: getValues("eventID"),
+          formResponses: extractPromptResponses(allElements),
+        };
 
-      let res = await axios.post(
+      const res = await axios.post(
         `/orgevents/${getValues("eventID")}/register`,
-        registrationSubmission
+        {
+          ...registrationSubmission,
+          feeWaiver: feeWaiverCode ? feeWaiverCode : undefined,
+        }
       );
-
-      console.log(res);
 
       if (!res.data.err && res.data.checkoutURL) {
         window.location.assign(res.data.checkoutURL);
       } else {
-        history.push('/success');
+        history.push("/success");
       }
     } catch (err) {
       handleGlobalError(err);
@@ -244,7 +247,14 @@ const EventRegistration = () => {
                   }
                 />
                 <Header as="h1" textAlign="center">
-                  Event Registration: <em>{getValues("title")}</em>
+                  {!routeParams.status && (
+                    <span>
+                      Event Registration: <em>{getValues("title")}</em>
+                    </span>
+                  )}
+                  {routeParams.status === "success" && (
+                    <span>Registration Complete!</span>
+                  )}
                 </Header>
               </Grid.Column>
             </Grid.Row>
@@ -253,7 +263,7 @@ const EventRegistration = () => {
       </Grid.Row>
       {routeParams.status === "success" && (
         <RegistrationSuccessMessage
-          paid={useQueryParam("paid") ? true : false}
+          paid={useQueryParam("payment") ? true : false}
         />
       )}
       {!canActivate && !routeParams.status && (
@@ -279,7 +289,10 @@ const EventRegistration = () => {
                   <Message info>
                     <Message.Content>
                       <Icon name="dollar" />
-                      <span className="ml-1p">There is a <strong>${getValues('regFee')}</strong> registration fee for this event.</span>
+                      <span className="ml-1p">
+                        There is a <strong>${getValues("regFee")}</strong>{" "}
+                        registration fee for this event.
+                      </span>
                     </Message.Content>
                   </Message>
                 )}
@@ -314,6 +327,18 @@ const EventRegistration = () => {
                     }
                     return null;
                   })}
+                  <Form.Field>
+                    <label>
+                      Have a fee waiver code? Enter it below. If valid, the
+                      discount will be applied at checkout.
+                    </label>
+                    <Form.Input
+                      type="text"
+                      placeholder="Enter code..."
+                      onChange={(e) => setFeeWaiverCode(e.target.value)}
+                      value={feeWaiverCode}
+                    />
+                  </Form.Field>
                 </Form>
                 {formError && (
                   <p className="text-center form-error-label">
@@ -322,13 +347,15 @@ const EventRegistration = () => {
                   </p>
                 )}
                 <Button
-                  color={!!getValues('regFee') ? "blue": "green"}
+                  color={!!getValues("regFee") ? "blue" : "green"}
                   className="mt-4p"
                   fluid
                   onClick={submitReview}
                 >
-                  {!!getValues('regFee') && <Icon name="cart" />}
-                  {!!getValues('regFee') ? `Proceed to Payment - $${getValues('regFee')}` : "Submit Registration"}
+                  {!!getValues("regFee") && <Icon name="cart" />}
+                  {!!getValues("regFee")
+                    ? `Proceed to Payment - $${getValues("regFee")}`
+                    : "Submit Registration"}
                 </Button>
               </Segment>
             </Segment.Group>

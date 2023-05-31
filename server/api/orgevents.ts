@@ -2,7 +2,7 @@ import conductorErrors from "../conductor-errors.js";
 import { debug, debugError } from "../debug.js";
 import OrgEvent, { OrgEventInterface } from "../models/orgevent.js";
 import { Response } from "express";
-import Stripe from 'stripe';
+import Stripe from "stripe";
 import { param, body } from "express-validator";
 import {
   TypedReqBody,
@@ -96,24 +96,10 @@ async function getOrgEvent(
       return conductor404Err(res);
     }
 
-    // We don't populate the participants here for performance because we just need to know if any exist
-    // There is a separate endpoint for getting participants
-    const foundParticipants = await OrgEventParticipant.find({
-      eventID: req.params.eventID,
-    }).lean();
-
-    const foundFeeWaivers = await OrgEventFeeWaiver.find({
-      orgID: process.env.ORG_ID,
-      eventID: searchID,
-    }).lean();
-
+    // We don't populate particpants or fee waivers here because registrants will be using this endpoint
     return res.send({
       err: false,
-      orgEvent: {
-        ...foundOrgEvent,
-        participants: foundParticipants,
-        feeWaivers: foundFeeWaivers,
-      },
+      orgEvent: foundOrgEvent,
     });
   } catch (err) {
     debugError(err);
@@ -371,17 +357,22 @@ async function submitRegistration(
     // If fee waiver code was provided, check if it's valid
     let feeWaiver: OrgEventFeeWaiverInterface | null = null;
     if (req.body.feeWaiver) {
-      feeWaiver = await _validateFeeWaiver(req.body.feeWaiver, req.params.eventID);
+      feeWaiver = await _validateFeeWaiver(
+        req.body.feeWaiver,
+        req.params.eventID
+      );
       if (!feeWaiver) {
-        return conductor400Err(res);
+        return conductorErr(res, 400, "err81");
       }
     }
 
-    if (process.env.ORG_ID === 'libretexts' && !!orgEvent.regFee) {
+    if (process.env.ORG_ID === "libretexts" && !!orgEvent.regFee) {
       if (process.env.STRIPE_SECRET_KEY) {
         stripeKey = process.env.STRIPE_SECRET_KEY;
       } else {
-        throw new Error("Invalid system configuration for Events registration.");
+        throw new Error(
+          "Invalid system configuration for Events registration."
+        );
       }
     }
 
@@ -389,7 +380,7 @@ async function submitRegistration(
       user: foundUser._id,
       orgID,
       eventID: req.params.eventID,
-      paymentStatus: 'unpaid',
+      paymentStatus: "unpaid",
       formResponses,
     });
 
@@ -399,7 +390,7 @@ async function submitRegistration(
     }
 
     let checkoutURL: string | null = null;
-    if (process.env.ORG_ID === 'libretexts' && !!orgEvent.regFee && stripeKey) {
+    if (process.env.ORG_ID === "libretexts" && !!orgEvent.regFee && stripeKey) {
       let feeWaivePercent = 0;
       let computedDiscount = 0;
       let computedTotal = orgEvent.regFee;
@@ -408,14 +399,21 @@ async function submitRegistration(
       }
       if (feeWaivePercent > 0) {
         computedDiscount = computedTotal * feeWaivePercent;
-        computedTotal = (computedDiscount > computedTotal) ? 0 : computedTotal - computedDiscount;
+        computedTotal =
+          computedDiscount > computedTotal
+            ? 0
+            : computedTotal - computedDiscount;
       }
 
       if (computedTotal > 0) {
-        const stripeClient = new Stripe(stripeKey, { apiVersion: '2022-11-15' });
-        const urlProto = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-        const urlDomain = process.env.CONDUCTOR_DOMAIN ?? 'commons.libretexts.org';
-  
+        const stripeClient = new Stripe(stripeKey, {
+          apiVersion: "2022-11-15",
+        });
+        const urlProto =
+          process.env.NODE_ENV === "production" ? "https" : "http";
+        const urlDomain =
+          process.env.CONDUCTOR_DOMAIN ?? "commons.libretexts.org";
+
         const checkoutSession = await stripeClient.checkout.sessions.create({
           line_items: [
             {
@@ -423,27 +421,27 @@ async function submitRegistration(
                 product_data: {
                   name: `${orgEvent.title} Registration`,
                 },
-                currency: 'USD',
+                currency: "USD",
                 unit_amount: Math.ceil(computedTotal * 100), // convert to cents
-                tax_behavior: 'inclusive',
+                tax_behavior: "inclusive",
               },
               quantity: 1,
               adjustable_quantity: {
                 enabled: false,
               },
-            }
+            },
           ],
           customer_email: foundUser.email,
-          mode: 'payment',
+          mode: "payment",
           metadata: {
-            application: 'conductor',
-            feature: 'events',
+            application: "conductor",
+            feature: "events",
             orgID,
-            eventID: req.params.eventID ?? 'unknown',
+            eventID: req.params.eventID ?? "unknown",
             userUUID: foundUser.uuid,
           },
-          success_url: `${urlProto}://${urlDomain}/events/${process.env.ORG_ID}/${req.params.eventID}/success?payment=true`,
-          cancel_url: `${urlProto}://${urlDomain}/events/${process.env.ORG_ID}/${req.params.eventID}`,
+          success_url: `${urlProto}://${urlDomain}/events/${req.params.eventID}/success?payment=true`,
+          cancel_url: `${urlProto}://${urlDomain}/events/${req.params.eventID}`,
         });
         if (checkoutSession.url) {
           shouldSendConfirmation = false; // send after payment collected
@@ -453,16 +451,18 @@ async function submitRegistration(
         await OrgEventParticipant.updateOne(
           { _id: newDoc._id },
           {
-            paymentStatus: 'waived',
+            paymentStatus: "waived",
             amountPaid: 0,
             feeWaiver: feeWaiver._id,
-          },
+          }
         );
       }
     }
 
     if (shouldSendConfirmation) {
-      mailAPI.sendOrgEventRegistrationConfirmation(foundUser, orgEvent).catch((e: unknown) => debugError(e));
+      mailAPI
+        .sendOrgEventRegistrationConfirmation(foundUser, orgEvent)
+        .catch((e: unknown) => debugError(e));
     }
 
     return res.send({
@@ -471,7 +471,10 @@ async function submitRegistration(
       participant: newDoc,
       ...(checkoutURL ? { checkoutURL } : {}),
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 11000) {
+      return conductorErr(res, 400, "err82");
+    }
     debugError(err);
     return conductor500Err(res);
   }
@@ -573,18 +576,21 @@ async function updateFeeWaiver(
  * @param {string} eventID - Event ID
  * @returns {boolean} - Returns true if fee waiver is valid and can be used, false otherwise
  */
-async function _validateFeeWaiver(code: string, eventID: string): Promise<OrgEventFeeWaiverInterface | null> {
+async function _validateFeeWaiver(
+  code: string,
+  eventID: string
+): Promise<OrgEventFeeWaiverInterface | null> {
   try {
     const foundWaiver = await OrgEventFeeWaiver.findOne({
       orgID: process.env.ORG_ID,
-      eventID,
-      code,
+      eventID: eventID,
+      code: code,
     }).lean();
 
     if (!foundWaiver) return null;
 
     if (!foundWaiver.active) return null;
-    
+
     const utcNow = new Date(new Date().toUTCString());
     if (isAfter(utcNow, foundWaiver.expirationDate)) return null;
 
@@ -595,7 +601,11 @@ async function _validateFeeWaiver(code: string, eventID: string): Promise<OrgEve
   }
 }
 
-async function setRegistrationPaidStatus(checkoutSession: Stripe.Checkout.Session, paymentIntent: Stripe.PaymentIntent, res: Response) {
+async function setRegistrationPaidStatus(
+  checkoutSession: Stripe.Checkout.Session,
+  paymentIntent: Stripe.PaymentIntent,
+  res: Response
+) {
   try {
     const { orgID, eventID, userUUID } = checkoutSession.metadata ?? {};
     if (!orgID || !eventID || !userUUID) {
@@ -610,10 +620,12 @@ async function setRegistrationPaidStatus(checkoutSession: Stripe.Checkout.Sessio
       return conductor404Err(res);
     }
     if (!orgEvent.regFee) {
-      debug(`Event ${orgEvent.eventID} does not require registration fee but received PaymentIntent ${paymentIntent.id}.`);
+      debug(
+        `Event ${orgEvent.eventID} does not require registration fee but received PaymentIntent ${paymentIntent.id}.`
+      );
       return res.send({
         err: false,
-        msg: 'Event does not require registration fee.',
+        msg: "Event does not require registration fee.",
       });
     }
 
@@ -632,17 +644,22 @@ async function setRegistrationPaidStatus(checkoutSession: Stripe.Checkout.Sessio
     }
 
     // make idempotent: Stripe may send event multiple times
-    if (participant.paymentStatus === 'unpaid') {
-      debug(`Participant ${participant._id} does not require payment status update but received PaymentIntent ${paymentIntent.id}.`);
+    if (participant.paymentStatus !== "unpaid") {
+      debug(
+        `Participant ${participant._id} does not required payment status update but received PaymentIntent ${paymentIntent.id}.`
+      );
       return res.send({
         err: false,
-        msg: 'No registration status update necessary.',
+        msg: "No registration status update necessary.",
       });
     }
 
-    let newPaymentStatus = 'paid';
-    if (((paymentIntent.amount_received / 100) < orgEvent.regFee) && participant.feeWaiver) {
-      newPaymentStatus = 'partial_waived';
+    let newPaymentStatus = "paid";
+    if (
+      paymentIntent.amount_received / 100 < orgEvent.regFee &&
+      participant.feeWaiver
+    ) {
+      newPaymentStatus = "partial_waived";
     }
 
     const updateRes = await OrgEventParticipant.updateOne(
@@ -650,18 +667,20 @@ async function setRegistrationPaidStatus(checkoutSession: Stripe.Checkout.Sessio
       {
         paymentStatus: newPaymentStatus,
         amountPaid: paymentIntent.amount_received / 100,
-      },
+      }
     );
     if (!updateRes.acknowledged) {
       debugError(`Did not update OrgEventParticipant ${participant._id}`);
       return conductor500Err(res);
     }
 
-    mailAPI.sendOrgEventRegistrationConfirmation(foundUser, orgEvent).catch((e: unknown) => debugError(e));
+    mailAPI
+      .sendOrgEventRegistrationConfirmation(foundUser, orgEvent)
+      .catch((e: unknown) => debugError(e));
 
     return res.send({
       err: false,
-      msg: 'Updated participant registration status.',
+      msg: "Updated participant registration status.",
     });
   } catch (err) {
     debugError(err);
@@ -686,7 +705,10 @@ async function _runOrgEventPreflightChecks(
     // Check if registration is open at time of request
     if (action === "register") {
       const utcNow = new Date(new Date().toUTCString());
-      if (isBefore(utcNow, orgEvent.regOpenDate) || isAfter(utcNow, orgEvent.regCloseDate)) {
+      if (
+        isBefore(utcNow, orgEvent.regOpenDate) ||
+        isAfter(utcNow, orgEvent.regCloseDate)
+      ) {
         return false;
       }
     }
@@ -730,7 +752,7 @@ function validate(method: string) {
         body("endDate", conductorErrors.err1).exists().isString(),
         body("regFee", conductorErrors)
           .optional({ checkFalsy: true })
-          .isDecimal({ force_decimal: true, })
+          .isDecimal({ force_decimal: true })
           .custom((value) => value >= 0),
         body("headings", conductorErrors.err1).exists().isArray(),
         body("prompts", conductorErrors.err1).exists().isArray(),

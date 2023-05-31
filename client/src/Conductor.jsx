@@ -95,7 +95,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
         <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
         <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
-        <PrivateRoute exact path='/events/:orgID/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
+        <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
           <PrivateRoute exact path="/accountrequest" key="accountrequest" component={AccountRequest} unAuthSrc="accountrequest" />

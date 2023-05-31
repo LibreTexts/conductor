@@ -10,10 +10,10 @@ const PaymentStatusLabel: React.FC<PaymentStatusLabelProps> = ({
   ...rest
 }) => {
   switch (paymentStatus) {
-    case "paid":
+    case "na":
       return (
-        <Label color="green" {...rest}>
-          Paid
+        <Label color="grey" {...rest}>
+          N/A
         </Label>
       );
     case "unpaid":
@@ -22,10 +22,28 @@ const PaymentStatusLabel: React.FC<PaymentStatusLabelProps> = ({
           Unpaid
         </Label>
       );
-    case "na":
+    case "paid":
       return (
-        <Label color="grey" {...rest}>
-          N/A
+        <Label color="green" {...rest}>
+          Paid
+        </Label>
+      );
+    case "waived":
+      return (
+        <Label color="blue" {...rest}>
+          Waived
+        </Label>
+      );
+    case "partial_waived":
+      return (
+        <Label color="blue" {...rest}>
+          Partially Waived
+        </Label>
+      );
+    case "refunded":
+      return (
+        <Label color="orange" {...rest}>
+          Refunded
         </Label>
       );
     default:
