@@ -17,6 +17,7 @@ import useGlobalError from "../../error/ErrorHooks";
 import { isEmptyString } from "../../util/HelperFunctions";
 import axios from "axios";
 import { getLikertResponseText } from "../../util/LikertHelpers";
+import PaymentStatusLabel from "./PaymentStatusLabel";
 
 type ParticipantsSegmentProps = {
   orgEvent: OrgEvent;
@@ -127,6 +128,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         <Table.Cell>
           <span>{participant.user.lastName}</span>
         </Table.Cell>
+        <Table.Cell>
+          <PaymentStatusLabel paymentStatus={participant.paymentStatus} />
+        </Table.Cell>
         {participant.formResponses.map((r) => {
           return (
             <Table.Cell key={r.promptNum}>{getResponseValText(r)}</Table.Cell>
@@ -151,6 +155,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 </Table.HeaderCell>
                 <Table.HeaderCell key="lastName">
                   <span>Last Name</span>
+                </Table.HeaderCell>
+                <Table.HeaderCell key="paymentStatus">
+                  <span>Payment Status</span>
                 </Table.HeaderCell>
                 {tableColumns.map((item) => (
                   <Table.HeaderCell key={item.key}>

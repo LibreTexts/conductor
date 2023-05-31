@@ -1,7 +1,7 @@
 import { UseFormGetValues } from "react-hook-form";
 import { Grid, Header, Icon, Segment } from "semantic-ui-react";
 import { OrgEvent, Organization } from "../../../types";
-
+import { format as formatDate, parseISO, parse as parseDate } from "date-fns";
 interface EventSettingsSegmentProps {
   getValuesFn: UseFormGetValues<OrgEvent>;
   manageMode: "create" | "edit";
@@ -28,11 +28,13 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               </Header>
               <span>
                 {" "}
-                {/* {formatDate(
-                        parseISO(getValues("startDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      ({getValues("timeZone.abbrev")}) */}
+                {getValuesFn("startDate")
+                  ? formatDate(
+                      parseISO(getValuesFn("startDate").toString()),
+                      "MM/dd/yyyy hh:mm aa"
+                    )
+                  : "Unknown"}
+                ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
             <p>
@@ -41,11 +43,12 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               </Header>
               <span>
                 {" "}
-                {getValuesFn("endDate").toString()}
-                {/* {formatDate(
-                                  parseISO(getValues("endDate").toISOString()),
-                                  "MM/dd/yyyy"
-                                )} */}
+                {getValuesFn("endDate")
+                  ? formatDate(
+                      parseISO(getValuesFn("endDate").toString()),
+                      "MM/dd/yyyy hh:mm aa"
+                    )
+                  : "Unknown"}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -90,11 +93,13 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               </Header>
               <span>
                 {" "}
-                {/* {formatDate(
-                        parseISO(getValues("regOpenDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      ({getValues("timeZone.abbrev")}) */}
+                {getValuesFn("regOpenDate")
+                  ? formatDate(
+                      parseISO(getValuesFn("regOpenDate").toString()),
+                      "MM/dd/yyyy hh:mm aa"
+                    )
+                  : "Unknown"}
+                ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
             <p>
@@ -103,11 +108,13 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               </Header>
               <span>
                 {" "}
-                {/* {formatDate(
-                        parseISO(getValues("regCloseDate").toISOString()),
-                        "MM/dd/yyyy hh:mm aa"
-                      )}{" "}
-                      (getValues("timeZone.abbrev")}) */}
+                {getValuesFn("regCloseDate")
+                  ? formatDate(
+                      parseISO(getValuesFn("regCloseDate").toString()),
+                      "MM/dd/yyyy hh:mm aa"
+                    )
+                  : "Unknown"}
+                ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
             {org.orgID === "libretexts" && (
@@ -115,7 +122,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 <Header sub as="span">
                   <strong>Registration Fee:</strong>
                 </Header>
-                <span> ${getValuesFn("regFee")}</span>
+                <span> ${getValuesFn("regFee") ?? "0.00"}</span>
               </p>
             )}
           </Grid.Column>

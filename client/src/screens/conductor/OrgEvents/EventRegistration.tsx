@@ -258,6 +258,7 @@ const EventRegistration = () => {
               <RegistrationOpenStatusMessage
                 regOpenDate={watchValue("regOpenDate")}
                 regCloseDate={watchValue("regCloseDate")}
+                timeZone={watchValue("timeZone")}
               />
             </Segment>
           </Grid.Column>

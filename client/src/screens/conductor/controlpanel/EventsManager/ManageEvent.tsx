@@ -60,10 +60,6 @@ const ManageEvent = () => {
   } = useForm<OrgEvent>({
     defaultValues: {
       title: "",
-      regOpenDate: new Date(),
-      regCloseDate: new Date(),
-      startDate: new Date(),
-      endDate: new Date(),
       regFee: 0,
       headings: [],
       textBlocks: [],
