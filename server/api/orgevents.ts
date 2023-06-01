@@ -475,6 +475,9 @@ async function submitRegistration(
           ],
           customer_email: foundUser.email,
           mode: "payment",
+          shipping_address_collection: {
+            allowed_countries: ["US"],
+          },
           metadata: {
             application: "conductor",
             feature: "events",
