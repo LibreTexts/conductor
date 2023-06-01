@@ -174,7 +174,7 @@ const EventRegistration = () => {
   ) {
     let foundElement = allElements.find((el) => el.order === item.order);
     let foundIdx = allElements.findIndex((el) => el.order === item.order);
-    if (!foundIdx || !foundElement) return;
+    if (foundIdx === -1 || !foundElement) return;
 
     if (!isCustomFormPromptBlock(foundElement)) {
       return;

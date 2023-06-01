@@ -222,7 +222,18 @@ export const handleDeleteBlock = ({
 
       let newArr = [...getValueFn("headings")];
       newArr.splice(deleteIdx);
-      setValueFn("headings", newArr);
+      setValueFn(
+        "headings",
+        newArr.map((item) => {
+          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
+              return {
+                  ...item,
+                  order: item.order - 1
+              };
+          }
+          return item;
+        }),
+      );
     }
 
     if (dbBlock.uiType === "textBlock") {
@@ -233,7 +244,18 @@ export const handleDeleteBlock = ({
 
       let newArr = [...getValueFn("textBlocks")];
       newArr.splice(deleteIdx);
-      setValueFn("textBlocks", newArr);
+      setValueFn(
+        "textBlocks",
+        newArr.map((item) => {
+          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
+              return {
+                  ...item,
+                  order: item.order - 1
+              };
+          }
+          return item;
+        }),
+      );
     }
 
     if (dbBlock.uiType === "prompt") {
@@ -243,12 +265,24 @@ export const handleDeleteBlock = ({
       if (deleteIdx === -1) return;
 
       let newArr = [...getValueFn("prompts")];
-      newArr.splice(deleteIdx);
-      setValueFn("prompts", newArr);
+      newArr.splice(deleteIdx, 1);
+
+      setValueFn(
+        "prompts",
+        newArr.map((item) => {
+          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
+              return {
+                  ...item,
+                  order: item.order - 1
+              };
+          }
+          return item;
+        }),
+      );
     }
 
     if (onFinish) {
-      onFinish;
+      onFinish();
     }
   } catch (err) {
     onError(err);
