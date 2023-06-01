@@ -37,6 +37,7 @@ const Login = () => {
     const [showPassReset, setPassReset] = useState(false);
     const [showPassChange, setPassChange] = useState(false);
     const [showAccountRequestAuth, setShowAccountRequestAuth] = useState(false);
+    const [showEventRegistrationAuth, setShowEventRegistrationAuth] = useState(false);
     const [redirectURI, setRedirectURI] = useState('');
 
     // Form Data
@@ -55,6 +56,9 @@ const Login = () => {
         }
         if (searchParams.get('src') === 'accountrequest') {
             setShowAccountRequestAuth(true);
+        }
+        if (searchParams.get('src') === 'eventregistration') {
+            setShowEventRegistrationAuth(true);
         }
         if (searchParams.get('newregister') === 'true') {
             setNewRegister(true);
@@ -204,6 +208,15 @@ const Login = () => {
                             <Message.Content>
                                 <Message.Header>Conductor Account Required</Message.Header>
                                 <p>A Conductor account is now required to submit an Instructor Account Request for other LibreTexts services. This helps LibreTexts streamline the account approval process and create consistent records. Conductor accounts are free and open to all.</p>
+                            </Message.Content>
+                        </Message>
+                    )}
+                    {showEventRegistrationAuth && (
+                        <Message info icon>
+                            <Icon name="info circle" />
+                            <Message.Content>
+                                <Message.Header>Conductor Account Required</Message.Header>
+                                <p>A Conductor account is required to register for this event. Conductor accounts are free and open to all.</p>
                             </Message.Content>
                         </Message>
                     )}

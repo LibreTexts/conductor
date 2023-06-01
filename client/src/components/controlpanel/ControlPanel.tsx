@@ -6,19 +6,27 @@ import {
     Segment,
     Icon,
     List,
-    Breadcrumb
+    Breadcrumb,
+    SemanticICONS
 } from 'semantic-ui-react';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useTypedSelector } from '../../state/hooks';
 
+type ControlPanelListItem = {
+    url: string;
+    icon: SemanticICONS;
+    title: string;
+    description: string;
+}
 
 const ControlPanel = () => {
 
     // Global State
-    const isCampusAdmin = useSelector((state) => state.user.isCampusAdmin);
-    const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
-    const org = useSelector((state) => state.org);
+
+    const isCampusAdmin = useTypedSelector((state) => state.user.isCampusAdmin);
+    const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
+    const org = useTypedSelector((state) => state.org);
 
     
     /**
@@ -29,7 +37,7 @@ const ControlPanel = () => {
     }, []);
 
 
-    let libretextsMasterTools = [
+    let libretextsMasterTools: ControlPanelListItem[] = [
         {
             url: '/controlpanel/accountrequests',
             icon: 'user plus',
@@ -49,6 +57,12 @@ const ControlPanel = () => {
             description: 'View requests to access LibreTexts textbook analytics feeds'
         },
         {
+            url: '/controlpanel/eventsmanager',
+            icon: 'calendar alternate outline',
+            title: 'Events Manager',
+            description: 'View and manage Events on the Conductor platform'
+        },
+        {
             url: '/controlpanel/harvestingrequests',
             icon: 'clipboard',
             title: 'Harvesting Requests',
@@ -65,11 +79,11 @@ const ControlPanel = () => {
             icon: 'tasks',
             title: 'Homework Manager',
             description: 'View and manage Homework resources listed on the LibreCommons'
-        }
+        },
     ];
 
 
-    let campusAdminTools = [
+    let campusAdminTools: ControlPanelListItem[] = [
         {
             url: '/controlpanel/booksmanager',
             icon: 'book',
@@ -102,15 +116,7 @@ const ControlPanel = () => {
         }
     ];
 
-
-    /**
-     * Renders a UI list item for a tool.
-     * @param {String} type - The tool type.
-     * @param {Object} item - The tool's information object.
-     * @param {Number} idx - The tool's index in its container array.
-     * @returns {List.Item} The UI-ready list item.
-     */
-    const renderListItem = (type, item, idx) => {
+    const renderListItem = (type: 'libretexts' | 'campus', item: ControlPanelListItem, idx: number) => {
         return (
             <List.Item
                 as={Link}

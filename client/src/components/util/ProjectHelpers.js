@@ -69,30 +69,6 @@ const peerReviewAuthorTypes = [
     { key:  'instructor',   text: 'Instructor', value: 'instructor' }
 ];
 
-const peerReviewThreePointLikertOptions = [
-    'Disagree',
-    'Neutral',
-    'Agree'
-];
-
-const peerReviewFivePointLikertOptions = [
-    'Strongly Disagree',
-    'Disagree',
-    'Neutral',
-    'Agree',
-    'Strongly Agree'
-];
-
-const peerReviewSevenPointLikertOptions = [
-    'Strongly Disagree',
-    'Disagree',
-    'Somewhat Disagree',
-    'Neutral',
-    'Somewhat Agree',
-    'Agree',
-    'Strongly Agree'
-];
-
 const PROJECT_FILES_ACCESS_SETTINGS = [
   { key: 'public',  value: 'public',  text: 'Public (visible on Commons)'          },
   { key: 'users',   value: 'users',   text: 'All Conductor Users' },
@@ -408,9 +384,6 @@ export {
     projectRoleOptions,
     peerReviewPromptTypes,
     peerReviewAuthorTypes,
-    peerReviewThreePointLikertOptions,
-    peerReviewFivePointLikertOptions,
-    peerReviewSevenPointLikertOptions,
     getTaskStatusText,
     getClassificationText,
     getClassificationDescription,

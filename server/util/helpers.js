@@ -244,3 +244,24 @@ export function sanitizeCustomColor(hexString) {
 
   return "";
 }
+
+/**
+ * Calculates skip offset for server-side pagination
+ * @param {number} page - Active page number (integer)
+ * @param {number} offsetMultiplier - Number of records to return for each page
+ * @returns {number} - The number of records to offset, or 0 if an error was encountered
+ */
+export function getPaginationOffset(page, offsetMultiplier = 25) {
+  let parsedPage = parseInt(page);
+  let parsedMultiplier = parseInt(offsetMultiplier);
+  if (!Number.isInteger(parsedPage) || !Number.isInteger(parsedMultiplier)) {
+    return 0;
+  }
+
+  let offset = 0;
+  if (parsedPage > 1) {
+    offset = (parsedPage - 1) * offsetMultiplier;
+  }
+
+  return offset;
+}

@@ -6,14 +6,12 @@ export type User = {
   lastName: string;
   email: string;
   avatar: string;
-  roles: [
-    {
-      org: Organization | string;
-      role: string;
-    }
-  ];
+  roles: {
+    org: Organization | string;
+    role: string;
+  }[];
   authType: string;
-  pinnedProjects?: [string];
+  pinnedProjects?: string[];
   authorizedApps?: AuthorizedApp[];
   instructorProfile?: {
     institution: string;

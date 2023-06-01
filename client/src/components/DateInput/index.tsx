@@ -2,18 +2,20 @@ import { ChangeEventHandler, memo, useEffect, useRef, useState } from "react";
 import FocusTrap from "focus-trap-react";
 import { DayPicker } from "react-day-picker";
 import { usePopper } from "react-popper";
-import { format, parse, isValid } from "date-fns";
+import { format, parse, isValid, parseISO } from "date-fns";
 import "./DateInput.css";
 import "react-day-picker/dist/style.css";
+import "../../styles/global.css";
 
-interface DateInputProps {
+export interface DateInputProps {
   value: Date | string;
   onChange: (date: Date | string) => void;
   label: string | undefined;
-  inlineLabel: boolean;
-  required: boolean;
-  className: string;
+  inlineLabel?: boolean;
+  required?: boolean;
+  className?: string;
   error: boolean;
+  disabled?: boolean;
 }
 
 const DateInput = ({
@@ -24,6 +26,7 @@ const DateInput = ({
   required = false,
   className = "",
   error = false,
+  disabled = false,
 }: DateInputProps) => {
   const [selected, setSelected] = useState<Date>();
   const [inputValue, setInputValue] = useState<string>("");
@@ -39,23 +42,20 @@ const DateInput = ({
 
   useEffect(() => {
     if (value) {
-      const initValue = typeof (value) === 'string' ? value : value.toLocaleDateString();
-      const date = parse(initValue, "MM/dd/yyyy", new Date());
+      const initValue = typeof value === "string" ? value : value.toISOString();
+      const date = parseISO(initValue);
       if (isValid(date)) {
-        setInputValue(initValue);
+        formatAndSetInputValue(date);
         setSelected(date);
       }
     }
   }, [value, setSelected, setInputValue]);
 
-  const closePopper = () => {
-    setIsPopperOpen(false);
-  };
-
   const handleInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setInputValue(e.currentTarget.value);
+    if (disabled) return;
     const date = parse(e.currentTarget.value, "MM/dd/yyyy", new Date());
     if (isValid(date)) {
+      formatAndSetInputValue(date);
       setSelected(date);
     } else {
       setSelected(undefined);
@@ -63,19 +63,25 @@ const DateInput = ({
   };
 
   const handleOpenDialog = () => {
+    if (disabled) return;
     setIsPopperOpen(true);
   };
 
   const handleDaySelect = (date: Date | undefined) => {
-    if (date === undefined) return;
+    if (disabled) return;
+    if (!date) return;
     setSelected(date);
-    if (date) {
-      setInputValue(format(date, "MM/dd/yyyy"));
-      onChange(date);
-      closePopper();
-    } else {
+    formatAndSetInputValue(date);
+    onChange(date);
+    setIsPopperOpen(false);
+  };
+
+  const formatAndSetInputValue = (date: Date | undefined) => {
+    if (!date) {
       setInputValue("");
+      return;
     }
+    setInputValue(format(date, "MM/dd/yyyy"));
   };
 
   return (
@@ -83,7 +89,9 @@ const DateInput = ({
       <div
         ref={popperRef}
         onClick={handleOpenDialog}
-        className={`conductor-date-input${inlineLabel ? " inline" : ""}`}
+        className={`conductor-date-input${
+          inlineLabel ? " inline" : ""
+        } ${className} ${disabled ? "disabled-input" : ""}`}
       >
         {label !== null && (
           <label
@@ -96,10 +104,10 @@ const DateInput = ({
         )}
         <input
           type="text"
-          placeholder={format(new Date(), "MM/dd/yyyy")}
+          placeholder={"mm/dd/yyyy"}
           value={inputValue}
           onChange={handleInputChange}
-          className="input-reset pa2 ma2 bg-white black ba"
+          disabled={disabled}
         />
       </div>
       {isPopperOpen && (
@@ -109,7 +117,7 @@ const DateInput = ({
             initialFocus: false,
             allowOutsideClick: true,
             clickOutsideDeactivates: true,
-            onDeactivate: closePopper,
+            onDeactivate: () => setIsPopperOpen(false),
           }}
         >
           <div
@@ -125,6 +133,7 @@ const DateInput = ({
               defaultMonth={selected}
               selected={selected}
               onSelect={handleDaySelect}
+              disabled={disabled}
             />
           </div>
         </FocusTrap>

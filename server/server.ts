@@ -9,7 +9,6 @@ import { exit } from "process";
 import { fileURLToPath } from "url";
 import express from "express";
 import mongoose from "mongoose";
-import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import Promise from "bluebird";
 import helmet from "helmet";
@@ -35,8 +34,6 @@ await mongoose
   .catch((err) => debugDB(err));
 debugDB("Connected to MongoDB Atlas.");
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(helmet.hidePoweredBy());
 app.use(

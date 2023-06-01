@@ -1,35 +1,23 @@
 import { model, Schema, Document } from "mongoose";
+import {
+  CustomFormHeadingType,
+  CustomFormPromptType,
+  CustomFormTextBlockType,
+} from "../types";
+import {
+  CustomFormHeadingSchema,
+  CustomFormPromptSchema,
+  CustomFormTextBlockSchema,
+} from "../util/CustomFormSchemas.js";
 
 export interface PeerReviewRubricInterface extends Document {
   orgID: string;
   rubricID: string;
   isOrgDefault: boolean;
   rubricTitle: string;
-  headings: {
-    text: string;
-    order: number;
-  }[];
-  textBlocks: {
-    text: string;
-    order: number;
-  }[];
-  prompts: {
-    promptType:
-      | "3-likert"
-      | "5-likert"
-      | "7-likert"
-      | "text"
-      | "dropdown"
-      | "checkbox";
-    promptText: string;
-    promptRequired: boolean;
-    promptOptions?: {
-      key?: string;
-      value?: string;
-      text?: string;
-    }[];
-    order: number;
-  }[];
+  headings: CustomFormHeadingType[];
+  textBlocks: CustomFormTextBlockType[];
+  prompts: CustomFormPromptType[];
 }
 
 const PeerReviewRubricSchema = new Schema<PeerReviewRubricInterface>(
@@ -55,70 +43,9 @@ const PeerReviewRubricSchema = new Schema<PeerReviewRubricInterface>(
       type: String,
       required: true,
     },
-    headings: [
-      {
-        // form sub-headings or "sections"
-        text: {
-          type: String,
-          required: true,
-        },
-        order: {
-          // the position of the heading within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
-    textBlocks: [
-      {
-        // text blocks for instructions/more details (simple Markdown)
-        text: {
-          type: String,
-          required: true,
-        },
-        order: {
-          // the position of the heading within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
-    prompts: [
-      {
-        // forms prompts/question
-        promptType: {
-          // the prompt type, one of: ['3-likert', '5-likert', '7-likert', 'text', 'dropdown', 'checkbox']
-          type: String,
-          required: true,
-        },
-        promptText: {
-          // the prompt instructions/text, in simple Markdown
-          type: String,
-          required: true,
-        },
-        promptRequired: {
-          // whether answering the prompt is required to submit the review
-          type: Boolean,
-          default: false,
-        },
-        promptOptions: [
-          {
-            // dropdown option entries (up to 10), if the prompt is of promptType 'dropdown'
-            key: String,
-            value: String,
-            text: String,
-          },
-        ],
-        order: {
-          // the position of the prompt within the form (ascending, starting at 1)
-          type: Number,
-          required: true,
-          min: 1,
-        },
-      },
-    ],
+    headings: [CustomFormHeadingSchema],
+    textBlocks: [CustomFormTextBlockSchema],
+    prompts: [CustomFormPromptSchema],
   },
   {
     timestamps: true,

@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom';
  * @param {string} [defaultValue=''] - Default value to return if not found or error encountered.
  * @returns {string} The value of the parameter, or empty string if errored.
  */
-const useQueryParam = (param, defaultValue = '') => {
+const useQueryParam = (param: string, defaultValue = '') => {
 
   const location = useLocation();
 

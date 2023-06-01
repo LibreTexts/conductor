@@ -1,4 +1,5 @@
 import { BaseDocument } from "./BaseDocument";
+import { CustomFormHeading, CustomFormTextBlock } from "./CustomForm";
 
 export type PeerReview = BaseDocument & {
   projectID: string;
@@ -10,14 +11,8 @@ export type PeerReview = BaseDocument & {
   anonAuthor: boolean;
   authorType: "student" | "instructor";
   rating?: number;
-  headings?: {
-    text: string;
-    order: number;
-  }[];
-  textBlocks?: {
-    text: string;
-    order: number;
-  }[];
+  headings?: CustomFormHeading[];
+  textBlocks?: CustomFormTextBlock[];
   responses: {
     promptType: string;
     promptText: string;

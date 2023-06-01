@@ -1,4 +1,10 @@
-import { CatalogLocation, LicenseReport } from "../types";
+import {
+  CatalogLocation,
+  CustomFormHeading,
+  CustomFormTextBlock,
+  CustomFormPrompt,
+  LicenseReport,
+} from "../types";
 
 export function isCatalogLocation(
   location: string
@@ -38,4 +44,14 @@ export function isLicenseReport(obj: any): obj is LicenseReport {
     "timestamp" in obj &&
     "runtime" in obj
   );
+}
+
+export function isCustomFormHeadingOrTextBlock(
+  obj: any
+): obj is CustomFormHeading | CustomFormTextBlock {
+  return "text" in obj && "order" in obj;
+}
+
+export function isCustomFormPromptBlock(obj: any): obj is CustomFormPrompt {
+  return "promptType" in obj && "promptText" in obj;
 }

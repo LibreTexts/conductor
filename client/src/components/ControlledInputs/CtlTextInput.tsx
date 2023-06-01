@@ -24,14 +24,13 @@ export default function CtlTextInput<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <Form.Input
-          value={value}
-          onChange={onChange}
-          onBlur={onBlur}
-          error={error?.message}
-          
-          {...rest}
-        />
+          <Form.Input
+            value={value}
+            onChange={onChange}
+            onBlur={onBlur}
+            error={error?.message}
+            {...rest}
+          />
       )}
     />
   );
