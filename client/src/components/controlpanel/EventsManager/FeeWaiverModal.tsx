@@ -26,15 +26,18 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
   ...props
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const { control, getValues, reset } = useForm<OrgEventFeeWaiver>({
+  const { control, getValues, setValue, reset } = useForm<OrgEventFeeWaiver>({
     defaultValues: {
       name: "",
+      active: true,
       percentage: 1,
       timeZone: PTDefaultTimeZone,
     },
   });
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [loading, setLoading] = useState<boolean>(false);
+
+  console.log("RENDER");
 
   useEffect(() => {
     if (!orgEvent) {
@@ -70,7 +73,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
     try {
       const feeWaiver = getValues();
       const res = await axios.post(
-        `/orgevents/${orgEvent.eventID}/feewaiver`,
+        `/orgevents/${orgEvent.eventID}/feewaivers`,
         feeWaiver
       );
       if (res.data.err) {
@@ -78,7 +81,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
       }
       onClose();
     } catch (err) {
-      throw err;
+      handleGlobalError(err);
     }
   }
 
@@ -86,7 +89,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
     try {
       const feeWaiver = getValues();
       const res = await axios.patch(
-        `/orgevents/${orgEvent.eventID}/feewaiver`,
+        `/orgevents/${orgEvent.eventID}/feewaivers/${feeWaiver.code}`,
         feeWaiver
       );
       if (res.data.err) {
@@ -94,7 +97,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
       }
       onClose();
     } catch (err) {
-      throw err;
+      handleGlobalError(err);
     }
   }
 
@@ -120,6 +123,21 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
             rules={required}
             label="Fee Waiver Name"
             placeholder="Enter Fee Waiver Name..."
+          />
+          <Form.Checkbox
+            id="feewaiver-active"
+            label={
+              <label
+                className="form-field-label"
+                htmlFor="feewaiver-active"
+              >
+                Active
+              </label>
+            }
+            checked={getValues("active") ?? false}
+            onChange={(_e, { checked }) => {
+              setValue("active", checked ?? false);
+            }}
           />
           <CtlTextInput
             name="percentage"
@@ -157,36 +175,6 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
               className="my-2p ml-2p"
             />
           </div>
-          {/*Danger zone options only applicable when editing */}
-          {getValues("code") && (
-            <Accordion
-              panels={[
-                {
-                  key: "danger",
-                  title: {
-                    content: (
-                      <span className="color-semanticred">
-                        <strong>Danger Zone</strong>
-                      </span>
-                    ),
-                  },
-                  content: {
-                    content: (
-                      <div>
-                        <p className="color-semanticred">
-                          Use caution with the options in this area!
-                        </p>
-                        <Button color="red" fluid>
-                          <Icon name="trash alternate" />
-                          Deactivate Fee Waiver
-                        </Button>
-                      </div>
-                    ),
-                  },
-                },
-              ]}
-            />
-          )}
         </Form>
       </Modal.Content>
       <Modal.Actions>

@@ -1,7 +1,7 @@
 import { UseFormGetValues } from "react-hook-form";
 import { Grid, Header, Icon, Segment } from "semantic-ui-react";
+import { parseAndFormatDate } from "../../../utils/misc";
 import { OrgEvent, Organization } from "../../../types";
-import { format as formatDate, parseISO, parse as parseDate } from "date-fns";
 interface EventSettingsSegmentProps {
   getValuesFn: UseFormGetValues<OrgEvent>;
   manageMode: "create" | "edit";
@@ -16,6 +16,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
   loading,
   ...rest
 }) => {
+
+  const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
+
   return (
     <Segment loading={loading}>
       <Grid divided>
@@ -29,11 +32,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("startDate")
-                  ? formatDate(
-                      parseISO(getValuesFn("startDate").toString()),
-                      "MM/dd/yyyy hh:mm aa"
-                    )
+                  ? parseAndFormatDate(getValuesFn("startDate"), DATE_FORMAT_STRING)
                   : "Unknown"}
+                {" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -44,11 +45,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("endDate")
-                  ? formatDate(
-                      parseISO(getValuesFn("endDate").toString()),
-                      "MM/dd/yyyy hh:mm aa"
-                    )
+                  ? parseAndFormatDate(getValuesFn("endDate"), DATE_FORMAT_STRING)
                   : "Unknown"}
+                {" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -88,11 +87,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regOpenDate")
-                  ? formatDate(
-                      parseISO(getValuesFn("regOpenDate").toString()),
-                      "MM/dd/yyyy hh:mm aa"
-                    )
+                  ? parseAndFormatDate(getValuesFn("regOpenDate"), DATE_FORMAT_STRING)
                   : "Unknown"}
+                {" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -103,11 +100,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regCloseDate")
-                  ? formatDate(
-                      parseISO(getValuesFn("regCloseDate").toString()),
-                      "MM/dd/yyyy hh:mm aa"
-                    )
+                  ? parseAndFormatDate(getValuesFn("regCloseDate"), DATE_FORMAT_STRING)
                   : "Unknown"}
+                {" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>

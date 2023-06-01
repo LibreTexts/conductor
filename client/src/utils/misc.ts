@@ -1,3 +1,4 @@
+import { format as formatDate, parseISO } from "date-fns";
 import { GenericKeyTextValueObj } from "../types";
 
 /**
@@ -24,4 +25,22 @@ export function parseSortOption(
   }
 
   return validSortOptions[0];
+}
+
+/**
+ * Safely parse and format a date string or Date object to desired display format.
+ *
+ * @param date - Date object or ISO date string to parse.
+ * @returns Formatted date string.
+ */
+export function parseAndFormatDate(date: Date | string, formatString: string) {
+  try {
+    if (date instanceof Date) {
+      return formatDate(date, formatString);
+    }
+    return formatDate(parseISO(date), formatString);
+  } catch (e) {
+    console.error(e);
+  }
+  return "Unknown Date";
 }

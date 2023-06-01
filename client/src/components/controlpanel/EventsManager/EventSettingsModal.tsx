@@ -214,7 +214,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
             <Button color="grey" loading={loading} onClick={handleClose}>
               Cancel
             </Button>
-            <Button color="green" loading={loading} onClick={handleClose}>
+            <Button color="green" loading={loading} onClick={onRequestSave}>
               <Icon name="save" />
               Save
             </Button>

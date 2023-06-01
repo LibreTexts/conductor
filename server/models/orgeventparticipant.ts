@@ -1,4 +1,4 @@
-import { model, Schema, Document, SchemaType, Types } from "mongoose";
+import { model, Schema, Document, Types } from "mongoose";
 import User from "./user.js";
 import OrgEventFeeWaiver from "./orgeventfeewaiver.js";
 
@@ -29,7 +29,7 @@ const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
   },
   paymentStatus: {
     type: String,
-    enum: ["na", "unpaid", "paid"],
+    enum: ["na", "unpaid", "paid", "waived", "partial_waived", "refunded"],
     required: true,
   },
   formResponses: [

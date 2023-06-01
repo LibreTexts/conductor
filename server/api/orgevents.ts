@@ -162,8 +162,34 @@ async function getOrgEventParticipants(
 
     return res.send({
       err: false,
-      participants: foundParticipants,
+      participants: foundParticipants || [],
       totalCount: totalCount ?? 0,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getOrgEventFeeWaivers(req: TypedReqParamsWithUser<{ eventID?: string}>, res: Response) {
+  try {
+    if (!req.params.eventID) {
+      return conductor400Err(res);
+    }
+
+    // Check authorization (only campus/super admins can list fee waivers)
+    if (!req.user || !process.env.ORG_ID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+
+    const foundFeeWaivers = await OrgEventFeeWaiver.find({ eventID: req.params.eventID }).lean();
+
+    return res.send({
+      err: false,
+      feeWaivers: foundFeeWaivers || [],
     });
   } catch (err) {
     debugError(err);
@@ -366,7 +392,9 @@ async function submitRegistration(
       }
     }
 
+    let shouldCollectPayment = false;
     if (process.env.ORG_ID === "libretexts" && !!orgEvent.regFee) {
+      shouldCollectPayment = true;
       if (process.env.STRIPE_SECRET_KEY) {
         stripeKey = process.env.STRIPE_SECRET_KEY;
       } else {
@@ -380,8 +408,9 @@ async function submitRegistration(
       user: foundUser._id,
       orgID,
       eventID: req.params.eventID,
-      paymentStatus: "unpaid",
+      paymentStatus: shouldCollectPayment ? "unpaid": "na",
       formResponses,
+      feeWaiver: feeWaiver ? feeWaiver._id : undefined,
     });
 
     const newDoc = await participant.save();
@@ -540,29 +569,45 @@ async function createFeeWaiver(
 
 async function updateFeeWaiver(
   req: TypedReqParamsAndBodyWithUser<
-    { eventID?: string },
-    OrgEventFeeWaiverInterface
+    { eventID?: string, feeWaiverCode?: string },
+    Partial<OrgEventFeeWaiverInterface>
   >,
   res: Response
 ) {
   try {
-    // Check authorization (only campus/super admins can create fee waivers)
-    if (!req.user || !process.env.ORG_ID || !req.params.eventID) {
+    // Check authorization (only campus/super admins can update fee waivers)
+    if (!req.user || !process.env.ORG_ID || !req.params.eventID || !req.params.feeWaiverCode) {
       return conductor400Err(res);
     }
     if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
       return conductorErr(res, 403, "err8");
     }
 
-    const foundWaiver = OrgEventFeeWaiver.findOne({
-      orgID: process.env.ORG_ID,
-      eventID: req.params.eventID,
-      code: req.body.code,
-    }).lean();
-
+    const foundWaiver = await OrgEventFeeWaiver.findOne({ code: req.params.feeWaiverCode }).lean();
     if (!foundWaiver) {
       return conductor404Err(res);
     }
+
+    const updateObj: Partial<OrgEventFeeWaiverInterface> = {};
+    if (req.body.name) updateObj.name = req.body.name;
+    if (!!req.body.active) updateObj.active = req.body.active;
+    if (req.body.expirationDate) {
+      updateObj.expirationDate = parseISO(req.body.expirationDate.toString());
+    }
+    if (typeof req.body.timeZone === 'object') {
+      updateObj.timeZone = req.body.timeZone;
+    }
+
+    const updateRes = await OrgEventFeeWaiver.updateOne({ _id: foundWaiver._id }, updateObj);
+    if (!updateRes.acknowledged) {
+      throw new Error('Failed to update fee waiver.');
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Fee waiver successfully updated.',
+      feeWaiverCode: foundWaiver.code,
+    });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
@@ -655,6 +700,8 @@ async function setRegistrationPaidStatus(
     }
 
     let newPaymentStatus = "paid";
+    console.log(`RECEIVED: ${paymentIntent.amount_received}, REG FEE: ${orgEvent.regFee}, DIVIDED: ${paymentIntent.amount_received / 100}, FEEWAIVER: ${!!participant.feeWaiver}`);
+
     if (
       paymentIntent.amount_received / 100 < orgEvent.regFee &&
       participant.feeWaiver
@@ -752,7 +799,7 @@ function validate(method: string) {
         body("endDate", conductorErrors.err1).exists().isString(),
         body("regFee", conductorErrors)
           .optional({ checkFalsy: true })
-          .isDecimal({ force_decimal: true })
+          .isDecimal()
           .custom((value) => value >= 0),
         body("headings", conductorErrors.err1).exists().isArray(),
         body("prompts", conductorErrors.err1).exists().isArray(),
@@ -789,8 +836,18 @@ function validate(method: string) {
           .isString()
           .isLength({ min: 10, max: 10 }),
         body("name", conductorErrors.err1).exists().isString().notEmpty(),
-        body("percentage", conductorErrors.err1).exists().isNumeric(),
+        body("percentage", conductorErrors.err1).exists().isInt({ min: 1, max: 100 }),
         body("expirationDate", conductorErrors.err1).exists().isString(),
+        body("timeZone", conductorErrors.err1).exists().isObject(),
+      ];
+    case "updateFeeWaiver":
+      return [
+        param("eventID", conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+        param("feeWaiverCode", conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
+        body("name", conductorErrors.err1).optional({ checkFalsy: true }).isString().notEmpty(),
+        body("active", conductorErrors.err1).optional({ checkFalsy: true }).isBoolean(),
+        body("expirationDate", conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+        body("timeZone", conductorErrors.err1).optional({ checkFalsy: true }).isObject(),
       ];
   }
 }
@@ -799,11 +856,13 @@ export default {
   getOrgEvents,
   getOrgEvent,
   getOrgEventParticipants,
+  getOrgEventFeeWaivers,
   createOrgEvent,
   updateOrgEvent,
   cancelOrgEvent,
   submitRegistration,
   createFeeWaiver,
+  updateFeeWaiver,
   setRegistrationPaidStatus,
   validate,
 };

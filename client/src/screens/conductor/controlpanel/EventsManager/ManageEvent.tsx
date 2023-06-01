@@ -43,6 +43,8 @@ import EventSettingsModal from "../../../../components/controlpanel/EventsManage
 import ParticipantsSegment from "../../../../components/controlpanel/EventsManager/ParticipantsSegment";
 import FeeWaiversSegment from "../../../../components/controlpanel/EventsManager/FeeWaiversSegment";
 import EventSettingsSegment from "../../../../components/controlpanel/EventsManager/EventSettingsSegment";
+import { initOrgEventDates, initOrgEventFeeWaiverDates } from "../../../../utils/orgEventsHelpers";
+import { OrgEventFeeWaiver } from "../../../../types/OrgEvent";
 
 const ManageEvent = () => {
   // Global State
@@ -78,6 +80,9 @@ const ManageEvent = () => {
 
   // Data
   const [allElements, setAllElements] = useState<CustomFormElement[]>([]);
+
+  // Fee Waivers Segment
+  const [loadedFeeWaivers, setLoadedFeeWaivers] = useState<boolean>(false);
 
   // Participants Segment
   const [loadedParticipants, setLoadedParticipants] = useState<boolean>(false);
@@ -143,11 +148,70 @@ const ManageEvent = () => {
     watchValue("textBlocks"),
   ]);
 
+  const getOrgEventFeeWaivers = useCallback(async () => {
+    try {
+      console.log('RUN FEE WAIVERS');
+      if (!routeParams.eventID || manageMode === "create") return;
+
+      setLoadedFeeWaivers(false);
+      const res = await axios.get(`/orgevents/${routeParams.eventID}/feewaivers`);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      const feeWaivers = res.data.feeWaivers.map((item: OrgEventFeeWaiver) => initOrgEventFeeWaiverDates(item));
+      setValue("feeWaivers", feeWaivers);
+    } catch (err) {
+      handleGlobalError(err);
+    }
+    setLoadedFeeWaivers(true);
+  }, [
+    routeParams,
+    manageMode,
+    setLoadedFeeWaivers,
+    handleGlobalError,
+  ]);
+
+  const getOrgParticipants = useCallback(async () => {
+    try {
+      console.log('RUN PARTICIPANTS', routeParams, manageMode);
+      if (!routeParams.eventID || manageMode === "create") return;
+      setLoadedParticipants(false);
+      const res = await axios.get(
+        `/orgevents/${routeParams.eventID}/participants?page=${activePage}`
+      );
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      setValue("participants", res.data.participants);    
+      setTotalItems(res.data.totalCount ?? 0);
+      setTotalPages(
+        res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
+      );
+    } catch (err) {
+      handleGlobalError(err);
+    }
+    setLoadedParticipants(true);
+  }, [
+    routeParams,
+    manageMode,
+    activePage,
+    itemsPerPage,
+    setLoadedParticipants,
+    setTotalItems,
+    setTotalPages,
+    handleGlobalError,
+  ]);
+
   /**
    * Retrieves the current Org Event configuration from the server.
    */
   const getOrgEvent = useCallback(async () => {
     try {
+      console.log('RUN EVENT', routeParams, manageMode);
+      if (manageMode !== 'edit') return;
       if (!routeParams.eventID || isEmptyString(routeParams.eventID)) {
         handleGlobalError("No Event ID provided");
       }
@@ -157,8 +221,10 @@ const ManageEvent = () => {
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
       }
-      resetForm(res.data.orgEvent);
+      resetForm(initOrgEventDates(res.data.orgEvent));
 
+      getOrgParticipants();
+      getOrgEventFeeWaivers();
       // If participants have started registering, do not allow editing
       if (
         Array.isArray(res.data.orgEvent.participants) &&
@@ -172,6 +238,7 @@ const ManageEvent = () => {
     }
   }, [
     routeParams,
+    manageMode,
     resetForm,
     setCanEdit,
     isEmptyString,
@@ -180,45 +247,11 @@ const ManageEvent = () => {
     handleGlobalError,
   ]);
 
-  const getOrgParticipants = useCallback(async () => {
-    try {
-      if (!routeParams.eventID || manageMode === "create") return;
-      setLoadedParticipants(false);
-      const res = await axios.get(
-        `/orgevents/${routeParams.eventID}/participants?page=${activePage}`
-      );
-
-      if (res.data.err || !res.data.participants) {
-        handleGlobalError(res.data.errMsg);
-        return;
-      }
-
-      resetForm({ participants: res.data.participants });
-      setTotalItems(res.data.totalCount ?? 0);
-      setTotalPages(
-        res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
-      );
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadedParticipants(true);
-    }
-  }, [
-    routeParams,
-    manageMode,
-    resetForm,
-    activePage,
-    itemsPerPage,
-    setLoadedParticipants,
-    setTotalItems,
-    setTotalPages,
-    handleGlobalError,
-  ]);
-
   /**
    * Loads current rubric configuration and initializes editing mode, if applicable.
    */
   useEffect(() => {
+    console.log('PARAMS', routeParams);
     document.title = "LibreTexts Conductor | Events | Manage Events";
     if (!routeParams.mode) return;
     if (routeParams.mode === "edit" && routeParams.eventID) {
@@ -266,29 +299,33 @@ const ManageEvent = () => {
       if (routeParams.mode === "create") {
         const createRes = await axios.post("/orgevents", getValues());
         setChangesSaving(false);
-        if (!createRes.data.err && createRes.data.orgEvent.eventID) {
+        if (createRes.data.err) {
+          throw new Error(createRes.data.errMsg);
+        }
+        if (createRes.data.orgEvent.eventID) {
           history.push(
             `/controlpanel/eventsmanager/edit/${createRes.data.orgEvent.eventID}`
           );
-          return;
         }
-        handleGlobalError(createRes.data.errMsg);
       }
 
       if (routeParams.mode === "edit" && routeParams.eventID) {
-        let editRes = await axios.patch(
+        const editRes = await axios.patch(
           `/orgevents/${routeParams.eventID}`,
           getValues()
         );
 
         setChangesSaving(false);
-        if (!editRes.data.err) {
-          history.push("/controlpanel/eventsmanager");
-          return;
+        if (editRes.data.err) {
+          throw new Error(editRes.data.errMsg);
         }
-
-        handleGlobalError(editRes.data.errMsg);
+        getOrgEvent();
       }
+
+      if (showEventSettingsModal) {
+        setShowEventSettingsModal(false);
+      }
+
     } catch (err) {
       setChangesSaving(false);
       handleGlobalError(err);
@@ -796,8 +833,9 @@ const ManageEvent = () => {
                 {org.orgID === "libretexts" && manageMode === "edit" && (
                   <Grid.Row>
                     <FeeWaiversSegment
+                      feeWaivers={getValues("feeWaivers")}
                       orgEvent={getValues()}
-                      loading={!loadedOrgEvent}
+                      loading={!loadedFeeWaivers}
                       canEdit={canEdit}
                       onUpdate={getOrgEvent}
                     />
@@ -809,7 +847,7 @@ const ManageEvent = () => {
                       <ParticipantsSegment
                         participants={getValues("participants")}
                         orgEvent={getValues()}
-                        loading={loadedParticipants}
+                        loading={!loadedParticipants}
                         canEdit={canEdit}
                         activePage={activePage}
                         onChangeActivePage={(page) => setActivePage(page)}

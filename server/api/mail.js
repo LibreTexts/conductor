@@ -734,12 +734,10 @@ const sendAnalyticsInviteAccepted = (sender, invitee, course) => {
 };
 
 /**
- * Sends a notification that a user has accepted an invite to join an Analytics Course via
- * the Mailgun API.
+ * Sends a notification that a user's registration for an Event has been confirmed.
  *
- * @param {object} sender - The user who sent the original invitation.
- * @param {object} course - The course being shared.
- * @param {string} course.title - UI title of the course.
+ * @param {object} participant - The user who registered.
+ * @param {object} orgEvent - The Event the user registered for.
  */
 const sendOrgEventRegistrationConfirmation = (participant, orgEvent) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
@@ -748,7 +746,7 @@ const sendOrgEventRegistrationConfirmation = (participant, orgEvent) => {
         subject: 'Registration Confirmation',
         html: `
             <p>Hi ${participant.firstName},</p>
-            <p>We're just writing to let you know that your registration for ${orgEvent.title} has been confirmed! We look forward to you joining us!</p>
+            <p>We're just writing to let you know that your registration for ${orgEvent.title} has been confirmed! We look forward to having you join us!</p>
             <p>Remember, ${orgEvent.title} starts at ${format(orgEvent.startDate, 'h:mm a')} on ${format(orgEvent.startDate, 'EEEE, MMMM d, yyyy')}.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>

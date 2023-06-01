@@ -2,7 +2,7 @@ import "../../styles/global.css";
 import "react-datepicker/dist/react-datepicker.css";
 import "./TimeInput.css";
 
-import { useState, forwardRef } from "react";
+import { useEffect, useState, forwardRef } from "react";
 import DatePicker from "react-datepicker";
 
 export interface TimeInputProps {
@@ -28,13 +28,15 @@ const TimeInput = ({
 }: TimeInputProps) => {
   const [selected, setSelected] = useState<Date>();
 
+  useEffect(() => {
+    setSelected(value);
+  }, [value]);
+
   const handleTimeSelect = (date: Date | null) => {
     if (disabled) return;
     if (!date) return;
     setSelected(date);
-    if (date) {
-      onChange(date);
-    }
+    onChange(date);
   };
 
   const CustomInput = forwardRef<HTMLDivElement>(

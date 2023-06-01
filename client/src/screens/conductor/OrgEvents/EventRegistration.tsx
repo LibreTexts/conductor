@@ -21,7 +21,7 @@ import {
   OrgEvent,
   OrgEventParticipant,
 } from "../../../types";
-import { useHistory, useParams } from "react-router-dom";
+import { useHistory, useParams, useRouteMatch } from "react-router-dom";
 import { get, useForm } from "react-hook-form";
 import {
   isCustomFormHeadingOrTextBlock,
@@ -49,6 +49,7 @@ const EventRegistration = () => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
   const org = useTypedSelector((state) => state.org);
+  const match = useRouteMatch();
   const history = useHistory();
   const routeParams = useParams<{
     eventID?: string;
@@ -214,7 +215,7 @@ const EventRegistration = () => {
       if (!res.data.err && res.data.checkoutURL) {
         window.location.assign(res.data.checkoutURL);
       } else {
-        history.push("/success");
+        history.push(`${match.url}/success`);
       }
     } catch (err) {
       handleGlobalError(err);

@@ -1309,14 +1309,28 @@ router.route('/orgevents/:eventID/register')
   orgEventsAPI.submitRegistration
 )
 
-router.route('/orgevents/:eventID/feewaiver')
-.post(
+router.route('/orgevents/:eventID/feewaivers')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.checkValidationErrors,
+  orgEventsAPI.getOrgEventFeeWaivers,
+).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   orgEventsAPI.validate('createFeeWaiver'),
   middleware.checkValidationErrors,
   orgEventsAPI.createFeeWaiver
-)
+);
+
+router.route('/orgevents/:eventID/feewaivers/:feeWaiverCode').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.checkValidationErrors,
+  orgEventsAPI.validate('updateFeeWaiver'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.updateFeeWaiver,
+);
 
 router.route('/apiclients/:clientID').get(
   authAPI.verifyRequest,

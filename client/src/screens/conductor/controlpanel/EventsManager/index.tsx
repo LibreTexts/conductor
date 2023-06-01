@@ -12,9 +12,10 @@ import {
   Table,
 } from "semantic-ui-react";
 import useGlobalError from "../../../../components/error/ErrorHooks";
+import { parseAndFormatDate } from "../../../../utils/misc";
 import "../../../../components/controlpanel/ControlPanel.css";
-import { format as formatDate, parseISO } from "date-fns";
 import { OrgEvent } from "../../../../types";
+import { initOrgEventDates } from "../../../../utils/orgEventsHelpers";
 const COLUMNS = [
   { key: "title", text: "Title" },
   { key: "regOpen", text: "Registration Open Date" },
@@ -28,6 +29,9 @@ const COLUMNS = [
  * with custom registration forms for participants
  */
 const EventsManager = () => {
+
+  const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
+
   // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
 
@@ -42,7 +46,7 @@ const EventsManager = () => {
   const [loadedData, setLoadedData] = useState<boolean>(true);
 
   /**
-   * Retrieve the master catalog from the server and save it into state.
+   * Retrieve events from the server and save it into state.
    */
   const getOrgEvents = useCallback(async () => {
     setLoadedData(false);
@@ -51,11 +55,15 @@ const EventsManager = () => {
       if (orgEventRes.data.err) {
         throw new Error(orgEventRes.data.errMsg);
       }
+
+      console.log("EVENTS:", orgEventRes.data.orgEvents);
+
       if (!Array.isArray(orgEventRes.data.orgEvents)) {
+        console.log('THROW1');
         throw new Error("Error parsing server data.");
       }
 
-      setOrgEvents(orgEventRes.data.orgEvents);
+      setOrgEvents(orgEventRes.data.orgEvents.map((item: OrgEvent) => initOrgEventDates(item)));
       setTotalPages(Math.ceil(orgEventRes.data.totalCount / 25));
       setTotalItems(orgEventRes.data.totalCount);
     } catch (e) {
@@ -77,47 +85,32 @@ const EventsManager = () => {
       <Table.Row {...props}>
         <Table.Cell>
           <span>
-            <a
-              href={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}
-              target="_blank"
-            >
+            <Link to={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}>
               {orgEvent.title}
-            </a>
+            </Link>
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {formatDate(
-              parseISO(orgEvent.regOpenDate.toString()),
-              "MM/dd/yyyy hh:mm aa"
-            )}{" "}
+            {parseAndFormatDate(orgEvent.regOpenDate, DATE_FORMAT_STRING)}{" "}
             ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {formatDate(
-              parseISO(orgEvent.regCloseDate.toString()),
-              "MM/dd/yyyy hh:mm aa"
-            )}{" "}
+            {parseAndFormatDate(orgEvent.regCloseDate, DATE_FORMAT_STRING)}{" "}
             ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {formatDate(
-              parseISO(orgEvent.startDate.toString()),
-              "MM/dd/yyyy hh:mm aa"
-            )}{" "}
+            {parseAndFormatDate(orgEvent.startDate, DATE_FORMAT_STRING)}{" "}
             ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {formatDate(
-              parseISO(orgEvent.endDate.toString()),
-              "MM/dd/yyyy hh:mm aa"
-            )}{" "}
+            {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)}{" "}
             ({orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>

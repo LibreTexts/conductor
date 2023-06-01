@@ -5,16 +5,18 @@ import {
   Table,
   Button,
   Icon,
-  Popup,
 } from "semantic-ui-react";
 import { useState } from "react";
-import { OrgEvent, OrgEventParticipant } from "../../../types";
+import { OrgEvent } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
+import { parseAndFormatDate } from "../../../utils/misc";
 import { OrgEventFeeWaiver } from "../../../types/OrgEvent";
+import FeeWaiverStatusLabel from "./FeeWaiverStatusLabel";
 import FeeWaiverModal from "./FeeWaiverModal";
-import { format as formatDate, parseISO } from "date-fns";
+
 const TABLE_COLUMNS = [
   { key: "name", text: "Name" },
+  { key: "status", text: "Status" },
   { key: "code", text: "Code" },
   { key: "percentage", text: "Percent Discount" },
   { key: "expirationDate", text: "Expiration Date" },
@@ -22,6 +24,7 @@ const TABLE_COLUMNS = [
 ];
 
 type FeeWaiversSegmentProps = {
+  feeWaivers: OrgEventFeeWaiver[];
   orgEvent: OrgEvent;
   loading: boolean;
   canEdit: boolean;
@@ -29,14 +32,13 @@ type FeeWaiversSegmentProps = {
 };
 
 const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
+  feeWaivers,
   orgEvent,
   loading,
   canEdit,
   onUpdate,
   ...rest
 }) => {
-  // Global State and Error Handling
-  const { handleGlobalError } = useGlobalError();
   const [showFeeWaiverModal, setShowFeeWaiverModal] = useState(false);
   const [feeWaiverToEdit, setFeeWaiverToEdit] = useState<OrgEventFeeWaiver>();
 
@@ -58,6 +60,9 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
           <span>{feeWaiver.name}</span>
         </Table.Cell>
         <Table.Cell>
+          <FeeWaiverStatusLabel active={feeWaiver.active} />
+        </Table.Cell>
+        <Table.Cell>
           <span>
             {feeWaiver.code}
             <Icon
@@ -77,10 +82,8 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
         </Table.Cell>
         <Table.Cell>
           <span>
-            {formatDate(
-              parseISO(feeWaiver.expirationDate.toString()),
-              "MM/dd/yyyy hh:mm aa"
-            )}{" "}
+            {parseAndFormatDate(feeWaiver.expirationDate, "MM/dd/yyyy hh:mm aa")}
+            {" "}
             ({feeWaiver.timeZone.abbrev})
           </span>
         </Table.Cell>
@@ -129,14 +132,12 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {orgEvent.feeWaivers &&
-                orgEvent.feeWaivers.length > 0 &&
-                orgEvent.feeWaivers.map((item) => (
-                  <TableRow feeWaiver={item} key={item.code} />
-                ))}
-              {orgEvent.feeWaivers && orgEvent.feeWaivers.length === 0 && (
+              {(feeWaivers && feeWaivers.length > 0) && (
+                feeWaivers.map((item) => <TableRow feeWaiver={item} key={item.code} />)
+              )}
+              {(!feeWaivers || feeWaivers.length === 0 )&& (
                 <Table.Row>
-                  <Table.Cell colSpan={6}>
+                  <Table.Cell colSpan={TABLE_COLUMNS.length}>
                     <p className="text-center">
                       <em>No fee waivers found.</em>
                     </p>

@@ -1,5 +1,7 @@
-import { Modal, TextArea, Button, Icon, ModalProps } from "semantic-ui-react";
-import { useRef, useEffect } from "react";
+import React from 'react';
+import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
+import TextArea from "../TextArea";
+
 interface TextBlockModalProps extends ModalProps {
   show: boolean;
   mode: "add" | "edit";
@@ -21,6 +23,7 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
   loading,
   ...rest
 }) => {
+  /*
   //Auto-focus input on open
   const textAreaRef = useRef(null);
   useEffect(() => {
@@ -28,6 +31,7 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
       (textAreaRef.current as HTMLFormElement).focus();
     }
   }, [show]);
+  */
 
   return (
     <Modal open={show} onClose={onClose} {...rest}>
@@ -35,9 +39,8 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
       <Modal.Content>
         <TextArea
           placeholder={`Enter ${mode === "add" && "new"} text...`}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          ref={textAreaRef}
+          textValue={value}
+          onTextChange={(newVal) => onChange(newVal)}
         />
       </Modal.Content>
       <Modal.Actions>
