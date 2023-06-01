@@ -329,19 +329,21 @@ const EventRegistration = () => {
                     }
                     return null;
                   })}
-                  <Form.Field>
-                    <label>
-                      Have a fee waiver code? Enter it below. If valid, the
-                      discount will be applied at checkout.
-                    </label>
-                    <Form.Input
-                      type="text"
-                      placeholder="Enter code..."
-                      onChange={(e) => setFeeWaiverCode(e.target.value)}
-                      value={feeWaiverCode}
-                      maxLength={10}
-                    />
-                  </Form.Field>
+                  {!!getValues("regFee") && (
+                    <Form.Field>
+                      <label>
+                        Have a fee waiver code? Enter it below. If valid, the
+                        discount will be applied at checkout.
+                      </label>
+                      <Form.Input
+                        type="text"
+                        placeholder="Enter code..."
+                        onChange={(e) => setFeeWaiverCode(e.target.value)}
+                        value={feeWaiverCode}
+                        maxLength={10}
+                      />
+                    </Form.Field>
+                  )}
                 </Form>
                 {formError && (
                   <p className="text-center form-error-label">
