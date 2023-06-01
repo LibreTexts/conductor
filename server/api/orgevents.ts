@@ -314,10 +314,18 @@ async function updateOrgEvent(
 }
 
 async function cancelOrgEvent(
-  req: TypedReqParams<{ eventID: string }>,
+  req: TypedReqParamsWithUser<{ eventID: string }>,
   res: Response
 ) {
   try {
+    // Check authorization (only campus/super admins can create events)
+    if (!req.user || !process.env.ORG_ID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+
     const orgEvent = await OrgEvent.findOneAndUpdate(
       {
         orgID: process.env.ORG_ID,
