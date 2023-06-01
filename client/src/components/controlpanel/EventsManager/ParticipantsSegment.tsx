@@ -76,7 +76,15 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       );
     }
 
-    return prompt.responseVal ?? "";
+    if (
+      foundPrompt.promptType === "text" &&
+      prompt.responseVal !== undefined &&
+      isEmptyString(prompt.responseVal)
+    ) {
+      return "(No Response)";
+    }
+
+    return prompt.responseVal ?? "UNKNOWN VALUE";
   }
 
   function TableRow({

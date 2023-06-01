@@ -26,7 +26,13 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
   ...props
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const { control, getValues, setValue, reset } = useForm<OrgEventFeeWaiver>({
+  const {
+    control,
+    getValues,
+    setValue,
+    watch: watchValue,
+    reset,
+  } = useForm<OrgEventFeeWaiver>({
     defaultValues: {
       name: "",
       active: true,
@@ -36,8 +42,6 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
   });
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [loading, setLoading] = useState<boolean>(false);
-
-  console.log("RENDER");
 
   useEffect(() => {
     if (!orgEvent) {
@@ -127,14 +131,11 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
           <Form.Checkbox
             id="feewaiver-active"
             label={
-              <label
-                className="form-field-label"
-                htmlFor="feewaiver-active"
-              >
+              <label className="form-field-label" htmlFor="feewaiver-active">
                 Active
               </label>
             }
-            checked={getValues("active") ?? false}
+            checked={watchValue("active") ?? false}
             onChange={(_e, { checked }) => {
               setValue("active", checked ?? false);
             }}

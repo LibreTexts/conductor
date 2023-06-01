@@ -187,9 +187,10 @@ const EventRegistration = () => {
   }
 
   /**
-   * Processes the Review form and, if valid, submits it to the server, then closes the modal.
+   * Processes the Registration form and, if valid, submits it to the server.
+   * If payment is required, user is redirected to Stripe, otherwise a success message is shown.
    */
-  const submitReview = async () => {
+  const submitRegistration = async () => {
     try {
       if (!validatePromptResponses(allElements)) {
         setFormError(true);
@@ -338,6 +339,7 @@ const EventRegistration = () => {
                       placeholder="Enter code..."
                       onChange={(e) => setFeeWaiverCode(e.target.value)}
                       value={feeWaiverCode}
+                      maxLength={10}
                     />
                   </Form.Field>
                 </Form>
@@ -351,7 +353,7 @@ const EventRegistration = () => {
                   color={!!getValues("regFee") ? "blue" : "green"}
                   className="mt-4p"
                   fluid
-                  onClick={submitReview}
+                  onClick={submitRegistration}
                 >
                   {!!getValues("regFee") && <Icon name="cart" />}
                   {!!getValues("regFee")

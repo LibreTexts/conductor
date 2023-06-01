@@ -43,7 +43,10 @@ import EventSettingsModal from "../../../../components/controlpanel/EventsManage
 import ParticipantsSegment from "../../../../components/controlpanel/EventsManager/ParticipantsSegment";
 import FeeWaiversSegment from "../../../../components/controlpanel/EventsManager/FeeWaiversSegment";
 import EventSettingsSegment from "../../../../components/controlpanel/EventsManager/EventSettingsSegment";
-import { initOrgEventDates, initOrgEventFeeWaiverDates } from "../../../../utils/orgEventsHelpers";
+import {
+  initOrgEventDates,
+  initOrgEventFeeWaiverDates,
+} from "../../../../utils/orgEventsHelpers";
 import { OrgEventFeeWaiver } from "../../../../types/OrgEvent";
 
 const ManageEvent = () => {
@@ -150,31 +153,28 @@ const ManageEvent = () => {
 
   const getOrgEventFeeWaivers = useCallback(async () => {
     try {
-      console.log('RUN FEE WAIVERS');
       if (!routeParams.eventID || manageMode === "create") return;
 
       setLoadedFeeWaivers(false);
-      const res = await axios.get(`/orgevents/${routeParams.eventID}/feewaivers`);
+      const res = await axios.get(
+        `/orgevents/${routeParams.eventID}/feewaivers`
+      );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
 
-      const feeWaivers = res.data.feeWaivers.map((item: OrgEventFeeWaiver) => initOrgEventFeeWaiverDates(item));
+      const feeWaivers = res.data.feeWaivers.map((item: OrgEventFeeWaiver) =>
+        initOrgEventFeeWaiverDates(item)
+      );
       setValue("feeWaivers", feeWaivers);
     } catch (err) {
       handleGlobalError(err);
     }
     setLoadedFeeWaivers(true);
-  }, [
-    routeParams,
-    manageMode,
-    setLoadedFeeWaivers,
-    handleGlobalError,
-  ]);
+  }, [routeParams, manageMode, setLoadedFeeWaivers, handleGlobalError]);
 
   const getOrgParticipants = useCallback(async () => {
     try {
-      console.log('RUN PARTICIPANTS', routeParams, manageMode);
       if (!routeParams.eventID || manageMode === "create") return;
       setLoadedParticipants(false);
       const res = await axios.get(
@@ -185,7 +185,15 @@ const ManageEvent = () => {
         throw new Error(res.data.errMsg);
       }
 
-      setValue("participants", res.data.participants);    
+      // If participants have started registering, do not allow editing
+      if (
+        Array.isArray(res.data.participants) &&
+        res.data.participants.length > 0
+      ) {
+        setCanEdit(false);
+      }
+
+      setValue("participants", res.data.participants);
       setTotalItems(res.data.totalCount ?? 0);
       setTotalPages(
         res.data.totalCount ? Math.ceil(res.data.totalCount / itemsPerPage) : 1
@@ -210,8 +218,7 @@ const ManageEvent = () => {
    */
   const getOrgEvent = useCallback(async () => {
     try {
-      console.log('RUN EVENT', routeParams, manageMode);
-      if (manageMode !== 'edit') return;
+      if (manageMode !== "edit") return;
       if (!routeParams.eventID || isEmptyString(routeParams.eventID)) {
         handleGlobalError("No Event ID provided");
       }
@@ -225,13 +232,6 @@ const ManageEvent = () => {
 
       getOrgParticipants();
       getOrgEventFeeWaivers();
-      // If participants have started registering, do not allow editing
-      if (
-        Array.isArray(res.data.orgEvent.participants) &&
-        res.data.orgEvent.participants.length > 0
-      ) {
-        setCanEdit(false);
-      }
     } catch (err) {
       setLoadedOrgEvent(true);
       handleGlobalError(err);
@@ -251,7 +251,6 @@ const ManageEvent = () => {
    * Loads current rubric configuration and initializes editing mode, if applicable.
    */
   useEffect(() => {
-    console.log('PARAMS', routeParams);
     document.title = "LibreTexts Conductor | Events | Manage Events";
     if (!routeParams.mode) return;
     if (routeParams.mode === "edit" && routeParams.eventID) {
@@ -326,6 +325,7 @@ const ManageEvent = () => {
         setShowEventSettingsModal(false);
       }
 
+      setShowChangesWarning(false);
     } catch (err) {
       setChangesSaving(false);
       handleGlobalError(err);

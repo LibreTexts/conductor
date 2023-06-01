@@ -269,44 +269,51 @@ export const validatePromptResponses = (
       continue;
     }
 
-    if (!item.value) {
+    // If prompt is required and no response, form is invalid
+    if (item.promptRequired && !item.value) {
       valid = false;
+      break;
+    }
+
+    // If prompt is optional and no response, skip
+    if (!item.promptRequired && !item.value) {
       continue;
     }
 
-    //Check that even texts responses are not too long regardless if optional or not
-    if (item.promptType === "text" && item.value.toString().length > 10000) {
-      valid = false;
-    }
-    if (item.promptRequired !== true) {
-      continue;
-    }
+    // If prompt has a response, check that it is valid
+    if (item.value) {
+      //Check that text responses are not too long regardless if optional or not
+      if (item.promptType === "text" && item.value.toString().length > 10000) {
+        valid = false;
+        break;
+      }
 
-    let parsedVal = parseInt(item.value.toString());
-    if (item.promptType === "3-likert" && (parsedVal < 1 || parsedVal > 3)) {
-      valid = false;
-    } else if (
-      item.promptType === "5-likert" &&
-      (parsedVal < 1 || parsedVal > 5)
-    ) {
-      valid = false;
-    } else if (
-      item.promptType === "7-likert" &&
-      (parsedVal < 1 || parsedVal > 7)
-    ) {
-      valid = false;
-    } else if (
-      (item.promptType === "text" || item.promptType === "dropdown") &&
-      isEmptyString(item.value.toString())
-    ) {
-      valid = false;
-    } else if (item.promptType === "checkbox" && item.value !== true) {
-      valid = false;
-    } else {
-    }
-
-    if (item.promptType === "text" && item.value.toString().length > 10000) {
-      valid = false;
+      const parsedVal = parseInt(item.value.toString());
+      if (item.promptType === "3-likert" && (parsedVal < 1 || parsedVal > 3)) {
+        valid = false;
+        break;
+      } else if (
+        item.promptType === "5-likert" &&
+        (parsedVal < 1 || parsedVal > 5)
+      ) {
+        valid = false;
+        break;
+      } else if (
+        item.promptType === "7-likert" &&
+        (parsedVal < 1 || parsedVal > 7)
+      ) {
+        valid = false;
+        break;
+      } else if (
+        (item.promptType === "text" || item.promptType === "dropdown") &&
+        isEmptyString(item.value.toString())
+      ) {
+        valid = false;
+        break;
+      } else if (item.promptType === "checkbox" && item.value !== true) {
+        valid = false;
+        break;
+      }
     }
   }
 

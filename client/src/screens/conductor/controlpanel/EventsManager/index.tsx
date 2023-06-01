@@ -29,7 +29,6 @@ const COLUMNS = [
  * with custom registration forms for participants
  */
 const EventsManager = () => {
-
   const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
 
   // Global State and Error Handling
@@ -56,14 +55,15 @@ const EventsManager = () => {
         throw new Error(orgEventRes.data.errMsg);
       }
 
-      console.log("EVENTS:", orgEventRes.data.orgEvents);
-
       if (!Array.isArray(orgEventRes.data.orgEvents)) {
-        console.log('THROW1');
         throw new Error("Error parsing server data.");
       }
 
-      setOrgEvents(orgEventRes.data.orgEvents.map((item: OrgEvent) => initOrgEventDates(item)));
+      setOrgEvents(
+        orgEventRes.data.orgEvents.map((item: OrgEvent) =>
+          initOrgEventDates(item)
+        )
+      );
       setTotalPages(Math.ceil(orgEventRes.data.totalCount / 25));
       setTotalItems(orgEventRes.data.totalCount);
     } catch (e) {
@@ -92,26 +92,26 @@ const EventsManager = () => {
         </Table.Cell>
         <Table.Cell>
           <span>
-            {parseAndFormatDate(orgEvent.regOpenDate, DATE_FORMAT_STRING)}{" "}
-            ({orgEvent.timeZone.abbrev})
+            {parseAndFormatDate(orgEvent.regOpenDate, DATE_FORMAT_STRING)} (
+            {orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {parseAndFormatDate(orgEvent.regCloseDate, DATE_FORMAT_STRING)}{" "}
-            ({orgEvent.timeZone.abbrev})
+            {parseAndFormatDate(orgEvent.regCloseDate, DATE_FORMAT_STRING)} (
+            {orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {parseAndFormatDate(orgEvent.startDate, DATE_FORMAT_STRING)}{" "}
-            ({orgEvent.timeZone.abbrev})
+            {parseAndFormatDate(orgEvent.startDate, DATE_FORMAT_STRING)} (
+            {orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
         <Table.Cell>
           <span>
-            {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)}{" "}
-            ({orgEvent.timeZone.abbrev})
+            {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)} (
+            {orgEvent.timeZone.abbrev})
           </span>
         </Table.Cell>
       </Table.Row>
