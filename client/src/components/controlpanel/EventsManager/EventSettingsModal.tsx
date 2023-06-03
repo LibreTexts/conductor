@@ -7,9 +7,15 @@ import {
   Header,
   Icon,
   Modal,
+  Popup,
 } from "semantic-ui-react";
 import { OrgEvent } from "../../../types";
-import { Control, UseFormGetValues, UseFormWatch } from "react-hook-form";
+import {
+  Control,
+  UseFormGetValues,
+  UseFormSetValue,
+  UseFormWatch,
+} from "react-hook-form";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import CtlDateInput from "../../ControlledInputs/CtlDateInput";
 import CtlTimeInput from "../../ControlledInputs/CtlTimeInput";
@@ -23,6 +29,7 @@ interface EventSettingsModalParams {
   canEdit: boolean;
   control: Control<OrgEvent>;
   getValuesFn: UseFormGetValues<OrgEvent>;
+  setValueFn: UseFormSetValue<OrgEvent>;
   watchValuesFn: UseFormWatch<OrgEvent>;
   onClose: () => void;
   onRequestSave: () => void;
@@ -37,6 +44,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   canEdit,
   control,
   getValuesFn,
+  setValueFn,
   watchValuesFn,
   onClose,
   onRequestSave,
@@ -171,6 +179,27 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               disabled={!canEdit}
             />
           )}
+          <Form.Checkbox
+            id="collect-shipping"
+            className="mt-2p"
+            label={
+              <>
+                <label className="form-field-label" htmlFor="collect-shipping">
+                  Collect Participant Shipping Address{"  "}
+                  <Popup
+                    position="top center"
+                    trigger={<Icon name="info circle" />}
+                    content="If checked, participants will be prompted to provide a shipping address during registration."
+                  />
+                </label>
+              </>
+            }
+            checked={watchValuesFn("collectShipping") ?? false}
+            onChange={(_e, { checked }) => {
+              setValueFn("collectShipping", checked ?? false);
+            }}
+            disabled={!canEdit}
+          />
           {/*Danger zone options only applicable when editing */}
           {getValuesFn("eventID") && (
             <Accordion

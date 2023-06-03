@@ -230,6 +230,7 @@ async function createOrgEvent(
       endDate,
       timeZone: req.body.timeZone,
       regFee: req.body.regFee,
+      collectShipping: req.body.collectShipping ?? false,
     });
 
     let newDoc = await orgEvent.save();
@@ -393,6 +394,14 @@ async function submitRegistration(
       return conductor400Err(res);
     }
 
+    // Check if shipping address was provided when required
+    if (
+      orgEvent.collectShipping &&
+      !validateParticipantShippingAddress(req.body.shippingAddress)
+    ) {
+      return conductor400Err(res);
+    }
+
     // If fee waiver code was provided, check if it's valid
     let feeWaiver: OrgEventFeeWaiverInterface | null = null;
     if (req.body.feeWaiver) {
@@ -424,6 +433,9 @@ async function submitRegistration(
       paymentStatus: shouldCollectPayment ? "unpaid" : "na",
       formResponses,
       feeWaiver: feeWaiver ? feeWaiver._id : undefined,
+      shippingAddress: orgEvent.collectShipping
+        ? req.body.shippingAddress
+        : undefined,
     });
 
     const newDoc = await participant.save();
@@ -823,6 +835,39 @@ async function _runOrgEventPreflightChecks(
 }
 
 /**
+ * Verifies that a given shipping address is valid.
+ * @param {Object} shippingAddress - The editing mode to validate.
+ * @returns {Boolean} True if valid shipping address, false otherwise.
+ */
+const validateParticipantShippingAddress = (obj: unknown) => {
+  if (typeof obj !== "object") return false;
+  if (obj === null) return false;
+  if (
+    obj.hasOwnProperty("lineOne") && //Line Two is optional
+    obj.hasOwnProperty("city") &&
+    obj.hasOwnProperty("state") &&
+    obj.hasOwnProperty("zip") &&
+    obj.hasOwnProperty("country")
+  ) {
+    let invalidValues = false;
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof key === "string" && key === "lineTwo") continue; //Line Two is optional
+      if (typeof value !== "string") {
+        invalidValues = true;
+        break;
+      }
+      if (value.length === 0) {
+        invalidValues = true;
+        break;
+      }
+    }
+    if (invalidValues) return false;
+    return true;
+  }
+  return false;
+};
+
+/**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
 function validate(method: string) {
@@ -843,6 +888,7 @@ function validate(method: string) {
         body("prompts", conductorErrors.err1).exists().isArray(),
         body("textBlocks", conductorErrors.err1).exists().isArray(),
         body("timeZone", conductorErrors.err1).exists().isObject(),
+        body("collectShipping", conductorErrors.err1).exists().isBoolean(),
       ];
     case "cancelOrgEvent":
       return [

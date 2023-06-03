@@ -16,7 +16,6 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
   loading,
   ...rest
 }) => {
-
   const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
 
   return (
@@ -32,9 +31,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("startDate")
-                  ? parseAndFormatDate(getValuesFn("startDate"), DATE_FORMAT_STRING)
-                  : "Unknown"}
-                {" "}
+                  ? parseAndFormatDate(
+                      getValuesFn("startDate"),
+                      DATE_FORMAT_STRING
+                    )
+                  : "Unknown"}{" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -45,9 +46,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("endDate")
-                  ? parseAndFormatDate(getValuesFn("endDate"), DATE_FORMAT_STRING)
-                  : "Unknown"}
-                {" "}
+                  ? parseAndFormatDate(
+                      getValuesFn("endDate"),
+                      DATE_FORMAT_STRING
+                    )
+                  : "Unknown"}{" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -87,9 +90,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regOpenDate")
-                  ? parseAndFormatDate(getValuesFn("regOpenDate"), DATE_FORMAT_STRING)
-                  : "Unknown"}
-                {" "}
+                  ? parseAndFormatDate(
+                      getValuesFn("regOpenDate"),
+                      DATE_FORMAT_STRING
+                    )
+                  : "Unknown"}{" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -100,9 +105,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regCloseDate")
-                  ? parseAndFormatDate(getValuesFn("regCloseDate"), DATE_FORMAT_STRING)
-                  : "Unknown"}
-                {" "}
+                  ? parseAndFormatDate(
+                      getValuesFn("regCloseDate"),
+                      DATE_FORMAT_STRING
+                    )
+                  : "Unknown"}{" "}
                 ({getValuesFn("timeZone.abbrev")})
               </span>
             </p>
@@ -114,6 +121,12 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 <span> ${getValuesFn("regFee") ?? "0.00"}</span>
               </p>
             )}
+            <p>
+              <Header sub as="span">
+                <strong>Collect Shipping Address:</strong>{" "}
+              </Header>
+              <span>{getValuesFn("collectShipping") ? "Yes" : "No"}</span>
+            </p>
           </Grid.Column>
         </Grid.Row>
       </Grid>

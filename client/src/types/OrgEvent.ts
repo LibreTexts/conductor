@@ -18,6 +18,14 @@ export type OrgEventParticipant = BaseDocument & {
   eventID: string;
   paymentStatus: "na" | "unpaid" | "paid" | "waived" | "partial_waived" | "refunded";
   formResponses: OrgEventParticipantFormResponse[];
+  shippingAddress?: {
+    lineOne: string;
+    lineTwo?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  }
 };
 
 export type OrgEventFeeWaiver = BaseDocument & {
@@ -48,6 +56,7 @@ export type OrgEvent = BaseDocument & {
   prompts: CustomFormPrompt[];
   participants: OrgEventParticipant[];
   feeWaivers: OrgEventFeeWaiver[];
+  collectShipping: boolean;
   createdBy: string;
   canceled: boolean;
 };

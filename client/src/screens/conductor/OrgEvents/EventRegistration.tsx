@@ -22,7 +22,7 @@ import {
   OrgEventParticipant,
 } from "../../../types";
 import { useHistory, useParams, useRouteMatch } from "react-router-dom";
-import { get, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import {
   isCustomFormHeadingOrTextBlock,
   isCustomFormPromptBlock,
@@ -40,6 +40,7 @@ import { isBefore, isAfter, parseISO } from "date-fns";
 import useQueryParam from "../../../utils/useQueryParam";
 import RegistrationOpenStatusMessage from "../../../components/controlpanel/EventsManager/RegistrationOpenStatusMessage";
 import RegistrationSuccessMessage from "../../../components/controlpanel/EventsManager/RegistrationSuccessMessage";
+import ShippingAddressForm from "../../../components/CustomForms/ShippingAddressForm";
 
 /**
  * Loads registration form template for submission
@@ -67,6 +68,23 @@ const EventRegistration = () => {
       headings: [],
       prompts: [],
       textBlocks: [],
+    },
+  });
+
+  const {
+    control: shippingAddressControl,
+    getValues: getShippingAddressValues,
+    trigger: triggerShippingAddressValidation,
+  } = useForm<Pick<OrgEventParticipant, "shippingAddress">>({
+    defaultValues: {
+      shippingAddress: {
+        lineOne: "",
+        lineTwo: "",
+        city: "",
+        state: "",
+        zip: "",
+        country: "",
+      },
     },
   });
 
@@ -197,12 +215,22 @@ const EventRegistration = () => {
         return;
       }
 
+      if (
+        getValues("collectShipping") &&
+        !(await triggerShippingAddressValidation())
+      ) {
+        return;
+      }
+
       const registrationSubmission: Omit<OrgEventParticipant, "paymentStatus"> =
         {
           user: user.uuid,
           orgID: org.orgID,
           eventID: getValues("eventID"),
           formResponses: extractPromptResponses(allElements),
+          shippingAddress: getValues("collectShipping")
+            ? getShippingAddressValues("shippingAddress")
+            : undefined,
         };
 
       const res = await axios.post(
@@ -299,6 +327,14 @@ const EventRegistration = () => {
                   </Message>
                 )}
               </Segment>
+              {getValues("collectShipping") && (
+                <Segment loading={!loadedOrgEvent}>
+                  <ShippingAddressForm
+                    control={shippingAddressControl}
+                    getValuesFn={getShippingAddressValues}
+                  />
+                </Segment>
+              )}
               <Segment loading={!loadedOrgEvent}>
                 <Form noValidate className="peerreview-form">
                   {allElements.map((item) => {
