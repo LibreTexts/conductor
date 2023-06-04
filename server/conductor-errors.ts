@@ -77,6 +77,7 @@ const conductorErrors = {
     'err80': "Oops, another Project already has that Book associated with it.",
     'err81': "Oops, your fee waiver code is invalid or expired.",
     "err82": "Oops, it looks like you've already registered for this event.",
+    "err83": "Oops, a fee waiver with that name already exists for this event.",
 };
 
 export default conductorErrors;

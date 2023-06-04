@@ -114,7 +114,7 @@ const FeeWaiverModal: React.FC<FeeWaiverModalProps> = ({
         <p className="mb-4p">
           Create a fee waiver to share a discount code with participants.
           Discounts can be partial or full (100%). Fee waivers can be
-          inactivated at any time, if necessary.{" "}
+          inactivated at any time, if necessary. Fee waiver names must be unique within an event.{" "}
           <strong>
             Discount percentages cannot be changed after creation.
           </strong>
