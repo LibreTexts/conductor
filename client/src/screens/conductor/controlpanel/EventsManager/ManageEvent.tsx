@@ -881,7 +881,7 @@ const ManageEvent = () => {
                               manageMode === "edit" &&
                               getValues("regFee") !== 0 &&
                               loadedFeeWaivers &&
-                              getValues("feeWaivers").length > 0 && (
+                              getValues("feeWaivers")?.length > 0 && (
                                 <FeeWaiverInputMessage />
                               )}
 
