@@ -577,7 +577,10 @@ async function createFeeWaiver(
       msg: "Fee waiver successfully created.",
       feeWaiver: newDoc,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 11000) {
+      return conductorErr(res, 400, "err83");
+    }
     debugError(err);
     return conductor500Err(res);
   }

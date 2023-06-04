@@ -52,8 +52,9 @@ const OrgEventFeeWaiverSchema = new Schema<OrgEventFeeWaiverInterface>({
   },
 });
 
-// Fee waiver name must be unique for each event
-OrgEventFeeWaiverSchema.index({ eventID: 1, name: 1 }, { unique: true });
+
+OrgEventFeeWaiverSchema.index({ eventID: 1, name: 1 }, { unique: true }); // Fee waiver name must be unique for each event
+OrgEventFeeWaiverSchema.index({ eventID: 1, code: 1 }, { unique: true }); // Fee waiver code must be unique for each event
 
 const OrgEventFeeWaiver = model<OrgEventFeeWaiverInterface>(
   "OrgEventFeeWaiver",
