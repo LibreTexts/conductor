@@ -888,7 +888,7 @@ function validate(method: string) {
         body("prompts", conductorErrors.err1).exists().isArray(),
         body("textBlocks", conductorErrors.err1).exists().isArray(),
         body("timeZone", conductorErrors.err1).exists().isObject(),
-        body("collectShipping", conductorErrors.err1).exists().isBoolean(),
+        body("collectShipping", conductorErrors.err1).customSanitizer((v) => !!v).exists().isBoolean(),
       ];
     case "cancelOrgEvent":
       return [
