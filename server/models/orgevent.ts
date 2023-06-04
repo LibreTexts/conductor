@@ -83,6 +83,8 @@ const OrgEventSchema = new Schema<OrgEventInterface>(
     timestamps: true,
   }
 );
+OrgEventSchema.index({ orgID: 1, eventID: 1 }, { unique: true }); // Prevent duplicate eventIDs within an org
+OrgEventSchema.index({ orgID: 1, title: 1 }, { unique: true }); // Prevent duplicate event titles within an org
 
 const OrgEvent = model<OrgEventInterface>("OrgEvent", OrgEventSchema);
 
