@@ -48,6 +48,7 @@ import {
   initOrgEventFeeWaiverDates,
 } from "../../../../utils/orgEventsHelpers";
 import { OrgEventFeeWaiver } from "../../../../types/OrgEvent";
+import CollectShippingMessage from "../../../../components/controlpanel/EventsManager/CollectShippingMessage";
 
 const ManageEvent = () => {
   // Global State
@@ -70,6 +71,7 @@ const ManageEvent = () => {
       textBlocks: [],
       prompts: [],
       timeZone: PTDefaultTimeZone,
+      collectShipping: false,
     },
   });
 
@@ -869,6 +871,9 @@ const ManageEvent = () => {
                                 setShowInstructions(!showInstructions)
                               }
                             />
+                            {getValues("collectShipping") && (
+                              <CollectShippingMessage />
+                            )}
 
                             {allElements.map((item) => {
                               return (
@@ -955,6 +960,7 @@ const ManageEvent = () => {
             show={showEventSettingsModal}
             canEdit={canEdit}
             getValuesFn={getValues}
+            setValueFn={setValue}
             watchValuesFn={watchValue}
             control={control}
             onClose={() => setShowEventSettingsModal(false)}

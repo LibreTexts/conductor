@@ -1,21 +1,11 @@
-import {
-  Grid,
-  Header,
-  Segment,
-  Table,
-  Pagination,
-  Button,
-  Icon,
-} from "semantic-ui-react";
-import { useEffect, useState, useCallback } from "react";
+import { Grid, Header, Segment, Table, Pagination } from "semantic-ui-react";
+import { useEffect, useState } from "react";
 import {
   OrgEvent,
   OrgEventParticipant,
   OrgEventParticipantFormResponse,
 } from "../../../types";
-import useGlobalError from "../../error/ErrorHooks";
 import { isEmptyString } from "../../util/HelperFunctions";
-import axios from "axios";
 import { getLikertResponseText } from "../../util/LikertHelpers";
 import PaymentStatusLabel from "./PaymentStatusLabel";
 
@@ -101,6 +91,20 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         <Table.Cell>
           <span>{participant.user.lastName}</span>
         </Table.Cell>
+        {orgEvent.collectShipping && (
+          <Table.Cell>
+            <span>
+              {participant.shippingAddress?.lineOne}
+              {participant.shippingAddress?.lineTwo
+                ? `, ${participant.shippingAddress.lineTwo}`
+                : ""}
+              {", " + participant.shippingAddress?.city}
+              {", " + participant.shippingAddress?.state}
+              {" " + participant.shippingAddress?.zip}
+              {" " + participant.shippingAddress?.country}
+            </span>
+          </Table.Cell>
+        )}
         <Table.Cell>
           <PaymentStatusLabel paymentStatus={participant.paymentStatus} />
         </Table.Cell>
@@ -129,6 +133,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 <Table.HeaderCell key="lastName">
                   <span>Last Name</span>
                 </Table.HeaderCell>
+                {orgEvent.collectShipping && (
+                  <Table.HeaderCell key="shippingAddress">
+                    <span>Shipping Address</span>
+                  </Table.HeaderCell>
+                )}
                 <Table.HeaderCell key="paymentStatus">
                   <span>Payment Status</span>
                 </Table.HeaderCell>

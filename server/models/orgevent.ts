@@ -25,6 +25,7 @@ export interface OrgEventInterface extends Document {
   headings: CustomFormHeadingType[];
   textBlocks: CustomFormTextBlockType[];
   prompts: CustomFormPromptType[];
+  collectShipping: boolean;
   createdBy: string;
   canceled: boolean;
 }
@@ -74,6 +75,10 @@ const OrgEventSchema = new Schema<OrgEventInterface>(
     headings: [CustomFormHeadingSchema],
     textBlocks: [CustomFormTextBlockSchema],
     prompts: [CustomFormPromptSchema],
+    collectShipping: {
+      type: Boolean,
+      default: false,
+    },
     canceled: {
       type: Boolean,
       default: false,
