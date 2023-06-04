@@ -365,19 +365,24 @@ const EventRegistration = () => {
                     />
                   )}
                   {!!getValues("regFee") && (
-                    <Form.Field>
-                      <label>
-                        Have a fee waiver code? Enter it below. If valid, the
-                        discount will be applied at checkout.
-                      </label>
-                      <Form.Input
-                        type="text"
-                        placeholder="Enter code..."
-                        onChange={(e) => setFeeWaiverCode(e.target.value)}
-                        value={feeWaiverCode}
-                        maxLength={10}
-                      />
-                    </Form.Field>
+                    <>
+                      <Header as="h4" className="mb-2p" dividing>
+                        Fee Waiver
+                      </Header>
+                      <Form.Field>
+                        <label>
+                          Have a fee waiver code? Enter it below. If valid, the
+                          discount will be applied at checkout.
+                        </label>
+                        <Form.Input
+                          type="text"
+                          placeholder="Enter code..."
+                          onChange={(e) => setFeeWaiverCode(e.target.value)}
+                          value={feeWaiverCode}
+                          maxLength={10}
+                        />
+                      </Form.Field>
+                    </>
                   )}
                 </Form>
                 {formError && (
