@@ -49,6 +49,7 @@ import {
 } from "../../../../utils/orgEventsHelpers";
 import { OrgEventFeeWaiver } from "../../../../types/OrgEvent";
 import CollectShippingMessage from "../../../../components/controlpanel/EventsManager/CollectShippingMessage";
+import FeeWaiverInputMessage from "../../../../components/controlpanel/EventsManager/FeeWaiverInputMessage";
 
 const ManageEvent = () => {
   // Global State
@@ -832,17 +833,19 @@ const ManageEvent = () => {
                     </Segment.Group>
                   </Grid.Column>
                 </Grid.Row>
-                {org.orgID === "libretexts" && manageMode === "edit" && getValues('regFee') !== 0 && (
-                  <Grid.Row>
-                    <FeeWaiversSegment
-                      feeWaivers={getValues("feeWaivers")}
-                      orgEvent={getValues()}
-                      loading={!loadedFeeWaivers}
-                      canEdit={canEdit}
-                      onUpdate={getOrgEvent}
-                    />
-                  </Grid.Row>
-                )}
+                {org.orgID === "libretexts" &&
+                  manageMode === "edit" &&
+                  getValues("regFee") !== 0 && (
+                    <Grid.Row>
+                      <FeeWaiversSegment
+                        feeWaivers={getValues("feeWaivers")}
+                        orgEvent={getValues()}
+                        loading={!loadedFeeWaivers}
+                        canEdit={canEdit}
+                        onUpdate={getOrgEvent}
+                      />
+                    </Grid.Row>
+                  )}
                 {manageMode === "edit" && (
                   <>
                     <Grid.Row>
@@ -874,6 +877,13 @@ const ManageEvent = () => {
                             {getValues("collectShipping") && (
                               <CollectShippingMessage />
                             )}
+                            {org.orgID === "libretexts" &&
+                              manageMode === "edit" &&
+                              getValues("regFee") !== 0 &&
+                              loadedFeeWaivers &&
+                              getValues("feeWaivers").length > 0 && (
+                                <FeeWaiverInputMessage />
+                              )}
 
                             {allElements.map((item) => {
                               return (
