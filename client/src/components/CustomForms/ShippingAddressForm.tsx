@@ -1,29 +1,31 @@
-import { Form, Header, TextArea } from "semantic-ui-react";
-import LikertScale from "./LikertScale";
-import { CustomFormPrompt, OrgEventParticipant } from "../../types";
-import { Control, UseFormGetValues, useForm } from "react-hook-form";
+import { Form, Header } from "semantic-ui-react";
+import { OrgEventParticipant } from "../../types";
+import { Control, UseFormGetValues } from "react-hook-form";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 
 interface ShippingAddressFormProps {
   getValuesFn: UseFormGetValues<Pick<OrgEventParticipant, "shippingAddress">>;
   control: Control<Pick<OrgEventParticipant, "shippingAddress">>;
+  isSubForm?: boolean;
 }
 
 const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
   getValuesFn,
   control,
+  isSubForm = false,
 }) => {
-  return (
-    <Form>
-      <Header as="h4" className="mb-2p">
+
+  const addressForm = (
+    <>
+      <Header as="h4" className="mb-2p" dividing={isSubForm}>
         Shipping Address
       </Header>
       <p>
         The event organizer has requested that you provide your shipping
         address. This will be used to send you any physical items that you may
-        have purchased or are included with your registration. LibreTexts will
-        not use this address for any other purpose.
+        have purchased or are included with your registration. LibreTexts will never
+        share your address without permission.
       </p>
       <CtlTextInput
         label="Address Line One"
@@ -71,8 +73,10 @@ const ShippingAddressForm: React.FC<ShippingAddressFormProps> = ({
         rules={required}
         required={true}
       />
-    </Form>
+    </>
   );
+
+  return isSubForm ? addressForm : <Form>{addressForm}</Form>;
 };
 
 export default ShippingAddressForm;

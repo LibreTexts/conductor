@@ -327,14 +327,6 @@ const EventRegistration = () => {
                   </Message>
                 )}
               </Segment>
-              {getValues("collectShipping") && (
-                <Segment loading={!loadedOrgEvent}>
-                  <ShippingAddressForm
-                    control={shippingAddressControl}
-                    getValuesFn={getShippingAddressValues}
-                  />
-                </Segment>
-              )}
               <Segment loading={!loadedOrgEvent}>
                 <Form noValidate className="peerreview-form">
                   {allElements.map((item) => {
@@ -365,6 +357,13 @@ const EventRegistration = () => {
                     }
                     return null;
                   })}
+                  {getValues("collectShipping") && (
+                    <ShippingAddressForm
+                      control={shippingAddressControl}
+                      getValuesFn={getShippingAddressValues}
+                      isSubForm={true}
+                    />
+                  )}
                   {!!getValues("regFee") && (
                     <Form.Field>
                       <label>
