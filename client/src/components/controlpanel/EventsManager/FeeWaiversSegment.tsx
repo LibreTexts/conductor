@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import { OrgEvent } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
-import { parseAndFormatDate } from "../../../utils/misc";
+import { copyToClipboard, parseAndFormatDate } from "../../../utils/misc";
 import { OrgEventFeeWaiver } from "../../../types/OrgEvent";
 import FeeWaiverStatusLabel from "./FeeWaiverStatusLabel";
 import FeeWaiverModal from "./FeeWaiverModal";
@@ -70,9 +70,8 @@ const FeeWaiversSegment: React.FC<FeeWaiversSegmentProps> = ({
               color="blue"
               className="ml-1p"
               style={{ cursor: "pointer" }}
-              onClick={() => {
-                navigator.clipboard.writeText(feeWaiver.code);
-                alert("Copied code to clipboard");
+              onClick={async () => {
+                await copyToClipboard(feeWaiver.code)
               }}
             />
           </span>

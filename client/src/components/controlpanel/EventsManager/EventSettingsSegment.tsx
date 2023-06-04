@@ -1,6 +1,6 @@
 import { UseFormGetValues } from "react-hook-form";
 import { Grid, Header, Icon, Segment } from "semantic-ui-react";
-import { parseAndFormatDate } from "../../../utils/misc";
+import { copyToClipboard, parseAndFormatDate } from "../../../utils/misc";
 import { OrgEvent, Organization } from "../../../types";
 interface EventSettingsSegmentProps {
   getValuesFn: UseFormGetValues<OrgEvent>;
@@ -68,11 +68,8 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                   color="blue"
                   className="ml-1p"
                   style={{ cursor: "pointer" }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${org.domain}/events/${getValuesFn("eventID")}`
-                    );
-                    alert("Copied registration form URL to clipboard");
+                  onClick={async () => {
+                    await copyToClipboard(`${org.domain}/events/${getValuesFn("eventID")}`)
                   }}
                 />
               </p>

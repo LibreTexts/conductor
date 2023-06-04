@@ -44,3 +44,13 @@ export function parseAndFormatDate(date: Date | string, formatString: string) {
   }
   return "Unknown Date";
 }
+
+export async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text).then(() => {
+      alert("Copied text to clipboard.");
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
