@@ -405,14 +405,15 @@ const ManageEvent = () => {
     setHMLoading(true);
     let headings = [...getValues("headings")];
     if (hmMode === "edit") {
-      let editHeading = headings.find((item) => item.order === hmOrder);
-      let editHeadingIdx = headings.findIndex((item) => item.order === hmOrder);
+      const editHeading = headings.find((item) => item.order === hmOrder);
+      const editHeadingIdx = headings.findIndex((item) => item.order === hmOrder);
       if (editHeading !== undefined && editHeadingIdx > -1) {
-        let editedHeading = {
+        const editedHeading = {
           ...editHeading,
           text: hmHeading.trim(),
         }; // try to preserve other fields, such as a DB ID
         headings[editHeadingIdx] = editedHeading;
+        setValue("headings", headings);
       }
     } else {
       setValue("headings", [
@@ -469,19 +470,18 @@ const ManageEvent = () => {
 
     setTMLoading(true);
     if (!Array.isArray(getValues("textBlocks"))) return;
-    let textBlocks = [...getValues("textBlocks")];
+    const textBlocks = [...getValues("textBlocks")];
     if (tmMode === "edit") {
-      let editItem = textBlocks.find((item) => item.order === tmOrder);
-      let editIdx = textBlocks.findIndex((item) => item.order === tmOrder);
-      if (editItem === undefined || editIdx > -1) {
-        return;
+      const editItem = textBlocks.find((item) => item.order === tmOrder);
+      const editIdx = textBlocks.findIndex((item) => item.order === tmOrder);
+      if (editItem !== undefined && editIdx > -1) {
+        const editedTextBlock = {
+          ...editItem,
+          text: tmText.trim(),
+        }; // try to preserve other fields, such as a DB ID
+        textBlocks[editIdx] = editedTextBlock;
+        setValue("textBlocks", textBlocks);
       }
-
-      let newTextBlock = {
-        ...editItem,
-        text: tmText.trim(),
-      }; // try to preserve other fields, such as a DB ID
-      textBlocks.splice(editIdx, 1, newTextBlock);
     } else {
       setValue("textBlocks", [
         ...getValues("textBlocks"),
@@ -584,30 +584,34 @@ const ManageEvent = () => {
     if (!validatePromptForm()) {
       setPMLoading(false);
     }
-    let prompts = [...getValues("prompts")];
+    const prompts = [...getValues("prompts")];
     if (pmMode === "edit") {
-      let editPrompt = prompts.find((item) => item.order === pmOrder);
-      let editPromptIdx = prompts.findIndex((item) => item.order === pmOrder);
+      const editPrompt = prompts.find((item) => item.order === pmOrder);
+      const editPromptIdx = prompts.findIndex((item) => item.order === pmOrder);
       if (editPrompt !== undefined && editPromptIdx > -1) {
-        let editedPrompt = {
+        const editedPrompt = {
           ...editPrompt,
           promptType: pmType,
           promptText: pmText,
           promptRequired: pmRequired,
+          ...(pmType === "dropdown" && {
+            promptOptions: pmDropdownOpts,
+          }),
         }; // try to preserve other fields, such as a DB ID.
-        if (pmType === "dropdown") editedPrompt.promptOptions = pmDropdownOpts;
         prompts[editPromptIdx] = editedPrompt;
         setValue("prompts", prompts);
       }
     } else {
-      let newPrompt: CustomFormPrompt = {
+      const newPrompt: CustomFormPrompt = {
         promptType: pmType,
         promptText: pmText.trim(),
         promptRequired: pmRequired,
         value: "",
         order: getLastOrdering() + 1,
+        ...(pmType === "dropdown" && {
+          promptOptions: pmDropdownOpts,
+        }),
       };
-      if (pmType === "dropdown") newPrompt.promptOptions = pmDropdownOpts;
       prompts.push(newPrompt);
       setValue("prompts", [...getValues("prompts"), newPrompt]);
     }
