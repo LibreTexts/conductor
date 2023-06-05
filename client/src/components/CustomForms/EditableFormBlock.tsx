@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 import { Segment, Label, Button, Icon, SegmentProps } from "semantic-ui-react";
 import {
   isCustomFormHeadingOrTextBlock,
@@ -21,6 +24,21 @@ const EditableFormBlock: React.FC<EditableFormBlockProps> = ({
   ...rest
 }) => {
   const { disabled } = rest;
+
+  useEffect(() => {
+    DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+      if ('target' in node) {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+  }, []);
+
+  const textToRender = isCustomFormHeadingOrTextBlock(item) ? item.text : isCustomFormPromptBlock(item) ? item.promptText : ""; 
+  const renderedTextHTML = {
+    __html: DOMPurify.sanitize(marked(textToRender, { breaks: true })),
+  };
+
   return (
     <Segment {...rest}>
       <Label attached="top left" className="peerreview-rubricedit-label">
@@ -41,13 +59,7 @@ const EditableFormBlock: React.FC<EditableFormBlockProps> = ({
         </span>
       </Label>
       <div className="flex-row-div">
-        <div className="left-flex">
-          {isCustomFormHeadingOrTextBlock(item)
-            ? item.text
-            : isCustomFormPromptBlock(item)
-            ? item.promptText
-            : ""}
-        </div>
+        <div className="left-flex" dangerouslySetInnerHTML={renderedTextHTML} />
         <div className="right-flex">
           <Button.Group>
             <Button
