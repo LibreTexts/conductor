@@ -839,7 +839,7 @@ const ManageEvent = () => {
                 </Grid.Row>
                 {org.orgID === "libretexts" &&
                   manageMode === "edit" &&
-                  getValues("regFee") !== 0 && (
+                  !!getValues("regFee") && (
                     <Grid.Row>
                       <FeeWaiversSegment
                         feeWaivers={getValues("feeWaivers")}
