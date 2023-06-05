@@ -1,22 +1,23 @@
+import { Suspense, lazy } from 'react';
 import { Route, Switch } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 
-import AccountRequest from './screens/conductor/AccountRequest';
-import AccountRequests from './screens/conductor/controlpanel/AccountRequests';
-import AccountSettings from './screens/conductor/AccountSettings';
-import AdoptionReports from './screens/conductor/controlpanel/AdoptionReports';
-import AnalyticsCourseView from './screens/conductor/analytics/AnalyticsCourseView';
-import AnalyticsInvites from './screens/conductor/analytics/AnalyticsInvites';
-import AnalyticsPortal from './screens/conductor/analytics/AnalyticsPortal';
-import AnalyticsRequestAccess from './screens/conductor/analytics/AnalyticsRequestAccess';
-import AnalyticsRequests from './screens/conductor/controlpanel/AnalyticsRequests';
-import BooksManager from './screens/conductor/controlpanel/BooksManager';
-import CampusSettings from './components/controlpanel/CampusSettings';
-import CollectionsManager from './components/controlpanel/Collections/CollectionsManager';
-import ControlPanel from './components/controlpanel/ControlPanel';
+const AccountRequest = lazy(() => import('./screens/conductor/AccountRequest'));
+const AccountRequests = lazy(() => import('./screens/conductor/controlpanel/AccountRequests'));
+const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
+const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
+const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
+const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/AnalyticsInvites'));
+const AnalyticsPortal = lazy(() => import('./screens/conductor/analytics/AnalyticsPortal'));
+const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/AnalyticsRequestAccess'));
+const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
+const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
+const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
+const CollectionsManager = lazy(() => import('./components/controlpanel/Collections/CollectionsManager'));
+const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
@@ -44,6 +45,7 @@ import ResetPassword from './components/auth/ResetPassword';
 import Search from './components/search/Search';
 import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
+import LoadingSpinner from './components/LoadingSpinner';
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -59,7 +61,8 @@ const Conductor = () => {
   return (
     <div className='conductor'>
       <Navbar />
-      <Switch>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Switch>
         <AnonRoute exact path='/login' component={Login} />
         <AnonRoute exact path='/register' component={Register} />
         <AnonRoute exact path='/resetpassword' component={ResetPassword} />
@@ -104,7 +107,8 @@ const Conductor = () => {
 
         {/* 404 */}
         <Route component={PageNotFound} />
-      </Switch>
+        </Switch>
+      </Suspense>
     </div>
   )
 };
