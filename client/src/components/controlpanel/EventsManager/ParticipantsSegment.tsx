@@ -91,6 +91,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         <Table.Cell>
           <span>{participant.user.lastName}</span>
         </Table.Cell>
+        <Table.Cell>
+          <span>{participant.user.email}</span>
+        </Table.Cell>
         {orgEvent.collectShipping && (
           <Table.Cell>
             <span>
@@ -132,6 +135,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 </Table.HeaderCell>
                 <Table.HeaderCell key="lastName">
                   <span>Last Name</span>
+                </Table.HeaderCell>
+                <Table.HeaderCell key="email">
+                  <span>Email Address</span>
                 </Table.HeaderCell>
                 {orgEvent.collectShipping && (
                   <Table.HeaderCell key="shippingAddress">
