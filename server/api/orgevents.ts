@@ -43,7 +43,7 @@ async function getOrgEvents(
 ) {
   try {
     let page = 1;
-    let limit = 25;
+    const limit = 25;
     if (
       req.query.activePage &&
       Number.isInteger(parseInt(req.query.activePage.toString()))
@@ -51,11 +51,17 @@ async function getOrgEvents(
       page = req.query.activePage;
     }
 
-    let offset = getPaginationOffset(page, limit);
-    let orgEvents = await OrgEvent.find({
-      orgID: process.env.ORG_ID,
-      canceled: { $ne: true },
-    })
+    const offset = getPaginationOffset(page, limit);
+    const orgEvents = await OrgEvent.find(
+      {
+        orgID: process.env.ORG_ID,
+        canceled: { $ne: true },
+      },
+      undefined,
+      {
+        sort: { title: 1 },
+      },
+    )
       .skip(offset)
       .limit(limit)
       .lean();
