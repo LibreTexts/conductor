@@ -24,7 +24,7 @@ import {
   Checkbox,
 } from 'semantic-ui-react';
 import { Link } from 'react-router-dom';
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useSelector } from 'react-redux';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
@@ -61,7 +61,6 @@ import {
   statusOptions,
   createTaskOptions,
   classificationOptions,
-  projectRoleOptions,
   getTaskStatusText,
   getClassificationText,
   getFlagGroupName,
@@ -79,6 +78,8 @@ import {
 } from '../util/RoadmapOptions.jsx';
 
 import useGlobalError from '../error/ErrorHooks';
+import LoadingSpinner from '../LoadingSpinner';
+const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
 
@@ -138,11 +139,7 @@ const ProjectView = (props) => {
   const [pinnedModalDidPin, setPinnedModalDidPin] = useState(true);
 
   // Manage Team Modal
-  const [showTeamModal, setShowTeamModal] = useState(false);
-  const [teamUserOptions, setTeamUserOptions] = useState([]);
-  const [teamUserOptsLoading, setTeamUserOptsLoading] = useState(false);
-  const [teamUserToAdd, setTeamUserToAdd] = useState('');
-  const [teamModalLoading, setTeamModalLoading] = useState(false);
+  const [showManageTeamModal, setShowManageTeamModal] = useState(false);
 
   // Delete Project Modal
   const [showDeleteProjModal, setShowDeleteProjModal] = useState(false);
@@ -783,145 +780,13 @@ const ProjectView = (props) => {
     }
   };
 
-
-  /**
-   * Retrieves a list of users that can be added as team members to the
-   * project, then processes and sets them in state.
-   */
-  const getTeamUserOptions = () => {
-    setTeamUserOptsLoading(true);
-    axios.get(`/project/${props.match.params.id}/team/addable`).then((res) => {
-      if (!res.data.err) {
-        if (res.data.users && Array.isArray(res.data.users)) {
-          var newOptions = [];
-          res.data.users.forEach((item) => {
-            newOptions.push({
-              key: item.uuid,
-              text: `${item.firstName} ${item.lastName}`,
-              value: item.uuid,
-              image: {
-                avatar: true,
-                src: item.avatar
-              }
-            });
-          });
-          newOptions.sort((a, b) => {
-            var normalizedA = String(a.text).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            var normalizedB = String(b.text).toLowerCase().replace(/[^a-zA-Z]/gm, '');
-            if (normalizedA < normalizedB) {
-              return -1;
-            }
-            if (normalizedA > normalizedB) {
-              return 1;
-            }
-            return 0;
-          });
-          newOptions.unshift({ key: 'empty', text: 'Clear...', value: '' });
-          setTeamUserOptions(newOptions);
-        }
-      } else {
-        handleGlobalError(res.data.errMsg);
-      }
-      setTeamUserOptsLoading(false);
-    }).catch((err) => {
-      handleGlobalError(err);
-      setTeamUserOptsLoading(false);
-    });
-  };
-
-
-  /**
-   * Submits a PUT request to the server to add the user
-   * in state (teamUserToAdd) to the project's team, then
-   * refreshes the project data and Addable Users options.
-   */
-  const submitAddTeamMember = () => {
-    if (!isEmptyString(teamUserToAdd)) {
-      setTeamModalLoading(true);
-      axios.post(`/project/${props.match.params.id}/team`, {
-        uuid: teamUserToAdd,
-      }).then((res) => {
-        if (!res.data.err) {
-          setTeamModalLoading(false);
-          getTeamUserOptions();
-          getProject();
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setTeamModalLoading(false);
-      }).catch((err) => {
-        handleGlobalError(err);
-        setTeamModalLoading(false);
-      });
-    }
-  };
-
-
-  /**
-   * Submits a PUT request to the server to update the team member's
-   * role in the project, then refreshes the project data.
-   * @param {String} memberUUID - the UUID of the team member to update
-   * @param {String} newRole - the new role setting
-   */
-  const submitChangeTeamMemberRole = (memberUUID, newRole) => {
-    if (!isEmptyString(memberUUID) && !isEmptyString(newRole)) {
-      setTeamModalLoading(true);
-      axios.put(`/project/${props.match.params.id}/team/${memberUUID}/role`, {
-        newRole: newRole
-      }).then((res) => {
-        if (!res.data.err) {
-          setTeamModalLoading(false);
-          getProject();
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setTeamModalLoading(false);
-      }).catch((err) => {
-        handleGlobalError(err);
-        setTeamModalLoading(false);
-      });
-    }
-  };
-
-
-  /**
-   * Submits a PUT request to the server to remove the specified user
-   * from the project's team, then refreshes the
-   * project data and Addable Users options.
-   * @param  {String} memberUUID  - the uuid of the user to remove
-   */
-  const submitRemoveTeamMember = (memberUUID) => {
-    if (!isEmptyString(memberUUID)) {
-      setTeamModalLoading(true);
-      axios.delete(`/project/${props.match.params.id}/team/${memberUUID}`).then((res) => {
-        if (!res.data.err) {
-          setTeamModalLoading(false);
-          getTeamUserOptions();
-          getProject();
-          getProjectTasks();
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setTeamModalLoading(false);
-      }).catch((err) => {
-        handleGlobalError(err);
-        setTeamModalLoading(false);
-      });
-    }
-  };
-
-
   /**
    * Opens the Manage Team Modal and sets the fields to their
    * default values, then triggers the function to retrieve the list of
    * addable users.
    */
   const openTeamModal = () => {
-    setTeamModalLoading(false);
-    setTeamUserOptions([]);
-    setTeamUserToAdd('');
-    getTeamUserOptions();
-    setShowTeamModal(true);
+    setShowManageTeamModal(true);
   };
 
 
@@ -930,11 +795,7 @@ const ProjectView = (props) => {
    * to their default values.
    */
   const closeTeamModal = () => {
-    setShowTeamModal(false);
-    setTeamUserOptions([]);
-    setTeamUserToAdd('');
-    setTeamUserOptsLoading(false);
-    setTeamModalLoading(false);
+    setShowManageTeamModal(false);
   };
 
 
@@ -1875,73 +1736,6 @@ const ProjectView = (props) => {
       </List>
     )
   };
-
-
-  const renderTeamModalList = (projData) => {
-    let projTeam = [];
-    if (projData.leads && Array.isArray(projData.leads)) {
-      projData.leads.forEach((item) => {
-        projTeam.push({ ...item, role: 'lead', roleDisplay: 'Lead' });
-      });
-    }
-    if (projData.liaisons && Array.isArray(projData.liaisons)) {
-      projData.liaisons.forEach((item) => {
-        projTeam.push({ ...item, role: 'liaison', roleDisplay: 'Liaison' });
-      });
-    }
-    if (projData.members && Array.isArray(projData.members)) {
-      projData.members.forEach((item) => {
-        projTeam.push({ ...item, role: 'member', roleDisplay: 'Member' });
-      });
-    }
-    if (projData.auditors && Array.isArray(projData.auditors)) {
-      projData.auditors.forEach((item) => {
-        projTeam.push({ ...item, role: 'auditor', roleDisplay: 'Auditor' });
-      });
-    }
-    projTeam = sortUsersByName(projTeam);
-    return (
-      <List divided verticalAlign='middle' className='mb-4p'>
-        {projTeam.map((item, idx) => {
-          return (
-            <List.Item key={`team-${idx}`}>
-              <div className='flex-row-div'>
-                <div className='left-flex'>
-                  <Image avatar src={item.avatar} />
-                  <List.Content className='ml-1p'>{item.firstName} {item.lastName}</List.Content>
-                </div>
-                <div className='right-flex'>
-                  <Dropdown
-                    placeholder='Change role...'
-                    selection
-                    options={projectRoleOptions}
-                    value={item.role}
-                    loading={teamModalLoading}
-                    onChange={(_e, { value }) => submitChangeTeamMemberRole(item.uuid, value)}
-                  />
-                  <Popup
-                    position='top center'
-                    trigger={
-                      <Button
-                        color='red'
-                        className='ml-1p'
-                        onClick={() => { submitRemoveTeamMember(item.uuid) }}
-                        icon
-                      >
-                        <Icon name='remove circle' />
-                      </Button>
-                    }
-                    content='Remove from project'
-                  />
-                </div>
-              </div>
-            </List.Item>
-          )
-        })}
-      </List>
-    )
-  };
-
 
   return (
     <Grid className='component-container'>
@@ -2964,45 +2758,9 @@ const ProjectView = (props) => {
             </Modal.Actions>
           </Modal>
           {/* Manage Team Modal */}
-          <Modal
-            open={showTeamModal}
-            onClose={closeTeamModal}
-            size='large'
-            closeIcon
-          >
-            <Modal.Header>Manage Project Team</Modal.Header>
-            <Modal.Content scrolling id='project-manage-team-content'>
-              <Form noValidate>
-                <Form.Select
-                  search
-                  label='Add Team Member'
-                  placeholder='Choose or start typing to search...'
-                  options={teamUserOptions}
-                  onChange={(_e, { value }) => {
-                    setTeamUserToAdd(value);
-                  }}
-                  value={teamUserToAdd}
-                  loading={teamUserOptsLoading}
-                  disabled={teamUserOptsLoading}
-                />
-                <Button
-                  fluid
-                  disabled={isEmptyString(teamUserToAdd)}
-                  color='green'
-                  loading={teamModalLoading}
-                  onClick={submitAddTeamMember}
-                >
-                  <Icon name='add user' />
-                  Add Team Member
-                </Button>
-              </Form>
-              <Divider />
-              {!teamModalLoading
-                ? (Object.keys(project).length > 0 && renderTeamModalList(project))
-                : <Loader active inline='centered' />
-              }
-            </Modal.Content>
-          </Modal>
+          <Suspense fallback={<LoadingSpinner/>}>
+            <ManageTeamModal show={showManageTeamModal} project={project} onDataChanged={getProject} onClose={closeTeamModal} />
+          </Suspense>
           {/* Confirm Delete Modal */}
           <Modal
             open={showDeleteProjModal}

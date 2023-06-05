@@ -134,6 +134,12 @@ const UserSchema = new Schema<UserInterface>(
   }
 );
 
+UserSchema.index({
+  email: "text",
+  firstName: "text",
+  lastName: "text",
+});
+
 const User = model<UserInterface>("User", UserSchema);
 
 export default User;
