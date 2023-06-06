@@ -128,9 +128,6 @@ const ManageEvent = () => {
   >([]);
   const [pmDropdownNew, setPMDropdownNew] = useState<string>("");
   const [pmLoading, setPMLoading] = useState(false);
-  const [pmTypeError, setPMTypeError] = useState(false);
-  const [pmTextError, setPMTextError] = useState(false);
-  const [pmDropdownError, setPMDropdownError] = useState(false);
 
   // Delete Block Modal
   const [showDBModal, setShowDBModal] = useState(false);
@@ -497,9 +494,6 @@ const ManageEvent = () => {
 
   const openPromptModal = (mode: "add" | "edit" = "add", order?: number) => {
     setPMLoading(false);
-    setPMTypeError(false);
-    setPMTextError(false);
-    setPMDropdownError(false);
     if (mode === "edit" && order && order > 0) {
       let editPrompt = [...getValues("prompts")].find(
         (item) => item.order === order
@@ -544,33 +538,6 @@ const ManageEvent = () => {
     setPMRequired(false);
     setPMDropdownOpts([]);
     setPMDropdownNew("");
-    setPMTypeError(false);
-    setPMTextError(false);
-    setPMDropdownError(false);
-  };
-
-  /**
-   * Validates the Add/Edit Prompt form.
-   * @returns {Boolean} True if valid form, false otherwise.
-   */
-  const validatePromptForm = () => {
-    let valid = true;
-    if (isEmptyString(pmType)) {
-      valid = false;
-      setPMTypeError(true);
-    }
-    if (isEmptyString(pmText)) {
-      valid = false;
-      setPMTextError(true);
-    }
-    if (
-      pmType === "dropdown" &&
-      (pmDropdownOpts.length < 1 || pmDropdownOpts.length > 10)
-    ) {
-      valid = false;
-      setPMDropdownError(true);
-    }
-    return valid;
   };
 
   /**
@@ -578,12 +545,6 @@ const ManageEvent = () => {
    */
   const handleSavePrompt = () => {
     setPMLoading(true);
-    setPMTypeError(false);
-    setPMTextError(false);
-    setPMDropdownError(false);
-    if (!validatePromptForm()) {
-      setPMLoading(false);
-    }
     const prompts = [...getValues("prompts")];
     if (pmMode === "edit") {
       const editPrompt = prompts.find((item) => item.order === pmOrder);
@@ -624,10 +585,6 @@ const ManageEvent = () => {
    * Adds a new Dropdown Prompt option to state and resets the option entry input.
    */
   const handleAddDropdownPromptOption = () => {
-    if (pmDropdownNew.trim().length === 0 && pmDropdownNew.length > 250) {
-      setPMDropdownError(true);
-    }
-
     let normalOption = pmDropdownNew
       .trim()
       .toLowerCase()
@@ -640,7 +597,6 @@ const ManageEvent = () => {
         value: normalOption,
       },
     ]);
-    setPMDropdownError(false);
     setPMDropdownNew("");
   };
 
@@ -1003,11 +959,8 @@ const ManageEvent = () => {
           />
           <PromptModal
             promptType={pmType}
-            promptTypeError={pmTypeError}
             promptText={pmText}
             promptReq={pmRequired}
-            textError={pmTextError}
-            dropdownError={pmDropdownError}
             dropdownOptions={pmDropdownOpts}
             newOptionValue={pmDropdownNew}
             onChangeNewOptionValue={(n) => setPMDropdownNew(n)}

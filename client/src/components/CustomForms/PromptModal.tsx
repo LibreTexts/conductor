@@ -11,6 +11,7 @@ import {
 } from "semantic-ui-react";
 import { CustomFormPromptType, GenericKeyTextValueObj } from "../../types";
 import { customFormPromptTypes } from "./CustomFormPromptTypes";
+import { useEffect, useState } from "react";
 
 interface PromptModalProps extends ModalProps {
   show: boolean;
@@ -20,9 +21,6 @@ interface PromptModalProps extends ModalProps {
   promptReq: boolean;
   dropdownOptions: GenericKeyTextValueObj<string>[];
   newOptionValue: string;
-  promptTypeError: boolean;
-  textError: boolean;
-  dropdownError: boolean;
   onChangePromptText: (newVal: string) => void;
   onChangePromptReq: (newVal: boolean) => void;
   onChangeNewOptionValue: (newVal: string) => void;
@@ -42,9 +40,6 @@ const PromptModal: React.FC<PromptModalProps> = ({
   promptReq,
   dropdownOptions,
   newOptionValue,
-  promptTypeError,
-  textError,
-  dropdownError,
   onChangePromptText,
   onChangePromptReq,
   onChangeNewOptionValue,
@@ -57,11 +52,62 @@ const PromptModal: React.FC<PromptModalProps> = ({
   loading,
   ...rest
 }) => {
+  const [promptTextError, setPromptTextError] = useState(false);
+  const [promptTypeError, setPromptTypeError] = useState(false);
+  const [dropdownError, setDropdownError] = useState(false);
+  const [dropdownErrorText, setDropdownErrorText] = useState("");
+
+  useEffect(() => {
+    // Reset errors when modal is opened/closed
+    setPromptTextError(false);
+    setPromptTypeError(false);
+    setDropdownError(false);
+    setDropdownErrorText("");
+  }, [show]);
+
+  function validateForm() {
+    if (promptText === "") {
+      setPromptTextError(true);
+      return;
+    }
+    if (promptType === "") {
+      setPromptTypeError(true);
+      return;
+    }
+    if (promptType === "dropdown" && dropdownOptions.length === 0) {
+      setDropdownError(true);
+      setDropdownErrorText("At lease one option is required.");
+      return;
+    }
+
+    onSave();
+  }
+
+  const validateNewPromptOption = () => {
+    if (newOptionValue.trim().length === 0 || newOptionValue.length > 250) {
+      setDropdownError(true);
+      setDropdownErrorText("Option must be between 1 and 250 characters.");
+      return;
+    }
+    
+    onAddDropdownPromptOption();
+  };
+
   return (
     <Modal open={show} onClose={onClose} {...rest}>
       <Modal.Header>{mode === "add" ? "Add" : "Edit"} Prompt</Modal.Header>
       <Modal.Content>
         <Form noValidate>
+          <Form.Input
+            type="text"
+            value={promptText}
+            onChange={(_e, { value }) => onChangePromptText(value)}
+            fluid
+            label="Prompt Text"
+            placeholder="Enter prompt/instructions/question..."
+            error={promptTextError}
+            required={true}
+          />
           <Form.Select
             options={customFormPromptTypes}
             value={promptType}
@@ -76,15 +122,6 @@ const PromptModal: React.FC<PromptModalProps> = ({
           />
           {promptType !== "" && (
             <>
-              <Form.Input
-                type="text"
-                value={promptText}
-                onChange={(_e, { value }) => onChangePromptText(value)}
-                fluid
-                label="Prompt Text"
-                placeholder="Enter prompt/instructions/question..."
-                error={textError}
-              />
               <Form.Group inline>
                 <label>Response Required?</label>
                 <Form.Radio
@@ -177,7 +214,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
                             labelPosition: "right",
                             icon: "add",
                             content: "Add Option",
-                            onClick: onAddDropdownPromptOption,
+                            onClick: validateNewPromptOption,
                           }}
                           fluid
                           error={dropdownError}
@@ -186,6 +223,13 @@ const PromptModal: React.FC<PromptModalProps> = ({
                       </List.Item>
                     )}
                   </List>
+                  {dropdownError && dropdownErrorText && (
+                    <div className="mt-2p">
+                      <span className="form-error-label">
+                        {dropdownErrorText}
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </>
@@ -194,7 +238,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" loading={loading ?? false} onClick={onSave}>
+        <Button color="green" loading={loading ?? false} onClick={validateForm}>
           <Icon name={mode === "add" ? "add" : "save"} />
           {mode === "add" ? "Add" : "Save"} Prompt
         </Button>
