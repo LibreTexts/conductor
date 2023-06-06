@@ -279,21 +279,12 @@ const ManageEvent = () => {
     getOrgEvent,
   ]);
 
-  const validateForm = () => {
-    let valid = true;
-    //TODO
-    return valid;
-  };
-
   /**
    * Processes the Event configuration in state and saves it to the server, then returns to Events Manager
    */
   const saveEventChanges = async () => {
     try {
       setChangesSaving(true);
-      if (!validateForm()) {
-        setChangesSaving(false);
-      }
 
       if (routeParams.mode === "create") {
         const createRes = await axios.post("/orgevents", getValues());
@@ -403,7 +394,9 @@ const ManageEvent = () => {
     let headings = [...getValues("headings")];
     if (hmMode === "edit") {
       const editHeading = headings.find((item) => item.order === hmOrder);
-      const editHeadingIdx = headings.findIndex((item) => item.order === hmOrder);
+      const editHeadingIdx = headings.findIndex(
+        (item) => item.order === hmOrder
+      );
       if (editHeading !== undefined && editHeadingIdx > -1) {
         const editedHeading = {
           ...editHeading,
@@ -417,7 +410,7 @@ const ManageEvent = () => {
         ...getValues("headings"),
         {
           text: hmHeading.trim(),
-          order: getLastOrdering() + 1,
+          order: getNextOrdering(),
         },
       ]);
     }
@@ -484,7 +477,7 @@ const ManageEvent = () => {
         ...getValues("textBlocks"),
         {
           text: tmText.trim(),
-          order: getLastOrdering() + 1,
+          order: getNextOrdering(),
         },
       ]);
     }
@@ -568,7 +561,7 @@ const ManageEvent = () => {
         promptText: pmText.trim(),
         promptRequired: pmRequired,
         value: "",
-        order: getLastOrdering() + 1,
+        order: getNextOrdering(),
         ...(pmType === "dropdown" && {
           promptOptions: pmDropdownOpts,
         }),
@@ -656,7 +649,7 @@ const ManageEvent = () => {
    */
   const openDeleteBlockModal = (order: number) => {
     setDBLoading(false);
-    let foundElement = allElements.find((el) => el.order === order);
+    const foundElement = allElements.find((el) => el.order === order);
     if (!foundElement) return;
 
     let blockType: "heading" | "prompt" | "textBlock";
@@ -697,6 +690,14 @@ const ManageEvent = () => {
       }
     });
     return lastOrdering;
+  };
+
+  /**
+   * Get the next ordering index for a new block.
+   * @returns {Number} The next ordering index, or 1.
+   */
+  const getNextOrdering = () => {
+    return getLastOrdering() + 1;
   };
 
   return (
@@ -852,7 +853,6 @@ const ManageEvent = () => {
                                   key={item.order}
                                   onMove={(item, direction) =>
                                     handleMoveBlock({
-                                      allElems: allElements,
                                       blockToMove: item,
                                       direction: direction,
                                       getValueFn: getValues,
