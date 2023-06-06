@@ -1,4 +1,12 @@
-import { Grid, Header, Segment, Table, Pagination } from "semantic-ui-react";
+import {
+  Grid,
+  Header,
+  Segment,
+  Table,
+  Pagination,
+  Button,
+  Icon,
+} from "semantic-ui-react";
 import { useEffect, useState } from "react";
 import {
   OrgEvent,
@@ -10,6 +18,8 @@ import { getLikertResponseText } from "../../util/LikertHelpers";
 import PaymentStatusLabel from "./PaymentStatusLabel";
 
 type ParticipantsSegmentProps = {
+  show: boolean;
+  toggleVisibility: () => void;
   orgEvent: OrgEvent;
   participants: OrgEventParticipant[];
   loading: boolean;
@@ -22,6 +32,8 @@ type ParticipantsSegmentProps = {
 };
 
 const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
+  show,
+  toggleVisibility,
   orgEvent,
   participants,
   loading,
@@ -120,10 +132,41 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     );
   }
 
+  if (!show) {
+    return (
+      <Grid.Column {...rest}>
+        <Header
+          as="h2"
+          dividing
+          className="flex-row-div  flex-row-verticalcenter"
+        >
+          <span>Participants</span>
+          <div className="right-flex">
+            <Button onClick={toggleVisibility}>Show</Button>
+          </div>
+        </Header>
+        <Segment.Group size="large" raised className="mb-4p">
+          <Segment loading={loading}>
+            <span>Collapsed for brevity... Click "Show" to view</span>
+          </Segment>
+        </Segment.Group>
+      </Grid.Column>
+    );
+  }
+
   return (
     <Grid.Column {...rest}>
-      <Header as="h2" dividing>
-        Participants
+      <Header
+        as="h2"
+        dividing
+        className="flex-row-div  flex-row-verticalcenter"
+      >
+        <span>Participants</span>
+        <div className="right-flex">
+          <Button onClick={toggleVisibility}>
+            Hide
+          </Button>
+        </div>
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
         <Segment loading={loading}>
