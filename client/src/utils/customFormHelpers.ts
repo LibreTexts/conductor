@@ -122,7 +122,7 @@ const _reorderBlocks = <T extends { order: number }>(
   return arr.map((item) => {
     if (!item) return item;
     if (!item.order) return item;
-    if (!!item.order && item.order > removedIdx) {
+    if (item.order >= removedIdx) {
       // blocks below need to be moved up
       return {
         ...item,
@@ -173,17 +173,17 @@ export const handleMoveBlock = ({
     }
 
     /* move the blocks */
-    let headings = _moveBlocks(
+    const headings = _moveBlocks(
       [...getValueFn("headings")],
       blockToMove,
       direction
     );
-    let textBlocks = _moveBlocks(
+    const textBlocks = _moveBlocks(
       [...getValueFn("textBlocks")],
       blockToMove,
       direction
     );
-    let prompts = _moveBlocks(
+    const prompts = _moveBlocks(
       [...getValueFn("prompts")],
       blockToMove,
       direction
