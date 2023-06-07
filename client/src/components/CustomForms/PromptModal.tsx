@@ -91,6 +91,8 @@ const PromptModal: React.FC<PromptModalProps> = ({
     }
     
     onAddDropdownPromptOption();
+    setDropdownError(false);
+    setDropdownErrorText("");
   };
 
   return (
