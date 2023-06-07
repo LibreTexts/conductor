@@ -1185,6 +1185,7 @@ const getProjectsUnderDevelopment = (req, res) => {
 async function getAddableMembers(req, res) {
   try {
     const { projectID } = req.params;
+    const { search } = req.query;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -1202,14 +1203,33 @@ async function getAddableMembers(req, res) {
     }
 
     const existing = constructProjectTeam(project); // don't include existing team members
+
+    let matchObj = {};
+    if (search) {
+      const parsedSearch = search.toString().toLowerCase();
+      matchObj = {
+        $and: [
+          {
+            $text: {
+              $search: parsedSearch,
+            },
+          },
+          { uuid: { $nin: existing } },
+          { $expr: { $not: "$isSystem" } },
+        ],
+      };
+    } else {
+      matchObj = {
+        $and: [
+          { uuid: { $nin: existing } },
+          { $expr: { $not: '$isSystem' } },
+        ],
+      };
+    }
+
     const users = await User.aggregate([
       {
-        $match: {
-          $and: [
-            { uuid: { $nin: existing } },
-            { $expr: { $not: '$isSystem' } },
-          ],
-        },
+        $match: {...matchObj}
       }, {
         $project: {
           _id: 0,

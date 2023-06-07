@@ -42,9 +42,9 @@ export type Project = {
   a11yProgress: number;
   classification: ProjectClassification;
   leads: User[];
-  liaisons: [string];
-  members: [string];
-  auditors: [string];
+  liaisons: User[];
+  members: User[];
+  auditors: User[];
   libreLibrary: string;
   libreCoverID: string;
   libreShelf: string;
@@ -56,7 +56,7 @@ export type Project = {
   projectURL: string;
   adaptURL: string;
   adaptCourseID: string;
-  tags: [string];
+  tags: string[];
   notes: string;
   rating: number;
   rdmpReqRemix: Boolean;
@@ -67,8 +67,8 @@ export type Project = {
   flagDescrip: string;
   allowAnonPR: boolean;
   preferredPRRubric: String;
-  cidDescriptors: [string];
-  files: [ProjectFile];
+  cidDescriptors: string[];
+  files: ProjectFile[];
   createdAt: string;
   updatedAt?: string;
 };
