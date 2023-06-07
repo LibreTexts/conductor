@@ -1,3 +1,5 @@
+import { useState } from "react";
+import axios from "axios";
 import {
   Modal,
   Form,
@@ -13,9 +15,7 @@ import {
 } from "semantic-ui-react";
 import { Project, User } from "../../types";
 import { isEmptyString, sortUsersByName } from "../util/HelperFunctions";
-import { useCallback, useState } from "react";
 import { projectRoleOptions } from "../util/ProjectHelpers";
-import axios from "axios";
 import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 
@@ -46,7 +46,21 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const [teamUserOptions, setTeamUserOptions] = useState<TeamUserOpt[]>([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
-  const [searchString, setSearchString] = useState<string>("");
+  const [teamUserUUIDToAdd, setTeamUserUUIDToAdd] = useState<string | null>(null);
+
+  /**
+   * Resets state before calling the provided onClose function.
+   */
+  const handleClose = () => {
+    setLoading(false);
+    setTeamUserOptions([]);
+    setTeamUserOptsLoading(false);
+    setTeamUserUUIDToAdd(null);
+
+    if (onClose) {
+      onClose();
+    }
+  };
 
   /**
    * Retrieves a list of users that can be added as team members to the
@@ -71,7 +85,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         );
       }
 
-      var newOptions: TeamUserOpt[] = [];
+      const newOptions: TeamUserOpt[] = [];
       res.data.users.forEach((item: User) => {
         newOptions.push({
           key: item.uuid,
@@ -109,7 +123,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   const getTeamUserOptionsDebounced = debounce(
     (inputVal: string) => getTeamUserOptions(inputVal),
-    500
+    250
   );
 
   /**
@@ -191,9 +205,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
    * in state (teamUserToAdd) to the project's team, then
    * refreshes the project data and Addable Users options.
    */
-  const submitAddTeamMember = async (uuid: string) => {
+  const submitAddTeamMember = async () => {
     try {
-      if (isEmptyString(uuid) || isEmptyString(project.projectID)) {
+      if (!teamUserUUIDToAdd || isEmptyString(teamUserUUIDToAdd) || isEmptyString(project.projectID)) {
         throw new Error(
           "Invalid user or project UUID. This may be caused by an internal error."
         );
@@ -201,7 +215,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
       setLoading(true);
       const res = await axios.post(`/project/${project.projectID}/team`, {
-        uuid: uuid,
+        uuid: teamUserUUIDToAdd,
       });
 
       if (res.data.err) {
@@ -210,6 +224,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       }
 
       setTeamUserOptions([]);
+      setTeamUserUUIDToAdd(null);
       onDataChanged();
     } catch (err) {
       handleGlobalError(err);
@@ -298,17 +313,19 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   };
 
   return (
-    <Modal open={show} onClose={onClose} size="large" closeIcon>
+    <Modal open={show} onClose={handleClose} size="large" closeIcon>
       <Modal.Header>Manage Project Team</Modal.Header>
       <Modal.Content scrolling id="project-manage-team-content">
         <Form noValidate>
           <Form.Select
             search
             label="Add Team Member"
-            placeholder="Start typing to search. Search by name or email..."
+            placeholder="Start typing to search by name..."
             options={teamUserOptions}
             onChange={(_e, { value }) => {
-              submitAddTeamMember(value ? value.toString() : "");
+              if (typeof value === "string") {
+                setTeamUserUUIDToAdd(value);
+              }
             }}
             onSearchChange={(_e, { searchQuery }) => {
               if (searchQuery) {
@@ -322,7 +339,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             fluid
             color="green"
             loading={loading}
-            onClick={() => submitAddTeamMember}
+            onClick={submitAddTeamMember}
           >
             <Icon name="add user" />
             Add Team Member
