@@ -31,7 +31,7 @@ import {
 } from "../../../../types";
 import { useForm } from "react-hook-form";
 import { useTypedSelector } from "../../../../state/hooks";
-import { format as formatDate, parseISO, set } from "date-fns";
+import { format as formatDate, parseISO } from "date-fns";
 import {
   handleDeleteBlock,
   handleMoveBlock,
@@ -81,7 +81,7 @@ const ManageEvent = () => {
   const [canEdit, setCanEdit] = useState<boolean>(true);
   const [loadedOrgEvent, setLoadedOrgEvent] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
-  const [showParticipants, setShowParticipants] = useState<boolean>(false);
+  const [showParticipants, setShowParticipants] = useState<boolean>(true);
   const [showChangesWarning, setShowChangesWarning] = useState(false);
   const [changesSaving, setChangesSaving] = useState(false);
 
