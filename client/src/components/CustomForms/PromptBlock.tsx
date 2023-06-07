@@ -20,13 +20,15 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
   if (item.promptType === "3-likert") {
     return (
       <Form.Field className="mt-2p mb-2p" key={item.order}>
-        <label
-          className={`${item.promptRequired ? "form-required" : ""} ${
-            error ? "form-error-label" : ""
-          } mb-05p`}
-        >
-          {item.promptText}
-        </label>
+        {item.promptText && (
+          <label
+            className={`${item.promptRequired ? "form-required" : ""} ${
+              error ? "form-error-label" : ""
+            } mb-05p`}
+          >
+            {item.promptText}
+          </label>
+        )}
         <LikertScale
           points={3}
           promptOrder={item.order}
@@ -39,13 +41,15 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
   } else if (item.promptType === "5-likert") {
     return (
       <Form.Field className="mt-2p mb-2p" key={item.order}>
-        <label
-          className={`${item.promptRequired ? "form-required" : ""} ${
-            error ? "form-error-label" : ""
-          } mb-05p`}
-        >
-          {item.promptText}
-        </label>
+        {item.promptText && (
+          <label
+            className={`${item.promptRequired ? "form-required" : ""} ${
+              error ? "form-error-label" : ""
+            } mb-05p`}
+          >
+            {item.promptText}
+          </label>
+        )}
         <LikertScale
           points={5}
           promptOrder={item.order}
@@ -58,13 +62,15 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
   } else if (item.promptType === "7-likert") {
     return (
       <Form.Field className="mt-2p mb-2p" key={item.order}>
-        <label
-          className={`${item.promptRequired ? "form-required" : ""} ${
-            error ? "form-error-label" : ""
-          } mb-05p`}
-        >
-          {item.promptText}
-        </label>
+        {item.promptText && (
+          <label
+            className={`${item.promptRequired ? "form-required" : ""} ${
+              error ? "form-error-label" : ""
+            } mb-05p`}
+          >
+            {item.promptText}
+          </label>
+        )}
         <LikertScale
           points={7}
           promptOrder={item.order}
@@ -77,9 +83,11 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
   } else if (item.promptType === "text") {
     return (
       <Form.Field className="mb-2p" key={item.order}>
-        <label className={item.promptRequired ? "form-required" : ""}>
-          {item.promptText}
-        </label>
+        {item.promptText && (
+          <label className={item.promptRequired ? "form-required" : ""}>
+            {item.promptText}
+          </label>
+        )}
         <TextArea
           placeholder="Enter your response..."
           value={item.value?.toString() ?? ""}
@@ -117,7 +125,9 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
         required={item.promptRequired}
         label={
           <label
-            className="form-field-label"
+            className={`form-field-label ${
+              item.promptText && item.promptRequired ? "form-required" : ""
+            }`}
             htmlFor={`peerreview-checkbox-${item.order}`}
           >
             {item.promptText}
