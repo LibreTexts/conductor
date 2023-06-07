@@ -228,7 +228,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
     if (projData.liaisons && Array.isArray(projData.liaisons)) {
       projData.liaisons.forEach((item) => {
-        projTeam.push({ ...item, roleValue: "liason", roleDisplay: "Liaison" });
+        projTeam.push({ ...item, roleValue: "liaison", roleDisplay: "Liaison" });
       });
     }
     if (projData.members && Array.isArray(projData.members)) {
