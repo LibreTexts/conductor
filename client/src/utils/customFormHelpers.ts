@@ -115,9 +115,26 @@ const _moveBlocks = (
   });
 };
 
+const _deleteBlockAndReorder = <T extends { order: number }>(
+  arr: T[],
+  removeOrder: number
+): T[] => {
+  const filtered = arr.filter((item) => item.order !== removeOrder);
+  return filtered.map((item) => {
+    if (!item) return item;
+    if (!('order' in item)) return item;
+    if (item.order > removeOrder) {
+      return {
+        ...item,
+        order: item.order - 1,
+      };
+    }
+    return item;
+  });
+}
+
 /**
  * Changes a block's order in state and shifts nearby blocks to maintain ordering.
- * @param {Array} allElems - Array of all current blocks.
  * @param {Object} blockToMove - The block's current state.
  * @param {String} direction - The direction to move the block in the rubric.
  * @param {Function} getValueFn - React Hook Form getter function
@@ -126,7 +143,6 @@ const _moveBlocks = (
  * @param {Function} onFinish - Optional function that runs whenever block is moved
  */
 export const handleMoveBlock = ({
-  allElems,
   blockToMove,
   direction,
   getValueFn,
@@ -134,7 +150,6 @@ export const handleMoveBlock = ({
   onError,
   onFinish,
 }: {
-  allElems: CustomFormElement[];
   blockToMove: CustomFormBlockType;
   direction: "up" | "down";
   getValueFn: UseFormGetValues<OrgEvent>;
@@ -144,26 +159,31 @@ export const handleMoveBlock = ({
 }) => {
   try {
     // don't move a block already at the top/bottom
+    const MAX_ORDER = [
+      ...getValueFn("headings"),
+      ...getValueFn("prompts"),
+      ...getValueFn("textBlocks"),
+    ].length;
 
     if (
       (blockToMove.order === 1 && direction === "up") ||
-      (blockToMove.order === allElems.length && direction === "down")
+      (blockToMove.order === MAX_ORDER && direction === "down")
     ) {
       return;
     }
 
     /* move the blocks */
-    let headings = _moveBlocks(
+    const headings = _moveBlocks(
       [...getValueFn("headings")],
       blockToMove,
       direction
     );
-    let textBlocks = _moveBlocks(
+    const textBlocks = _moveBlocks(
       [...getValueFn("textBlocks")],
       blockToMove,
       direction
     );
-    let prompts = _moveBlocks(
+    const prompts = _moveBlocks(
       [...getValueFn("prompts")],
       blockToMove,
       direction
@@ -211,75 +231,9 @@ export const handleDeleteBlock = ({
       onStart();
     }
 
-    let deleteIdx;
-
-    if (dbBlock.uiType === "heading") {
-      deleteIdx = getValueFn("headings").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-
-      if (deleteIdx === -1) return;
-
-      let newArr = [...getValueFn("headings")];
-      newArr.splice(deleteIdx);
-      setValueFn(
-        "headings",
-        newArr.map((item) => {
-          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
-              return {
-                  ...item,
-                  order: item.order - 1
-              };
-          }
-          return item;
-        }),
-      );
-    }
-
-    if (dbBlock.uiType === "textBlock") {
-      deleteIdx = getValueFn("textBlocks").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-      if (deleteIdx === -1) return;
-
-      let newArr = [...getValueFn("textBlocks")];
-      newArr.splice(deleteIdx);
-      setValueFn(
-        "textBlocks",
-        newArr.map((item) => {
-          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
-              return {
-                  ...item,
-                  order: item.order - 1
-              };
-          }
-          return item;
-        }),
-      );
-    }
-
-    if (dbBlock.uiType === "prompt") {
-      deleteIdx = getValueFn("prompts").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-      if (deleteIdx === -1) return;
-
-      let newArr = [...getValueFn("prompts")];
-      newArr.splice(deleteIdx, 1);
-
-      setValueFn(
-        "prompts",
-        newArr.map((item) => {
-          if (!!item.order && item.order > dbBlock.order) { // blocks below need to be moved up
-              return {
-                  ...item,
-                  order: item.order - 1
-              };
-          }
-          return item;
-        }),
-      );
-    }
+    setValueFn("headings", _deleteBlockAndReorder(getValueFn("headings"), dbBlock.order));
+    setValueFn("textBlocks", _deleteBlockAndReorder(getValueFn("textBlocks"), dbBlock.order));
+    setValueFn("prompts", _deleteBlockAndReorder(getValueFn("prompts"), dbBlock.order));
 
     if (onFinish) {
       onFinish();
