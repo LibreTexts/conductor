@@ -115,15 +115,15 @@ const _moveBlocks = (
   });
 };
 
-const _reorderBlocks = <T extends { order: number }>(
+const _deleteBlockAndReorder = <T extends { order: number }>(
   arr: T[],
-  removedIdx: number
+  removeOrder: number
 ): T[] => {
-  return arr.map((item) => {
+  const filtered = arr.filter((item) => item.order !== removeOrder);
+  return filtered.map((item) => {
     if (!item) return item;
-    if (!item.order) return item;
-    if (item.order >= removedIdx) {
-      // blocks below need to be moved up
+    if (!('order' in item)) return item;
+    if (item.order > removeOrder) {
       return {
         ...item,
         order: item.order - 1,
@@ -131,7 +131,7 @@ const _reorderBlocks = <T extends { order: number }>(
     }
     return item;
   });
-};
+}
 
 /**
  * Changes a block's order in state and shifts nearby blocks to maintain ordering.
@@ -231,42 +231,9 @@ export const handleDeleteBlock = ({
       onStart();
     }
 
-    let deleteIdx;
-
-    if (dbBlock.uiType === "heading") {
-      deleteIdx = getValueFn("headings").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-
-      if (deleteIdx === -1) return;
-
-      const newArr = [...getValueFn("headings")];
-      newArr.splice(deleteIdx, 1);
-      setValueFn("headings", _reorderBlocks(newArr, dbBlock.order));
-    }
-
-    if (dbBlock.uiType === "textBlock") {
-      deleteIdx = getValueFn("textBlocks").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-      if (deleteIdx === -1) return;
-
-      const newArr = [...getValueFn("textBlocks")];
-      newArr.splice(deleteIdx, 1);
-      setValueFn("textBlocks", _reorderBlocks(newArr, dbBlock.order));
-    }
-
-    if (dbBlock.uiType === "prompt") {
-      deleteIdx = getValueFn("prompts").findIndex(
-        (item) => item.order === dbBlock.order
-      );
-      if (deleteIdx === -1) return;
-
-      const newArr = [...getValueFn("prompts")];
-      newArr.splice(deleteIdx, 1);
-
-      setValueFn("prompts", _reorderBlocks(newArr, dbBlock.order));
-    }
+    setValueFn("headings", _deleteBlockAndReorder(getValueFn("headings"), dbBlock.order));
+    setValueFn("textBlocks", _deleteBlockAndReorder(getValueFn("textBlocks"), dbBlock.order));
+    setValueFn("prompts", _deleteBlockAndReorder(getValueFn("prompts"), dbBlock.order));
 
     if (onFinish) {
       onFinish();
