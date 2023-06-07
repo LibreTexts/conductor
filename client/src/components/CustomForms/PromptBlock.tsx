@@ -82,7 +82,7 @@ const PromptBlock: React.FC<PromptBlockProps> = ({
     );
   } else if (item.promptType === "text") {
     return (
-      <Form.Field className="mb-2p" key={item.order}>
+      <Form.Field className="mb-2p text-area-small" key={item.order}>
         {item.promptText && (
           <label className={item.promptRequired ? "form-required" : ""}>
             {item.promptText}

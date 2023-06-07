@@ -210,6 +210,10 @@ body {
     color: #e7bdbc;
 }
 
+.text-area-small > textarea {
+    height: 3em
+}
+
 .disabled-input {
     opacity: 0.45;
 }

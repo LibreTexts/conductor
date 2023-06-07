@@ -81,6 +81,7 @@ const ManageEvent = () => {
   const [canEdit, setCanEdit] = useState<boolean>(true);
   const [loadedOrgEvent, setLoadedOrgEvent] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  const [showParticipants, setShowParticipants] = useState<boolean>(true);
   const [showChangesWarning, setShowChangesWarning] = useState(false);
   const [changesSaving, setChangesSaving] = useState(false);
 
@@ -91,7 +92,7 @@ const ManageEvent = () => {
   const [loadedFeeWaivers, setLoadedFeeWaivers] = useState<boolean>(false);
 
   // Participants Segment
-  const [loadedParticipants, setLoadedParticipants] = useState<boolean>(false);
+  const [loadedParticipants, setLoadedParticipants] = useState<boolean>(true);
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -208,6 +209,7 @@ const ManageEvent = () => {
     activePage,
     itemsPerPage,
     setLoadedParticipants,
+    setCanEdit,
     setTotalItems,
     setTotalPages,
     handleGlobalError,
@@ -403,7 +405,9 @@ const ManageEvent = () => {
     let headings = [...getValues("headings")];
     if (hmMode === "edit") {
       const editHeading = headings.find((item) => item.order === hmOrder);
-      const editHeadingIdx = headings.findIndex((item) => item.order === hmOrder);
+      const editHeadingIdx = headings.findIndex(
+        (item) => item.order === hmOrder
+      );
       if (editHeading !== undefined && editHeadingIdx > -1) {
         const editedHeading = {
           ...editHeading,
@@ -810,6 +814,10 @@ const ManageEvent = () => {
                   <>
                     <Grid.Row>
                       <ParticipantsSegment
+                        show={showParticipants}
+                        toggleVisibility={() =>
+                          setShowParticipants(!showParticipants)
+                        }
                         participants={getValues("participants")}
                         orgEvent={getValues()}
                         loading={!loadedParticipants}
@@ -913,8 +921,14 @@ const ManageEvent = () => {
                                 onClick={saveEventChanges}
                                 disabled={!canEdit}
                               >
-                                <Icon name="save" />
-                                <span>Save Registration Form</span>
+                                {showChangesWarning ? (
+                                  <>
+                                    <Icon name="save" />
+                                    <span>Save Registration Form</span>
+                                  </>
+                                ) : (
+                                  <Icon name="check" />
+                                )}
                               </Button>
                             </Button.Group>
                           </Segment>

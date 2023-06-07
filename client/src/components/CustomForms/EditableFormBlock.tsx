@@ -27,14 +27,18 @@ const EditableFormBlock: React.FC<EditableFormBlockProps> = ({
 
   useEffect(() => {
     DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-      if ('target' in node) {
-        node.setAttribute('target', '_blank');
-        node.setAttribute('rel', 'noopener noreferrer');
+      if ("target" in node) {
+        node.setAttribute("target", "_blank");
+        node.setAttribute("rel", "noopener noreferrer");
       }
     });
   }, []);
 
-  const textToRender = isCustomFormHeadingOrTextBlock(item) ? item.text : isCustomFormPromptBlock(item) ? item.promptText : ""; 
+  const textToRender = isCustomFormHeadingOrTextBlock(item)
+    ? item.text
+    : isCustomFormPromptBlock(item)
+    ? item.promptText
+    : "";
   const renderedTextHTML = {
     __html: DOMPurify.sanitize(marked(textToRender, { breaks: true })),
   };
@@ -55,7 +59,16 @@ const EditableFormBlock: React.FC<EditableFormBlockProps> = ({
           />
         </Button.Group>
         <span className="ml-1r">
-          <strong>#{item.order}:</strong> {getFriendlyUIType(item.uiType)}
+          <strong>#{item.order}:</strong> {getFriendlyUIType(item.uiType)}{" "}
+          {item.uiType === "prompt" &&
+          isCustomFormPromptBlock(item) &&
+          item.promptRequired
+            ? "(Required)"
+            : item.uiType === "prompt" &&
+              isCustomFormPromptBlock(item) &&
+              !item.promptRequired
+            ? "(Optional)"
+            : ""}
         </span>
       </Label>
       <div className="flex-row-div">
