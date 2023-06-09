@@ -28,6 +28,7 @@ type ParticipantsSegmentProps = {
   totalPages: number;
   totalItems: number;
   itemsPerPage: number;
+  onDownloadParticipants: () => void;
   onChangeActivePage: (page: number) => void;
 };
 
@@ -42,6 +43,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   totalPages,
   totalItems,
   itemsPerPage,
+  onDownloadParticipants,
   onChangeActivePage,
   ...rest
 }) => {
@@ -163,9 +165,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       >
         <span>Participants</span>
         <div className="right-flex">
-          <Button onClick={toggleVisibility}>
-            Hide
-          </Button>
+          <Button onClick={toggleVisibility}>Hide</Button>
         </div>
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
@@ -221,7 +221,12 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 {totalItems} participants.
               </p>
             </div>
-            <div className="right-flex">
+            <div className="right-flex flex-row-verticalcenter">
+              {participants && participants.length > 0 && (
+                <Button className="mr-4p" onClick={onDownloadParticipants}>
+                  <Icon name="download" /> Export CSV
+                </Button>
+              )}
               <Pagination
                 activePage={activePage}
                 totalPages={totalPages}
