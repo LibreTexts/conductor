@@ -785,3 +785,8 @@ code {
 .ui.orange {
     background-color: #CD4D12 !important;
 }
+
+.x-scroll-table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+}
