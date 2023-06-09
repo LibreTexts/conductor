@@ -1,3 +1,4 @@
+//import "../../../styles/global.css";
 import {
   Grid,
   Header,
@@ -163,58 +164,58 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       >
         <span>Participants</span>
         <div className="right-flex">
-          <Button onClick={toggleVisibility}>
-            Hide
-          </Button>
+          <Button onClick={toggleVisibility}>Hide</Button>
         </div>
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
         <Segment loading={loading}>
-          <Table striped celled size="small">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell key="firstName">
-                  <span>First Name</span>
-                </Table.HeaderCell>
-                <Table.HeaderCell key="lastName">
-                  <span>Last Name</span>
-                </Table.HeaderCell>
-                <Table.HeaderCell key="email">
-                  <span>Email Address</span>
-                </Table.HeaderCell>
-                {orgEvent.collectShipping && (
-                  <Table.HeaderCell key="shippingAddress">
-                    <span>Shipping Address</span>
-                  </Table.HeaderCell>
-                )}
-                <Table.HeaderCell key="paymentStatus">
-                  <span>Payment Status</span>
-                </Table.HeaderCell>
-                {tableColumns.map((item) => (
-                  <Table.HeaderCell key={item.key}>
-                    <span>{item.text}</span>
-                  </Table.HeaderCell>
-                ))}
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {participants &&
-                participants.length > 0 &&
-                participants.map((item) => (
-                  <TableRow participant={item} key={item.user.uuid} />
-                ))}
-              {(!participants || participants.length === 0) && (
+          <div className="x-scroll-table-container">
+            <Table striped celled size="small" className="mb-05p">
+              <Table.Header>
                 <Table.Row>
-                  <Table.Cell colSpan={6}>
-                    <p className="text-center">
-                      <em>No participants found.</em>
-                    </p>
-                  </Table.Cell>
+                  <Table.HeaderCell key="firstName" collapsing>
+                    <span>First Name</span>
+                  </Table.HeaderCell>
+                  <Table.HeaderCell key="lastName" collapsing>
+                    <span>Last Name</span>
+                  </Table.HeaderCell>
+                  <Table.HeaderCell key="email" collapsing>
+                    <span>Email Address</span>
+                  </Table.HeaderCell>
+                  {orgEvent.collectShipping && (
+                    <Table.HeaderCell key="shippingAddress" collapsing>
+                      <span>Shipping Address</span>
+                    </Table.HeaderCell>
+                  )}
+                  <Table.HeaderCell key="paymentStatus" collapsing>
+                    <span>Payment Status</span>
+                  </Table.HeaderCell>
+                  {tableColumns.map((item) => (
+                    <Table.HeaderCell key={item.key} collapsing>
+                      <span>{item.text}</span>
+                    </Table.HeaderCell>
+                  ))}
                 </Table.Row>
-              )}
-            </Table.Body>
-          </Table>
-          <div className="flex-row-div">
+              </Table.Header>
+              <Table.Body>
+                {participants &&
+                  participants.length > 0 &&
+                  participants.map((item) => (
+                    <TableRow participant={item} key={item.user.uuid} />
+                  ))}
+                {(!participants || participants.length === 0) && (
+                  <Table.Row>
+                    <Table.Cell colSpan={6}>
+                      <p className="text-center">
+                        <em>No participants found.</em>
+                      </p>
+                    </Table.Cell>
+                  </Table.Row>
+                )}
+              </Table.Body>
+            </Table>
+          </div>
+          <div className="flex-row-div mt-1p">
             <div className="left-flex">
               <p style={{ fontSize: "0.9em" }}>
                 Displaying {participants ? participants.length : 0} of{" "}
