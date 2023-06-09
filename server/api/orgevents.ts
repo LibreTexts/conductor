@@ -36,6 +36,10 @@ import mailAPI from "./mail.js";
 import OrgEventFeeWaiver, {
   OrgEventFeeWaiverInterface,
 } from "../models/orgeventfeewaiver.js";
+import {
+  createStandardWorkBook,
+  generateWorkSheetColumnDefinitions,
+} from "../util/exports.js";
 
 async function getOrgEvents(
   req: TypedReqQuery<{ activePage?: number }>,
@@ -60,7 +64,7 @@ async function getOrgEvents(
       undefined,
       {
         sort: { title: 1 },
-      },
+      }
     )
       .skip(offset)
       .limit(limit)
@@ -791,6 +795,115 @@ async function setRegistrationPaidStatus(
   }
 }
 
+async function downloadParticipantData(
+  req: TypedReqParamsWithUser<{ eventID?: string }>,
+  res: Response
+) {
+  try {
+    // Check authorization (only campus/super admins can download participant data)
+    if (!req.user || !process.env.ORG_ID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+
+    const { eventID } = req.params;
+    if (!eventID) {
+      return conductor400Err(res);
+    }
+
+    const foundEvent = await OrgEvent.findOne({
+      orgID: process.env.ORG_ID,
+      eventID: eventID,
+    }).lean();
+    if (!foundEvent) {
+      return conductor404Err(res);
+    }
+
+    const foundParticipants = await OrgEventParticipant.find({
+      eventID: req.params.eventID,
+    })
+      .populate<{
+        user: SanitizedUserInterface;
+      }>({
+        path: "user",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
+      .lean();
+
+    // Create workbook and worksheet
+    const workbook = createStandardWorkBook();
+    if (!workbook) {
+      throw new Error(
+        "Received null or undefined workbook from createStandardWorkBook()"
+      );
+    }
+    const worksheet = workbook.addWorksheet("Participants");
+
+    // Define columns
+    const userColumns: string[] = [
+      "user.firstName",
+      "user.lastName",
+      "user.email",
+      "paymentStatus"
+    ];
+    if (foundEvent.collectShipping) {
+      userColumns.push(
+        "shippingAddress.lineOne",
+        "shippingAddress.lineTwo",
+        "shippingAddress.city",
+        "shippingAddress.state",
+        "shippingAddress.zip",
+        "shippingAddress.country"
+      );
+    }
+
+    const promptColumns: string[] = foundEvent.prompts.map((prompt) => {
+      return prompt.promptText;
+    });
+
+    worksheet.columns = generateWorkSheetColumnDefinitions([
+      ...userColumns,
+      ...promptColumns,
+    ]);
+
+    // Add rows
+    for (let i = 0; i < foundParticipants.length; i++) {
+      const p = foundParticipants[i];
+      const rowData = [p.user.firstName, p.user.lastName, p.user.email, p.paymentStatus];
+      if (foundEvent.collectShipping && p.shippingAddress) {
+        rowData.push(
+          p.shippingAddress.lineOne,
+          p.shippingAddress.lineTwo ? p.shippingAddress.lineTwo : "",
+          p.shippingAddress.city,
+          p.shippingAddress.state,
+          p.shippingAddress.zip,
+          p.shippingAddress.country
+        );
+      }
+      rowData.push(
+        ...p.formResponses.map((r) => {
+          return r.responseVal ? r.responseVal : "";
+        })
+      );
+      worksheet.addRow([...rowData]);
+    }
+
+    // Generate CSV
+    const filename = `${foundEvent.title} Participants.csv`;
+    const csv = await workbook.csv.writeBuffer();
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    return res.send(csv);
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Checks if the OrgEvent is valid and can be updated or registered for.
  * @private
@@ -894,7 +1007,10 @@ function validate(method: string) {
         body("prompts", conductorErrors.err1).exists().isArray(),
         body("textBlocks", conductorErrors.err1).exists().isArray(),
         body("timeZone", conductorErrors.err1).exists().isObject(),
-        body("collectShipping", conductorErrors.err1).customSanitizer((v) => !!v).exists().isBoolean(),
+        body("collectShipping", conductorErrors.err1)
+          .customSanitizer((v) => !!v)
+          .exists()
+          .isBoolean(),
       ];
     case "cancelOrgEvent":
       return [
@@ -971,5 +1087,6 @@ export default {
   createFeeWaiver,
   updateFeeWaiver,
   setRegistrationPaidStatus,
+  downloadParticipantData,
   validate,
 };

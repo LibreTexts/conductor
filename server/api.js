@@ -1300,6 +1300,13 @@ router.route('/orgevents/:eventID/participants')
   orgEventsAPI.getOrgEventParticipants
 )
 
+router.route('/orgevents/:eventID/participants/download')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.downloadParticipantData
+)
+
 router.route('/orgevents/:eventID/register')
 .post(
   authAPI.verifyRequest,

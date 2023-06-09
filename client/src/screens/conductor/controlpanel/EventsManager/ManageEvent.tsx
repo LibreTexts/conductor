@@ -345,6 +345,38 @@ const ManageEvent = () => {
     }
   }
 
+  async function handleDownloadParticipants() {
+    try {
+      if (routeParams.mode !== "edit" || !getValues("eventID")) return;
+      if (!getValues("participants") || getValues("participants").length === 0)
+        return;
+
+      const response = await axios.get(
+        `/orgevents/${getValues("eventID")}/participants/download`
+      );
+      if (response.data.err) {
+        throw new Error(response.data.errMsg);
+      }
+
+      if (!response.data) {
+        throw new Error("No data returned from server.");
+      }
+
+      const blob = new Blob([response.data], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${getValues("title")} Participants.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      handleGlobalError(err);
+      return;
+    }
+  }
+
   /**
    * Enables the 'Unsaved Changes' warning if not yet visible.
    */
@@ -822,6 +854,7 @@ const ManageEvent = () => {
                         loading={!loadedParticipants}
                         canEdit={canEdit}
                         activePage={activePage}
+                        onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
                         totalItems={totalItems}
                         totalPages={totalPages}
