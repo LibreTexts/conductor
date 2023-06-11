@@ -1,21 +1,7 @@
-import { useState, FC } from "react";
-import {
-  Accordion,
-  Button,
-  Form,
-  Grid,
-  Header,
-  Icon,
-  Modal,
-  Popup,
-} from "semantic-ui-react";
+import { useState, FC, useEffect } from "react";
+import { Accordion, Button, Form, Icon, Modal, Popup } from "semantic-ui-react";
 import { OrgEvent } from "../../../types";
-import {
-  Control,
-  UseFormGetValues,
-  UseFormSetValue,
-  UseFormWatch,
-} from "react-hook-form";
+import { useForm } from "react-hook-form";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import CtlDateInput from "../../ControlledInputs/CtlDateInput";
 import CtlTimeInput from "../../ControlledInputs/CtlTimeInput";
@@ -27,12 +13,9 @@ import CancelEventModal from "./CancelEventModal";
 interface EventSettingsModalParams {
   show: boolean;
   canEdit: boolean;
-  control: Control<OrgEvent>;
-  getValuesFn: UseFormGetValues<OrgEvent>;
-  setValueFn: UseFormSetValue<OrgEvent>;
-  watchValuesFn: UseFormWatch<OrgEvent>;
+  orgEvent: OrgEvent;
   onClose: () => void;
-  onRequestSave: () => void;
+  onRequestSave: (newData: OrgEvent) => void;
   onRequestCancelEvent: () => void;
 }
 
@@ -42,16 +25,27 @@ interface EventSettingsModalParams {
 const EventSettingsModal: FC<EventSettingsModalParams> = ({
   show,
   canEdit,
-  control,
-  getValuesFn,
-  setValueFn,
-  watchValuesFn,
+  orgEvent,
   onClose,
   onRequestSave,
   onRequestCancelEvent,
 }) => {
+  // Reset form with incoming data when modal is opened
+  useEffect(() => {
+    if (show) {
+      resetForm(orgEvent);
+    }
+  }, [show]);
+
   // Global state & error handling
   const org = useTypedSelector((state) => state.org);
+  const {
+    control,
+    getValues,
+    setValue,
+    watch: watchValues,
+    reset: resetForm,
+  } = useForm<OrgEvent>({ values: orgEvent });
 
   // UI
   const [loading, setLoading] = useState<boolean>(false);
@@ -91,13 +85,13 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               control={control}
               rules={required}
               label="Registration Open Date"
-              value={getValuesFn("regOpenDate")}
+              value={getValues("regOpenDate")}
               error={false}
               className="my-2p"
             />
             <CtlTimeInput
               label="Registration Open Time"
-              value={getValuesFn("regOpenDate")}
+              value={getValues("regOpenDate")}
               name="regOpenDate"
               control={control}
               className="my-2p ml-2p"
@@ -106,7 +100,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               name="timeZone"
               control={control}
               label="Time Zone (applies to all dates/times)"
-              value={getValuesFn("timeZone")}
+              value={getValues("timeZone")}
               className="my-2p ml-2p"
             />
           </div>
@@ -116,13 +110,13 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               control={control}
               rules={required}
               label="Registration Close Date"
-              value={getValuesFn("regCloseDate")}
+              value={getValues("regCloseDate")}
               error={false}
               className="my-2p"
             />
             <CtlTimeInput
               label="Registration Close Time"
-              value={getValuesFn("regCloseDate")}
+              value={getValues("regCloseDate")}
               name="regCloseDate"
               control={control}
               className="my-2p ml-2p"
@@ -134,13 +128,13 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               control={control}
               rules={required}
               label="Event Start Date"
-              value={getValuesFn("startDate")}
+              value={getValues("startDate")}
               error={false}
               className="my-2p"
             />
             <CtlTimeInput
               label="Event Start Time"
-              value={getValuesFn("startDate")}
+              value={getValues("startDate")}
               name="startDate"
               control={control}
               className="my-2p ml-2p"
@@ -153,13 +147,13 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
               control={control}
               rules={required}
               label="Event End Date"
-              value={getValuesFn("endDate")}
+              value={getValues("endDate")}
               error={false}
               className="my-2p"
             />
             <CtlTimeInput
               label="Event End Time"
-              value={getValuesFn("endDate")}
+              value={getValues("endDate")}
               name="endDate"
               control={control}
               className="my-2p ml-2p"
@@ -194,14 +188,14 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
                 </label>
               </>
             }
-            checked={watchValuesFn("collectShipping") ?? false}
+            checked={watchValues("collectShipping") ?? false}
             onChange={(_e, { checked }) => {
-              setValueFn("collectShipping", checked ?? false);
+              setValue("collectShipping", checked ?? false);
             }}
             disabled={!canEdit}
           />
           {/*Danger zone options only applicable when editing */}
-          {getValuesFn("eventID") && (
+          {getValues("eventID") && (
             <Accordion
               className="mt-2p"
               panels={[
@@ -243,7 +237,11 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
             <Button color="grey" loading={loading} onClick={handleClose}>
               Cancel
             </Button>
-            <Button color="green" loading={loading} onClick={onRequestSave}>
+            <Button
+              color="green"
+              loading={loading}
+              onClick={() => onRequestSave(getValues())}
+            >
               <Icon name="save" />
               Save
             </Button>
@@ -252,7 +250,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
       </Modal.Actions>
       <CancelEventModal
         show={showCancelEventModal}
-        eventID={watchValuesFn("eventID")}
+        eventID={watchValues("eventID")}
         onClose={() => setShowCancelEventModal(false)}
         onConfirm={onRequestCancelEvent}
       />

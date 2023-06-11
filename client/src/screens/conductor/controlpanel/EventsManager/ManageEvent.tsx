@@ -282,6 +282,15 @@ const ManageEvent = () => {
   ]);
 
   /**
+   * Updates the state with the new OrgEvent data (ie from EventSettingsModal) and calls saveEventChanges()
+   * @param newData the new OrgEvent data to update state with
+   */
+  function updateStateAndSave(newData: OrgEvent) {
+    resetForm(newData);
+    saveEventChanges();
+  }
+
+  /**
    * Processes the Event configuration in state and saves it to the server, then returns to Events Manager
    */
   const saveEventChanges = async () => {
@@ -974,12 +983,9 @@ const ManageEvent = () => {
           <EventSettingsModal
             show={showEventSettingsModal}
             canEdit={canEdit}
-            getValuesFn={getValues}
-            setValueFn={setValue}
-            watchValuesFn={watchValue}
-            control={control}
+            orgEvent={getValues()}
             onClose={() => setShowEventSettingsModal(false)}
-            onRequestSave={saveEventChanges}
+            onRequestSave={(newData) => updateStateAndSave(newData)}
             onRequestCancelEvent={handleCancelEvent}
           />
           <HeadingModal
