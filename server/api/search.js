@@ -139,6 +139,7 @@ const performSearch = (req, res) => {
                 a11yProgress: 1,
                 classification: 1,
                 leads: 1,
+                author: 1,
                 updatedAt: 1
             }
         }
