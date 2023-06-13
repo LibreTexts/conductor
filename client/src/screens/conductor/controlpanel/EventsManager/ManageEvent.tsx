@@ -82,6 +82,7 @@ const ManageEvent = () => {
   const [loadedOrgEvent, setLoadedOrgEvent] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
   const [showParticipants, setShowParticipants] = useState<boolean>(true);
+  const [showRegForm, setShowRegForm] = useState<boolean>(true);
   const [showChangesWarning, setShowChangesWarning] = useState(false);
   const [changesSaving, setChangesSaving] = useState(false);
 
@@ -862,109 +863,147 @@ const ManageEvent = () => {
                       />
                     </Grid.Row>
                     <Grid.Row>
-                      <Grid.Column>
-                        <Header as="h2" dividing>
-                          Registration Form
-                        </Header>
-                        <Segment.Group size="large" raised className="mb-4p">
-                          <Segment className="peerreview-rubricedit-container">
-                            <EventInstructionsSegment
-                              show={showInstructions}
-                              toggleVisibility={() =>
-                                setShowInstructions(!showInstructions)
-                              }
-                            />
-                            {getValues("collectShipping") && (
-                              <CollectShippingMessage />
-                            )}
-                            {org.orgID === "libretexts" &&
-                              manageMode === "edit" &&
-                              getValues("regFee") !== 0 &&
-                              loadedFeeWaivers &&
-                              getValues("feeWaivers")?.length > 0 && (
-                                <FeeWaiverInputMessage />
+                      {showRegForm ? (
+                        <Grid.Column>
+                          <Header
+                            as="h2"
+                            dividing
+                            className="flex-row-div flex-row-verticalcenter"
+                          >
+                            <span>Registration Form</span>
+                            <div className="right-flex">
+                              <Button
+                                onClick={() => setShowRegForm(!showRegForm)}
+                              >
+                                Hide
+                              </Button>
+                            </div>
+                          </Header>
+                          <Segment.Group size="large" raised className="mb-4p">
+                            <Segment className="peerreview-rubricedit-container">
+                              <EventInstructionsSegment
+                                show={showInstructions}
+                                toggleVisibility={() =>
+                                  setShowInstructions(!showInstructions)
+                                }
+                              />
+                              {getValues("collectShipping") && (
+                                <CollectShippingMessage />
                               )}
+                              {org.orgID === "libretexts" &&
+                                manageMode === "edit" &&
+                                getValues("regFee") !== 0 &&
+                                loadedFeeWaivers &&
+                                getValues("feeWaivers")?.length > 0 && (
+                                  <FeeWaiverInputMessage />
+                                )}
 
-                            {allElements.map((item) => {
-                              return (
-                                <EditableFormBlock
-                                  item={item}
-                                  key={item.order}
-                                  onMove={(item, direction) =>
-                                    handleMoveBlock({
-                                      blockToMove: item,
-                                      direction: direction,
-                                      getValueFn: getValues,
-                                      setValueFn: setValue,
-                                      onError: (err) => handleGlobalError(err),
-                                      onFinish: () => setUnsavedChanges(),
-                                    })
-                                  }
-                                  onRequestEdit={(order) =>
-                                    handleRequestEditBlock(order)
-                                  }
-                                  onRequestDelete={(order) =>
-                                    openDeleteBlockModal(order)
-                                  }
-                                  disabled={!canEdit}
-                                />
-                              );
-                            })}
+                              {allElements.map((item) => {
+                                return (
+                                  <EditableFormBlock
+                                    item={item}
+                                    key={item.order}
+                                    onMove={(item, direction) =>
+                                      handleMoveBlock({
+                                        blockToMove: item,
+                                        direction: direction,
+                                        getValueFn: getValues,
+                                        setValueFn: setValue,
+                                        onError: (err) =>
+                                          handleGlobalError(err),
+                                        onFinish: () => setUnsavedChanges(),
+                                      })
+                                    }
+                                    onRequestEdit={(order) =>
+                                      handleRequestEditBlock(order)
+                                    }
+                                    onRequestDelete={(order) =>
+                                      openDeleteBlockModal(order)
+                                    }
+                                    disabled={!canEdit}
+                                  />
+                                );
+                              })}
 
-                            <div className="peerreview-rubricedit-placeholder">
-                              <Button.Group fluid color="blue">
+                              <div className="peerreview-rubricedit-placeholder">
+                                <Button.Group fluid color="blue">
+                                  <Button
+                                    onClick={() => openHeadingModal("add")}
+                                    disabled={!canEdit}
+                                  >
+                                    <Icon name="heading" />
+                                    Add Heading
+                                  </Button>
+                                  <Button
+                                    onClick={() => openTextModal("add")}
+                                    disabled={!canEdit}
+                                  >
+                                    <Icon name="paragraph" />
+                                    Add Text
+                                  </Button>
+                                  <Button
+                                    onClick={() => openPromptModal("add")}
+                                    disabled={!canEdit}
+                                  >
+                                    <Icon name="question" />
+                                    Add Prompt
+                                  </Button>
+                                </Button.Group>
+                              </div>
+                              <Divider />
+                              <Button.Group fluid>
                                 <Button
-                                  onClick={() => openHeadingModal("add")}
+                                  as={Link}
+                                  to="/controlpanel/eventsmanager"
                                   disabled={!canEdit}
                                 >
-                                  <Icon name="heading" />
-                                  Add Heading
+                                  <Icon name="cancel" />
+                                  Discard Changes
                                 </Button>
                                 <Button
-                                  onClick={() => openTextModal("add")}
+                                  color="green"
+                                  loading={changesSaving}
+                                  onClick={saveEventChanges}
                                   disabled={!canEdit}
                                 >
-                                  <Icon name="paragraph" />
-                                  Add Text
-                                </Button>
-                                <Button
-                                  onClick={() => openPromptModal("add")}
-                                  disabled={!canEdit}
-                                >
-                                  <Icon name="question" />
-                                  Add Prompt
+                                  {showChangesWarning ? (
+                                    <>
+                                      <Icon name="save" />
+                                      <span>Save Registration Form</span>
+                                    </>
+                                  ) : (
+                                    <Icon name="check" />
+                                  )}
                                 </Button>
                               </Button.Group>
+                            </Segment>
+                          </Segment.Group>
+                        </Grid.Column>
+                      ) : (
+                        <Grid.Column>
+                          <Header
+                            as="h2"
+                            dividing
+                            className="flex-row-div  flex-row-verticalcenter"
+                          >
+                            <span>Registration Form</span>
+                            <div className="right-flex">
+                              <Button
+                                onClick={() => setShowRegForm(!showRegForm)}
+                              >
+                                Show
+                              </Button>
                             </div>
-                            <Divider />
-                            <Button.Group fluid>
-                              <Button
-                                as={Link}
-                                to="/controlpanel/eventsmanager"
-                                disabled={!canEdit}
-                              >
-                                <Icon name="cancel" />
-                                Discard Changes
-                              </Button>
-                              <Button
-                                color="green"
-                                loading={changesSaving}
-                                onClick={saveEventChanges}
-                                disabled={!canEdit}
-                              >
-                                {showChangesWarning ? (
-                                  <>
-                                    <Icon name="save" />
-                                    <span>Save Registration Form</span>
-                                  </>
-                                ) : (
-                                  <Icon name="check" />
-                                )}
-                              </Button>
-                            </Button.Group>
-                          </Segment>
-                        </Segment.Group>
-                      </Grid.Column>
+                          </Header>
+                          <Segment.Group size="large" raised className="mb-4p">
+                            <Segment>
+                              <span>
+                                Collapsed for brevity... Click "Show" to view
+                              </span>
+                            </Segment>
+                          </Segment.Group>
+                        </Grid.Column>
+                      )}
                     </Grid.Row>
                   </>
                 )}
