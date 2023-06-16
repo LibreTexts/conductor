@@ -216,6 +216,13 @@ const ManageEvent = () => {
   ]);
 
   /**
+   * Run getOrgParticipants whenever the active page changes.
+   */
+  useEffect(() => {
+    getOrgParticipants();
+  }, [activePage]);
+
+  /**
    * Retrieves the current Org Event configuration from the server.
    */
   const getOrgEvent = useCallback(async () => {
