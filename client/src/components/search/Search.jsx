@@ -456,6 +456,7 @@ const Search = (_props) => {
                                         <Table.Header>
                                             <Table.Row>
                                                 <Table.HeaderCell width={6}><Header sub>Title</Header></Table.HeaderCell>
+                                                <Table.HeaderCell width={4}><Header sub>Author</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={2}><Header sub>Progress (C/PR/A11Y)</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={2}><Header sub>Classification</Header></Table.HeaderCell>
                                                 <Table.HeaderCell width={2}><Header sub>Visibility</Header></Table.HeaderCell>
@@ -484,6 +485,9 @@ const Search = (_props) => {
                                                         <Table.Row key={index}>
                                                             <Table.Cell>
                                                                 <p><strong><Link to={`/projects/${item.projectID}`}>{truncateString(item.title, 100)}</Link></strong></p>
+                                                            </Table.Cell>
+                                                            <Table.Cell>
+                                                                <p>{truncateString(item.author, 50)}</p>
                                                             </Table.Cell>
                                                             <Table.Cell>
                                                                 <div className='flex-row-div projectportal-progress-row'>
