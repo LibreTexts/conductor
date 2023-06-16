@@ -7,7 +7,7 @@ import useGlobalError from '../components/error/ErrorHooks';
  * Wraps a component to attempt to load the currently authenticated user's
  * information into state, if applicable.
  *
- * @param {React.ReactElement} WrappedComponent - The component to enhance.
+ * @param {React.ReactElement | React.FC} WrappedComponent - The component to enhance.
  * @returns {React.ReactElement} The passed component with user information loaded, if available.
  */
 const withUserStateDependency = (WrappedComponent) => {
