@@ -1060,7 +1060,7 @@ const CommonsBook = () => {
                   <p className={styles.meta_largefont}>{book.summary}</p>
                 </Segment>
               )}
-              {showFiles && (
+              {showFiles && projFiles && projFiles.length > 0 && (
                 <Segment.Group size="large" raised className="mb-4p">
                   <Segment>
                     <div className="ui dividing header">
@@ -1215,7 +1215,7 @@ const CommonsBook = () => {
                   </Segment>
                 </Segment.Group>
               )}
-              {!showFiles && (
+              {!showFiles && projFiles && projFiles.length > 0 && (
                 <Segment>
                   <div className="hiddensection">
                     <div className="header-container">
