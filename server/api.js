@@ -1307,6 +1307,15 @@ router.route('/orgevents/:eventID/participants/download')
   orgEventsAPI.downloadParticipantData
 )
 
+router.route("/orgevents/:eventID/participants/:participantID")
+.delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate("unregisterParticipant"),
+  middleware.checkValidationErrors,
+  orgEventsAPI.unregisterParticipant
+);
+
 router.route('/orgevents/:eventID/register')
 .post(
   authAPI.verifyRequest,

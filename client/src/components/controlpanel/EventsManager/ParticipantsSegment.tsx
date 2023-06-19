@@ -17,6 +17,7 @@ import {
 import { isEmptyString } from "../../util/HelperFunctions";
 import { getLikertResponseText } from "../../util/LikertHelpers";
 import PaymentStatusLabel from "./PaymentStatusLabel";
+import UnregisterParticipantModal from "./UnregisterParticipantModal";
 
 type ParticipantsSegmentProps = {
   show: boolean;
@@ -31,6 +32,7 @@ type ParticipantsSegmentProps = {
   itemsPerPage: number;
   onDownloadParticipants: () => void;
   onChangeActivePage: (page: number) => void;
+  onUnregisterParticipant: (participantID: string) => void;
 };
 
 const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
@@ -46,12 +48,17 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   itemsPerPage,
   onDownloadParticipants,
   onChangeActivePage,
+  onUnregisterParticipant,
   ...rest
 }) => {
   // UI
   const [tableColumns, setTableColumns] = useState<
     { key: string; text: string }[]
   >([]);
+  const [showUnregisterModal, setShowUnregisterModal] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<
+    OrgEventParticipant | undefined
+  >(undefined);
 
   /**
    * Get registration form prompts and prepare them for table UI
@@ -67,6 +74,13 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       }),
     ]);
   }, [orgEvent, setTableColumns]);
+
+  // Reset selected participant when unregister modal closes
+  useEffect(() => {
+    if (!showUnregisterModal) {
+      setSelectedParticipant(undefined);
+    }
+  }, [showUnregisterModal]);
 
   function getResponseValText(prompt: OrgEventParticipantFormResponse): string {
     const foundPrompt = orgEvent?.prompts.find(
@@ -92,6 +106,22 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     return prompt.responseVal ?? "UNKNOWN VALUE";
   }
 
+  function handleOpenUnregisterModal(participant: OrgEventParticipant) {
+    if (!participant) return;
+    setSelectedParticipant(participant);
+    setShowUnregisterModal(true);
+  }
+
+  function handleUnregisterParticipant() {
+    if (!selectedParticipant) {
+      setShowUnregisterModal(false);
+      return;
+    }
+
+    onUnregisterParticipant(selectedParticipant.user.uuid);
+    setShowUnregisterModal(false);
+  }
+
   function TableRow({
     participant,
     ...props
@@ -100,6 +130,17 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   }) {
     return (
       <Table.Row {...props}>
+        <Table.Cell>
+          <Button.Group>
+            <Button
+              color="red"
+              onClick={() => handleOpenUnregisterModal(participant)}
+            >
+              <Icon name="ban" />
+              Unregister
+            </Button>
+          </Button.Group>
+        </Table.Cell>
         <Table.Cell>
           <span>{participant.user.firstName}</span>
         </Table.Cell>
@@ -175,6 +216,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
             <Table striped celled size="small" className="mb-05p">
               <Table.Header>
                 <Table.Row>
+                  <Table.HeaderCell key="actions" collapsing>
+                    <span>Actions</span>
+                  </Table.HeaderCell>
                   <Table.HeaderCell key="firstName" collapsing>
                     <span>First Name</span>
                   </Table.HeaderCell>
@@ -245,6 +289,12 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
           </div>
         </Segment>
       </Segment.Group>
+
+      <UnregisterParticipantModal
+        show={showUnregisterModal}
+        onClose={() => setShowUnregisterModal(false)}
+        onConfirm={handleUnregisterParticipant}
+      />
     </Grid.Column>
   );
 };

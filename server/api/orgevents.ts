@@ -544,6 +544,48 @@ async function submitRegistration(
   }
 }
 
+async function unregisterParticipant(
+  req: TypedReqParamsWithUser<{ eventID?: string; participantID?: string }>,
+  res: Response
+) {
+  try {
+    // Check authorization (only campus/super admins can unregister participants)
+    if (!req.user || !process.env.ORG_ID || !req.params.eventID) {
+      return conductor400Err(res);
+    }
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+    if (!req.params.participantID || !req.params.eventID) {
+      return conductor400Err(res);
+    }
+
+    const foundUser = await User.findOne({
+      uuid: req.params.participantID,
+    }).lean();
+    if (!foundUser) {
+      return conductor400Err(res);
+    }
+
+    // Check if participant exists
+    const foundParticipant = await OrgEventParticipant.findOneAndDelete({
+      user: foundUser._id,
+      eventID: req.params.eventID,
+    }).lean();
+    if (!foundParticipant) {
+      return conductorErr(res, 404, "err22");
+    }
+
+    return res.send({
+      err: false,
+      msg: "Participant successfully unregistered.",
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function createFeeWaiver(
   req: TypedReqParamsAndBodyWithUser<
     { eventID?: string },
@@ -847,7 +889,7 @@ async function downloadParticipantData(
       "user.firstName",
       "user.lastName",
       "user.email",
-      "paymentStatus"
+      "paymentStatus",
     ];
     if (foundEvent.collectShipping) {
       userColumns.push(
@@ -872,7 +914,12 @@ async function downloadParticipantData(
     // Add rows
     for (let i = 0; i < foundParticipants.length; i++) {
       const p = foundParticipants[i];
-      const rowData = [p.user.firstName, p.user.lastName, p.user.email, p.paymentStatus];
+      const rowData = [
+        p.user.firstName,
+        p.user.lastName,
+        p.user.email,
+        p.paymentStatus,
+      ];
       if (foundEvent.collectShipping && p.shippingAddress) {
         rowData.push(
           p.shippingAddress.lineOne,
@@ -1035,6 +1082,14 @@ function validate(method: string) {
           .isString()
           .isLength({ min: 10, max: 10 }),
       ];
+    case "unregisterParticipant":
+      return [
+        param("eventID", conductorErrors.err1)
+          .exists()
+          .isString()
+          .isLength({ min: 10, max: 10 }),
+        param("participantID", conductorErrors.err1).exists().isUUID(),
+      ];
     case "createFeeWaiver":
       return [
         param("eventID", conductorErrors.err1)
@@ -1084,6 +1139,7 @@ export default {
   updateOrgEvent,
   cancelOrgEvent,
   submitRegistration,
+  unregisterParticipant,
   createFeeWaiver,
   updateFeeWaiver,
   setRegistrationPaidStatus,
