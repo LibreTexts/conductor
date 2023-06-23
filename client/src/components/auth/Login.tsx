@@ -317,7 +317,7 @@ const Login = () => {
                 onClick={initSSOLogin}
                 tabIndex="0"
               >
-                <Icon name="globe" /> Login with Campus Credentials (SSO)
+                <Icon name="globe" /> Login or register with Campus Credentials (SSO)
               </Button>
               <Divider horizontal>Or</Divider>
               <Button
@@ -331,7 +331,7 @@ const Login = () => {
                 onClick={() => setFormStep(2)}
                 tabIndex="1"
               >
-                <Icon name="key" /> Login with Email
+                <Icon name="key" /> Login or register with Email
               </Button>
             </>
           )}
