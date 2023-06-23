@@ -394,6 +394,29 @@ const ManageEvent = () => {
     }
   }
 
+  async function handleUnregisterParticipant(participantID: string) {
+    try {
+      if (routeParams.mode !== "edit" || !getValues("eventID")) return;
+
+      const response = await axios.delete(
+        `/orgevents/${getValues("eventID")}/participants/${participantID}`
+      );
+
+      if (response.data.err) {
+        throw new Error(response.data.errMsg);
+      }
+
+      if (!response.data) {
+        throw new Error("No data returned from server.");
+      }
+
+      getOrgParticipants();
+    } catch (err) {
+      handleGlobalError(err);
+      return;
+    }
+  }
+
   /**
    * Enables the 'Unsaved Changes' warning if not yet visible.
    */
@@ -873,6 +896,9 @@ const ManageEvent = () => {
                         activePage={activePage}
                         onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
+                        onUnregisterParticipant={(id) =>
+                          handleUnregisterParticipant(id)
+                        }
                         totalItems={totalItems}
                         totalPages={totalPages}
                         itemsPerPage={itemsPerPage}
