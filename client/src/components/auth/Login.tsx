@@ -228,7 +228,7 @@ const Login = () => {
         </Grid>
         <Segment raised>
           {showAccountRequestAuth && (
-            <Message info icon>
+            <Message info icon className="mb-2e">
               <Icon name="info circle" />
               <Message.Content>
                 <Message.Header>Conductor Account Required</Message.Header>
@@ -243,7 +243,7 @@ const Login = () => {
             </Message>
           )}
           {showEventRegistrationAuth && (
-            <Message info icon>
+            <Message info icon className="mb-2e">
               <Icon name="info circle" />
               <Message.Content>
                 <Message.Header>Conductor Account Required</Message.Header>
@@ -255,7 +255,7 @@ const Login = () => {
             </Message>
           )}
           {showPassChange && (
-            <Message positive icon>
+            <Message positive icon className="mb-2e">
               <Icon name="check" />
               <Message.Content>
                 <Message.Header>Password change successful.</Message.Header>
@@ -264,7 +264,7 @@ const Login = () => {
             </Message>
           )}
           {showPassReset && (
-            <Message positive icon>
+            <Message positive icon className="mb-2e">
               <Icon name="check" />
               <Message.Content>
                 <Message.Header>Password reset successful.</Message.Header>
@@ -273,7 +273,7 @@ const Login = () => {
             </Message>
           )}
           {showNewRegister && (
-            <Message positive icon>
+            <Message positive icon className="mb-2e">
               <Icon name="check" />
               <Message.Content>
                 <Message.Header>Registration successful.</Message.Header>
@@ -282,7 +282,7 @@ const Login = () => {
             </Message>
           )}
           {showExpiredAuth && (
-            <Message warning>
+            <Message warning className="mb-2e">
               <Message.Header>Please login again.</Message.Header>
               <p>
                 Your authentication method appears to have expired. Please login
@@ -291,13 +291,13 @@ const Login = () => {
             </Message>
           )}
           {import.meta.env.VITE_DISABLE_CONDUCTOR === "true" && (
-            <Message negative>
+            <Message negative className="mb-2e">
               <Message.Header>Conductor is disabled</Message.Header>
               <p>Sorry, access to Conductor is currently disabled.</p>
             </Message>
           )}
           {import.meta.env.VITE_RESTRICT_CONDUCTOR === "true" && (
-            <Message warning>
+            <Message warning className="mb-2e">
               <Message.Header>Conductor is restricted.</Message.Header>
               <p>
                 Access to Conductor is currently restricted. Only pre-registered
