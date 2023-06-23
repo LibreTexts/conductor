@@ -5,6 +5,7 @@ import {
   Segment,
   Table,
   Pagination,
+  Popup,
   Button,
   Icon,
 } from "semantic-ui-react";
@@ -131,15 +132,17 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     return (
       <Table.Row {...props}>
         <Table.Cell>
-          <Button.Group>
-            <Button
-              color="red"
-              onClick={() => handleOpenUnregisterModal(participant)}
-            >
-              <Icon name="ban" />
-              Unregister
-            </Button>
-          </Button.Group>
+          <Popup
+            content={<span className='color-semanticred'><em>Unregister</em></span>}
+            trigger={
+              <Button
+                icon="ban"
+                color="red"
+                onClick={() => handleOpenUnregisterModal(participant)}
+              />
+            }
+            position='top center'
+          />
         </Table.Cell>
         <Table.Cell>
           <span>{participant.user.firstName}</span>
