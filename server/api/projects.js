@@ -1273,10 +1273,19 @@ async function addMemberToProject(req, res) {
         errMsg: conductorErrors.err11,
       });
     }
+
     if (!checkProjectAdminPermission(project, req.user)) {
       return res.status(403).send({
         err: true,
         errMsg: conductorErrors.err8,
+      });
+    }
+
+    // If user is already a member, return success
+    if(project.members.includes(uuid)){
+      return res.send({
+        err: false,
+        msg: 'Successfully added user as team member!',
       });
     }
   

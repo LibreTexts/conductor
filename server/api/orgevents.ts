@@ -544,8 +544,11 @@ async function submitRegistration(
   }
 }
 
-async function unregisterParticipant(
-  req: TypedReqParamsWithUser<{ eventID?: string; participantID?: string }>,
+async function unregisterParticipants(
+  req: TypedReqParamsAndBodyWithUser<
+    { eventID?: string },
+    { participants: string[] }
+  >,
   res: Response
 ) {
   try {
@@ -556,29 +559,30 @@ async function unregisterParticipant(
     if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
       return conductorErr(res, 403, "err8");
     }
-    if (!req.params.participantID || !req.params.eventID) {
+    if (!req.body.participants || !req.params.eventID) {
       return conductor400Err(res);
     }
 
-    const foundUser = await User.findOne({
-      uuid: req.params.participantID,
+    // Get user refs
+    const foundUsers = await User.find({
+      uuid: { $in: req.body.participants },
     }).lean();
-    if (!foundUser) {
+    if (!foundUsers || foundUsers.length === 0) {
       return conductor400Err(res);
     }
 
-    // Check if participant exists
-    const foundParticipant = await OrgEventParticipant.findOneAndDelete({
-      user: foundUser._id,
+    // Delete participants
+    const deletedParticipants = await OrgEventParticipant.deleteMany({
+      user: { $in: foundUsers.map((u) => u._id) },
       eventID: req.params.eventID,
     }).lean();
-    if (!foundParticipant) {
-      return conductorErr(res, 404, "err22");
+    if (!deletedParticipants) {
+      return conductor500Err(res);
     }
 
     return res.send({
       err: false,
-      msg: "Participant successfully unregistered.",
+      msg: "Participant(s) successfully unregistered.",
     });
   } catch (err) {
     debugError(err);
@@ -1082,13 +1086,16 @@ function validate(method: string) {
           .isString()
           .isLength({ min: 10, max: 10 }),
       ];
-    case "unregisterParticipant":
+    case "unregisterParticipants":
       return [
         param("eventID", conductorErrors.err1)
           .exists()
           .isString()
           .isLength({ min: 10, max: 10 }),
-        param("participantID", conductorErrors.err1).exists().isUUID(),
+        body("participants", conductorErrors.err1)
+          .exists()
+          .isArray()
+          .isLength({ min: 1, max: 100 }),
       ];
     case "createFeeWaiver":
       return [
@@ -1139,7 +1146,7 @@ export default {
   updateOrgEvent,
   cancelOrgEvent,
   submitRegistration,
-  unregisterParticipant,
+  unregisterParticipants,
   createFeeWaiver,
   updateFeeWaiver,
   setRegistrationPaidStatus,
