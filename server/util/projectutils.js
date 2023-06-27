@@ -236,21 +236,31 @@ export async function filterFilesByAccess(
   publicOnly = false,
   userID = ""
 ) {
-  let authorizedLevels = ["public", "mixed"]; // Base Levels
-  if (!publicOnly) {
-    if (userID) {
-      let user = await User.findOne({ uuid: userID });
-      if (user) {
-        authorizedLevels.push("users");
-        if (projectsAPI.checkProjectMemberPermission(projectID, user)) {
-          authorizedLevels.push("team");
-        }
-        if (usersAPI.checkVerifiedInstructorStatus(userID)) {
-          authorizedLevels.push("instructors");
-        }
+  const authorizedLevels = ["public", "mixed"]; // Base Levels
+  if (publicOnly) {
+    return files.filter((file) => authorizedLevels.includes(file.access));
+  }
+
+  if (userID) {
+    const user = await User.findOne({ uuid: userID });
+    if (user) {
+      authorizedLevels.push("users");
+
+      let foundProject;
+      if (typeof projectID === "string") {
+        foundProject = await Project.findOne({ projectID: projectID });
+      } else if (typeof projectID === "object") {
+        foundProject = projectID;
+      }
+
+      if (projectsAPI.checkProjectMemberPermission(foundProject, user)) {
+        authorizedLevels.push("team");
+      }
+
+      if (usersAPI.checkVerifiedInstructorStatus(userID)) {
+        authorizedLevels.push("instructors");
       }
     }
-    return files.filter((file) => authorizedLevels.includes(file.access));
   }
   return files.filter((file) => authorizedLevels.includes(file.access));
 }
