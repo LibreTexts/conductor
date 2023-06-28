@@ -1282,7 +1282,8 @@ async function addMemberToProject(req, res) {
     }
 
     // If user is already a member, return success
-    if(project.members.includes(uuid)){
+    const projectTeam = constructProjectTeam(project);
+    if (projectTeam.includes(uuid)) {
       return res.send({
         err: false,
         msg: 'Successfully added user as team member!',
@@ -1297,37 +1298,34 @@ async function addMemberToProject(req, res) {
       });
     }
 
-    await Project.updateOne({
+    const updateRes = await Project.updateOne(
+      { projectID },
+      { $addToSet: { members: uuid } },
+    );
+    if (updateRes.modifiedCount !== 1) {
+      throw (new Error('Project update failed.'));
+    }
+
+    const updatedProject = await Project.findOne({ projectID });
+    if (!updatedProject) {
+      throw (new Error('Error finding updated project.'));
+    }
+
+    const updatedTeam = constructProjectTeam(updatedProject);
+    const foundTeam = await User.find({'uuid': { $in: updatedTeam }}, '-_id email');
+    if (!foundTeam) {
+      throw (new Error('Error finding updated members.'));
+    }
+    const teamEmails = foundTeam.map((member) => member.email);
+    await mailAPI.sendAddedAsMemberNotification(
+      user.firstName,
+      teamEmails,
       projectID,
-    }, {
-      $addToSet: {
-        members: uuid,
-      }
-    }).then((updatedRes) => {
-      if (updatedRes.modifiedCount !== 1) {
-        throw (new Error('Project update failed.'));
-      }
-      return Project.findOne({projectID})
-    }).then((projectRes) => {
-      if(!projectRes) throw (new Error('Error finding updated project.'))
-      return User.find({'uuid': {$in: projectRes.members}}, '-_id email')
-    }).then((memberRes) => {
-      if(!memberRes) throw (new Error('Error finding updated members.'))
-      let memberEmails = []
-      for (const member of memberRes){
-        memberEmails.push(member.email)
-      }
-      return memberEmails;
-    }).then((memberEmails) => { 
-      mailAPI.sendAddedAsMemberNotification(
-        user.firstName,
-        memberEmails,
-        projectID,
-        project.title,
-    )}).catch((e) => {
-      throw new Error (e)
+      project.title,
+    ).catch((e) => {
+      debugError('Error sending Team Member Added notification email: ', e);
     });
-  
+      
     return res.send({
       err: false,
       msg: 'Successfully added user as team member!',
