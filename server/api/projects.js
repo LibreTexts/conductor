@@ -3216,32 +3216,41 @@ const checkProjectGeneralPermission = (project, user) => {
  * @return {Boolean} true if user has permission, false otherwise
  */
 const checkProjectMemberPermission = (project, user) => {
-    /* Get Project Team and extract user UUID */
-    let projTeam = constructProjectTeam(project);
-    let userUUID = '';
-    if (typeof (user) === 'string') userUUID = user;
-    else if (typeof (user) === 'object') {
-        if (user.uuid !== undefined) userUUID = user.uuid;
-        else if (user.decoded?.uuid !== undefined) userUUID = user.decoded.uuid;
+  /* Get Project Team and extract user UUID */
+  const projTeam = constructProjectTeam(project);
+  let userUUID = "";
+  if (typeof user === "string") {
+    userUUID = user;
+  } else if (typeof user === "object") {
+    if (user.uuid && typeof user.uuid === "string") {
+      userUUID = user.uuid;
+    } else if (user.decoded && user.decoded.uuid) {
+      userUUID = user.decoded.uuid;
     }
-    /* Check user has permission */
-    if (userUUID !== '') {
-        const foundUser = projTeam.find((item) => {
-            if (typeof (item) === 'string') {
-                return item === userUUID;
-            } else if (typeof (item) === 'object') {
-                return item.uuid === userUUID;
-            }
-            return false;
-        });
-        if (foundUser !== undefined) {
-            return true; // user is in the project team
-        } else {
-            // check if user is a SuperAdmin
-            return authAPI.checkHasRole(user, 'libretexts', 'superadmin');
-        }
+  }
+
+  /* Check user has permission */
+  if (userUUID) {
+    const foundUser = projTeam.find((item) => {
+      if (typeof item === "string") {
+        return item.toString() === userUUID.toString();
+      } else if (typeof item === "object" && item.uuid !== undefined) {
+        return item.uuid.toString() === userUUID.toString();
+      }
+    });
+
+    if (!foundUser) {
+      if (typeof user === "object") {
+        // no user found in project team, check if user is a SuperAdmin
+        return authAPI.checkHasRole(user, "libretexts", "superadmin");
+      }
+      return false;
     }
-    return false;
+    
+    return true;
+  }
+
+  return false;
 };
 
 
