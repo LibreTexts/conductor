@@ -5,6 +5,7 @@ import {
   Segment,
   Table,
   Pagination,
+  Popup,
   Button,
   Icon,
   Checkbox,
@@ -211,7 +212,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     resetSelectedParticipants();
     setShowAddToProjectModal(false);
   }
-
+      
   function TableRow({
     participant,
     selected,
