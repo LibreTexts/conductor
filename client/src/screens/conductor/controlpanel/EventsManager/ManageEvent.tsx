@@ -94,6 +94,7 @@ const ManageEvent = () => {
 
   // Participants Segment
   const [loadedParticipants, setLoadedParticipants] = useState<boolean>(true);
+  const [addToProjResMsg, setAddToProjResMsg] = useState<string>("");
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -394,12 +395,13 @@ const ManageEvent = () => {
     }
   }
 
-  async function handleUnregisterParticipant(participantID: string) {
+  async function handleUnregisterParticipants(ids: string[]) {
     try {
       if (routeParams.mode !== "edit" || !getValues("eventID")) return;
 
       const response = await axios.delete(
-        `/orgevents/${getValues("eventID")}/participants/${participantID}`
+        `/orgevents/${getValues("eventID")}/participants`,
+        { data: { participants: ids } }
       );
 
       if (response.data.err) {
@@ -415,6 +417,59 @@ const ManageEvent = () => {
       handleGlobalError(err);
       return;
     }
+  }
+
+  /**
+   * Submits a PUT request to the server to add the given user's UUID
+   * to the project's team.
+   */
+  const submitAddTeamMember = async (
+    projectID: string,
+    uuid: string
+  ): Promise<boolean> => {
+    try {
+      if (
+        !uuid ||
+        isEmptyString(uuid) ||
+        !projectID ||
+        isEmptyString(projectID)
+      ) {
+        throw new Error(
+          "Invalid user or project UUID. This may be caused by an internal error."
+        );
+      }
+
+      const res = await axios.post(`/project/${projectID}/team`, {
+        uuid: uuid,
+      });
+
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      handleGlobalError(err);
+      return false;
+    }
+  };
+
+  async function handleAddParticipantsToProject(
+    participants: string[],
+    projectID: string
+  ) {
+    const results = [];
+    for (let i = 0; i < participants.length; i++) {
+      const res = await submitAddTeamMember(projectID, participants[i]);
+      results.push(res);
+    }
+
+    const successful = results.filter((res) => res === true).length;
+
+    setAddToProjResMsg(
+      `Succesfully added ${successful} of ${participants.length} selected participants to project.`
+    );
   }
 
   /**
@@ -893,11 +948,15 @@ const ManageEvent = () => {
                         orgEvent={getValues()}
                         loading={!loadedParticipants}
                         canEdit={canEdit}
+                        addToProjResMsg={addToProjResMsg}
                         activePage={activePage}
                         onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
-                        onUnregisterParticipant={(id) =>
-                          handleUnregisterParticipant(id)
+                        onUnregisterParticipants={(ids) =>
+                          handleUnregisterParticipants(ids)
+                        }
+                        onAddParticipantsToProject={(ids, project) =>
+                          handleAddParticipantsToProject(ids, project)
                         }
                         totalItems={totalItems}
                         totalPages={totalPages}
