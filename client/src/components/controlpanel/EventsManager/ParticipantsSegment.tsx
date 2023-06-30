@@ -5,7 +5,6 @@ import {
   Segment,
   Table,
   Pagination,
-  Popup,
   Button,
   Icon,
   Checkbox,
@@ -162,26 +161,25 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     setShowUnregisterModal(true);
   }
 
-  function handleUnregisterParticipant() {
+  function handleUnregisterParticipants() {
     if (selectedParticipantsCount === 0) {
       setShowUnregisterModal(false);
       return;
     }
 
-    onUnregisterParticipants(selectedParticipants.map((p) => p.user.uuid));
+    onUnregisterParticipants(selectedParticipants.map((p) => p.regID));
     resetSelectedParticipants();
     setShowUnregisterModal(false);
   }
-
   function handleCheckbox(participant: SelectableParticipant, checked = false) {
     if (!participant) return;
 
     const foundParticipant = selectableParticipants.find((p) => {
-      return p.user.uuid === participant.user.uuid;
+      return p.regID === participant.regID;
     });
 
     const foundIndex = selectableParticipants.findIndex((p) => {
-      return p.user.uuid === participant.user.uuid;
+      return p.regID === participant.regID;
     });
 
     if (!foundParticipant || foundIndex === -1) return;
@@ -200,7 +198,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   }
 
   function handleAddParticipantsToProject(
-    participantIds: string[],
+    participantRegIds: string[],
     projectID: string
   ) {
     if (selectedParticipantsCount === 0) {
@@ -208,11 +206,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       return;
     }
 
-    onAddParticipantsToProject(participantIds, projectID);
+    onAddParticipantsToProject(participantRegIds, projectID);
     resetSelectedParticipants();
     setShowAddToProjectModal(false);
   }
-      
+
   function TableRow({
     participant,
     selected,
@@ -225,19 +223,37 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       <Table.Row {...props}>
         <Table.Cell>
           <Checkbox
-            id={`participant-${participant.user.uuid}-checkbox`}
+            id={`participant-${
+              participant.user?.uuid ?? participant.email
+            }-checkbox`}
             checked={selected}
             onClick={(e, data) => handleCheckbox(participant, data.checked)}
           />
         </Table.Cell>
         <Table.Cell>
-          <span>{participant.user.firstName}</span>
+          <span>
+            {participant.user?.firstName ?? participant.firstName ?? "Unknown"}
+          </span>
         </Table.Cell>
         <Table.Cell>
-          <span>{participant.user.lastName}</span>
+          <span>
+            {participant.user?.lastName ?? participant.lastName ?? "Unknown"}
+          </span>
         </Table.Cell>
         <Table.Cell>
-          <span>{participant.user.email}</span>
+          <span>
+            {participant.user?.email ?? participant.email ?? "Unknown"}
+          </span>
+        </Table.Cell>
+        <Table.Cell>
+          <PaymentStatusLabel paymentStatus={participant.paymentStatus} />
+        </Table.Cell>
+        <Table.Cell>
+          <span>
+            {participant.registeredBy.uuid === participant.user?.uuid
+              ? "Self"
+              : `${participant.registeredBy.firstName} ${participant.registeredBy.lastName} (${participant.registeredBy.email})`}
+          </span>
         </Table.Cell>
         {orgEvent.collectShipping && (
           <Table.Cell>
@@ -253,9 +269,6 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
             </span>
           </Table.Cell>
         )}
-        <Table.Cell>
-          <PaymentStatusLabel paymentStatus={participant.paymentStatus} />
-        </Table.Cell>
         {participant.formResponses.map((r) => {
           return (
             <Table.Cell key={r.promptNum}>{getResponseValText(r)}</Table.Cell>
@@ -351,14 +364,17 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                   <Table.HeaderCell key="email" collapsing>
                     <span>Email Address</span>
                   </Table.HeaderCell>
+                  <Table.HeaderCell key="paymentStatus" collapsing>
+                    <span>Payment Status</span>
+                  </Table.HeaderCell>
+                  <Table.HeaderCell key="registeredBy" collapsing>
+                    <span>Registered By</span>
+                  </Table.HeaderCell>
                   {orgEvent.collectShipping && (
                     <Table.HeaderCell key="shippingAddress" collapsing>
                       <span>Shipping Address</span>
                     </Table.HeaderCell>
                   )}
-                  <Table.HeaderCell key="paymentStatus" collapsing>
-                    <span>Payment Status</span>
-                  </Table.HeaderCell>
                   {tableColumns.map((item) => (
                     <Table.HeaderCell key={item.key} collapsing>
                       <span>{item.text}</span>
@@ -373,7 +389,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                     <TableRow
                       participant={item}
                       selected={item.selected}
-                      key={item.user.uuid}
+                      key={item.user?.uuid ?? item.email}
                     />
                   ))}
                 {(!selectableParticipants ||
@@ -422,11 +438,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
       <UnregisterParticipantsModal
         show={showUnregisterModal}
         onClose={() => setShowUnregisterModal(false)}
-        onConfirm={handleUnregisterParticipant}
+        onConfirm={handleUnregisterParticipants}
       />
       <AddParticipantsToProjectModal
         show={showAddToProjectModal}
-        selectedParticipants={selectedParticipants.map((p) => p.user.uuid)}
+        selectedParticipants={selectedParticipants.map((p) => p.regID)}
         onClose={() => setShowAddToProjectModal(false)}
         onConfirm={(participantIds, projectID) =>
           handleAddParticipantsToProject(participantIds, projectID)
