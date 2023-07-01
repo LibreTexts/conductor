@@ -20,7 +20,7 @@ import { isEmptyString } from "../../util/HelperFunctions";
 import { getLikertResponseText } from "../../util/LikertHelpers";
 import PaymentStatusLabel from "./PaymentStatusLabel";
 import UnregisterParticipantsModal from "./UnregisterParticipantsModal";
-import AddParticipantsToProjectModal from "./AddParticipantsToProjectModal";
+import SyncUsersToProjectModal from "./SyncUsersToProjectModal";
 
 type SelectableParticipant = OrgEventParticipant & {
   selected: boolean;
@@ -33,7 +33,7 @@ type ParticipantsSegmentProps = {
   participants: OrgEventParticipant[];
   loading: boolean;
   canEdit: boolean;
-  addToProjResMsg: string;
+  syncSuccess: boolean;
   activePage: number;
   totalPages: number;
   totalItems: number;
@@ -41,10 +41,7 @@ type ParticipantsSegmentProps = {
   onDownloadParticipants: () => void;
   onChangeActivePage: (page: number) => void;
   onUnregisterParticipants: (ids: string[]) => void;
-  onAddParticipantsToProject: (
-    participants: string[],
-    projectID: string
-  ) => void;
+  onSyncUsersToProject: (projectID: string) => void;
 };
 
 const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
@@ -54,7 +51,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   participants,
   loading,
   canEdit,
-  addToProjResMsg,
+  syncSuccess,
   activePage,
   totalPages,
   totalItems,
@@ -62,7 +59,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   onDownloadParticipants,
   onChangeActivePage,
   onUnregisterParticipants,
-  onAddParticipantsToProject,
+  onSyncUsersToProject,
   ...rest
 }) => {
   // UI
@@ -197,17 +194,8 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     setSelectableParticipants(arr);
   }
 
-  function handleAddParticipantsToProject(
-    participantRegIds: string[],
-    projectID: string
-  ) {
-    if (selectedParticipantsCount === 0) {
-      setShowAddToProjectModal(false);
-      return;
-    }
-
-    onAddParticipantsToProject(participantRegIds, projectID);
-    resetSelectedParticipants();
+  function handleSyncUsersToProject(projectID: string) {
+    onSyncUsersToProject(projectID);
     setShowAddToProjectModal(false);
   }
 
@@ -316,22 +304,14 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         <Segment loading={loading}>
           <div className="flex-row-div flex-row-verticalcenter mb-1p">
             <div className="left-flex">
-              {addToProjResMsg && (
+              {syncSuccess && (
                 <Message success>
                   <Icon name="check" />
-                  {addToProjResMsg}
+                  <span>Successfully synced users to project</span>
                 </Message>
               )}
             </div>
             <div className="right-flex">
-              <Button
-                color="blue"
-                disabled={selectedParticipantsCount === 0}
-                onClick={() => setShowAddToProjectModal(true)}
-              >
-                <Icon name="user plus" />
-                <span>Add to Project</span>
-              </Button>
               <Button
                 color="red"
                 disabled={selectedParticipantsCount === 0}
@@ -339,6 +319,14 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
               >
                 <Icon name="ban" />
                 <span>Unregister</span>
+              </Button>
+              <Button
+                color="blue"
+                disabled={!participants || participants.length === 0}
+                onClick={() => setShowAddToProjectModal(true)}
+              >
+                <Icon name="refresh" />
+                <span>Sync Users to Project</span>
               </Button>
             </div>
           </div>
@@ -440,13 +428,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         onClose={() => setShowUnregisterModal(false)}
         onConfirm={handleUnregisterParticipants}
       />
-      <AddParticipantsToProjectModal
+      <SyncUsersToProjectModal
         show={showAddToProjectModal}
         selectedParticipants={selectedParticipants.map((p) => p.regID)}
         onClose={() => setShowAddToProjectModal(false)}
-        onConfirm={(participantIds, projectID) =>
-          handleAddParticipantsToProject(participantIds, projectID)
-        }
+        onConfirm={(projectID) => handleSyncUsersToProject(projectID)}
       />
     </Grid.Column>
   );

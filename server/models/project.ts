@@ -317,6 +317,8 @@ const ProjectSchema = new Schema<ProjectInterface>(
   }
 );
 
+ProjectSchema.index({title: "text"})
+
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 
 export default Project;

@@ -654,62 +654,95 @@ async function updateProject(req, res) {
  * @param {Object} res - the express.js response object
  */
 const getUserProjects = (req, res) => {
-    Project.aggregate([
+  const { searchQuery } = req.query;
+
+  let matchObj = {};
+  if (searchQuery) {
+    const parsedSearch = searchQuery.toString().toLowerCase();
+    matchObj = {
+      $and: [
         {
+          $text: {
+            $search: parsedSearch,
+          },
+        },
+        {
+          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+        },
+        {
+          status: {
+            $ne: "completed",
+          },
+        },
+      ],
+    };
+  } else {
+    matchObj = {
+      $and: [
+        {
+          $or: constructProjectTeamMemberQuery(req.decoded.uuid),
+        },
+        {
+          status: {
+            $ne: "completed",
+          },
+        },
+      ],
+    };
+  }
+
+  Project.aggregate([
+    {
+      $match: { ...matchObj },
+    },
+    {
+      $lookup: {
+        from: "users",
+        let: {
+          leads: "$leads",
+        },
+        pipeline: [
+          {
             $match: {
-                $and: [
-                    {
-                        $or: constructProjectTeamMemberQuery(req.decoded.uuid)
-                    }, {
-                        status: {
-                            $ne: 'completed'
-                        }
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
-        return res.send({
-            err: false,
-            projects: projects
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
+              $expr: {
+                $in: ["$uuid", "$$leads"],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+        as: "leads",
+      },
+    },
+    {
+      $sort: {
+        title: 1,
+      },
+    },
+    {
+      $project: projectListingProjection,
+    },
+  ])
+    .then((projects) => {
+      return res.send({
+        err: false,
+        projects: projects,
+      });
+    })
+    .catch((err) => {
+      debugError(err);
+      return res.send({
+        err: false,
+        errMsg: conductorErrors.err6,
+      });
     });
 };
 
@@ -720,63 +753,70 @@ const getUserProjects = (req, res) => {
  * @param {Object} res - The Express.js response object.
  */
 const getUserProjectsAdmin = (req, res) => {
-    Project.aggregate([
-        {
+  Project.aggregate([
+    {
+      $match: {
+        $and: [
+          {
+            $or: constructProjectTeamMemberQuery(req.query.uuid),
+          },
+          {
+            status: {
+              $ne: "completed",
+            },
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        let: {
+          leads: "$leads",
+        },
+        pipeline: [
+          {
             $match: {
-                $and: [
-                    {
-                        $or: constructProjectTeamMemberQuery(req.query.uuid)
-                    }, {
-                        status: {
-                            $ne: 'completed'
-                        }
-                    }
-                ]
-            }
-        }, {
-            $lookup: {
-                from: 'users',
-                let: {
-                    leads: '$leads'
-                },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $in: ['$uuid', '$$leads']
-                            }
-                        }
-                    }, {
-                        $project: {
-                            _id: 0,
-                            uuid: 1,
-                            firstName: 1,
-                            lastName: 1,
-                            avatar: 1
-                        }
-                    }
-                ],
-                as: 'leads'
-            }
-        }, {
-            $sort: {
-                title: -1
-            }
-        }, {
-            $project: projectListingProjection
-        }
-    ]).then((projects) => {
-        return res.send({
-            err: false,
-            uuid: req.query.uuid,
-            projects: projects
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: false,
-            errMsg: conductorErrors.err6
-        });
+              $expr: {
+                $in: ["$uuid", "$$leads"],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+        as: "leads",
+      },
+    },
+    {
+      $sort: {
+        title: -1,
+      },
+    },
+    {
+      $project: projectListingProjection,
+    },
+  ])
+    .then((projects) => {
+      return res.send({
+        err: false,
+        uuid: req.query.uuid,
+        projects: projects,
+      });
+    })
+    .catch((err) => {
+      debugError(err);
+      return res.send({
+        err: false,
+        errMsg: conductorErrors.err6,
+      });
     });
 };
 

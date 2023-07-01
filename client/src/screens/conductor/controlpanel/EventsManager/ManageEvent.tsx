@@ -94,7 +94,7 @@ const ManageEvent = () => {
 
   // Participants Segment
   const [loadedParticipants, setLoadedParticipants] = useState<boolean>(true);
-  const [addToProjResMsg, setAddToProjResMsg] = useState<string>("");
+  const [syncSuccess, setSyncSuccess] = useState<boolean>(false);
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -419,57 +419,21 @@ const ManageEvent = () => {
     }
   }
 
-  /**
-   * Submits a PUT request to the server to add the given user's UUID
-   * to the project's team.
-   */
-  const submitAddTeamMember = async (
-    projectID: string,
-    uuid: string
-  ): Promise<boolean> => {
+  async function handleSyncUsersToProject(projectID: string) {
     try {
-      if (
-        !uuid ||
-        isEmptyString(uuid) ||
-        !projectID ||
-        isEmptyString(projectID)
-      ) {
-        throw new Error(
-          "Invalid user or project UUID. This may be caused by an internal error."
-        );
-      }
+      if (!projectID || !getValues("eventID")) return;
 
-      const res = await axios.post(`/project/${projectID}/team`, {
-        uuid: uuid,
-      });
-
+      const res = await axios.put(
+        `/orgevents/${getValues("eventID")}/sync/${projectID}`
+      );
       if (res.data.err) {
-        handleGlobalError(res.data.errMsg);
-        return false;
+        throw new Error(res.data.errMsg);
       }
-
-      return true;
+      setSyncSuccess(true);
     } catch (err) {
       handleGlobalError(err);
-      return false;
+      return;
     }
-  };
-
-  async function handleAddParticipantsToProject(
-    participants: string[],
-    projectID: string
-  ) {
-    const results = [];
-    for (let i = 0; i < participants.length; i++) {
-      const res = await submitAddTeamMember(projectID, participants[i]);
-      results.push(res);
-    }
-
-    const successful = results.filter((res) => res === true).length;
-
-    setAddToProjResMsg(
-      `Succesfully added ${successful} of ${participants.length} selected participants to project.`
-    );
   }
 
   /**
@@ -948,16 +912,16 @@ const ManageEvent = () => {
                         orgEvent={getValues()}
                         loading={!loadedParticipants}
                         canEdit={canEdit}
-                        addToProjResMsg={addToProjResMsg}
+                        syncSuccess={syncSuccess}
                         activePage={activePage}
                         onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
                         onUnregisterParticipants={(regIds) =>
                           handleUnregisterParticipants(regIds)
                         }
-                        onAddParticipantsToProject={(ids, project) =>
-                          handleAddParticipantsToProject(ids, project)
-                        }
+                        onSyncUsersToProject={(projectID) => {
+                          handleSyncUsersToProject(projectID);
+                        }}
                         totalItems={totalItems}
                         totalPages={totalPages}
                         itemsPerPage={itemsPerPage}
