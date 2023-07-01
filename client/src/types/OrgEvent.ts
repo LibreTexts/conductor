@@ -13,9 +13,13 @@ export type OrgEventParticipantFormResponse = {
 };
 
 export type OrgEventParticipant = BaseDocument & {
-  user: User;
+  regID: string;
+  user?: User;
   orgID: string;
   eventID: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   paymentStatus: "na" | "unpaid" | "paid" | "waived" | "partial_waived" | "refunded";
   formResponses: OrgEventParticipantFormResponse[];
   shippingAddress?: {
@@ -26,6 +30,7 @@ export type OrgEventParticipant = BaseDocument & {
     zip: string;
     country: string;
   }
+  registeredBy: User;
 };
 
 export type OrgEventFeeWaiver = BaseDocument & {

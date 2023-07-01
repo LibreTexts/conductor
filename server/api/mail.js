@@ -64,7 +64,7 @@ const sendPasswordReset = (recipientAddress, recipientName, resetLink) => {
 const sendRegistrationConfirmation = (recipientAddress, recipientName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [recipientAddress],
+        to: recipientAddress,
         subject: 'Welcome to Conductor',
         text: `Hi ${recipientName}, welcome to Conductor! You can access your account using this email and the password you set during registration. Remember, Conductor accounts are universal — you can use this account on any Conductor instance in the LibreNet. Sincerely, The LibreTexts team` + autoGenNoticeText,
         html: `<p>Hi ${recipientName},</p><h2>Welcome to Conductor!</h2><p>You can access your account using your email and the password you set during registration.</p><p><em>Remember, Conductor accounts are universal — you can use this account on any Conductor instance in the LibreNet.</em></p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
@@ -736,16 +736,17 @@ const sendAnalyticsInviteAccepted = (sender, invitee, course) => {
 /**
  * Sends a notification that a user's registration for an Event has been confirmed.
  *
- * @param {object} participant - The user who registered.
+ * @param {string[]} addresses - The user who registered.
  * @param {object} orgEvent - The Event the user registered for.
+ * @param {string} participantName - The name of the user who registered.
  */
-const sendOrgEventRegistrationConfirmation = (participant, orgEvent) => {
+const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: [participant.email],
+        to: addresses,
         subject: 'Registration Confirmation',
         html: `
-            <p>Hi ${participant.firstName},</p>
+            <p>Hi ${participantName},</p>
             <p>We're just writing to let you know that your registration for ${orgEvent.title} has been confirmed! We look forward to having you join us!</p>
             <p>Remember, ${orgEvent.title} starts at ${format(orgEvent.startDate, 'h:mm a')} on ${format(orgEvent.startDate, 'EEEE, MMMM d, yyyy')}.</p>
             <p>Sincerely,</p>

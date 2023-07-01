@@ -3,9 +3,13 @@ import User from "./user.js";
 import OrgEventFeeWaiver from "./orgeventfeewaiver.js";
 
 export interface OrgEventParticipantInterface extends Document {
-  user: Types.ObjectId;
+  regID: string;
+  user?: Types.ObjectId;
   orgID: string;
   eventID: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   paymentStatus:
     | "na"
     | "unpaid"
@@ -24,22 +28,35 @@ export interface OrgEventParticipantInterface extends Document {
     zip: string;
     country: string;
   };
+  registeredBy: Types.ObjectId;
 }
 
 const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
+  regID: {
+    type: String,
+    required: true,
+  },
   user: {
     type: Schema.Types.ObjectId,
     ref: User,
-    required: true,
-    index: true,
+    required: false,
   },
-  orgID: {
-    type: String,
-    required: true,
-  },
+  orgID: { type: String, required: true },
   eventID: {
     type: String,
     required: true,
+  },
+  firstName: {
+    type: String,
+    required: false,
+  },
+  lastName: {
+    type: String,
+    required: false,
+  },
+  email: {
+    type: String,
+    required: false,
   },
   paymentStatus: {
     type: String,
@@ -73,10 +90,12 @@ const OrgEventParticipantSchema = new Schema<OrgEventParticipantInterface>({
     zip: String,
     country: String,
   },
+  registeredBy: {
+    type: Schema.Types.ObjectId,
+    ref: User,
+    required: true,
+  },
 });
-
-// ensure that each user can only register for an event once
-OrgEventParticipantSchema.index({ eventID: 1, user: 1 }, { unique: true });
 
 const OrgEventParticipant = model<OrgEventParticipantInterface>(
   "OrgEventParticipant",

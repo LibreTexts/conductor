@@ -395,13 +395,13 @@ const ManageEvent = () => {
     }
   }
 
-  async function handleUnregisterParticipants(ids: string[]) {
+  async function handleUnregisterParticipants(regIds: string[]) {
     try {
       if (routeParams.mode !== "edit" || !getValues("eventID")) return;
 
       const response = await axios.delete(
         `/orgevents/${getValues("eventID")}/participants`,
-        { data: { participants: ids } }
+        { data: { participants: regIds } }
       );
 
       if (response.data.err) {
@@ -952,8 +952,8 @@ const ManageEvent = () => {
                         activePage={activePage}
                         onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
-                        onUnregisterParticipants={(ids) =>
-                          handleUnregisterParticipants(ids)
+                        onUnregisterParticipants={(regIds) =>
+                          handleUnregisterParticipants(regIds)
                         }
                         onAddParticipantsToProject={(ids, project) =>
                           handleAddParticipantsToProject(ids, project)

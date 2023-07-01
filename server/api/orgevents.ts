@@ -40,6 +40,7 @@ import {
   createStandardWorkBook,
   generateWorkSheetColumnDefinitions,
 } from "../util/exports.js";
+import { v4 as uuidv4 } from "uuid";
 
 async function getOrgEvents(
   req: TypedReqQuery<{ activePage?: number }>,
@@ -154,6 +155,11 @@ async function getOrgEventParticipants(
         user: SanitizedUserInterface;
       }>({
         path: "user",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
+      .populate<{ registeredBy: SanitizedUserInterface }>({
+        path: "registeredBy",
         model: "User",
         select: SanitizedUserSelectQuery,
       })
@@ -374,16 +380,35 @@ async function submitRegistration(
       return conductor400Err(res);
     }
 
-    const { user: userID, orgID, formResponses } = req.body;
+    const {
+      user: userID,
+      orgID,
+      formResponses,
+      firstName,
+      lastName,
+      email,
+      registeredBy,
+    } = req.body;
     let stripeKey: string | null = null;
     let shouldSendConfirmation = true;
+    let foundUser: UserInterface | undefined | null = undefined;
 
-    const foundUser = await User.findOne({
-      uuid: userID,
+    // Participant must be logged in or provide a name and email if registering for someone else
+    if (!userID && !firstName && !lastName && !email) {
+      return conductor400Err(res);
+    }
+
+    if (userID) {
+      foundUser = await User.findOne({
+        uuid: userID,
+      }).lean();
+    }
+
+    const foundRegisteredBy = await User.findOne({
+      uuid: registeredBy,
     }).lean();
 
-    //Provided UUID not valid
-    if (!foundUser) {
+    if (!foundRegisteredBy) {
       return conductor400Err(res);
     }
 
@@ -412,6 +437,22 @@ async function submitRegistration(
       return conductor400Err(res);
     }
 
+    // Check for duplicate registration
+    const matchObj: { user?: string; email?: string; eventID: string } = {
+      eventID: orgEvent.eventID,
+    };
+    if (foundUser) {
+      matchObj.user = foundUser._id;
+    } else {
+      matchObj.email = email;
+    }
+
+    const foundExisting = await OrgEventParticipant.findOne(matchObj);
+
+    if (foundExisting) {
+      return conductorErr(res, 400, "err82");
+    }
+
     // If fee waiver code was provided, check if it's valid
     let feeWaiver: OrgEventFeeWaiverInterface | null = null;
     if (req.body.feeWaiver) {
@@ -436,8 +477,10 @@ async function submitRegistration(
       }
     }
 
+    const CREATED_REG_ID = uuidv4();
     const participant = new OrgEventParticipant({
-      user: foundUser._id,
+      regID: CREATED_REG_ID,
+      user: !!foundUser?._id ? foundUser._id : undefined,
       orgID,
       eventID: req.params.eventID,
       paymentStatus: shouldCollectPayment ? "unpaid" : "na",
@@ -446,6 +489,10 @@ async function submitRegistration(
       shippingAddress: orgEvent.collectShipping
         ? req.body.shippingAddress
         : undefined,
+      firstName: firstName ?? undefined,
+      lastName: lastName ?? undefined,
+      email: email ?? undefined,
+      registeredBy: foundRegisteredBy._id,
     });
 
     const newDoc = await participant.save();
@@ -495,14 +542,18 @@ async function submitRegistration(
               },
             },
           ],
-          customer_email: foundUser.email,
+          customer_email: foundRegisteredBy.email,
           mode: "payment",
           metadata: {
             application: "conductor",
             feature: "events",
             orgID,
             eventID: req.params.eventID ?? "unknown",
-            userUUID: foundUser.uuid,
+            regID: CREATED_REG_ID,
+            userUUID: foundUser?.uuid ?? "unknown",
+            firstName: firstName ?? "unknown",
+            lastName: lastName ?? "unknown",
+            email: email ?? "unknown",
           },
           success_url: `${urlProto}://${urlDomain}/events/${req.params.eventID}/success?payment=true`,
           cancel_url: `${urlProto}://${urlDomain}/events/${req.params.eventID}`,
@@ -524,8 +575,22 @@ async function submitRegistration(
     }
 
     if (shouldSendConfirmation) {
+      const emailAddresses = [];
+      emailAddresses.push(foundRegisteredBy.email);
+      if (!foundUser && email) {
+        emailAddresses.push(email);
+      }
+
       mailAPI
-        .sendOrgEventRegistrationConfirmation(foundUser, orgEvent)
+        .sendOrgEventRegistrationConfirmation(
+          emailAddresses,
+          orgEvent,
+          foundUser && foundUser.firstName
+            ? foundUser.firstName
+            : firstName
+            ? firstName
+            : "Unknown"
+        )
         .catch((e: unknown) => debugError(e));
     }
 
@@ -559,21 +624,17 @@ async function unregisterParticipants(
     if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
       return conductorErr(res, 403, "err8");
     }
-    if (!req.body.participants || !req.params.eventID) {
-      return conductor400Err(res);
-    }
-
-    // Get user refs
-    const foundUsers = await User.find({
-      uuid: { $in: req.body.participants },
-    }).lean();
-    if (!foundUsers || foundUsers.length === 0) {
+    if (
+      !req.body.participants ||
+      !req.params.eventID ||
+      !Array.isArray(req.body.participants)
+    ) {
       return conductor400Err(res);
     }
 
     // Delete participants
     const deletedParticipants = await OrgEventParticipant.deleteMany({
-      user: { $in: foundUsers.map((u) => u._id) },
+      regID: { $in: req.body.participants },
       eventID: req.params.eventID,
     }).lean();
     if (!deletedParticipants) {
@@ -752,8 +813,8 @@ async function setRegistrationPaidStatus(
   res: Response
 ) {
   try {
-    const { orgID, eventID, userUUID } = checkoutSession.metadata ?? {};
-    if (!orgID || !eventID || !userUUID) {
+    const { orgID, eventID, userUUID, regID } = checkoutSession.metadata ?? {};
+    if (!orgID || !eventID || !regID) {
       return conductor400Err(res);
     }
 
@@ -774,16 +835,26 @@ async function setRegistrationPaidStatus(
       });
     }
 
-    const foundUser = await User.findOne({ uuid: userUUID }).lean();
-    if (!foundUser) {
-      return conductor404Err(res);
-    }
-
     const participant = await OrgEventParticipant.findOne({
       orgID,
       eventID,
-      user: foundUser._id,
-    });
+      regID,
+    })
+      .populate<{
+        registeredBy: SanitizedUserInterface;
+      }>({
+        path: "registeredBy",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
+      .populate<{
+        user: SanitizedUserInterface;
+      }>({
+        path: "user",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      });
+
     if (!participant) {
       return conductor404Err(res);
     }
@@ -827,8 +898,34 @@ async function setRegistrationPaidStatus(
       return conductor500Err(res);
     }
 
+    if (!participant.registeredBy.email) {
+      debugError(
+        `Participant ${participant._id} does not have a registeredBy email address. Cannot send confirmation email.`
+      );
+    }
+
+    const emailAddresses = [];
+    if (participant.registeredBy && participant.registeredBy.email) {
+      emailAddresses.push(participant.registeredBy.email);
+    }
+
+    if (participant.email) {
+      emailAddresses.push(participant.email);
+    }
+
+    const participantName =
+      participant.user && participant.user.firstName
+        ? participant.user.firstName
+        : participant.firstName
+        ? participant.firstName
+        : "Unknown";
+        
     mailAPI
-      .sendOrgEventRegistrationConfirmation(foundUser, orgEvent)
+      .sendOrgEventRegistrationConfirmation(
+        emailAddresses,
+        orgEvent,
+        participantName
+      )
       .catch((e: unknown) => debugError(e));
 
     return res.send({
@@ -877,6 +974,13 @@ async function downloadParticipantData(
         model: "User",
         select: SanitizedUserSelectQuery,
       })
+      .populate<{
+        registeredBy: SanitizedUserInterface;
+      }>({
+        path: "registeredBy",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
       .lean();
 
     // Create workbook and worksheet
@@ -894,6 +998,7 @@ async function downloadParticipantData(
       "user.lastName",
       "user.email",
       "paymentStatus",
+      "registeredBy",
     ];
     if (foundEvent.collectShipping) {
       userColumns.push(
@@ -918,12 +1023,29 @@ async function downloadParticipantData(
     // Add rows
     for (let i = 0; i < foundParticipants.length; i++) {
       const p = foundParticipants[i];
-      const rowData = [
-        p.user.firstName,
-        p.user.lastName,
-        p.user.email,
-        p.paymentStatus,
-      ];
+      const rowData = [];
+      if (p.user && p.user.firstName && p.user.lastName && p.user.email) {
+        rowData.push(
+          p.user.firstName,
+          p.user.lastName,
+          p.user.email,
+          p.paymentStatus,
+          "Self"
+        );
+      } else if (p.firstName && p.lastName && p.email) {
+        rowData.push(p.firstName, p.lastName, p.email, p.paymentStatus);
+        if (
+          p.registeredBy &&
+          p.registeredBy.email &&
+          p.registeredBy.firstName &&
+          p.registeredBy.lastName
+        ) {
+          rowData.push(
+            `${p.registeredBy.firstName} ${p.registeredBy.lastName} (${p.registeredBy.email})`
+          );
+        }
+      }
+
       if (foundEvent.collectShipping && p.shippingAddress) {
         rowData.push(
           p.shippingAddress.lineOne,
@@ -1076,7 +1198,7 @@ function validate(method: string) {
           .exists()
           .isString()
           .isLength({ min: 10, max: 10 }),
-        body("user", conductorErrors.err1).exists().isUUID(),
+        body("user", conductorErrors.err1).optional().isUUID(),
         body("orgID", conductorErrors.err1)
           .exists()
           .isLength({ min: 2, max: 50 }),
@@ -1085,6 +1207,13 @@ function validate(method: string) {
           .optional()
           .isString()
           .isLength({ min: 10, max: 10 }),
+        body("firstName", conductorErrors.err1)
+          .optional()
+          .isString()
+          .notEmpty(),
+        body("lastName", conductorErrors.err1).optional().isString().notEmpty(),
+        body("email", conductorErrors.err1).optional().isEmail(),
+        body("registeredBy", conductorErrors.err1).exists().isString().isUUID(),
       ];
     case "unregisterParticipants":
       return [
