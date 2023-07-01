@@ -480,7 +480,7 @@ async function submitRegistration(
     const CREATED_REG_ID = uuidv4();
     const participant = new OrgEventParticipant({
       regID: CREATED_REG_ID,
-      user: foundUser?._id !== null || undefined ? foundUser?._id : undefined,
+      user: !!foundUser?._id ? foundUser._id : undefined,
       orgID,
       eventID: req.params.eventID,
       paymentStatus: shouldCollectPayment ? "unpaid" : "na",
@@ -909,14 +909,7 @@ async function setRegistrationPaidStatus(
       emailAddresses.push(participant.registeredBy.email);
     }
 
-    if (participant.user && participant.user.email) {
-      if (
-        !participant.registeredBy ||
-        participant.registeredBy.email !== participant.user.email
-      ) {
-        emailAddresses.push(participant.user.email);
-      }
-    } else if (participant.email) {
+    if (participant.email) {
       emailAddresses.push(participant.email);
     }
 
