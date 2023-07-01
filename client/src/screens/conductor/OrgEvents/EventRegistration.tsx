@@ -345,7 +345,7 @@ const EventRegistration = () => {
             <Grid.Column mobile={16} computer={10}>
               <Segment raised className="mt-2p">
                 <Header as="h3" textAlign="center" className="mb-2p">
-                  Who will you be registering for?
+                  Who are you registering for?
                 </Header>
                 <Button
                   fluid

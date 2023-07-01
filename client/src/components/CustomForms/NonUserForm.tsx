@@ -20,7 +20,7 @@ const NonUserForm: React.FC<NonUserFormProps> = ({
         Participant Information
       </Header>
       <p>
-        This is the contact information for the person you are registering for.
+        This is the contact information for the person you are registering on behalf of.
       </p>
       <CtlTextInput
         label="First Name"
