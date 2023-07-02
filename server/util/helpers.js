@@ -252,8 +252,8 @@ export function sanitizeCustomColor(hexString) {
  * @returns {number} - The number of records to offset, or 0 if an error was encountered
  */
 export function getPaginationOffset(page, offsetMultiplier = 25) {
-  let parsedPage = parseInt(page);
-  let parsedMultiplier = parseInt(offsetMultiplier);
+  const parsedPage = parseInt(page);
+  const parsedMultiplier = parseInt(offsetMultiplier);
   if (!Number.isInteger(parsedPage) || !Number.isInteger(parsedMultiplier)) {
     return 0;
   }
