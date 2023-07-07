@@ -183,12 +183,9 @@ const EventsManager = () => {
                     totalPages={totalPages}
                     firstItem={null}
                     lastItem={null}
-                    onPageChange={(e, data) =>
-                      {console.log(data)
-                      setActivePage(
-                        parseInt(data.activePage?.toString() ?? "1") ?? 1
-                      )}
-                    }
+                    onPageChange={(e, data) => setActivePage(
+                      parseInt(data.activePage?.toString() ?? "1") ?? 1
+                    )}
                   />
                 </div>
               </div>
