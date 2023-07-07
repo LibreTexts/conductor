@@ -45,17 +45,17 @@ import { v4 as uuidv4 } from "uuid";
 import Project from "../models/project.js";
 
 async function getOrgEvents(
-  req: TypedReqQuery<{ activePage?: number }>,
+  req: TypedReqQuery<{ page?: number }>,
   res: Response
 ) {
   try {
     let page = 1;
     const limit = 25;
     if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
+      req.query.page &&
+      Number.isInteger(parseInt(req.query.page.toString()))
     ) {
-      page = req.query.activePage;
+      page = req.query.page;
     }
 
     const offset = getPaginationOffset(page, limit);
@@ -77,7 +77,11 @@ async function getOrgEvents(
       throw new Error("OrgEvent query got invalid results");
     }
 
-    const totalCount = await OrgEvent.countDocuments();
+    const totalCount = await OrgEvent.countDocuments({
+      orgID: process.env.ORG_ID,
+      canceled: { $ne: true },
+    });
+
     return res.send({
       err: false,
       totalCount,
@@ -123,7 +127,7 @@ async function getOrgEvent(
 async function getOrgEventParticipants(
   req: TypedReqParamsAndQueryWithUser<
     { eventID?: string },
-    { activePage?: number }
+    { page?: number }
   >,
   res: Response
 ) {
@@ -135,10 +139,10 @@ async function getOrgEventParticipants(
     let page = 1;
     let limit = 25;
     if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
+      req.query.page &&
+      Number.isInteger(parseInt(req.query.page.toString()))
     ) {
-      page = req.query.activePage;
+      page = req.query.page;
     }
     let offset = getPaginationOffset(page, limit);
 
