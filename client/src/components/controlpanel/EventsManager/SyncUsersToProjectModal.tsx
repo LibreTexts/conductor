@@ -91,7 +91,7 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
 
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Sync Users to Project</Modal.Header>
+      <Modal.Header>Sync All Users to Project</Modal.Header>
       <Modal.Content scrolling style={{ minHeight: "30vh" }}>
         <Form noValidate>
           <Form.Group widths="equal">
@@ -115,7 +115,7 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
           </Form.Group>
         </Form>
         <p>
-          <strong>Note:</strong> Only participants with that can be matched to a
+          <strong>Note:</strong> Only participants with emails that can be matched to a
           Conductor account will be added to the project. All participants will
           be added with the <strong>Project Member</strong> role. Participants
           who were previously synced will not be duplicated.
@@ -128,7 +128,7 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
         </Button>
 
         <Button onClick={onClose} color="grey">
-          Go Back
+          Cancel
         </Button>
       </Modal.Actions>
     </Modal>

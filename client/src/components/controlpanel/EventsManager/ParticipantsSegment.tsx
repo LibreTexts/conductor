@@ -326,7 +326,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
                 onClick={() => setShowAddToProjectModal(true)}
               >
                 <Icon name="refresh" />
-                <span>Sync Users to Project</span>
+                <span>Sync All Users to Project</span>
               </Button>
             </div>
           </div>
