@@ -3,23 +3,28 @@ import { useTypedSelector } from "../../../state/hooks";
 import { isEmptyString } from "../../util/HelperFunctions";
 import { useCallback, useEffect, useState } from "react";
 import useGlobalError from "../../error/ErrorHooks";
+import useDebounce from "../../../hooks/useDebounce";
 import axios from "axios";
 import { GenericKeyTextValueObj, Project } from "../../../types";
 
-type AddParticipantsToProjectModalProps = {
+type SyncUsersToProjectModalProps = {
   show: boolean;
   selectedParticipants: string[];
   onClose: () => void;
-  onConfirm: (participantIds: string[], projectID: string) => void;
+  onConfirm: (projectID: string) => void;
 };
 
-const AddParticipantsToProjectModal: React.FC<
-  AddParticipantsToProjectModalProps
-> = ({ show, selectedParticipants, onClose, onConfirm, ...props }) => {
+const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
+  show,
+  selectedParticipants,
+  onClose,
+  onConfirm,
+  ...props
+}) => {
   // Global State and Error Handling
-  const org = useTypedSelector((state) => state.org);
   const user = useTypedSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
 
   const [loading, setLoading] = useState<boolean>(false);
   const [projectOpts, setProjectOpts] = useState<
@@ -27,14 +32,16 @@ const AddParticipantsToProjectModal: React.FC<
   >([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
 
-  const getProjectOpts = useCallback(async () => {
+  const getProjectOpts = async (searchQuery: string) => {
     try {
-      const res = await axios.get("/user/projects", {
+      setLoading(true);
+      const res = await axios.get("/projects/all", {
         params: {
           uuid: user.uuid,
+          searchQuery: searchQuery,
         },
       });
-      
+
       if (
         res.data.err ||
         !res.data.projects ||
@@ -53,14 +60,19 @@ const AddParticipantsToProjectModal: React.FC<
       );
     } catch (err) {
       handleGlobalError(err);
+    } finally {
+      setLoading(false);
     }
-  }, [org, show]);
+  };
 
-  // Fetch project options when modal is opened, clear state when closed
+  const getProjectOptionsDebounced = debounce(
+    (inputVal: string) => getProjectOpts(inputVal),
+    250
+  );
+
+  // Clear state when modal closes
   useEffect(() => {
-    if (show) {
-      getProjectOpts();
-    } else {
+    if (!show) {
       setProjectOpts([]);
       setSelectedProject("");
     }
@@ -73,42 +85,54 @@ const AddParticipantsToProjectModal: React.FC<
     }
 
     setLoading(true);
-    onConfirm(selectedParticipants, selectedProject);
+    onConfirm(selectedProject);
     setLoading(false);
   }
 
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Add Selected Participants(s) to Project</Modal.Header>
-      <Modal.Content scrolling style={{ minHeight: "40vh" }}>
+      <Modal.Header>Sync All Users to Project</Modal.Header>
+      <Modal.Content scrolling style={{ minHeight: "30vh" }}>
         <Form noValidate>
           <Form.Group widths="equal">
-            <Form.Field required>
-              <label htmlFor="project-dropdown">Select Project</label>
-              <Dropdown
-                placeholder="Select Project..."
-                selection
-                options={projectOpts}
-                onChange={(_e, { value }) =>
-                  setSelectedProject(value ? value.toString() : "")
+            <Form.Select
+              search
+              label="Select Project"
+              placeholder="Start typing to search by title..."
+              options={projectOpts}
+              onChange={(_e, { value }) => {
+                setSelectedProject(value ? value.toString() : "");
+              }}
+              onSearchChange={(_e, { searchQuery }) => {
+                if (searchQuery) {
+                  getProjectOptionsDebounced(searchQuery);
                 }
-              />
-            </Form.Field>
+              }}
+              loading={loading}
+              disabled={loading}
+              required
+            />
           </Form.Group>
         </Form>
+        <p>
+          <strong>Note:</strong> Only participants with emails that can be matched to a
+          Conductor account will be added to the project. All participants will
+          be added with the <strong>Project Member</strong> role. Participants
+          who were previously synced will not be duplicated.
+        </p>
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={() => handleConfirm()} color="green">
-          <Icon name="user plus" />
-          Add to Project
+          <Icon name="refresh" />
+          Confirm Sync
         </Button>
 
         <Button onClick={onClose} color="grey">
-          Go Back
+          Cancel
         </Button>
       </Modal.Actions>
     </Modal>
   );
 };
 
-export default AddParticipantsToProjectModal;
+export default SyncUsersToProjectModal;

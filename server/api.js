@@ -1340,11 +1340,18 @@ router.route('/orgevents/:eventID/feewaivers')
 router.route('/orgevents/:eventID/feewaivers/:feeWaiverCode').patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.checkValidationErrors,
   orgEventsAPI.validate('updateFeeWaiver'),
   middleware.checkValidationErrors,
   orgEventsAPI.updateFeeWaiver,
 );
+
+router.route('/orgevents/:eventID/sync/:projectID').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  orgEventsAPI.validate('syncUsersToProject'),
+  middleware.checkValidationErrors,
+  orgEventsAPI.syncUsersToProject,
+)
 
 router.route('/apiclients/:clientID').get(
   authAPI.verifyRequest,

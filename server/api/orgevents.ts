@@ -33,6 +33,7 @@ import OrgEventParticipant, {
 } from "../models/orgeventparticipant.js";
 import authAPI from "./auth.js";
 import mailAPI from "./mail.js";
+import projectsAPI from "./projects.js";
 import OrgEventFeeWaiver, {
   OrgEventFeeWaiverInterface,
 } from "../models/orgeventfeewaiver.js";
@@ -41,6 +42,7 @@ import {
   generateWorkSheetColumnDefinitions,
 } from "../util/exports.js";
 import { v4 as uuidv4 } from "uuid";
+import Project from "../models/project.js";
 
 async function getOrgEvents(
   req: TypedReqQuery<{ activePage?: number }>,
@@ -919,7 +921,7 @@ async function setRegistrationPaidStatus(
         : participant.firstName
         ? participant.firstName
         : "Unknown";
-        
+
     mailAPI
       .sendOrgEventRegistrationConfirmation(
         emailAddresses,
@@ -1071,6 +1073,105 @@ async function downloadParticipantData(
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
     return res.send(csv);
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function syncUsersToProject(
+  req: TypedReqParamsWithUser<{ eventID?: string; projectID?: string }>,
+  res: Response
+) {
+  try {
+    if (
+      !req.user ||
+      !process.env.ORG_ID ||
+      !req.params.eventID ||
+      !req.params.projectID
+    ) {
+      return conductor400Err(res);
+    }
+
+    // Check authorization (only campus/super admins can download participant data)
+    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
+      return conductorErr(res, 403, "err8");
+    }
+
+    const foundParticipants = await OrgEventParticipant.find({
+      orgID: process.env.ORG_ID,
+      eventID: req.params.eventID,
+    })
+      .populate<{ user: SanitizedUserInterface }>({
+        path: "user",
+        model: "User",
+        select: SanitizedUserSelectQuery,
+      })
+      .lean();
+
+    if (!foundParticipants) {
+      return conductor404Err(res);
+    }
+
+    const foundProject = await Project.findOne({
+      projectID: req.params.projectID,
+    }).lean();
+
+    if (!foundProject) {
+      return conductor404Err(res);
+    }
+
+    // Find any users who may have been registered by someone else, but email matches to a Conductor account
+    const foundUsers = await User.find({
+      email: {
+        $in: [
+          ...foundParticipants.map((p) => {
+            if (p.email) {
+              return p.email;
+            }
+          }),
+        ],
+      },
+    }).lean();
+
+    const allUUIDs = [
+      ...foundUsers.map((u) => {
+        if (u.uuid) {
+          return u.uuid;
+        }
+        return "";
+      }),
+      ...foundParticipants.map((p) => {
+        if (p.user && p.user.uuid) {
+          return p.user.uuid;
+        }
+        return "";
+      }),
+    ].flat();
+
+    const currentTeam = projectsAPI.constructProjectTeam(foundProject);
+
+    // Remove UUIDs from update list if they are already on the project
+    const filteredUUIDs = allUUIDs.filter((uuid) => {
+      if (!uuid) {
+        return false;
+      }
+      return !currentTeam.includes(uuid);
+    });
+
+    // Add users to project
+    const updateRes = await Project.updateOne(
+      { projectID: req.params.projectID },
+      { $addToSet: { members: [...filteredUUIDs] } }
+    );
+    if (updateRes.modifiedCount !== 1) {
+      throw new Error("Project update failed.");
+    }
+
+    return res.send({
+      err: false,
+      msg: "Users successfully synced to project.",
+    });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
@@ -1263,6 +1364,17 @@ function validate(method: string) {
           .optional({ checkFalsy: true })
           .isObject(),
       ];
+    case "syncUsersToProject":
+      return [
+        param("eventID", conductorErrors.err1)
+          .exists()
+          .isString()
+          .isLength({ min: 10, max: 10 }),
+        param("projectID", conductorErrors.err1)
+          .exists()
+          .isString()
+          .isLength({ min: 10, max: 10 }),
+      ];
   }
 }
 
@@ -1280,5 +1392,6 @@ export default {
   updateFeeWaiver,
   setRegistrationPaidStatus,
   downloadParticipantData,
+  syncUsersToProject,
   validate,
 };
