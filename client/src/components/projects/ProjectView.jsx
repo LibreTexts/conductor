@@ -137,6 +137,7 @@ const ProjectView = (props) => {
   const [projProgressErr, setProjProgressErr] = useState(false);
   const [projPRProgressErr, setProjPRProgressErr] = useState(false);
   const [projA11YProgressErr, setProjA11YProgressErr] = useState(false);
+  const [projHideProjectMetrics, setProjHideProjectMetrics] = useState(false);
   const [tagOptions, setTagOptions] = useState([]);
   const [cidOptions, setCIDOptions] = useState([]);
   const [loadedTags, setLoadedTags] = useState(false);
@@ -517,6 +518,7 @@ const ProjectView = (props) => {
     if (project.license) setProjResLicense(project.license);
     if (project.resourceURL) setProjResURL(project.resourceURL);
     if (project.notes) setProjNotes(project.notes);
+    if (project.hasOwnProperty('hideProjectMetrics')) setProjHideProjectMetrics(project.hideProjectMetrics);
     setEditModalLoading(false);
     setShowEditModal(true);
   };
@@ -545,6 +547,7 @@ const ProjectView = (props) => {
     setProjResLicense('');
     setProjResURL('');
     setProjNotes('');
+    setProjHideProjectMetrics(false);
   };
 
 
@@ -763,6 +766,9 @@ const ProjectView = (props) => {
       }
       if ((project.notes && project.notes !== projNotes) || !project.notes) {
         projData.notes = projNotes;
+      }
+      if ((project.hideProjectMetrics && project.hideProjectMetrics !== projHideProjectMetrics) || !project.hideProjectMetrics) {
+        projData.hideProjectMetrics = projHideProjectMetrics;
       }
       if (Object.keys(projData).length > 1) {
         axios.put('/project', projData).then((res) => {
@@ -1927,35 +1933,40 @@ const ProjectView = (props) => {
                 }
                 <Grid.Row className='mb-2p'>
                   <Grid.Column>
-                    <Header as='h2' dividing>Project Information</Header>
+                    {!project.hideProjectMetrics && (
+                      <Header as='h2' dividing>Project Metrics</Header>
+                    )}
                     <Grid>
-                      <Grid.Row centered>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Project</strong></p>
-                          <ProjectProgressBar
-                            progress={project.currentProgress || 0}
-                            type="progress"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Peer Review</strong></p>
-                          <ProjectProgressBar
-                            progress={project.peerProgress || 0}
-                            type="peer"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Accessibility</strong></p>
-                          <ProjectProgressBar
-                            progress={project.a11yProgress || 0}
-                            type="a11y"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                      </Grid.Row>
-                      <Grid.Row columns='equal'>
+                      {
+                        !project.hideProjectMetrics && (
+                          <Grid.Row centered>
+                          <Grid.Column width={4} className='project-progress-column'>
+                            <p className='text-center'><strong>Project</strong></p>
+                            <ProjectProgressBar
+                              progress={project.currentProgress || 0}
+                              type="progress"
+                              showPercent={true}
+                            />
+                          </Grid.Column>
+                          <Grid.Column width={4} className='project-progress-column'>
+                            <p className='text-center'><strong>Peer Review</strong></p>
+                            <ProjectProgressBar
+                              progress={project.peerProgress || 0}
+                              type="peer"
+                              showPercent={true}
+                            />
+                          </Grid.Column>
+                          <Grid.Column width={4} className='project-progress-column'>
+                            <p className='text-center'><strong>Accessibility</strong></p>
+                            <ProjectProgressBar
+                              progress={project.a11yProgress || 0}
+                              type="a11y"
+                              showPercent={true}
+                            />
+                          </Grid.Column>
+                          </Grid.Row>
+                      )}
+                      <Grid.Row columns='equal' className={project.hideProjectMetrics ? 'mt-1p' : ''}>
                         <Grid.Column>
                           <Header as='h3' dividing>Project Properties</Header>
                           <div className='mb-1p'>
@@ -2634,6 +2645,26 @@ const ProjectView = (props) => {
                   })}
                   value={projCIDs}
                 />
+                <Form.Checkbox
+                  className='mt-2p'
+                  id="hideProjectMetrics"
+                  onChange={(_e, { checked }) => setProjHideProjectMetrics(checked)}
+                  checked={projHideProjectMetrics}
+                  label={
+                    <label htmlFor="hideProjectMetrics">
+                    <span><strong>Hide Project Metrics {" "}</strong></span>
+                    <Popup
+                      trigger={<Icon name="info circle" />}
+                      position="top center"
+                      hoverable={true}
+                      content={(
+                        <span className="text-center">
+                          Check this box to hide the progress metric bars on the project's page.
+                        </span>
+                      )}
+                      /></label>
+                  }>
+                </Form.Checkbox>
                 <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
                 <Divider />
                 <Header as="h3">Homework and Assessments</Header>

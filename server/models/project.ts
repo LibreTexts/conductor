@@ -117,6 +117,7 @@ export interface ProjectInterface extends Document {
   preferredPRRubric?: string;
   cidDescriptors?: string[];
   files?: (typeof FilesSchema)[];
+  hideProjectMetrics: boolean;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -311,6 +312,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Project Files associated with the Book.
      */
     files: [FilesSchema],
+    /**
+     * Whether to hide the Project metrics section.
+     */
+    hideProjectMetrics: {
+      type: Boolean,
+      default: false,
+    }
   },
   {
     timestamps: true,
