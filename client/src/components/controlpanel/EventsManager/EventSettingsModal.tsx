@@ -9,6 +9,8 @@ import CtlTimeZoneInput from "../../ControlledInputs/CtlTimeZoneInput";
 import { useTypedSelector } from "../../../state/hooks";
 import { required } from "../../../utils/formRules";
 import CancelEventModal from "./CancelEventModal";
+import { utcToZonedTime } from "date-fns-tz";
+import { parseISO } from "date-fns";
 
 interface EventSettingsModalParams {
   show: boolean;
@@ -45,7 +47,9 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
     setValue,
     watch: watchValues,
     reset: resetForm,
-  } = useForm<OrgEvent>({ values: orgEvent });
+  } = useForm<OrgEvent>({
+    values: orgEvent,
+  });
 
   // UI
   const [loading, setLoading] = useState<boolean>(false);

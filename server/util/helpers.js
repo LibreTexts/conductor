@@ -3,6 +3,7 @@
 // helpers.js
 //
 import { validate as uuidValidate } from 'uuid';
+import { format as formatDate, parseISO } from "date-fns";
 import validator from 'validator';
 
 /**
@@ -170,6 +171,24 @@ export const createAndValidateDateObject = (dateString) => {
     if (isValidDateObject(dateObj)) newDate = dateObj;
     return newDate;
 };
+
+/**
+ * Safely parse and format a date string or Date object to desired display format.
+ *
+ * @param date - Date object or ISO date string to parse.
+ * @returns Formatted date string.
+ */
+export function parseAndFormatDate(date, formatString) {
+    try {
+      if (date instanceof Date) {
+        return formatDate(date, formatString);
+      }
+      return formatDate(parseISO(date), formatString);
+    } catch (e) {
+      console.error(e);
+    }
+    return "Unknown Date";
+  }
 
 
 /**

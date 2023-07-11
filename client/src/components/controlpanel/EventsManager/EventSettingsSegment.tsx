@@ -2,6 +2,8 @@ import { UseFormGetValues } from "react-hook-form";
 import { Grid, Header, Icon, Segment } from "semantic-ui-react";
 import { copyToClipboard, parseAndFormatDate } from "../../../utils/misc";
 import { OrgEvent, Organization } from "../../../types";
+import { format as formatDate, parseISO } from "date-fns";
+import { utcToZonedTime } from "date-fns-tz";
 interface EventSettingsSegmentProps {
   getValuesFn: UseFormGetValues<OrgEvent>;
   manageMode: "create" | "edit";
@@ -31,8 +33,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("startDate")
-                  ? parseAndFormatDate(
-                      getValuesFn("startDate"),
+                  ? formatDate(
+                      utcToZonedTime(
+                        parseISO(getValuesFn("startDate").toISOString()),
+                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
+                      ),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -46,8 +51,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("endDate")
-                  ? parseAndFormatDate(
-                      getValuesFn("endDate"),
+                  ? formatDate(
+                      utcToZonedTime(
+                        parseISO(getValuesFn("endDate").toISOString()),
+                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
+                      ),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -72,7 +80,9 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                   className="ml-1p"
                   style={{ cursor: "pointer" }}
                   onClick={async () => {
-                    await copyToClipboard(`${org.domain}/events/${getValuesFn("eventID")}`)
+                    await copyToClipboard(
+                      `${org.domain}/events/${getValuesFn("eventID")}`
+                    );
                   }}
                 />
               </p>
@@ -87,8 +97,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regOpenDate")
-                  ? parseAndFormatDate(
-                      getValuesFn("regOpenDate"),
+                  ? formatDate(
+                      utcToZonedTime(
+                        parseISO(getValuesFn("regOpenDate").toISOString()),
+                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
+                      ),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -102,8 +115,11 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
               <span>
                 {" "}
                 {getValuesFn("regCloseDate")
-                  ? parseAndFormatDate(
-                      getValuesFn("regCloseDate"),
+                  ? formatDate(
+                      utcToZonedTime(
+                        parseISO(getValuesFn("regCloseDate").toISOString()),
+                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
+                      ),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
