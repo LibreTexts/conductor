@@ -50,6 +50,13 @@ const CommonsFooter = () => {
       title: "Accessibility (opens in new tab)",
       icon: false,
     },
+    {
+      key: "donate",
+      href: "https://donate.libretexts.org",
+      text: "Donate",
+      title: "Donate (opens in new tab)",
+      icon: false,
+    },
   ];
 
   return (
