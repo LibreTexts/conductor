@@ -32,6 +32,7 @@ import {
 import { useForm } from "react-hook-form";
 import { useTypedSelector } from "../../../../state/hooks";
 import { format as formatDate, parseISO } from "date-fns";
+import { zonedTimeToUtc } from "date-fns-tz";
 import {
   handleDeleteBlock,
   handleMoveBlock,
@@ -307,7 +308,13 @@ const ManageEvent = () => {
       setChangesSaving(true);
 
       if (routeParams.mode === "create") {
-        const createRes = await axios.post("/orgevents", getValues());
+        const createRes = await axios.post("/orgevents", {
+          ...getValues(),
+          regOpenDate: zonedTimeToUtc(getValues().regOpenDate, getValues().timeZone.value),
+          regCloseDate: zonedTimeToUtc(getValues().regCloseDate, getValues().timeZone.value),
+          startDate: zonedTimeToUtc(getValues().startDate, getValues().timeZone.value),
+          endDate: zonedTimeToUtc(getValues().endDate, getValues().timeZone.value),
+        });
         setChangesSaving(false);
         if (createRes.data.err) {
           throw new Error(createRes.data.errMsg);
@@ -322,7 +329,13 @@ const ManageEvent = () => {
       if (routeParams.mode === "edit" && routeParams.eventID) {
         const editRes = await axios.patch(
           `/orgevents/${routeParams.eventID}`,
-          getValues()
+          {
+            ...getValues(),
+            regOpenDate: zonedTimeToUtc(getValues().regOpenDate, getValues().timeZone.value),
+            regCloseDate: zonedTimeToUtc(getValues().regCloseDate, getValues().timeZone.value),
+            startDate: zonedTimeToUtc(getValues().startDate, getValues().timeZone.value),
+            endDate: zonedTimeToUtc(getValues().endDate, getValues().timeZone.value),
+          },
         );
 
         setChangesSaving(false);

@@ -14,9 +14,10 @@ import {
   TypedReqParamsWithUser,
   TypedReqQuery,
 } from "../types";
-import { parseISO, isBefore, isAfter } from "date-fns";
+import { parseISO, isBefore, isAfter, format } from "date-fns";
+import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
 import b62 from "base62-random";
-import { getPaginationOffset } from "../util/helpers.js";
+import { getPaginationOffset, parseAndFormatDate } from "../util/helpers.js";
 import {
   conductor400Err,
   conductor404Err,
@@ -125,10 +126,7 @@ async function getOrgEvent(
 }
 
 async function getOrgEventParticipants(
-  req: TypedReqParamsAndQueryWithUser<
-    { eventID?: string },
-    { page?: number }
-  >,
+  req: TypedReqParamsAndQueryWithUser<{ eventID?: string }, { page?: number }>,
   res: Response
 ) {
   try {
@@ -237,25 +235,24 @@ async function createOrgEvent(
       return conductorErr(res, 403, "err8");
     }
 
-    const regOpenDate = parseISO(req.body.regOpenDate.toString());
-    const regCloseDate = parseISO(req.body.regCloseDate.toString());
-    const startDate = parseISO(req.body.startDate.toString());
-    const endDate = parseISO(req.body.endDate.toString());
+    if (!req.body.timeZone) {
+      return conductor400Err(res);
+    }
 
     const orgEvent = new OrgEvent({
       orgID: process.env.ORG_ID,
       eventID: b62(10),
       title: req.body.title,
-      regOpenDate,
-      regCloseDate,
-      startDate,
-      endDate,
+      regOpenDate: req.body.regOpenDate,
+      regCloseDate: req.body.regCloseDate,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
       timeZone: req.body.timeZone,
       regFee: req.body.regFee,
       collectShipping: req.body.collectShipping ?? false,
     });
 
-    let newDoc = await orgEvent.save();
+    const newDoc = await orgEvent.save();
     if (!newDoc) throw new Error();
 
     return res.send({
@@ -291,17 +288,16 @@ async function updateOrgEvent(
     const { eventID, canceled, ...updateBody } = req.body;
 
     // Parse dates
-    const regOpenDate = parseISO(req.body.regOpenDate.toString());
-    const regCloseDate = parseISO(req.body.regCloseDate.toString());
-    const startDate = parseISO(req.body.startDate.toString());
-    const endDate = parseISO(req.body.endDate.toString());
+    if (!req.body.timeZone) {
+      return conductor400Err(res);
+    }
 
     const updateObj = {
       ...updateBody,
-      regOpenDate,
-      regCloseDate,
-      startDate,
-      endDate,
+      regOpenDate: req.body.regOpenDate,
+      regCloseDate: req.body.regCloseDate,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
     };
 
     const orgToUpdate = await OrgEvent.findOne({
@@ -587,6 +583,25 @@ async function submitRegistration(
         emailAddresses.push(email);
       }
 
+      const convertAndFormatStartDate = (): string => {
+        let formattedStartTime = "";
+        let formattedStartDate = "";
+        if (orgEvent.timeZone?.value) {
+          const convertedDate = utcToZonedTime(
+            orgEvent.startDate,
+            orgEvent.timeZone.value
+          );
+          formattedStartDate = format(convertedDate, "MMMM d, yyyy");
+          formattedStartTime = format(convertedDate, "h:mm a");
+        } else {
+          formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
+          formattedStartTime = format(orgEvent.startDate, "h:mm a");
+        }
+        return `${formattedStartTime} (${
+          orgEvent.timeZone.abbrev ?? ""
+        }) on ${formattedStartDate}`;
+      };
+
       mailAPI
         .sendOrgEventRegistrationConfirmation(
           emailAddresses,
@@ -595,7 +610,8 @@ async function submitRegistration(
             ? foundUser.firstName
             : firstName
             ? firstName
-            : "Unknown"
+            : "Unknown",
+          convertAndFormatStartDate()
         )
         .catch((e: unknown) => debugError(e));
     }
@@ -926,11 +942,31 @@ async function setRegistrationPaidStatus(
         ? participant.firstName
         : "Unknown";
 
+    const convertAndFormatStartDate = (): string => {
+      let formattedStartTime = "";
+      let formattedStartDate = "";
+      if (orgEvent.timeZone?.value) {
+        const convertedDate = utcToZonedTime(
+          orgEvent.startDate,
+          orgEvent.timeZone.value
+        );
+        formattedStartDate = format(convertedDate, "MMMM d, yyyy");
+        formattedStartTime = format(convertedDate, "h:mm a");
+      } else {
+        formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
+        formattedStartTime = format(orgEvent.startDate, "h:mm a");
+      }
+      return `${formattedStartTime} (${
+        orgEvent.timeZone.abbrev ?? ""
+      }) on ${formattedStartDate}`;
+    };
+
     mailAPI
       .sendOrgEventRegistrationConfirmation(
         emailAddresses,
         orgEvent,
-        participantName
+        participantName,
+        convertAndFormatStartDate()
       )
       .catch((e: unknown) => debugError(e));
 

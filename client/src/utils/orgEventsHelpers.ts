@@ -1,3 +1,4 @@
+import { utcToZonedTime } from "date-fns-tz";
 import { OrgEvent } from "../types";
 import { OrgEventFeeWaiver } from "../types/OrgEvent";
 
@@ -8,12 +9,22 @@ import { OrgEventFeeWaiver } from "../types/OrgEvent";
  * @returns OrgEvent object with date fields initialized.
  */
 export function initOrgEventDates(orgEvent: OrgEvent): OrgEvent {
+    let regOpenDate = new Date(orgEvent.regOpenDate);
+    let regCloseDate = new Date(orgEvent.regCloseDate);
+    let startDate = new Date(orgEvent.startDate);
+    let endDate = new Date(orgEvent.endDate);
+    if (orgEvent.timeZone?.value) {
+        regOpenDate = utcToZonedTime(orgEvent.regOpenDate, orgEvent.timeZone.value);
+        regCloseDate = utcToZonedTime(regCloseDate, orgEvent.timeZone.value);
+        startDate = utcToZonedTime(startDate, orgEvent.timeZone.value);
+        endDate = utcToZonedTime(endDate, orgEvent.timeZone.value);
+    }
     return {
         ...orgEvent,
-        regOpenDate: new Date(orgEvent.regOpenDate),
-        regCloseDate: new Date(orgEvent.regCloseDate),
-        startDate: new Date(orgEvent.startDate),
-        endDate: new Date(orgEvent.endDate),
+        regOpenDate,
+        regCloseDate,
+        startDate,
+        endDate,
     };
 }
 

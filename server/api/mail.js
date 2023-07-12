@@ -739,8 +739,9 @@ const sendAnalyticsInviteAccepted = (sender, invitee, course) => {
  * @param {string[]} addresses - The user who registered.
  * @param {object} orgEvent - The Event the user registered for.
  * @param {string} participantName - The name of the user who registered.
+ * @param {string} formattedStartTime - The start time and date of the Event with timezone formatted for presentation.
  */
-const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantName) => {
+const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantName, formattedStartTime) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: addresses,
@@ -748,7 +749,7 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
         html: `
             <p>Hi ${participantName},</p>
             <p>We're just writing to let you know that your registration for ${orgEvent.title} has been confirmed! We look forward to having you join us!</p>
-            <p>Remember, ${orgEvent.title} starts at ${format(orgEvent.startDate, 'h:mm a')} on ${format(orgEvent.startDate, 'EEEE, MMMM d, yyyy')}.</p>
+            <p>Remember, ${orgEvent.title} starts at ${formattedStartTime}.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}
