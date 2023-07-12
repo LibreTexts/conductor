@@ -238,37 +238,21 @@ async function createOrgEvent(
     if (!req.body.timeZone) {
       return conductor400Err(res);
     }
-    const regOpenDate = zonedTimeToUtc(
-      parseISO(req.body.regOpenDate.toString()),
-      req.body.timeZone.value
-    );
-    const regCloseDate = zonedTimeToUtc(
-      parseISO(req.body.regCloseDate.toString()),
-      req.body.timeZone.value
-    );
-    const startDate = zonedTimeToUtc(
-      parseISO(req.body.startDate.toString()),
-      req.body.timeZone.value
-    );
-    const endDate = zonedTimeToUtc(
-      parseISO(req.body.endDate.toString()),
-      req.body.timeZone.value
-    );
 
     const orgEvent = new OrgEvent({
       orgID: process.env.ORG_ID,
       eventID: b62(10),
       title: req.body.title,
-      regOpenDate,
-      regCloseDate,
-      startDate,
-      endDate,
+      regOpenDate: req.body.regOpenDate,
+      regCloseDate: req.body.regCloseDate,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
       timeZone: req.body.timeZone,
       regFee: req.body.regFee,
       collectShipping: req.body.collectShipping ?? false,
     });
 
-    let newDoc = await orgEvent.save();
+    const newDoc = await orgEvent.save();
     if (!newDoc) throw new Error();
 
     return res.send({
@@ -307,29 +291,13 @@ async function updateOrgEvent(
     if (!req.body.timeZone) {
       return conductor400Err(res);
     }
-    const regOpenDate = zonedTimeToUtc(
-      parseISO(req.body.regOpenDate.toString()),
-      req.body.timeZone.value
-    );
-    const regCloseDate = zonedTimeToUtc(
-      parseISO(req.body.regCloseDate.toString()),
-      req.body.timeZone.value
-    );
-    const startDate = zonedTimeToUtc(
-      parseISO(req.body.startDate.toString()),
-      req.body.timeZone.value
-    );
-    const endDate = zonedTimeToUtc(
-      parseISO(req.body.endDate.toString()),
-      req.body.timeZone.value
-    );
 
     const updateObj = {
       ...updateBody,
-      regOpenDate,
-      regCloseDate,
-      startDate,
-      endDate,
+      regOpenDate: req.body.regOpenDate,
+      regCloseDate: req.body.regCloseDate,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
     };
 
     const orgToUpdate = await OrgEvent.findOne({
@@ -618,20 +586,17 @@ async function submitRegistration(
       const convertAndFormatStartDate = (): string => {
         let formattedStartTime = "";
         let formattedStartDate = "";
-        if (!orgEvent.timeZone || !orgEvent.timeZone.value) {
+        if (orgEvent.timeZone?.value) {
+          const convertedDate = utcToZonedTime(
+            orgEvent.startDate,
+            orgEvent.timeZone.value
+          );
+          formattedStartDate = format(convertedDate, "MMMM d, yyyy");
+          formattedStartTime = format(convertedDate, "h:mm a");
+        } else {
           formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
           formattedStartTime = format(orgEvent.startDate, "h:mm a");
         }
-
-        const parsedDate = parseISO(orgEvent.startDate.toISOString());
-        const convertedDate = utcToZonedTime(
-          parsedDate,
-          orgEvent.timeZone.value
-        );
-
-        formattedStartDate = format(new Date(convertedDate), "MMMM d, yyyy");
-        formattedStartTime = format(new Date(convertedDate), "h:mm a");
-
         return `${formattedStartTime} (${
           orgEvent.timeZone.abbrev ?? ""
         }) on ${formattedStartDate}`;
@@ -980,17 +945,17 @@ async function setRegistrationPaidStatus(
     const convertAndFormatStartDate = (): string => {
       let formattedStartTime = "";
       let formattedStartDate = "";
-      if (!orgEvent.timeZone || !orgEvent.timeZone.value) {
+      if (orgEvent.timeZone?.value) {
+        const convertedDate = utcToZonedTime(
+          orgEvent.startDate,
+          orgEvent.timeZone.value
+        );
+        formattedStartDate = format(convertedDate, "MMMM d, yyyy");
+        formattedStartTime = format(convertedDate, "h:mm a");
+      } else {
         formattedStartDate = format(orgEvent.startDate, "MMMM d, yyyy");
         formattedStartTime = format(orgEvent.startDate, "h:mm a");
       }
-
-      const parsedDate = parseISO(orgEvent.startDate.toISOString());
-      const convertedDate = utcToZonedTime(parsedDate, orgEvent.timeZone.value);
-
-      formattedStartDate = format(new Date(convertedDate), "MMMM d, yyyy");
-      formattedStartTime = format(new Date(convertedDate), "h:mm a");
-
       return `${formattedStartTime} (${
         orgEvent.timeZone.abbrev ?? ""
       }) on ${formattedStartDate}`;

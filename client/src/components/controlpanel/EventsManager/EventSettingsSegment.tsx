@@ -34,10 +34,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 {" "}
                 {getValuesFn("startDate")
                   ? formatDate(
-                      utcToZonedTime(
-                        parseISO(getValuesFn("startDate").toISOString()),
-                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
-                      ),
+                      getValuesFn("startDate"),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -52,10 +49,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 {" "}
                 {getValuesFn("endDate")
                   ? formatDate(
-                      utcToZonedTime(
-                        parseISO(getValuesFn("endDate").toISOString()),
-                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
-                      ),
+                      getValuesFn("endDate"),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -98,10 +92,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 {" "}
                 {getValuesFn("regOpenDate")
                   ? formatDate(
-                      utcToZonedTime(
-                        parseISO(getValuesFn("regOpenDate").toISOString()),
-                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
-                      ),
+                      getValuesFn("regOpenDate"),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
@@ -116,10 +107,7 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                 {" "}
                 {getValuesFn("regCloseDate")
                   ? formatDate(
-                      utcToZonedTime(
-                        parseISO(getValuesFn("regCloseDate").toISOString()),
-                        getValuesFn("timeZone.value") ?? "America/Los_Angeles"
-                      ),
+                      getValuesFn("regCloseDate"),
                       DATE_FORMAT_STRING
                     )
                   : "Unknown"}{" "}
