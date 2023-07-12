@@ -48,6 +48,13 @@ const classificationDescriptions = [
     }
 ];
 
+const PROJECT_ROLE_SORT_ORDER = {
+    lead: 1,
+    liaison: 2,
+    member: 3,
+    auditor: 4,
+};
+
 const projectRoleOptions = [
     { key: 'lead',      text: 'Team Lead',          value: 'lead' },
     { key: 'liaison',   text: 'Project Liaison',    value: 'liaison' },
@@ -376,6 +383,7 @@ const getFilesAccessText = (access) => {
 
 export {
     PROJECT_FILES_ACCESS_SETTINGS,
+    PROJECT_ROLE_SORT_ORDER,
     visibilityOptions,
     statusOptions,
     createTaskOptions,
