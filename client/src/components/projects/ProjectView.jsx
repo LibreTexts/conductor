@@ -67,7 +67,8 @@ import {
   constructProjectTeam,
   checkCanViewProjectDetails,
   checkProjectAdminPermission,
-  checkProjectMemberPermission
+  checkProjectMemberPermission,
+  PROJECT_ROLE_SORT_ORDER
 } from '../util/ProjectHelpers.js';
 import {
   licenseOptions,
@@ -104,6 +105,7 @@ const ProjectView = (props) => {
   const [showFiles, setShowFiles] = useState(true);
   const [showReviewerCrumb, setShowReviewerCrumb] = useState(false);
   const [showJoinComingSoon, setShowJoinComingSoon] = useState(false);
+  const [showAllTeamMembers, setShowAllTeamMembers] = useState(false);
 
   // Project Data
   const [project, setProject] = useState({});
@@ -1718,31 +1720,74 @@ const ProjectView = (props) => {
     }
   };
 
-  const renderTeamList = (projData) => {
-    const renderListItem = (item, role, idx) => {
+  const renderTeamList = (projData, showAll) => {
+    const transformMembers = (role, roleDisplay) => (item) => ({
+      ...item,
+      name: `${item.firstName} ${item.lastName}`,
+      role,
+      roleDisplay,
+    });
+
+    const allTeamMembers = [
+      ...projData.leads.map(transformMembers('lead', 'Lead')),
+      ...projData.liaisons.map(transformMembers('liaison', 'Liaison')),
+      ...projData.members.map(transformMembers('member', 'Member')),
+      ...projData.auditors.map(transformMembers('auditor', 'Auditor')),
+    ];
+    allTeamMembers.sort((a, b) => {
+      if (PROJECT_ROLE_SORT_ORDER[a.role] < PROJECT_ROLE_SORT_ORDER[b.role]) {
+        return -1;
+      }
+      if (PROJECT_ROLE_SORT_ORDER[a.role] > PROJECT_ROLE_SORT_ORDER[b.role]) {
+        return 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    const moreThanFive = allTeamMembers.length > 5;
+    const teamToDisplay = (!showAll && moreThanFive) ? allTeamMembers.slice(0, 5): allTeamMembers;
+
+    const renderListItem = (item, idx) => {
       return (
-        <List.Item key={`${role}-${idx}`}>
+        <List.Item key={`${item.role}-${idx}`}>
           <Image avatar src={item.avatar} />
-          <List.Content>{item.firstName} {item.lastName} <span className='muted-text'>({role})</span></List.Content>
+          <List.Content>
+            {item.firstName} {item.lastName}{" "}
+            <span className="muted-text">({item.roleDisplay})</span>
+          </List.Content>
         </List.Item>
       );
     };
+
     return (
-      <List divided verticalAlign='middle'>
-        {(projData.hasOwnProperty('leads') && Array.isArray(projData.leads)) &&
-          sortUsersByName(project.leads).map((item, idx) => renderListItem(item, 'Lead', idx))
-        }
-        {(projData.hasOwnProperty('liaisons') && Array.isArray(projData.liaisons)) &&
-          sortUsersByName(project.liaisons).map((item, idx) => renderListItem(item, 'Liaison', idx))
-        }
-        {(projData.hasOwnProperty('members') && Array.isArray(projData.members)) &&
-          sortUsersByName(project.members).map((item, idx) => renderListItem(item, 'Member', idx))
-        }
-        {(projData.hasOwnProperty('auditors') && Array.isArray(projData.auditors)) &&
-          sortUsersByName(project.auditors).map((item, idx) => renderListItem(item, 'Auditor', idx))
-        }
+      <List divided verticalAlign="middle">
+        {teamToDisplay.map((item, idx) => renderListItem(item, idx))}
+        {!showAll && moreThanFive && (
+          <List.Item key="collapsed-msg">
+            <List.Content className="text-center">
+              <p className="muted-text mt-1p">
+                Team list collapsed for brevity.{" "}
+                <a onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
+                  Click to show all...
+                </a>
+              </p>
+            </List.Content>
+          </List.Item>
+        )}
+        {showAll && moreThanFive && (
+          <List.Item key="showing-all-msg">
+            <List.Content className="text-center">
+              <p className="muted-text mt-1p">
+                Showing all team members.{" "}
+                <a onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}>
+                  Click to collapse...
+                </a>
+              </p>
+            </List.Content>
+          </List.Item>
+        )}
       </List>
-    )
+    );
   };
 
   return (
@@ -2103,7 +2148,7 @@ const ProjectView = (props) => {
                         <Grid.Column>
                           <Header as='h3' dividing>Team</Header>
                           {(Object.keys(project).length > 0) &&
-                            renderTeamList(project)
+                            renderTeamList(project, showAllTeamMembers)
                           }
                         </Grid.Column>
                       </Grid.Row>
