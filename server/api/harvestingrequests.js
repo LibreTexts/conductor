@@ -80,7 +80,7 @@ const addRequest = (req, res) => {
     }).then(() => {
         // ignore return value of Mailgun call
         // send notification to LibreTexts team
-        return mailAPI.sendOERIntRequestAdminNotif(finalizedRequest.name, finalizedRequest.title);
+        return mailAPI.sendOERIntRequestAdminNotif(finalizedRequest.name, finalizedRequest.email, finalizedRequest.title);
     }).then(() => {
         // ignore return value of Mailgun call
         return res.send({

@@ -174,12 +174,13 @@ const sendOERIntRequestConfirmation = (requesterName, recipientAddress, resource
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
  *  only after proper verification via other internal methods.
  * @param {String} requesterName     - the requesting user's name ('firstName' or 'firstName lastName')
+ * @param {String} requesterEmail    - the requesting user's email
  * @param {String} resourceTitle     - the resource's title/name
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendOERIntRequestAdminNotif = (requesterName, resourceTitle) => {
-    let textToSend = `Attention: ${requesterName} has submitted a new OER Integration Request for "${resourceTitle}". This request is available in Conductor.` + autoGenNoticeText;
-    let htmlToSend = `<p>Attention:</p><p>${requesterName} has submitted a new OER Integration Request for "${resourceTitle}".</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
+const sendOERIntRequestAdminNotif = (requesterName, requesterEmail, resourceTitle) => {
+    let textToSend = `Attention: ${requesterName ? requesterName : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}". This request is available in Conductor.` + autoGenNoticeText;
+    let htmlToSend = `<p>Attention:</p><p>${requesterName ? `${requesterName} (${requesterEmail})` : requesterEmail} has submitted a new OER Integration Request for "${resourceTitle}".</p><p>This request is available in Conductor.</p>` + autoGenNoticeHTML;
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
         to: ['info@libretexts.org'],
