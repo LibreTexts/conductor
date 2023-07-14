@@ -17,6 +17,7 @@ export type User = {
     institution: string;
     facultyURL: string;
   };
+  organizations: Organization[];
   isAuthenticated: boolean;
   verifiedInstructor: boolean;
   isCampusAdmin: boolean;

@@ -95,6 +95,10 @@ body {
     cursor: pointer;
 }
 
+.text-bold {
+    font-weight: bold;
+}
+
 .cursor-pointer:hover {
     cursor: pointer;
 }
@@ -283,6 +287,57 @@ body {
 .pt-2p {
     padding-top: 2% !important;
 }
+
+/** padding-bottom **/
+.pb-05e {
+    padding-bottom: 0.5em !important;
+}
+
+.pb-05p {
+    padding-bottom: 0.5% !important;
+}
+
+.pb-1e {
+    padding-bottom: 1em !important;
+}
+
+.pb-1p {
+    padding-bottom: 1% !important;
+}
+
+.pb-1r {
+    padding-bottom: 1rem !important;
+}
+
+.pb-2e {
+    padding-bottom: 2em !important;
+}
+
+.pb-2p {
+    padding-bottom: 2% !important;
+}
+
+.pb-2r {
+    padding-bottom: 2rem !important;
+}
+
+.pb-3p {
+    padding-bottom: 3% !important;
+}
+
+.pb-3r {
+    padding-bottom: 3rem !important;
+}
+
+.pb-4p {
+    padding-bottom: 4% !important;
+}
+
+.pb-4r {
+    padding-bottom: 4rem !important;
+}
+
+
 
 /** padding-left **/
 .pl-2p {

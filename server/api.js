@@ -9,6 +9,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import middleware from './middleware.js'; // Route middleware
 import authAPI from './api/auth.js';
+import centralIdentityAPI from './api/central-identity.js';
 import usersAPI from './api/users.js';
 import orgsAPI from './api/organizations.js';
 import accountRequestsAPI from './api/accountrequests.js';
@@ -122,6 +123,44 @@ router.route('/auth/changepassword').put(
   middleware.checkValidationErrors,
   authAPI.changePassword,
 );
+
+/* LibreOne Auth */
+router.route('/central-identity/users').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.getUsers
+)
+
+router.route('/central-identity/users/:id').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getUser'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getUser
+)
+
+router.route('/central-identity/orgs').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.getOrgs
+)
+
+router.route('/central-identity/systems').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.getSystems
+)
+
+router.route('/central-identity/services').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.getServices
+)
 
 router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
 
