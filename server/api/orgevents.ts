@@ -616,6 +616,13 @@ async function submitRegistration(
         .catch((e: unknown) => debugError(e));
     }
 
+    const syncRes = await _syncOrgEventParticipantsToProject(orgEvent.eventID);
+    if (!syncRes || syncRes !== "success") {
+      debugError(
+        `Could not sync participants to project. Failed with error: ${syncRes}`
+      );
+    }
+
     return res.send({
       err: false,
       msg: "Registration successfully submitted.",
@@ -970,6 +977,13 @@ async function setRegistrationPaidStatus(
       )
       .catch((e: unknown) => debugError(e));
 
+    const syncRes = await _syncOrgEventParticipantsToProject(orgEvent.eventID);
+    if (!syncRes || syncRes !== "success") {
+      debugError(
+        `Could not sync participants to project. Failed with error: ${syncRes}`
+      );
+    }
+
     return res.send({
       err: false,
       msg: "Updated participant registration status.",
@@ -1119,28 +1133,76 @@ async function downloadParticipantData(
   }
 }
 
-async function syncUsersToProject(
-  req: TypedReqParamsWithUser<{ eventID?: string; projectID?: string }>,
+async function configureAutoSync(
+  req: TypedReqParamsWithUser<{
+    eventID?: string;
+    projectID?: string;
+  }>,
   res: Response
 ) {
   try {
-    if (
-      !req.user ||
-      !process.env.ORG_ID ||
-      !req.params.eventID ||
-      !req.params.projectID
-    ) {
+    if (!req.params.eventID || !req.params.projectID) {
       return conductor400Err(res);
     }
 
-    // Check authorization (only campus/super admins can download participant data)
-    if (!authAPI.checkHasRole(req.user, process.env.ORG_ID, "campusadmin")) {
-      return conductorErr(res, 403, "err8");
+    const foundProject = await Project.findOne({
+      projectID: req.params.projectID,
+    })
+      .lean()
+      .orFail();
+
+    const updateRes = await OrgEvent.updateOne(
+      {
+        orgID: process.env.ORG_ID,
+        eventID: req.params.eventID,
+      },
+      {
+        projectSyncID: foundProject.projectID,
+      }
+    ).orFail();
+
+    if (!updateRes || updateRes.modifiedCount === 0) {
+      return conductor500Err(res);
+    }
+
+    const runSyncRes = await _syncOrgEventParticipantsToProject(
+      req.params.eventID
+    );
+
+    if (runSyncRes !== "success") {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      msg: "Auto-sync successfully configured.",
+    });
+  } catch (err: any) {
+    if (err.name === "DocumentNotFoundError") {
+      return conductor404Err(res);
+    }
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Internal function to sync users from an event to a project
+ * @private
+ * @param {string} eventID - ID of event to sync users from
+ * @returns {Promise<string>} - Returns 'success' if successful, otherwise returns error message
+ */
+async function _syncOrgEventParticipantsToProject(
+  eventID: string
+): Promise<string> {
+  try {
+    if (!eventID) {
+      throw new Error("Missing eventID or projectID");
     }
 
     const foundParticipants = await OrgEventParticipant.find({
       orgID: process.env.ORG_ID,
-      eventID: req.params.eventID,
+      eventID,
     })
       .populate<{ user: SanitizedUserInterface }>({
         path: "user",
@@ -1150,16 +1212,24 @@ async function syncUsersToProject(
       .lean();
 
     if (!foundParticipants) {
-      return conductor404Err(res);
+      throw new Error("Error finding participants");
+    }
+
+    const foundEvent = await OrgEvent.findOne({
+      orgID: process.env.ORG_ID,
+      eventID,
+    }).orFail();
+
+    // If no projectSyncID, then no need to sync
+    if (!foundEvent.projectSyncID) {
+      return "success";
     }
 
     const foundProject = await Project.findOne({
-      projectID: req.params.projectID,
-    }).lean();
-
-    if (!foundProject) {
-      return conductor404Err(res);
-    }
+      projectID: foundEvent.projectSyncID,
+    })
+      .lean()
+      .orFail();
 
     // Find any users who may have been registered by someone else, but email matches to a Conductor account
     const foundUsers = await User.find({
@@ -1201,20 +1271,17 @@ async function syncUsersToProject(
 
     // Add users to project
     const updateRes = await Project.updateOne(
-      { projectID: req.params.projectID },
+      { projectID: foundProject.projectID },
       { $addToSet: { members: [...filteredUUIDs] } }
     );
     if (updateRes.modifiedCount !== 1) {
       throw new Error("Project update failed.");
     }
 
-    return res.send({
-      err: false,
-      msg: "Users successfully synced to project.",
-    });
-  } catch (err) {
+    return "success";
+  } catch (err: any) {
     debugError(err);
-    return conductor500Err(res);
+    return err.message;
   }
 }
 
@@ -1404,7 +1471,7 @@ function validate(method: string) {
           .optional({ checkFalsy: true })
           .isObject(),
       ];
-    case "syncUsersToProject":
+    case "configureAutoSync":
       return [
         param("eventID", conductorErrors.err1)
           .exists()
@@ -1432,6 +1499,6 @@ export default {
   updateFeeWaiver,
   setRegistrationPaidStatus,
   downloadParticipantData,
-  syncUsersToProject,
+  configureAutoSync,
   validate,
 };

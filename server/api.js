@@ -1345,12 +1345,12 @@ router.route('/orgevents/:eventID/feewaivers/:feeWaiverCode').patch(
   orgEventsAPI.updateFeeWaiver,
 );
 
-router.route('/orgevents/:eventID/sync/:projectID').put(
+router.route('/orgevents/:eventID/configure-sync/:projectID').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  orgEventsAPI.validate('syncUsersToProject'),
+  orgEventsAPI.validate('configureAutoSync'),
   middleware.checkValidationErrors,
-  orgEventsAPI.syncUsersToProject,
+  orgEventsAPI.configureAutoSync,
 )
 
 router.route('/apiclients/:clientID').get(

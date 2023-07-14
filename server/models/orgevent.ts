@@ -26,6 +26,7 @@ export interface OrgEventInterface extends Document {
   textBlocks: CustomFormTextBlockType[];
   prompts: CustomFormPromptType[];
   collectShipping: boolean;
+  projectSyncID?: string;
   createdBy: string;
   canceled: boolean;
 }
@@ -78,6 +79,10 @@ const OrgEventSchema = new Schema<OrgEventInterface>(
     collectShipping: {
       type: Boolean,
       default: false,
+    },
+    projectSyncID: {
+      type: String,
+      required: false,
     },
     canceled: {
       type: Boolean,

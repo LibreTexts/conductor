@@ -95,7 +95,7 @@ const ManageEvent = () => {
 
   // Participants Segment
   const [loadedParticipants, setLoadedParticipants] = useState<boolean>(true);
-  const [syncSuccess, setSyncSuccess] = useState<boolean>(false);
+  const [autoSyncSuccess, setAutoSyncSuccess] = useState<boolean>(false);
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -310,10 +310,22 @@ const ManageEvent = () => {
       if (routeParams.mode === "create") {
         const createRes = await axios.post("/orgevents", {
           ...getValues(),
-          regOpenDate: zonedTimeToUtc(getValues().regOpenDate, getValues().timeZone.value),
-          regCloseDate: zonedTimeToUtc(getValues().regCloseDate, getValues().timeZone.value),
-          startDate: zonedTimeToUtc(getValues().startDate, getValues().timeZone.value),
-          endDate: zonedTimeToUtc(getValues().endDate, getValues().timeZone.value),
+          regOpenDate: zonedTimeToUtc(
+            getValues().regOpenDate,
+            getValues().timeZone.value
+          ),
+          regCloseDate: zonedTimeToUtc(
+            getValues().regCloseDate,
+            getValues().timeZone.value
+          ),
+          startDate: zonedTimeToUtc(
+            getValues().startDate,
+            getValues().timeZone.value
+          ),
+          endDate: zonedTimeToUtc(
+            getValues().endDate,
+            getValues().timeZone.value
+          ),
         });
         setChangesSaving(false);
         if (createRes.data.err) {
@@ -327,16 +339,25 @@ const ManageEvent = () => {
       }
 
       if (routeParams.mode === "edit" && routeParams.eventID) {
-        const editRes = await axios.patch(
-          `/orgevents/${routeParams.eventID}`,
-          {
-            ...getValues(),
-            regOpenDate: zonedTimeToUtc(getValues().regOpenDate, getValues().timeZone.value),
-            regCloseDate: zonedTimeToUtc(getValues().regCloseDate, getValues().timeZone.value),
-            startDate: zonedTimeToUtc(getValues().startDate, getValues().timeZone.value),
-            endDate: zonedTimeToUtc(getValues().endDate, getValues().timeZone.value),
-          },
-        );
+        const editRes = await axios.patch(`/orgevents/${routeParams.eventID}`, {
+          ...getValues(),
+          regOpenDate: zonedTimeToUtc(
+            getValues().regOpenDate,
+            getValues().timeZone.value
+          ),
+          regCloseDate: zonedTimeToUtc(
+            getValues().regCloseDate,
+            getValues().timeZone.value
+          ),
+          startDate: zonedTimeToUtc(
+            getValues().startDate,
+            getValues().timeZone.value
+          ),
+          endDate: zonedTimeToUtc(
+            getValues().endDate,
+            getValues().timeZone.value
+          ),
+        });
 
         setChangesSaving(false);
         if (editRes.data.err) {
@@ -432,17 +453,18 @@ const ManageEvent = () => {
     }
   }
 
-  async function handleSyncUsersToProject(projectID: string) {
+  async function handleConfigureAutoSync(projectID: string) {
     try {
       if (!projectID || !getValues("eventID")) return;
 
       const res = await axios.put(
-        `/orgevents/${getValues("eventID")}/sync/${projectID}`
+        `/orgevents/${getValues("eventID")}/configure-sync/${projectID}`
       );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      setSyncSuccess(true);
+      setAutoSyncSuccess(true);
+      getOrgEvent(); // Refresh the event data
     } catch (err) {
       handleGlobalError(err);
       return;
@@ -925,15 +947,15 @@ const ManageEvent = () => {
                         orgEvent={getValues()}
                         loading={!loadedParticipants}
                         canEdit={canEdit}
-                        syncSuccess={syncSuccess}
+                        autoSyncSuccess={autoSyncSuccess}
                         activePage={activePage}
                         onDownloadParticipants={handleDownloadParticipants}
                         onChangeActivePage={(page) => setActivePage(page)}
                         onUnregisterParticipants={(regIds) =>
                           handleUnregisterParticipants(regIds)
                         }
-                        onSyncUsersToProject={(projectID) => {
-                          handleSyncUsersToProject(projectID);
+                        onConfigureAutoSync={(projectID) => {
+                          handleConfigureAutoSync(projectID);
                         }}
                         totalItems={totalItems}
                         totalPages={totalPages}
