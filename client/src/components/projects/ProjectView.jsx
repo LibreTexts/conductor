@@ -88,6 +88,7 @@ import AddTaskDependencyModal from './TaskComponents/AddTaskDependencyModal';
 import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
+import AssignAllModal from './TaskComponents/AssignAllModal';
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
@@ -220,6 +221,11 @@ const ProjectView = (props) => {
   const [atdTasks, setATDTasks] = useState([]);
   const [atdError, setATDError] = useState(false);
 
+  // Assign All to Task Modal
+  const [showAssignAllModal, setShowAssignAllModal] = useState(false);
+  const [assignAllLoading, setAssignAllLoading] = useState(false);
+  const [assignAllError, setAssignAllError] = useState(false);
+  const [assignAllSubtasks, setAssignAllSubtasks] = useState(false);
 
   // Remove Task Dependency Modal
   const [showRTDModal, setShowRTDModal] = useState(false);
@@ -1257,6 +1263,43 @@ const ProjectView = (props) => {
       }
     } else setATAError(true);
   };
+
+  const submitAssignAllMembersToTask = async () => {
+    try {
+      setAssignAllError(false);
+      if (!viewTaskData || !viewTaskData.taskID || isEmptyString(viewTaskData.taskID)) {
+        setAssignAllError(false);
+        return;
+      }
+
+      setAssignAllLoading(true);
+      const assignAllRes = await axios.put("/project/task/assignees/add-all", {
+        projectID: props.match.params.id,
+        taskID: viewTaskData.taskID,
+        subtasks: assignAllSubtasks,
+      });
+
+      if (!assignAllRes.data.err) {
+        getProjectTasks();
+        setShowAssignAllModal(false);
+        setAssignAllSubtasks(false);
+        setAssignAllError(false);
+        closeViewTaskModal();
+      } else {
+        handleGlobalError(assignAllRes.data.errMsg);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setAssignAllLoading(false);
+    }
+  };
+
+  const handleCloseAssignAllModal = () => {
+    setShowAssignAllModal(false);
+    setAssignAllSubtasks(false);
+    setAssignAllError(false);
+  }
 
   const openRMTAModal = (name, uuid) => {
     if (viewTaskData.taskID !== null
@@ -2348,7 +2391,7 @@ const ProjectView = (props) => {
                                           <div className='right-flex'>
                                             <div className='task-assignees-row'>
                                               {(item.hasOwnProperty('assignees') && item.assignees.length > 0) &&
-                                                (item.assignees.map((assignee, assignIdx) => {
+                                                (item.assignees.slice(0,5).map((assignee, assignIdx) => {
                                                   if (assignee.uuid && assignee.firstName && assignee.lastName) {
                                                     return (
                                                       <Popup
@@ -2367,6 +2410,11 @@ const ProjectView = (props) => {
                                                     )
                                                   } else return null;
                                                 }))
+                                              }
+                                              {
+                                                (item.hasOwnProperty('assignees') && item.assignees.length > 5) && (
+                                                  <p className='muted-text'> + {item.assignees.length - 5} more</p>
+                                                )
                                               }
                                             </div>
                                             <Popup
@@ -2423,7 +2471,7 @@ const ProjectView = (props) => {
                                                       <div className='right-flex'>
                                                         <div className='task-assignees-row'>
                                                           {(subtask.hasOwnProperty('assignees') && subtask.assignees.length > 0) &&
-                                                            (subtask.assignees.map((assignee, assignIdx) => {
+                                                            (subtask.assignees.slice(0, 5).map((assignee, assignIdx) => {
                                                               if (assignee.uuid && assignee.firstName && assignee.lastName) {
                                                                 return (
                                                                   <Popup
@@ -2443,6 +2491,20 @@ const ProjectView = (props) => {
                                                               } else return null;
                                                             }))
                                                           }
+                                                          {
+                                                            (subtask.hasOwnProperty('assignees') && subtask.assignees.length > 5) && (
+                                                              <Popup
+                                                              key='more-subtask-assigneed'
+                                                              trigger={
+                                                                <p className='muted-text'> + {subtask.assignees.length - 5} more</p>
+                                                              }
+                                                              header={<span><strong>More assignees</strong></span>}
+                                                              position='top center'
+                                                            />
+
+                                                            )
+                                                          }
+
                                                         </div>
                                                         <Popup
                                                           content={<span className='color-semanticred'><em>Delete Subtask</em></span>}
@@ -2966,6 +3028,7 @@ const ProjectView = (props) => {
           openRTDModal={(depend) => openRTDModal(depend)}
           openRMTAModal={(name, uuid) => openRMTAModal(name, uuid)}
           openManageTaskModal={(mode, taskID, parent) => openManageTaskModal(mode, taskID, parent)}
+          openAssignAllModal={() => setShowAssignAllModal(true)}
           atdLoading={atdLoading}
           getTaskMessages={getTaskMessages}
           getParentTaskName={(id) => getParentTaskName(id)}
@@ -2989,6 +3052,18 @@ const ProjectView = (props) => {
           getParentTaskName={(id) => getParentTaskName(id)}
           onRequestAdd={submitAddTaskAssignee}
           onClose={closeATAModal}
+          />
+          <AssignAllModal 
+          show={showAssignAllModal}
+          viewTaskData={viewTaskData}
+          assignAllError={assignAllError}
+          assignAllLoading={assignAllLoading}
+          assignAllSubtasks={assignAllSubtasks}
+          setAssignAllSubtasks={(newVal) => setAssignAllSubtasks(newVal)}
+          openViewTaskModal={(id) => openViewTaskModal(id)}
+          getParentTaskName={(id) => getParentTaskName(id)}
+          onRequestAssignAll={submitAssignAllMembersToTask}
+          onClose={handleCloseAssignAllModal}
           />
           {/* Remove Task Assignee Modal */}
           <RemoveTaskAssigneeModal 
