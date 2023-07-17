@@ -276,7 +276,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
               <div className="flex-row-div left-flex">
                 {viewTaskData.hasOwnProperty("assignees") &&
                   viewTaskData.assignees.length > 0 &&
-                  viewTaskData.assignees.map((item: any, idx: number) => {
+                  viewTaskData.assignees.slice(0, 5).map((item: any, idx: number) => {
                     return (
                       <Popup
                         key={idx}
@@ -306,6 +306,11 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                       />
                     );
                   })}
+                  {
+                    (viewTaskData.hasOwnProperty('assignees') && viewTaskData.assignees.length > 5) && (
+                      <p className='muted-text'> + {viewTaskData.assignees.length - 5} more</p>
+                    )
+                  }
                 <Popup
                   key="add-assignee"
                   trigger={
