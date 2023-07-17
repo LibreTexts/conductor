@@ -15,6 +15,7 @@ import { validateUUIDArray } from '../util/helpers.js';
 import projectsAPI from './projects.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
+import { get } from 'http';
 
 /**
  * Creates a new Task within the specified Project using the values specified in the
@@ -916,6 +917,77 @@ const addTaskAssignee = (req, res) => {
     });
 };
 
+/**
+ * Assign a user to a task.
+ * @param {Object} req - the express.js request object.
+ * @param {Object} res - the express.js response object.
+ */
+const assignAllMembersToTask = async (req, res) => {
+    try {
+      const { taskData, projectData } = await getTaskProjectAndCheckPermission(
+        req.body.taskID,
+        req.user
+      );
+
+      let matchObj = {
+        taskID: taskData.taskID,
+      };
+
+      if (
+        req.body.hasOwnProperty("subtasks") &&
+        req.body.subtasks === true &&
+        (!taskData.parent || taskData.parent === "")
+      ) {
+        // allow assigning to subtasks if requested & task is a parent
+        matchObj = {
+          $or: [{ taskID: taskData.taskID }, { parent: taskData.taskID }],
+        };
+      }
+
+      const updateRes = await Task.updateMany(matchObj, {
+        $addToSet: {
+          assignees: projectData.members,
+        },
+      });
+
+      const userEmails = [];
+      if (updateRes.modifiedCount > 0) {
+        const foundEmails = await usersAPI.getUserEmails([...projectData.members]);
+        userEmails.push(...foundEmails);
+      } else {
+        throw new Error("updatefail");
+      }
+
+      if (userEmails && Array.isArray(userEmails) && userEmails.length > 0) {
+        for (let i = 0; i < userEmails.length; i++) {
+          const mailRes = mailAPI.sendAssignedToTaskNotification(
+            userEmails[i],
+            projectData.projectID,
+            projectData.title,
+            projectData.orgID,
+            taskData.title
+          );
+        }
+      }
+
+      // ignore return value of Mailgun call
+      return res.send({
+        err: false,
+        msg: "Successfully assigned users!",
+      });
+    } catch (err) {
+      let errMsg = conductorErrors.err6;
+      if (err.message === "updatefail") {
+        errMsg = conductorErrors.err3;
+      } else {
+        debugError(err);
+      }
+      return res.send({
+        err: true,
+        errMsg: errMsg,
+      });
+    }
+};
 
 /**
  * Remove an assignee from a task.
@@ -1087,6 +1159,11 @@ const validate = (method) => {
                 body('assignee', conductorErrors.err1).exists().isString().isUUID(),
                 body('subtasks', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
             ]
+        case 'assignAllToTask':
+            return [
+                body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16}),
+                body('subtasks', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
+            ]
         case 'removeTaskAssignee':
             return [
                 body('taskID', conductorErrors.err1).exists().isString().isLength({ min: 16, max: 16}),
@@ -1105,5 +1182,6 @@ export default {
     getProjectTasks,
     validate,
     addTaskAssignee,
+    assignAllMembersToTask,
     removeTaskAssignee
 }

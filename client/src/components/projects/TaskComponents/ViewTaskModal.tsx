@@ -45,6 +45,7 @@ interface ViewTaskModalProps {
   openATDModal: () => void;
   openRTDModal: (id: string) => void;
   openRMTAModal: (name: string, uuid: string) => void;
+  openAssignAllModal: () => void;
   openManageTaskModal: (
     mode: string,
     taskID: string | null,
@@ -86,6 +87,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
   openRTDModal,
   openRMTAModal,
   openManageTaskModal,
+  openAssignAllModal,
   atdLoading,
   getTaskMessages,
   getParentTaskName,
@@ -319,6 +321,25 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                   header={
                     <span>
                       <em>Add Assignee</em>
+                    </span>
+                  }
+                  position="top center"
+                />
+                <Popup
+                  key="assign-all"
+                  trigger={
+                    <Button
+                      size="tiny"
+                      circular
+                      icon="users"
+                      color="blue"
+                      onClick={() => openAssignAllModal()}
+                      disabled={!userProjectMember}
+                    />
+                  }
+                  header={
+                    <span>
+                      <em>Assign All Members</em>
                     </span>
                   }
                   position="top center"

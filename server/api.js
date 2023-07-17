@@ -1096,6 +1096,14 @@ router.route('/project/task/assignees/add').put(
   tasksAPI.addTaskAssignee,
 );
 
+router.route('/project/task/assignees/add-all').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  tasksAPI.validate('assignAllToTask'),
+  middleware.checkValidationErrors,
+  tasksAPI.assignAllMembersToTask,
+);
+
 router.route('/project/task/assignees/remove').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
