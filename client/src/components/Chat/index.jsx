@@ -19,6 +19,7 @@ import TextArea from '../TextArea';
 import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
+import { THREADS_NOTIFY_OPTIONS, getThreadNotifyOption } from '../../utils/threadsHelpers';
 
 /**
  * A reusable chat/message thread interface.
@@ -30,6 +31,7 @@ const Chat = ({
   kind,
   activeThread,
   activeThreadTitle,
+  activeThreadDefaultNotifSubject,
   activeThreadMsgs,
   loadedThreadMsgs,
   getThreads,
@@ -53,10 +55,36 @@ const Chat = ({
   const [messageSending, setMessageSending] = useState(false);
 
   // Notify Settings
+  const [notifySetting, setNotifySetting] = useState('all');
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [projectTeam, setProjectTeam] = useState([]);
   const [teamToNotify, setTeamToNotify] = useState([]);
   const [loadingTeam, setLoadingTeam] = useState(false);
+  const [notificationOptions, setNotificationOptions] = useState([...THREADS_NOTIFY_OPTIONS]);
+
+  // Set the available notification options based on the thread type
+  useEffect(() => {
+    if (kind === "task") {
+      setNotificationOptions([
+        { key: "assigned", text: "Notify assignees", value: "assigned" },
+        ...THREADS_NOTIFY_OPTIONS,
+      ]);
+    }
+  }, [kind]);
+
+  // Set the default notification setting based on the thread type & settings
+  useEffect(() => {
+    if (kind === "task") {
+      handleNotifySettingChange('assigned')
+      return;
+    }
+    if (activeThreadDefaultNotifSubject) {
+      handleNotifySettingChange(activeThreadDefaultNotifSubject)
+      return;
+    }
+
+    handleNotifySettingChange('all')
+  }, [activeThread, activeThreadDefaultNotifSubject]);
 
   /**
    * Retrieves a list of team members in the current Project from the server and saves it to state.
@@ -92,57 +120,6 @@ const Chat = ({
     getProjectTeam();
     setShowNotifyPicker(true);
   }, [getProjectTeam]);
-
-  const notificationOptions = useMemo(() => {
-    const NOTIFY_OPTIONS = [
-      {
-        key: 'all',
-        text: 'Notify entire team',
-        value: 'all',
-      },
-      {
-        key: 'specific',
-        text: 'Notify specific people...',
-        value: 'specific',
-        onClick: handleOpenNotifyPicker,
-      },
-      {
-        key: 'support',
-        text: 'Notify LibreTexts Support',
-        value: 'support',
-      },
-      {
-        key: 'none',
-        text: `Don't notify anyone`,
-        value: 'none',
-      },
-    ];
-    if (kind === 'task') {
-      return [
-        { key: 'assigned', text: 'Notify assignees', value: 'assigned' },
-        ...NOTIFY_OPTIONS,
-      ]
-    }
-    return NOTIFY_OPTIONS;
-  }, [kind, handleOpenNotifyPicker]);
-
-  const defaultNotificationSetting = useMemo(() => {
-    if (kind === 'task') {
-      return 'assigned';
-    }
-    return 'all';
-  }, [kind]);
-
-  const [notifySetting, setNotifySetting] = useState(defaultNotificationSetting);
-
-  const notifySettingDropdownText = useMemo(() => {
-    if (notifySetting === 'specific') {
-      const modifier = teamToNotify.length > 1 ? 'people' : 'person';
-      return `Notify ${teamToNotify.length} ${modifier}`;
-    }
-    const foundOption = notificationOptions.find((item) => item.value === notifySetting);
-    return foundOption.text;
-  }, [notifySetting, notificationOptions, teamToNotify]);
 
   /**
    * Register plugins on load.
@@ -281,13 +258,12 @@ const Chat = ({
    * Saves changes in the selected notification setting to state. If the new setting
    * is `specific`, the Notify People Picker is opened.
    *
-   * @param {object} e - Event that activated the handler.
-   * @param {object} data - Data passed from the UI component.
    * @param {string} data.value - The new notification setting. 
    */
-  function handleNotifySettingChange(_e, { value }) {
-    if (value !== 'specific') {
-      setNotifySetting(value);
+  function handleNotifySettingChange(value) {
+    setNotifySetting(value);
+    if (value === "specific") {
+      handleOpenNotifyPicker();
     }
   };
 
@@ -384,15 +360,20 @@ const Chat = ({
             fluid
           >
             <Icon name="send" />
-            Send
+            {
+              (notifySetting === 'specific') ? (
+                <span>Send to {teamToNotify.length} {teamToNotify.length === 1 ? 'person' : 'people'}</span>
+              ) : (
+                <span>Send</span>
+              )
+            }
           </Button>
           <Dropdown
             id="replycontainer-notifydropdown"
             options={notificationOptions}
             selection
             value={notifySetting}
-            onChange={handleNotifySettingChange}
-            text={notifySettingDropdownText}
+            onChange={(_e, {value}) => handleNotifySettingChange(value ?? 'all')}
           />
         </div>
       </div>
@@ -400,7 +381,7 @@ const Chat = ({
       <Modal open={showNotifyPicker} onClose={handleCloseNotifyPicker}>
         <Modal.Header>Choose People to Notify</Modal.Header>
         <Modal.Content>
-          <p>Choose which team members to notify</p>
+          <p>Choose which team members to notify about this message</p>
           <Dropdown
             placeholder="Team members..."
             fluid

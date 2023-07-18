@@ -1013,7 +1013,14 @@ router.route('/project/thread')
     msgAPI.validate('createDiscussionThread'),
     middleware.checkValidationErrors,
     msgAPI.createDiscussionThread,
-  ).delete(
+  ).patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    msgAPI.validate('updateDiscussionThread'),
+    middleware.checkValidationErrors,
+    msgAPI.updateDiscussionThread,
+  )
+  .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     msgAPI.validate('deleteDiscussionThread'),

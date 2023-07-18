@@ -13,7 +13,8 @@ import {
     Icon,
     Loader,
     Form,
-    Input
+    Input,
+    Dropdown
 } from 'semantic-ui-react';
 import Chat from '../Chat';
 import {
@@ -22,6 +23,8 @@ import {
 } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 import './Messaging.css';
+import { THREADS_NOTIFY_OPTIONS } from '../../utils/threadsHelpers';
+import EditThreadModal from './EditThreadModal';
 
 /**
  * A reusable messaging (threads and chat window) interface.
@@ -34,17 +37,22 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
     // New Thread Modal
     const [showNewThreadModal, setShowNewThreadModal] = useState(false);
     const [newThreadTitle, setNewThreadTitle] = useState('');
+    const [newThreadDefaultNotifSubject, setNewThreadDefaultNotifSubject] = useState('');
     const [newThreadLoading, setNewThreadLoading] = useState(false);
 
     // Delete Thread Modal
     const [showDelThreadModal, setShowDelThreadModal] = useState(false);
     const [delThreadLoading, setDelThreadLoading] = useState(false);
 
+    // Edit Thread Modal
+    const [showEditThreadModal, setShowEditThreadModal] = useState(false);
+
     // Discussion
     const [threads, setThreads] = useState([]);
     const [loadedThreads, setLoadedThreads] = useState(false);
     const [activeThread, setActiveThread] = useState('');
     const [activeThreadTitle, setActiveThreadTitle] = useState('');
+    const [activeThreadDefaultNotifSubject, setActiveThreadDefaultNotifSubject] = useState('');
     const [activeThreadMsgs, setActiveThreadMsgs] = useState([]);
     const [loadedThreadMsgs, setLoadedThreadMsgs] = useState(false);
 
@@ -119,35 +127,44 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
     const activateThread = (thread) => {
         setActiveThread(thread.threadID);
         setActiveThreadTitle(thread.title);
+        setActiveThreadDefaultNotifSubject(thread.defaultNotifSubject ?? 'all');
     };
 
 
-    const submitNewThread = () => {
-        if (!isEmptyString(newThreadTitle)) {
-            setNewThreadLoading(true);
-            axios.post('/project/thread', {
-                projectID: projectID,
-                title: newThreadTitle,
-                kind: kind
-            }).then((res) => {
-                if (!res.data.err) {
-                    getDiscussionThreads();
-                    closeNewThreadModal();
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                    setNewThreadLoading(false);
-                }
-            }).catch((err) => {
-                handleGlobalError(err);
-                setNewThreadLoading(false);
-            });
+    const submitNewThread = async () => {
+      try {
+        if (
+          isEmptyString(newThreadTitle) ||
+          isEmptyString(newThreadDefaultNotifSubject)
+        ) {
+          return;
         }
+        setNewThreadLoading(true);
+        const createRes = await axios.post("/project/thread", {
+          projectID: projectID,
+          title: newThreadTitle,
+          kind: kind,
+          defaultNotifSubject: newThreadDefaultNotifSubject,
+        });
+        if (!createRes.data.err) {
+          getDiscussionThreads();
+          closeNewThreadModal();
+        } else {
+          handleGlobalError(createRes.data.errMsg);
+          setNewThreadLoading(false);
+        }
+      } catch (err) {
+        handleGlobalError(err);
+      } finally {
+        setNewThreadLoading(false);
+      }
     };
 
 
     const openNewThreadModal = () => {
         setNewThreadLoading(false);
         setNewThreadTitle('');
+        setNewThreadDefaultNotifSubject('');
         setShowNewThreadModal(true);
     };
 
@@ -155,9 +172,17 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
     const closeNewThreadModal = () => {
         setShowNewThreadModal(false);
         setNewThreadLoading(false);
+        setNewThreadDefaultNotifSubject('');
         setNewThreadTitle('');
     };
 
+    const handleEditThreadModalSave = () => {
+        getDiscussionThreads();
+        setShowEditThreadModal(false);
+        setActiveThread('');
+        setActiveThreadTitle('');
+        setActiveThreadDefaultNotifSubject('');
+    }
 
     const submitDeleteThread = () => {
         if (!isEmptyString(activeThread)) {
@@ -215,6 +240,21 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                         >
                             <Icon name='trash'/>
                         </Button>
+                        {
+                            activeThread && isProjectAdmin && (
+                                <Button
+                                color='blue'
+                                onClick={() => 
+                                    setShowEditThreadModal(true)
+                                }
+                                fluid
+                                icon
+                                aria-label='Edit Thread Settings'
+                            >
+                               <Icon name='setting'/>
+                            </Button>    
+                            )
+                        }
                         <Button
                             color='olive'
                             onClick={openNewThreadModal}
@@ -271,11 +311,22 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                 kind={kind}
                 activeThread={activeThread}
                 activeThreadTitle={activeThreadTitle}
+                activeThreadDefaultNotifSubject={activeThreadDefaultNotifSubject}
                 activeThreadMsgs={activeThreadMsgs}
                 loadedThreadMsgs={loadedThreadMsgs}
                 getThreads={getDiscussionThreads}
                 getMessages={getThreadMessages}
                 isProjectAdmin={isProjectAdmin}
+            />
+            <EditThreadModal 
+                show={showEditThreadModal}
+                onClose={() => setShowEditThreadModal(false)}
+                onSave={handleEditThreadModalSave}
+                thread={{
+                    threadID: activeThread,
+                    title: activeThreadTitle,
+                    defaultNotifSubject: activeThreadDefaultNotifSubject
+                }}
             />
             {/* New Discussion Thread Modal */}
             <Modal
@@ -295,6 +346,18 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                                 onChange={(e) => setNewThreadTitle(e.target.value)}
                                 value={newThreadTitle}
                             />
+                        </Form.Field>
+                        <Form.Field>
+                            <label>Default Notification Setting</label>
+                            <Dropdown
+                                placeholder="Select a default notification setting"
+                                selection
+                                options={THREADS_NOTIFY_OPTIONS}
+                                onChange={(_e, { value }) => {
+                                setNewThreadDefaultNotifSubject(value?.toString() ?? '');
+                                }}
+                                value={newThreadDefaultNotifSubject}
+                                />
                         </Form.Field>
                     </Form>
                 </Modal.Content>

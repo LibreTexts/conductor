@@ -672,6 +672,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                   kind="task"
                   activeThread={viewTaskData.taskID}
                   activeThreadTitle={viewTaskData.title}
+                  activeThreadDefaultNotifSubject='all'
                   activeThreadMsgs={viewTaskMsgs}
                   loadedThreadMsgs={viewTaskLoadedMsgs}
                   getMessages={getTaskMessages}

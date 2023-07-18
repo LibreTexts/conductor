@@ -5,6 +5,7 @@ export interface ThreadInterface extends Document {
   project: string;
   title: string;
   kind: "project" | "a11y" | "peerreview";
+  defaultNotifSubject: 'all' | 'specific' | 'support' | 'none';
   createdBy: string;
   lastNotifSent?: Date;
 }
@@ -32,6 +33,12 @@ const ThreadSchema = new Schema<ThreadInterface>(
       type: String,
       required: true,
       enum: ["project", "a11y", "peerreview"],
+    },
+    defaultNotifSubject: {
+      // the default notification subject(s) when a new message is posted
+      type: String,
+      required: true,
+      enum: ["all", "specific", "support", "none"],
     },
     createdBy: {
       // the UUID of the user who created the thread

@@ -41,6 +41,7 @@ import {
   CustomFormUIType,
   CustomFormElement,
 } from "./CustomForm";
+import { Thread } from "./Thread";
 
 export type {
   Organization,
@@ -82,6 +83,7 @@ export type {
   CustomFormTextBlock,
   CustomFormUIType,
   CustomFormElement,
+  Thread
 };
 
 export {

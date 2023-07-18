@@ -18,6 +18,7 @@ import mailAPI from './mail.js';
 import projectsAPI from './projects.js';
 import usersAPI from './users.js';
 import { validateUUIDArray } from '../util/helpers.js';
+import { conductor400Err } from '../util/errorutils.js';
 
 const THREAD_NOTIFY_OPTIONS = ['all', 'specific', 'support', 'none'];
 
@@ -39,6 +40,7 @@ const createDiscussionThread = (req, res) => {
                     project: project.projectID,
                     title: req.body.title,
                     kind: req.body.kind,
+                    defaultNotifSubject: req.body.defaultNotifSubject,
                     createdBy: req.user.decoded.uuid
                 });
                 return thread.save();
@@ -69,6 +71,63 @@ const createDiscussionThread = (req, res) => {
         });
     });
 };
+
+const updateDiscussionThread = async (req, res) => {
+    try {
+      if (!req.body.threadID) {
+        return conductor400Err(res);
+      }
+
+      const foundThread = await Thread.findOne({ threadID: req.body.threadID })
+        .lean()
+        .orFail();
+
+      const foundProject = await Project.findOne({
+        projectID: foundThread.project,
+      })
+        .lean()
+        .orFail();
+      if (!projectsAPI.checkProjectAdminPermission(foundProject, req.user)) {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
+
+      const updateObj = {
+        title: req.body.title,
+        defaultNotifSubject: req.body.defaultNotifSubject,
+      };
+
+      const updateRes = await Thread.updateOne(
+        {
+          threadID: req.body.threadID,
+        },
+        updateObj
+      );
+
+      if (updateRes.modifiedCount > 0) {
+        return res.send({
+          err: false,
+          msg: "Thread updated successfully.",
+        });
+      } else {
+        throw new Error("updatefail");
+      }
+    } catch (err) {
+      if (err.name === "DocumentNotFoundError") {
+        return res.send({
+          err: true,
+          errMsg: conductorErrors.err11,
+        });
+      }
+      debugError(err);
+      return res.send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+}
 
 
 /**
@@ -257,8 +316,6 @@ const getProjectThreads = (req, res) => {
  */
 async function createThreadMessage(req, res) {
     try {
-        const DEFAULT_NOTIFY_SETTING = 'all';
-        const resolvedNotifySetting = req.body.notify || DEFAULT_NOTIFY_SETTING;
 
         const { threadID } = req.params;
         const thread = await Thread.findOne({ threadID }).lean();
@@ -267,6 +324,11 @@ async function createThreadMessage(req, res) {
                 err: true,
                 errMsg: conductorErrors.err11,
             });
+        }
+
+        let resolvedNotifySetting = thread.defaultNotifSubject;
+        if (req.body.notify) {
+            resolvedNotifySetting = req.body.notify;
         }
 
         const project = await Project.findOne({ projectID: thread.project }).lean();
@@ -747,10 +809,10 @@ async function getUsersToNotify(notifySetting, uuid, project, task = null, notif
             const emails = await usersAPI.getUserEmails(assignees);
             return emails;
         }
+        return [];
     } catch (e) {
         debugError(e);
     }
-    return [];
 }
 
 /**
@@ -800,7 +862,14 @@ const validate = (method) => {
             return [
                 body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
                 body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
-                body('kind', conductorErrors.err1).exists().isString().custom(validateThreadKind)
+                body('kind', conductorErrors.err1).exists().isString().custom(validateThreadKind),
+                body('defaultNotifSubject', conductorErrors.err1).exists().isString().custom(validateThreadMessageNotifySetting),
+            ]
+        case 'updateDiscussionThread':
+            return [
+                body('threadID', conductorErrors.err1).exists().isString().isLength({ min: 14, max: 14 }),
+                body('title', conductorErrors.err1).exists().isString().isLength({ min: 1 }),
+                body('defaultNotifSubject', conductorErrors.err1).exists().isString().custom(validateThreadMessageNotifySetting),
             ]
         case 'deleteDiscussionThread':
             return [
@@ -842,6 +911,7 @@ const validate = (method) => {
 
 export default {
     createDiscussionThread,
+    updateDiscussionThread,
     deleteDiscussionThread,
     getProjectThreads,
     createThreadMessage,

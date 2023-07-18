@@ -112,12 +112,14 @@ async function createProject(req, res) {
         project: newProject.projectID,
         title: 'Welcome',
         kind: 'project',
+        defaultNotifSubject: 'all',
         createdBy: process.env.CONDUCTOR_SYSTEM_UUID,
       }, {
         threadID: progressThreadID,
         project: newProject.projectID,
         title: 'Progress',
         kind: 'project',
+        defaultNotifSubject: 'all',
         createdBy: process.env.CONDUCTOR_SYSTEM_UUID,
     }];
     await Thread.insertMany(defaultThreads);
