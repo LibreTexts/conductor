@@ -9,7 +9,8 @@ import {
   Table,
   Segment,
   Grid,
-  Header
+  Header,
+  ButtonGroup
 } from "semantic-ui-react";
 import date from "date-and-time";
 import AddFolder from "./AddFolder";
@@ -23,6 +24,7 @@ import {
   checkProjectMemberPermission,
   getFilesAccessText,
 } from "../util/ProjectHelpers";
+import { copyToClipboard} from "../../utils/misc";
 import { fileSizePresentable, truncateString } from "../util/HelperFunctions";
 import useGlobalError from "../error/ErrorHooks";
 import styles from "./FilesManager.module.css";
@@ -111,7 +113,7 @@ const FilesManager = ({ projectID, toggleFilesManager, canViewDetails }) => {
    * Load the Files list on open.
    */
   useEffect(() => {
-      getFiles();
+    getFiles();
   }, [currDirectory]);
 
   /**
@@ -338,24 +340,53 @@ const FilesManager = ({ projectID, toggleFilesManager, canViewDetails }) => {
   }
 
   /**
+   * Requests a download link from the server for a File entry
+   * @param {string} fileID
+   * @returns {string | null}
+   */
+  async function getFileDownloadLink(fileID) {
+    try {
+      const linkRes = await axios.get(
+        `/project/${projectID}/files/${fileID}/download`
+      );
+      if (!linkRes.data.err) {
+        if (linkRes.data.url) {
+          return linkRes.data.url.toString();
+        }
+      }
+      return null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
    * Requests a download link from the server for a File entry, then opens it in a new tab.
-   *
    * @param {string} fileID - Identifier of the File to download.
    */
   async function handleDownloadFile(fileID) {
     try {
-      const downloadRes = await axios.get(
-        `/project/${projectID}/files/${fileID}/download`
-      );
-      if (!downloadRes.data.err) {
-        if (typeof downloadRes.data.url === "string") {
-          window.open(downloadRes.data.url, "_blank", "noreferrer");
-        }
-      } else {
-        throw new Error(downloadRes.data.errMsg);
+      const downloadLink = await getFileDownloadLink(fileID);
+      if (!downloadLink) {
+        throw new Error('Unable to download file.');
       }
+
+      window.open(downloadLink, "_blank", "noreferrer");
     } catch (e) {
       handleGlobalError(e);
+    }
+  }
+
+  async function handleCopyFileUrl(fileID) {
+    try {
+      const fileURL = await getFileDownloadLink(fileID);
+      if (!fileURL) {
+        throw new Error("Unable to copy file URL.");
+      }
+
+      await copyToClipboard(fileURL);
+    } catch (err) {
+      handleGlobalError(err)
     }
   }
 
@@ -415,238 +446,240 @@ const FilesManager = ({ projectID, toggleFilesManager, canViewDetails }) => {
         </Button>
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
-      {
-        canViewDetails && (
-              <Segment>
-                <p style={{fontSize: '0.9em'}}>
-                  If your project has supporting files, use this tool to upload and
-                  organize them. Files with 'public' access will be visible to the
-                  public on Commons via the resource's catalog entry.
-                </p>
-                <Button.Group fluid widths="6">
-                  <Button color="green" onClick={handleShowUploader}>
-                    <Icon name="upload" />
-                    Upload
-                  </Button>
-                  <Button color="olive" onClick={handleShowAddFolder}>
-                    <Icon name="add" />
-                    New Folder
-                  </Button>
-                  <Button
-                    color="teal"
-                    disabled={itemsChecked < 1}
-                    onClick={handleMoveFiles}
-                  >
-                    <Icon name="move" />
-                    Move
-                  </Button>
-                  <Button
-                    color="yellow"
-                    disabled={itemsChecked < 1 || !checkProjectMemberPermission}
-                    onClick={handleChangeAccess}
-                  >
-                    <Icon name="lock" />
-                    Change Access
-                  </Button>
-                  <Button
-                    color="red"
-                    disabled={itemsChecked < 1}
-                    onClick={handleDeleteFiles}
-                  >
-                    <Icon name="trash" />
-                    Delete
-                  </Button>
-                </Button.Group>
-              </Segment>
-            )
-          }
-          {!filesLoading ? (
-            <>
-              <Segment attached="top">
-                <DirectoryBreadcrumbs />
-              </Segment>
-              <Table basic attached="bottom">
-                <Table.Header>
-                  <Table.Row>
-                    {canViewDetails && (
-                      <Table.HeaderCell
-                        key='check'
-                        collapsing={true}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={allItemsChecked}
-                          onChange={handleToggleAllChecked}
-                          aria-label={`${
-                            allItemsChecked ? "Uncheck" : "Check"
-                          } all`}
-                        />
-                      </Table.HeaderCell>
-                    )}
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell
-                        key={item.key}
-                        collapsing={item.collapsing}
-                        width={item.width}
-                      >
-                        {item.text}
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {files.map((item) => {
-                    let uploadTime = null;
-                    let uploaderName = null;
-                    if (item.createdDate) {
-                      const dateInstance = new Date(item.createdDate);
-                      uploadTime = date.format(dateInstance, "MM/DD/YY h:mm A");
-                    }
-                    if (item.uploader?.firstName && item.uploader?.lastName) {
-                      uploaderName = `${item.uploader.firstName} ${item.uploader.lastName}`;
-                    }
-                    return (
-                      <Table.Row className={styles.table_row} key={item.fileID}>
-                        {canViewDetails && (
-                            <Table.Cell>
-                              <input
-                                type="checkbox"
-                                checked={item.checked}
-                                onChange={handleEntryChecked}
-                                value={item.fileID}
-                              />
-                            </Table.Cell>
-                        )}
+        {canViewDetails && (
+          <Segment>
+            <p style={{ fontSize: "0.9em" }}>
+              If your project has supporting files, use this tool to upload and
+              organize them. Files with 'public' access will be visible to the
+              public on Commons via the resource's catalog entry.
+            </p>
+            <Button.Group fluid widths="6">
+              <Button color="green" onClick={handleShowUploader}>
+                <Icon name="upload" />
+                Upload
+              </Button>
+              <Button color="olive" onClick={handleShowAddFolder}>
+                <Icon name="add" />
+                New Folder
+              </Button>
+              <Button
+                color="teal"
+                disabled={itemsChecked < 1}
+                onClick={handleMoveFiles}
+              >
+                <Icon name="move" />
+                Move
+              </Button>
+              <Button
+                color="yellow"
+                disabled={itemsChecked < 1 || !checkProjectMemberPermission}
+                onClick={handleChangeAccess}
+              >
+                <Icon name="lock" />
+                Change Access
+              </Button>
+              <Button
+                color="red"
+                disabled={itemsChecked < 1}
+                onClick={handleDeleteFiles}
+              >
+                <Icon name="trash" />
+                Delete
+              </Button>
+            </Button.Group>
+          </Segment>
+        )}
+        {!filesLoading ? (
+          <>
+            <Segment attached="top">
+              <DirectoryBreadcrumbs />
+            </Segment>
+            <Table basic attached="bottom">
+              <Table.Header>
+                <Table.Row>
+                  {canViewDetails && (
+                    <Table.HeaderCell key="check" collapsing={true}>
+                      <input
+                        type="checkbox"
+                        checked={allItemsChecked}
+                        onChange={handleToggleAllChecked}
+                        aria-label={`${
+                          allItemsChecked ? "Uncheck" : "Check"
+                        } all`}
+                      />
+                    </Table.HeaderCell>
+                  )}
+                  {TABLE_COLS.map((item) => (
+                    <Table.HeaderCell
+                      key={item.key}
+                      collapsing={item.collapsing}
+                      width={item.width}
+                    >
+                      {item.text}
+                    </Table.HeaderCell>
+                  ))}
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {files.map((item) => {
+                  let uploadTime = null;
+                  let uploaderName = null;
+                  if (item.createdDate) {
+                    const dateInstance = new Date(item.createdDate);
+                    uploadTime = date.format(dateInstance, "MM/DD/YY h:mm A");
+                  }
+                  if (item.uploader?.firstName && item.uploader?.lastName) {
+                    uploaderName = `${item.uploader.firstName} ${item.uploader.lastName}`;
+                  }
+                  return (
+                    <Table.Row className={styles.table_row} key={item.fileID}>
+                      {canViewDetails && (
                         <Table.Cell>
-                          <div className={styles.namedescrip_cell}>
-                            <div>
-                              <div className={item.description ? "mb-05e" : ""}>
-                                {item.storageType === "folder" ? (
-                                  <Icon name="folder outline" />
-                                ) : (
-                                  <FileIcon filename={item.name} />
-                                )}
-                                {item.storageType === "folder" ? (
-                                  <span
-                                    className={`text-link ${styles.namedescrip_title}`}
-                                    onClick={() =>
-                                      handleDirectoryClick(item.fileID)
-                                    }
-                                  >
-                                    {item.name}
-                                  </span>
-                                ) : (
-                                  <span className={styles.namedescrip_title}>
-                                    {item.name}
-                                  </span>
-                                )}
-                              </div>
-                              {item.description && (
-                                <span className="muted-text ml-1e">
-                                  {truncateString(item.description, 100)}
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={handleEntryChecked}
+                            value={item.fileID}
+                          />
+                        </Table.Cell>
+                      )}
+                      <Table.Cell>
+                        <div className={styles.namedescrip_cell}>
+                          <div>
+                            <div className={item.description ? "mb-05e" : ""}>
+                              {item.storageType === "folder" ? (
+                                <Icon name="folder outline" />
+                              ) : (
+                                <FileIcon filename={item.name} />
+                              )}
+                              {item.storageType === "folder" ? (
+                                <span
+                                  className={`text-link ${styles.namedescrip_title}`}
+                                  onClick={() =>
+                                    handleDirectoryClick(item.fileID)
+                                  }
+                                >
+                                  {item.name}
+                                </span>
+                              ) : (
+                                <span className={styles.namedescrip_title}>
+                                  {item.name}
                                 </span>
                               )}
                             </div>
-                            {canViewDetails &&
-                              <Button
-                                icon="edit"
-                                size="small"
-                                basic
-                                circular
-                                title="Edit name or description"
-                                onClick={() => handleEditFile(item.fileID)}
-                              />
-                            }
+                            {item.description && (
+                              <span className="muted-text ml-1e">
+                                {truncateString(item.description, 100)}
+                              </span>
+                            )}
                           </div>
-                        </Table.Cell>
-                        <Table.Cell>
-                          {getFilesAccessText(item.access)}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {item.storageType === "file" &&
-                            fileSizePresentable(item.size)}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {uploadTime && <span>{uploadTime} </span>}
-                          {uploaderName && <span>by {uploaderName}</span>}
-                        </Table.Cell>
-                        <Table.Cell textAlign="center">
-                          {item.storageType === "file" && (
+                          {canViewDetails && (
+                            <Button
+                              icon="edit"
+                              size="small"
+                              basic
+                              circular
+                              title="Edit name or description"
+                              onClick={() => handleEditFile(item.fileID)}
+                            />
+                          )}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>{getFilesAccessText(item.access)}</Table.Cell>
+                      <Table.Cell>
+                        {item.storageType === "file" &&
+                          fileSizePresentable(item.size)}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {uploadTime && <span>{uploadTime} </span>}
+                        {uploaderName && <span>by {uploaderName}</span>}
+                      </Table.Cell>
+                      <Table.Cell textAlign="center">
+                        {item.storageType === "file" && (
+                          <div className="flex-row-div">
                             <Button
                               icon
                               size="small"
+                              title="Copy File URL"
+                              onClick={() => handleCopyFileUrl(item.fileID)}>
+                              <Icon name="chain" />
+                            </Button>
+                            <Button
+                              icon
+                              size="small"
+                              color="blue"
                               title="Download file (opens in new tab)"
                               onClick={() => handleDownloadFile(item.fileID)}
                             >
                               <Icon name="download" />
                             </Button>
-                          )}
-                        </Table.Cell>
-                      </Table.Row>
-                    );
-                  })}
-                  {files.length === 0 && (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length}>
-                        <p className="text-muted text-center mt-1p mb-1p">
-                          <em>No files found.</em>
-                        </p>
+                          </div>
+                        )}
                       </Table.Cell>
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </>
-
-          ) : (
-            <Loader active inline="centered" className="mt-2r mb-2r" />
-          )}
-          <FilesUploader
-            show={showUploader}
-            onClose={handleUploaderClose}
-            directory={currDirPath[currDirPath.length - 1].name}
-            projectID={projectID}
-            uploadPath={currDirectory}
-            onFinishedUpload={handleUploadFinished}
-          />
-          <AddFolder
-            show={showAddFolder}
-            onClose={handleAddFolderClose}
-            projectID={projectID}
-            parentDirectory={currDirPath[currDirPath.length - 1].fileID}
-            onFinishedAdd={handleAddFolderFinished}
-          />
-          <ChangeAccess
-            show={showChangeAccess}
-            onClose={handleAccessClose}
-            projectID={projectID}
-            files={accessFiles}
-            onFinishedChange={handleAccessFinished}
-          />
-          <EditFile
-            show={showEdit}
-            onClose={handleEditClose}
-            projectID={projectID}
-            fileID={editID}
-            currentName={editName}
-            currentDescrip={editDescrip}
-            onFinishedEdit={handleEditFinished}
-          />
-          <MoveFiles
-            show={showMove}
-            onClose={handleMoveClose}
-            projectID={projectID}
-            files={moveFiles}
-            currentDirectory={currDirectory}
-            onFinishedMove={handleMoveFinished}
-          />
-          <DeleteFiles
-            show={showDelete}
-            onClose={handleDeleteClose}
-            projectID={projectID}
-            files={deleteFiles}
-            onFinishedDelete={handleDeleteFinished}
-          />
+                  );
+                })}
+                {files.length === 0 && (
+                  <Table.Row>
+                    <Table.Cell colSpan={TABLE_COLS.length}>
+                      <p className="text-muted text-center mt-1p mb-1p">
+                        <em>No files found.</em>
+                      </p>
+                    </Table.Cell>
+                  </Table.Row>
+                )}
+              </Table.Body>
+            </Table>
+          </>
+        ) : (
+          <Loader active inline="centered" className="mt-2r mb-2r" />
+        )}
+        <FilesUploader
+          show={showUploader}
+          onClose={handleUploaderClose}
+          directory={currDirPath[currDirPath.length - 1].name}
+          projectID={projectID}
+          uploadPath={currDirectory}
+          onFinishedUpload={handleUploadFinished}
+        />
+        <AddFolder
+          show={showAddFolder}
+          onClose={handleAddFolderClose}
+          projectID={projectID}
+          parentDirectory={currDirPath[currDirPath.length - 1].fileID}
+          onFinishedAdd={handleAddFolderFinished}
+        />
+        <ChangeAccess
+          show={showChangeAccess}
+          onClose={handleAccessClose}
+          projectID={projectID}
+          files={accessFiles}
+          onFinishedChange={handleAccessFinished}
+        />
+        <EditFile
+          show={showEdit}
+          onClose={handleEditClose}
+          projectID={projectID}
+          fileID={editID}
+          currentName={editName}
+          currentDescrip={editDescrip}
+          onFinishedEdit={handleEditFinished}
+        />
+        <MoveFiles
+          show={showMove}
+          onClose={handleMoveClose}
+          projectID={projectID}
+          files={moveFiles}
+          currentDirectory={currDirectory}
+          onFinishedMove={handleMoveFinished}
+        />
+        <DeleteFiles
+          show={showDelete}
+          onClose={handleDeleteClose}
+          projectID={projectID}
+          files={deleteFiles}
+          onFinishedDelete={handleDeleteFinished}
+        />
       </Segment.Group>
     </Grid.Column>
   );
