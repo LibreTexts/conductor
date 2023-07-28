@@ -7,6 +7,7 @@ import Breakpoint from "../util/Breakpoints.js";
 import withUserStateDependency from "../../enhancers/withUserStateDependency.jsx";
 import "./Navbar.css";
 import { useTypedSelector } from "../../state/hooks.js";
+import { LIBRARIES } from "../../utils/constants.js";
 
 const Navbar: React.FC = () => {
   // Global State, Location, and Error Handling
@@ -154,174 +155,21 @@ const Navbar: React.FC = () => {
             <Icon name="book" />
             <Dropdown inline text="Libraries">
               <Dropdown.Menu>
-                <Dropdown.Item
-                  as="a"
-                  href="https://bio.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("bio")}
-                    className="nav-lib-glyph"
-                  />
-                  Biology
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://biz.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("biz")}
-                    className="nav-lib-glyph"
-                  />
-                  Business
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://chem.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("chem")}
-                    className="nav-lib-glyph"
-                  />
-                  Chemistry
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://eng.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("eng")}
-                    className="nav-lib-glyph"
-                  />
-                  Engineering
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://espanol.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("espanol")}
-                    className="nav-lib-glyph"
-                  />
-                  Español
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://geo.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("geo")}
-                    className="nav-lib-glyph"
-                  />
-                  Geosciences
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://human.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("human")}
-                    className="nav-lib-glyph"
-                  />
-                  Humanities
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://k12.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("k12")}
-                    className="nav-lib-glyph"
-                  />
-                  K12 Education
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://math.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("math")}
-                    className="nav-lib-glyph"
-                  />
-                  Mathematics
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://med.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("med")}
-                    className="nav-lib-glyph"
-                  />
-                  Medicine
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://phys.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("phys")}
-                    className="nav-lib-glyph"
-                  />
-                  Physics
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://socialsci.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("socialsci")}
-                    className="nav-lib-glyph"
-                  />
-                  Social Science
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://stats.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("stats")}
-                    className="nav-lib-glyph"
-                  />
-                  Statistics
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://workforce.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image
-                    src={getLibGlyphURL("workforce")}
-                    className="nav-lib-glyph"
-                  />
-                  Workforce
-                </Dropdown.Item>
+                {LIBRARIES.map((library) => (
+                  <Dropdown.Item
+                    as="a"
+                    href={library.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={library.shortName}
+                  >
+                    <Image
+                      src={getLibGlyphURL(library.shortName)}
+                      className="nav-lib-glyph"
+                    />
+                    {library.longName}
+                  </Dropdown.Item>
+                ))}
               </Dropdown.Menu>
             </Dropdown>
           </Menu.Item>
