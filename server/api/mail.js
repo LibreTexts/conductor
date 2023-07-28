@@ -67,7 +67,7 @@ const sendRegistrationConfirmation = (recipientAddress, recipientName) => {
         to: recipientAddress,
         subject: 'Welcome to Conductor',
         text: `Hi ${recipientName}, welcome to Conductor! You can access your account using this email and the password you set during registration. Remember, Conductor accounts are universal — you can use this account on any Conductor instance in the LibreNet. Sincerely, The LibreTexts team` + autoGenNoticeText,
-        html: `<p>Hi ${recipientName},</p><h2>Welcome to Conductor!</h2><p>You can access your account using your email and the password you set during registration.</p><p><em>Remember, Conductor accounts are universal — you can use this account on any Conductor instance in the LibreNet.</em></p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
+        html: `<p>Hi ${recipientName},</p><h2>Welcome to Conductor!</h2><p>You can access your account using your email and the password you set during registration.</p><p><em>Remember, Conductor accounts are universal — you can use this account on any Conductor instance in the LibreNet.</em></p><p>If you are an educator and want to contribute to the LibreText libraries and other tools, please submit an Account Request at <a href="https://commons.libretexts.org/accountrequest">https://commons.libretexts.org/accountrequest</a> for us to review your credentials.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
     })
 };
 
