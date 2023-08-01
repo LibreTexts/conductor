@@ -18,7 +18,7 @@ export type Organization = {
   footerColor?: string;
   defaultProjectLead: string;
   addToLibreGridList: boolean;
-  catalogMatchingTags: string[];
+  catalogMatchingTags?: string[];
 };
 
 export type CampusSettingsOpts = Pick<
@@ -34,4 +34,6 @@ export type CampusSettingsOpts = Pick<
   | "collectionsMessage"
   | "primaryColor"
   | "footerColor"
+  | "addToLibreGridList"
+  | "catalogMatchingTags"
 >;
