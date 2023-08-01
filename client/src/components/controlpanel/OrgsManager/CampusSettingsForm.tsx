@@ -24,6 +24,7 @@ import { useDispatch } from "react-redux";
 import { CampusSettingsOpts } from "../../../types";
 import isHexColor from "validator/es/lib/isHexColor";
 import { required } from "../../../utils/formRules";
+import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
 
 type CampusSettingsFormProps = {
@@ -44,6 +45,7 @@ const CampusSettingsForm = forwardRef(
   ) => {
     // Global State and Error Handling
     const dispatch = useDispatch();
+    const org = useTypedSelector((state) => state.org);
     const { handleGlobalError } = useGlobalError();
 
     const {
@@ -181,7 +183,7 @@ const CampusSettingsForm = forwardRef(
      * to the server, then re-sync
      * Organization info.
      */
-    const saveChanges = (d: CampusSettingsOpts) => {
+    const saveChanges = async (d: CampusSettingsOpts) => {
       try {
         setLoadedData(false);
         if (!isDirty) {
@@ -223,23 +225,16 @@ const CampusSettingsForm = forwardRef(
         );
         d.footerColor = sanitizeCustomColor(getFormValue("footerColor") ?? "");
 
-        axios
-          .put(`/org/${props.orgID}`, d)
-          .then((saveRes) => {
-            if (saveRes.data.err) {
-              throw new Error(saveRes.data.errMsg);
-            }
-
-            if (saveRes.data.updatedOrg) {
-              dispatch({
-                type: "SET_ORG_INFO",
-                payload: saveRes.data.updatedOrg,
-              });
-            }
-          })
-          .catch((err) => {
-            throw new Error(err);
+        const saveRes = await axios.put(`/org/${props.orgID}`, d);
+        if (saveRes.data.err) {
+          throw new Error(saveRes.data.errMsg);
+        }
+        if (saveRes.data?.updatedOrg?.orgID === org.orgID) {
+          dispatch({
+            type: "SET_ORG_INFO",
+            payload: saveRes.data.updatedOrg,
           });
+        }
 
         setLoadedData(true);
         setSavedData(true);
