@@ -20,7 +20,7 @@ import { isEmptyString } from "../../util/HelperFunctions";
 import { getLikertResponseText } from "../../util/LikertHelpers";
 import PaymentStatusLabel from "./PaymentStatusLabel";
 import UnregisterParticipantsModal from "./UnregisterParticipantsModal";
-import SyncUsersToProjectModal from "./SyncUsersToProjectModal";
+import AutoSyncToProjectModal from "./AutoSyncToProjectModal";
 
 type SelectableParticipant = OrgEventParticipant & {
   selected: boolean;
@@ -33,7 +33,7 @@ type ParticipantsSegmentProps = {
   participants: OrgEventParticipant[];
   loading: boolean;
   canEdit: boolean;
-  syncSuccess: boolean;
+  autoSyncSuccess: boolean;
   activePage: number;
   totalPages: number;
   totalItems: number;
@@ -41,7 +41,7 @@ type ParticipantsSegmentProps = {
   onDownloadParticipants: () => void;
   onChangeActivePage: (page: number) => void;
   onUnregisterParticipants: (ids: string[]) => void;
-  onSyncUsersToProject: (projectID: string) => void;
+  onConfigureAutoSync: (projectID: string) => void;
 };
 
 const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
@@ -51,7 +51,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   participants,
   loading,
   canEdit,
-  syncSuccess,
+  autoSyncSuccess,
   activePage,
   totalPages,
   totalItems,
@@ -59,7 +59,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
   onDownloadParticipants,
   onChangeActivePage,
   onUnregisterParticipants,
-  onSyncUsersToProject,
+  onConfigureAutoSync,
   ...rest
 }) => {
   // UI
@@ -67,7 +67,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     { key: string; text: string }[]
   >([]);
   const [showUnregisterModal, setShowUnregisterModal] = useState(false);
-  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
+  const [showSyncProjectModal, setShowSyncProjectModal] = useState(false);
   const [selectableParticipants, setSelectableParticipants] = useState<
     SelectableParticipant[]
   >([]);
@@ -194,9 +194,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     setSelectableParticipants(arr);
   }
 
-  function handleSyncUsersToProject(projectID: string) {
-    onSyncUsersToProject(projectID);
-    setShowAddToProjectModal(false);
+  function handleConfigureAutoSync(projectID: string) {
+    onConfigureAutoSync(projectID);
+    setShowSyncProjectModal(false);
   }
 
   function TableRow({
@@ -304,10 +304,10 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         <Segment loading={loading}>
           <div className="flex-row-div flex-row-verticalcenter mb-1p">
             <div className="left-flex">
-              {syncSuccess && (
+              {autoSyncSuccess && (
                 <Message success>
                   <Icon name="check" />
-                  <span>Successfully synced users to project</span>
+                  <span>Auto-Sync Configured Successfully</span>
                 </Message>
               )}
             </div>
@@ -322,11 +322,10 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
               </Button>
               <Button
                 color="blue"
-                disabled={!participants || participants.length === 0}
-                onClick={() => setShowAddToProjectModal(true)}
+                onClick={() => setShowSyncProjectModal(true)}
               >
-                <Icon name="refresh" />
-                <span>Sync All Users to Project</span>
+                <Icon name="setting" />
+                <span>Configure Auto-Sync to Project</span>
               </Button>
             </div>
           </div>
@@ -428,11 +427,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         onClose={() => setShowUnregisterModal(false)}
         onConfirm={handleUnregisterParticipants}
       />
-      <SyncUsersToProjectModal
-        show={showAddToProjectModal}
-        selectedParticipants={selectedParticipants.map((p) => p.regID)}
-        onClose={() => setShowAddToProjectModal(false)}
-        onConfirm={(projectID) => handleSyncUsersToProject(projectID)}
+      <AutoSyncToProjectModal
+        show={showSyncProjectModal}
+        orgEvent={orgEvent}
+        onClose={() => setShowSyncProjectModal(false)}
+        onConfirm={(projectID) => handleConfigureAutoSync(projectID)}
       />
     </Grid.Column>
   );

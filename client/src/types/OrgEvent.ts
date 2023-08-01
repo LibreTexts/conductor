@@ -62,6 +62,7 @@ export type OrgEvent = BaseDocument & {
   participants: OrgEventParticipant[];
   feeWaivers: OrgEventFeeWaiver[];
   collectShipping: boolean;
+  projectSyncID?: string;
   createdBy: string;
   canceled: boolean;
 };

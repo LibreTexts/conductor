@@ -5,18 +5,18 @@ import { useCallback, useEffect, useState } from "react";
 import useGlobalError from "../../error/ErrorHooks";
 import useDebounce from "../../../hooks/useDebounce";
 import axios from "axios";
-import { GenericKeyTextValueObj, Project } from "../../../types";
+import { GenericKeyTextValueObj, OrgEvent, Project } from "../../../types";
 
-type SyncUsersToProjectModalProps = {
+type AutoSyncToProjectModalProps = {
   show: boolean;
-  selectedParticipants: string[];
+  orgEvent: OrgEvent;
   onClose: () => void;
   onConfirm: (projectID: string) => void;
 };
 
-const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
+const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
   show,
-  selectedParticipants,
+  orgEvent,
   onClose,
   onConfirm,
   ...props
@@ -31,6 +31,7 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
     GenericKeyTextValueObj<string>[]
   >([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
 
   const getProjectOpts = async (searchQuery: string) => {
     try {
@@ -70,8 +71,32 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
     250
   );
 
+  async function getCurrentProjectInfo() {
+    try {
+      if (!orgEvent.projectSyncID) return;
+      setLoading(true);
+      const res = await axios.get("/project/", {
+        params: { projectID: orgEvent.projectSyncID },
+      });
+
+      if (res.data.err || !res.data.project) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      setCurrentProject(res.data.project);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Clear state when modal closes
   useEffect(() => {
+    if (show) {
+      getCurrentProjectInfo();
+    }
     if (!show) {
       setProjectOpts([]);
       setSelectedProject("");
@@ -91,13 +116,23 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
 
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Sync All Users to Project</Modal.Header>
+      <Modal.Header>Configure Auto-Sync Users to Project</Modal.Header>
       <Modal.Content scrolling style={{ minHeight: "30vh" }}>
         <Form noValidate>
+          {currentProject && (
+            <p className="mb-2p">
+              <strong>Current Auto-Sync Project: </strong>
+              {currentProject
+                ? `${currentProject.title} (${currentProject.projectID})`
+                : ""}
+            </p>
+          )}
           <Form.Group widths="equal">
             <Form.Select
               search
-              label="Select Project"
+              label={
+                orgEvent.projectSyncID ? "Select New Project" : "Select Project"
+              }
               placeholder="Start typing to search by title..."
               options={projectOpts}
               onChange={(_e, { value }) => {
@@ -115,18 +150,23 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
           </Form.Group>
         </Form>
         <p>
-          <strong>Note:</strong> Only participants with emails that can be matched to a
-          Conductor account will be added to the project. All participants will
-          be added with the <strong>Project Member</strong> role. Participants
-          who were previously synced will not be duplicated.
+          <strong>Note:</strong> Only participants with emails that can be
+          matched to a Conductor account will be added to the project. All
+          participants will be added with the <strong>Project Member</strong>{" "}
+          role. Existing participants will be synced upon submission of this
+          form. Future participants will be synced automatically. If a
+          participant cancels their registration, they <strong>will not</strong>{" "}
+          automatically be removed from the project.
         </p>
+        <p></p>
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={() => handleConfirm()} color="green">
-          <Icon name="refresh" />
-          Confirm Sync
-        </Button>
-
+        {selectedProject && (
+          <Button onClick={() => handleConfirm()} color="green">
+            <Icon name="refresh" />
+            Confirm Sync Settings
+          </Button>
+        )}
         <Button onClick={onClose} color="grey">
           Cancel
         </Button>
@@ -135,4 +175,4 @@ const SyncUsersToProjectModal: React.FC<SyncUsersToProjectModalProps> = ({
   );
 };
 
-export default SyncUsersToProjectModal;
+export default AutoSyncToProjectModal;
