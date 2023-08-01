@@ -57,6 +57,8 @@ const AccountRequestSchema = new Schema<AccountRequestInterface>(
   }
 );
 
+AccountRequestSchema.index({ requester: 1})
+
 const AccountRequest = model<AccountRequestInterface>(
   "AccountRequest",
   AccountRequestSchema
