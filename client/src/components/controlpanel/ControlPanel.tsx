@@ -57,6 +57,12 @@ const ControlPanel = () => {
             description: 'View requests to access LibreTexts textbook analytics feeds'
         },
         {
+            url: '/controlpanel/central-identity',
+            icon: 'key',
+            title: 'Central Identity',
+            description: 'View and manage users and organizations on the LibreOne platform'
+        },
+        {
             url: '/controlpanel/eventsmanager',
             icon: 'calendar alternate outline',
             title: 'Events Manager',
@@ -69,16 +75,16 @@ const ControlPanel = () => {
             description: 'View and manage OER Integration Requests submitted to the Conductor platform'
         },
         {
-            url: '/controlpanel/orgsmanager',
-            icon: 'building',
-            title: 'Organizations Manager',
-            description: 'View and manage Organizations on the Conductor platform'
-        },
-        {
             url: '/controlpanel/homeworkmanager',
             icon: 'tasks',
             title: 'Homework Manager',
             description: 'View and manage Homework resources listed on the LibreCommons'
+        },
+        {
+            url: '/controlpanel/orgsmanager',
+            icon: 'sitemap',
+            title: 'Organizations Manager',
+            description: 'View and manage Organizations on the Conductor platform'
         },
     ];
 

@@ -19,8 +19,18 @@ import {
   CustomFormPromptType,
   CustomFormTextBlockType,
 } from "./CustomForm";
+import {
+  CentralIdentityUser,
+  CentralIdentityOrg,
+  CentralIdentityService,
+  CentralIdentitySystem,
+} from "./CentralIdentity";
 
 export type {
+  CentralIdentityUser,
+  CentralIdentityOrg,
+  CentralIdentityService,
+  CentralIdentitySystem,
   ReaderResource,
   CustomFormHeadingType,
   CustomFormPromptType,

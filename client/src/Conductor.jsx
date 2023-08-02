@@ -46,6 +46,10 @@ import Search from './components/search/Search';
 import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
 import LoadingSpinner from './components/LoadingSpinner';
+const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
+const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
+const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
+const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -93,6 +97,10 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
         <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
         <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
+        <PrivateRoute exact path='/controlpanel/central-identity' component={CentralIdentity} />
+        <PrivateRoute exact path='/controlpanel/central-identity/orgs' component={CentralIdentityOrgs} />
+        <PrivateRoute exact path='/controlpanel/central-identity/services' component={CentralIdentityServices} />
+        <PrivateRoute exact path='/controlpanel/central-identity/users' component={CentralIdentityUsers} />
         <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />

@@ -1,6 +1,7 @@
 import { model, Schema, Document } from "mongoose";
 
 export type UserInterface = Document & {
+  centralID: string;
   uuid: string;
   firstName: string;
   lastName: string;

@@ -31,7 +31,11 @@ import {
   LicenseReportMeta,
   LicenseReportText,
 } from "./LicenseReport";
-import { OrgEventParticipant, OrgEvent, OrgEventParticipantFormResponse } from "./OrgEvent";
+import {
+  OrgEventParticipant,
+  OrgEvent,
+  OrgEventParticipantFormResponse,
+} from "./OrgEvent";
 import {
   CustomFormBlockType,
   CustomFormHeading,
@@ -41,8 +45,13 @@ import {
   CustomFormUIType,
   CustomFormElement,
 } from "./CustomForm";
+import { CentralIdentityUser, CentralIdentityOrg, CentralIdentityService, CentralIdentitySystem } from "./CentralIdentity";
 
 export type {
+  CentralIdentityUser,
+  CentralIdentityOrg,
+  CentralIdentityService,
+  CentralIdentitySystem,
   Organization,
   CampusSettingsOpts,
   Collection,
