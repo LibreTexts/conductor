@@ -37,8 +37,8 @@ const AccountStatus = ({
     <Label
       as="a"
       target="_blank"
-      href="/accountrequest"
-      aria-label="Unverified user, submit an account request (opens in new tab)"
+      href="/verification/instructor"
+      aria-label="Unverified user, submit an Instructor Verfication Request (opens in new tab)"
       className="home-unverified-label"
     >
       <Popup
@@ -49,7 +49,7 @@ const AccountStatus = ({
             {thirdPerson ? "They" : "You"} haven't yet been verified as an
             instructor by the LibreTexts team. The LibreTexts team can verify{" "}
             {thirdPerson ? "them" : "you"} if {thirdPerson ? "they" : "you"}{" "}
-            submit an Account Request. The Conductor experience won't be
+            submit an Instructor Verification Request. The Conductor experience won't be
             impacted by this.
           </p>
         }

@@ -87,12 +87,12 @@ const CommonsNavbar = ({
     return (
       <Menu.Item
         as={Link}
-        to="/accountrequest"
+        to="/verification/instructor"
         target="_blank"
         rel="noreferrer"
         className="commons-nav-link"
       >
-        Instructor Account Request
+        Instructor Verification Request
         {isMobile && (
           <Icon name="share alternate" className="float-right" />
         )}

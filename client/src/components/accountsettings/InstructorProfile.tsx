@@ -166,7 +166,7 @@ const InstructorProfile = ({
       <p>
         {`LibreTexts uses your Instructor Profile to verify your identity and status at an academic
        institution when you submit an `}
-        <Link to="/accountrequest">Account Request</Link>. If you need to update
+        <Link to="/verification/instructor">Instructor Verification Request</Link>. If you need to update
         your information, you can do so below.
       </p>
       <Card raised fluid className="mt-1e mb-2e">

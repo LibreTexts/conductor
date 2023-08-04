@@ -20,7 +20,7 @@ import {
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
-import { AccountRequest, AccountRequestPurpose } from "./AccountRequest";
+import { AccountRequest, AccountRequestPurpose, InstructorVerifReqStatus, InstructorVerifReqStatuses, InstructorVerifReq } from "./InstructorVerifReq";
 import { CatalogLocation } from "./Catalog";
 import { PeerReview } from "./PeerReview";
 import { PeerReviewRubric } from "./PeerReviewRubric";
@@ -73,6 +73,8 @@ export type {
   Homework,
   AdaptAssignment,
   AccountRequest,
+  InstructorVerifReq,
+  InstructorVerifReqStatus,
   CatalogLocation,
   PeerReview,
   PeerReviewRubric,
@@ -100,4 +102,5 @@ export {
   ProjectClassification,
   ProjectStatus,
   AccountRequestPurpose,
+  InstructorVerifReqStatuses,
 };

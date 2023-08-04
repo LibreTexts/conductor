@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 
-const AccountRequest = lazy(() => import('./screens/conductor/AccountRequest'));
+const InstructorVerificationRequest = lazy(() => import('./screens/conductor/InstructorVerificationRequest'));
 const AccountRequests = lazy(() => import('./screens/conductor/controlpanel/AccountRequests'));
 const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
@@ -109,7 +109,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
-          <PrivateRoute exact path="/accountrequest" key="accountrequest" component={AccountRequest} unAuthSrc="accountrequest" />
+          <PrivateRoute exact path="/verification/instructor" key="instructorverifreq" component={InstructorVerificationRequest} unAuthSrc="accountrequest" />
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 
