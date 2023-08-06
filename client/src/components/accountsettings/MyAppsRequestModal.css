@@ -1,0 +1,30 @@
+.cart-item {
+  display: flex;
+  border-radius: 5px;
+  padding: 1em 1.5em;
+  align-items: center;
+  background-color: #f2f2f2;
+  height: 4rem;
+  margin-bottom: 0.75em;
+  &:hover {
+    border: 0.5px solid #cecece;
+    box-shadow: 0 0 5px #cecece;
+  }
+}
+
+.cart-item-left {
+  display: flex;
+  flex-basis: 80%;
+}
+
+.cart-item-right {
+  display: flex;
+  flex-basis: 20%;
+  justify-content: flex-end;
+}
+
+.cart-item-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 0;
+}
