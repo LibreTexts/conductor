@@ -305,6 +305,30 @@ body {
 
 
 /** padding-top **/
+.pt-05e {
+    padding-top: 0.5em !important;
+}
+
+.pt-05p {
+    padding-top: 0.5% !important;
+}
+
+.pt-1e {
+    padding-top: 1em !important;
+}
+
+.pt-1p {
+    padding-top: 1% !important;
+}
+
+.pt-1r {
+    padding-top: 1rem !important;
+}
+
+.pt-2e {
+    padding-top: 2em !important;
+}
+
 .pt-2p {
     padding-top: 2% !important;
 }
@@ -358,7 +382,51 @@ body {
     padding-bottom: 4rem !important;
 }
 
+/** padding-vertical **/
+.py-auto {
+    padding-top: auto;
+    padding-bottom: auto;
+}
 
+.py-05e {
+    padding-top: 0.5em !important;
+    padding-bottom: 0.5em !important;
+}
+
+.py-05p {
+    padding-top: 0.5% !important;
+    padding-bottom: 0.5% !important;
+}
+
+.py-1e {
+    padding-top: 1em !important;
+    padding-bottom: 1em !important;
+}
+
+.py-1p {
+    padding-top: 1% !important;
+    padding-bottom: 1% !important;
+}
+
+.py-1r {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.py-2e {
+    padding-top: 2em !important;
+    padding-bottom: 2em !important;
+}
+
+.py-2p {
+    padding-top: 2% !important;
+    padding-bottom: 2% !important;
+}
+
+.py-2r {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
 
 /** padding-left **/
 .pl-2p {
@@ -370,12 +438,68 @@ body {
 }
 
 /** padding-right **/
+.pr-05e {
+    padding-right: 0.5em !important;
+}
+
+.pr-05p {
+    padding-right: 0.5% !important;
+}
+
+.pr-1e {
+    padding-right: 1em !important;
+}
+
+.pr-1p {
+    padding-right: 1% !important;
+}
+
+.pr-1r {
+    padding-right: 1rem !important;
+}
+
 .pr-2p {
     padding-right: 2% !important;
 }
 
 .pr-4p {
     padding-right: 4% !important;
+}
+
+/** padding-horizontal **/
+.px-auto {
+    padding-left: auto;
+    padding-right: auto;
+}
+
+.px-05e {
+    padding-left: 0.5em !important;
+    padding-right: 0.5em !important;
+}
+
+.px-05p {
+    padding-left: 0.5% !important;
+    padding-right: 0.5% !important;
+}
+
+.px-1e {
+    padding-left: 1em !important;
+    padding-right: 1em !important;
+}
+
+.px-1p {
+    padding-left: 1% !important;
+    padding-right: 1% !important;
+}
+
+.px-1r {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+.px-2p {
+    padding-left: 2% !important;
+    padding-right: 2% !important;
 }
 
 /** padding-vertical **/
@@ -747,6 +871,10 @@ body {
     margin-right: auto;
 }
 
+.flex {
+    display: flex;
+}
+
 .flex-row-div {
     display: flex;
     flex-direction: row;
@@ -802,6 +930,86 @@ body {
 .flex-break-column {
     flex-basis: 100%;
     width: 0;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.align-start {
+    align-items: flex-start;
+}
+
+.align-end {
+    align-items: flex-end;
+}
+
+.align-stretch {
+    align-items: stretch;
+}
+
+.align-baseline {
+    align-items: baseline;
+}
+
+.align-self-center {
+    align-self: center;
+}
+
+.align-self-start {
+    align-self: flex-start;
+}
+
+.align-self-end {
+    align-self: flex-end;
+}
+
+.align-self-stretch {
+    align-self: stretch;
+}
+
+.align-self-baseline {
+    align-self: baseline;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-start {
+    justify-content: flex-start;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.justify-stretch {
+    justify-content: stretch;
+}
+
+.justify-baseline {
+    justify-content: baseline;
+}
+
+.justify-self-center {
+    justify-self: center;
+}
+
+.justify-self-start {
+    justify-self: flex-start;
+}
+
+.justify-self-end {
+    justify-self: flex-end;
+}
+
+.justify-self-stretch {
+    justify-self: stretch;
+}
+
+.justify-self-baseline {
+    justify-self: baseline;
 }
 
 .clear-grid {

@@ -13,10 +13,10 @@ import useGlobalError from "../error/ErrorHooks";
 import { AuthorizedApp } from "../../types";
 
 /**
- * The Authorized Applications pane lists partner applications that the user has authorized to
+ * The External Applications pane lists partner applications that the user has authorized to
  * access their account (e.g., via OAuth) and allows access to be revoked.
  */
-const AuthorizedApplications = () => {
+const ExternalApps = () => {
   // Global State and Error Handling
   const { handleGlobalError } = useGlobalError();
 
@@ -29,11 +29,18 @@ const AuthorizedApplications = () => {
   const [apps, setApps] = useState<AuthorizedApp[]>([]);
 
   /**
+   * Retrieve data from the server on load.
+   */
+  useEffect(() => {
+    getAuthorizedApplications();
+  }, []);
+
+  /**
    * Retrieve the user's authorized applications from the server and save them to state.
    */
-  const getAuthorizedApplications = useCallback(async () => {
-    setLoading(true);
+  async function getAuthorizedApplications() {
     try {
+      setLoading(true);
       const appsRes = await axios.get("/user/authorizedapps");
       if (!appsRes.data.err) {
         if (Array.isArray(appsRes.data.apps)) {
@@ -44,24 +51,18 @@ const AuthorizedApplications = () => {
       }
     } catch (e) {
       handleGlobalError(e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [setApps, setLoading, handleGlobalError]);
-
-  /**
-   * Retrieve data from the server on load.
-   */
-  useEffect(() => {
-    getAuthorizedApplications();
-  }, [getAuthorizedApplications]);
+  }
 
   /**
    * Submits a request to the server to revoke an application's access, then
    * refreshes the user's authorized apps list.
    */
   async function submitRevokeAccess() {
-    setLoading(true);
     try {
+      setLoading(true);
       if (!revokeApp) {
         throw new Error("Error loading app to revoke.");
       }
@@ -77,8 +78,9 @@ const AuthorizedApplications = () => {
       }
     } catch (e) {
       handleGlobalError(e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   /**
@@ -101,11 +103,12 @@ const AuthorizedApplications = () => {
 
   return (
     <Segment basic className="pane-segment" loading={loading}>
-      <h2>Authorized Applications</h2>
+      <h2>Authorized External Applications</h2>
       <Divider />
       <p>
-        You gave the applications below access to view and/or data in your
-        Conductor account. Remove access for applications you no longer use.
+        You gave the applications below access to view and/or modify data in
+        your Conductor account. Revoke access for applications you no longer
+        use.
       </p>
       <List
         divided
@@ -166,4 +169,4 @@ const AuthorizedApplications = () => {
   );
 };
 
-export default AuthorizedApplications;
+export default ExternalApps;
