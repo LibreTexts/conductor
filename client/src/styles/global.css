@@ -278,10 +278,31 @@ body {
     padding-right: auto;
 }
 
+.px-05e {
+    padding-left: 0.5em !important;
+    padding-right: 0.5em !important;
+}
+
+.px-05p {
+    padding-left: 0.5% !important;
+    padding-right: 0.5% !important;
+}
+
+.px-1e {
+    padding-left: 1em !important;
+    padding-right: 1em !important;
+}
+
+.px-1p {
+    padding-left: 1% !important;
+    padding-right: 1% !important;
+}
+
 .px-2p {
     padding-left: 2% !important;
     padding-right: 2% !important;
 }
+
 
 /** padding-top **/
 .pt-2p {
@@ -357,7 +378,54 @@ body {
     padding-right: 4% !important;
 }
 
+/** padding-vertical **/
+.py-05e {
+    padding-top: 0.5em !important;
+    padding-bottom: 0.5em !important;
+}
+
+.py-05p {
+    padding-top: 0.5% !important;
+    padding-bottom: 0.5% !important;
+}
+
+.py-1e {
+    padding-top: 1em !important;
+    padding-bottom: 1em !important;
+}
+
+.py-1p {
+    padding-top: 1% !important;
+    padding-bottom: 1% !important;
+}
+
+.py-2p {
+    padding-top: 2% !important;
+    padding-bottom: 2% !important;
+}
+
+.py-4p {
+    padding-top: 4% !important;
+    padding-bottom: 4% !important;
+}
+
 /** padding-all **/
+.pa-05e {
+    padding: 0.5em !important;
+}
+
+.pa-05p {
+    padding: 0.5% !important;
+}
+
+.pa-1e {
+    padding: 1em !important;
+}
+
+.pa-1p {
+    padding: 1% !important;
+}
+
 .pa-2p {
     padding: 2% 2% !important;
 }
@@ -559,6 +627,18 @@ body {
 }
 
 /** margin-left **/
+.ml-025e {
+    margin-left: 0.25em !important;
+}
+
+.ml-025p {
+    margin-left: 0.25% !important;
+}
+
+.ml-025r {
+    margin-left: 0.25rem !important;
+}
+
 .ml-05e {
     margin-left: 0.5em !important;
 }

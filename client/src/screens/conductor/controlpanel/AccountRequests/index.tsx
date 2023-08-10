@@ -10,8 +10,8 @@ import {
   Segment,
   Table,
 } from "semantic-ui-react";
-import ViewAccountRequest from "../../../../components/accountrequests/ViewAccountRequest";
-import { getPurposeText } from "../../../../utils/accountRequestHelpers";
+import ViewAccountRequest from "../../../../components/InstructorVerificationRequest/ViewAccountRequest";
+import { getPurposeText } from "../../../../utils/instructorVerificationRequestHelpers";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { AccountRequest } from "../../../../types";
 import { format, parseISO } from "date-fns";

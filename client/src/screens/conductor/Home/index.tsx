@@ -581,7 +581,7 @@ const Home = () => {
                 <Icon name="clipboard check" />
               </Menu.Item>
               <Menu.Item
-                href="https://commons.libretexts.org/accountrequest"
+                href="https://commons.libretexts.org/verification/instructor"
                 target="_blank"
                 rel="noopener noreferrer"
               >

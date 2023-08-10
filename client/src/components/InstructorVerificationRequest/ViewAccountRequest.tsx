@@ -10,7 +10,7 @@ import {
   Modal,
   Popup,
 } from "semantic-ui-react";
-import { getPurposeText } from "../../utils/accountRequestHelpers";
+import { getPurposeText } from "../../utils/instructorVerificationRequestHelpers";
 import { normalizeURL, truncateString } from "../util/HelperFunctions";
 import { getLibGlyphURL, getLibraryName } from "../util/LibraryOptions";
 import useGlobalError from "../error/ErrorHooks";

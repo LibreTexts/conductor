@@ -27,3 +27,23 @@ export type AccountRequest = {
   moreInfo?: boolean;
   createdAt?: Date;
 };
+
+export const InstructorVerifReqStatuses = [
+  "not_attempted",
+  "pending",
+  "needs_review",
+  "denied",
+  "verified",
+];
+
+export type InstructorVerifReqStatus =
+  (typeof InstructorVerifReqStatuses)[number];
+
+export type InstructorVerifReq = {
+  _id?: string;
+  status: InstructorVerifReqStatus;
+  bioURL: string;
+  registrationCode?: string;
+  apps: string[];
+  libraries: string[];
+};

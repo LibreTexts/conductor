@@ -4,6 +4,8 @@ import {
   CustomFormTextBlock,
   CustomFormPrompt,
   LicenseReport,
+  InstructorVerifReqStatus,
+  InstructorVerifReqStatuses,
 } from "../types";
 
 export function isCatalogLocation(
@@ -55,3 +57,8 @@ export function isCustomFormHeadingOrTextBlock(
 export function isCustomFormPromptBlock(obj: any): obj is CustomFormPrompt {
   return "promptType" in obj && "promptText" in obj;
 }
+
+export const isKeyOfInstructorVerifReqStatus = (key: string): key is InstructorVerifReqStatus => {
+  return InstructorVerifReqStatuses.includes(key as InstructorVerifReqStatus);
+}
+
