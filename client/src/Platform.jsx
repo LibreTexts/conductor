@@ -24,7 +24,7 @@ const Platform = () => {
     return res;
   }, (err) => {
     if (err.response?.status === 401 && err.response?.data?.tokenExpired === true) {
-      AuthHelper.logout(null, true, window.location);
+      AuthHelper.logout(true, window.location);
     }
     return Promise.reject(err);
   });

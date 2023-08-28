@@ -48,13 +48,10 @@ const Navbar: React.FC = () => {
   }, [location, setActiveItem, setSearchInput]);
 
   /**
-   * Clear user information from the
-   * global state, clear auth tokens
-   * from the browser, then redirect
-   * to main page.
+   * Ends the user's session.
    */
   const logOut = () => {
-    AuthHelper.logout(user);
+    AuthHelper.logout();
   };
 
   /**

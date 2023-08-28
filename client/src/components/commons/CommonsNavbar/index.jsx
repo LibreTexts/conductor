@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
+import AuthHelper from '../../util/AuthHelper';
 import Breakpoint from '../../util/Breakpoints';
 import './CommonsNavbar.css';
 
@@ -189,8 +190,8 @@ const CommonsNavbar = ({
     }
     return (
       <Menu.Item
-        as={Link}
-        to="/login"
+        as="a"
+        href={AuthHelper.generateLoginURL()}
         className="commons-nav-link"
       >
         Login to Conductor <Icon name="lightning" className="float-right" />

@@ -237,7 +237,11 @@ export function assembleUrl(parts) {
       if (!url.endsWith('/') && url.trim().length > 1) {
         url = `${url}/`;
       }
-      url = `${url}${currPart}`;
+      if (currPart.startsWith('/')) {
+        url = `${url}${currPart.slice(1, currPart.length)}`;
+      } else {
+        url = `${url}${currPart}`;
+      }
     }
   }
   return url;

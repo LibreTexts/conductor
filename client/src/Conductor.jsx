@@ -20,11 +20,12 @@ const CollectionsManager = lazy(() => import('./components/controlpanel/Collecti
 const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
+const FallbackAuth = lazy(() => import('./screens/conductor/FallbackAuth'));
 import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
-import Login from './components/auth/Login';
+const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
 import Navbar from './components/navigation/Navbar';
@@ -40,8 +41,6 @@ import ProjectsFlagged from './components/projects/ProjectsFlagged';
 import ProjectsPortal from './components/projects/ProjectsPortal';
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
-import Register from './components/auth/Register';
-import ResetPassword from './components/auth/ResetPassword';
 import Search from './components/search/Search';
 import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
@@ -68,8 +67,7 @@ const Conductor = () => {
       <Suspense fallback={<LoadingSpinner />}>
         <Switch>
         <AnonRoute exact path='/login' component={Login} />
-        <AnonRoute exact path='/register' component={Register} />
-        <AnonRoute exact path='/resetpassword' component={ResetPassword} />
+        <AnonRoute exact path='/fallback-auth' component={FallbackAuth} />
         <PrivateRoute exact path='/home' component={Home} />
         <PrivateRoute exact path='/search' component={Search} />
         <PrivateRoute exact path='/alerts' component={MyAlerts} />

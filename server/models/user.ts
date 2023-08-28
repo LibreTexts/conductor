@@ -6,18 +6,13 @@ export type UserInterface = Document & {
   firstName: string;
   lastName: string;
   email: string;
+  authType?: "traditional" | "sso";
+  password?: string;
   avatar?: string;
-  hash?: string;
-  salt?: string;
   roles?: {
     org?: string;
     role?: string;
   }[];
-  authType?: "traditional" | "sso";
-  authSub?: string;
-  lastResetAttempt?: Date;
-  resetToken?: string;
-  tokenExpiry?: Date;
   customAvatar?: boolean;
   pinnedProjects?: string[];
   authorizedApps?: {
@@ -34,12 +29,7 @@ export type UserInterface = Document & {
 
 export type SanitizedUserInterface = Omit<
   UserInterface,
-  | "hash"
-  | "salt"
-  | "authSub"
-  | "lastResetAttempt"
-  | "resetToken"
-  | "tokenExpiry"
+  | "password"
   | "customAvatar"
   | "isSystem"
 >;
@@ -48,10 +38,15 @@ export type SanitizedUserInterface = Omit<
  * Query SELECT params to ignore sensitive data
  */
 export const SanitizedUserSelectQuery =
-  "-hash -salt -authSub -lastResetAttempt -resetToken -tokenExpiry -customAvatar -authType -roles -isSystem";
+  "-password -customAvatar -authType -roles -isSystem";
 
 const UserSchema = new Schema<UserInterface>(
   {
+    centralID: {
+      type: String,
+      required: true, // set 'system' for fallback authentication
+      unique: true,
+    },
     uuid: {
       type: String,
       required: true,
@@ -69,20 +64,15 @@ const UserSchema = new Schema<UserInterface>(
       required: true,
       unique: true,
     },
+    authType: String, // one of ['traditional', 'sso']
+    password: String, // only used for fallback authentication
     avatar: String,
-    hash: String,
-    salt: String,
     roles: [
       {
         org: String,
         role: String,
       },
     ],
-    authType: String, // the original authentication type, one of ['traditional', 'sso']
-    authSub: String, // the 'sub' field from the SSO service
-    lastResetAttempt: Date, // the datetime of the last password reset attempt
-    resetToken: String, // the cryptographically-generated active reset token
-    tokenExpiry: Date, // the datetime that the @resetToken is no longer valid
     customAvatar: Boolean, // if the user has set their own avatar
     pinnedProjects: [String], // UUIDs of 'pinned' projects
     /**

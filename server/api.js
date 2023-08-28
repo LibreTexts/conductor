@@ -34,9 +34,9 @@ import analyticsAPI from './api/analytics.js';
 import orgEventsAPI from './api/orgevents.js';
 import paymentsAPI from './api/payments.js';
 
-let router = express.Router();
+const router = express.Router();
 
-const ssoRoutes = ['/oauth/libretexts', '/auth/initsso'];
+const ssoRoutes = ['/auth/login', '/auth/logout', '/oidc/libretexts'];
 const apiAuthRoutes = ['/oauth2.0/authorize', '/oauth2.0/accessToken'];
 
 router.use(middleware.middlewareFilter(['/payments/webhook'], bodyParser.json()));
@@ -93,35 +93,16 @@ router.use(middleware.middlewareFilter(
 ));
 
 /* Auth */
-router.route('/auth/login').post(
-  authAPI.validate('login'),
-  middleware.checkValidationErrors,
-  authAPI.login,
-);
+router.route('/oidc/libretexts').get(authAPI.completeLogin);
 
-router.route('/auth/register').post(
-  authAPI.validate('register'),
-  middleware.checkValidationErrors,
-  authAPI.register,
-);
+router.route('/auth/login').get(authAPI.initLogin);
 
-router.route('/auth/resetpassword').post(
-  authAPI.validate('resetPassword'),
-  middleware.checkValidationErrors,
-  authAPI.resetPassword,
-);
+router.route('/auth/logout').get(authAPI.logout);
 
-router.route('/auth/resetpassword/complete').post(
-  authAPI.validate('completeResetPassword'),
+router.route('/auth/fallback-auth').post(
+  authAPI.validate('fallbackAuthLogin'),
   middleware.checkValidationErrors,
-  authAPI.completeResetPassword,
-);
-
-router.route('/auth/changepassword').put(
-  authAPI.verifyRequest,
-  authAPI.validate('changePassword'),
-  middleware.checkValidationErrors,
-  authAPI.changePassword,
+  authAPI.fallbackAuthLogin,
 );
 
 /* LibreOne Auth */
@@ -162,15 +143,10 @@ router.route('/central-identity/services').get(
   centralIdentityAPI.getServices
 )
 
+/* OAuth (server) */
 router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
 
 router.route('/oauth2.0/accessToken').post(OAuth.token());
-
-
-// SSO/OAuth (excluded from CORS/Auth routes)
-router.route('/oauth/libretexts').get(authAPI.oauthCallback);
-
-router.route('/auth/initsso').get(authAPI.initSSO);
 
 
 /* Organizations */

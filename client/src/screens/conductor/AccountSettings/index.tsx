@@ -5,7 +5,6 @@ import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
 import { Grid, Header, Menu, Segment } from "semantic-ui-react";
 import AccountOverview from "../../../components/accountsettings/AccountOverview";
-import AccountSecurity from "../../../components/accountsettings/AccountSecurity";
 import ExternalApps from "../../../components/accountsettings/ExternalApps";
 import InstructorProfile from "../../../components/accountsettings/InstructorProfile";
 import NotificationSettings from "../../../components/accountsettings/NotificationSettings";
@@ -26,7 +25,6 @@ const AccountSettings = () => {
     { key: "myapps", title: "My Applications"},
     { key: "notificationsettings", title: "Notification Settings" },
     { key: "externalapps", title: "External Applications" },
-    { key: "security", title: "Security" },
   ];
 
   // Global State and Error Handling
@@ -142,10 +140,6 @@ const AccountSettings = () => {
             account={account}
             onDataChange={handleDataChange}
           />
-        );
-      case "security":
-        return (
-          <AccountSecurity account={account} onDataChange={handleDataChange} />
         );
       case "notificationsettings":
         return (
