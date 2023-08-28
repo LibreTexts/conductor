@@ -1,10 +1,12 @@
 import {
   Grid,
   Header,
+  Icon,
   Image,
   Segment,
   Divider,
   List,
+  Button,
 } from 'semantic-ui-react';
 import useGlobalError from '../error/ErrorHooks';
 import { Account, Organization } from '../../types';
@@ -19,6 +21,10 @@ const AccountOverview = ({ account, onDataChange }: {account: Account, onDataCha
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
+
+  const getCentralAuthProfileEditURL = () => {
+    return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.staging.libretexts.org/profile';
+  };
 
   return (
     <Segment basic className="pane-segment">
@@ -37,16 +43,15 @@ const AccountOverview = ({ account, onDataChange }: {account: Account, onDataCha
             <Header as="h2">
               {account?.firstName} {account?.lastName}
             </Header>
-            <Header sub>Email</Header>
-            {(account?.email)
-              ? <p>{account.email}</p>
-              : <p><em>Unknown</em></p>
-            }
-            <Header sub>Account Creation Date</Header>
-            {(account?.createdAt)
-              ? <p>{account.createdAt}</p>
-              : <p><em>Unknown</em></p>
-            }
+            <Button
+              as="a"
+              href={getCentralAuthProfileEditURL()}
+              target="_blank"
+              color="blue"
+            >
+              <Icon name="external" />
+              Edit profile in LibreOne
+            </Button>
             <Header sub>Roles</Header>
             {Array.isArray(account?.roles)
               ? (
