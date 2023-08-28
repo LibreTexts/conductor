@@ -546,26 +546,6 @@ router.route('/user/admininfo').get(
   usersAPI.getUserInfoAdmin,
 );
 
-router.route('/user/name').put(
-  authAPI.verifyRequest,
-  usersAPI.validate('editUserName'),
-  middleware.checkValidationErrors,
-  usersAPI.updateUserName,
-);
-
-router.route('/user/email').put(
-  authAPI.verifyRequest,
-  usersAPI.validate('updateUserEmail'),
-  middleware.checkValidationErrors,
-  usersAPI.updateUserEmail,
-);
-
-router.route('/user/avatar').post(
-  authAPI.verifyRequest,
-  usersAPI.avatarUploadHandler,
-  usersAPI.updateUserAvatar,
-);
-
 router.route('/user/authorizedapps').get(
   authAPI.verifyRequest,
   usersAPI.getAuthorizedApplications,

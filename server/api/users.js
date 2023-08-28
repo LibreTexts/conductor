@@ -5,51 +5,10 @@
 'use strict';
 import express from 'express';
 import { body, query, param } from 'express-validator';
-import multer from 'multer';
-import sharp from 'sharp';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { debugError } from '../debug.js';
 import User from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
-
-const avatarStorage = multer.memoryStorage();
-
-/**
- * Returns a Multer handler to process and validate user avatar image uploads.
- * @param {object} req - The Express.js request object.
- * @param {object} res - The Express.js response object.
- * @param {function} next - The next middleware function to call.
- * @returns {function} The avatar upload handler.
- */
-const avatarUploadHandler = (req, res, next) => {
-    const avatarUploadConfig = multer({
-        storage: avatarStorage,
-        fileFilter: (_req, file, cb) => {
-            const validFileTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (validFileTypes.includes(file.mimetype)) return cb(null, true);
-            return cb(null, false);
-        },
-        limits: {
-            files: 1,
-            fileSize: 5242880
-        }
-    }).single('avatarFile');
-    return avatarUploadConfig(req, res, (err) => {
-        if (err) {
-            let errMsg = conductorErrors.err53;
-            if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-                errMsg = conductorErrors.err54;
-            }
-            return res.send({
-                err: true,
-                errMsg: errMsg
-            });
-        }
-        next();
-    });
-};
-
 
 /**
  * Return basic profile information about the current user.
@@ -192,154 +151,6 @@ async function checkVerifiedInstructorStatus(uuid) {
     }
     return false;
 }
-
-
-/**
- * Update the user's name given the new details in the request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'editUserName'
- * @param {Object} req - The Express.js request object.
- * @param {Object} res - The Express.js response object.
- */
-const updateUserName = (req, res) => {
-    User.findOneAndUpdate({ uuid: req.decoded.uuid }, {
-        firstName: req.body.firstName,
-        lastName: req.body.lastName
-    }).then((updateRes) => {
-        if (updateRes) {
-            return res.send({
-                err: false,
-                msg: "Updated user's name successfully."
-            });
-        }
-        throw(new Error('updatefailed'));
-    }).catch((err) => {
-        let errMsg = conductorErrors.err6;
-        if (err.message === 'updatefailed') errMsg = conductorErrors.err3;
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Update the user's email given the new details in the request body.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'updateUserEmail'
- * @param {Object} req - The Express.js request object.
- * @param {Object} res - The Express.js response object.
- */
-const updateUserEmail = (req, res) => {
-    User.findOneAndUpdate({ uuid: req.decoded.uuid }, {
-        email: req.body.email,
-    }).then((updateRes) => {
-        if (updateRes) {
-            return res.send({
-                err: false,
-                msg: "Updated user's email successfully."
-            });
-        }
-        throw(new Error('updatefailed'));
-    }).catch((err) => {
-        let errMsg = conductorErrors.err6;
-        if (err.message === 'updatefailed') errMsg = conductorErrors.err3;
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
-
-
-/**
- * Uploads the user's new avatar to S3 and updates the User record, if necessary.
- * @param {object} req - The Express.js request object.
- * @param {object} res - The Express.js response object.
- */
-const updateUserAvatar = (req, res) => {
-    let userUUID = null;
-    let fileExtension = null;
-    let fileKey = null;
-    let aviVersion = 1;
-    let avatarURL = '';
-    return User.findOne({ uuid: req.decoded.uuid }).lean().then((user) => {
-        if (user && typeof (req.file) === 'object') {
-            userUUID = user.uuid;
-            fileExtension = req.file.mimetype?.split('/')[1];
-            /* Try to use a versioning schema for cache busting */
-            if (user.avatar?.includes(process.env.AWS_USERDATA_DOMAIN)) {
-                const avatarSplit = user.avatar.split('?v=');
-                if (Array.isArray(avatarSplit) && avatarSplit.length > 1) {
-                    const currAviVersion = Number.parseInt(avatarSplit[1]);
-                    if  (!Number.isNaN(currAviVersion)) aviVersion = currAviVersion + 1;
-                }
-            }
-            /* Start image processing */
-            if (typeof (fileExtension) === 'string') {
-                fileKey = `avatars/${userUUID}.${fileExtension}`;
-                return sharp(req.file.buffer).resize({
-                    width: 500,
-                    height: 500
-                }).toBuffer();
-            } else {
-                throw (new Error('filevalidate'));
-            }
-        } else {
-            throw (new Error('nouser'));
-        }
-    }).then((processedImage) => {
-        if (processedImage !== null) {
-            const storageClient = new S3Client({
-                credentials: {
-                    accessKeyId: process.env.AWS_USERDATA_ACCESS_KEY,
-                    secretAccessKey: process.env.AWS_USERDATA_SECRET_KEY
-                },
-                region: process.env.AWS_USERDATA_REGION,
-            });
-            const uploadCommand = new PutObjectCommand({
-                Bucket: process.env.AWS_USERDATA_BUCKET,
-                Key: fileKey,
-                Body: processedImage
-            });
-            return storageClient.send(uploadCommand);
-        } else {
-            throw (new Error('imageprocess'));
-        }
-    }).then((uploadResponse) => {
-        if (uploadResponse['$metadata']?.httpStatusCode === 200) {
-            avatarURL = `https://${process.env.AWS_USERDATA_DOMAIN}/${fileKey}?v=${aviVersion}`;
-            return User.updateOne({ uuid: userUUID }, { avatar: avatarURL, customAvatar: true });
-        } else {
-            throw (new Error('imageupload'));
-        }
-    }).then((updateRes) => {
-        if (updateRes.modifiedCount === 1) {
-            return res.send({
-                err: false,
-                msg: 'Successfully updated avatar.',
-                url: avatarURL
-            });
-        } else {
-            throw (new Error('updatefail'));
-        }
-    }).catch((err) => {
-        debugError(err);
-        let errMsg = conductorErrors.err6;
-        if (err.message === 'nouser') errMsg = conductorErrors.err7;
-        else if (err.message === 'filevalidate') errMsg = conductorErrors.err55;
-        else if (err.message === 'imageprocess') errMsg = conductorErrors.err56;
-        else if (err.message === 'imageupload') errMsg = conductorErrors.err57;
-        else if (err.message === 'updatefail') errMsg = conductorErrors.err3;
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
 
 /**
  * Updates the current user's stored Instructor Profile.
@@ -1050,15 +861,6 @@ const roleValidator = (role) => {
  */
 const validate = (method) => {
     switch (method) {
-        case 'editUserName':
-            return [
-                body('firstName', conductorErrors.err1).exists().isLength({ min: 2, max: 100 }),
-                body('lastName', conductorErrors.err1).exists().isLength({ min: 1, max: 100})
-            ]
-        case 'updateUserEmail':
-            return [
-                body('email', conductorErrors.err1).exists().isEmail()
-            ]
         case 'updateInstructorProfile':
             return [
                 body('institution', conductorErrors.err1).optional({ checkFalsy: true }).isLength({ min: 1, max: 100 }),
@@ -1091,13 +893,9 @@ const validate = (method) => {
 
 
 export default {
-    avatarUploadHandler,
     getBasicUserInfo,
     getBasicAccountInfo,
     checkVerifiedInstructorStatus,
-    updateUserName,
-    updateUserEmail,
-    updateUserAvatar,
     updateUserInstructorProfile,
     getUsersList,
     getBasicUsersList,
