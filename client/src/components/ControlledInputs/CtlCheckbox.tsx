@@ -11,6 +11,7 @@ interface CtlCheckboxProps extends CheckboxProps {
   label?: string;
   labelDirection?: "col" | "row";
   required?: boolean;
+  negated?: boolean;
 }
 
 /**
@@ -27,8 +28,19 @@ export default function CtlCheckbox<
   label,
   labelDirection = "row",
   required = false,
+  negated = false,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlCheckboxProps) {
+
+  // Helper function to convert checkbox value to boolean
+  // Negated checkboxes appear as the opposite of their value (ie unchecked if true, checked if false)
+  const getCheckboxValue = (value: boolean | undefined) => {
+    if (negated) {
+      return value ? false : true;
+    } else {
+      return value ? true : false;
+    }
+  };
   return (
     <Controller
       control={control}
@@ -38,7 +50,9 @@ export default function CtlCheckbox<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <div className={labelDirection === 'row' ? 'flex-row-div' : 'flex-col-div'}>
+        <div
+          className={labelDirection === "row" ? "flex-row-div" : "flex-col-div"}
+        >
           {label && (
             <label
               className={`form-field-label ${required ? "form-required" : ""}`}
@@ -47,8 +61,10 @@ export default function CtlCheckbox<
             </label>
           )}
           <Checkbox
-            value={value}
-            onChange={onChange}
+            checked={getCheckboxValue(value)}
+            onChange={(e, { checked }) =>
+              onChange(negated ? !checked : checked)
+            }
             onBlur={onBlur}
             error={error?.message}
             {...rest}

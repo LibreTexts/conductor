@@ -11,6 +11,7 @@ export type CentralIdentityOrg = {
   id: number;
   logo: string | null;
   name: string;
+  system?: CentralIdentitySystem;
 };
 
 export type CentralIdentityService = {

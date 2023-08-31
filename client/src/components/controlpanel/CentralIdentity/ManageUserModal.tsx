@@ -1,4 +1,5 @@
 import "../../../styles/global.css";
+import "./ManageUserModal.css";
 import {
   Modal,
   Button,
@@ -6,7 +7,7 @@ import {
   ModalProps,
   Header,
   Table,
-  Feed,
+  Image,
 } from "semantic-ui-react";
 import { useState, useEffect } from "react";
 import { CentralIdentityUser, User } from "../../../types";
@@ -19,75 +20,148 @@ import {
   getPrettyVerficationStatus,
 } from "../../../utils/centralIdentityHelpers";
 import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
+import { isCentralIdentityUserProperty } from "../../../utils/typeHelpers";
+import axios from "axios";
+import useGlobalError from "../../error/ErrorHooks";
+import { dirtyValues } from "../../../utils/misc";
 
 interface ManageUserModalProps extends ModalProps {
   show: boolean;
-  user: CentralIdentityUser;
+  userId: string;
   onSave: () => void;
   onClose: () => void;
 }
 
 const ManageUserModal: React.FC<ManageUserModalProps> = ({
   show,
-  user,
+  userId,
   onSave,
   onClose,
   ...rest
 }) => {
-  const { control, formState, reset } = useForm<CentralIdentityUser>({
-    defaultValues: user,
-  });
-
-  // UI
+  // Data & UI
+  const DEFAULT_AVATAR_URL =
+    "https://cdn.libretexts.net/DefaultImages/avatar.png";
   const [editingFirstName, setEditingFirstName] = useState<boolean>(false);
   const [editingLastName, setEditingLastName] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  // Only used for initial state reference so we can reset to original values as needed
+  const [userInitVal, setUserInitVal] = useState<
+    CentralIdentityUser | undefined
+  >(undefined);
+
+  // Hooks and Error Handling
+  const { handleGlobalError } = useGlobalError();
+  const { control, formState, reset, watch, getValues, setValue } =
+    useForm<CentralIdentityUser>({
+      defaultValues: {
+        first_name: "",
+        last_name: "",
+        disabled: false,
+        bio_url: "",
+        avatar: DEFAULT_AVATAR_URL,
+      },
+    });
 
   // Effects
-
   useEffect(() => {
+    if (show) {
+      loadUser();
+    }
+
     // Reset editing states when modal is closed
     if (!show) {
       setEditingFirstName(false);
       setEditingLastName(false);
+      reset();
     }
-  }, [show]);
+  }, [show, userId]);
 
-  // Handlers
+  // Handlers & Methods
+  async function loadUser() {
+    try {
+      if (!userId) return;
+      setLoading(true);
+
+      const res = await axios.get(`/central-identity/users/${userId}`);
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      setUserInitVal(res.data.user);
+      reset(res.data.user);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleCancel() {
     reset();
     onClose();
   }
 
-  function handleResetFirstName() {
-    reset({ first_name: user.first_name });
-    setEditingFirstName(false);
+  function handleResetDataItem(key: keyof CentralIdentityUser) {
+    if (isCentralIdentityUserProperty(key) && userInitVal) {
+      reset({ [key]: userInitVal[key] });
+    }
   }
 
-  function handleResetLastName() {
-    reset({ last_name: user.last_name });
-    setEditingLastName(false);
+  function handleResetAvatar() {
+    setValue("avatar", DEFAULT_AVATAR_URL.toString());
+  }
+
+  async function handleSave() {
+    try {
+      if(!userInitVal) return;
+      setLoading(true);
+
+      const data = dirtyValues<CentralIdentityUser>(
+        formState.dirtyFields,
+        getValues()
+      );
+      const res = await axios.patch(
+        `/central-identity/users/${userInitVal.uuid}`,
+        data
+      );
+
+      if (res.data.err) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      onSave();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <Modal open={show} onClose={onClose} {...rest} size="fullscreen">
       <Modal.Header>Manage User</Modal.Header>
       <Modal.Content scrolling id="task-view-content">
-        <div className="flex-col-div">
-          <div className="flex-row-div" id="project-task-header">
-            <div className="task-detail-div">
+        <div className="flex-col-div" aria-busy={loading}>
+          <div className="flex-row-div mt-1r mx-1r">
+            <div className="user-header-div">
               <Header sub>Avatar</Header>
-              <Feed.Label>
-                <img
-                  width={40}
-                  height={40}
-                  src={user.avatar ?? ""}
-                  alt="avatar"
-                />
-              </Feed.Label>
+              <div className="flex-row-div">
+                <Image avatar src={getValues("avatar") ?? DEFAULT_AVATAR_URL} />
+                <div className="ml-2p pb-1p">
+                  <Icon
+                    name="x"
+                    className="cursor-pointer"
+                    onClick={handleResetAvatar}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="task-detail-div">
+            <div className="user-header-div">
               <Header sub>First Name</Header>
-              <div className="task-detail-textdiv">
+              <div className="user-header-textdiv">
                 {editingFirstName && (
                   <div className="mt-2p flex-row-div">
                     <CtlTextInput
@@ -97,14 +171,17 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                     />
                     <Icon
                       name="close"
-                      size="small"
-                      onClick={() => handleResetFirstName()}
+                      className="mt-3p ml-2p curser-pointer"
+                      onClick={() => {
+                        handleResetDataItem("first_name");
+                        setEditingFirstName(false);
+                      }}
                     />
                   </div>
                 )}
                 {!editingFirstName && (
                   <p>
-                    {user.first_name}{" "}
+                    {getValues('first_name')}{" "}
                     <Icon
                       name="pencil"
                       size="small"
@@ -114,9 +191,9 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                 )}
               </div>
             </div>
-            <div className="task-detail-div">
+            <div className="user-header-div">
               <Header sub>Last Name</Header>
-              <div className="task-detail-textdiv">
+              <div className="user-header-textdiv">
                 {editingLastName && (
                   <div className="mt-2p flex-row-div">
                     <CtlTextInput
@@ -126,14 +203,17 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                     />
                     <Icon
                       name="close"
-                      size="small"
-                      onClick={() => handleResetLastName()}
+                      className="mt-3p ml-2p curser-pointer"
+                      onClick={() => {
+                        setEditingLastName(false);
+                        handleResetDataItem("last_name");
+                      }}
                     />
                   </div>
                 )}
                 {!editingLastName && (
                   <p>
-                    {user.last_name}{" "}
+                    {getValues('last_name')}{" "}
                     <Icon
                       name="pencil"
                       size="small"
@@ -143,18 +223,23 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                 )}
               </div>
             </div>
-            <div className="task-detail-div">
+            <div className="user-header-div">
               <Header sub>Email</Header>
-              <p>{user.email}</p>
+              <p className="mt-1p">{getValues('email')}</p>
             </div>
-            <div className="task-detail-div">
+            <div className="user-header-div">
               <Header sub>Account Status</Header>
-              <CtlCheckbox name="disabled" control={control} toggle />
+              <div className="flex-row-div mt-2p">
+                <CtlCheckbox name="disabled" control={control} toggle negated />
+                <p className="ml-2p">
+                  {getValues("disabled") ? <strong>Disabled</strong> : "Active"}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex-row-div" id="project-task-page">
-            <div id="task-view-left">
-              <div className="mt-1p mb-4p">
+          <div className="user-details-wrapper px-1r pt-1r">
+            <div className="user-details-left">
+              <div className="mb-4p">
                 <div className="dividing-header-custom">
                   <h3>Permissions</h3>
                 </div>
@@ -162,13 +247,13 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   <div className="flex-row-div mt-2p mb-2p">
                     <p>
                       <strong>User Type: </strong>
-                      {getPrettyUserType(user.user_type)}
+                      {getPrettyUserType(getValues('user_type'))}
                     </p>
                   </div>
                   <div className="flex-row-div mb-2p">
                     <p>
                       <strong>Verification Status: </strong>
-                      {getPrettyVerficationStatus(user.verify_status)}
+                      {getPrettyVerficationStatus(getValues('verify_status'))}
                     </p>
                   </div>
                 </div>
@@ -181,8 +266,8 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   <div className="flex-row-div mt-1p mb-2p">
                     <p>
                       <strong>Authentication Source: </strong>
-                      {user.external_idp
-                        ? getPrettyAuthSource(user.external_idp)
+                      {getValues("external_idp")
+                        ? getPrettyAuthSource(getValues("external_idp") ?? '')
                         : "LibreOne"}
                     </p>
                   </div>
@@ -194,15 +279,15 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   <div className="flex-row-div">
                     <p>
                       <strong>Time of Last Password Change: </strong>
-                      {user.last_password_change ?? "Never"}
+                      {getValues('last_password_change') ?? "Never"}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-            <div id="task-view-right">
-              <div id="task-view-chat">
-                <Table striped celled size="small" compact>
+            <div className="user-details-right">
+              <div className="flex-col-div justify-center min-h-auto">
+                <Table striped celled size="small" compact className="mx-auto">
                   <Table.Header>
                     <Table.Row key="header1">
                       <Table.HeaderCell colSpan="2">
@@ -219,26 +304,28 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                     </Table.Row>
                   </Table.Header>
                   <Table.Body>
-                    {user.organizations.length > 0 &&
-                      user.organizations.map((org) => {
+                    {getValues("organizations") &&
+                      getValues("organizations").length > 0 &&
+                      getValues("organizations").map((org) => {
                         return (
                           <Table.Row key={org.id} className="word-break-all">
                             <Table.Cell>
                               <span>{org.name}</span>
                             </Table.Cell>
                             <Table.Cell>
-                              <span></span>
+                              <span> {org.system ? org.system.name : ""}</span>
                             </Table.Cell>
                           </Table.Row>
                         );
                       })}
-                    {user.organizations.length === 0 && (
-                      <Table.Row textAlign="center">
-                        <Table.Cell colSpan="2">
-                          <em>No associated organizations found.</em>
-                        </Table.Cell>
-                      </Table.Row>
-                    )}
+                    {getValues("organizations") &&
+                      getValues("organizations").length === 0 && (
+                        <Table.Row textAlign="center">
+                          <Table.Cell colSpan="2">
+                            <em>No associated organizations found.</em>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
                   </Table.Body>
                 </Table>
               </div>
@@ -249,7 +336,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
       <Modal.Actions>
         <Button onClick={handleCancel}>Cancel</Button>
         {formState.isDirty && (
-          <Button color="green" onClick={onSave}>
+          <Button color="green" onClick={handleSave} loading={loading}>
             <Icon name="save" />
             Save Changes
           </Button>

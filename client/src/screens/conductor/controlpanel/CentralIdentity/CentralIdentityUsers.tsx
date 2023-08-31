@@ -28,6 +28,7 @@ const CentralIdentityUsers = () => {
   //UI
   const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
+  const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
@@ -50,12 +51,19 @@ const CentralIdentityUsers = () => {
   //Effects
   useEffect(() => {
     getUsers();
-  }, []);
+  }, [activePage, itemsPerPage]);
 
+  // Handlers & Methods
   async function getUsers() {
     try {
       setLoading(true);
-      const res = await axios.get("/central-identity/users");
+
+      const res = await axios.get("/central-identity/users", {
+        params: {
+          activePage
+        }
+      });
+
       if (
         res.data.err ||
         !res.data.users ||
@@ -65,8 +73,8 @@ const CentralIdentityUsers = () => {
         throw new Error("Error retrieving users");
       }
 
-      console.log(res.data.users);
       setUsers(res.data.users);
+      setTotalItems(res.data.totalCount);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
       handleGlobalError(err);
@@ -78,6 +86,12 @@ const CentralIdentityUsers = () => {
   function handleSelectUser(user: CentralIdentityUser) {
     setSelectedUser(user);
     setShowUserModal(true);
+  }
+
+  function handleCloseUserModal() {
+    setShowUserModal(false);
+    setSelectedUser(null);
+    getUsers();
   }
 
   return (
@@ -120,7 +134,7 @@ const CentralIdentityUsers = () => {
                 itemsPerPage={itemsPerPage}
                 setItemsPerPageFn={setItemsPerPage}
                 setActivePageFn={setActivePage}
-                totalLength={users.length}
+                totalLength={totalItems}
               />
             </Segment>
             <Segment>
@@ -221,7 +235,7 @@ const CentralIdentityUsers = () => {
                 itemsPerPage={itemsPerPage}
                 setItemsPerPageFn={setItemsPerPage}
                 setActivePageFn={setActivePage}
-                totalLength={users.length}
+                totalLength={totalItems}
               />
             </Segment>
           </Segment.Group>
@@ -229,8 +243,8 @@ const CentralIdentityUsers = () => {
           {selectedUser && (
             <ManageUserModal
               show={showUserModal}
-              user={selectedUser}
-              onSave={() => setShowUserModal(false)}
+              userId={selectedUser.uuid}
+              onSave={() => handleCloseUserModal()}
               onClose={() => setShowUserModal(false)}
             />
           )}

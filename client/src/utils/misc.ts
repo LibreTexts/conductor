@@ -1,5 +1,6 @@
 import { format as formatDate, parseISO } from "date-fns";
 import { GenericKeyTextValueObj } from "../types";
+import { FieldNamesMarkedBoolean } from "react-hook-form";
 
 /**
  *
@@ -53,4 +54,33 @@ export async function copyToClipboard(text: string) {
   } catch (e) {
     console.error(e);
   }
+}
+
+/**
+ * Calculates skip offset for server-side pagination
+ * @param {number} page - Active page number (integer)
+ * @param {number} offsetMultiplier - Number of records to return for each page
+ * @returns {number} - The number of records to offset, or 0 if an error was encountered
+ */
+export function getPaginationOffset(page: number | string, offsetMultiplier = 25) {
+  const parsedPage = parseInt(page.toString());
+  const parsedMultiplier = parseInt(offsetMultiplier.toString());
+  if (!Number.isInteger(parsedPage) || !Number.isInteger(parsedMultiplier)) {
+    return 0;
+  }
+
+  let offset = 0;
+  if (parsedPage > 1) {
+    offset = (parsedPage - 1) * offsetMultiplier;
+  }
+
+  return offset;
+}
+
+export function dirtyValues<T extends object>(dirtyFields: Partial<Readonly<FieldNamesMarkedBoolean<T>>>, allValues: T): Partial<T> {
+  const dirtyValues: Partial<T> = {};
+  Object.keys(dirtyFields).forEach((key) => {
+    dirtyValues[key as keyof T] = allValues[key as keyof T];
+  });
+  return dirtyValues;
 }

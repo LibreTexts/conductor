@@ -8,6 +8,7 @@ import {
   CentralIdentitySystem,
   CentralIdentityUser,
   TypedReqParams,
+  TypedReqParamsAndBody,
   TypedReqQuery,
 } from "../types/index.js";
 import { getPaginationOffset } from "../util/helpers.js";
@@ -30,7 +31,7 @@ const ONE_AUTH_HEADER_OBJ = {
 };
 
 async function getUsers(
-  req: TypedReqQuery<{ activePage?: number }>,
+  req: TypedReqQuery<{ activePage?: number, limit?: number }>,
   res: Response<{
     err: boolean;
     users: CentralIdentityUser[];
@@ -43,14 +44,14 @@ async function getUsers(
     }
 
     let page = 1;
-    let limit = 25;
+    let limit = req.query.limit || 25;
     if (
       req.query.activePage &&
       Number.isInteger(parseInt(req.query.activePage.toString()))
     ) {
       page = req.query.activePage;
     }
-    let offset = getPaginationOffset(page, limit);
+    const offset = getPaginationOffset(page, limit);
 
     const usersRes = await axios.get(
       process.env.CENTRAL_IDENTITY_URL + "/users",
@@ -97,9 +98,7 @@ async function getUser(
       }
     );
 
-    console.log(userRes.data);
-
-    if (!userRes.data || !userRes.data.data || !userRes.data.meta) {
+    if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
     }
 
@@ -111,6 +110,38 @@ async function getUser(
     debugError(err);
     return conductor500Err(res);
   }
+}
+
+async function updateUser(req: TypedReqParamsAndBody<{ id?: string }, CentralIdentityUser>, res: Response<{ err: boolean; user: CentralIdentityUser }>){
+ try {
+    if (!process.env.CENTRAL_IDENTITY_URL) {
+      return conductor500Err(res);
+    }
+
+    if (!req.params.id) {
+      return conductor400Err(res);
+    }
+
+    const userRes = await axios.patch(
+      `${process.env.CENTRAL_IDENTITY_URL}/users/${req.params.id}`,
+      req.body,
+      {
+        ...ONE_AUTH_HEADER_OBJ,
+      }
+    );
+
+    if (!userRes.data || !userRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      user: userRes.data.data,
+    });
+ } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+ } 
 }
 
 async function getOrgs(
@@ -147,7 +178,6 @@ async function getOrgs(
       }
     );
 
-    console.log(orgsRes.data);
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
       return conductor500Err(res);
     }
@@ -269,6 +299,9 @@ function validate(method: string) {
     case "getUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
+    case "updateUser": {
+      return [param("id", conductorErrors.err1).exists().isUUID()];
+    }
   }
 }
 
@@ -278,5 +311,6 @@ export default {
   getOrgs,
   getSystems,
   getServices,
+  updateUser,
   validate,
 };

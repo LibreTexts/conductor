@@ -121,6 +121,14 @@ router.route('/central-identity/users/:id').get(
   middleware.checkValidationErrors,
   centralIdentityAPI.getUser
 )
+.patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('updateUser'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.updateUser
+)
 
 router.route('/central-identity/orgs').get(
   authAPI.verifyRequest,
