@@ -45,3 +45,11 @@ export const accountStatusOptions = [
   { key: "enabled", text: "Enabled", value: false },
   { key: "disabled", text: "Disabled", value: true },
 ];
+
+export const getCentralAuthProfileEditURL = () => {
+  return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.staging.libretexts.org/profile';
+};
+
+export const getCentralAuthInstructorURL = () => {
+  return import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL || 'https://one.staging.libretexts.org/instructor';
+};

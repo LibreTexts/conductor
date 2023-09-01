@@ -10,8 +10,9 @@ import {
 } from 'semantic-ui-react';
 import useGlobalError from '../error/ErrorHooks';
 import { Account, Organization } from '../../types';
+import { getCentralAuthProfileEditURL } from '../../utils/centralIdentityHelpers';
 
-/**
+/** 
  * The Account Overview pane displays general Conductor account information and allows
  * users to edit their name or avatar.
  */
@@ -21,10 +22,6 @@ const AccountOverview = ({ account, onDataChange }: {account: Account, onDataCha
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
-
-  const getCentralAuthProfileEditURL = () => {
-    return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.staging.libretexts.org/profile';
-  };
 
   return (
     <Segment basic className="pane-segment">

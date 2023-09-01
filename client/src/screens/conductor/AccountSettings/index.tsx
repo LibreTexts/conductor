@@ -136,10 +136,7 @@ const AccountSettings = () => {
         return <ExternalApps />;
       case "instructorprofile":
         return (
-          <InstructorProfile
-            account={account}
-            onDataChange={handleDataChange}
-          />
+          <InstructorProfile />
         );
       case "notificationsettings":
         return (
