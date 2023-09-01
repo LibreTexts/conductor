@@ -10,7 +10,6 @@ import InstructorProfile from "../../../components/accountsettings/InstructorPro
 import NotificationSettings from "../../../components/accountsettings/NotificationSettings";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { Account } from "../../../types";
-import MyApps from "../../../components/accountsettings/MyApps";
 
 /**
  * Account Settings is the interface for all Conductor users to manage their Conductor account and
@@ -22,7 +21,6 @@ const AccountSettings = () => {
   const MENU_ITEMS = [
     { key: "overview", title: "Account Overview" },
     { key: "instructorprofile", title: "Instructor Profile" },
-    { key: "myapps", title: "My Applications"},
     { key: "notificationsettings", title: "Notification Settings" },
     { key: "externalapps", title: "External Applications" },
   ];
@@ -129,9 +127,6 @@ const AccountSettings = () => {
         return (
           <AccountOverview account={account} onDataChange={handleDataChange} />
         );
-      case "myapps": {
-        return <MyApps />;
-      }
       case "externalapps":
         return <ExternalApps />;
       case "instructorprofile":
