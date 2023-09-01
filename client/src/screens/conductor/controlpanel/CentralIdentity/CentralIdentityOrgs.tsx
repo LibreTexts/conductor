@@ -52,7 +52,6 @@ const CentralIdentityOrgs = () => {
         throw new Error("Error retrieving organizations");
       }
 
-      console.log(res.data.systems);
       setSystems(res.data.systems);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
@@ -101,7 +100,7 @@ const CentralIdentityOrgs = () => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Header className="component-header" as="h2">
-            Central Identity: Organizations & Systems
+            LibreOne Admin Console: Organizations & Systems
           </Header>
         </Grid.Column>
       </Grid.Row>
@@ -114,11 +113,8 @@ const CentralIdentityOrgs = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section
-                  as={Link}
-                  to="/controlpanel/central-identity"
-                >
-                  Central Identity
+                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
+                  LibreOne Admin Consoles
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>
@@ -131,44 +127,52 @@ const CentralIdentityOrgs = () => {
                 <Loader active inline="centered" />
               </Segment>
             )}
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={systems.length}
-              />
-            </Segment>
-            <Segment>
-              {systems.length > 0 && (
-                <Accordion
-                  panels={systems.map((system, idx) => {
-                    return (
-                      <AccordionPanel
-                        system={system}
-                        idx={idx}
-                        key={system.id}
-                      />
-                    );
-                  })}
-                  exclusive={false}
-                  fluid
-                />
-              )}
-              {systems.length === 0 && <p>No organizations found</p>}
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={systems.length}
-              />
-            </Segment>
+            {true ? (
+              <Segment>
+              <h2>THIS PAGE COMING SOON</h2>
+              </Segment>
+            ) : (
+              <>
+                <Segment>
+                  <PaginationWithItemsSelect
+                    activePage={activePage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    setItemsPerPageFn={setItemsPerPage}
+                    setActivePageFn={setActivePage}
+                    totalLength={systems.length}
+                  />
+                </Segment>
+                <Segment>
+                  {systems.length > 0 && (
+                    <Accordion
+                      panels={systems.map((system, idx) => {
+                        return (
+                          <AccordionPanel
+                            system={system}
+                            idx={idx}
+                            key={system.id}
+                          />
+                        );
+                      })}
+                      exclusive={false}
+                      fluid
+                    />
+                  )}
+                  {systems.length === 0 && <p>No organizations found</p>}
+                </Segment>
+                <Segment>
+                  <PaginationWithItemsSelect
+                    activePage={activePage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    setItemsPerPageFn={setItemsPerPage}
+                    setActivePageFn={setActivePage}
+                    totalLength={systems.length}
+                  />
+                </Segment>
+              </>
+            )}
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>

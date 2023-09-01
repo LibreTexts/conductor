@@ -99,7 +99,7 @@ const CentralIdentityUsers = () => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Header className="component-header" as="h2">
-            Central Identity: Users
+            LibreOne Admin Console: Users
           </Header>
         </Grid.Column>
       </Grid.Row>
@@ -114,9 +114,9 @@ const CentralIdentityUsers = () => {
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section
                   as={Link}
-                  to="/controlpanel/central-identity"
+                  to="/controlpanel/libreone"
                 >
-                  Central Identity
+                  LibreOne Admin Consoles
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>Users</Breadcrumb.Section>

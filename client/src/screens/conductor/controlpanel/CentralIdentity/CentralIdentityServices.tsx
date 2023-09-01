@@ -74,7 +74,7 @@ const CentralIdentityServices = () => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Header className="component-header" as="h2">
-            Central Identity: Services
+            LibreOne Admin Console: Services
           </Header>
         </Grid.Column>
       </Grid.Row>
@@ -87,11 +87,8 @@ const CentralIdentityServices = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section
-                  as={Link}
-                  to="/controlpanel/central-identity"
-                >
-                  Central Identity
+                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
+                  LibreOne Admin Consoles
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>Services</Breadcrumb.Section>
@@ -102,75 +99,84 @@ const CentralIdentityServices = () => {
                 <Loader active inline="centered" />
               </Segment>
             )}
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={services.length}
-              />
-            </Segment>
-            <Segment>
-              <Table striped celled>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {services.length > 0 &&
-                    services.map((s) => {
-                      return (
-                        <Table.Row
-                          key={s.service_Id}
-                          className="word-break-all"
-                        >
-                          <Table.Cell>
-                            <span>{s.name}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{s.service_Id}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              color="blue"
-                              onClick={() => handleSelectService(s)}
+
+            {true ? (
+              <Segment>
+                <h2>THIS PAGE COMING SOON</h2>
+              </Segment>
+            ) : (
+              <>
+                <Segment>
+                  <PaginationWithItemsSelect
+                    activePage={activePage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    setItemsPerPageFn={setItemsPerPage}
+                    setActivePageFn={setActivePage}
+                    totalLength={services.length}
+                  />
+                </Segment>
+                <Segment>
+                  <Table striped celled>
+                    <Table.Header>
+                      <Table.Row>
+                        {TABLE_COLS.map((item) => (
+                          <Table.HeaderCell key={item.key}>
+                            <span>{item.text}</span>
+                          </Table.HeaderCell>
+                        ))}
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {services.length > 0 &&
+                        services.map((s) => {
+                          return (
+                            <Table.Row
+                              key={s.service_Id}
+                              className="word-break-all"
                             >
-                              <Icon name="eye" />
-                              View Service
-                            </Button>
+                              <Table.Cell>
+                                <span>{s.name}</span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <span>{s.service_Id}</span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Button
+                                  color="blue"
+                                  onClick={() => handleSelectService(s)}
+                                >
+                                  <Icon name="eye" />
+                                  View Service
+                                </Button>
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      {services.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan={TABLE_COLS.length + 1}>
+                            <p className="text-center">
+                              <em>No results found.</em>
+                            </p>
                           </Table.Cell>
                         </Table.Row>
-                      );
-                    })}
-                  {services.length === 0 && (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={services.length}
-              />
-            </Segment>
+                      )}
+                    </Table.Body>
+                  </Table>
+                </Segment>
+                <Segment>
+                  <PaginationWithItemsSelect
+                    activePage={activePage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    setItemsPerPageFn={setItemsPerPage}
+                    setActivePageFn={setActivePage}
+                    totalLength={services.length}
+                  />
+                </Segment>
+              </>
+            )}
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>

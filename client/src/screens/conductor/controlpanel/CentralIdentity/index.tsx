@@ -29,25 +29,25 @@ const CentralIdentity = () => {
    * Set page title on initial load.
    */
   useEffect(() => {
-    document.title = "LibreTexts Conductor | Central Identity";
+    document.title = "LibreTexts Conductor | LibreOne Management";
   }, []);
 
   const listItems: CentralIdentityListItem[] = [
     {
-      url: "/controlpanel/central-identity/orgs",
+      url: "/controlpanel/libreone/orgs",
       icon: "building",
       title: "Organizations & Systems",
       description:
         "View and manage Organizations and Systems on the LibreOne platform",
     },
     {
-      url: "/controlpanel/central-identity/users",
+      url: "/controlpanel/libreone/users",
       icon: "users",
       title: "Users",
       description: "View and manage Users on the LibreOne platform",
     },
     {
-      url: "/controlpanel/central-identity/services",
+      url: "/controlpanel/libreone/services",
       icon: "server",
       title: "Services",
       description: "View and manage Services on the LibreOne platform",
@@ -79,7 +79,7 @@ const CentralIdentity = () => {
     <Grid className="controlpanel-container" divided="vertically">
       <Grid.Row>
         <Grid.Column width={16}>
-          <Header className="component-header">Central Identity</Header>
+          <Header className="component-header">LibreOne Admin Consoles</Header>
         </Grid.Column>
       </Grid.Row>
       <Grid.Row>
@@ -91,19 +91,19 @@ const CentralIdentity = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Central Identity</Breadcrumb.Section>
+                <Breadcrumb.Section active>LibreOne Admin Consoles</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
             <Segment>
               <p className="mt-1p mb-1p">
-                Welcome to Central Identity. Here, you will find several tools
+                Welcome to the LibreOne Admin Consoles. Here, you will find several tools
                 to manage users throughout the LibreVerse via the LibreOne CAS.
               </p>
               <Segment basic>
                 {isSuperAdmin && org.orgID === "libretexts" && (
                   <div className="mb-2r">
                     <Header as="h5" dividing>
-                      Central Identity Tools
+                      LibreOne Admin Consoles
                     </Header>
                     <List relaxed="very" divided selection>
                       {listItems.map((item, idx) => renderListItem(item, idx))}

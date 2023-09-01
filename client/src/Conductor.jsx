@@ -95,10 +95,10 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/eventsmanager/:mode/:eventID?' component={ManageEvent} />
         <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
         <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
-        <PrivateRoute exact path='/controlpanel/central-identity' component={CentralIdentity} />
-        <PrivateRoute exact path='/controlpanel/central-identity/orgs' component={CentralIdentityOrgs} />
-        <PrivateRoute exact path='/controlpanel/central-identity/services' component={CentralIdentityServices} />
-        <PrivateRoute exact path='/controlpanel/central-identity/users' component={CentralIdentityUsers} />
+        <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
+        <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
+        <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
+        <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />
         <PrivateRoute exact path='/controlpanel/orgsmanager' component={OrganizationsManager} />
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics' component={PeerReviewRubrics} />
         <PrivateRoute exact path='/controlpanel/peerreviewrubrics/:mode/:rubricID?' component={PeerReviewRubricManage} />
