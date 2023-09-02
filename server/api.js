@@ -12,7 +12,6 @@ import authAPI from './api/auth.js';
 import centralIdentityAPI from './api/central-identity.js';
 import usersAPI from './api/users.js';
 import orgsAPI from './api/organizations.js';
-import accountRequestsAPI from './api/accountrequests.js';
 import alertsAPI from './api/alerts.js';
 import adoptionReportAPI from './api/adoptionreports.js';
 import harvestingRequestsAPI from './api/harvestingrequests.js';
@@ -289,45 +288,6 @@ router.route('/harvestingrequests').get(
   middleware.checkValidationErrors,
   harvestingRequestsAPI.getRequests,
 );
-
-
-/* Library/Service Account Requests */
-router.route('/accountrequest').post(
-  middleware.checkLibreCommons,
-  authAPI.verifyRequest,
-  accountRequestsAPI.validate('submitRequest'),
-  middleware.checkValidationErrors,
-  accountRequestsAPI.submitRequest,
-);
-
-router.route('/accountrequest/:requestID')
-  .put(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-    accountRequestsAPI.validate('completeRequest'),
-    middleware.checkValidationErrors,
-    accountRequestsAPI.completeRequest,
-  ).delete(
-    middleware.checkLibreCommons,
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-    accountRequestsAPI.validate('deleteRequest'),
-    middleware.checkValidationErrors,
-    accountRequestsAPI.deleteRequest,
-  );
-
-router.route('/accountrequests').get(
-  middleware.checkLibreCommons,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  middleware.checkValidationErrors,
-  accountRequestsAPI.getRequests,
-);
-
 
 /* Commons Collections */
 router.route('/commons/collections').get(collectionsAPI.getCommonsCollections);

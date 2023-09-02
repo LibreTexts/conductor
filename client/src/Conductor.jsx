@@ -5,8 +5,6 @@ import { useSelector } from 'react-redux';
 import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 
-const InstructorVerificationRequest = lazy(() => import('./screens/conductor/InstructorVerificationRequest'));
-const AccountRequests = lazy(() => import('./screens/conductor/controlpanel/AccountRequests'));
 const AccountSettings = lazy(() => import('./screens/conductor/AccountSettings'));
 const AdoptionReports = lazy(() => import('./screens/conductor/controlpanel/AdoptionReports'));
 const AnalyticsCourseView = lazy(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
@@ -85,7 +83,6 @@ const Conductor = () => {
         <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} />
         <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
-        <PrivateRoute exact path='/controlpanel/accountrequests' component={AccountRequests} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
         <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
@@ -107,7 +104,6 @@ const Conductor = () => {
         <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
-          <PrivateRoute exact path="/verification/instructor" key="instructorverifreq" component={InstructorVerificationRequest} unAuthSrc="accountrequest" />
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 
