@@ -42,6 +42,7 @@ import {
   capitalizeFirstLetter,
   isEmptyString,
 } from "../../../components/util/HelperFunctions.js";
+import { getCentralAuthInstructorURL } from "../../../utils/centralIdentityHelpers";
 import useGlobalError from "../../../components/error/ErrorHooks";
 
 const Home = () => {
@@ -581,11 +582,11 @@ const Home = () => {
                 <Icon name="clipboard check" />
               </Menu.Item>
               <Menu.Item
-                href="https://commons.libretexts.org/verification/instructor"
+                href={getCentralAuthInstructorURL()}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Account Request
+                Instructor Verification Request
                 <Icon name="share alternate" />
               </Menu.Item>
               <Menu.Item
