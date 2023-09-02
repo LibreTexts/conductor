@@ -47,9 +47,9 @@ export const accountStatusOptions = [
 ];
 
 export const getCentralAuthProfileEditURL = () => {
-  return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.staging.libretexts.org/profile';
+  return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.libretexts.org/profile';
 };
 
 export const getCentralAuthInstructorURL = () => {
-  return import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL || 'https://one.staging.libretexts.org/instructor';
+  return import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL || 'https://one.libretexts.org/instructor';
 };
