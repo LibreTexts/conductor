@@ -24,11 +24,6 @@ const AuthHelper = {
       import.meta.env.MODE === "production"
         ? { domain: (import.meta.env.VITE_PRODUCTION_URLS || "").split(",")[0] }
         : undefined;
-    Cookies.set(
-      "conductor_auth_redirect",
-      window.location.origin,
-      cookiesOptions
-    );
 
     const loginEndpoint = "/api/v1/auth/login";
     let redirURL =

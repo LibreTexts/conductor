@@ -119,6 +119,14 @@ async function initLogin(req, res) {
     domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
+  if (process.env.CONDUCTOR_DOMAIN && process.env.CONDUCTOR_DOMAIN !== 'commons.libretexts.org') {
+    const authRedirectURL = `${oidcCallbackHost}://${process.env.CONDUCTOR_DOMAIN}`;
+    res.cookie("conductor_auth_redirect", authRedirectURL, {
+      encode: String,
+      httpOnly: true,
+      ...(process.env.NODE_ENV === "production" && prodCookieConfig),
+    });
+  }
   res.cookie("oidc_state", state, {
     encode: String,
     httpOnly: true,
@@ -308,7 +316,7 @@ async function completeLogin(req, res) {
         process.env.NODE_ENV === "production"
           ? process.env.CONDUCTOR_DOMAIN
           : `localhost:${process.env.CLIENT_PORT || 3000}`;
-      redirectURL = domain;
+      redirectURL = `${oidcCallbackProto}://${domain}`;
     }
     redirectURL = assembleUrl([redirectURL, state.redirectURI || "home"]);
     if (!state.redirectURI && isNewMember) {
