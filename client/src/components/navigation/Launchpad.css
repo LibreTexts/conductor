@@ -1,0 +1,29 @@
+.app-switcher {
+    display: flex;
+    box-shadow: 0 2px 5px -1px rgba(0,0,0,0.2);
+    border-radius: 0.375rem;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    border: none;
+    height: 2.75rem;
+    width: 2.75rem;
+    cursor: pointer;
+}
+
+.app-switcher:hover {
+    box-shadow: 0 2px 5px -1px rgba(0,0,0,0.3);
+}
+
+.app-switcher-logo {
+    height: 2.25rem;
+    width: auto;
+    margin-bottom: 0.25rem;
+}
+
+.app-switcher-icon {
+    display: flex;
+    color: #127BC4;
+    height: 2rem;
+    width: 2rem;
+}
