@@ -26,7 +26,7 @@ const oidcAuth = `${oidcBase}/cas/oidc/authorize`;
 const oidcToken = `${oidcBase}/cas/oidc/accessToken`;
 const oidcCallbackProto =
   process.env.NODE_ENV === "production" ? "https" : "http";
-const oidcCallbackHost =
+const oidcCallbackHost = process.env.OIDC_CALLBACK_HOST ||
   process.env.CONDUCTOR_DOMAIN || "commons.libretexts.org";
 const oidcCallback = `${oidcCallbackProto}://${oidcCallbackHost}/api/v1/oidc/libretexts`;
 const oidcJWKS = `${oidcBase}/cas/oidc/jwks`;
