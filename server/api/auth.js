@@ -116,7 +116,7 @@ async function initLogin(req, res) {
 
   const prodCookieConfig = {
     sameSite: "strict",
-    domain: process.env.CONDUCTOR_DOMAIN,
+    domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
   res.cookie("oidc_state", state, {
