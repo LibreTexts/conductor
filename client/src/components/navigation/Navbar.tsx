@@ -8,6 +8,7 @@ import withUserStateDependency from "../../enhancers/withUserStateDependency.jsx
 import "./Navbar.css";
 import { useTypedSelector } from "../../state/hooks.js";
 import { LIBRARIES } from "../../utils/constants.js";
+import Launchpad from "./Launchpad.js";
 
 const Navbar: React.FC = () => {
   // Global State, Location, and Error Handling
@@ -69,6 +70,9 @@ const Navbar: React.FC = () => {
 
   return (
     <Menu className="nav-menu" secondary>
+      <div className="mr-05p">
+        <Launchpad />
+      </div>
       <Menu.Item
         as={Link}
         to="/home"

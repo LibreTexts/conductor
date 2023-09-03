@@ -10,6 +10,8 @@
     left: 0;
     margin: 0 !important;
     z-index: 100;
+    display: flex;
+    align-items: center;
 }
 
 .nav-logo-item:hover {
@@ -42,7 +44,7 @@
 }
 
 .nav-search-form {
-    min-width: 400px;
+    min-width: 200px;
 }
 
 .nav-search-input input::placeholder {
