@@ -120,7 +120,7 @@ async function initLogin(req, res) {
     secure: true,
   };
   if (process.env.CONDUCTOR_DOMAIN && process.env.CONDUCTOR_DOMAIN !== 'commons.libretexts.org') {
-    const authRedirectURL = `${oidcCallbackHost}://${process.env.CONDUCTOR_DOMAIN}`;
+    const authRedirectURL = `${oidcCallbackProto}://${process.env.CONDUCTOR_DOMAIN}`;
     res.cookie("conductor_auth_redirect", authRedirectURL, {
       encode: String,
       httpOnly: true,
