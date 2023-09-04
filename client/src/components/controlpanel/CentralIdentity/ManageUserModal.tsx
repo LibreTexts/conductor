@@ -23,7 +23,7 @@ import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 import { isCentralIdentityUserProperty } from "../../../utils/typeHelpers";
 import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
-import { dirtyValues } from "../../../utils/misc";
+import { copyToClipboard, dirtyValues } from "../../../utils/misc";
 
 interface ManageUserModalProps extends ModalProps {
   show: boolean;
@@ -115,7 +115,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
 
   async function handleSave() {
     try {
-      if(!userInitVal) return;
+      if (!userInitVal) return;
       setLoading(true);
 
       const data = dirtyValues<CentralIdentityUser>(
@@ -150,7 +150,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
               <Header sub>Avatar</Header>
               <div className="flex-row-div">
                 <Image avatar src={getValues("avatar") ?? DEFAULT_AVATAR_URL} />
-                <div className="ml-2p pb-1p">
+                <div className="ml-2p pt-2p">
                   <Icon
                     name="x"
                     className="cursor-pointer"
@@ -181,7 +181,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                 )}
                 {!editingFirstName && (
                   <p>
-                    {getValues('first_name')}{" "}
+                    {getValues("first_name")}{" "}
                     <Icon
                       name="pencil"
                       size="small"
@@ -213,7 +213,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                 )}
                 {!editingLastName && (
                   <p>
-                    {getValues('last_name')}{" "}
+                    {getValues("last_name")}{" "}
                     <Icon
                       name="pencil"
                       size="small"
@@ -225,7 +225,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
             </div>
             <div className="user-header-div">
               <Header sub>Email</Header>
-              <p className="mt-1p">{getValues('email')}</p>
+              <p className="mt-1p">{getValues("email")}</p>
             </div>
             <div className="user-header-div">
               <Header sub>Account Status</Header>
@@ -247,28 +247,43 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   <div className="flex-row-div mt-2p mb-2p">
                     <p>
                       <strong>User Type: </strong>
-                      {getPrettyUserType(getValues('user_type'))}
+                      {getPrettyUserType(getValues("user_type"))}
                     </p>
                   </div>
                   <div className="flex-row-div mb-2p">
                     <p>
                       <strong>Verification Status: </strong>
-                      {getPrettyVerficationStatus(getValues('verify_status'))}
+                      {getPrettyVerficationStatus(getValues("verify_status"))}
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="mt-1p mb-4p">
+              <div className="mt-1p mb-2p">
                 <div className="dividing-header-custom">
                   <h3>Authentication & Security Data</h3>
                 </div>
                 <div className="flex-col-div">
                   <div className="flex-row-div mt-1p mb-2p">
                     <p>
+                      <strong>UUID: </strong>
+                      {getValues("uuid")}
+                      <Icon
+                        name="copy"
+                        color="blue"
+                        className="pl-2p"
+                        style={{ cursor: "pointer" }}
+                        onClick={async () => {
+                          await copyToClipboard(getValues("uuid") ?? "Unknown");
+                        }}
+                      />
+                    </p>
+                  </div>
+                  <div className="flex-row-div mb-2p">
+                    <p>
                       <strong>Authentication Source: </strong>
                       {getValues("external_idp")
-                        ? getPrettyAuthSource(getValues("external_idp") ?? '')
-                        : "LibreOne"}
+                        ? getPrettyAuthSource(getValues("external_idp") ?? "")
+                        : "LibreOne (Local)"}
                     </p>
                   </div>
                   <div className="flex-row-div mb-2p">
@@ -279,7 +294,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   <div className="flex-row-div">
                     <p>
                       <strong>Time of Last Password Change: </strong>
-                      {getValues('last_password_change') ?? "Never"}
+                      {getValues("last_password_change") ?? "Never"}
                     </p>
                   </div>
                 </div>
