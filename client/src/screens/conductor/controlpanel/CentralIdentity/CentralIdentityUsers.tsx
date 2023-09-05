@@ -9,6 +9,8 @@ import {
   Table,
   Icon,
   Button,
+  Dropdown,
+  Input,
 } from "semantic-ui-react";
 import { CentralIdentityUser, User } from "../../../../types";
 import axios from "axios";
@@ -31,6 +33,8 @@ const CentralIdentityUsers = () => {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [sortChoice, setSortChoice] = useState<string>("");
+  const [searchString, setSearchString] = useState<string>("");
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
@@ -41,8 +45,15 @@ const CentralIdentityUsers = () => {
     { key: "Auth Source", text: "Auth Source" },
     { key: "Actions", text: "Actions" },
   ];
+  const sortOptions = [
+    { key: "first", text: "Sort by First Name", value: "first" },
+    { key: "last", text: "Sort by Last Name", value: "last" },
+    { key: "email", text: "Sort by Email", value: "email" },
+    { key: "auth", text: "Sort by Auth Method", value: "auth" },
+  ];
 
   //Data
+  const [originalUsers, setOriginalUsers] = useState<CentralIdentityUser[]>([]);
   const [users, setUsers] = useState<CentralIdentityUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<CentralIdentityUser | null>(
     null
@@ -53,15 +64,48 @@ const CentralIdentityUsers = () => {
     getUsers();
   }, [activePage, itemsPerPage]);
 
+  useEffect(() => {
+    filterUsers();
+  }, [searchString]);
+
   // Handlers & Methods
+  const filterUsers = () => {
+    setLoading(true);
+    if (searchString === "") {
+      setUsers(originalUsers);
+      setLoading(false);
+      return;
+    }
+    const filtered = users.filter((user) => {
+      let include = true;
+      const descripString =
+        String(user.first_name).toLowerCase() +
+        String(user.last_name).toLowerCase() +
+        String(user.email).toLowerCase() +
+        String(user.external_idp ?? "LibreOne (Local)").toLowerCase();
+      if (
+        searchString !== "" &&
+        String(descripString).indexOf(String(searchString).toLowerCase()) === -1
+      ) {
+        include = false;
+      }
+      if (include) {
+        return user;
+      }
+      return false;
+    });
+    setUsers(filtered);
+    setLoading(false);
+  };
+
   async function getUsers() {
     try {
       setLoading(true);
 
       const res = await axios.get("/central-identity/users", {
         params: {
-          activePage
-        }
+          activePage,
+        },
       });
 
       if (
@@ -74,6 +118,7 @@ const CentralIdentityUsers = () => {
       }
 
       setUsers(res.data.users);
+      setOriginalUsers(res.data.users);
       setTotalItems(res.data.totalCount);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
@@ -112,22 +157,45 @@ const CentralIdentityUsers = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section
-                  as={Link}
-                  to="/controlpanel/libreone"
-                >
+                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
                   LibreOne Admin Consoles
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>Users</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
-            <Segment>
+            <Segment loading={loading}>
+              <Grid>
+                <Grid.Row>
+                  <Grid.Column width={11}>
+                    <Dropdown
+                      placeholder="Sort by..."
+                      floating
+                      selection
+                      button
+                      options={sortOptions}
+                      onChange={(_e, { value }) => {
+                        setSortChoice(value as string);
+                      }}
+                      value={sortChoice}
+                      disabled={true}
+                    />
+                  </Grid.Column>
+                  <Grid.Column width={5}>
+                    <Input
+                      icon="search"
+                      placeholder="Search..."
+                      onChange={(e) => {
+                        setSearchString(e.target.value);
+                      }}
+                      value={searchString}
+                      fluid
+                    />
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
+            <Segment loading={loading}>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}
@@ -137,7 +205,7 @@ const CentralIdentityUsers = () => {
                 totalLength={totalItems}
               />
             </Segment>
-            <Segment>
+            <Segment loading={loading}>
               <Table striped celled>
                 <Table.Header>
                   <Table.Row>
@@ -228,7 +296,7 @@ const CentralIdentityUsers = () => {
                 </Table.Body>
               </Table>
             </Segment>
-            <Segment>
+            <Segment loading={loading}>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}
