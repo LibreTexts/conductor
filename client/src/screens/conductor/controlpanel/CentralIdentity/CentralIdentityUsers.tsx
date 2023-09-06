@@ -22,10 +22,12 @@ import {
   getPrettyUserType,
   getPrettyVerficationStatus,
 } from "../../../../utils/centralIdentityHelpers";
+import useDebounce from "../../../../hooks/useDebounce";
 
 const CentralIdentityUsers = () => {
-  //Global State
+  //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
 
   //UI
   const [loading, setLoading] = useState<boolean>(false);
@@ -53,7 +55,6 @@ const CentralIdentityUsers = () => {
   ];
 
   //Data
-  const [originalUsers, setOriginalUsers] = useState<CentralIdentityUser[]>([]);
   const [users, setUsers] = useState<CentralIdentityUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<CentralIdentityUser | null>(
     null
@@ -64,47 +65,15 @@ const CentralIdentityUsers = () => {
     getUsers();
   }, [activePage, itemsPerPage]);
 
-  useEffect(() => {
-    filterUsers();
-  }, [searchString]);
-
   // Handlers & Methods
-  const filterUsers = () => {
-    setLoading(true);
-    if (searchString === "") {
-      setUsers(originalUsers);
-      setLoading(false);
-      return;
-    }
-    const filtered = users.filter((user) => {
-      let include = true;
-      const descripString =
-        String(user.first_name).toLowerCase() +
-        String(user.last_name).toLowerCase() +
-        String(user.email).toLowerCase() +
-        String(user.external_idp ?? "LibreOne (Local)").toLowerCase();
-      if (
-        searchString !== "" &&
-        String(descripString).indexOf(String(searchString).toLowerCase()) === -1
-      ) {
-        include = false;
-      }
-      if (include) {
-        return user;
-      }
-      return false;
-    });
-    setUsers(filtered);
-    setLoading(false);
-  };
-
-  async function getUsers() {
+  async function getUsers(searchString?: string) {
     try {
       setLoading(true);
 
       const res = await axios.get("/central-identity/users", {
         params: {
           activePage,
+          searchQuery: searchString,
         },
       });
 
@@ -118,7 +87,6 @@ const CentralIdentityUsers = () => {
       }
 
       setUsers(res.data.users);
-      setOriginalUsers(res.data.users);
       setTotalItems(res.data.totalCount);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
@@ -127,6 +95,8 @@ const CentralIdentityUsers = () => {
       setLoading(false);
     }
   }
+
+  const getUsersDebounced = debounce((searchVal: string) => getUsers(searchVal), 500);
 
   function handleSelectUser(user: CentralIdentityUser) {
     setSelectedUser(user);
@@ -187,6 +157,7 @@ const CentralIdentityUsers = () => {
                       placeholder="Search..."
                       onChange={(e) => {
                         setSearchString(e.target.value);
+                        getUsersDebounced(e.target.value);
                       }}
                       value={searchString}
                       fluid

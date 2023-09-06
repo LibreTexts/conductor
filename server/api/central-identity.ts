@@ -31,7 +31,7 @@ const ONE_AUTH_HEADER_OBJ = {
 };
 
 async function getUsers(
-  req: TypedReqQuery<{ activePage?: number, limit?: number }>,
+  req: TypedReqQuery<{ activePage?: number, limit?: number, searchQuery?: string }>,
   res: Response<{
     err: boolean;
     users: CentralIdentityUser[];
@@ -60,6 +60,7 @@ async function getUsers(
         params: {
           offset,
           limit,
+          searchQuery: req.query.searchQuery,
         },
       }
     );
@@ -130,13 +131,13 @@ async function updateUser(req: TypedReqParamsAndBody<{ id?: string }, CentralIde
       }
     );
 
-    if (!userRes.data || !userRes.data.data) {
+    if (!userRes.data) {
       return conductor500Err(res);
     }
 
     return res.send({
       err: false,
-      user: userRes.data.data,
+      user: userRes.data,
     });
  } catch (err) {
     debugError(err);
