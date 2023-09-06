@@ -115,7 +115,7 @@ async function initLogin(req, res) {
   });
 
   const prodCookieConfig = {
-    sameSite: "strict",
+    sameSite: "lax",
     domain: process.env.OIDC_CALLBACK_HOST || process.env.CONDUCTOR_DOMAIN,
     secure: true,
   };
@@ -167,6 +167,8 @@ async function completeLogin(req, res) {
       state = JSON.parse(stateQuery);
       stateCookie = JSON.parse(oidc_state);
     } catch (e) {
+      debugError(`State query: ${stateQuery}`);
+      debugError(`State cookie: ${oidc_state}`);
       debugError(e);
     }
     if (!state || !stateCookie || state.nonce !== stateCookie.nonce) {
