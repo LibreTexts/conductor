@@ -544,15 +544,6 @@ router.route('/user/role/update').put(
   usersAPI.updateUserRole,
 );
 
-router.route('/user/delete').put(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  usersAPI.validate('deleteUser'),
-  middleware.checkValidationErrors,
-  usersAPI.deleteUser,
-);
-
 router.route('/user/instructorprofile')
   .get(
     authAPI.verifyRequest,
