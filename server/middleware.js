@@ -7,6 +7,7 @@
 import express from 'express';
 import { validationResult } from 'express-validator';
 import conductorErrors from './conductor-errors.js';
+import { centralIdentityConfigured } from './util/centralIdentity.js';
 
 /**
  * Checks the results of the validation stage for an API route.
@@ -119,11 +120,29 @@ function middlewareFilter(paths, middleware) {
   }
 }
 
+/**
+ * Checks if the server has been configured to use the Central Identity service.
+ * 
+ * @param {express.Request} req 
+ * @param {express.Response} res 
+ * @param {express.NextFunction} next 
+ * @returns {express.NextFunction|express.Response} An invocation of the next middleware, or
+ *  an error response.
+ */
+function checkCentralIdentityConfig(req, res, next) {
+  if(centralIdentityConfigured) return next();
+  return res.status(500).send({
+    err: true,
+    errMsg: conductorErrors.err16,
+  });
+}
+
 export default {
     checkValidationErrors,
     checkLibreCommons,
     checkLibreAPIKey,
     authSanitizer,
     requestSecurityHelper,
-    middlewareFilter
+    middlewareFilter,
+    checkCentralIdentityConfig
 }

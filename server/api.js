@@ -106,6 +106,7 @@ router.route('/auth/fallback-auth').post(
 
 /* LibreOne Auth */
 router.route('/central-identity/users').get(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
@@ -113,6 +114,7 @@ router.route('/central-identity/users').get(
 )
 
 router.route('/central-identity/users/:id').get(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
@@ -121,6 +123,7 @@ router.route('/central-identity/users/:id').get(
   centralIdentityAPI.getUser
 )
 .patch(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
@@ -130,6 +133,7 @@ router.route('/central-identity/users/:id').get(
 )
 
 router.route('/central-identity/orgs').get(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
@@ -137,6 +141,7 @@ router.route('/central-identity/orgs').get(
 )
 
 router.route('/central-identity/systems').get(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
@@ -144,6 +149,7 @@ router.route('/central-identity/systems').get(
 )
 
 router.route('/central-identity/services').get(
+  middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
