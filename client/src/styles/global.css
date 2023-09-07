@@ -374,6 +374,19 @@ body {
     padding-top: 2% !important;
 }
 
+.pt-2r {
+    padding-top: 2rem !important;
+}
+
+.pt-3e {
+    padding-top: 3em !important;
+}
+
+.pt-3p {
+    padding-top: 3% !important;
+}
+
+
 /** padding-bottom **/
 .pb-05e {
     padding-bottom: 0.5em !important;

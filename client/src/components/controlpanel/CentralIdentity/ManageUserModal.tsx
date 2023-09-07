@@ -14,7 +14,7 @@ import {
 import { useState, useEffect } from "react";
 import { CentralIdentityUser, User } from "../../../types";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { useForm } from "react-hook-form";
+import { get, useForm } from "react-hook-form";
 import {
   accountStatusOptions,
   getPrettyAuthSource,
@@ -50,6 +50,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
   const [editingFirstName, setEditingFirstName] = useState<boolean>(false);
   const [editingLastName, setEditingLastName] = useState<boolean>(false);
   const [editingUserType, setEditingUserType] = useState<boolean>(false);
+  const [editingStudentId, setEditingStudentId] = useState<boolean>(false);
   const [editingVerifyStatus, setEditingVerifyStatus] =
     useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -68,6 +69,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
         disabled: false,
         bio_url: "",
         user_type: "student",
+        student_id: "",
         avatar: DEFAULT_AVATAR_URL,
       },
     });
@@ -315,41 +317,74 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         </>
                       )}
                     </div>
-                    <div className="flex-row-div flex-row-verticalcenter mb-2p">
-                      <span>
-                        <strong>Verification Status: </strong>
-                      </span>
-                      {editingVerifyStatus ? (
-                        <div className="ml-1p">
-                          <Dropdown
-                            placeholder="Verification Status"
-                            floating
-                            selection
-                            button
-                            options={verificationStatusOptions}
-                            onChange={(e, { data }) => {
-                              setValue("verify_status", data, {
-                                shouldDirty: true,
-                              });
-                            }}
-                            value={getValues("verify_status")}
-                          />
-                          <Icon
-                            name="close"
-                            onClick={() => {
-                              setEditingVerifyStatus(false);
-                              handleResetDataItem("verify_status");
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <span className="ml-05p">
-                            {getPrettyVerficationStatus(
-                              getValues("verify_status")
-                            )}
-                          </span>
-                          {/*
+                    {getValues("user_type") === "student" && (
+                      <div className="flex-row-div flex-row-verticalcenter my-auto mb-2p">
+                        <span>
+                          <strong>Student ID: </strong>
+                        </span>
+                        {editingStudentId ? (
+                          <div className="flex-row-div flex-row-verticalcenter ml-1p">
+                            <CtlTextInput name="student_id" control={control} />
+                            <Icon
+                              name="close"
+                              className="pb-2p pl-1p curser-pointer"
+                              onClick={() => {
+                                setEditingStudentId(false);
+                                handleResetDataItem("student_id");
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <span className="ml-05p">
+                              {getValues("student_id") ?? "Unknown"}
+                            </span>
+                            <Icon
+                              name="edit"
+                              size="small"
+                              className="ml-05p"
+                              onClick={() => setEditingStudentId(true)}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {getValues("user_type") === "instructor" && (
+                      <div className="flex-row-div flex-row-verticalcenter mb-2p">
+                        <span>
+                          <strong>Verification Status: </strong>
+                        </span>
+                        {editingVerifyStatus ? (
+                          <div className="ml-1p">
+                            <Dropdown
+                              placeholder="Verification Status"
+                              floating
+                              selection
+                              button
+                              options={verificationStatusOptions}
+                              onChange={(e, { data }) => {
+                                setValue("verify_status", data, {
+                                  shouldDirty: true,
+                                });
+                              }}
+                              value={getValues("verify_status")}
+                            />
+                            <Icon
+                              name="close"
+                              onClick={() => {
+                                setEditingVerifyStatus(false);
+                                handleResetDataItem("verify_status");
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <span className="ml-05p">
+                              {getPrettyVerficationStatus(
+                                getValues("verify_status")
+                              )}
+                            </span>
+                            {/*
                           <Icon
                             name="edit"
                             size="small"
@@ -357,9 +392,10 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                             onClick={() => setEditingVerifyStatus(true)}
                           />
                             */}
-                        </>
-                      )}
-                    </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-1p mb-2p">

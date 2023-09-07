@@ -38,6 +38,7 @@ export type CentralIdentityUser = {
   registration_complete: boolean | null;
   updatedAt: string | null;
   user_type: "student" | "instructor";
+  student_id?: string;
   uuid: string;
   verify_status:
     | "not_attempted"

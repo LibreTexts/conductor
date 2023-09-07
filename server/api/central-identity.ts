@@ -46,7 +46,7 @@ async function getUsers(
         params: {
           offset,
           limit,
-          query: req.query.query,
+          query: req.query.query ? req.query.query : undefined,
         },
       }
     );

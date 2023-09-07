@@ -44,6 +44,7 @@ const CentralIdentityUsers = () => {
     { key: "email", text: "Email" },
     { key: "userType", text: "User Type" },
     { key: "verification", text: "Verification Status" },
+    { key: "studentId", text: "Student ID" },
     { key: "Auth Source", text: "Auth Source" },
     { key: "Actions", text: "Actions" },
   ];
@@ -96,7 +97,10 @@ const CentralIdentityUsers = () => {
     }
   }
 
-  const getUsersDebounced = debounce((searchVal: string) => getUsers(searchVal), 500);
+  const getUsersDebounced = debounce(
+    (searchVal: string) => getUsers(searchVal),
+    500
+  );
 
   function handleSelectUser(user: CentralIdentityUser) {
     setSelectedUser(user);
@@ -134,7 +138,7 @@ const CentralIdentityUsers = () => {
                 <Breadcrumb.Section active>Users</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            <Segment loading={loading}>
+            <Segment>
               <Grid>
                 <Grid.Row>
                   <Grid.Column width={11}>
@@ -177,7 +181,7 @@ const CentralIdentityUsers = () => {
               />
             </Segment>
             <Segment loading={loading}>
-              <Table striped celled>
+              <Table striped celled selectable>
                 <Table.Header>
                   <Table.Row>
                     {TABLE_COLS.map((item) => (
@@ -232,9 +236,20 @@ const CentralIdentityUsers = () => {
                             <span>{getPrettyUserType(user.user_type)}</span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>
-                              {getPrettyVerficationStatus(user.verify_status)}
-                            </span>
+                            {user.user_type === "instructor" ? (
+                              <span>
+                                {getPrettyVerficationStatus(user.verify_status)}
+                              </span>
+                            ) : (
+                              <span className="muted-text">N/A</span>
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>
+                            {user.student_id ? (
+                              <span>{user.student_id}</span>
+                            ) : (
+                              <span className="muted-text">N/A</span>
+                            )}
                           </Table.Cell>
                           <Table.Cell>
                             <span>
