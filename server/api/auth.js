@@ -234,8 +234,9 @@ async function completeLogin(req, res) {
       },
       httpsAgent: networkAgent,
     });
-    const centralAttr = profileRes.data.attributes;
-    const authSub = centralAttr.uuid || centralAttr.sub || profileRes.data.sub;
+    const profileData = profileRes.data;
+    const centralAttr = profileData.attributes;
+    const authSub = profileData.sub || centralAttr.sub;
     const targetOrg = state.orgID || process.env.ORG_ID;
 
     let authUser = null;
