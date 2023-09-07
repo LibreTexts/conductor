@@ -39,12 +39,6 @@ const ControlPanel = () => {
 
     let libretextsMasterTools: ControlPanelListItem[] = [
         {
-            url: '/controlpanel/accountrequests',
-            icon: 'user plus',
-            title: 'Account Requests',
-            description: 'View Account Requests submitted to the Conductor platform'
-        },
-        {
             url: '/controlpanel/adoptionreports',
             icon: 'chart line',
             title: 'Adoption Reports',
