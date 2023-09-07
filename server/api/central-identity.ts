@@ -18,20 +18,12 @@ import {
   conductor500Err,
   conductorErr,
 } from "../util/errorutils.js";
-import axios from "axios";
+import { useCentralIdentityAxios } from "../util/centralIdentity.js";
 
-const ONE_AUTH_HEADER = `Basic ${Buffer.from(
-  `${process.env.CENTRAL_IDENTITY_USER}:${process.env.CENTRAL_IDENTITY_KEY}`
-).toString("base64")}`;
-
-const ONE_AUTH_HEADER_OBJ = {
-  headers: {
-    authorization: ONE_AUTH_HEADER,
-  },
-};
+const centralIdentityAxios = useCentralIdentityAxios();
 
 async function getUsers(
-  req: TypedReqQuery<{ activePage?: number, limit?: number }>,
+  req: TypedReqQuery<{ activePage?: number, limit?: number, query?: string }>,
   res: Response<{
     err: boolean;
     users: CentralIdentityUser[];
@@ -39,10 +31,6 @@ async function getUsers(
   }>
 ) {
   try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     let page = 1;
     let limit = req.query.limit || 25;
     if (
@@ -53,16 +41,16 @@ async function getUsers(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const usersRes = await axios.get(
-      process.env.CENTRAL_IDENTITY_URL + "/users",
+    const usersRes = await centralIdentityAxios.get("/users",
       {
-        ...ONE_AUTH_HEADER_OBJ,
         params: {
           offset,
           limit,
+          query: req.query.query ? req.query.query : undefined,
         },
       }
     );
+
     if (!usersRes.data || !usersRes.data.data || !usersRes.data.meta) {
       return conductor500Err(res);
     }
@@ -83,20 +71,11 @@ async function getUser(
   res: Response<{ err: boolean; user: CentralIdentityUser }>
 ) {
   try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     if (!req.params.id) {
       return conductor400Err(res);
     }
 
-    const userRes = await axios.get(
-      `${process.env.CENTRAL_IDENTITY_URL}/users/${req.params.id}`,
-      {
-        ...ONE_AUTH_HEADER_OBJ,
-      }
-    );
+    const userRes = await centralIdentityAxios.get(`/users/${req.params.id}`);
 
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
@@ -114,29 +93,21 @@ async function getUser(
 
 async function updateUser(req: TypedReqParamsAndBody<{ id?: string }, CentralIdentityUser>, res: Response<{ err: boolean; user: CentralIdentityUser }>){
  try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     if (!req.params.id) {
       return conductor400Err(res);
     }
 
-    const userRes = await axios.patch(
-      `${process.env.CENTRAL_IDENTITY_URL}/users/${req.params.id}`,
-      req.body,
-      {
-        ...ONE_AUTH_HEADER_OBJ,
-      }
+    const userRes = await centralIdentityAxios.patch(`/users/${req.params.id}`,
+      req.body
     );
 
-    if (!userRes.data || !userRes.data.data) {
+    if (!userRes.data) {
       return conductor500Err(res);
     }
 
     return res.send({
       err: false,
-      user: userRes.data.data,
+      user: userRes.data,
     });
  } catch (err) {
     debugError(err);
@@ -153,10 +124,6 @@ async function getOrgs(
   }>
 ) {
   try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     let page = 1;
     let limit = 25;
     if (
@@ -165,12 +132,10 @@ async function getOrgs(
     ) {
       page = req.query.activePage;
     }
-    let offset = getPaginationOffset(page, limit);
+    const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await axios.get(
-      process.env.CENTRAL_IDENTITY_URL + "/organizations",
+    const orgsRes = await centralIdentityAxios.get("/organizations",
       {
-        ...ONE_AUTH_HEADER_OBJ,
         params: {
           offset,
           limit,
@@ -202,10 +167,6 @@ async function getSystems(
   }>
 ) {
   try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     let page = 1;
     let limit = 25;
     if (
@@ -214,12 +175,10 @@ async function getSystems(
     ) {
       page = req.query.activePage;
     }
-    let offset = getPaginationOffset(page, limit);
+    const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await axios.get(
-      process.env.CENTRAL_IDENTITY_URL + "/organization-systems",
+    const orgsRes = await centralIdentityAxios.get("/organization-systems",
       {
-        ...ONE_AUTH_HEADER_OBJ,
         params: {
           offset,
           limit,
@@ -251,10 +210,6 @@ async function getServices(
   }>
 ) {
   try {
-    if (!process.env.CENTRAL_IDENTITY_URL) {
-      return conductor500Err(res);
-    }
-
     let page = 1;
     let limit = 25;
     if (
@@ -263,12 +218,10 @@ async function getServices(
     ) {
       page = req.query.activePage;
     }
-    let offset = getPaginationOffset(page, limit);
+    const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await axios.get(
-      process.env.CENTRAL_IDENTITY_URL + "/services",
+    const orgsRes = await centralIdentityAxios.get("/services",
       {
-        ...ONE_AUTH_HEADER_OBJ,
         params: {
           offset,
           limit,
@@ -296,6 +249,13 @@ async function getServices(
  */
 function validate(method: string) {
   switch (method) {
+    case "getUsers": {
+      return [
+        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("limit", conductorErrors.err1).optional().isInt(),
+        param("query", conductorErrors.err1).optional().isString(),
+      ]
+    }
     case "getUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }

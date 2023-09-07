@@ -175,26 +175,6 @@ const UserDetails = (props: RouteComponentProps<MatchParams>) => {
                             </p>
                           )}
                         </Grid.Column>
-                        <Grid.Column>
-                          <Header sub>Authentication Method</Header>
-                          {userData.authType ? (
-                            <p>{userData.authType}</p>
-                          ) : (
-                            <p>
-                              <em>Unknown</em>
-                            </p>
-                          )}
-                        </Grid.Column>
-                        <Grid.Column>
-                          <Header sub>Account Creation Date</Header>
-                          {userData.createdAt ? (
-                            <p>{userData.createdAt}</p>
-                          ) : (
-                            <p>
-                              <em>Unknown</em>
-                            </p>
-                          )}
-                        </Grid.Column>
                       </Grid.Row>
                     </Grid>
                   </Grid.Column>

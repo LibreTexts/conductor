@@ -9,6 +9,8 @@ import {
   Table,
   Icon,
   Button,
+  Dropdown,
+  Input,
 } from "semantic-ui-react";
 import { CentralIdentityUser, User } from "../../../../types";
 import axios from "axios";
@@ -20,10 +22,12 @@ import {
   getPrettyUserType,
   getPrettyVerficationStatus,
 } from "../../../../utils/centralIdentityHelpers";
+import useDebounce from "../../../../hooks/useDebounce";
 
 const CentralIdentityUsers = () => {
-  //Global State
+  //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
 
   //UI
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,6 +35,8 @@ const CentralIdentityUsers = () => {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [sortChoice, setSortChoice] = useState<string>("");
+  const [searchString, setSearchString] = useState<string>("");
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
@@ -38,8 +44,15 @@ const CentralIdentityUsers = () => {
     { key: "email", text: "Email" },
     { key: "userType", text: "User Type" },
     { key: "verification", text: "Verification Status" },
+    { key: "studentId", text: "Student ID" },
     { key: "Auth Source", text: "Auth Source" },
     { key: "Actions", text: "Actions" },
+  ];
+  const sortOptions = [
+    { key: "first", text: "Sort by First Name", value: "first" },
+    { key: "last", text: "Sort by Last Name", value: "last" },
+    { key: "email", text: "Sort by Email", value: "email" },
+    { key: "auth", text: "Sort by Auth Method", value: "auth" },
   ];
 
   //Data
@@ -54,14 +67,15 @@ const CentralIdentityUsers = () => {
   }, [activePage, itemsPerPage]);
 
   // Handlers & Methods
-  async function getUsers() {
+  async function getUsers(searchString?: string) {
     try {
       setLoading(true);
 
       const res = await axios.get("/central-identity/users", {
         params: {
-          activePage
-        }
+          activePage,
+          query: searchString,
+        },
       });
 
       if (
@@ -82,6 +96,11 @@ const CentralIdentityUsers = () => {
       setLoading(false);
     }
   }
+
+  const getUsersDebounced = debounce(
+    (searchVal: string) => getUsers(searchVal),
+    500
+  );
 
   function handleSelectUser(user: CentralIdentityUser) {
     setSelectedUser(user);
@@ -112,22 +131,46 @@ const CentralIdentityUsers = () => {
                   Control Panel
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section
-                  as={Link}
-                  to="/controlpanel/libreone"
-                >
+                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
                   LibreOne Admin Consoles
                 </Breadcrumb.Section>
                 <Breadcrumb.Divider icon="right chevron" />
                 <Breadcrumb.Section active>Users</Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            {loading && (
-              <Segment>
-                <Loader active inline="centered" />
-              </Segment>
-            )}
             <Segment>
+              <Grid>
+                <Grid.Row>
+                  <Grid.Column width={11}>
+                    <Dropdown
+                      placeholder="Sort by..."
+                      floating
+                      selection
+                      button
+                      options={sortOptions}
+                      onChange={(_e, { value }) => {
+                        setSortChoice(value as string);
+                      }}
+                      value={sortChoice}
+                      disabled={true}
+                    />
+                  </Grid.Column>
+                  <Grid.Column width={5}>
+                    <Input
+                      icon="search"
+                      placeholder="Search by First, Last, Email, or Student ID..."
+                      onChange={(e) => {
+                        setSearchString(e.target.value);
+                        getUsersDebounced(e.target.value);
+                      }}
+                      value={searchString}
+                      fluid
+                    />
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
+            <Segment loading={loading}>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}
@@ -137,8 +180,8 @@ const CentralIdentityUsers = () => {
                 totalLength={totalItems}
               />
             </Segment>
-            <Segment>
-              <Table striped celled>
+            <Segment loading={loading}>
+              <Table striped celled selectable>
                 <Table.Header>
                   <Table.Row>
                     {TABLE_COLS.map((item) => (
@@ -193,9 +236,20 @@ const CentralIdentityUsers = () => {
                             <span>{getPrettyUserType(user.user_type)}</span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>
-                              {getPrettyVerficationStatus(user.verify_status)}
-                            </span>
+                            {user.user_type === "instructor" ? (
+                              <span>
+                                {getPrettyVerficationStatus(user.verify_status)}
+                              </span>
+                            ) : (
+                              <span className="muted-text">N/A</span>
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>
+                            {user.student_id ? (
+                              <span>{user.student_id}</span>
+                            ) : (
+                              <span className="muted-text">N/A</span>
+                            )}
                           </Table.Cell>
                           <Table.Cell>
                             <span>
@@ -228,7 +282,7 @@ const CentralIdentityUsers = () => {
                 </Table.Body>
               </Table>
             </Segment>
-            <Segment>
+            <Segment loading={loading}>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}

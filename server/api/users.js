@@ -369,36 +369,36 @@ const getUserInfoAdmin = (req, res) => {
     });
 };
 
-
-/**
- * Deletes the User identified in the request body.
- * Method should be restricted to users with elevated privileges.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'deleteUser'
- * @param {Object} req - The Express.js request object.
- * @param {Object} res - The Express.js response object.
- */
-const deleteUser = (req, res) => {
-    User.deleteOne({
-        uuid: req.body.uuid
-    }).then((deleteRes) => {
-        if (deleteRes.deletedCount === 1) {
-            return res.send({
-                err: false,
-                msg: "Successfully deleted user."
-            });
-        }
-        throw(new Error('deletefailed'));
-    }).catch((err) => {
-        let errMsg = conductorErrors.err6;
-        if (err.message === 'deletefailed') errMsg = conductorErrors.err3;
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: errMsg
-        });
-    });
-};
+// NOW HANDLED BY LIBREONE (CENTRAL IDENTITY)
+// /**
+//  * Deletes the User identified in the request body.
+//  * Method should be restricted to users with elevated privileges.
+//  * NOTE: This function should only be called AFTER the validation chain.
+//  * VALIDATION: 'deleteUser'
+//  * @param {Object} req - The Express.js request object.
+//  * @param {Object} res - The Express.js response object.
+//  */
+// const deleteUser = (req, res) => {
+//     User.deleteOne({
+//         uuid: req.body.uuid
+//     }).then((deleteRes) => {
+//         if (deleteRes.deletedCount === 1) {
+//             return res.send({
+//                 err: false,
+//                 msg: "Successfully deleted user."
+//             });
+//         }
+//         throw(new Error('deletefailed'));
+//     }).catch((err) => {
+//         let errMsg = conductorErrors.err6;
+//         if (err.message === 'deletefailed') errMsg = conductorErrors.err3;
+//         debugError(err);
+//         return res.send({
+//             err: true,
+//             errMsg: errMsg
+//         });
+//     });
+// };
 
 /**
  * Retrieves the list of API Client apps a User has authorized to access their account
@@ -900,7 +900,6 @@ export default {
     getUsersList,
     getBasicUsersList,
     getUserInfoAdmin,
-    deleteUser,
     addUserAuthorizedApplication,
     removeUserAuthorizedApplication,
     getUserAuthorizedApplications,

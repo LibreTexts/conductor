@@ -67,7 +67,6 @@ const UsersManager = () => {
         { key: 'first', text: 'Sort by First Name', value: 'first' },
         { key: 'last', text: 'Sort by Last Name', value: 'last' },
         { key: 'email', text: 'Sort by Email', value: 'email' },
-        { key: 'auth', text: 'Sort by Auth Method', value: 'auth' },
     ];
 
 
@@ -485,12 +484,6 @@ const UsersManager = () => {
                                             }
                                         </Table.HeaderCell>
                                         <Table.HeaderCell>
-                                            {(sortChoice === 'auth')
-                                                ? <span><em>Auth Type</em></span>
-                                                : <span>Auth Type</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
                                             <span>Actions</span>
                                         </Table.HeaderCell>
                                     </Table.Row>
@@ -509,9 +502,6 @@ const UsersManager = () => {
                                                     <Table.Cell>
                                                         <p>{item.email}</p>
                                                     </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{item.authType}</p>
-                                                    </Table.Cell>
                                                     <Table.Cell textAlign='center'>
                                                         <Button.Group vertical fluid>
                                                             <Button
@@ -528,14 +518,6 @@ const UsersManager = () => {
                                                             >
                                                                 <Icon name='list ul' />
                                                                 <span>View Projects</span>
-                                                            </Button>
-                                                            <Button
-                                                                disabled={!isSuperAdmin}
-                                                                color='red'
-                                                                onClick={() => { openDelUserModal(item.uuid, item.firstName, item.lastName) }}
-                                                            >
-                                                                <Icon name='user delete' />
-                                                                <span>Delete User</span>
                                                             </Button>
                                                         </Button.Group>
                                                     </Table.Cell>

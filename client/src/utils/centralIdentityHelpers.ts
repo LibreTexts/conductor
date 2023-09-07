@@ -1,3 +1,5 @@
+import { GenericKeyTextValueObj } from "../types";
+
 export function getPrettyUserType(userType: string) {
   switch (userType) {
     case "student":
@@ -46,10 +48,63 @@ export const accountStatusOptions = [
   { key: "disabled", text: "Disabled", value: true },
 ];
 
+/**
+ * Valid verification status options for a user
+ */
+export const verificationStatusOptions: GenericKeyTextValueObj<string>[] = [
+  {
+    key: "not_attempted",
+    text: "Not Attempted",
+    value: "not_attempted",
+  },
+  {
+    key: "pending",
+    text: "Pending",
+    value: "pending",
+  },
+  {
+    key: "needs_review",
+    text: "Needs Review",
+    value: "needs_review",
+  },
+  {
+    key: "verified",
+    text: "Verified",
+    value: "verified",
+  },
+  {
+    key: "denied",
+    text: "Denied",
+    value: "denied",
+  },
+];
+
+/**
+ * Valid user type options for a user
+ */
+export const userTypeOptions: GenericKeyTextValueObj<string>[] = [
+  {
+    key: "student",
+    text: "Student",
+    value: "student",
+  },
+  {
+    key: "instructor",
+    text: "Instructor",
+    value: "instructor",
+  }
+];
+
 export const getCentralAuthProfileEditURL = () => {
-  return import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL || 'https://one.libretexts.org/profile';
+  return (
+    import.meta.env.VITE_CENTRAL_AUTH_EDIT_PROFILE_URL ||
+    "https://one.libretexts.org/profile"
+  );
 };
 
 export const getCentralAuthInstructorURL = () => {
-  return import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL || 'https://one.libretexts.org/instructor';
+  return (
+    import.meta.env.VITE_CENTRAL_AUTH_INSTRUCTOR_URL ||
+    "https://one.libretexts.org/instructor"
+  );
 };
