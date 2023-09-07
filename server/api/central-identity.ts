@@ -23,7 +23,7 @@ import { useCentralIdentityAxios } from "../util/centralIdentity.js";
 const centralIdentityAxios = useCentralIdentityAxios();
 
 async function getUsers(
-  req: TypedReqQuery<{ activePage?: number, limit?: number, searchQuery?: string }>,
+  req: TypedReqQuery<{ activePage?: number, limit?: number, query?: string }>,
   res: Response<{
     err: boolean;
     users: CentralIdentityUser[];
@@ -46,7 +46,7 @@ async function getUsers(
         params: {
           offset,
           limit,
-          searchQuery: req.query.searchQuery,
+          query: req.query.query,
         },
       }
     );
@@ -249,6 +249,13 @@ async function getServices(
  */
 function validate(method: string) {
   switch (method) {
+    case "getUsers": {
+      return [
+        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("limit", conductorErrors.err1).optional().isInt(),
+        param("query", conductorErrors.err1).optional().isString(),
+      ]
+    }
     case "getUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }

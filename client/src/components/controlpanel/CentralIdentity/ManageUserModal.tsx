@@ -304,12 +304,14 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                           <span className="ml-05p">
                             {getPrettyUserType(getValues("user_type"))}
                           </span>
+                          {/*
                           <Icon
                             name="edit"
                             size="small"
                             className="ml-05p"
                             onClick={() => setEditingUserType(true)}
                           />
+                      */}
                         </>
                       )}
                     </div>
@@ -347,12 +349,14 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                               getValues("verify_status")
                             )}
                           </span>
+                          {/*
                           <Icon
                             name="edit"
                             size="small"
                             className="ml-05p"
                             onClick={() => setEditingVerifyStatus(true)}
                           />
+                            */}
                         </>
                       )}
                     </div>

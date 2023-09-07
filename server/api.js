@@ -110,6 +110,8 @@ router.route('/central-identity/users').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getUsers'),
+  middleware.checkValidationErrors,
   centralIdentityAPI.getUsers
 )
 

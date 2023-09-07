@@ -73,7 +73,7 @@ const CentralIdentityUsers = () => {
       const res = await axios.get("/central-identity/users", {
         params: {
           activePage,
-          searchQuery: searchString,
+          query: searchString,
         },
       });
 
@@ -154,7 +154,7 @@ const CentralIdentityUsers = () => {
                   <Grid.Column width={5}>
                     <Input
                       icon="search"
-                      placeholder="Search..."
+                      placeholder="Search by First, Last, Email, or Student ID..."
                       onChange={(e) => {
                         setSearchString(e.target.value);
                         getUsersDebounced(e.target.value);
