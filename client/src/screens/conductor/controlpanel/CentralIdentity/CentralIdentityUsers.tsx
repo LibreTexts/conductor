@@ -256,6 +256,7 @@ const CentralIdentityUsers = () => {
                               {user.external_idp
                                 ? getPrettyAuthSource(user.external_idp)
                                 : "LibreOne"}
+                              {user.disabled && " (Disabled)"}
                             </span>
                           </Table.Cell>
                           <Table.Cell>

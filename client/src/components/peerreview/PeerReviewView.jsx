@@ -17,11 +17,10 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
-
+import { getLikertResponseText } from '../util/LikertHelpers';
 import {
     getPeerReviewAuthorText,
-    getPeerReviewLikertPointText
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 
 import StarRating from './StarRating.jsx';
 
@@ -253,7 +252,7 @@ const PeerReviewView = ({
                                                 <p className={responseClass}>{item.promptText}</p>
                                                 <Segment raised>
                                                     {(typeof (item.likertResponse) === 'number') ? (
-                                                        <p><em>{getPeerReviewLikertPointText(item.likertResponse, likertPoints)}</em></p>
+                                                        <p><em>{getLikertResponseText(likertPoints === 7 ? '7-likert' : likertPoints === 5 ? '5-likert' : '3-likert', item.likertResponse)}</em></p>
                                                     ) : <p><em>No response</em></p>}
                                                 </Segment>
                                             </React.Fragment>

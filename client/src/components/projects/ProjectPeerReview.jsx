@@ -32,7 +32,7 @@ import {
     checkProjectAdminPermission,
     checkProjectMemberPermission,
     getPeerReviewAuthorText
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 
 import Messaging from '../Messaging';
 import PeerReview from '../peerreview/PeerReview.jsx';
