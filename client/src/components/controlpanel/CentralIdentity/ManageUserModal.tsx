@@ -29,6 +29,10 @@ import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
 import { copyToClipboard, dirtyValues } from "../../../utils/misc";
 import LoadingSpinner from "../../LoadingSpinner";
+import { CentralIdentityApp } from "../../../types/CentralIdentity";
+import AddUserAppModal from "./AddUserAppModal";
+import AddUserOrgModal from "./AddUserOrgModal";
+import ConfirmRemoveOrgOrAppModal from "./ConfirmRemoveOrgOrAppModal";
 
 interface ManageUserModalProps extends ModalProps {
   show: boolean;
@@ -54,6 +58,16 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
   const [editingVerifyStatus, setEditingVerifyStatus] =
     useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showAddAppModal, setShowAddAppModal] = useState<boolean>(false);
+  const [showAddOrgModal, setShowAddOrgModal] = useState<boolean>(false);
+  const [userApps, setUserApps] = useState<CentralIdentityApp[]>([]);
+  const [showRemoveOrgOrAppModal, setShowRemoveOrgOrAppModal] =
+    useState<boolean>(false);
+  const [removeOrgOrAppType, setRemoveOrgOrAppType] = useState<"org" | "app">(
+    "org"
+  );
+  const [removeOrgOrAppTargetId, setRemoveOrgOrAppTargetId] =
+    useState<string>("");
   // Only used for initial state reference so we can reset to original values as needed
   const [userInitVal, setUserInitVal] = useState<
     CentralIdentityUser | undefined
@@ -78,6 +92,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
   useEffect(() => {
     if (show) {
       loadUser();
+      loadUserApps();
     }
 
     // Reset editing states when modal is closed
@@ -111,6 +126,31 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
     }
   }
 
+  async function loadUserApps() {
+    try {
+      if (!userId) return;
+      setLoading(true);
+
+      const res = await axios.get(
+        `/central-identity/users/${userId}/applications`
+      );
+      if (
+        res.data.err ||
+        !res.data.applications ||
+        !Array.isArray(res.data.applications)
+      ) {
+        handleGlobalError(res.data.errMsg);
+        return;
+      }
+
+      setUserApps([...(res.data.applications as CentralIdentityApp[])]);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleCancel() {
     reset();
     onClose();
@@ -124,6 +164,31 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
 
   function handleResetAvatar() {
     setValue("avatar", DEFAULT_AVATAR_URL.toString(), { shouldDirty: true });
+  }
+
+  function handleAddAppModalClose() {
+    setShowAddAppModal(false);
+    loadUserApps(); // Refresh user apps
+  }
+
+  function handleAddOrgModalClose() {
+    setShowAddOrgModal(false);
+    loadUser(); // Refresh user orgs
+  }
+
+  function handleOpenRemoveOrgOrAppModal(type: "org" | "app", id: string) {
+    setRemoveOrgOrAppType(type);
+    setRemoveOrgOrAppTargetId(id);
+    setShowRemoveOrgOrAppModal(true);
+  }
+
+  function handleRemoveOrgOrAppModalClose() {
+    setShowRemoveOrgOrAppModal(false);
+    if(removeOrgOrAppType === "org") {
+      loadUser(); // Refresh user orgs
+      return;
+    }
+    loadUserApps(); // Refresh user apps
   }
 
   async function handleSave() {
@@ -453,8 +518,17 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   >
                     <Table.Header>
                       <Table.Row key="header1">
-                        <Table.HeaderCell colSpan="2">
-                          <span>Organizations</span>
+                        <Table.HeaderCell colSpan="3">
+                          <div className="flex-row-div justify-between align-center">
+                            <span>Organizations</span>
+                            <Button
+                              icon
+                              primary
+                              onClick={() => setShowAddOrgModal(true)}
+                            >
+                              <Icon name="plus" />
+                            </Button>
+                          </div>
                         </Table.HeaderCell>
                       </Table.Row>
                       <Table.Row key="header2">
@@ -464,6 +538,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         <Table.HeaderCell key="orgSystemHeader">
                           <span>System (if applicable)</span>
                         </Table.HeaderCell>
+                        <Table.HeaderCell key="actions"></Table.HeaderCell>
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -481,6 +556,13 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                                   {org.system ? org.system.name : ""}
                                 </span>
                               </Table.Cell>
+                              <Table.Cell>
+                                <Icon
+                                  name="minus circle"
+                                  className="cursor-pointer"
+                                  onClick={() => handleOpenRemoveOrgOrAppModal("org", org.id.toString())}
+                                />
+                              </Table.Cell>
                             </Table.Row>
                           );
                         })}
@@ -494,11 +576,83 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         )}
                     </Table.Body>
                   </Table>
+                  <Table
+                    striped
+                    celled
+                    size="small"
+                    compact
+                    className="mx-auto"
+                  >
+                    <Table.Header>
+                      <Table.Row key="header1">
+                        <Table.HeaderCell colSpan="2">
+                          <div className="flex-row-div justify-between align-center">
+                            <span>Applications</span>
+                            <Button
+                              icon
+                              primary
+                              onClick={() => setShowAddAppModal(true)}
+                            >
+                              <Icon name="plus" />
+                            </Button>
+                          </div>
+                        </Table.HeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {userApps &&
+                        userApps.length > 0 &&
+                        userApps.map((app) => {
+                          return (
+                            <Table.Row key={app.id} className="word-break-all">
+                              <Table.Cell width="15">
+                                <span>{app.name}</span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Icon
+                                  name="minus circle"
+                                  className="cursor-pointer"
+                                  onClick={() => handleOpenRemoveOrgOrAppModal("app", app.id.toString())}
+                                />
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      {userApps && userApps.length === 0 && (
+                        <Table.Row textAlign="center">
+                          <Table.Cell>
+                            <em>No applications found.</em>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </Table.Body>
+                  </Table>
                 </div>
               </div>
             </div>
           </div>
         )}
+        <AddUserAppModal
+          show={showAddAppModal}
+          userId={userId}
+          currentApps={userApps.map((app) => app.id.toString())}
+          onClose={handleAddAppModalClose}
+        />
+        <AddUserOrgModal
+          show={showAddOrgModal}
+          userId={userId}
+          currentOrgs={getValues("organizations")?.map((org) =>
+            org.id.toString()
+          )}
+          onClose={handleAddOrgModalClose}
+        />
+        <ConfirmRemoveOrgOrAppModal
+          show={showRemoveOrgOrAppModal}
+          type={removeOrgOrAppType}
+          userId={userId}
+          targetId={removeOrgOrAppTargetId}
+          onClose={handleRemoveOrgOrAppModalClose}
+        />
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={handleCancel}>Cancel</Button>

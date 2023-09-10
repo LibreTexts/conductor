@@ -919,6 +919,18 @@ body {
     margin-bottom: 4rem !important;
 }
 
+.mb-5r {
+    margin-bottom: 5rem !important;
+}
+
+.mb-6r {
+    margin-bottom: 6rem !important;
+}
+
+.mb-7r {
+    margin-bottom: 7rem !important;
+}
+
 /** margin-left **/
 .ml-025e {
     margin-left: 0.25em !important;

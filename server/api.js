@@ -134,6 +134,70 @@ router.route('/central-identity/users/:id').get(
   centralIdentityAPI.updateUser
 )
 
+router.route('/central-identity/users/:id/applications').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getUserApplications'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getUserApplications
+).post(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('addUserApplications'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.addUserApplications
+)
+
+router.route('/central-identity/users/:id/applications/:applicationId').delete(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('deleteUserApplication'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.deleteUserApplication
+)
+
+router.route('/central-identity/users/:id/orgs').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getUserOrgs'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getUserOrgs
+).post(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('addUserOrgs'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.addUserOrgs
+)
+
+router.route('/central-identity/users/:id/orgs/:orgId').delete(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('deleteUserOrg'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.deleteUserOrg
+)
+
+router.route('/central-identity/apps').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.getApplications
+)
+
 router.route('/central-identity/orgs').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
