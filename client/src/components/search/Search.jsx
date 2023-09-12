@@ -32,7 +32,7 @@ import ConductorPagination from '../util/ConductorPagination.tsx';
 import {
     getClassificationText,
     getVisibilityText
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 import {
     getLibGlyphURL,
     getLibGlyphAltText

@@ -25,7 +25,7 @@ import LikertScale from '../CustomForms/LikertScale';
 
 import {
     peerReviewAuthorTypes,
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 import { isEmptyString } from '../util/HelperFunctions.js';
 
 import useGlobalError from '../error/ErrorHooks';

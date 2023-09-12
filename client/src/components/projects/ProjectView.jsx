@@ -69,7 +69,7 @@ import {
   checkProjectAdminPermission,
   checkProjectMemberPermission,
   PROJECT_ROLE_SORT_ORDER
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 import {
   licenseOptions,
   getLicenseText

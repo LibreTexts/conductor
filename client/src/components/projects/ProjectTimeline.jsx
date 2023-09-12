@@ -29,7 +29,7 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
 
-import { checkCanViewProjectDetails } from '../util/ProjectHelpers.js';
+import { checkCanViewProjectDetails } from '../util/ProjectHelpers';
 import { roadmapSteps } from '../util/RoadmapOptions.jsx';
 
 import useGlobalError from '../error/ErrorHooks';

@@ -36,7 +36,7 @@ import {
     checkCanViewProjectDetails,
     checkProjectAdminPermission,
     checkProjectMemberPermission
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 
 import useGlobalError from '../error/ErrorHooks';
 

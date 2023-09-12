@@ -24,7 +24,7 @@ import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import {
     getClassificationText,
     getVisibilityText
-} from '../util/ProjectHelpers.js';
+} from '../util/ProjectHelpers';
 import { truncateString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 

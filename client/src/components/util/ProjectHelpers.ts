@@ -1,7 +1,5 @@
-//
-// LibreTexts Conductor
-// ProjectHelpers.js
-//
+import { Project, User } from "../../types";
+import { threePointLikertOptions, fivePointLikertOptions, sevenPointLikertOptions } from "./LikertHelpers";
 
 const visibilityOptions = [
     { key: 'private',   text: 'Private (only collaborators)',   value: 'private' },
@@ -90,7 +88,7 @@ const PROJECT_FILES_ACCESS_SETTINGS = [
  * @param {String} status  - the status value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-const getTaskStatusText = (status) => {
+const getTaskStatusText = (status: string) => {
     switch (status) {
         case 'completed':
             return 'Completed';
@@ -110,8 +108,8 @@ const getTaskStatusText = (status) => {
  * @param {String} classification  - the classification value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-const getClassificationText = (classification) => {
-    let foundClassification = classificationOptions.find(item => item.key === classification);
+const getClassificationText = (classification: string) => {
+    const foundClassification = classificationOptions.find(item => item.key === classification);
     if (foundClassification !== undefined) {
         return foundClassification.text;
     } else {
@@ -126,8 +124,8 @@ const getClassificationText = (classification) => {
  * @param {string} classification - The classification value to find UI description text for.
  * @returns {string} The UI-ready string description, or an empty string.
  */
- const getClassificationDescription = (classification) => {
-    let foundClassification = classificationDescriptions.find(item => item.key === classification);
+ const getClassificationDescription = (classification: string) => {
+    const foundClassification = classificationDescriptions.find(item => item.key === classification);
     if (foundClassification !== undefined) {
         return foundClassification.description;
     }
@@ -141,7 +139,7 @@ const getClassificationText = (classification) => {
  * @param {String} visibility  - the visibility value to find UI text for
  * @returns {String} the UI-ready string representation
  */
-const getVisibilityText = (visibility) => {
+const getVisibilityText = (visibility: string) => {
     switch (visibility) {
         case 'private':
             return 'Private';
@@ -158,7 +156,7 @@ const getVisibilityText = (visibility) => {
  * @param {String} authorType - The internal author type identifier.
  * @returns {String} The UI-ready representation, or an empty string if not found.
  */
-const getPeerReviewAuthorText = (authorType) => {
+const getPeerReviewAuthorText = (authorType: string) => {
     if (typeof(authorType) === 'string' && authorType !== '') {
         let foundType = peerReviewAuthorTypes.find((item) => item.value === authorType);
         if (foundType !== undefined) return foundType.text;
@@ -166,34 +164,13 @@ const getPeerReviewAuthorText = (authorType) => {
     return '';
 };
 
-
-/**
- * Retrieves the UI-ready representation of a Peer Review Likert Scale point value.
- * @param {Number} point - The 1-based point value.
- * @param {Number} totalPoints - The number of total points in the scale.
- * @returns {String} The UI-ready representation, or an empty string if not found.
- */
-const getPeerReviewLikertPointText = (point, totalPoints) => {
-    if (typeof(point) === 'number' && point > 0) {
-        if (totalPoints === 3 && point < 4) {
-            return peerReviewThreePointLikertOptions[point-1];
-        } else if (totalPoints === 5 && point < 6) {
-            return peerReviewFivePointLikertOptions[point-1];
-        } else if (totalPoints === 7 && point < 8) {
-            return peerReviewSevenPointLikertOptions[point-1];
-        }
-    }
-    return '';
-};
-
-
 /**
  * Accepts an internal Project flagging group name and attempts to
  * return the UI-ready string representation.
  * @param {String} group  - the flagging group name to find UI text for
  * @returns {String} the UI-ready string representation
  */
-const getFlagGroupName = (group) => {
+const getFlagGroupName = (group: string) => {
     switch (group) {
         case 'libretexts':
             return 'LibreTexts Administrators';
@@ -215,8 +192,8 @@ const getFlagGroupName = (group) => {
  * @param {String|String[]} [exclude] - the UUID(s) to exclude from the array. OPTIONAL.
  * @returns {Object[]} basic information about each project member
  */
-const constructProjectTeam = (project, exclude) => {
-    let projTeam = [];
+const constructProjectTeam = (project: Project, exclude: string | string[]) => {
+    let projTeam: (string | User)[] = [];
     if (project.hasOwnProperty('leads') && Array.isArray(project.leads)) {
         projTeam = [...projTeam, ...project.leads];
     }
@@ -257,9 +234,9 @@ const constructProjectTeam = (project, exclude) => {
  * @param {String} uuid - the user UUID to search for
  * @returns {Boolean} true if in array, false otherwise
  */
-const checkUserInArray = (arr, uuid) => {
+const checkUserInArray = (arr: any[], uuid: string) => {
     if (typeof(arr) === 'object' && Array.isArray(arr) && typeof(uuid) === 'string') {
-        let foundUser = arr.find((item) => {
+        const foundUser = arr.find((item) => {
             if (typeof(item) === 'string') {
                 return item === uuid;
             } else if (typeof(item) === 'object') {
@@ -280,7 +257,7 @@ const checkUserInArray = (arr, uuid) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if can view details, false otherwise
  */
-const checkCanViewProjectDetails = (project, user) => {
+const checkCanViewProjectDetails = (project: Project, user: User) => {
     let setCanView = false;
     if (typeof(project) !== 'object' || typeof(user) !== 'object') return false;
     if (typeof(user.uuid) === 'string' && user.uuid !== '') {
@@ -307,9 +284,9 @@ const checkCanViewProjectDetails = (project, user) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if has admin permissions, false otherwise
  */
-const checkProjectAdminPermission = (project, user) => {
+const checkProjectAdminPermission = (project: Project, user: User) => {
     /* Construct Project Admins and extract user UUID */
-    let projAdmins = [];
+    let projAdmins: (string | User)[] = [];
     let userUUID = '';
     if (typeof(user) === 'string') userUUID = user;
     else if (typeof(user) === 'object' && typeof(user.uuid) !== 'undefined') {
@@ -337,10 +314,10 @@ const checkProjectAdminPermission = (project, user) => {
  * @param {Object} user - the current user's state information object
  * @returns {Boolean} true if has team member permissions, false otherwise
  */
-const checkProjectMemberPermission = (project, user) => {
+const checkProjectMemberPermission = (project: Project, user: User) => {
     /* Construct Project Team and extract user UUID */
     //let projTeam = constructProjectTeam(project);
-    let projTeam = [];
+    let projTeam: (string|User)[] = [];
     let userUUID = '';
     if (typeof(user) === 'string') userUUID = user;
     else if (typeof(user) === 'object' && typeof(user.uuid) !== 'undefined') {
@@ -370,7 +347,7 @@ const checkProjectMemberPermission = (project, user) => {
  * @param {string} access - The internal access setting.
  * @returns {string} The UI-ready representation.
  */
-const getFilesAccessText = (access) => {
+const getFilesAccessText = (access: string) => {
   const foundSetting = [
     ...PROJECT_FILES_ACCESS_SETTINGS,
     { key: 'mixed', text: 'Mixed', value: 'mixed' },
@@ -397,7 +374,6 @@ export {
     getClassificationDescription,
     getVisibilityText,
     getPeerReviewAuthorText,
-    getPeerReviewLikertPointText,
     getFlagGroupName,
     constructProjectTeam,
     checkCanViewProjectDetails,
