@@ -1,6 +1,6 @@
 const LoadingSpinner: React.FC = () => {
   return (
-    <div className="ui segment">
+    <div>
       <div className="ui active inverted dimmer">
         <div className="ui text loader">
           <span>Loading</span>
