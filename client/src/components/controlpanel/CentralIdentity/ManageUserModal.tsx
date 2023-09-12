@@ -55,6 +55,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
   const [editingLastName, setEditingLastName] = useState<boolean>(false);
   const [editingUserType, setEditingUserType] = useState<boolean>(false);
   const [editingStudentId, setEditingStudentId] = useState<boolean>(false);
+  const [editingBioURL, setEditingBioURL] = useState<boolean>(false);
   const [editingVerifyStatus, setEditingVerifyStatus] =
     useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -184,7 +185,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
 
   function handleRemoveOrgOrAppModalClose() {
     setShowRemoveOrgOrAppModal(false);
-    if(removeOrgOrAppType === "org") {
+    if (removeOrgOrAppType === "org") {
       loadUser(); // Refresh user orgs
       return;
     }
@@ -461,6 +462,43 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         )}
                       </div>
                     )}
+                    {getValues("user_type") === "instructor" && (
+                      <div className="flex-row-div flex-row-verticalcenter mb-2p">
+                        <span>
+                          <strong>Bio URL: </strong>
+                        </span>
+                        {editingBioURL ? (
+                          <div className="ml-1p flex-row-div flex-row-verticalcenter">
+                            <CtlTextInput 
+                            name="bio_url"
+                            control={control}
+                            placeholder="Bio URL..."
+                            />
+                            <Icon
+                              name="close"
+                              onClick={() => {
+                                setEditingBioURL(false);
+                                handleResetDataItem("bio_url");
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <span className="ml-05p">
+                              {getValues("bio_url") ?? "Not Set"}
+                            </span>
+                            {/*
+                          <Icon
+                            name="edit"
+                            size="small"
+                            className="ml-1p"
+                            onClick={() => setEditingBioURL(true)}
+                          />
+                        */}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-1p mb-2p">
@@ -560,7 +598,12 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                                 <Icon
                                   name="minus circle"
                                   className="cursor-pointer"
-                                  onClick={() => handleOpenRemoveOrgOrAppModal("org", org.id.toString())}
+                                  onClick={() =>
+                                    handleOpenRemoveOrgOrAppModal(
+                                      "org",
+                                      org.id.toString()
+                                    )
+                                  }
                                 />
                               </Table.Cell>
                             </Table.Row>
@@ -612,7 +655,12 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                                 <Icon
                                   name="minus circle"
                                   className="cursor-pointer"
-                                  onClick={() => handleOpenRemoveOrgOrAppModal("app", app.id.toString())}
+                                  onClick={() =>
+                                    handleOpenRemoveOrgOrAppModal(
+                                      "app",
+                                      app.id.toString()
+                                    )
+                                  }
                                 />
                               </Table.Cell>
                             </Table.Row>
