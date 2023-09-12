@@ -22,6 +22,23 @@ export type CentralIdentityService = {
   evaluation_Priority: number;
 };
 
+export type CentralIdentityApp = {
+  id: number;
+  name: string;
+  app_type: "standalone" | "library";
+  main_url: string;
+  cas_service_url: string;
+  default_access: "all" | "instructors" | "none";
+  icon: string;
+  description: string;
+  primary_color: string;
+  hide_from_apps: boolean;
+  hide_from_user_apps: boolean;
+  is_default_library: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
+
 export type CentralIdentityUser = {
   active: boolean;
   avatar: string | null;
