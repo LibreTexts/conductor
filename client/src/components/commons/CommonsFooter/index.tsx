@@ -51,6 +51,13 @@ const CommonsFooter = () => {
       icon: false,
     },
     {
+      key: "status",
+      href: "https://status.libretexts.org",
+      text: "Status",
+      title: "Status (opens in new tab)",
+      icon: false,
+    },
+    {
       key: "donate",
       href: "https://donate.libretexts.org",
       text: "Donate",
