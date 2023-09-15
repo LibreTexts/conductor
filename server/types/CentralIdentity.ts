@@ -67,3 +67,14 @@ export type CentralIdentityUser = {
     | "denied"
     | "verified";
 };
+
+export type CentralIdentityVerificationRequest = {
+  user_id: string;
+  status: CentralIdentityVerificationRequestStatus;
+  bio_url: string;
+  decision_reason?: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type CentralIdentityVerificationRequestStatus =  'approved' | 'denied' | 'needs_change' | 'open';

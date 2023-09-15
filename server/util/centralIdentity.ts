@@ -1,5 +1,5 @@
 import axios from "axios";
-
+import { CentralIdentityVerificationRequestStatus } from "../types";
 
 const ONE_AUTH_HEADER = `Basic ${Buffer.from(
   `${process.env.CENTRAL_IDENTITY_USER}:${process.env.CENTRAL_IDENTITY_KEY}`
@@ -29,4 +29,15 @@ export function useCentralIdentityAxios() {
   });
 
   return axiosInstance;
+}
+
+export function isCentralIdentityVerificationRequestStatus(
+  text: string
+): text is CentralIdentityVerificationRequestStatus {
+  return (
+    text === "approved" ||
+    text === "denied" ||
+    text === "needs_change" ||
+    text === "open"
+  );
 }

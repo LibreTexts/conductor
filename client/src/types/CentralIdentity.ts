@@ -64,3 +64,37 @@ export type CentralIdentityUser = {
     | "denied"
     | "verified";
 };
+
+export type CentralIdentityAccessRequest = {
+  id: number;
+  user_id: string;
+  verification_request_id: string | number;
+  applications: CentralIdentityApp[];
+  status: CentralIdentityAccessRequestStatus;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type CentralIdentityAccessRequestStatus =
+  | "open"
+  | "denied"
+  | "approved"
+  | "partially_approved";
+
+export type CentralIdentityVerificationRequest = {
+  id: number;
+  user_id: string;
+  status: CentralIdentityVerificationRequestStatus;
+  bio_url: string;
+  decision_reason?: string;
+  created_at: Date;
+  updated_at: Date;
+  user: CentralIdentityUser;
+  access_request: CentralIdentityAccessRequest;
+};
+
+export type CentralIdentityVerificationRequestStatus =
+  | "approved"
+  | "denied"
+  | "needs_change"
+  | "open";

@@ -222,6 +222,26 @@ router.route('/central-identity/services').get(
   centralIdentityAPI.getServices
 )
 
+router.route('/central-identity/verification-requests').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getVerificationRequests'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getVerificationRequests
+)
+
+router.route('/central-identity/verification-requests/:id').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getVerificationRequest'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getVerificationRequest
+)
+
 /* OAuth (server) */
 router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
 

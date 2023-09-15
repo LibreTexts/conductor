@@ -34,6 +34,12 @@ const CentralIdentity = () => {
 
   const listItems: CentralIdentityListItem[] = [
     {
+      url: "/controlpanel/libreone/instructor-verifications",
+      icon: "check circle",
+      title: "Instructor Verification Requests",
+      description: "View and manage Instructor Verification Requests",
+    },
+    {
       url: "/controlpanel/libreone/orgs",
       icon: "building",
       title: "Organizations & Systems",

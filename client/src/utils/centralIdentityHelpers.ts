@@ -1,4 +1,4 @@
-import { GenericKeyTextValueObj } from "../types";
+import { CentralIdentityVerificationRequestStatus, GenericKeyTextValueObj } from "../types";
 
 export function getPrettyUserType(userType: string) {
   switch (userType) {
@@ -94,6 +94,29 @@ export const userTypeOptions: GenericKeyTextValueObj<string>[] = [
     value: "instructor",
   }
 ];
+
+export const verificationRequestStatusOptions: GenericKeyTextValueObj<CentralIdentityVerificationRequestStatus>[] = [
+  {
+    key: "Open",
+    text: "Open",
+    value: "open",
+  },
+  {
+    key: "Needs Change",
+    text: "Needs Change",
+    value: "needs_change",
+  },
+  {
+    key: "Approved",
+    text: "Approved",
+    value: "approved",
+  },
+  {
+    key: "Denied",
+    text: "Denied",
+    value: "denied",
+  }
+]
 
 export const getCentralAuthProfileEditURL = () => {
   return (
