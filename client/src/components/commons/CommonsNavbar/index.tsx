@@ -1,24 +1,35 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PropTypes from 'prop-types';
 import axios from 'axios';
 import { Menu, Image, Dropdown, Icon, Button } from 'semantic-ui-react';
 import AuthHelper from '../../util/AuthHelper';
 import Breakpoint from '../../util/Breakpoints';
 import './CommonsNavbar.css';
+import { Organization, User } from '../../../types';
+import { getCentralAuthInstructorURL } from '../../../utils/centralIdentityHelpers';
 
-const CommonsNavbar = ({
+type CommonsNavbarProps = {
+    org: Organization,
+    user: User,
+    commonsTitle: string,
+    showMobileMenu?: boolean,
+    showMobileCommonsList?: boolean,
+    onMobileMenuToggle: () => void,
+    onMobileCommonsListToggle: () => void,
+}
+
+const CommonsNavbar: React.FC<CommonsNavbarProps> = ({
   org,
   user,
   commonsTitle,
-  showMobileMenu,
-  showMobileCommonsList,
+  showMobileMenu = false,
+  showMobileCommonsList = false,
   onMobileMenuToggle,
   onMobileCommonsListToggle,
 }) => {
 
   // Data
-  const [campusCommons, setCampusCommons] = useState([]);
+  const [campusCommons, setCampusCommons] = useState<{key: string, name: string, link: string}[]>([]);
 
   /**
    * Retrieves a list of LibreGrid/Campus Commons instances from the server and saves it to state.
@@ -87,10 +98,9 @@ const CommonsNavbar = ({
   const AccountRequestLink = ({ isMobile = false }) => {
     return (
       <Menu.Item
-        as={Link}
-        to="/verification/instructor"
+        as="a"
+        href={getCentralAuthInstructorURL()}
         target="_blank"
-        rel="noreferrer"
         className="commons-nav-link"
       >
         Instructor Verification Request
@@ -287,50 +297,6 @@ const CommonsNavbar = ({
       </Breakpoint>
     </div>
   )
-};
-
-CommonsNavbar.propTypes = {
-  /**
-   * Information about the instance's configured Organization.
-   */
-  org: PropTypes.shape({
-    orgID: PropTypes.string.isRequired,
-    shortName: PropTypes.string.isRequired,
-    mediumLogo: PropTypes.string.isRequired,
-    aboutLink: PropTypes.string.isRequired,
-  }).isRequired,
-  /**
-   * Information about the currently authenticated Conductor user, if applicable.
-   */
-  user: PropTypes.shape({
-    isAuthenticated: PropTypes.bool,
-    avatar: PropTypes.string,
-  }),
-  /**
-   * Display meta-title of the current Commons, such as 'Campus Commons'.
-   */
-  commonsTitle: PropTypes.string.isRequired,
-  /**
-   * Whether to show or hide the menu (on mobile displays).
-   */
-  showMobileMenu: PropTypes.bool,
-  /**
-   * Whether to show or hide the list of public commons in the (mobile display) menu.
-   */
-  showMobileCommonsList: PropTypes.bool,
-  /**
-   * Handler for (mobile display) menu toggle events.
-   */
-  onMobileMenuToggle: PropTypes.func.isRequired,
-  /**
-   * Handler for (mobile display) public commons list toggle events.
-   */
-  onMobileCommonsListToggle: PropTypes.func.isRequired,
-};
-
-CommonsNavbar.defaultProps = {
-  showMobileMenu: false,
-  showMobileCommonsList: false,
 };
 
 export default CommonsNavbar;
