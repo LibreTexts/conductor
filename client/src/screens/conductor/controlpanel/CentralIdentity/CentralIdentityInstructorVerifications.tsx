@@ -140,15 +140,6 @@ const CentralIdentityInstructorVerifications = () => {
                       }}
                       value={statusChoice}
                     />
-                    <Button
-                      onClick={() =>
-                        handleSelectRequest(
-                          {} as CentralIdentityVerificationRequest
-                        )
-                      }
-                    >
-                      Open
-                    </Button>
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
