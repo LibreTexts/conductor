@@ -62,6 +62,7 @@ const CentralIdentityInstructorVerifications = () => {
         params: {
           activePage,
           query: searchString,
+          status: 'open',
         },
       });
 
