@@ -73,7 +73,7 @@ const CentralIdentityUsers = () => {
   }, []);
 
   useEffect(() => {
-    getUsers();
+    getUsers(searchString);
   }, [activePage, itemsPerPage]);
 
   // Handlers & Methods
@@ -171,7 +171,7 @@ const CentralIdentityUsers = () => {
                       placeholder="Search by First, Last, Email, or Student ID..."
                       onChange={(e) => {
                         setSearchString(e.target.value);
-                        getUsersDebounced(e.target.value);
+                        getUsersDebounced(e.target.value.trim());
                       }}
                       value={searchString}
                       fluid
