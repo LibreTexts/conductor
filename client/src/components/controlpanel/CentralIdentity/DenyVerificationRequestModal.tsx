@@ -36,7 +36,6 @@ const DenyVerificationRequestModal: React.FC<
           request: {
             effect: action,
             reason: decisionReason,
-            library_access_option: "default",
           },
         }
       );

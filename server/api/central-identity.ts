@@ -553,12 +553,9 @@ async function updateVerificationRequest(
       req.body.request
     );
 
-    console.log(patch.data)
-
     if (!patch.data || patch.data.err || patch.data.errMsg) {
       return conductor500Err(res);
     }
-
   } catch (err) {
     debugError(err);
     return conductor500Err(res);

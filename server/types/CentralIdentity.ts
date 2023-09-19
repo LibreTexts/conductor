@@ -85,6 +85,4 @@ export type CentralIdentityUpdateVerificationRequestBody = {
   effect: CentralIdentityAccessRequestChangeEffect;
   reason?: string;
   approved_applications?: number[];
-  library_access_option: 'all' | 'default' | 'specific';
-  libraries?: number[];
 };

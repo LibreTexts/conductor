@@ -135,7 +135,6 @@ const ApproveVerificationRequestModal: React.FC<
           request: {
             effect: "approve",
             approved_applications: approvedApps.map((app) => app.id),
-            library_access_option: "default",
           },
         }
       );
