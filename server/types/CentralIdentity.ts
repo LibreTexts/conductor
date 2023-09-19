@@ -78,3 +78,13 @@ export type CentralIdentityVerificationRequest = {
 };
 
 export type CentralIdentityVerificationRequestStatus =  'approved' | 'denied' | 'needs_change' | 'open';
+
+export type CentralIdentityAccessRequestChangeEffect = 'deny' | 'approve' | 'request_change';
+
+export type CentralIdentityUpdateVerificationRequestBody = {
+  effect: CentralIdentityAccessRequestChangeEffect;
+  reason?: string;
+  approved_applications?: number[];
+  library_access_option: 'all' | 'default' | 'specific';
+  libraries?: number[];
+};

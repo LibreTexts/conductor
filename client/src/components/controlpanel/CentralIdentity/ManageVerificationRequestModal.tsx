@@ -1,6 +1,6 @@
 import "../../../styles/global.css";
 import "./ManageUserModal.css";
-import { Modal, Button, Icon, ModalProps, Image } from "semantic-ui-react";
+import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
 import { useState, useEffect } from "react";
 import { CentralIdentityUser } from "../../../types";
 import axios from "axios";
@@ -9,7 +9,7 @@ import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityVerificationRequest } from "../../../types/CentralIdentity";
 import DenyVerificationRequestModal from "./DenyVerificationRequestModal";
 import DOMPurify from "dompurify";
-import SelectVerificationRequestAppsModal from "./SelectVerificationRequestAppsModal";
+import ApproveVerificationRequestModal from "./ApproveVerificationRequestModal";
 
 interface ManageVerificationRequestModalProps extends ModalProps {
   show: boolean;
@@ -29,9 +29,9 @@ const ManageVerificationRequestModal: React.FC<
   const [loading, setLoading] = useState<boolean>(false);
   const [user, setUser] = useState<CentralIdentityUser>();
   const [request, setRequest] = useState<CentralIdentityVerificationRequest>();
-  const [showAppsModal, setShowAppsModal] = useState<boolean>(false);
+  const [showApproveModal, setShowApproveModal] = useState<boolean>(false);
   const [showDenyModal, setShowDenyModal] = useState<boolean>(false);
-  const [denyType, setDenyType] = useState<"denied" | "needs_change">("denied");
+  const [denyType, setDenyType] = useState<"deny" | "request_change">("deny");
 
   // Effects
   useEffect(() => {
@@ -62,7 +62,6 @@ const ManageVerificationRequestModal: React.FC<
       }
 
       setRequest(res.data.request);
-      console.log(request);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -74,7 +73,7 @@ const ManageVerificationRequestModal: React.FC<
     onClose();
   }
 
-  function handleDenyOrRequestChanges(action: "denied" | "needs_change") {
+  function handleDenyOrRequestChanges(action: typeof denyType) {
     setDenyType(action);
     setShowDenyModal(true);
   }
@@ -134,9 +133,10 @@ const ManageVerificationRequestModal: React.FC<
                 <strong>Requested Apps/Libraries:</strong>
               </p>
               <ul>
-                {request?.access_request.applications.map((app) => (
+                {request?.access_request?.applications?.map((app) => (
                   <li key={app.id}>{app.name}</li>
                 ))}
+                <li key='default'><em>Default Libraries</em></li>
               </ul>
             </div>
           </div>
@@ -146,7 +146,7 @@ const ManageVerificationRequestModal: React.FC<
         <div>
           <Button
             color="red"
-            onClick={() => handleDenyOrRequestChanges("denied")}
+            onClick={() => handleDenyOrRequestChanges("deny")}
             loading={loading}
           >
             <Icon name="ban" />
@@ -154,7 +154,7 @@ const ManageVerificationRequestModal: React.FC<
           </Button>
           <Button
             color="yellow"
-            onClick={() => handleDenyOrRequestChanges("needs_change")}
+            onClick={() => handleDenyOrRequestChanges("request_change")}
             loading={loading}
           >
             <Icon name="question" />
@@ -165,7 +165,7 @@ const ManageVerificationRequestModal: React.FC<
           <Button
             color="green"
             loading={loading}
-            onClick={() => setShowAppsModal(true)}
+            onClick={() => setShowApproveModal(true)}
           >
             <Icon name="save" />
             Approve & Select Apps
@@ -175,11 +175,11 @@ const ManageVerificationRequestModal: React.FC<
           <Button onClick={handleCancel}>Cancel</Button>
         </div>
       </Modal.Actions>
-      <SelectVerificationRequestAppsModal
-        show={showAppsModal}
+      <ApproveVerificationRequestModal
+        show={showApproveModal}
         requestId={requestId}
         onSave={() => onSave()}
-        onCancel={() => setShowAppsModal(false)}
+        onCancel={() => setShowApproveModal(false)}
       />
       <DenyVerificationRequestModal
         show={showDenyModal}

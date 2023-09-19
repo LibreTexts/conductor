@@ -45,7 +45,6 @@ const CentralIdentityInstructorVerifications = () => {
     { key: "lastName", text: "Last Name" },
     { key: "email", text: "Email" },
     { key: "requestDate", text: "Request Date" },
-    { key: "verification", text: "Current Verification Status" },
     { key: "Actions", text: "Actions" },
   ];
 
@@ -74,8 +73,6 @@ const CentralIdentityInstructorVerifications = () => {
       ) {
         throw new Error("Error retrieving users");
       }
-
-      console.log(res.data.requests);
 
       setRequests(res.data.requests);
       setTotalItems(res.data.totalCount);
@@ -125,6 +122,7 @@ const CentralIdentityInstructorVerifications = () => {
                 </Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
+            {/*
             <Segment>
               <Grid>
                 <Grid.Row>
@@ -140,10 +138,12 @@ const CentralIdentityInstructorVerifications = () => {
                       }}
                       value={statusChoice}
                     />
+                    
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
             </Segment>
+            */}
             <Segment loading={loading}>
               <PaginationWithItemsSelect
                 activePage={activePage}
@@ -185,11 +185,6 @@ const CentralIdentityInstructorVerifications = () => {
                                 parseISO(req.created_at.toString() ?? ""),
                                 "MM/dd/yyyy"
                               )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {getPrettyVerficationStatus(req.user.verify_status)}
                             </span>
                           </Table.Cell>
                           <Table.Cell>

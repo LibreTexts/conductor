@@ -240,6 +240,14 @@ router.route('/central-identity/verification-requests/:id').get(
   centralIdentityAPI.validate('getVerificationRequest'),
   middleware.checkValidationErrors,
   centralIdentityAPI.getVerificationRequest
+).patch(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('updateVerificationRequest'),
+  middleware.checkValidationErrors,
+  centralIdentityAPI.updateVerificationRequest
 )
 
 /* OAuth (server) */

@@ -3,10 +3,11 @@ import { Button, Form, Input, Modal, ModalProps } from "semantic-ui-react";
 import LoadingSpinner from "../../LoadingSpinner";
 import useGlobalError from "../../error/ErrorHooks";
 import axios from "axios";
+import { CentralIdentityAccessRequestChangeEffect } from "../../../types/CentralIdentity";
 
 interface DenyVerificationRequestModalProps extends ModalProps {
   show: boolean;
-  action: "denied" | "needs_change";
+  action: "deny" | "request_change";
   requestId: string;
   onSave: () => void;
   onCancel: () => void;
@@ -32,8 +33,11 @@ const DenyVerificationRequestModal: React.FC<
       const res = await axios.patch(
         `/central-identity/verification-requests/${requestId}`,
         {
-          action,
-          decisionReason,
+          request: {
+            effect: action,
+            reason: decisionReason,
+            library_access_option: "default",
+          },
         }
       );
 
@@ -53,7 +57,7 @@ const DenyVerificationRequestModal: React.FC<
   return (
     <Modal open={show} onClose={onCancel} {...rest}>
       <Modal.Header>
-        {action === "denied" ? "Deny Verification Request" : "Request Changes"}
+        {action === "deny" ? "Deny Verification Request" : "Request Changes"}
       </Modal.Header>
       <Modal.Content scrolling id="task-view-content">
         {loading && (
@@ -64,7 +68,7 @@ const DenyVerificationRequestModal: React.FC<
         {!loading && (
           <div className="pa-2r">
             <p>
-              {action === "denied"
+              {action === "deny"
                 ? "Deny request with reason:"
                 : "Request changes to this request"}
             </p>
@@ -82,10 +86,10 @@ const DenyVerificationRequestModal: React.FC<
       <Modal.Actions>
         <Button onClick={onCancel}>Cancel</Button>
         <Button
-          color={action === "denied" ? "red" : "yellow"}
+          color={action === "deny" ? "red" : "yellow"}
           onClick={submitUpdateRequest}
         >
-          {action === "denied"
+          {action === "deny"
             ? "Confirm Deny Request"
             : "Confirm Request Changes"}
         </Button>

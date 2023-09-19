@@ -27,6 +27,7 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
 } from "../types";
+import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
 
 const centralIdentityAxios = useCentralIdentityAxios();
 
@@ -537,6 +538,33 @@ async function getVerificationRequest(
   }
 }
 
+async function updateVerificationRequest(
+  req: TypedReqParamsAndBody<
+    { id: string },
+    { request: CentralIdentityUpdateVerificationRequestBody }
+  >,
+  res: Response<{
+    err: boolean;
+  }>
+) {
+  try {
+    const patch = await centralIdentityAxios.patch(
+      `/verification-requests/${req.params.id}`,
+      req.body.request
+    );
+
+    console.log(patch.data)
+
+    if (!patch.data || patch.data.err || patch.data.errMsg) {
+      return conductor500Err(res);
+    }
+
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 function validateVerificationRequestStatus(raw: string): boolean {
   return isCentralIdentityVerificationRequestStatus(raw);
 }
@@ -602,6 +630,12 @@ function validate(method: string) {
     case "getVerificationRequest": {
       return [param("id", conductorErrors.err1).exists().isString()];
     }
+    case "updateVerificationRequest": {
+      return [
+        param("id", conductorErrors.err1).exists().isString(),
+        body("request", conductorErrors.err1).exists().isObject(),
+      ];
+    }
   }
 }
 
@@ -620,6 +654,7 @@ export default {
   getServices,
   getVerificationRequests,
   getVerificationRequest,
+  updateVerificationRequest,
   updateUser,
   validate,
 };

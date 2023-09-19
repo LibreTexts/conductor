@@ -81,6 +81,11 @@ export type CentralIdentityAccessRequestStatus =
   | "approved"
   | "partially_approved";
 
+export type CentralIdentityAccessRequestChangeEffect =
+  | "approve"
+  | "deny"
+  | "request_change";
+
 export type CentralIdentityVerificationRequest = {
   id: number;
   user_id: string;
