@@ -44,6 +44,7 @@ import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
 import LoadingSpinner from './components/LoadingSpinner';
 const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
+const CentralIdentityInstructorVerifications = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityInstructorVerifications'));
 const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
@@ -93,6 +94,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/harvestingrequests' component={HarvestingRequests} />
         <PrivateRoute exact path='/controlpanel/homeworkmanager' component={HomeworkManager} />
         <PrivateRoute exact path='/controlpanel/libreone' component={CentralIdentity} />
+        <PrivateRoute exact path='/controlpanel/libreone/instructor-verifications' component={CentralIdentityInstructorVerifications} />
         <PrivateRoute exact path='/controlpanel/libreone/orgs' component={CentralIdentityOrgs} />
         <PrivateRoute exact path='/controlpanel/libreone/services' component={CentralIdentityServices} />
         <PrivateRoute exact path='/controlpanel/libreone/users' component={CentralIdentityUsers} />

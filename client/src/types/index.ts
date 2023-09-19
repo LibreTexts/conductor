@@ -20,7 +20,13 @@ import {
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
-import { AccountRequest, AccountRequestPurpose, InstructorVerifReqStatus, InstructorVerifReqStatuses, InstructorVerifReq } from "./InstructorVerifReq";
+import {
+  AccountRequest,
+  AccountRequestPurpose,
+  InstructorVerifReqStatus,
+  InstructorVerifReqStatuses,
+  InstructorVerifReq,
+} from "./InstructorVerifReq";
 import { CatalogLocation } from "./Catalog";
 import { PeerReview } from "./PeerReview";
 import { PeerReviewRubric } from "./PeerReviewRubric";
@@ -45,13 +51,24 @@ import {
   CustomFormUIType,
   CustomFormElement,
 } from "./CustomForm";
-import { CentralIdentityUser, CentralIdentityOrg, CentralIdentityService, CentralIdentitySystem } from "./CentralIdentity";
+import {
+  CentralIdentityUser,
+  CentralIdentityOrg,
+  CentralIdentityService,
+  CentralIdentitySystem,
+  CentralIdentityApp,
+  CentralIdentityVerificationRequest,
+  CentralIdentityVerificationRequestStatus,
+} from "./CentralIdentity";
 
 export type {
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
   CentralIdentitySystem,
+  CentralIdentityApp,
+  CentralIdentityVerificationRequest,
+  CentralIdentityVerificationRequestStatus,
   Organization,
   CampusSettingsOpts,
   Collection,

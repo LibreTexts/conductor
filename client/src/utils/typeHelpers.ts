@@ -7,6 +7,7 @@ import {
   InstructorVerifReqStatus,
   InstructorVerifReqStatuses,
   CentralIdentityUser,
+  CentralIdentityVerificationRequest,
 } from "../types";
 
 export function isCatalogLocation(
@@ -59,9 +60,11 @@ export function isCustomFormPromptBlock(obj: any): obj is CustomFormPrompt {
   return "promptType" in obj && "promptText" in obj;
 }
 
-export const isKeyOfInstructorVerifReqStatus = (key: string): key is InstructorVerifReqStatus => {
+export const isKeyOfInstructorVerifReqStatus = (
+  key: string
+): key is InstructorVerifReqStatus => {
   return InstructorVerifReqStatuses.includes(key as InstructorVerifReqStatus);
-}
+};
 
 export const isCentralIdentityUser = (obj: any): obj is CentralIdentityUser => {
   return (
@@ -85,9 +88,11 @@ export const isCentralIdentityUser = (obj: any): obj is CentralIdentityUser => {
     "uuid" in obj &&
     "verify_status" in obj
   );
-}
+};
 
-export const isCentralIdentityUserProperty = (key: string): key is keyof CentralIdentityUser => {
+export const isCentralIdentityUserProperty = (
+  key: string
+): key is keyof CentralIdentityUser => {
   return (
     key === "active" ||
     key === "avatar" ||
@@ -109,7 +114,17 @@ export const isCentralIdentityUserProperty = (key: string): key is keyof Central
     key === "uuid" ||
     key === "verify_status"
   );
-}
+};
 
-
-
+export const isCentralIdentityVerificationRequestProperty = (
+  key: string
+): key is keyof CentralIdentityVerificationRequest => {
+  return (
+    key === "user_id" ||
+    key === "status" ||
+    key === "bio_url" ||
+    key === "decision_reason" ||
+    key === "created_at" ||
+    key === "updated_at"
+  );
+};

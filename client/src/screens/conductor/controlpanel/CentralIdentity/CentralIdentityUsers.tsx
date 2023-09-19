@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Header,
   Segment,
@@ -28,6 +28,7 @@ const CentralIdentityUsers = () => {
   //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
+  const location = useLocation();
 
   //UI
   const [loading, setLoading] = useState<boolean>(false);
@@ -57,11 +58,20 @@ const CentralIdentityUsers = () => {
 
   //Data
   const [users, setUsers] = useState<CentralIdentityUser[]>([]);
-  const [selectedUser, setSelectedUser] = useState<CentralIdentityUser | null>(
-    null
-  );
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   //Effects
+
+  // If a user_id is passed in the query string, open the modal for that user
+  useEffect(() => {
+    if (!location.search) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get("user_id")) {
+      setSelectedUserId(params.get("user_id"));
+      setShowUserModal(true);
+    }
+  }, []);
+
   useEffect(() => {
     getUsers(searchString);
   }, [activePage, itemsPerPage]);
@@ -103,13 +113,13 @@ const CentralIdentityUsers = () => {
   );
 
   function handleSelectUser(user: CentralIdentityUser) {
-    setSelectedUser(user);
+    setSelectedUserId(user.uuid);
     setShowUserModal(true);
   }
 
   function handleCloseUserModal() {
     setShowUserModal(false);
-    setSelectedUser(null);
+    setSelectedUserId(null);
     getUsers(searchString);
   }
 
@@ -295,10 +305,10 @@ const CentralIdentityUsers = () => {
             </Segment>
           </Segment.Group>
 
-          {selectedUser && (
+          {selectedUserId && (
             <ManageUserModal
               show={showUserModal}
-              userId={selectedUser.uuid}
+              userId={selectedUserId}
               onSave={() => handleCloseUserModal()}
               onClose={() => setShowUserModal(false)}
             />

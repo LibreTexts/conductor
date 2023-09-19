@@ -18,8 +18,16 @@ import {
   conductor500Err,
   conductorErr,
 } from "../util/errorutils.js";
-import { useCentralIdentityAxios } from "../util/centralIdentity.js";
-import { CentralIdentityApp } from "../types/CentralIdentity.js";
+import {
+  isCentralIdentityVerificationRequestStatus,
+  useCentralIdentityAxios,
+} from "../util/centralIdentity.js";
+import {
+  CentralIdentityApp,
+  CentralIdentityVerificationRequest,
+  CentralIdentityVerificationRequestStatus,
+} from "../types";
+import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
 
 const centralIdentityAxios = useCentralIdentityAxios();
 
@@ -207,7 +215,9 @@ async function deleteUserApplication(
 ) {
   try {
     const appRes = await centralIdentityAxios.delete(
-      `/users/${req.params.id}/applications/${req.params.applicationId?.toString()}`
+      `/users/${
+        req.params.id
+      }/applications/${req.params.applicationId?.toString()}`
     );
 
     if (appRes.data.err || appRes.data.errMsg) {
@@ -441,6 +451,121 @@ async function getServices(
   }
 }
 
+async function getVerificationRequests(
+  req: TypedReqQuery<{
+    activePage?: number;
+    limit?: number;
+    status?: CentralIdentityVerificationRequestStatus;
+  }>,
+  res: Response<{
+    err: boolean;
+    requests: CentralIdentityVerificationRequest[];
+    totalCount: number;
+  }>
+) {
+  try {
+    let page = 1;
+    let limit = req.query.limit || 25;
+    if (
+      req.query.activePage &&
+      Number.isInteger(parseInt(req.query.activePage.toString()))
+    ) {
+      page = req.query.activePage;
+    }
+    const offset = getPaginationOffset(page, limit);
+
+    const requestsRes = await centralIdentityAxios.get(
+      "/verification-requests",
+      {
+        params: {
+          offset,
+          limit,
+          status: req.query.status ? req.query.status : undefined,
+        },
+      }
+    );
+
+    if (!requestsRes.data || !requestsRes.data.data || !requestsRes.data.meta) {
+      return conductor500Err(res);
+    }
+
+    // TODO: This is a temporary fix until the backend is updated to return the user object
+    for (const rec of requestsRes.data.data) {
+      rec.user = (
+        await centralIdentityAxios.get(`/users/${rec.user_id}`)
+      ).data.data;
+    }
+
+    return res.send({
+      err: false,
+      requests: requestsRes.data.data,
+      totalCount: requestsRes.data.meta.total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getVerificationRequest(
+  req: TypedReqParams<{ id: string }>,
+  res: Response<{
+    err: boolean;
+    request: CentralIdentityVerificationRequest;
+  }>
+) {
+  try {
+    const requestRes = await centralIdentityAxios.get(
+      `/verification-requests/${req.params.id}`
+    );
+
+    if (!requestRes.data || !requestRes.data.data) {
+      return conductor500Err(res);
+    }
+
+    // TODO: This is a temporary fix until the backend is updated to return the user object
+    requestRes.data.data.user = (
+      await centralIdentityAxios.get(`/users/${requestRes.data.data.user_id}`)
+    ).data.data;
+
+    return res.send({
+      err: false,
+      request: requestRes.data.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function updateVerificationRequest(
+  req: TypedReqParamsAndBody<
+    { id: string },
+    { request: CentralIdentityUpdateVerificationRequestBody }
+  >,
+  res: Response<{
+    err: boolean;
+  }>
+) {
+  try {
+    const patch = await centralIdentityAxios.patch(
+      `/verification-requests/${req.params.id}`,
+      req.body.request
+    );
+
+    if (!patch.data || patch.data.err || patch.data.errMsg) {
+      return conductor500Err(res);
+    }
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+function validateVerificationRequestStatus(raw: string): boolean {
+  return isCentralIdentityVerificationRequestStatus(raw);
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
@@ -489,6 +614,25 @@ function validate(method: string) {
     case "updateUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
     }
+    case "getVerificationRequests": {
+      return [
+        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("limit", conductorErrors.err1).optional().isInt(),
+        param("status", conductorErrors.err1)
+          .optional()
+          .isString()
+          .custom(validateVerificationRequestStatus),
+      ];
+    }
+    case "getVerificationRequest": {
+      return [param("id", conductorErrors.err1).exists().isString()];
+    }
+    case "updateVerificationRequest": {
+      return [
+        param("id", conductorErrors.err1).exists().isString(),
+        body("request", conductorErrors.err1).exists().isObject(),
+      ];
+    }
   }
 }
 
@@ -505,6 +649,9 @@ export default {
   getOrgs,
   getSystems,
   getServices,
+  getVerificationRequests,
+  getVerificationRequest,
+  updateVerificationRequest,
   updateUser,
   validate,
 };
