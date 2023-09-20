@@ -6,6 +6,7 @@ module.exports = {
   ],
   blocklist: [
     'outline', // this is overriding a semantic-ui icon class
+    'fixed' // overriding semantic-ui tables, block for now
   ],
   theme: {
     extend: {},
