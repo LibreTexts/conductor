@@ -12,6 +12,7 @@ const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/Analyt
 const AnalyticsPortal = lazy(() => import('./screens/conductor/analytics/AnalyticsPortal'));
 const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/AnalyticsRequestAccess'));
 const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
+const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
 const CollectionsManager = lazy(() => import('./components/controlpanel/Collections/CollectionsManager'));
@@ -86,6 +87,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
         <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
+        {/*<PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />*/}
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

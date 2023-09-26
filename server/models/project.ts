@@ -4,72 +4,7 @@ import {
   PROJECT_FILES_ACCESS_SETTINGS,
 } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
-
-export interface FilesInterface extends Document {
-  fileID: string;
-  name?: string;
-  access?: "public" | "users" | "instructors" | "team" | "mixed";
-  storageType: "file" | "folder";
-  size: number;
-  description?: string;
-  parent?: string;
-  createdBy?: string;
-  downloadCount?: number;
-}
-
-const FilesSchema = new Schema<FilesInterface>();
-FilesSchema.add({
-  /**
-   * Unique identifier of the file entry.
-   */
-  fileID: {
-    type: String,
-    required: true,
-  },
-  /**
-   * UI-name of the file entry.
-   */
-  name: String,
-  /**
-   * Indicates which users can download the file on Commons.
-   */
-  access: {
-    type: String,
-    enum: PROJECT_FILES_ACCESS_SETTINGS,
-  },
-  /**
-   * Indicates whether the entry is a "file" or "folder".
-   */
-  storageType: {
-    type: String,
-    enum: ["file", "folder"],
-    default: "file",
-  },
-  /**
-   * Entry size in bytes, set to 0 if entry is a "folder".
-   */
-  size: {
-    type: Number,
-    default: 0,
-  },
-  /**
-   * UI text describing the entry and its contents.
-   */
-  description: String,
-  /**
-   * Identifier of the immediate parent in the hierarchy. Empty string if the
-   * entry is at the top-level of the hierarchy.
-   */
-  parent: String,
-  /**
-   * UUID of the user that uploaded or created the entry.
-   */
-  createdBy: String,
-  /**
-   * Number of times the entry has been downloaded on Commons, if entry is a "file".
-   */
-  downloadCount: Number,
-});
+import  FileSchema, { FileInterface } from "./file.js";
 
 export interface ProjectInterface extends Document {
   orgID: string;
@@ -116,7 +51,7 @@ export interface ProjectInterface extends Document {
   allowAnonPR: boolean;
   preferredPRRubric?: string;
   cidDescriptors?: string[];
-  files?: (typeof FilesSchema)[];
+  files?: (typeof FileSchema)[];
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -310,7 +245,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
     /**
      * Project Files associated with the Book.
      */
-    files: [FilesSchema],
+    files: [FileSchema],
   },
   {
     timestamps: true,
