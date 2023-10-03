@@ -87,7 +87,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
         <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
-        {/*<PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />*/}
+        <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

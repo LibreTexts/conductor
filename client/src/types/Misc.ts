@@ -7,3 +7,8 @@ export type GenericKeyTextValueObj<T> = {
 };
 
 export type TimeZoneOption = ITimezoneOption;
+
+export type MongoBaseDocument = {
+  _id?: string;
+  __v?: any;
+};

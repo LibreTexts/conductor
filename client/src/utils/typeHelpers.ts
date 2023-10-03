@@ -8,6 +8,8 @@ import {
   InstructorVerifReqStatuses,
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
+  AssetTagValueType,
+  AssetTag,
 } from "../types";
 
 export function isCatalogLocation(
@@ -128,3 +130,28 @@ export const isCentralIdentityVerificationRequestProperty = (
     key === "updated_at"
   );
 };
+
+export const isAssetTagValueType = (
+  value: string
+): value is AssetTagValueType => {
+  return (
+    value === "text" ||
+    value === "number" ||
+    value === "date" ||
+    value === "boolean" ||
+    value === "dropdown"
+  );
+};
+
+export const isAssetTag = (value: any): value is AssetTag => {
+  return (
+    "title" in value &&
+    "valueType" in value &&
+    "isDeleted" in value &&
+    isAssetTagValueType(value.valueType)
+  );
+};
+
+export const isAssetTagArray = (value: any): value is AssetTag[] => {
+  return Array.isArray(value) && value.every((v) => isAssetTag(v));
+}
