@@ -15,6 +15,7 @@ import { a11ySectionReviewSchema } from "./a11y";
 import {
   Project,
   ProjectFile,
+  ProjectFileTag,
   ProjectClassification,
   ProjectStatus,
 } from "./Project";
@@ -64,7 +65,7 @@ import {
   AssetTag,
   AssetTagFramework,
   AssetTagValueType,
-  AssetTagValueTypeOptions
+  AssetTagValueTypeOptions,
 } from "./AssetTag"
 
 export type {
@@ -94,6 +95,7 @@ export type {
   a11ySectionReviewSchema,
   Project,
   ProjectFile,
+  ProjectFileTag,
   User,
   Account,
   AuthorizedApp,

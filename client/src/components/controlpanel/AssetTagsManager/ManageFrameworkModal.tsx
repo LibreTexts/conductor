@@ -25,7 +25,7 @@ import api from "../../../api";
 import LoadingSpinner from "../../LoadingSpinner";
 import { truncateString } from "../../util/HelperFunctions";
 import EditDropdownOptionsModal from "./EditDropdownOptionsModal";
-import { cleanDropdownOptions } from "../../../utils/assettagHelpers";
+import { cleanDropdownOptions } from "../../../utils/assetTagHelpers";
 
 interface ManageFrameworkModalProps extends ModalProps {
   open: boolean;
@@ -51,12 +51,10 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
         tags: [],
       },
     });
-  const { fields, append, prepend, remove, swap, move, insert } = useFieldArray(
-    {
-      control,
-      name: "tags",
-    }
-  );
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "tags",
+  });
 
   // Data & UI
   const [loading, setLoading] = useState<boolean>(false);
@@ -121,10 +119,6 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleAddTag() {
-    append({ title: "", valueType: "text", isDeleted: false });
   }
 
   function handleEditDropdownOptions(index: number) {
@@ -203,10 +197,10 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                     isAssetTag(tag) && (
                       <Table.Row key={tag.id}>
                         <Table.Cell>
-                          <Controller
-                            render={({ field }) => <Input {...field} fluid />}
-                            name={`tags.${index}.title`}
+                          <CtlTextInput
                             control={control}
+                            name={`tags.${index}.title`}
+                            fluid
                           />
                         </Table.Cell>
                         <Table.Cell>
@@ -240,7 +234,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                             <span className="muted-text">N/A</span>
                           )}
                         </Table.Cell>
-                        <Table.Cell textAlign="right">
+                        <Table.Cell>
                           <Button
                             color="red"
                             icon="trash"
@@ -252,7 +246,12 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                 )}
               </Table.Body>
             </Table>
-            <Button color="blue" onClick={() => handleAddTag()}>
+            <Button
+              color="blue"
+              onClick={() =>
+                append({ title: "", valueType: "text", isDeleted: false })
+              }
+            >
               <Icon name="plus" />
               Add Tag
             </Button>

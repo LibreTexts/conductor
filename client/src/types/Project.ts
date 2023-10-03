@@ -11,7 +11,13 @@ export type ProjectFile = {
   parent: string;
   createdBy: string;
   downloadCount: number;
+  tags?: ProjectFileTag[];
 };
+
+export type ProjectFileTag = {
+  title: string;
+  value: string;
+}
 
 export enum ProjectStatus {
     AVAILABLE = 'available',
