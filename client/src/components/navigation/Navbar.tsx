@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { Menu, Image, Dropdown, Icon, Button, Form } from "semantic-ui-react";
-import { getLibGlyphURL } from "../util/LibraryOptions.js";
 import AuthHelper from "../util/AuthHelper.js";
 import Breakpoint from "../util/Breakpoints.js";
 import withUserStateDependency from "../../enhancers/withUserStateDependency.jsx";
 import "./Navbar.css";
 import { useTypedSelector } from "../../state/hooks.js";
-import { LIBRARIES } from "../../utils/constants.js";
 import Launchpad from "./Launchpad.js";
 
 const Navbar: React.FC = () => {
@@ -152,91 +150,8 @@ const Navbar: React.FC = () => {
               </Form.Input>
             </Form>
           </Menu.Item>
-          <Menu.Item>
-            <Icon name="book" />
-            <Dropdown inline text="Libraries">
-              <Dropdown.Menu>
-                {LIBRARIES.map((library) => (
-                  <Dropdown.Item
-                    as="a"
-                    href={library.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    key={library.shortName}
-                  >
-                    <Image
-                      src={getLibGlyphURL(library.shortName)}
-                      className="nav-lib-glyph"
-                    />
-                    {library.longName}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-          </Menu.Item>
-          <Menu.Item>
-            <Icon name="wrench" />
-            <Dropdown inline text="Tools">
-              <Dropdown.Menu>
-                <Dropdown.Item
-                  as="a"
-                  href="https://adapt.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="pencil" />
-                  ADAPT Homework System
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://chat.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="discord" />
-                  Chat
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://groups.io/g/Libretexts-ConstructionForum"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="rss" />
-                  Construction Forum
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://commons.libretexts.org/harvestrequest"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="plus" />
-                  Harvesting Request
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://jupyter.libretexts.org/hub/login"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="server" />
-                  JupyterHub
-                </Dropdown.Item>
-                <Dropdown.Item
-                  as="a"
-                  href="https://studio.libretexts.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="puzzle" />
-                  LibreStudio
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </Menu.Item>
           <Menu.Item as={Link} to="/">
-            <Icon name="handshake outline" className="mr-05e" />
+            <Icon name="exchange" className="mr-05e" />
             <strong>Commons</strong>
           </Menu.Item>
           <Menu.Item>
