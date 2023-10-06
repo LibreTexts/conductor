@@ -1,5 +1,6 @@
 import { model, Schema, Document } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
+import { AssetTagInterface } from "./assettag.js";
 
 export interface FileInterface extends Document {
   fileID: string;
@@ -11,6 +12,7 @@ export interface FileInterface extends Document {
   parent?: string;
   createdBy?: string;
   downloadCount?: number;
+  tags?: Schema.Types.ObjectId[] | AssetTagInterface[];
 }
 
 const FileSchema = new Schema<FileInterface>({
@@ -64,6 +66,13 @@ const FileSchema = new Schema<FileInterface>({
    * Number of times the entry has been downloaded on Commons, if entry is a "file".
    */
   downloadCount: Number,
+  tags: [
+    {
+      type: [Schema.Types.ObjectId],
+      ref: "AssetTag",
+      required: false,
+    }
+  ]
 });
 
 // We don't need export Mongoose model()  here because we only need the schema, not a seperate collection.

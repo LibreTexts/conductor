@@ -15,7 +15,6 @@ import { a11ySectionReviewSchema } from "./a11y";
 import {
   Project,
   ProjectFile,
-  ProjectFileTag,
   ProjectClassification,
   ProjectStatus,
 } from "./Project";
@@ -63,15 +62,17 @@ import {
 } from "./CentralIdentity";
 import {
   AssetTag,
+  AssetTagTemplate,
   AssetTagFramework,
-  AssetTagValueType,
-  AssetTagValueTypeOptions,
-} from "./AssetTag"
+  AssetTagTemplateValueType,
+  AssetTagTemplateValueTypeOptions,
+} from "./AssetTagging"
 
 export type {
   AssetTag,
+  AssetTagTemplate,
+  AssetTagTemplateValueType,
   AssetTagFramework,
-  AssetTagValueType,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
@@ -95,7 +96,6 @@ export type {
   a11ySectionReviewSchema,
   Project,
   ProjectFile,
-  ProjectFileTag,
   User,
   Account,
   AuthorizedApp,
@@ -125,7 +125,7 @@ export type {
 };
 
 export {
-  AssetTagValueTypeOptions,
+  AssetTagTemplateValueTypeOptions,
   CollectionPrivacyOptions,
   CollectionResourceType,
   CollectionLocations,

@@ -1,30 +1,29 @@
 import { Document, Schema, model } from "mongoose";
 
-export type AssetTagValueType = "text" | "number" | "date" | "boolean" | "dropdown";
-
 export interface AssetTagInterface extends Document {
+    uuid: string;
     title: string;
-    valueType: AssetTagValueType;
-    defaultValue?: string | number | boolean | Date;
-    options?: string[];
+    value: string | number | boolean | Date;
+    framework?: string;
     isDeleted: boolean;
 }
 
 const AssetTagSchema = new Schema<AssetTagInterface>({
+    uuid: {
+        type: String,
+        required: true,
+    },
     title: {
         type: String,
         required: true,
     },
-    valueType: {
-        type: String,
+    value: {
+        type: Schema.Types.Mixed,
         required: true,
     },
-    defaultValue: {
-        type: Schema.Types.Mixed,
-        required: false,
-    },
-    options: {
-        type: [String],
+    framework: {
+        type: Schema.Types.ObjectId,
+        ref: "AssetTagFramework",
         required: false,
     },
     isDeleted: {

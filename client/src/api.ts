@@ -25,6 +25,7 @@ class API {
     const res = await axios.get<{
       frameworks: AssetTagFramework[];
       err: boolean;
+      errMsg?: string;
       totalCount: number;
     }>("/assettagframeworks", {
       params: {
@@ -40,6 +41,7 @@ class API {
   async getFramework(id: string) {
     const res = await axios.get<{
       err: boolean;
+      errMsg?: string;
       framework: AssetTagFramework;
     }>(`/assettagframeworks/${id}`);
     return res;
@@ -48,6 +50,7 @@ class API {
   async createFramework(framework: AssetTagFramework) {
     const res = await axios.post<{
       err: boolean;
+      errMsg?: string;
       framework: AssetTagFramework;
     }>("/assettagframeworks", framework);
     return res;
@@ -56,6 +59,7 @@ class API {
   async updateFramework(framework: AssetTagFramework) {
     const res = await axios.patch<{
       err: boolean;
+      errMsg?: string;
       framework: AssetTagFramework;
     }>(`/assettagframeworks/${framework.uuid}`, framework);
     return res;

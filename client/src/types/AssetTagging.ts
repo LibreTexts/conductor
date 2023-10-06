@@ -1,15 +1,24 @@
 import { GenericKeyTextValueObj, MongoBaseDocument } from "./Misc";
 
-export type AssetTagValueType =
+export type AssetTag = {
+  uuid: string
+  title: string;
+  value: string | number | boolean | Date;
+  framework?: string | AssetTagFramework;
+  isDeleted: boolean;
+}
+
+export type AssetTagTemplateValueType =
   | "text"
   | "number"
   | "date"
   | "boolean"
   | "dropdown";
 
-export interface AssetTag extends MongoBaseDocument {
+// Frameworks have a list of 'template' tags that are used to create tags for assets
+export interface AssetTagTemplate extends MongoBaseDocument {
   title: string;
-  valueType: AssetTagValueType;
+  valueType: AssetTagTemplateValueType;
   defaultValue?: string | number | boolean | Date;
   options?: string[];
   isDeleted: boolean;
@@ -20,11 +29,11 @@ export interface AssetTagFramework extends MongoBaseDocument {
   name: string;
   description: string;
   orgID: string;
-  tags: AssetTag[];
+  templates: AssetTagTemplate[];
   enabled: boolean;
 }
 
-export const AssetTagValueTypeOptions: GenericKeyTextValueObj<string>[] = [
+export const AssetTagTemplateValueTypeOptions: GenericKeyTextValueObj<string>[] = [
   {
     key: "text",
     text: "Text",

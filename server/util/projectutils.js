@@ -404,7 +404,7 @@ export async function retrieveProjectFiles(
         return [null, null];
       }
     }
-    const foundEntries = allFiles.filter((obj) => obj.parent === filesKey);
+    const foundEntries = allFiles.filter((obj) => obj.parent === filesKey || obj.fileID === filesKey); // filesKey should be either parent folder or a file/folder itself
     const buildParentPath = (obj) => {
       let pathNodes = [];
       pathNodes.push({

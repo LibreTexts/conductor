@@ -10,14 +10,14 @@ import {
   Table,
 } from "semantic-ui-react";
 import {
-  AssetTag,
+  AssetTagTemplate,
   AssetTagFramework,
-  AssetTagValueTypeOptions,
+  AssetTagTemplateValueTypeOptions,
 } from "../../../types";
 import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import "../../../styles/global.css";
-import { isAssetTag, isAssetTagArray } from "../../../utils/typeHelpers";
+import { isAssetTagTemplate } from "../../../utils/typeHelpers";
 import { useEffect, useState } from "react";
 import CtlDropdown from "../../ControlledInputs/CtlDropdown";
 import useGlobalError from "../../error/ErrorHooks";
@@ -48,12 +48,12 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
         name: "",
         description: "",
         enabled: true,
-        tags: [],
+        templates: [],
       },
     });
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "tags",
+    name: "templates",
   });
 
   // Data & UI
@@ -85,8 +85,8 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   async function handleSave() {
-    const cleaned = cleanDropdownOptions(getValues("tags"));
-    setValue("tags", cleaned);
+    const cleaned = cleanDropdownOptions(getValues("templates"));
+    setValue("templates", cleaned);
     if (mode === "create") {
       return createFramework(getValues());
     }
@@ -132,14 +132,14 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   }
 
   function getOptionsString(index: number): string {
-    if (!getValues(`tags.${index}.options`)) return "No options set";
+    if (!getValues(`templates.${index}.options`)) return "No options set";
 
     if (
-      getValues(`tags.${index}.options`) &&
-      (getValues(`tags.${index}.options`) as string[]).length > 0
+      getValues(`templates.${index}.options`) &&
+      (getValues(`templates.${index}.options`) as string[]).length > 0
     ) {
       return truncateString(
-        watch(`tags.${index}.options`)?.join(", ") ?? "",
+        watch(`templates.${index}.options`)?.join(", ") ?? "",
         50
       );
     }
@@ -180,12 +180,14 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                 <Table.Row key="header">
                   <Table.HeaderCell>Tag Title</Table.HeaderCell>
                   <Table.HeaderCell>Value Type</Table.HeaderCell>
-                  <Table.HeaderCell>Options</Table.HeaderCell>
-                  <Table.HeaderCell>Actions</Table.HeaderCell>
+                  <Table.HeaderCell>
+                    Options / Default Value (optional)
+                  </Table.HeaderCell>
+                  <Table.HeaderCell width={1}>Actions</Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {(!watch("tags") || watch("tags").length === 0) && (
+                {(!watch("templates") || watch("templates").length === 0) && (
                   <Table.Row>
                     <Table.Cell colSpan={3} className="text-center">
                       No tags have been added to this framework.
@@ -194,12 +196,12 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                 )}
                 {fields.map(
                   (tag, index) =>
-                    isAssetTag(tag) && (
+                    isAssetTagTemplate(tag) && (
                       <Table.Row key={tag.id}>
                         <Table.Cell>
                           <CtlTextInput
                             control={control}
-                            name={`tags.${index}.title`}
+                            name={`templates.${index}.title`}
                             fluid
                           />
                         </Table.Cell>
@@ -207,7 +209,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                           <Controller
                             render={({ field }) => (
                               <Dropdown
-                                options={AssetTagValueTypeOptions}
+                                options={AssetTagTemplateValueTypeOptions}
                                 {...field}
                                 onChange={(e, data) => {
                                   field.onChange(
@@ -215,14 +217,16 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                                   );
                                 }}
                                 fluid
+                                selection
                               />
                             )}
-                            name={`tags.${index}.valueType`}
+                            name={`templates.${index}.valueType`}
                             control={control}
                           />
                         </Table.Cell>
                         <Table.Cell>
-                          {watch(`tags.${index}.valueType`) === "dropdown" ? (
+                          {watch(`templates.${index}.valueType`) ===
+                          "dropdown" ? (
                             <div className="flex items-center">
                               <p className="mr-2">{getOptionsString(index)}</p>
                               <Button
@@ -231,7 +235,11 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                               />
                             </div>
                           ) : (
-                            <span className="muted-text">N/A</span>
+                            <CtlTextInput
+                              name={`templates.${index}.defaultValue`}
+                              control={control}
+                              fluid
+                            />
                           )}
                         </Table.Cell>
                         <Table.Cell>
@@ -249,7 +257,15 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
             <Button
               color="blue"
               onClick={() =>
-                append({ title: "", valueType: "text", isDeleted: false })
+                append(
+                  {
+                    title: "",
+                    valueType: "text",
+                    defaultValue: "",
+                    isDeleted: false,
+                  },
+                  { shouldFocus: false }
+                )
               }
             >
               <Icon name="plus" />

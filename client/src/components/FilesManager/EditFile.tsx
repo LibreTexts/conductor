@@ -7,22 +7,23 @@ import {
   Icon,
   ModalProps,
   Table,
-  Dropdown,
-  Input,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
-import { AssetTagValueTypeOptions, ProjectFile } from "../../types";
+import { useFieldArray, useForm } from "react-hook-form";
+import { AssetTagFramework, ProjectFile } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
-import { isAssetTag } from "../../utils/typeHelpers";
+import SelectFramework from "./SelectFramework";
+import api from "../../api";
+import { getInitValueFromTemplate } from "../../utils/assetTagHelpers";
+import { RenderTagInput } from "./RenderTagInput";
 
 interface EditFileModalProps extends ModalProps {
   show: boolean;
   onClose: () => void;
   projectID: string;
-  file: ProjectFile;
+  fileID: string;
   onFinishedEdit: () => void;
 }
 
@@ -33,7 +34,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
   show,
   onClose,
   projectID,
-  file,
+  fileID,
   onFinishedEdit,
   rest,
 }) => {
@@ -57,15 +58,49 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
   // Data & UI
   const [loading, setLoading] = useState(false);
+  const [isFolder, setIsFolder] = useState(true); // No asset tags for folders
+  const [showSelectFramework, setShowSelectFramework] = useState(false);
+  const [selectedFramework, setSelectedFramework] =
+    useState<AssetTagFramework | null>(null);
 
   // Effects
   useEffect(() => {
     if (show) {
-      reset(file);
+      loadFile();
     }
   }, [show]);
 
+  useEffect(() => {
+    if (selectedFramework) {
+      genTagsFromFramework();
+    }
+  }, [selectedFramework]);
+
   // Handlers & Methods
+  async function loadFile() {
+    try {
+      if (!projectID || !fileID) return;
+      setLoading(true);
+      const res = await axios.get(`/project/${projectID}/files/${fileID}`);
+      if (
+        !res ||
+        res.data.err ||
+        !Array.isArray(res.data.files) ||
+        res.data.files.length === 0
+      ) {
+        throw new Error("Failed to load file");
+      }
+
+      const fileData = res.data.files[res.data.files.length - 1]; // Target file should be last in array
+      reset(fileData);
+      setIsFolder(fileData.storageType !== "file");
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   /**
    * Submits the file edit request to the server (if form is valid) and
    * closes the modal on completion.
@@ -96,17 +131,70 @@ const EditFile: React.FC<EditFileModalProps> = ({
     }
   }
 
-  function handleAddTag() {}
+  async function loadFramework(id: string) {
+    try {
+      if (!id) return;
+      if (isFolder) return; // No asset tags for folders
+      setLoading(true);
+
+      const res = await api.getFramework(id);
+      if (!res || res.data.err || !res.data.framework) {
+        throw new Error(res.data.errMsg);
+      }
+
+      setSelectedFramework(res.data.framework);
+      genTagsFromFramework();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function genTagsFromFramework() {
+    if (isFolder) return; // No asset tags for folders
+    if (!selectedFramework) return;
+    selectedFramework.templates.forEach((t) => {
+      addTag({
+        title: t.title,
+        value: getInitValueFromTemplate(t),
+        framework: selectedFramework,
+      });
+    });
+  }
+
+  function addTag({
+    title,
+    value,
+    framework,
+  }: {
+    title?: string;
+    value?: string | number | boolean | Date;
+    framework?: AssetTagFramework;
+  }) {
+    if (isFolder) return; // No asset tags for folders
+    append(
+      {
+        uuid: crypto.randomUUID(), // Random UUID for new tags, will be replaced with real UUID server-side on save
+        title: title ?? "",
+        value: value ?? "",
+        framework: framework ?? undefined,
+        isDeleted: false,
+      },
+      { shouldFocus: false }
+    );
+  }
 
   return (
     <Modal open={show} onClose={onClose} {...rest}>
-      <Modal.Header>Edit File</Modal.Header>
+      <Modal.Header>Edit {isFolder ? "Folder" : "File"}</Modal.Header>
       <Modal.Content>
         <Form
           onSubmit={(e) => {
             e.preventDefault();
-            handleEdit();
+            //handleEdit();
           }}
+          loading={loading}
         >
           <CtlTextInput
             name="name"
@@ -132,75 +220,84 @@ const EditFile: React.FC<EditFileModalProps> = ({
               : watch("description") &&
                 DESCRIP_MAX_CHARS - watch("description").length}
           </span>
-
-          <p className="!mt-6 form-field-label">Tags</p>
-          <Table celled className="!mt-1">
-            <Table.Header fullWidth>
-              <Table.Row key="header">
-                <Table.HeaderCell>Tag Title</Table.HeaderCell>
-                <Table.HeaderCell>Value</Table.HeaderCell>{" "}
-                <Table.HeaderCell>Actions</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {(!fields || fields.length === 0) && (
-                <Table.Row>
-                  <Table.Cell colSpan={3} className="text-center">
-                    No tags have been added to this file.
-                  </Table.Cell>
-                </Table.Row>
-              )}
-              {fields &&
-                fields.length > 0 &&
-                fields.map((tag, index) => (
-                  <Table.Row key={tag.id}>
-                    <Table.Cell>
-                      <CtlTextInput
-                        name={`tags.${index}.title`}
-                        control={control}
-                        fluid
-                      />
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Controller
-                        render={({ field }) => (
-                          <Dropdown
-                            options={AssetTagValueTypeOptions}
-                            {...field}
-                            onChange={(e, data) => {
-                              field.onChange(data.value?.toString() ?? "text");
-                            }}
-                            fluid
-                          />
-                        )}
-                        name={`tags.${index}.value`}
-                        control={control}
-                      />
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Button
-                        color="red"
-                        icon="trash"
-                        onClick={() => remove(index)}
-                      ></Button>
-                    </Table.Cell>
+          {!isFolder && (
+            <>
+              <p className="!mt-6 form-field-label">Tags</p>
+              <Table celled>
+                <Table.Header fullWidth>
+                  <Table.Row key="header">
+                    <Table.HeaderCell>Tag Title</Table.HeaderCell>
+                    <Table.HeaderCell>Value</Table.HeaderCell>
+                    <Table.HeaderCell width={1}>Actions</Table.HeaderCell>
                   </Table.Row>
-                ))}
-            </Table.Body>
-          </Table>
-          <Button color="blue" onClick={() => append({ title: "", value: "" })}>
-            <Icon name="plus" />
-            Add Tag
-          </Button>
+                </Table.Header>
+                <Table.Body>
+                  {fields && fields.length > 0 ? (
+                    fields.map((tag, index) => (
+                      <Table.Row key={tag.id}>
+                        <Table.Cell>
+                          {tag.framework ? (
+                            <span>{tag.title}</span>
+                          ) : (
+                            <CtlTextInput
+                              name={`tags.${index}.title`}
+                              control={control}
+                              fluid
+                            />
+                          )}
+                        </Table.Cell>
+                        <Table.Cell>
+                          <RenderTagInput
+                            tag={tag}
+                            index={index}
+                            control={control}
+                          />
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Button
+                            color="red"
+                            icon="trash"
+                            onClick={() => remove(index)}
+                          ></Button>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))
+                  ) : (
+                    <Table.Row>
+                      <Table.Cell colSpan={3} className="text-center">
+                        No tags have been added to this file.
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                </Table.Body>
+              </Table>
+              <Button color="blue" onClick={() => addTag({})}>
+                <Icon name="plus" />
+                Add Tag
+              </Button>
+              <Button color="blue" onClick={() => setShowSelectFramework(true)}>
+                <Icon name="plus" />
+                Add From Framework
+              </Button>
+            </>
+          )}
         </Form>
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button color="blue" onClick={handleEdit} loading={loading}>
-          <Icon name="edit" />
-          Edit
+        <Button color="green" onClick={handleEdit} loading={loading}>
+          <Icon name="save" />
+          Save
         </Button>
       </Modal.Actions>
+      <SelectFramework
+        show={showSelectFramework}
+        onClose={() => setShowSelectFramework(false)}
+        onSelected={(id: string) => {
+          loadFramework(id);
+          setShowSelectFramework(false);
+        }}
+      />
     </Modal>
   );
 };

@@ -12,8 +12,11 @@ import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import AssetTagFramework, {
   AssetTagFrameworkInterface,
 } from "../models/assettagframework.js";
-import { validateAssetTagArray } from "./assettagging.js";
 import { v4 } from "uuid";
+import {
+  AssetTagTemplateInterface,
+  AssetTagTemplateValueTypeOptions,
+} from "../models/assettagtemplate.js";
 
 async function getFrameworks(
   req: TypedReqQuery<{
@@ -142,7 +145,7 @@ async function updateFramework(
 
     framework.name = req.body.name;
     framework.description = req.body.description;
-    framework.tags = req.body.tags;
+    framework.templates = req.body.templates;
     framework.enabled = req.body.enabled;
 
     await framework.save();
@@ -155,6 +158,26 @@ async function updateFramework(
     debugError(err);
     return conductor500Err(res);
   }
+}
+
+function validateAssetTagTemplate(tag: AssetTagTemplateInterface): boolean {
+  if (!tag.title) return false;
+  if (
+    !tag.valueType ||
+    !AssetTagTemplateValueTypeOptions.includes(tag.valueType)
+  )
+    return false;
+  if (tag.valueType === "dropdown" && !tag.options) return false;
+  return true;
+}
+
+function validateAssetTagTemplateArray(
+  tags: AssetTagTemplateInterface[]
+): boolean {
+  for (const tag of tags) {
+    if (!validateAssetTagTemplate(tag)) return false;
+  }
+  return true;
 }
 
 function validate(method: string) {
@@ -180,7 +203,7 @@ function validate(method: string) {
           .optional()
           .isString()
           .isLength({ min: 1, max: 255 }),
-        body("tags").isArray().custom(validateAssetTagArray),
+        body("templates").isArray().custom(validateAssetTagTemplateArray),
         body("enabled").isBoolean(),
       ];
     case "updateFramework":
@@ -191,7 +214,7 @@ function validate(method: string) {
           .optional()
           .isString()
           .isLength({ min: 1, max: 255 }),
-        body("tags").isArray().custom(validateAssetTagArray),
+        body("templates").isArray().custom(validateAssetTagTemplateArray),
         body("enabled").isBoolean(),
       ];
   }
@@ -202,5 +225,7 @@ export default {
   getFramework,
   createFramework,
   updateFramework,
+  validateAssetTagTemplate,
+  validateAssetTagTemplateArray,
   validate,
 };

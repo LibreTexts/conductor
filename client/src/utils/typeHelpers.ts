@@ -8,8 +8,10 @@ import {
   InstructorVerifReqStatuses,
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
-  AssetTagValueType,
+  AssetTagTemplate,
+  AssetTagTemplateValueType,
   AssetTag,
+  AssetTagFramework,
 } from "../types";
 
 export function isCatalogLocation(
@@ -131,9 +133,21 @@ export const isCentralIdentityVerificationRequestProperty = (
   );
 };
 
-export const isAssetTagValueType = (
+export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
+  return (
+    "uuid" in value &&
+    "name" in value &&
+    "description" in value &&
+    "orgID" in value &&
+    "tags" in value &&
+    "enabled" in value
+  );
+}
+
+// Asset Tag TEMPLATES
+export const isAssetTagTemplateValueType = (
   value: string
-): value is AssetTagValueType => {
+): value is AssetTagTemplateValueType => {
   return (
     value === "text" ||
     value === "number" ||
@@ -143,12 +157,26 @@ export const isAssetTagValueType = (
   );
 };
 
-export const isAssetTag = (value: any): value is AssetTag => {
+export const isAssetTagTemplate = (value: any): value is AssetTagTemplate => {
   return (
     "title" in value &&
     "valueType" in value &&
     "isDeleted" in value &&
-    isAssetTagValueType(value.valueType)
+    isAssetTagTemplateValueType(value.valueType)
+  );
+};
+
+export const isAssetTagTemplateArray = (value: any): value is AssetTagTemplate[] => {
+  return Array.isArray(value) && value.every((v) => isAssetTagTemplate(v));
+}
+
+// Asset Tags
+export const isAssetTag = (value: any): value is AssetTag => {
+  return (
+    "uuid" in value &&
+    "title" in value &&
+    "value" in value &&
+    "isDeleted" in value
   );
 };
 
