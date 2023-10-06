@@ -34,6 +34,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
         return (
           <Controller
             render={({ field }) => (
+              // @ts-expect-error
               <Dropdown
                 options={templateInFramework.options?.map((opt) => ({
                   key: opt,

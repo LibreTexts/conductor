@@ -42,7 +42,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
-  const { control, getValues, setValue, watch, reset, formState } =
+  const { control, getValues, setValue, watch, reset, formState, trigger } =
     useForm<ProjectFile>({
       defaultValues: {
         name: "",
@@ -106,11 +106,11 @@ const EditFile: React.FC<EditFileModalProps> = ({
    * closes the modal on completion.
    */
   async function handleEdit() {
-    if (!formState.isValid) return;
-    if (!formState.isDirty) {
-      onFinishedEdit();
-      return;
-    }
+    if(Object.values(formState.errors).length > 0) return;
+    /* Usually we would use formState.isValid, but seems to be a bug with react-hook-form
+    not setting valid to true even when there are no errors. See:
+    https://github.com/react-hook-form/react-hook-form/issues/2755
+    */
     setLoading(true);
     try {
       const editRes = await axios.put(
@@ -285,7 +285,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" onClick={handleEdit} loading={loading}>
+        <Button color="green" onClick={() => handleEdit()} loading={loading}>
           <Icon name="save" />
           Save
         </Button>

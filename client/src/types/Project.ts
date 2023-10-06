@@ -11,6 +11,7 @@ export type ProjectFile = {
   description: string;
   parent: string;
   createdBy: string;
+  uploader?: User;
   downloadCount: number;
   tags?: AssetTag[];
 };

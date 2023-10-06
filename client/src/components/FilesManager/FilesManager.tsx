@@ -515,9 +515,8 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     const dateInstance = new Date(item.createdDate);
                     uploadTime = date.format(dateInstance, "MM/DD/YY h:mm A");
                   }
-                  // @ts-expect-error
+                  
                   if (item.uploader?.firstName && item.uploader?.lastName) {
-                    //@ts-expect-error
                     uploaderName = `${item.uploader.firstName} ${item.uploader.lastName}`;
                   }
                   return (

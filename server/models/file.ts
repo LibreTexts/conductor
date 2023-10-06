@@ -1,19 +1,33 @@
 import { model, Schema, Document } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
-import { AssetTagInterface } from "./assettag.js";
+import AssetTag, { AssetTagInterface } from "./assettag.js";
 
-export interface FileInterface extends Document {
+// Not stored in schema, but used in API
+export type FileInterfacePath = {
+  fileID: string;
+  name: string;
+};
+
+export type FileInterfaceAccess =
+  | "public"
+  | "users"
+  | "instructors"
+  | "team"
+  | "mixed";
+
+export interface RawFileInterface {
   fileID: string;
   name?: string;
-  access?: "public" | "users" | "instructors" | "team" | "mixed";
+  access?: FileInterfaceAccess;
   storageType: "file" | "folder";
   size: number;
   description?: string;
   parent?: string;
   createdBy?: string;
   downloadCount?: number;
-  tags?: Schema.Types.ObjectId[] | AssetTagInterface[];
 }
+
+export interface FileInterface extends RawFileInterface, Document {}
 
 const FileSchema = new Schema<FileInterface>({
   /**
@@ -66,13 +80,6 @@ const FileSchema = new Schema<FileInterface>({
    * Number of times the entry has been downloaded on Commons, if entry is a "file".
    */
   downloadCount: Number,
-  tags: [
-    {
-      type: [Schema.Types.ObjectId],
-      ref: "AssetTag",
-      required: false,
-    }
-  ]
 });
 
 // We don't need export Mongoose model()  here because we only need the schema, not a seperate collection.
