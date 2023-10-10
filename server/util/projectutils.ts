@@ -259,7 +259,10 @@ export async function filterFilesByAccess(
         foundProject = projectID;
       }
 
-      if (foundProject && projectsAPI.checkProjectMemberPermission(foundProject, user)) {
+      if (
+        foundProject &&
+        projectsAPI.checkProjectMemberPermission(foundProject, user)
+      ) {
         authorizedLevels.push("team");
       }
 
@@ -333,18 +336,32 @@ export async function retrieveAllProjectFiles(
           localField: "files._id",
           foreignField: "fileID",
           as: "files.tags",
-        }
-      },
-      {
-        $unwind: {"path": "$files.tags", "preserveNullAndEmptyArrays": true}
+        },
       },
       {
         $lookup: {
           from: "assettags",
           localField: "files.tags.tags",
           foreignField: "_id",
+          pipeline: [
+            {
+              $lookup: {
+                from: "assettagframeworks",
+                localField: "framework",
+                foreignField: "_id",
+                as: "framework",
+              },
+            },
+            {
+              $set: {
+                framework: {
+                  $arrayElemAt: ["$framework", 0],
+                },
+              },
+            },
+          ],
           as: "files.tags",
-        }
+        },
       },
       {
         $addFields: {
@@ -471,7 +488,7 @@ function _buildChildList(
   details = false
 ) {
   const currObj = obj;
-  let children:  RawFileInterface[] = [];
+  let children: RawFileInterface[] = [];
   if (!details) {
     delete currObj["createdBy"];
     delete currObj["downloadCount"];

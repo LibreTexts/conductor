@@ -29,6 +29,7 @@ import { fileSizePresentable, truncateString } from "../util/HelperFunctions";
 import useGlobalError from "../error/ErrorHooks";
 import styles from "./FilesManager.module.css";
 import { ProjectFile } from "../../types";
+import RenderAssetTags from "./RenderAssetTags";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -54,10 +55,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     width: SemanticWIDTHS;
     collapsing?: boolean;
   }[] = [
-    { key: "name", text: "Name", width: 8 },
+    { key: "name", text: "Name", width: 6 },
     { key: "access", text: "Access", width: 2 },
     { key: "size", text: "Size", width: 1 },
-    { key: "uploaded", text: "Created/Uploaded", width: 4 },
+    { key: "uploaded", text: "Created/Uploaded", width: 3 },
+    { key: "tags", text: "Tags", width: 6 },
     { key: "download", text: "", width: 1, collapsing: true },
   ];
 
@@ -515,7 +517,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     const dateInstance = new Date(item.createdDate);
                     uploadTime = date.format(dateInstance, "MM/DD/YY h:mm A");
                   }
-                  
+
                   if (item.uploader?.firstName && item.uploader?.lastName) {
                     uploaderName = `${item.uploader.firstName} ${item.uploader.lastName}`;
                   }
@@ -581,6 +583,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       <Table.Cell>
                         {uploadTime && <span>{uploadTime} </span>}
                         {uploaderName && <span>by {uploaderName}</span>}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <RenderAssetTags file={item} />
                       </Table.Cell>
                       <Table.Cell textAlign="center">
                         {item.storageType === "file" && (

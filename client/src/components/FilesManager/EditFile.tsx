@@ -7,10 +7,11 @@ import {
   Icon,
   ModalProps,
   Table,
+  Label,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { useFieldArray, useForm } from "react-hook-form";
-import { AssetTagFramework, ProjectFile } from "../../types";
+import { AssetTag, AssetTagFramework, ProjectFile } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -18,6 +19,8 @@ import SelectFramework from "./SelectFramework";
 import api from "../../api";
 import { getInitValueFromTemplate } from "../../utils/assetTagHelpers";
 import { RenderTagInput } from "./RenderTagInput";
+import { AssetTagTemplate, AssetTagValue } from "../../types/AssetTagging";
+import { isAssetTagFramework } from "../../utils/typeHelpers";
 
 interface EditFileModalProps extends ModalProps {
   show: boolean;
@@ -106,7 +109,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
    * closes the modal on completion.
    */
   async function handleEdit() {
-    if(Object.values(formState.errors).length > 0) return;
+    if (Object.values(formState.errors).length > 0) return;
     /* Usually we would use formState.isValid, but seems to be a bug with react-hook-form
     not setting valid to true even when there are no errors. See:
     https://github.com/react-hook-form/react-hook-form/issues/2755
@@ -153,8 +156,21 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
   function genTagsFromFramework() {
     if (isFolder) return; // No asset tags for folders
-    if (!selectedFramework) return;
-    selectedFramework.templates.forEach((t) => {
+    if (!selectedFramework || !selectedFramework.templates) return;
+
+    // Don't duplicate tags when adding from framework
+    const existingTags = getValues().tags;
+    let filtered: AssetTagTemplate[] = [];
+
+    if (existingTags && existingTags.length > 0) {
+      filtered = selectedFramework.templates.filter(
+        (t) => !existingTags.find((tag) => tag.title === t.title)
+      );
+    } else {
+      filtered = selectedFramework.templates;
+    }
+
+    filtered.forEach((t) => {
       addTag({
         title: t.title,
         value: getInitValueFromTemplate(t),
@@ -169,7 +185,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
     framework,
   }: {
     title?: string;
-    value?: string | number | boolean | Date;
+    value?: AssetTagValue;
     framework?: AssetTagFramework;
   }) {
     if (isFolder) return; // No asset tags for folders
@@ -237,7 +253,16 @@ const EditFile: React.FC<EditFileModalProps> = ({
                       <Table.Row key={tag.id}>
                         <Table.Cell>
                           {tag.framework ? (
-                            <span>{tag.title}</span>
+                            <div className="flex flex-col">
+                              <p>{tag.title}</p>
+                              {/* {isAssetTagFramework(tag.framework) && (
+                                <div className="mt-1">
+                                  <Label size="mini">
+                                    {tag.framework.name}
+                                  </Label>
+                                </div>
+                              )} */}
+                            </div>
                           ) : (
                             <CtlTextInput
                               name={`tags.${index}.title`}

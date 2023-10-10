@@ -5,7 +5,8 @@ export type AssetTagTemplateValueType =
   | "number"
   | "date"
   | "boolean"
-  | "dropdown";
+  | "dropdown"
+  | "multiselect";
 
 export const AssetTagTemplateValueTypeOptions: string[] = [
   "text",
@@ -13,6 +14,7 @@ export const AssetTagTemplateValueTypeOptions: string[] = [
   "date",
   "boolean",
   "dropdown",
+  "multiselect",
 ]
 
 export interface AssetTagTemplateInterface {

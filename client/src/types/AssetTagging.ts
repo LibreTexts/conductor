@@ -1,9 +1,11 @@
 import { GenericKeyTextValueObj, MongoBaseDocument } from "./Misc";
 
+export type AssetTagValue = string | number | boolean | Date | string[];
+
 export type AssetTag = {
   uuid: string
   title: string;
-  value: string | number | boolean | Date;
+  value: AssetTagValue;
   framework?: string | AssetTagFramework;
   isDeleted: boolean;
 }
@@ -13,7 +15,8 @@ export type AssetTagTemplateValueType =
   | "number"
   | "date"
   | "boolean"
-  | "dropdown";
+  | "dropdown"
+  | "multiselect";
 
 // Frameworks have a list of 'template' tags that are used to create tags for assets
 export interface AssetTagTemplate extends MongoBaseDocument {
@@ -58,5 +61,10 @@ export const AssetTagTemplateValueTypeOptions: GenericKeyTextValueObj<string>[] 
     key: "dropdown",
     text: "Dropdown",
     value: "dropdown",
+  },
+  {
+    key: "multiselect",
+    text: "Multi-select",
+    value: "multiselect",
   },
 ];

@@ -3,7 +3,7 @@ import { Document, Schema, model } from "mongoose";
 export interface AssetTagInterface extends Document {
     uuid: string;
     title: string;
-    value: string | number | boolean | Date;
+    value: string | number | boolean | Date | string [];
     framework?: string;
     isDeleted: boolean;
 }

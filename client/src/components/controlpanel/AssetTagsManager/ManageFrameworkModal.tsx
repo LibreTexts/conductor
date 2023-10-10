@@ -225,8 +225,9 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                           />
                         </Table.Cell>
                         <Table.Cell>
-                          {watch(`templates.${index}.valueType`) ===
-                          "dropdown" ? (
+                          {["dropdown", "multiselect"].includes(
+                            watch(`templates.${index}.valueType`)
+                          ) ? (
                             <div className="flex items-center">
                               <p className="mr-2">{getOptionsString(index)}</p>
                               <Button

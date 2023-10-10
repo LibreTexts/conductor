@@ -168,6 +168,7 @@ function validateAssetTagTemplate(tag: AssetTagTemplateInterface): boolean {
   )
     return false;
   if (tag.valueType === "dropdown" && !tag.options) return false;
+  if (tag.valueType === "multiselect" && !tag.options) return false;
   return true;
 }
 
