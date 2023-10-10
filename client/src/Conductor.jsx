@@ -40,7 +40,7 @@ import ProjectsFlagged from './components/projects/ProjectsFlagged';
 import ProjectsPortal from './components/projects/ProjectsPortal';
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
-import Search from './components/search/Search';
+const Search = lazy(() => import('./screens/conductor/Search'));
 import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
 import LoadingSpinner from './components/LoadingSpinner';

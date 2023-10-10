@@ -9,7 +9,7 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj, TimeZoneOption, MongoBaseDocument } from "./Misc";
+import { GenericKeyTextValueObj, TimeZoneOption, MongoBaseDocument, ConductorBaseResponse } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
@@ -80,6 +80,7 @@ export type {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  ConductorBaseResponse,
   Organization,
   CampusSettingsOpts,
   Collection,

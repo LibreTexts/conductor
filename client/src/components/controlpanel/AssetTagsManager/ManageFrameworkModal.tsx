@@ -25,7 +25,7 @@ import api from "../../../api";
 import LoadingSpinner from "../../LoadingSpinner";
 import { truncateString } from "../../util/HelperFunctions";
 import EditDropdownOptionsModal from "./EditDropdownOptionsModal";
-import { cleanDropdownOptions } from "../../../utils/assetTagHelpers";
+import { cleanDropdownOptions } from "../../../utils/assetHelpers";
 
 interface ManageFrameworkModalProps extends ModalProps {
   open: boolean;

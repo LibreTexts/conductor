@@ -253,6 +253,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
 );
 
 ProjectSchema.index({title: "text"})
+ProjectSchema.index({"files.name": "text"})
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 

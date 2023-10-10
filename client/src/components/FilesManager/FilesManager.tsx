@@ -13,7 +13,6 @@ import {
   SegmentProps,
   SemanticWIDTHS,
 } from "semantic-ui-react";
-import date from "date-and-time";
 import AddFolder from "./AddFolder";
 import ChangeAccess from "./ChangeAccess";
 import DeleteFiles from "./DeleteFiles";
@@ -25,11 +24,19 @@ import {
   checkProjectMemberPermission,
   getFilesAccessText,
 } from "../util/ProjectHelpers";
-import { fileSizePresentable, truncateString } from "../util/HelperFunctions";
+import { truncateString } from "../util/HelperFunctions";
 import useGlobalError from "../error/ErrorHooks";
 import styles from "./FilesManager.module.css";
 import { ProjectFile } from "../../types";
 import RenderAssetTags from "./RenderAssetTags";
+import {
+  downloadFile,
+  fileSizePresentable,
+  getPrettyCreatedDate,
+  getPrettyUploader,
+} from "../../utils/assetHelpers";
+import { format, parseISO } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -353,26 +360,12 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     getFiles();
   }
 
-  /**
-   * Requests a download link from the server for a File entry, then opens it in a new tab.
-   *
-   * @param {string} fileID - Identifier of the File to download.
-   */
-  async function handleDownloadFile(fileID: string) {
-    try {
-      if (!fileID) return;
-      const downloadRes = await axios.get(
-        `/project/${projectID}/files/${fileID}/download`
+  function handleDownloadFile(projectID: string, fileID: string) {
+    const success = downloadFile(projectID, fileID);
+    if (!success) {
+      handleGlobalError(
+        new Error("Unable to download file. Please try again later.")
       );
-      if (!downloadRes.data.err) {
-        if (typeof downloadRes.data.url === "string") {
-          window.open(downloadRes.data.url, "_blank", "noreferrer");
-        }
-      } else {
-        throw new Error(downloadRes.data.errMsg);
-      }
-    } catch (e) {
-      handleGlobalError(e);
     }
   }
 
@@ -508,19 +501,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               </Table.Header>
               <Table.Body>
                 {files.map((item) => {
-                  let uploadTime = null;
-                  let uploaderName = null;
-                  // TODO: fix typing
-                  //@ts-expect-error
-                  if (item.createdDate) {
-                    //@ts-expect-error
-                    const dateInstance = new Date(item.createdDate);
-                    uploadTime = date.format(dateInstance, "MM/DD/YY h:mm A");
-                  }
-
-                  if (item.uploader?.firstName && item.uploader?.lastName) {
-                    uploaderName = `${item.uploader.firstName} ${item.uploader.lastName}`;
-                  }
                   return (
                     <Table.Row className={styles.table_row} key={item.fileID}>
                       {canViewDetails && (
@@ -552,9 +532,16 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                   {item.name}
                                 </span>
                               ) : (
-                                <span className={styles.namedescrip_title}>
+                                <a
+                                  onClick={() =>
+                                    handleDownloadFile(projectID, item.fileID)
+                                  }
+                                  className={
+                                    styles.namedescrip_title + " cursor-pointer"
+                                  }
+                                >
                                   {item.name}
-                                </span>
+                                </a>
                               )}
                             </div>
                             {item.description && (
@@ -581,8 +568,17 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                           fileSizePresentable(item.size)}
                       </Table.Cell>
                       <Table.Cell>
-                        {uploadTime && <span>{uploadTime} </span>}
-                        {uploaderName && <span>by {uploaderName}</span>}
+                        {item.createdDate && (
+                          <span>{getPrettyCreatedDate(item.createdDate)}</span>
+                        )}
+                        {item.uploader && (
+                          <span>
+                            {" "}
+                            by
+                            {" "}
+                            {getPrettyUploader(item.uploader)}
+                          </span>
+                        )}
                       </Table.Cell>
                       <Table.Cell>
                         <RenderAssetTags file={item} />
@@ -593,7 +589,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                             icon
                             size="small"
                             title="Download file (opens in new tab)"
-                            onClick={() => handleDownloadFile(item.fileID)}
+                            onClick={() =>
+                              handleDownloadFile(projectID, item.fileID)
+                            }
                           >
                             <Icon name="download" />
                           </Button>

@@ -14,7 +14,10 @@ export type ProjectFile = {
   uploader?: User;
   downloadCount: number;
   tags?: AssetTag[];
+  createdDate?: Date;
 };
+
+export type ProjectFileWProjectID = ProjectFile & { projectID: string };
 
 export enum ProjectStatus {
     AVAILABLE = 'available',

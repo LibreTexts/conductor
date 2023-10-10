@@ -17,7 +17,7 @@ import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
 import SelectFramework from "./SelectFramework";
 import api from "../../api";
-import { getInitValueFromTemplate } from "../../utils/assetTagHelpers";
+import { getInitValueFromTemplate } from "../../utils/assetHelpers";
 import { RenderTagInput } from "./RenderTagInput";
 import { AssetTagTemplate, AssetTagValue } from "../../types/AssetTagging";
 import { isAssetTagFramework } from "../../utils/typeHelpers";

@@ -2,7 +2,6 @@ import { Label } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { SemanticCOLORSArray } from "../../utils/misc";
-import { fi } from "date-fns/locale";
 
 const RenderAssetTags: React.FC<{ file: ProjectFile }> = ({ file }) => {
   function getLabelValue(tag: AssetTag) {

@@ -12,3 +12,7 @@ export type MongoBaseDocument = {
   _id?: string;
   __v?: any;
 };
+
+export type ConductorBaseResponse =
+  | { err: false }
+  | { err: true; errMsg: string };
