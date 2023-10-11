@@ -58,78 +58,76 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
     );
   };
 
-  if (tag.framework !== undefined) {
-    if (typeof tag.framework === "string") {
-      return <TextInput />; // Fall back to text input if framework not populated
+  if (!tag.framework || !isAssetTagFramework(tag.framework)) {
+    return <TextInput />; // Fall back to text input
+  }
+
+  const templateInFramework = tag.framework.templates.find(
+    (template) => template.title === tag.title
+  );
+
+  if (templateInFramework) {
+    if (templateInFramework.valueType === "dropdown") {
+      return (
+        <Controller
+          render={({ field }) => (
+            // @ts-expect-error
+            <Dropdown
+              options={templateInFramework.options?.map((opt) => ({
+                key: opt,
+                value: opt,
+                text: opt,
+              }))}
+              {...field}
+              onChange={(e, data) => {
+                field.onChange(data.value?.toString() ?? "");
+              }}
+              fluid
+              selection
+            />
+          )}
+          name={`tags.${index}.value`}
+          control={control}
+        />
+      );
     }
 
-    if (isAssetTagFramework(tag.framework)) {
-      const templateInFramework = tag.framework.templates.find(
-        (template) => template.title === tag.title
+    if (templateInFramework.valueType === "multiselect") {
+      return (
+        <Controller
+          render={({ field }) => (
+            // @ts-expect-error
+            <Dropdown
+              options={genMultiSelectOptions({
+                template: templateInFramework,
+                tag,
+              })}
+              {...field}
+              onChange={(e, { value }) => {
+                field.onChange(value);
+              }}
+              fluid
+              selection
+              multiple
+              search
+              allowAdditions
+              onAddItem={(e, { value }) => {
+                if (value) {
+                  templateInFramework.options?.push(value.toString());
+                  field.onChange([
+                    ...(field.value as string[]),
+                    value.toString(),
+                  ]);
+                }
+              }}
+            />
+          )}
+          name={`tags.${index}.value`}
+          control={control}
+        />
       );
-      if (templateInFramework) {
-        if (templateInFramework.valueType === "dropdown") {
-          return (
-            <Controller
-              render={({ field }) => (
-                // @ts-expect-error
-                <Dropdown
-                  options={templateInFramework.options?.map((opt) => ({
-                    key: opt,
-                    value: opt,
-                    text: opt,
-                  }))}
-                  {...field}
-                  onChange={(e, data) => {
-                    field.onChange(data.value?.toString() ?? "");
-                  }}
-                  fluid
-                  selection
-                />
-              )}
-              name={`tags.${index}.value`}
-              control={control}
-            />
-          );
-        } else if (templateInFramework.valueType === "multiselect") {
-          return (
-            <Controller
-              render={({ field }) => (
-                // @ts-expect-error
-                <Dropdown
-                  options={genMultiSelectOptions({ template: templateInFramework, tag })}
-                  {...field}
-                  onChange={(e, { value }) => {
-                    field.onChange(value);
-                  }}
-                  fluid
-                  selection
-                  multiple
-                  search
-                  allowAdditions
-                  onAddItem={(e, { value }) => {
-                    if (value) {
-                      templateInFramework.options?.push(value.toString());
-                      field.onChange([
-                        ...(field.value as string[]),
-                        value.toString(),
-                      ]);
-                    }
-                  }}
-                />
-              )}
-              name={`tags.${index}.value`}
-              control={control}
-            />
-          );
-        } else {
-          return <TextInput />;
-        }
-      } else {
-        return <TextInput />;
-      }
     }
   }
 
-  return <TextInput />;
+  return <TextInput />; // Fall back to text input
 };

@@ -10,9 +10,7 @@ import {
   Button,
   Dropdown,
   Input,
-  ButtonGroup,
 } from "semantic-ui-react";
-import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import useDebounce from "../../../../hooks/useDebounce";
@@ -98,15 +96,20 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
     mode: "create" | "edit",
     id?: string
   ) {
-    setShowManageFrameworkModal(true);
     setManageFrameworkMode(mode);
     if (mode === "edit" && id) {
       setManageFrameworkId(id);
     }
+    if (mode === "create") {
+      setManageFrameworkId("");
+    }
+    setShowManageFrameworkModal(true);
   }
 
   function handleCloseManageFrameworkModal() {
     setShowManageFrameworkModal(false);
+    setManageFrameworkMode("create");
+    setManageFrameworkId("");
     getFrameworks(searchString); // Refresh data
   }
 
@@ -212,7 +215,12 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
                             <span>{f.enabled ? "Enabled" : "Disabled"}</span>
                           </Table.Cell>
                           <Table.Cell textAlign="right">
-                            <Button color="blue" onClick={() => handleOpenManageFrameworkModal('edit', f.uuid)}>
+                            <Button
+                              color="blue"
+                              onClick={() =>
+                                handleOpenManageFrameworkModal("edit", f.uuid)
+                              }
+                            >
                               <Icon name="edit" />
                               Edit
                             </Button>

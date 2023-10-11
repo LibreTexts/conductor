@@ -66,8 +66,8 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
 
   // Effects
   useEffect(() => {
-    if (mode === "edit" && id) loadFramework(id);
-  }, [id]);
+    if (open && mode === "edit" && id) loadFramework(id);
+  }, [id, open]);
 
   // Handlers & Methods
   async function loadFramework(id: string) {
@@ -98,7 +98,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       setLoading(true);
       await api.createFramework(framework);
 
-      onClose();
+      handleClose();
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -113,7 +113,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       setLoading(true);
 
       await api.updateFramework(framework);
-      onClose();
+      handleClose();
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -147,8 +147,18 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
     return "No options set";
   }
 
+  function handleClose() {
+    reset({
+      name: "",
+      description: "",
+      enabled: true,
+      templates: [],
+    }); // Reset form state
+    onClose();
+  }
+
   return (
-    <Modal open={open} onClose={() => onClose()} size="fullscreen">
+    <Modal open={open} onClose={() => handleClose()} size="fullscreen">
       <Modal.Header>
         <div className="flex justify-between">
           <span>{mode === "create" ? "Create" : "Edit"} Framework</span>
@@ -276,7 +286,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
         )}
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={() => onClose()}>Cancel</Button>
+        <Button onClick={() => handleClose()}>Cancel</Button>
         <Button color="green" onClick={() => handleSave()}>
           Save
         </Button>

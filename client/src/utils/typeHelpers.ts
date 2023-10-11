@@ -139,7 +139,7 @@ export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
     "name" in value &&
     "description" in value &&
     "orgID" in value &&
-    "tags" in value &&
+    "templates" in value &&
     "enabled" in value
   );
 }
