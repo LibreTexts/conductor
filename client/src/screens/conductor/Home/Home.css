@@ -5,24 +5,7 @@
     width: 4em !important;
 }
 
-.home-mobile-welcome {
-    align-items: center;
-}
-
-.home-mobile-welcome > .menu-avatar {
-    margin: 0;
-}
-
-.home-mobile-welcome > h1 {
-    margin: 0 0 0 0.5em !important;
-}
-
-.home-unverified-label {
-    cursor: pointer;
-}
-
 /* Announcements */
-
 .announcement:hover {
     cursor: pointer !important;
 }
@@ -59,10 +42,6 @@
 
 .announcement-meta-date {
     font-size: .85714286em;
-}
-
-.announcements-list {
-    padding: 0.5em 1em 0.5em;
 }
 
 /* Edit Pinned Projects */

@@ -8,6 +8,7 @@ import {
   InstructorVerifReqStatuses,
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
+  Organization,
 } from "../types";
 
 export function isCatalogLocation(
@@ -127,4 +128,8 @@ export const isCentralIdentityVerificationRequestProperty = (
     key === "created_at" ||
     key === "updated_at"
   );
+};
+
+export const isOrganization = (obj: any): obj is Organization => {
+  return "orgID" in obj && "name" in obj && "domain" in obj;
 };
