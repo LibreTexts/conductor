@@ -8,12 +8,12 @@ import {
 } from "semantic-ui-react";
 import axios from "axios";
 import { useState, useEffect } from "react";
-import useGlobalError from "../../error/ErrorHooks";
+import useGlobalError from "../error/ErrorHooks";
 import { useForm } from "react-hook-form";
-import { Announcement } from "../../../types";
-import { useTypedSelector } from "../../../state/hooks";
-import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { required } from "../../../utils/formRules";
+import { Announcement } from "../../types";
+import { useTypedSelector } from "../../state/hooks";
+import CtlTextInput from "../ControlledInputs/CtlTextInput";
+import { required } from "../../utils/formRules";
 
 interface NewAnnouncementModalProps extends ModalProps {
   show: boolean;

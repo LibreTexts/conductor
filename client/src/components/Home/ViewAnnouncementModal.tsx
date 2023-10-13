@@ -8,15 +8,15 @@ import {
 } from "semantic-ui-react";
 import axios from "axios";
 import { useState } from "react";
-import { Announcement } from "../../../types";
+import { Announcement } from "../../types";
 import { format, parseISO } from "date-fns";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { capitalizeFirstLetter } from "../../util/HelperFunctions";
-import { useTypedSelector } from "../../../state/hooks";
+import { capitalizeFirstLetter } from "../util/HelperFunctions";
+import { useTypedSelector } from "../../state/hooks";
 import { fi } from "date-fns/locale";
-import useGlobalError from "../../error/ErrorHooks";
-import { isOrganization } from "../../../utils/typeHelpers";
+import useGlobalError from "../error/ErrorHooks";
+import { isOrganization } from "../../utils/typeHelpers";
 
 interface ViewAnnouncementModalProps extends ModalProps {
   show: boolean;

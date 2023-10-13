@@ -1,7 +1,7 @@
 import { Image } from "semantic-ui-react";
-import { Announcement } from "../../../types";
+import { Announcement } from "../../types";
 import { format, parseISO } from "date-fns";
-import { truncateString } from "../../util/HelperFunctions";
+import { truncateString } from "../util/HelperFunctions";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 

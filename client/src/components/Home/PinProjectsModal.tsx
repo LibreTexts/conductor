@@ -11,9 +11,9 @@ import {
   Modal,
   ModalProps,
 } from "semantic-ui-react";
-import { pinProject } from "../../../utils/projectHelpers";
-import { Project } from "../../../types";
-import useGlobalError from "../../error/ErrorHooks";
+import { pinProject } from "../../utils/projectHelpers";
+import { Project } from "../../types";
+import useGlobalError from "../error/ErrorHooks";
 
 interface PinProjectsModalProps extends ModalProps {
   show: boolean;

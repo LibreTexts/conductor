@@ -6,10 +6,10 @@ import {
   Menu,
   Segment,
 } from "semantic-ui-react";
-import AccountStatus from "../../util/AccountStatus";
+import AccountStatus from "../util/AccountStatus";
 import { Link } from "react-router-dom";
-import { useTypedSelector } from "../../../state/hooks";
-import { getCentralAuthInstructorURL } from "../../../utils/centralIdentityHelpers";
+import { useTypedSelector } from "../../state/hooks";
+import { getCentralAuthInstructorURL } from "../../utils/centralIdentityHelpers";
 import { useState } from "react";
 
 const UserMenu: React.FC = () => {

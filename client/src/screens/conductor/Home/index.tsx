@@ -27,19 +27,19 @@ import AccountStatus from "../../../components/util/AccountStatus";
 import { getCentralAuthInstructorURL } from "../../../utils/centralIdentityHelpers";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { pinProject } from "../../../utils/projectHelpers";
-import Annnouncement from "../../../components/controlpanel/Home/Announcement";
-import UserMenu from "../../../components/controlpanel/Home/UserMenu";
+import Annnouncement from "../../../components/Home/Announcement";
+import UserMenu from "../../../components/Home/UserMenu";
 const NewMemberModal = lazy(
-  () => import("../../../components/controlpanel/Home/NewMemberModal")
+  () => import("../../../components/Home/NewMemberModal")
 );
 const PinProjectsModal = lazy(
-  () => import("../../../components/controlpanel/Home/PinProjectsModal")
+  () => import("../../../components/Home/PinProjectsModal")
 );
 const ViewAnnouncementModal = lazy(
-  () => import("../../../components/controlpanel/Home/ViewAnnouncementModal")
+  () => import("../../../components/Home/ViewAnnouncementModal")
 );
 const NewAnnouncementModal = lazy(
-  () => import("../../../components/controlpanel/Home/NewAnnouncementModal")
+  () => import("../../../components/Home/NewAnnouncementModal")
 );
 
 const Home = () => {

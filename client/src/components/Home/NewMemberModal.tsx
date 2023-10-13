@@ -1,5 +1,5 @@
 import { Button, Modal, ModalProps } from "semantic-ui-react";
-import { useTypedSelector } from "../../../state/hooks";
+import { useTypedSelector } from "../../state/hooks";
 
 interface NewMemberModalProps extends ModalProps {
   show: boolean;
