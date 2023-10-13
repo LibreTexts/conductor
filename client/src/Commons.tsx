@@ -27,11 +27,6 @@ const Commons = () => {
   const user = useTypedSelector((state) => state.user);
   const LAUNCHPAD_URL = "https://one.libretexts.org/launchpad";
 
-  // Navbar state
-  const [showNavMobileMenu, setShowNavMobileMenu] = useState(false);
-  const [showNavMobileCommonsList, setShowNavMobileCommonsList] =
-    useState(false);
-
   // Menu state
   const [activeItem, setActiveItem] = useState("");
 
@@ -79,35 +74,11 @@ const Commons = () => {
     }
   }
 
-  /**
-   * Toggles state for the Navbar mobile menu.
-   */
-  const handleNavMobileMenuToggle = () => {
-    if (!showNavMobileMenu === false) {
-      setShowNavMobileCommonsList(false); // also hide commons list if menu is hidden
-    }
-    setShowNavMobileMenu(!showNavMobileMenu);
-  };
-
-  /**
-   * Toggles state for the Navbar mobile commons list.
-   */
-  const handleNavMobileCommonsListToggle = () => {
-    setShowNavMobileCommonsList(!showNavMobileCommonsList);
-  };
-
   return (
     <div className="commons">
       <CommonsNavbar
         org={org}
         user={user}
-        commonsTitle={
-          org.orgID === "libretexts" ? "LibreCommons" : "Campus Commons"
-        }
-        showMobileMenu={showNavMobileMenu}
-        showMobileCommonsList={showNavMobileCommonsList}
-        onMobileMenuToggle={handleNavMobileMenuToggle}
-        onMobileCommonsListToggle={handleNavMobileCommonsListToggle}
       />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import withUserStateDependency from "../../../enhancers/withUserStateDependency.jsx";
-import "./Navbar.css";
 import { useTypedSelector } from "../../../state/hooks.js";
 import { useMediaQuery } from "react-responsive";
 import NavbarDesktop from "./NavbarDesktop.js";
@@ -17,8 +16,6 @@ const Navbar: React.FC = () => {
   // UI
   const [activeItem, setActiveItem] = useState("");
 
-  const [menuOpen, setMenuOpen] = useState(false);
-
   /**
    * Close the mobile menu when the Tailwind XL breakpoint is reached.
    * @link https://www.npmjs.com/package/react-responsive
@@ -26,12 +23,7 @@ const Navbar: React.FC = () => {
    */
   const isTailwindXl = useMediaQuery(
     { minWidth: 1280 }, // Tailwind XL breakpoint
-    undefined,
-    (matches) => {
-      if (matches) {
-        setMenuOpen(false);
-      }
-    }
+    undefined
   );
 
   /**
@@ -70,10 +62,7 @@ const Navbar: React.FC = () => {
   }
 
   return (
-    <div
-      className="nav-menu"
-      style={menuOpen ? { height: "fit-content" } : { height: "60px" }}
-    >
+    <div className="nav-menu">
       {isTailwindXl ? (
         <NavbarDesktop
           org={org}

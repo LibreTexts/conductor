@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Icon, Menu, Button, Image, Divider } from "semantic-ui-react";
-import CommonsLink from "./CommonsLink";
-import UserDropdown from "../UserDropdown";
+import { Icon, Menu, Button, Image} from "semantic-ui-react";
 import ConstantMenuItems from "./ConstantMenuItems";
 import { Organization } from "../../../types";
 import Launchpad from "../Launchpad";
 import { Link } from "react-router-dom";
 import SearchForm from "./SearchForm";
+import { useTypedSelector } from "../../../state/hooks";
+import SwitchAppWithUser from "../SwitchAppWithUser";
 
 interface NavbarMobileProps {
   org: Organization;
@@ -19,12 +19,13 @@ const NavbarMobile: React.FC<NavbarMobileProps> = ({
   activeItem,
   setActiveItem,
 }) => {
+  const user = useTypedSelector((state) => state.user);
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <Menu className="flex w-full pt-2 flex-col" secondary>
+    <Menu className={`flex w-full flex-col ${menuOpen ? 'pt-1' : ''}`} secondary>
       <div className="flex flex-row justify-between w-full items-center px-4">
-        <div className="mr-05p mt-1">
+        <div className="mr-05p">
           <Launchpad />
         </div>
         <Menu.Item
@@ -32,7 +33,7 @@ const NavbarMobile: React.FC<NavbarMobileProps> = ({
           to="/home"
           header
           name="home"
-          id="nav-logo-item"
+          className="nav-logo"
           onClick={(_e, data) => {
             setActiveItem(data.name ?? "");
           }}
@@ -42,7 +43,7 @@ const NavbarMobile: React.FC<NavbarMobileProps> = ({
           ) : (
             <Image
               src="https://cdn.libretexts.net/Logos/conductor_full.png"
-              id="nav-logo"
+              className="nav-logo mb-1"
               alt="LibreTexts Conductor"
             />
           )}
@@ -52,16 +53,14 @@ const NavbarMobile: React.FC<NavbarMobileProps> = ({
         </Button>
       </div>
       {menuOpen && (
-        <div className="bg-white w-full px-6 shadow-xl">
+        <div className="bg-white w-full px-6 pb-2 shadow-xl">
           <Menu vertical fluid secondary>
             <SearchForm className="!px-0" />
             <ConstantMenuItems
               activeItem={activeItem}
               setActiveItem={setActiveItem}
             />
-            <CommonsLink />
-            <Divider />
-            <UserDropdown showAvatar={false} dropdown={false}/>
+            <SwitchAppWithUser user={user} parent="conductor" isMobile />
           </Menu>
         </div>
       )}

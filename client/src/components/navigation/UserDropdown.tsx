@@ -24,9 +24,10 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   if (dropdown) {
     return (
       <Menu.Item {...props}>
+        <div className="flex flex-row items-center">
         {showAvatar && <Image src={`${user.avatar}`} avatar />}
-        <Dropdown inline text={user.firstName + " " + user.lastName}>
-          <Dropdown.Menu>
+        <Dropdown text={user.firstName + " " + user.lastName}>
+          <Dropdown.Menu direction="left">
             <Dropdown.Item as={Link} to="/account">
               <Icon name="settings" />
               Settings
@@ -37,25 +38,22 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
             </Dropdown.Item>
           </Dropdown.Menu>
         </Dropdown>
+        </div>
       </Menu.Item>
     );
   }
 
   return (
-    <Menu.Item>
-      {showAvatar && <Image src={`${user.avatar}`} avatar />}
-      <span className="font-bold">{user.firstName + " " + user.lastName}</span>
-      <Menu.Menu className="!mt-2 !pl-0">
-        <Menu.Item as={Link} to="/account">
-          <Icon name="settings" />
-          Settings
-        </Menu.Item>
-        <Menu.Item onClick={logOut}>
-          <Icon name="log out" />
-          Log out
-        </Menu.Item>
-      </Menu.Menu>
-    </Menu.Item>
+    <Menu.Menu className="!mt-2 !pl-0">
+      <Menu.Item as={Link} to="/account">
+        <Icon name="settings" />
+        Settings
+      </Menu.Item>
+      <Menu.Item onClick={logOut}>
+        <Icon name="log out" />
+        Log out
+      </Menu.Item>
+    </Menu.Menu>
   );
 };
 

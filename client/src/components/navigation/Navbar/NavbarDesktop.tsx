@@ -1,11 +1,11 @@
 import { Image, Menu } from "semantic-ui-react";
 import Launchpad from "../Launchpad";
 import { Link } from "react-router-dom";
-import CommonsLink from "./CommonsLink";
-import UserDropdown from "../UserDropdown";
 import ConstantMenuItems from "./ConstantMenuItems";
 import { Organization } from "../../../types";
 import SearchForm from "./SearchForm";
+import SwitchAppWithUser from "../SwitchAppWithUser";
+import { useTypedSelector } from "../../../state/hooks";
 
 interface NavbarDesktopProps {
   org: Organization;
@@ -18,11 +18,13 @@ const NavbarDesktop: React.FC<NavbarDesktopProps> = ({
   activeItem,
   setActiveItem,
 }) => {
+  const user = useTypedSelector((state) => state.user);
+
   return (
     <Menu className="flex w-full" secondary>
       <div className="flex flex-row px-4 justify-between w-full items-center shadow-md">
-        <div className="flex flex-row">
-          <div className="mr-05p mt-0.5">
+        <div className="flex flex-row items-center">
+          <div>
             <Launchpad />
           </div>
           <Menu.Item
@@ -30,20 +32,13 @@ const NavbarDesktop: React.FC<NavbarDesktopProps> = ({
             to="/home"
             header
             name="home"
-            id="nav-logo-item"
+            className="nav-logo"
             onClick={(_e, data) => {
               setActiveItem(data.name ?? "");
             }}
           >
-            {org.orgID !== "libretexts" ? (
-              <Image src={org.mediumLogo} id="nav-org-logo" />
-            ) : (
-              <Image
-                src="https://cdn.libretexts.net/Logos/conductor_full.png"
-                id="nav-logo"
-                alt="LibreTexts Conductor"
-              />
-            )}
+            <Image src={org.mediumLogo} className="nav-logo" />
+            <span className="sr-only">{org.shortName} Conductor Home</span>
           </Menu.Item>
           <div className="flex flex-row">
             <ConstantMenuItems
@@ -54,8 +49,7 @@ const NavbarDesktop: React.FC<NavbarDesktopProps> = ({
         </div>
         <div className="flex">
           <SearchForm />
-          <CommonsLink />
-          <UserDropdown />
+          <SwitchAppWithUser user={user} parent="conductor" />
         </div>
       </div>
     </Menu>

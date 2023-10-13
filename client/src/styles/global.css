@@ -189,6 +189,46 @@ body {
     border: 0;
 }
 
+.nav-menu {
+    width: 100%;
+    height: 60px !important;
+    background-color: #FFFFFF !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    margin: 0 !important;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-mobile-avatar {
+    height: 20px !important;
+    width: 20px !important;
+    margin: 0 !important;
+  }
+
+.nav-menu-link {
+    font-size: 1.05em;
+}
+
+.nav-logo {
+    width: auto !important;
+    max-height: 50px !important;
+    padding: top 1% !important;
+    padding-bottom: 1% !important;
+}
+
+.nav-logo:hover {
+    background: transparent !important;
+}
+
+.nav-search-input input::placeholder {
+    color: rgba(0,0,0,.85) !important;
+}
+
 .form-required::after {
     margin: -.2em 0 0 .2em;
     content: '*';
