@@ -12,7 +12,7 @@ import {
   ModalProps,
 } from "semantic-ui-react";
 import { pinProject } from "../../utils/projectHelpers";
-import { Project } from "../../types";
+import { GenericKeyTextValueObj, Project } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 
 interface PinProjectsModalProps extends ModalProps {
@@ -35,7 +35,9 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
   //Data & UI
   const [loading, setLoading] = useState<boolean>(false);
   const [projectToPin, setProjectToPin] = useState<string>("");
-  const [projectsOptions, setProjectsOptions] = useState([]);
+  const [projectsOptions, setProjectsOptions] = useState<
+    GenericKeyTextValueObj<"string">[]
+  >([]);
 
   // Effects & Callbacks
   useEffect(() => {
@@ -105,10 +107,12 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
     if (!projectToPin) return;
     setLoading(true);
     const didPin = await pinProject(projectToPin);
-    if (didPin) {
-      setProjectToPin("");
-      setProjectsOptions([]);
+    if (!didPin) {
+      handleGlobalError(new Error("Failed to pin project."));
     }
+    setProjectToPin("");
+    setProjectsOptions([]);
+    onDataChange();
     setLoading(false);
   }
 
@@ -155,7 +159,7 @@ const PinProjectsModal: React.FC<PinProjectsModalProps> = ({
           />
           <Button
             fluid
-            disabled={!!projectToPin}
+            disabled={!projectToPin}
             color="blue"
             loading={loading}
             onClick={pinProjectInModal}

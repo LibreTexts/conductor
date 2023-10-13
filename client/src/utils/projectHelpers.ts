@@ -1,5 +1,4 @@
 import axios from "axios";
-import useGlobalError from "../components/error/ErrorHooks";
 
 /**
  * Submits a request to the server to pin a project. Closes the modal on success.
@@ -8,9 +7,8 @@ import useGlobalError from "../components/error/ErrorHooks";
  * @returns {Promise<boolean>} True if successfully pinned, false otherwise.
  */
 export async function pinProject(projectID: string) {
-  const { handleGlobalError } = useGlobalError();
-  if (!projectID) return false;
   try {
+    if (!projectID) return false;
     const pinRes = await axios.put("/project/pin", {
       projectID,
     });
@@ -19,7 +17,7 @@ export async function pinProject(projectID: string) {
     }
     return true;
   } catch (e) {
-    handleGlobalError(e);
+    console.error(e);
     return false;
   }
 }

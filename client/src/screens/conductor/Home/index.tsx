@@ -3,8 +3,6 @@ import "./Home.css";
 import {
   Grid,
   Header,
-  Menu,
-  Image,
   Segment,
   Message,
   Icon,
@@ -13,7 +11,6 @@ import {
   Card,
   Popup,
 } from "semantic-ui-react";
-import { Link } from "react-router-dom";
 import { useEffect, useState, useCallback, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
@@ -23,8 +20,6 @@ import DOMPurify from "dompurify";
 import { Announcement, Project } from "../../../types";
 
 import ProjectCard from "../../../components/projects/ProjectCard";
-import AccountStatus from "../../../components/util/AccountStatus";
-import { getCentralAuthInstructorURL } from "../../../utils/centralIdentityHelpers";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { pinProject } from "../../../utils/projectHelpers";
 import Annnouncement from "../../../components/Home/Announcement";
@@ -225,7 +220,10 @@ const Home = () => {
   async function handlePinProject(projectID: string) {
     if (!projectID) return;
     setLoadedAllPinned(true);
-    await pinProject(projectID);
+    const success = await pinProject(projectID);
+    if (!success) {
+      handleGlobalError("Failed to pin project.");
+    }
     getPinnedProjects();
     setLoadedAllPinned(false);
   }
