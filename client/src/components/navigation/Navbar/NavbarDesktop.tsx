@@ -37,7 +37,11 @@ const NavbarDesktop: React.FC<NavbarDesktopProps> = ({
               setActiveItem(data.name ?? "");
             }}
           >
-            <Image src={org.mediumLogo} className="nav-logo" />
+            {org.orgID !== "libretexts" ? (
+              <Image src={org.mediumLogo} className="nav-logo" />
+            ) : (
+              <Image src="https://cdn.libretexts.net/Logos/conductor_full.png" className="nav-logo" />
+            )}
             <span className="sr-only">{org.shortName} Conductor Home</span>
           </Menu.Item>
           <div className="flex flex-row">

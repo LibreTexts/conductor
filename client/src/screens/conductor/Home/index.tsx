@@ -249,7 +249,7 @@ const Home = () => {
         <div className="flex flex-col mb-8 xl:w-1/6 xl:mr-12 xl:mb-0">
           <UserMenu />
         </div>
-        <div className="flex flex-col mb-8 xl:w-4/5 xl:mr-12 xl:mb-0">
+        <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
           <Segment
             padded={pinnedProjects.length > 0}
             loading={!loadedAllPinned}
@@ -330,11 +330,11 @@ const Home = () => {
             </Segment>
           </Segment>
         </div>
-        <div className="flex flex-col mb-8 xl:w-2/6 xl:mb-0">
+        <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
           <Segment padded>
             <div className="dividing-header-custom">
               <h3>
-                Announcements <span className="gray-span">(most recent)</span>
+                Announcements
               </h3>
               {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
                 <div className="right-flex">
