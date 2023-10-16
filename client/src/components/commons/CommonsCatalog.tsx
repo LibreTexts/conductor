@@ -6,7 +6,6 @@ import {
   Image,
   Dropdown,
   Segment,
-  Card,
   Table,
   Header,
   Icon,
@@ -22,34 +21,21 @@ import Breakpoint from "../util/Breakpoints";
 import ConductorPagination from "../util/ConductorPagination";
 import axios from "axios";
 import queryString from "query-string";
-
 import {
   libraryOptions,
   getLibGlyphURL,
   getLibGlyphAltText,
-  getLibraryName,
 } from "../util/LibraryOptions.js";
 import { licenseOptions } from "../util/LicenseOptions.js";
 import useGlobalError from "../error/ErrorHooks";
 import { catalogItemsPerPageOptions } from "../util/PaginationOptions.js";
-import {
-  catalogDisplayOptions,
-  catalogLocationOptions,
-} from "../util/CatalogOptions";
-import {
-  updateParams,
-  isEmptyString,
-  truncateString,
-} from "../util/HelperFunctions.js";
+import { catalogDisplayOptions } from "../util/CatalogOptions";
+import { updateParams, isEmptyString } from "../util/HelperFunctions.js";
 import { ResultsText } from "../util/ConductorPagination";
-import {
-  Book,
-  CatalogLocation,
-  GenericKeyTextValueObj,
-  User,
-} from "../../types";
+import { Book, CatalogLocation, GenericKeyTextValueObj } from "../../types";
 import { isCatalogLocation } from "../../utils/typeHelpers";
 import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
+import CatalogCard from "./CommonsCatalog/CatalogCard";
 
 const CommonsCatalog = () => {
   const { handleGlobalError } = useGlobalError();
@@ -244,157 +230,152 @@ const CommonsCatalog = () => {
    * Perform GET request for books
    * and update catalogBooks.
    */
-  const searchCommonsCatalog = () => {
-    setLoadedData(false);
-    var paramsObj: FilterParams = {
-      sort: sortChoice,
-    };
-    if (!isEmptyString(searchString)) {
-      paramsObj.search = searchString;
-    }
-    if (!isEmptyString(libraryFilter)) {
-      paramsObj.library = libraryFilter;
-    }
-    if (!isEmptyString(subjectFilter)) {
-      paramsObj.subject = subjectFilter;
-    }
-    if (!isEmptyString(locationFilter)) {
-      paramsObj.location = locationFilter;
-    }
-    if (!isEmptyString(authorFilter)) {
-      paramsObj.author = authorFilter;
-    }
-    if (!isEmptyString(licenseFilter)) {
-      paramsObj.license = licenseFilter;
-    }
-    if (!isEmptyString(affilFilter)) {
-      paramsObj.affiliation = affilFilter;
-    }
-    if (!isEmptyString(courseFilter)) {
-      paramsObj.course = courseFilter;
-    }
-    if (!isEmptyString(pubFilter)) {
-      paramsObj.publisher = pubFilter;
-    }
-    if (!isEmptyString(cidFilter)) {
-      paramsObj.cidDescriptor = cidFilter;
-    }
-    axios
-      .get("/commons/catalog", {
+  const searchCommonsCatalog = async () => {
+    try {
+      setLoadedData(false);
+      let paramsObj: FilterParams = {
+        sort: sortChoice,
+      };
+      if (!isEmptyString(searchString)) {
+        paramsObj.search = searchString;
+      }
+      if (!isEmptyString(libraryFilter)) {
+        paramsObj.library = libraryFilter;
+      }
+      if (!isEmptyString(subjectFilter)) {
+        paramsObj.subject = subjectFilter;
+      }
+      if (!isEmptyString(locationFilter)) {
+        paramsObj.location = locationFilter;
+      }
+      if (!isEmptyString(authorFilter)) {
+        paramsObj.author = authorFilter;
+      }
+      if (!isEmptyString(licenseFilter)) {
+        paramsObj.license = licenseFilter;
+      }
+      if (!isEmptyString(affilFilter)) {
+        paramsObj.affiliation = affilFilter;
+      }
+      if (!isEmptyString(courseFilter)) {
+        paramsObj.course = courseFilter;
+      }
+      if (!isEmptyString(pubFilter)) {
+        paramsObj.publisher = pubFilter;
+      }
+      if (!isEmptyString(cidFilter)) {
+        paramsObj.cidDescriptor = cidFilter;
+      }
+
+      const res = await axios.get("/commons/catalog", {
         params: paramsObj,
-      })
-      .then((res) => {
-        if (!res.data.err) {
-          if (Array.isArray(res.data.books)) {
-            setCatalogBooks(res.data.books);
-          }
-          if (typeof res.data.numFound === "number") {
-            setNumResultBooks(res.data.numFound);
-          }
-          if (typeof res.data.numTotal === "number") {
-            setNumTotalBooks(res.data.numTotal);
-          }
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setLoadedData(true);
-      })
-      .catch((err) => {
-        handleGlobalError(err);
-        setLoadedData(true);
       });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      
+      if (Array.isArray(res.data.books)) {
+        setCatalogBooks(res.data.books);
+      }
+      if (typeof res.data.numFound === "number") {
+        setNumResultBooks(res.data.numFound);
+      }
+      if (typeof res.data.numTotal === "number") {
+        setNumTotalBooks(res.data.numTotal);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+      setLoadedData(true);
+    } finally {
+      setLoadedData(true);
+    }
   };
 
   /**
    * Retrieve the list(s) of dynamic
    * filter options from the server.
    */
-  const getFilterOptions = () => {
-    axios
-      .get("/commons/filters")
-      .then((res) => {
-        if (!res.data.err) {
-          var newAuthorOptions = [
-            { key: "empty", text: "Clear...", value: "" },
-          ];
-          var newSubjectOptions = [
-            { key: "empty", text: "Clear...", value: "" },
-          ];
-          var newAffOptions = [{ key: "empty", text: "Clear...", value: "" }];
-          var newCourseOptions = [
-            { key: "empty", text: "Clear...", value: "" },
-          ];
-          var newPubOptions = [{ key: "empty", text: "Clear...", value: "" }];
-          let newCIDOptions = [{ key: "empty", text: "Clear...", value: "" }];
-          if (res.data.authors && Array.isArray(res.data.authors)) {
-            res.data.authors.forEach((author: string) => {
-              newAuthorOptions.push({
-                key: author,
-                text: author,
-                value: author,
-              });
-            });
-          }
-          if (res.data.subjects && Array.isArray(res.data.subjects)) {
-            res.data.subjects.forEach((subject: string) => {
-              newSubjectOptions.push({
-                key: subject,
-                text: subject,
-                value: subject,
-              });
-            });
-          }
-          if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
-            res.data.affiliations.forEach((affiliation: string) => {
-              newAffOptions.push({
-                key: affiliation,
-                text: affiliation,
-                value: affiliation,
-              });
-            });
-          }
-          if (res.data.courses && Array.isArray(res.data.courses)) {
-            res.data.courses.forEach((course: string) => {
-              newCourseOptions.push({
-                key: course,
-                text: course,
-                value: course,
-              });
-            });
-          }
-          if (res.data.publishers && Array.isArray(res.data.publishers)) {
-            res.data.publishers.forEach((publisher: string) => {
-              newPubOptions.push({
-                key: publisher,
-                text: publisher,
-                value: publisher,
-              });
-            });
-          }
-          if (Array.isArray(res.data.cids)) {
-            res.data.cids.forEach((descriptor: string) => {
-              newCIDOptions.push({
-                key: descriptor,
-                text: descriptor,
-                value: descriptor,
-              });
-            });
-          }
-          setAuthorOptions(newAuthorOptions);
-          setSubjectOptions(newSubjectOptions);
-          setAffOptions(newAffOptions);
-          setCourseOptions(newCourseOptions);
-          setPubOptions(newPubOptions);
-          setCIDOptions(newCIDOptions);
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setLoadedFilters(true);
-      })
-      .catch((err) => {
-        handleGlobalError(err);
-        setLoadedFilters(true);
-      });
+  const getFilterOptions = async () => {
+    try {
+      const res = await axios.get("/commons/filters");
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      const newAuthorOptions = [{ key: "empty", text: "Clear...", value: "" }];
+      const newSubjectOptions = [{ key: "empty", text: "Clear...", value: "" }];
+      const newAffOptions = [{ key: "empty", text: "Clear...", value: "" }];
+      const newCourseOptions = [{ key: "empty", text: "Clear...", value: "" }];
+      const newPubOptions = [{ key: "empty", text: "Clear...", value: "" }];
+      const newCIDOptions = [{ key: "empty", text: "Clear...", value: "" }];
+
+      if (res.data.authors && Array.isArray(res.data.authors)) {
+        res.data.authors.forEach((author: string) => {
+          newAuthorOptions.push({
+            key: author,
+            text: author,
+            value: author,
+          });
+        });
+      }
+      if (res.data.subjects && Array.isArray(res.data.subjects)) {
+        res.data.subjects.forEach((subject: string) => {
+          newSubjectOptions.push({
+            key: subject,
+            text: subject,
+            value: subject,
+          });
+        });
+      }
+      if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
+        res.data.affiliations.forEach((affiliation: string) => {
+          newAffOptions.push({
+            key: affiliation,
+            text: affiliation,
+            value: affiliation,
+          });
+        });
+      }
+      if (res.data.courses && Array.isArray(res.data.courses)) {
+        res.data.courses.forEach((course: string) => {
+          newCourseOptions.push({
+            key: course,
+            text: course,
+            value: course,
+          });
+        });
+      }
+      if (res.data.publishers && Array.isArray(res.data.publishers)) {
+        res.data.publishers.forEach((publisher: string) => {
+          newPubOptions.push({
+            key: publisher,
+            text: publisher,
+            value: publisher,
+          });
+        });
+      }
+      if (Array.isArray(res.data.cids)) {
+        res.data.cids.forEach((descriptor: string) => {
+          newCIDOptions.push({
+            key: descriptor,
+            text: descriptor,
+            value: descriptor,
+          });
+        });
+      }
+
+      setAuthorOptions(newAuthorOptions);
+      setSubjectOptions(newSubjectOptions);
+      setAffOptions(newAffOptions);
+      setCourseOptions(newCourseOptions);
+      setPubOptions(newPubOptions);
+      setCIDOptions(newCIDOptions);
+    } catch (err) {
+      handleGlobalError(err);
+      setLoadedFilters(true);
+    } finally {
+      setLoadedFilters(true);
+    }
   };
 
   /**
@@ -416,7 +397,7 @@ const CommonsCatalog = () => {
    */
   useEffect(() => {
     if (initialSearch.current) {
-      let searchURL = updateParams(location.search, "sort", sortChoice);
+      const searchURL = updateParams(location.search, "sort", sortChoice);
       history.push({
         pathname: location.pathname,
         search: searchURL,
@@ -431,7 +412,7 @@ const CommonsCatalog = () => {
    */
   useEffect(() => {
     if (initialSearch.current) {
-      let searchURL = updateParams(location.search, "mode", displayChoice);
+      const searchURL = updateParams(location.search, "mode", displayChoice);
       history.push({
         pathname: location.pathname,
         search: searchURL,
@@ -593,43 +574,9 @@ const CommonsCatalog = () => {
     if (pageBooks.length > 0) {
       return (
         <div className="commons-content-card-grid">
-          {pageBooks.map((item, index) => {
-            return (
-              <Card
-                key={index}
-                as={Link}
-                to={`/book/${item.bookID}`}
-                className="commons-content-card"
-              >
-                <div className="commons-content-card-img-wrapper">
-                  <div
-                    className="commons-content-card-img"
-                    style={{ backgroundImage: `url(${item.thumbnail})` }}
-                  />
-                </div>
-                <Card.Content className="commons-content-card-inner-content">
-                  <Card.Header as="h3" className="commons-content-card-header">
-                    {truncateString(item.title, 50)}
-                  </Card.Header>
-                  <Card.Meta>
-                    <Image
-                      src={getLibGlyphURL(item.library)}
-                      className="library-glyph"
-                    />
-                    {getLibraryName(item.library)}
-                  </Card.Meta>
-                  <Card.Description>
-                    <p className="commons-content-card-author">
-                      {truncateString(item.author, 50)}
-                    </p>
-                    <p className="commons-content-card-affiliation">
-                      <em>{truncateString(item.affiliation, 30)}</em>
-                    </p>
-                  </Card.Description>
-                </Card.Content>
-              </Card>
-            );
-          })}
+          {pageBooks.map((item, index) => (
+            <CatalogCard book={item} key={index} />
+          ))}
         </div>
       );
     } else {
