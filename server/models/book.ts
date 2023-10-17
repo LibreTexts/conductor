@@ -26,6 +26,8 @@ export interface BookInterface extends Document {
   lastUpdated?: string;
   libraryTags?: string[];
   readerResources: ReaderResource[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const BookSchema = new Schema<BookInterface>(
