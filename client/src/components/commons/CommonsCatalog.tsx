@@ -46,8 +46,7 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
 
   // Data
-  const [catalogBooks, setCatalogBooks] = useState<Book[]>([]);
-  const [pageBooks, setPageBooks] = useState<Book[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [numResultBooks, setNumResultBooks] = useState<number>(0);
   const [numTotalBooks, setNumTotalBooks] = useState<number>(0);
 
@@ -268,7 +267,7 @@ const CommonsCatalog = () => {
       }
 
       const res = await axios.get("/commons/catalog", {
-        params: paramsObj,
+        params: {paramsObj, activePage, limit: itemsPerPage },
       });
 
       if (res.data.err) {
@@ -276,10 +275,12 @@ const CommonsCatalog = () => {
       }
       
       if (Array.isArray(res.data.books)) {
-        setCatalogBooks(res.data.books);
+        setBooks(res.data.books);
       }
       if (typeof res.data.numFound === "number") {
         setNumResultBooks(res.data.numFound);
+        const totalPages = Math.ceil(res.data.numFound / itemsPerPage);
+        setTotalPages(totalPages);
       }
       if (typeof res.data.numTotal === "number") {
         setNumTotalBooks(res.data.numTotal);
@@ -388,7 +389,7 @@ const CommonsCatalog = () => {
     if (checkedParams.current) {
       searchCommonsCatalog();
     }
-  }, [checkedParams.current, location.search]);
+  }, [checkedParams.current, location.search, activePage, itemsPerPage]);
 
   /**
    * Update the URL query with the sort choice
@@ -419,21 +420,6 @@ const CommonsCatalog = () => {
       });
     }
   }, [displayChoice]);
-
-  /**
-   * Track changes to the number of books loaded
-   * and the selected itemsPerPage and update the
-   * set of books to display.
-   */
-  useEffect(() => {
-    setTotalPages(Math.ceil(catalogBooks.length / itemsPerPage));
-    setPageBooks(
-      catalogBooks.slice(
-        (activePage - 1) * itemsPerPage,
-        activePage * itemsPerPage
-      )
-    );
-  }, [itemsPerPage, catalogBooks, activePage]);
 
   /**
    * Subscribe to changes in the URL search string
@@ -571,10 +557,10 @@ const CommonsCatalog = () => {
   }
 
   const VisualMode = () => {
-    if (pageBooks.length > 0) {
+    if (books.length > 0) {
       return (
         <div className="commons-content-card-grid">
-          {pageBooks.map((item, index) => (
+          {books.map((item, index) => (
             <CatalogCard book={item} key={index} />
           ))}
         </div>
@@ -616,8 +602,8 @@ const CommonsCatalog = () => {
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {pageBooks.length > 0 &&
-            pageBooks.map((item, index) => {
+          {books.length > 0 &&
+            books.map((item, index) => {
               return (
                 <Table.Row key={index}>
                   <Table.Cell>
@@ -649,7 +635,7 @@ const CommonsCatalog = () => {
                 </Table.Row>
               );
             })}
-          {pageBooks.length === 0 && (
+          {books.length === 0 && (
             <Table.Row>
               <Table.Cell colSpan={5}>
                 <p className="text-center">

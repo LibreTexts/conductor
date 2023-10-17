@@ -1,4 +1,4 @@
-//@ts-nocheck
+// @ts-nocheck
 import { Request, Response } from "express";
 import fs from "fs-extra";
 import { debugError, debugCommonsSync, debugServer } from "../debug.js";
@@ -11,7 +11,7 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { isEmptyString, isValidDateObject } from "../util/helpers.js";
+import { getPaginationOffset, isEmptyString, isValidDateObject } from "../util/helpers.js";
 import {
   checkBookIDFormat,
   extractLibFromID,
@@ -857,8 +857,11 @@ async function getCommonsCatalog(
             { cidDescriptors: { $in: descriptors } },
           ],
         };
-        const newQueryArr = await _buildSearchQueryFromProjectResults(projMatchObj, searchOptionsArr);
-        if(newQueryArr.length > 0){
+        const newQueryArr = await _buildSearchQueryFromProjectResults(
+          projMatchObj,
+          searchOptionsArr
+        );
+        if (newQueryArr.length > 0) {
           searchQueries.push(...newQueryArr);
         }
       }
@@ -889,8 +892,11 @@ async function getCommonsCatalog(
         const projMatchObj = {
           $and: [projectWithAssociatedBookQuery, { tags: { $in: tagIDs } }],
         };
-        const newQueryArr = await _buildSearchQueryFromProjectResults(projMatchObj, searchOptionsArr);
-        if(newQueryArr.length > 0){
+        const newQueryArr = await _buildSearchQueryFromProjectResults(
+          projMatchObj,
+          searchOptionsArr
+        );
+        if (newQueryArr.length > 0) {
           searchQueries.push(...newQueryArr);
         }
       }
@@ -1048,20 +1054,21 @@ async function getCommonsCatalog(
     const totalNumBooks = await Book.estimatedDocumentCount();
 
     // Ensure no duplicates
-    const resultBookIDs = new Set();
-    const resultBooks = allFoundBooks.filter((book) => {
-      if (!resultBookIDs.has(book.bookID)) {
-        resultBookIDs.add(book.bookID);
-        return true;
-      }
-      return false;
-    });
+    const resultBookIDs = [
+      ...new Set(allFoundBooks.map((book) => book.bookID)),
+    ];
+    const resultBooks = [
+      ...allFoundBooks.filter((book) => resultBookIDs.includes(book.bookID)),
+    ];
+
+    const offset = getPaginationOffset(req.query.activePage, req.query.limit);
+    const paginatedBooks = resultBooks.slice(offset, offset + req.query.limit);
 
     return res.send({
       err: false,
       numFound: resultBooks.length,
       numTotal: totalNumBooks,
-      books: sortBooks(resultBooks, sortChoice),
+      books: sortBooks(paginatedBooks, sortChoice),
     });
   } catch (e) {
     debugError(e);
@@ -1074,7 +1081,7 @@ async function getCommonsCatalog(
 
 const _buildSearchQueryFromProjectResults = async (
   matchObj: object,
-  optionsArr: any[],
+  optionsArr: any[]
 ): Promise<any[]> => {
   const projResults = await Project.aggregate([
     {
@@ -2077,6 +2084,8 @@ const retrieveKBExport = (_req: Request, res: Response) => {
 
 const getCommonsCatalogSchema = z.object({
   query: z.object({
+    activePage: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).optional().default(10),
     sort: z
       .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()
