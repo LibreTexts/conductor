@@ -1,10 +1,9 @@
-//@ts-nocheck
-import Promise from "bluebird";
+// @ts-nocheck
 import { Request, Response } from "express";
 import fs from "fs-extra";
 import { debugError, debugCommonsSync, debugServer } from "../debug.js";
 import Book, { BookInterface } from "../models/book.js";
-import Collection from "../models/collection.js";
+import Collection, { CollectionInterface } from "../models/collection.js";
 import Organization, { OrganizationInterface } from "../models/organization.js";
 import CustomCatalog from "../models/customcatalog.js";
 import Project from "../models/project.js";
@@ -42,6 +41,7 @@ import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
+import { Aggregate } from "mongoose";
 
 /**
  * Accepts a library shortname and returns the LibreTexts API URL for the current
@@ -74,10 +74,10 @@ const generateCoursesURL = (lib: string) => {
  * @returns {Number} the sort order of the two strings
  */
 const normalizedSort = (a: string, b: string) => {
-  var normalizedA = String(a)
+  const normalizedA = String(a)
     .toLowerCase()
     .replace(/[^a-zA-Z]/gm, "");
-  var normalizedB = String(b)
+  const normalizedB = String(b)
     .toLowerCase()
     .replace(/[^a-zA-Z]/gm, "");
   if (normalizedA < normalizedB) {
@@ -92,41 +92,45 @@ const normalizedSort = (a: string, b: string) => {
 /**
  * Accepts an array of Books and the sorting choice and returns the sorted array.
  *
- * @param {object[]} books - The array of Book objects to sort
+ * @param {BookInterface[]} books - The array of Book objects to sort
  * @param {string} [sortChoice] - The sort choice, either 'random', 'author', or 'title' (default).
- * @returns {object[]} The sorted array of Books.
+ * @returns {BookInterface[]} The sorted array of Books.
  */
-function sortBooks(books: BookInterface[], sortChoice: BookSortOption) {
-  if (Array.isArray(books) && sortChoice) {
-    if (sortChoice === "random") {
-      let shuffleArr = [...books];
-      for (let i = shuffleArr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffleArr[i], shuffleArr[j]] = [shuffleArr[j], shuffleArr[i]];
-      }
-      return shuffleArr;
-    }
-
-    const collator = new Intl.Collator("en-US", {
-      numeric: true,
-      sensitivity: "base",
-      ignorePunctuation: true,
-    });
-    return books.sort((a, b) => {
-      let aKey = "";
-      let bKey = "";
-      if (sortChoice === "author") {
-        aKey = a.author || "";
-        bKey = b.author || "";
-      } else {
-        // default Sort by Title
-        aKey = a.title;
-        bKey = b.title;
-      }
-      return collator.compare(aKey, bKey);
-    });
+function sortBooks(
+  books: BookInterface[],
+  sortChoice: BookSortOption
+): BookInterface[] {
+  if (!Array.isArray(books) || !sortChoice) {
+    return books;
   }
-  return books;
+  if (sortChoice === "random") {
+    let shuffleArr = [...books];
+    for (let i = shuffleArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffleArr[i], shuffleArr[j]] = [shuffleArr[j], shuffleArr[i]];
+    }
+    return shuffleArr;
+  }
+
+  const collator = new Intl.Collator("en-US", {
+    numeric: true,
+    sensitivity: "base",
+    ignorePunctuation: true,
+  });
+
+  return books.sort((a, b) => {
+    let aKey = "";
+    let bKey = "";
+    if (sortChoice === "author") {
+      aKey = a.author || "";
+      bKey = b.author || "";
+    } else {
+      // default Sort by Title
+      aKey = a.title;
+      bKey = b.title;
+    }
+    return collator.compare(aKey, bKey);
+  });
 }
 
 /**
@@ -172,119 +176,128 @@ const checkValidImport = (book: BookInterface) => {
 
 /**
  * Updates system-managed Collections for specified OER programs.
- *
  * @returns {Promise<number|boolean>} The number of collections updated, or
  *  false if error encountered.
  */
-const autoGenerateCollections = () => {
-  const bookQueries = [];
-  const collOps = [];
-  let collections = [];
-  return Collection.find({ autoManage: true })
-    .lean()
-    .then((autoColls) => {
-      collections = autoColls;
-      /* Find books for auto-managed program collections */
-      for (let i = 0, n = autoColls.length; i < n; i += 1) {
-        const currColl = autoColls[i];
-        if (
-          typeof currColl.program === "string" &&
-          currColl.program.length > 0
-        ) {
-          bookQueries.push(
-            Book.aggregate([
-              {
-                $match: {
-                  program: currColl.program,
-                  location: {
-                    $in: currColl.locations,
-                  },
-                },
-              },
-              {
-                $project: {
-                  _id: 0,
-                  bookID: 1,
-                  location: 1,
-                  program: 1,
-                },
-              },
-            ])
-          );
-        }
+const autoGenerateCollections = async (): Promise<number | boolean> => {
+  try {
+    const bookQueries: Aggregate<any[]>[] = [];
+    const collOps: any = [];
+    let collections: CollectionInterface[] = [];
+    const autoColls = await Collection.find({ autoManage: true }).lean();
+    collections = autoColls;
+
+    /* Find books for auto-managed program collections */
+    for (let i = 0, n = autoColls.length; i < n; i += 1) {
+      const currColl = autoColls[i];
+      if (
+        typeof currColl.program !== "string" ||
+        currColl.program.length === 0
+      ) {
+        continue;
       }
-      return Promise.all(bookQueries);
-    })
-    .then((bookQueryRes) => {
-      /* Sort books into their auto-managed collection */
-      let allBooksFound = [];
-      for (let i = 0, n = bookQueryRes.length; i < n; i += 1) {
-        allBooksFound = [...allBooksFound, ...bookQueryRes[i]];
+
+      bookQueries.push(
+        Book.aggregate([
+          {
+            $match: {
+              program: currColl.program,
+              location: {
+                $in: currColl.locations,
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              bookID: 1,
+              location: 1,
+              program: 1,
+            },
+          },
+        ])
+      );
+    }
+
+    const bookQueryRes = await Promise.all(bookQueries);
+
+    /* Sort books into their auto-managed collection */
+    const allBooksFound: BookInterface[] = [];
+    for (let i = 0, n = bookQueryRes.length; i < n; i += 1) {
+      const currBooks = bookQueryRes[i];
+      if (Array.isArray(currBooks) && currBooks.length > 0) {
+        allBooksFound.push(...currBooks);
       }
-      for (let i = 0, n = allBooksFound.length; i < n; i += 1) {
-        const currBook = allBooksFound[i];
-        const collIdx = collections.findIndex(
-          (coll) => coll.program === currBook.program
-        );
-        if (collIdx > -1) {
-          const resourcesById =
-            collections[collIdx].resources
-              ?.map((item) => {
-                if (item.resourceType === "resource") {
-                  return item.resourceID;
-                }
-                return null;
-              })
-              .filter((i) => !!i) || [];
-          if (!Array.isArray(collections[collIdx].newListings)) {
-            collections[collIdx].newListings = [];
-          }
-          if (!resourcesById.includes(currBook.bookID)) {
-            collections[collIdx].newListings.push({
+    }
+
+    /* Find collections that need to be updated */
+    type IResourceToAdd = { resourceType: "resource"; resourceID: string };
+    const itemsToAdd: {
+      collection: CollectionInterface;
+      resources: IResourceToAdd[];
+    }[] = [];
+
+    for (let i = 0, n = allBooksFound.length; i < n; i += 1) {
+      const currBook = allBooksFound[i];
+      const collIdx = collections.findIndex(
+        (coll) => coll.program === currBook.program
+      );
+
+      if (collIdx === -1) {
+        continue;
+      }
+
+      const resourcesById =
+        collections[collIdx].resources
+          ?.filter((i) => i.resourceType === "resource")
+          .map((item) => {
+            return item.resourceID;
+          }) || [];
+
+      if (!resourcesById.includes(currBook.bookID)) {
+        itemsToAdd.push({
+          collection: collections[collIdx],
+          resources: [
+            {
               resourceType: "resource",
               resourceID: currBook.bookID,
-            });
-          }
-        }
+            },
+          ],
+        });
       }
-      /* Assembles updates for collections (if necessary) */
-      for (let i = 0, n = collections.length; i < n; i += 1) {
-        const currColl = collections[i];
-        if (
-          Array.isArray(currColl.newListings) &&
-          currColl.newListings.length > 0
-        ) {
-          collOps.push({
-            updateOne: {
-              filter: {
-                collID: currColl.collID,
-              },
-              update: {
-                $addToSet: {
-                  resources: {
-                    $each: currColl.newListings,
-                  },
+    }
+
+    /* Assembles updates for collections (if necessary) */
+    for (let i = 0, n = itemsToAdd.length; i < n; i += 1) {
+      const currColl = itemsToAdd[i];
+      if (Array.isArray(currColl.resources) && currColl.resources.length > 0) {
+        collOps.push({
+          updateOne: {
+            filter: {
+              collID: currColl.collection.collID,
+            },
+            update: {
+              $addToSet: {
+                resources: {
+                  $each: currColl.resources,
                 },
               },
             },
-          });
-        }
+          },
+        });
       }
-      if (collOps.length < 1) {
-        return {};
-      }
-      return Collection.bulkWrite(collOps, { ordered: false });
-    })
-    .then((updateRes) => {
-      if (typeof updateRes.nModified === "number") {
-        return updateRes.nModified;
-      }
+    }
+
+    if (!collOps || collOps.length === 0) {
       return 0;
-    })
-    .catch((err) => {
-      console.error(err);
-      return false;
-    });
+    }
+
+    const updateRes = await Collection.bulkWrite(collOps, { ordered: false });
+    return updateRes.modifiedCount;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
 };
 
 /**
