@@ -491,56 +491,47 @@ router.route('/commons/syncwithlibs/automated').put(
 
 /* Commons Books/Catalogs */
 router.route('/commons/catalog').get(
-  booksAPI.validate('getCommonsCatalog'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getCommonsCatalogSchema),
   booksAPI.getCommonsCatalog,
 );
 
 router.route('/commons/mastercatalog').get(
-  booksAPI.validate('getMasterCatalog'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getMasterCatalogSchema),
   booksAPI.getMasterCatalog,
 );
 
 router.route('/commons/book/:bookID').get(
-  booksAPI.validate('getBookDetail'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getBookDetail,
 );
 
 router.route('/commons/book/:bookID/summary').get(
-  booksAPI.validate('getBookSummary'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getBookSummary,
 );
 
 router.route('/commons/book/:bookID/files/:fileID?').get(
-  booksAPI.validate('getBookFiles'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getBookFilesSchema),
   booksAPI.getBookFiles,
 );
 
 router.route('/commons/book/:bookID/files/:fileID/download').get(
-  booksAPI.validate('downloadBookFile'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.downloadBookFileSchema),
   booksAPI.downloadBookFile,
 );
 
 router.route('/commons/book/:bookID/toc').get(
-  booksAPI.validate('getBookTOC'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getBookTOC,
 );
 
 router.route('/commons/book/:bookID/licensereport').get(
-  booksAPI.validate('getLicenseReport'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getLicenseReport,
 );
 
 router.route('/commons/book/:bookID/peerreviews').get(
-  booksAPI.validate('getBookPeerReviews'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getBookPeerReviews,
 );
 
@@ -550,8 +541,7 @@ router.route('/commons/catalogs/addresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  booksAPI.validate('addBookToCustomCatalog'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDSchema),
   booksAPI.addBookToCustomCatalog,
 );
 
@@ -559,8 +549,7 @@ router.route('/commons/catalogs/removeresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  booksAPI.validate('removeBookFromCustomCatalog'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(booksAPI.getWithBookIDSchema),
   booksAPI.removeBookFromCustomCatalog,
 );
 

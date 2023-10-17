@@ -14,6 +14,7 @@ import {
   TypedReqParamsAndBody,
   TypedReqParamsAndBodyWithUser,
 } from "./Express";
+import { BookSortOption } from "./Book";
 import {
   CustomFormHeadingType,
   CustomFormPromptType,
@@ -30,6 +31,7 @@ import {
 } from "./CentralIdentity";
 
 export type {
+  BookSortOption,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
