@@ -394,7 +394,6 @@ async function submitRegistration(
     } = req.body;
     let stripeKey: string | null = null;
     let shouldSendConfirmation = true;
-    let foundUser: UserInterface | undefined | null = undefined;
 
     if (type === "self" && !userID) {
       return conductor400Err(res);
@@ -403,14 +402,6 @@ async function submitRegistration(
     // Participant must be logged in or provide a name and email if registering for someone else
     if (type === "other" && (!firstName || !lastName || !email)) {
       return conductor400Err(res);
-    }
-
-    if (userID) {
-      foundUser = await User.findOne({
-        uuid: userID,
-      })
-        .lean()
-        .orFail({ name: "Not Found", message: "User not found." });
     }
 
     // This should always be found because even registering for self will have registeredBy populated
@@ -447,8 +438,8 @@ async function submitRegistration(
     if (type === "self") {
       const matchObj = {
         $or: [
-          { eventID: req.params.eventID, user: foundUser?._id },
-          { eventID: req.params.eventID, email: foundUser?.email },
+          { eventID: req.params.eventID, user: foundRegisteredBy._id },
+          { eventID: req.params.eventID, email: foundRegisteredBy.email },
         ],
       };
       const foundExisting = await OrgEventParticipant.findOne(matchObj);
@@ -498,7 +489,7 @@ async function submitRegistration(
     const CREATED_REG_ID = uuidv4();
     const participant = new OrgEventParticipant({
       regID: CREATED_REG_ID,
-      user: !!foundUser?._id ? foundUser._id : undefined,
+      user: type === "self" ? foundRegisteredBy._id : undefined,
       orgID,
       eventID: req.params.eventID,
       paymentStatus: shouldCollectPayment ? "unpaid" : "na",
@@ -568,7 +559,7 @@ async function submitRegistration(
             orgID,
             eventID: req.params.eventID ?? "unknown",
             regID: CREATED_REG_ID,
-            userUUID: foundUser?.uuid ?? "unknown",
+            userUUID: foundRegisteredBy.uuid ?? "unknown",
             firstName: firstName ?? "unknown",
             lastName: lastName ?? "unknown",
             email: email ?? "unknown",
@@ -595,7 +586,7 @@ async function submitRegistration(
     if (shouldSendConfirmation) {
       const emailAddresses = [];
       emailAddresses.push(foundRegisteredBy.email);
-      if (!foundUser && email) {
+      if (!foundRegisteredBy && email) {
         emailAddresses.push(email);
       }
 
@@ -622,8 +613,8 @@ async function submitRegistration(
         .sendOrgEventRegistrationConfirmation(
           emailAddresses,
           orgEvent,
-          foundUser && foundUser.firstName
-            ? foundUser.firstName
+          foundRegisteredBy && foundRegisteredBy.firstName
+            ? foundRegisteredBy.firstName
             : firstName
             ? firstName
             : "Unknown",
