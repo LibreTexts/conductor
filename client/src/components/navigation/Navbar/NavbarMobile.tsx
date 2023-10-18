@@ -39,7 +39,7 @@ const NavbarMobile: React.FC<NavbarMobileProps> = ({
           }}
         >
           {org.orgID !== "libretexts" ? (
-            <Image src={org.mediumLogo} id="nav-org-logo" />
+            <Image src={org.mediumLogo} className="nav-logo" />
           ) : (
             <Image
               src="https://cdn.libretexts.net/Logos/conductor_full.png"

@@ -12,7 +12,7 @@ const AccountStatus = ({
 }) => {
   if (verifiedInstructor) {
     return (
-      <Label aria-label="User is a verified instructor" color="green" className="w-32">
+      <Label aria-label="User is a verified instructor" color="green" className="w-44">
         <Popup
           trigger={
             <span>
@@ -39,7 +39,7 @@ const AccountStatus = ({
       target="_blank"
       href="/verification/instructor"
       aria-label="Unverified user, submit an Instructor Verfication Request (opens in new tab)"
-      className="w-32"
+      className="w-44"
     >
       <Popup
         trigger={<span>Unverified User</span>}
