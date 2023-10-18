@@ -8,6 +8,7 @@ import {
   InstructorVerifReqStatuses,
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
+  Organization,
   AssetTagTemplate,
   AssetTagTemplateValueType,
   AssetTag,
@@ -131,6 +132,10 @@ export const isCentralIdentityVerificationRequestProperty = (
     key === "created_at" ||
     key === "updated_at"
   );
+};
+
+export const isOrganization = (obj: any): obj is Organization => {
+  return "orgID" in obj && "name" in obj && "domain" in obj;
 };
 
 export const isAssetTagFramework = (value: any): value is AssetTagFramework => {

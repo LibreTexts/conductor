@@ -245,7 +245,7 @@ const EventRegistration = () => {
         }
       }
 
-      const registrationSubmission: Omit<OrgEventParticipant, "paymentStatus" | 'regID'> =
+      const registrationSubmission: Omit<OrgEventParticipant, "paymentStatus" | 'regID'> & {type: 'self' | 'other'} =
         {
           user: registerMode === "self" ? user.uuid : undefined,
           orgID: org.orgID,
@@ -255,6 +255,7 @@ const EventRegistration = () => {
             ? getShippingAddressValues("shippingAddress")
             : undefined,
           registeredBy: user.uuid,
+          type: registerMode,
         };
 
       if (registerMode === "other") {

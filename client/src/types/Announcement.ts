@@ -6,6 +6,6 @@ export type Announcement = {
     author: User;
     title: string;
     message: string;
-    org: Organization;
+    org: string | Organization;
     createdAt: string;
 }  

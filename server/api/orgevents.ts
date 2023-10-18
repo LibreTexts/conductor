@@ -373,7 +373,7 @@ async function cancelOrgEvent(
 async function submitRegistration(
   req: TypedReqParamsAndBody<
     { eventID?: string },
-    OrgEventParticipantInterface & { feeWaiver: string }
+    OrgEventParticipantInterface & { feeWaiver: string; type: "self" | "other" }
   >,
   res: Response
 ) {
@@ -390,38 +390,42 @@ async function submitRegistration(
       lastName,
       email,
       registeredBy,
+      type,
     } = req.body;
     let stripeKey: string | null = null;
     let shouldSendConfirmation = true;
     let foundUser: UserInterface | undefined | null = undefined;
 
+    if (type === "self" && !userID) {
+      return conductor400Err(res);
+    }
+
     // Participant must be logged in or provide a name and email if registering for someone else
-    if (!userID && !firstName && !lastName && !email) {
+    if (type === "other" && (!firstName || !lastName || !email)) {
       return conductor400Err(res);
     }
 
     if (userID) {
       foundUser = await User.findOne({
         uuid: userID,
-      }).lean();
+      })
+        .lean()
+        .orFail({ name: "Not Found", message: "User not found." });
     }
 
+    // This should always be found because even registering for self will have registeredBy populated
     const foundRegisteredBy = await User.findOne({
       uuid: registeredBy,
-    }).lean();
-
-    if (!foundRegisteredBy) {
-      return conductor400Err(res);
-    }
+    })
+      .lean()
+      .orFail({ name: "Not Found", message: "Registering user not found." });
 
     const orgEvent = await OrgEvent.findOne({
       orgID: process.env.ORG_ID,
       eventID: req.params.eventID,
-    }).lean();
-
-    if (!orgEvent) {
-      return conductor404Err(res);
-    }
+    })
+      .lean()
+      .orFail({ name: "Not Found", message: "Event not found." });
 
     // Check if registration is available for this event
     if (!orgEvent.regOpenDate || !orgEvent.regCloseDate) {
@@ -439,20 +443,32 @@ async function submitRegistration(
       return conductor400Err(res);
     }
 
-    // Check for duplicate registration
-    const matchObj: { user?: string; email?: string; eventID: string } = {
-      eventID: orgEvent.eventID,
-    };
-    if (foundUser) {
-      matchObj.user = foundUser._id;
-    } else {
-      matchObj.email = email;
+    // Check for duplicate registrations
+    if (type === "self") {
+      const matchObj = {
+        $or: [
+          { eventID: req.params.eventID, user: foundUser?._id },
+          { eventID: req.params.eventID, email: foundUser?.email },
+        ],
+      };
+      const foundExisting = await OrgEventParticipant.findOne(matchObj);
+
+      if (foundExisting) {
+        return conductorErr(res, 400, "err82");
+      }
     }
 
-    const foundExisting = await OrgEventParticipant.findOne(matchObj);
+    if (type === "other") {
+      const matchObj = {
+        eventID: req.params.eventID,
+        email: email,
+      };
 
-    if (foundExisting) {
-      return conductorErr(res, 400, "err82");
+      const foundExisting = await OrgEventParticipant.findOne(matchObj);
+
+      if (foundExisting) {
+        return conductorErr(res, 400, "err82");
+      }
     }
 
     // If fee waiver code was provided, check if it's valid
@@ -630,9 +646,6 @@ async function submitRegistration(
       ...(checkoutURL ? { checkoutURL } : {}),
     });
   } catch (err: any) {
-    if (err.code === 11000) {
-      return conductorErr(res, 400, "err82");
-    }
     debugError(err);
     return conductor500Err(res);
   }
@@ -1410,6 +1423,7 @@ function validate(method: string) {
         body("orgID", conductorErrors.err1)
           .exists()
           .isLength({ min: 2, max: 50 }),
+        body("type", conductorErrors.err1).exists().isIn(["self", "other"]),
         body("formResponses", conductorErrors.err1).exists().isArray(),
         body("feeWaiver", conductorErrors.err1)
           .optional()
