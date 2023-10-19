@@ -166,7 +166,7 @@ export const isAssetTagTemplateValueType = (
 
 export const isAssetTagTemplate = (value: any): value is AssetTagTemplate => {
   return (
-    "title" in value &&
+    "key" in value &&
     "valueType" in value &&
     "isDeleted" in value &&
     isAssetTagTemplateValueType(value.valueType)

@@ -4,6 +4,8 @@ export interface AssetTagKeyInterface extends Document {
   orgID: string;
   title: string;
   hex: string;
+  framework?: Schema.Types.ObjectId;
+  isDeleted: boolean;
 }
 
 const AssetTagKeySchema = new Schema<AssetTagKeyInterface>({
@@ -19,6 +21,16 @@ const AssetTagKeySchema = new Schema<AssetTagKeyInterface>({
     type: String,
     required: true,
   },
+  framework: {
+    type: Schema.Types.ObjectId,
+    ref: "AssetTagFramework",
+    required: false,
+  },
+  isDeleted: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
 });
 
 const AssetTagKey = model<AssetTagKeyInterface>(
@@ -27,7 +39,7 @@ const AssetTagKey = model<AssetTagKeyInterface>(
 );
 
 AssetTagKeySchema.index({
-    title: "text",
+  title: "text",
 });
 
 export default AssetTagKey;

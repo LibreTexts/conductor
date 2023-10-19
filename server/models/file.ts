@@ -1,6 +1,5 @@
 import { model, Schema, Document } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
-import AssetTag, { AssetTagInterface } from "./assettag.js";
 
 // Not stored in schema, but used in API
 export type FileInterfacePath = {

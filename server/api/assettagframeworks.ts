@@ -17,6 +17,10 @@ import {
   AssetTagTemplateInterface,
   AssetTagTemplateValueTypeOptions,
 } from "../models/assettagtemplate.js";
+import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
+import { isAssetTagKeyObject } from "../util/typeHelpers.js";
+import { getRandomColor } from "../util/assettaggingutils.js";
+import { te } from "date-fns/locale";
 
 async function getFrameworks(
   req: TypedReqQuery<{
@@ -87,13 +91,30 @@ async function getFramework(
   res: Response
 ) {
   try {
+    //TODO: Use aggregate to populate key objects instead of doing it manually
+
     const framework = await AssetTagFramework.findOne({
       uuid: req.params.uuid,
       orgID: process.env.ORG_ID,
+    })
+      .lean()
+      .orFail();
+
+    const keys = await AssetTagKey.find({
+      orgID: process.env.ORG_ID,
+      _id: { $in: framework.templates.map((t) => t.key) },
+      isDeleted: {$ne: true},
     }).lean();
 
-    if (!framework) {
-      return conductor404Err(res);
+    const keyMap = new Map();
+    for (const key of keys) {
+      keyMap.set(key._id.toString(), key);
+    }
+
+    for (const template of framework.templates) {
+      if(template.key){
+        template.key = keyMap.get(template.key.toString());
+      }
     }
 
     return res.send({
@@ -145,7 +166,7 @@ async function updateFramework(
 
     framework.name = req.body.name;
     framework.description = req.body.description;
-    framework.templates = req.body.templates;
+    framework.templates = await _upsertTemplates(req.body.templates);
     framework.enabled = req.body.enabled;
 
     await framework.save();
@@ -160,8 +181,44 @@ async function updateFramework(
   }
 }
 
+async function _upsertTemplates(
+  templates: AssetTagTemplateInterface[]
+): Promise<AssetTagTemplateInterface[]> {
+  try {
+    const upsertedTemplates: AssetTagTemplateInterface[] = [];
+    const existingKeyDocs = await AssetTagKey.find({
+      orgID: process.env.ORG_ID,
+      title: { $in: templates.map((t) => t.key) },
+      isDeleted: {$ne: true},
+    }).lean();
+
+    const existingKeys = existingKeyDocs.map((k) => k._id);
+    const newKeys: AssetTagKeyInterface[] = [];
+    for (let i = 0; i < templates.length; i++) {
+      const t = templates[i];
+      if (isAssetTagKeyObject(t.key) && existingKeys.includes(t.key._id)) {
+        upsertedTemplates.push({ ...t, key: t.key._id });
+      } else {
+        const newKey = new AssetTagKey({
+          title: t.key,
+          hex: getRandomColor(),
+          orgID: process.env.ORG_ID,
+        });
+        newKeys.push(newKey);
+        upsertedTemplates.push({ ...t, key: newKey._id });
+      }
+    }
+
+    await AssetTagKey.insertMany(newKeys);
+
+    return upsertedTemplates;
+  } catch (err) {
+    throw err;
+  }
+}
+
 function validateAssetTagTemplate(tag: AssetTagTemplateInterface): boolean {
-  if (!tag.title) return false;
+  if (!tag.key) return false;
   if (
     !tag.valueType ||
     !AssetTagTemplateValueTypeOptions.includes(tag.valueType)

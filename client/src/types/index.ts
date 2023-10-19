@@ -63,7 +63,9 @@ import {
 import {
   AssetTag,
   AssetTagTemplate,
+  AssetTagTemplateWithKey,
   AssetTagFramework,
+  AssetTagFrameworkWithKeys,
   AssetTagTemplateValueType,
   AssetTagTemplateValueTypeOptions,
 } from "./AssetTagging"
@@ -71,8 +73,10 @@ import {
 export type {
   AssetTag,
   AssetTagTemplate,
+  AssetTagTemplateWithKey,
   AssetTagTemplateValueType,
   AssetTagFramework,
+  AssetTagFrameworkWithKeys,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,

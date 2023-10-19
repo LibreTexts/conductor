@@ -3,23 +3,23 @@ import {
   Button,
   Dropdown,
   Icon,
-  Input,
   Modal,
   ModalProps,
-  Select,
   Table,
 } from "semantic-ui-react";
 import {
-  AssetTagTemplate,
   AssetTagFramework,
+  AssetTagTemplate,
   AssetTagTemplateValueTypeOptions,
 } from "../../../types";
 import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import "../../../styles/global.css";
-import { isAssetTagTemplate } from "../../../utils/typeHelpers";
+import {
+  isAssetTagKeyObject,
+  isAssetTagTemplate,
+} from "../../../utils/typeHelpers";
 import { useEffect, useState } from "react";
-import CtlDropdown from "../../ControlledInputs/CtlDropdown";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import LoadingSpinner from "../../LoadingSpinner";
@@ -76,7 +76,22 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       const res = await api.getFramework(id);
       if (!res.data.framework) throw new Error("No framework found");
 
-      reset(res.data.framework);
+      const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
+        (t) => {
+          return {
+            key: t.key.title,
+            valueType: t.valueType,
+            defaultValue: t.defaultValue,
+            options: t.options,
+            isDeleted: false,
+          };
+        }
+      );
+
+      reset({
+        ...res.data.framework,
+        templates: parsed,
+      });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -211,7 +226,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                         <Table.Cell>
                           <CtlTextInput
                             control={control}
-                            name={`templates.${index}.title`}
+                            name={`templates.${index}.key`}
                             fluid
                           />
                         </Table.Cell>
@@ -270,7 +285,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
               onClick={() =>
                 append(
                   {
-                    title: "",
+                    key: "",
                     valueType: "text",
                     defaultValue: "",
                     isDeleted: false,

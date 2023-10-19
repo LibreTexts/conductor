@@ -18,7 +18,7 @@ export const AssetTagTemplateValueTypeOptions: string[] = [
 ]
 
 export interface AssetTagTemplateInterface {
-  title: string;
+  key: Schema.Types.ObjectId;
   valueType: AssetTagTemplateValueType;
   defaultValue?: string | number | boolean | Date;
   options?: string[];
@@ -26,8 +26,9 @@ export interface AssetTagTemplateInterface {
 }
 
 const AssetTagTemplateSchema = new Schema<AssetTagTemplateInterface>({
-  title: {
-    type: String,
+  key: {
+    type: Schema.Types.ObjectId,
+    ref: "AssetTagKey",
     required: true,
   },
   valueType: {

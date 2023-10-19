@@ -1,6 +1,11 @@
-import { FileInterfaceAccess } from "../models/file.js";
-import { PROJECT_FILES_ACCESS_SETTINGS } from "./projectutils.js";
+import { AssetTagKeyInterface } from "../models/assettagkey.js";
 
-export const isFileInterfaceAccess = (access: string): access is FileInterfaceAccess => {
-  return PROJECT_FILES_ACCESS_SETTINGS.includes(access);
+export const isAssetTagKeyObject = (value: any): value is AssetTagKeyInterface => {
+  if(!value) return false;
+  if(typeof value !== "object") return false;
+  return (
+    "orgID" in value &&
+    "title" in value &&
+    "hex" in value
+  );
 }

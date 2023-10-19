@@ -1,6 +1,6 @@
 import axios from "axios";
 import AuthHelper from "./components/util/AuthHelper";
-import { AssetTagFramework, Book, ConductorBaseResponse, Homework, Project, ProjectFile, User } from "./types";
+import { AssetTagFramework, AssetTagFrameworkWithKeys, Book, ConductorBaseResponse, Homework, Project, ProjectFile, User } from "./types";
 import { ProjectFileWProjectID } from "./types/Project";
 
 /**
@@ -40,7 +40,7 @@ class API {
     const res = await axios.get<{
       err: boolean;
       errMsg?: string;
-      framework: AssetTagFramework;
+      framework: AssetTagFrameworkWithKeys
     }>(`/assettagframeworks/${id}`);
     return res;
   }

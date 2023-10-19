@@ -18,7 +18,6 @@ import {
   FileInterfacePath,
   RawFileInterface,
 } from "../models/file.js";
-import { isFileInterfaceAccess } from "./typeHelpers.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -84,6 +83,10 @@ export const PROJECT_FILES_ACCESS_SETTINGS = [
   "team",
   "mixed",
 ];
+
+export const isFileInterfaceAccess = (access: string): access is FileInterfaceAccess => {
+  return PROJECT_FILES_ACCESS_SETTINGS.includes(access);
+}
 
 /**
  * Validates that a given classification string is one of the

@@ -11,3 +11,9 @@ export const SEMANTIC_UI_COLORS = [
   "#FF1493",
   "#A52A2A",
 ];
+
+export const getRandomColor = (): string => {
+  return SEMANTIC_UI_COLORS[
+    Math.floor(Math.random() * SEMANTIC_UI_COLORS.length)
+  ];
+};
