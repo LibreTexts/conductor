@@ -9,7 +9,7 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj, TimeZoneOption } from "./Misc";
+import { GenericKeyTextValueObj, TimeZoneOption, MongoBaseDocument, ConductorBaseResponse } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
@@ -60,8 +60,19 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
 } from "./CentralIdentity";
+import {
+  AssetTag,
+  AssetTagTemplate,
+  AssetTagFramework,
+  AssetTagTemplateValueType,
+  AssetTagTemplateValueTypeOptions,
+} from "./AssetTagging"
 
 export type {
+  AssetTag,
+  AssetTagTemplate,
+  AssetTagTemplateValueType,
+  AssetTagFramework,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
@@ -69,6 +80,7 @@ export type {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  ConductorBaseResponse,
   Organization,
   CampusSettingsOpts,
   Collection,
@@ -76,6 +88,7 @@ export type {
   ControlledInputProps,
   GenericKeyTextValueObj,
   TimeZoneOption,
+  MongoBaseDocument,
   CollectionDirectoryPathObj,
   Book,
   BookLinks,
@@ -113,6 +126,7 @@ export type {
 };
 
 export {
+  AssetTagTemplateValueTypeOptions,
   CollectionPrivacyOptions,
   CollectionResourceType,
   CollectionLocations,

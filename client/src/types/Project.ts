@@ -1,17 +1,23 @@
+import { AssetTag } from "./AssetTagging";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
 
 export type ProjectFile = {
   fileID: string;
   name: string;
-  access: ["public", "users", "instructors", "team", "mixed"];
+  access: "public" | "users" | "instructors" | "team" | "mixed";
   storageType: "file" | "folder";
   size: number;
   description: string;
   parent: string;
   createdBy: string;
+  uploader?: User;
   downloadCount: number;
+  tags?: AssetTag[];
+  createdDate?: Date;
 };
+
+export type ProjectFileWProjectID = ProjectFile & { projectID: string };
 
 export enum ProjectStatus {
     AVAILABLE = 'available',

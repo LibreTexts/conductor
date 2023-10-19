@@ -1,17 +1,17 @@
 import { FieldValues, FieldPath, Controller } from "react-hook-form";
-import { Form, FormInputProps } from "semantic-ui-react";
+import { Form, FormTextAreaProps } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
 
-interface CtlTextInputProps extends FormInputProps {
+interface CtlTextAreaProps extends FormTextAreaProps {
   label?: string;
   required?: boolean;
 }
 
 /**
- * Semantic UI Form.Input component wrapped in react-hook-form controller
+ * Semantic UI Form.TextArea component wrapped in react-hook-form controller
  * Fall-through props allow for finer-grained control and styling on a case-by-case basis
  */
-export default function CtlTextInput<
+export default function CtlTextArea<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 >({
@@ -21,8 +21,7 @@ export default function CtlTextInput<
   label,
   required = false,
   ...rest
-}: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
-
+}: ControlledInputProps<TFieldValues, TName> & CtlTextAreaProps) {
   const { className: restClassName } = rest;
   delete rest.className;
 
@@ -35,7 +34,7 @@ export default function CtlTextInput<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <div className={`${restClassName ?? ''}`}>
+        <div className={`${restClassName ?? ""}`}>
           {label && (
             <label
               className={`form-field-label ${required ? "form-required" : ""}`}
@@ -43,7 +42,7 @@ export default function CtlTextInput<
               {label}
             </label>
           )}
-          <Form.Input
+          <Form.TextArea
             value={value}
             onChange={onChange}
             onBlur={onBlur}
