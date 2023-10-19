@@ -1,0 +1,24 @@
+_id,title,hex,orgID,framework,isDeleted,__v
+6530617140946071e71ddec9,testtag3,#FF1493,libretexts,,,
+6530617140946071e71ddecd,Function,#FE9A76,libretexts,,,
+6530617140946071e71ddec8,testtsag,#B413EC,libretexts,,,
+6530617140946071e71ddeca,testtag4,#A52A2A,libretexts,,,
+6530617140946071e71ddece,Media Type,#FFD700,libretexts,,,
+6530617140946071e71dded4,Type,#B413EC,libretexts,,,
+6530617140946071e71ddecb,testtag5,#000000,libretexts,,,
+6530617140946071e71ddecc,testtag7,#B03060,libretexts,,,
+6530617140946071e71dded1,Keyword,#008080,libretexts,,,
+6530617140946071e71dded3,TestMulti,#EE82EE,libretexts,,,
+6530617140946071e71ddec7,test,#EE82EE,libretexts,,,
+6530617140946071e71ddecf,Content Area,#32CD32,libretexts,,,
+6530617140946071e71dded0,Year,#016936,libretexts,,,
+6530617140946071e71dded2,AnotherTestTag,#0E6EB8,libretexts,,,
+6530617140946071e71dded7,testmulti,#000000,libretexts,6526d3974f363550ea8b5359 ,,
+6530617140946071e71dded8,testdropdown,#B03060,libretexts,6526d3974f363550ea8b5359 ,,
+6531b10cd384ed10f404de8a,Content Area,#0E6EB8,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de8e,testtext,#FFD700,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de8b,Year,#008080,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de88,Function,#B03060,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de89,testtag7,#EE82EE,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de8c,Keyword,#FE9A76,libretexts,651c56596c9020e682b2c091 ,false,0
+6531b10cd384ed10f404de8d,TestMulti,#EE82EE,libretexts,651c56596c9020e682b2c091 ,false,0

@@ -62,6 +62,8 @@ import {
 } from "./CentralIdentity";
 import {
   AssetTag,
+  AssetTagWithKey,
+  AssetTagKey,
   AssetTagTemplate,
   AssetTagTemplateWithKey,
   AssetTagFramework,
@@ -72,6 +74,8 @@ import {
 
 export type {
   AssetTag,
+  AssetTagWithKey,
+  AssetTagKey,
   AssetTagTemplate,
   AssetTagTemplateWithKey,
   AssetTagTemplateValueType,

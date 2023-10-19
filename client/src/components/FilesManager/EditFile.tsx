@@ -19,7 +19,7 @@ import SelectFramework from "./SelectFramework";
 import api from "../../api";
 import { getInitValueFromTemplate } from "../../utils/assetHelpers";
 import { RenderTagInput } from "./RenderTagInput";
-import { AssetTagTemplate, AssetTagValue } from "../../types/AssetTagging";
+import { AssetTagTemplate, AssetTagValue, AssetTagWithKey } from "../../types/AssetTagging";
 import { isAssetTagFramework, isAssetTagKeyObject } from "../../utils/typeHelpers";
 
 interface EditFileModalProps extends ModalProps {
@@ -95,7 +95,18 @@ const EditFile: React.FC<EditFileModalProps> = ({
       }
 
       const fileData = res.data.files[res.data.files.length - 1]; // Target file should be last in array
-      reset(fileData);
+      const parsedExistingTags: AssetTag[] = fileData.tags?.map(
+        (t: AssetTagWithKey) => {
+          return {
+            ...t,
+            key: t.key.title,
+          };
+        }
+      );
+      reset({
+        ...fileData,
+        tags: parsedExistingTags,
+      });
       setIsFolder(fileData.storageType !== "file");
     } catch (err) {
       handleGlobalError(err);
@@ -145,7 +156,19 @@ const EditFile: React.FC<EditFileModalProps> = ({
         throw new Error(res.data.errMsg);
       }
 
-      setSelectedFramework(res.data.framework);
+      const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
+        (t) => {
+          return {
+            ...t,
+            key: t.key.title,
+          };
+        }
+      );
+
+      setSelectedFramework({
+        ...res.data.framework,
+        templates: parsed,
+      });
       genTagsFromFramework();
     } catch (err) {
       handleGlobalError(err);
@@ -166,9 +189,9 @@ const EditFile: React.FC<EditFileModalProps> = ({
       filtered = selectedFramework.templates.filter(
         (t) => !existingTags.find((tag) => {
           if(isAssetTagKeyObject(tag.key)){
-            return tag.key.title === t.title
+            return tag.key.title === t.key
           }
-          return tag.key === t.title
+          return tag.key === t.key
         })
       );
     } else {
@@ -177,7 +200,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
     filtered.forEach((t) => {
       addTag({
-        key: t.title,
+        key: t.key,
         value: getInitValueFromTemplate(t),
         framework: selectedFramework,
       });

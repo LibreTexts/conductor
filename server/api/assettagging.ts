@@ -43,6 +43,7 @@ async function upsertAssetTags(
             title: tag.key,
             hex: getRandomColor(),
             orgID: process.env.ORG_ID,
+            framework: tag.framework,
           });
           await newKey.save();
           currTag.key = newKey._id;

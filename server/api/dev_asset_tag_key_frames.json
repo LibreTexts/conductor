@@ -1,0 +1,209 @@
+[
+  {
+    "_id": {"$oid": "6530617140946071e71ddec9"},
+    "title": "testtag3",
+    "hex": "#FF1493",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddecd"},
+    "title": "Function",
+    "hex": "#FE9A76",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddec8"},
+    "title": "testtsag",
+    "hex": "#B413EC",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddeca"},
+    "title": "testtag4",
+    "hex": "#A52A2A",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddece"},
+    "title": "Media Type",
+    "hex": "#FFD700",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded4"},
+    "title": "Type",
+    "hex": "#B413EC",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddecb"},
+    "title": "testtag5",
+    "hex": "#000000",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddecc"},
+    "title": "testtag7",
+    "hex": "#B03060",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded1"},
+    "title": "Keyword",
+    "hex": "#008080",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded3"},
+    "title": "TestMulti",
+    "hex": "#EE82EE",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddec7"},
+    "title": "test",
+    "hex": "#EE82EE",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71ddecf"},
+    "title": "Content Area",
+    "hex": "#32CD32",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded0"},
+    "title": "Year",
+    "hex": "#016936",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded2"},
+    "title": "AnotherTestTag",
+    "hex": "#0E6EB8",
+    "orgID": "libretexts",
+    "framework": "",
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded7"},
+    "title": "testmulti",
+    "hex": "#000000",
+    "orgID": "libretexts",
+    "framework": {"$oid": "6526d3974f363550ea8b5359"},
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6530617140946071e71dded8"},
+    "title": "testdropdown",
+    "hex": "#B03060",
+    "orgID": "libretexts",
+    "framework": {"$oid": "6526d3974f363550ea8b5359"},
+    "isDeleted": "",
+    "__v": ""
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de8a"},
+    "title": "Content Area",
+    "hex": "#0E6EB8",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de8e"},
+    "title": "testtext",
+    "hex": "#FFD700",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de8b"},
+    "title": "Year",
+    "hex": "#008080",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de88"},
+    "title": "Function",
+    "hex": "#B03060",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de89"},
+    "title": "testtag7",
+    "hex": "#EE82EE",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de8c"},
+    "title": "Keyword",
+    "hex": "#FE9A76",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  },
+  {
+    "_id": {"$oid": "6531b10cd384ed10f404de8d"},
+    "title": "TestMulti",
+    "hex": "#EE82EE",
+    "orgID": "libretexts",
+    "framework": {"$oid": "651c56596c9020e682b2c091"},
+    "isDeleted": false,
+    "__v": 0
+  }
+]

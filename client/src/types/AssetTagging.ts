@@ -8,13 +8,20 @@ export type AssetTagKey = {
 
 export type AssetTagValue = string | number | boolean | Date | string[];
 
-export type AssetTag = {
+interface AssetTagBase {
   uuid: string;
-  key: string | AssetTagKey;
   value: AssetTagValue;
   framework?: string | AssetTagFramework;
   isDeleted: boolean;
-};
+}
+
+export interface AssetTag extends AssetTagBase {
+  key: string;
+}
+
+export interface AssetTagWithKey extends AssetTagBase {
+  key: AssetTagKey;
+}
 
 export type AssetTagTemplateValueType =
   | "text"
@@ -25,18 +32,18 @@ export type AssetTagTemplateValueType =
   | "multiselect";
 
 // Frameworks have a list of 'template' tags that are used to create tags for assets
-interface AssetTagBase extends MongoBaseDocument {
+interface AssetTagTemplateBase extends MongoBaseDocument {
   valueType: AssetTagTemplateValueType;
   defaultValue?: string | number | boolean | Date;
   options?: string[];
   isDeleted: boolean;
 }
 
-export interface AssetTagTemplate extends AssetTagBase {
+export interface AssetTagTemplate extends AssetTagTemplateBase {
   key: string;
 }
 
-export interface AssetTagTemplateWithKey extends AssetTagBase {
+export interface AssetTagTemplateWithKey extends AssetTagTemplateBase {
   key: AssetTagKey;
 }
 

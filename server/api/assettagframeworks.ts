@@ -106,6 +106,7 @@ async function getFramework(
       isDeleted: {$ne: true},
     }).lean();
 
+
     const keyMap = new Map();
     for (const key of keys) {
       keyMap.set(key._id.toString(), key);
@@ -166,7 +167,7 @@ async function updateFramework(
 
     framework.name = req.body.name;
     framework.description = req.body.description;
-    framework.templates = await _upsertTemplates(req.body.templates);
+    framework.templates = await _upsertTemplates(framework._id, req.body.templates);
     framework.enabled = req.body.enabled;
 
     await framework.save();
@@ -182,6 +183,7 @@ async function updateFramework(
 }
 
 async function _upsertTemplates(
+  framework_mongo_id: string,
   templates: AssetTagTemplateInterface[]
 ): Promise<AssetTagTemplateInterface[]> {
   try {
@@ -190,6 +192,7 @@ async function _upsertTemplates(
       orgID: process.env.ORG_ID,
       title: { $in: templates.map((t) => t.key) },
       isDeleted: {$ne: true},
+      framework: framework_mongo_id,
     }).lean();
 
     const existingKeys = existingKeyDocs.map((k) => k._id);
@@ -203,6 +206,7 @@ async function _upsertTemplates(
           title: t.key,
           hex: getRandomColor(),
           orgID: process.env.ORG_ID,
+          framework: framework_mongo_id,
         });
         newKeys.push(newKey);
         upsertedTemplates.push({ ...t, key: newKey._id });
