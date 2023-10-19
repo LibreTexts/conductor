@@ -11,21 +11,17 @@ import {
   Dropdown,
   Input,
 } from "semantic-ui-react";
+import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import useDebounce from "../../../../hooks/useDebounce";
-import ManageFrameworkModal from "../../../../components/controlpanel/AssetTagsManager/ManageFrameworkModal";
-import api from "../../../../api";
-import { AssetTagFramework } from "../../../../types";
-import { truncateString } from "../../../../components/util/HelperFunctions";
 
 const AssetTagsManager: React.FC<{}> = ({}) => {
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
-  const { debounce } = useDebounce();
 
   // Data & UI
-  const [frameworks, setFrameworks] = useState<AssetTagFramework[]>([]);
+  const [temprItems, setTemprItems] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -33,12 +29,6 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [sortChoice, setSortChoice] = useState<string>("");
   const [searchString, setSearchString] = useState<string>("");
-  const [showManageFrameworkModal, setShowManageFrameworkModal] =
-    useState<boolean>(false);
-  const [manageFrameworkMode, setManageFrameworkMode] = useState<
-    "create" | "edit"
-  >("create");
-  const [manageFrameworkId, setManageFrameworkId] = useState<string>("");
 
   const TABLE_COLS = [
     { key: "name", text: "Framework Name" },
@@ -52,67 +42,6 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
     { key: "status", text: "Sort by Status", value: "status" },
   ];
 
-  useEffect(() => {
-    getFrameworks(searchString);
-  }, [activePage, itemsPerPage]);
-
-  // Handlers & Methods
-  async function getFrameworks(searchString?: string) {
-    try {
-      setLoading(true);
-
-      const res = await api.getFrameworks({
-        page: activePage,
-        limit: itemsPerPage,
-        query: searchString,
-        sort: sortChoice,
-      });
-
-      if (
-        res.data.err ||
-        !res.data.frameworks ||
-        !Array.isArray(res.data.frameworks) ||
-        res.data.totalCount === undefined
-      ) {
-        throw new Error("Error retrieving users");
-      }
-
-      setFrameworks(res.data.frameworks);
-      setTotalItems(res.data.totalCount);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const getFrameworksDebounced = debounce(
-    (searchVal: string) => getFrameworks(searchVal),
-    500
-  );
-
-  function handleOpenManageFrameworkModal(
-    mode: "create" | "edit",
-    id?: string
-  ) {
-    setManageFrameworkMode(mode);
-    if (mode === "edit" && id) {
-      setManageFrameworkId(id);
-    }
-    if (mode === "create") {
-      setManageFrameworkId("");
-    }
-    setShowManageFrameworkModal(true);
-  }
-
-  function handleCloseManageFrameworkModal() {
-    setShowManageFrameworkModal(false);
-    setManageFrameworkMode("create");
-    setManageFrameworkId("");
-    getFrameworks(searchString); // Refresh data
-  }
-
   return (
     <Grid className="controlpanel-container" divided="vertically">
       <Grid.Row>
@@ -125,27 +54,16 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Segment.Group>
-            <Segment className="flex justify-between align-middle">
-              <div>
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>
-                    Asset Tagging Framework Manager
-                  </Breadcrumb.Section>
-                </Breadcrumb>
-              </div>
-              <div>
-                <Button
-                  color="green"
-                  onClick={() => handleOpenManageFrameworkModal("create")}
-                >
-                  <Icon name="plus" />
-                  New Framework
-                </Button>
-              </div>
+            <Segment>
+              <Breadcrumb>
+                <Breadcrumb.Section as={Link} to="/controlpanel">
+                  Control Panel
+                </Breadcrumb.Section>
+                <Breadcrumb.Divider icon="right chevron" />
+                <Breadcrumb.Section active>
+                  Asset Tagging Framework Manager
+                </Breadcrumb.Section>
+              </Breadcrumb>
             </Segment>
             <Segment>
               <Grid>
@@ -167,10 +85,9 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
                   <Grid.Column width={5}>
                     <Input
                       icon="search"
-                      placeholder="Search by Name"
+                      placeholder="Search by First, Last, Email, or Student ID..."
                       onChange={(e) => {
                         setSearchString(e.target.value);
-                        getFrameworksDebounced(e.target.value);
                       }}
                       value={searchString}
                       fluid
@@ -201,34 +118,44 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {frameworks.length > 0 &&
-                    frameworks.map((f) => {
+                  {temprItems.length > 0 &&
+                    temprItems.map((user) => {
                       return (
-                        <Table.Row key={f.uuid} className="word-break-all">
+                        <Table.Row key={user.uuid} className="word-break-all">
                           <Table.Cell>
-                            <span>{f.name}</span>
+                            <span>
+                              {user.first_name}{" "}
+                              {user.disabled && (
+                                <Icon
+                                  name="lock"
+                                  className="ml-1p"
+                                  size="small"
+                                />
+                              )}
+                            </span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>{truncateString(f.description, 75)}</span>
+                            <span>
+                              {user.last_name}
+                              {user.disabled && (
+                                <Icon
+                                  name="lock"
+                                  className="ml-1p"
+                                  size="small"
+                                />
+                              )}
+                            </span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>{f.enabled ? "Enabled" : "Disabled"}</span>
-                          </Table.Cell>
-                          <Table.Cell textAlign="right">
-                            <Button
-                              color="blue"
-                              onClick={() =>
-                                handleOpenManageFrameworkModal("edit", f.uuid)
-                              }
-                            >
-                              <Icon name="edit" />
-                              Edit
+                            <Button color="blue">
+                              <Icon name="eye" />
+                              View User
                             </Button>
                           </Table.Cell>
                         </Table.Row>
                       );
                     })}
-                  {frameworks.length === 0 && (
+                  {temprItems.length === 0 && (
                     <Table.Row>
                       <Table.Cell colSpan={TABLE_COLS.length + 1}>
                         <p className="text-center">
@@ -253,12 +180,6 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>
-      <ManageFrameworkModal
-        open={showManageFrameworkModal}
-        mode={manageFrameworkMode}
-        id={manageFrameworkId}
-        onClose={() => handleCloseManageFrameworkModal()}
-      />
     </Grid>
   );
 };

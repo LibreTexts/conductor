@@ -1,3 +1,7 @@
+//
+// LibreTexts Conductor
+// projectutils.js
+//
 import axios from "axios";
 import {
   stringContainsOneOfSubstring,
@@ -7,18 +11,11 @@ import {
 import { libraryNameKeys } from "./librariesmap.js";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import { debugError } from "../debug.js";
-import Project, { ProjectInterface } from "../models/project.js";
+import Project from "../models/project.js";
 import User from "../models/user.js";
 import base64 from "base-64";
 import projectsAPI from "../api/projects.js";
 import usersAPI from "../api/users.js";
-import {
-  FileInterface,
-  FileInterfaceAccess,
-  FileInterfacePath,
-  RawFileInterface,
-} from "../models/file.js";
-import { isFileInterfaceAccess } from "./typeHelpers.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -91,7 +88,7 @@ export const PROJECT_FILES_ACCESS_SETTINGS = [
  * @param {String} classification  - the classification string to test
  * @returns {Boolean} true if valid classification, false otherwise
  */
-export const validateProjectClassification = (classification: string) => {
+export const validateProjectClassification = (classification) => {
   return projectClassifications.includes(classification);
 };
 
@@ -101,7 +98,7 @@ export const validateProjectClassification = (classification: string) => {
  * @param {String} step  - the step name to test
  * @returns {Boolean} true if valid step, false otherwise.
  */
-export const validateRoadmapStep = (step: string) => {
+export const validateRoadmapStep = (step) => {
   return constrRoadmapSteps.includes(step);
 };
 
@@ -110,7 +107,7 @@ export const validateRoadmapStep = (step: string) => {
  * @param {String} use - The internal Text Use identifier.
  * @returns {String} The UI-ready representation, or an empty string if not found.
  */
-export const getTextUse = (use: string) => {
+export const getTextUse = (use) => {
   if (use !== "") {
     let foundUse = textUseOptions.find((item) => {
       return item.value === use;
@@ -126,7 +123,7 @@ export const getTextUse = (use: string) => {
  * @param {String} url - The LibreTexts url to retrieve information about.
  * @returns {Object} An object with information about the LibreText (lib, id, shelf, campus).
  */
-export async function getLibreTextInformation(url: string) {
+export async function getLibreTextInformation(url) {
   let textInfo = {
     lib: "",
     id: "",
@@ -134,6 +131,7 @@ export async function getLibreTextInformation(url: string) {
     campus: "",
   };
   try {
+
     if (typeof url !== "string") {
       throw new Error("Invalid URL argument");
     }
@@ -146,16 +144,14 @@ export async function getLibreTextInformation(url: string) {
 
     if (
       !(
-        typeof subdomainSearch === "object" &&
         subdomainSearch.hasOwnProperty("substr") &&
-        "substr" in subdomainSearch &&
         subdomainSearch.substr !== ""
       )
     ) {
       throw new Error("Subdomain search failed.");
     }
 
-    textInfo.lib = subdomainSearch.substr as string; // TODO: add typing for stringContainsOneOfSubstring
+    textInfo.lib = subdomainSearch.substr;
     let libNames = libraryNameKeys.join("|");
     let libreURLRegex = new RegExp(
       `(http(s)?:\/\/)?(${libNames}).libretexts.org\/`,
@@ -235,16 +231,14 @@ export async function getLibreTextInformation(url: string) {
  * @returns {Promise<object[]|null>} Filtered project files, or null if error occured
  */
 export async function filterFilesByAccess(
-  projectID: string,
-  files: FileInterface[],
+  projectID,
+  files,
   publicOnly = false,
   userID = ""
 ) {
   const authorizedLevels = ["public", "mixed"]; // Base Levels
   if (publicOnly) {
-    return files.filter(
-      (file) => file.access && authorizedLevels.includes(file.access)
-    );
+    return files.filter((file) => authorizedLevels.includes(file.access));
   }
 
   if (userID) {
@@ -252,28 +246,23 @@ export async function filterFilesByAccess(
     if (user) {
       authorizedLevels.push("users");
 
-      let foundProject: ProjectInterface | null = null;
+      let foundProject;
       if (typeof projectID === "string") {
         foundProject = await Project.findOne({ projectID: projectID });
       } else if (typeof projectID === "object") {
         foundProject = projectID;
       }
 
-      if (
-        foundProject &&
-        projectsAPI.checkProjectMemberPermission(foundProject, user)
-      ) {
+      if (projectsAPI.checkProjectMemberPermission(foundProject, user)) {
         authorizedLevels.push("team");
       }
 
-      if (await usersAPI.checkVerifiedInstructorStatus(userID)) {
+      if (usersAPI.checkVerifiedInstructorStatus(userID)) {
         authorizedLevels.push("instructors");
       }
     }
   }
-  return files.filter(
-    (file) => file.access && authorizedLevels.includes(file.access)
-  );
+  return files.filter((file) => authorizedLevels.includes(file.access));
 }
 
 /**
@@ -286,12 +275,12 @@ export async function filterFilesByAccess(
  * @returns {Promise<object[]|null>} All Project Files listings, or null if error encountered.
  */
 export async function retrieveAllProjectFiles(
-  projectID: string,
+  projectID,
   publicOnly = false,
   userID = ""
 ) {
   try {
-    const projectResults = await Project.aggregate<ProjectInterface>([
+    const projectResults = await Project.aggregate([
       {
         $match: { projectID },
       },
@@ -331,39 +320,6 @@ export async function retrieveAllProjectFiles(
         },
       },
       {
-        $lookup: {
-          from: "fileassettags",
-          localField: "files._id",
-          foreignField: "fileID",
-          as: "files.tags",
-        },
-      },
-      {
-        $lookup: {
-          from: "assettags",
-          localField: "files.tags.tags",
-          foreignField: "_id",
-          pipeline: [
-            {
-              $lookup: {
-                from: "assettagframeworks",
-                localField: "framework",
-                foreignField: "_id",
-                as: "framework",
-              },
-            },
-            {
-              $set: {
-                framework: {
-                  $arrayElemAt: ["$framework", 0],
-                },
-              },
-            },
-          ],
-          as: "files.tags",
-        },
-      },
-      {
         $addFields: {
           "files.uploader": {
             $arrayElemAt: ["$files.uploader", 0],
@@ -388,10 +344,10 @@ export async function retrieveAllProjectFiles(
     const sorted = (
       await filterFilesByAccess(projectID, project.files, publicOnly, userID)
     ).sort((a, b) => {
-      if ((a.name ?? "") < (b.name ?? "")) {
+      if (a.name < b.name) {
         return -1;
       }
-      if ((a.name ?? "") > (b.name ?? "")) {
+      if (a.name > b.name) {
         return 1;
       }
       return 0;
@@ -415,14 +371,14 @@ export async function retrieveAllProjectFiles(
  * leading to the results, or nulls if error encountered.
  */
 export async function retrieveProjectFiles(
-  projectID: string,
+  projectID,
   filesKey = "",
   publicOnly = false,
   userID = "",
   details = false
 ) {
   try {
-    let path: FileInterfacePath[] = [
+    let path = [
       {
         fileID: "",
         name: "",
@@ -448,16 +404,54 @@ export async function retrieveProjectFiles(
         return [null, null];
       }
     }
-    const foundEntries = allFiles.filter(
-      (obj) => obj.parent === filesKey || obj.fileID === filesKey
-    ); // filesKey should be either parent folder or a file/folder itself
+    const foundEntries = allFiles.filter((obj) => obj.parent === filesKey);
+    const buildParentPath = (obj) => {
+      let pathNodes = [];
+      pathNodes.push({
+        fileID: obj.fileID,
+        name: obj.name,
+      });
+      if (obj.parent !== "") {
+        const parent = allFiles.find(
+          (pParent) => pParent.fileID === obj.parent
+        );
+        if (parent) {
+          pathNodes = [...buildParentPath(parent), ...pathNodes];
+        }
+      }
+      return pathNodes;
+    };
 
     if (foundFolder) {
-      path.push(..._buildParentPath(foundFolder, allFiles));
+      path.push(...buildParentPath(foundFolder));
     }
 
+    const buildChildList = (obj) => {
+      const currObj = obj;
+      let children = [];
+      if (!details) {
+        ["_id", "createdby", "downloadCount", "uploader"].forEach(
+          (key) => delete currObj[key]
+        );
+      }
+      if (obj.storageType !== "folder") {
+        return currObj;
+      }
+      const foundChildren = allFiles.filter(
+        (childObj) => childObj.parent === currObj.fileID
+      );
+      if (foundChildren.length > 0) {
+        children = foundChildren.map((childObj) => buildChildList(childObj));
+        children = sortProjectFiles(children);
+      }
+      return {
+        ...currObj,
+        children,
+      };
+    };
+
     const sortedResults = sortProjectFiles(
-      foundEntries.map((obj) => _buildChildList(obj, allFiles))
+      foundEntries.map((obj) => buildChildList(obj))
     );
 
     return [sortedResults, path];
@@ -465,51 +459,6 @@ export async function retrieveProjectFiles(
     debugError(e);
     return [null, null];
   }
-}
-
-function _buildParentPath(obj: FileInterface, allFiles: FileInterface[]) {
-  let pathNodes: FileInterfacePath[] = [];
-  pathNodes.push({
-    fileID: obj.fileID,
-    name: obj.name ?? "",
-  });
-  if (obj.parent !== "") {
-    const parent = allFiles.find((pParent) => pParent.fileID === obj.parent);
-    if (parent) {
-      pathNodes = [..._buildParentPath(parent, allFiles), ...pathNodes];
-    }
-  }
-  return pathNodes;
-}
-
-function _buildChildList(
-  obj: FileInterface,
-  allFiles: FileInterface[],
-  details = false
-) {
-  const currObj = obj;
-  let children: RawFileInterface[] = [];
-  if (!details) {
-    delete currObj["createdBy"];
-    delete currObj["downloadCount"];
-    delete currObj["createdBy"];
-  }
-  if (obj.storageType !== "folder") {
-    return currObj;
-  }
-  const foundChildren = allFiles.filter(
-    (childObj) => childObj.parent === currObj.fileID
-  );
-  if (foundChildren.length > 0) {
-    children = foundChildren.map((childObj) =>
-      _buildChildList(childObj, allFiles)
-    );
-    children = sortProjectFiles(children);
-  }
-  return {
-    ...currObj,
-    children,
-  };
 }
 
 /**
@@ -523,20 +472,12 @@ function _buildChildList(
  *  or false if unauthorized.
  */
 export async function downloadProjectFile(
-  projectID: string,
-  fileID: string,
+  projectID,
+  fileID,
   publicOnly = false,
   userID = ""
 ) {
   try {
-    if (
-      !process.env.AWS_PROJECTFILES_DOMAIN ||
-      !process.env.AWS_PROJECTFILES_KEYPAIR_ID ||
-      !process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
-    ) {
-      throw new Error("Missing ENV variables");
-    }
-
     const files = await retrieveAllProjectFiles(projectID, publicOnly, userID);
     if (!files) {
       // error encountered
@@ -565,7 +506,7 @@ export async function downloadProjectFile(
     const signedURL = getSignedUrl({
       url: fileURL,
       keyPairId: process.env.AWS_PROJECTFILES_KEYPAIR_ID,
-      dateLessThan: exprDate.toString(),
+      dateLessThan: exprDate,
       privateKey: privKey,
     });
 
@@ -604,21 +545,19 @@ export async function downloadProjectFile(
  * @param {object[]} files - The full array of Files, with any access updates applied.
  * @returns {object[]} The array of Files with folder access settings fully computed.
  */
-export function computeStructureAccessSettings(files: FileInterface[]) {
-  const toUpdate: RawFileInterface[] = [];
+export function computeStructureAccessSettings(files) {
+  let toUpdate = [];
 
-  const computeFolderAccess = (folder: FileInterface): FileInterfaceAccess => {
-    const uniqueSettings = new Set<FileInterfaceAccess>();
-    if (!folder.access) return "team"; // default to team if no access set
+  const computeFolderAccess = (folder) => {
+    const uniqueSettings = new Set();
     uniqueSettings.add(folder.access);
     const children = files.filter((obj) => obj.parent === folder.fileID);
     children.forEach((child) => {
-      if (child.storageType === "file" && child.access) {
+      if (child.storageType === "file") {
         uniqueSettings.add(child.access);
       }
       if (child.storageType === "folder") {
-        const folderAccess = computeFolderAccess(child);
-        if (folderAccess) uniqueSettings.add(folderAccess);
+        uniqueSettings.add(computeFolderAccess(child));
       }
     });
     const foundSettings = Array.from(uniqueSettings);
@@ -629,11 +568,7 @@ export function computeStructureAccessSettings(files: FileInterface[]) {
     if (foundSettings.length === 1) {
       newSetting = foundSettings[0];
     }
-    if (
-      newSetting &&
-      isFileInterfaceAccess(newSetting) &&
-      newSetting !== folder.access
-    ) {
+    if (newSetting !== folder.access) {
       toUpdate.push({
         ...folder,
         access: newSetting,
@@ -664,12 +599,9 @@ export function computeStructureAccessSettings(files: FileInterface[]) {
  * @param {object[]} updatedFiles - The full array of Files, with updated entries.
  * @return {Promise<boolean>} True if successful, false otherwise.
  */
-export async function updateProjectFiles(
-  projectID: string,
-  files: (RawFileInterface | FileInterface)[]
-): Promise<boolean> {
+export async function updateProjectFiles(projectID, updatedFiles) {
   try {
-    await Project.updateOne({ projectID }, { files });
+    await Project.updateOne({ projectID }, { files: updatedFiles });
     return true;
   } catch (e) {
     debugError(e);
@@ -681,14 +613,14 @@ export async function updateProjectFiles(
  * Sorts an array of Project Files based on the name of each entry, in natural alphanumeric order.
  *
  * @param {object[]} arr - Array of Files entries.
- * @returns {RawFileInterface[] | FileInterface[]} The sorted array.
+ * @returns {object[]} The sorted array.
  */
-export function sortProjectFiles(arr: (RawFileInterface | FileInterface)[]) {
+export function sortProjectFiles(arr) {
   if (!Array.isArray(arr)) {
     return arr;
   }
   const collator = new Intl.Collator();
-  return arr.sort((a, b) => collator.compare(a.name ?? "", b.name ?? ""));
+  return arr.sort((a, b) => collator.compare(a.name, b.name));
 }
 
 /**
@@ -698,10 +630,7 @@ export function sortProjectFiles(arr: (RawFileInterface | FileInterface)[]) {
  * @param {string} libreCoverID
  * @returns {Promise<string | boolean>}
  */
-export async function checkIfBookLinkedToProject(
-  libreLibrary: string,
-  libreCoverID: string
-) {
+export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
   try {
     if (!(libreLibrary && libreCoverID)) {
       throw new Error("Invalid params passed to checkIfBookLinkedToProject");

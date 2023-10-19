@@ -1,23 +1,15 @@
-import { model, Schema, Document } from "mongoose";
-import AssetTagTemplateSchema, {
-  AssetTagTemplateInterface,
-} from "./assettagtemplate.js";
+import mongoose, { model, Schema, Document } from "mongoose";
+import AssetTag, { AssetTagInterface } from "./assettag";
 
 export interface AssetTagFrameworkInterface extends Document {
-  uuid: string;
   name: string;
   description: string;
   orgID: string;
-  templates: AssetTagTemplateInterface[];
+  tags: AssetTagInterface[] | mongoose.Types.ObjectId[];
   enabled: boolean;
 }
-
 const AssetTagFrameworkSchema = new Schema<AssetTagFrameworkInterface>(
   {
-    uuid: {
-      type: String,
-      required: true,
-    },
     name: {
       type: String,
       required: true,
@@ -30,9 +22,10 @@ const AssetTagFrameworkSchema = new Schema<AssetTagFrameworkInterface>(
       type: String,
       required: true,
     },
-    templates: {
-      type: [AssetTagTemplateSchema],
+    tags: {
+      type: [Schema.Types.ObjectId],
       required: true,
+      ref: AssetTag,
     },
     enabled: {
       type: Boolean,
@@ -44,10 +37,6 @@ const AssetTagFrameworkSchema = new Schema<AssetTagFrameworkInterface>(
     timestamps: true,
   }
 );
-
-AssetTagFrameworkSchema.index({
-  name: "text",
-});
 
 const AssetTagFramework = model<AssetTagFrameworkInterface>(
   "AssetTagFramework",

@@ -1848,8 +1848,7 @@ const validate = (method) => {
         query('publisher', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
         query('search', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
         query('cidDescriptor', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1 }),
-        query('location', conductorErrors.err1).optional({checkFalsy: true}).isString().isIn(["central", "campus", "all"]),
-        query('assets', conductorErrors.err1).optional({checkFalsy: true}).isBoolean(),
+        query('location', conductorErrors.err1).optional({checkFalsy: true}).isString().isIn(["central", "campus", "all"])
       ]
     case 'getMasterCatalog':
       return [

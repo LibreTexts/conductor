@@ -7,12 +7,3 @@ export type GenericKeyTextValueObj<T> = {
 };
 
 export type TimeZoneOption = ITimezoneOption;
-
-export type MongoBaseDocument = {
-  _id?: string;
-  __v?: any;
-};
-
-export type ConductorBaseResponse =
-  | { err: false }
-  | { err: true; errMsg: string };

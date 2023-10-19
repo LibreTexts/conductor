@@ -1,24 +1,10 @@
 import { model, Schema, Document } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
-import AssetTag, { AssetTagInterface } from "./assettag.js";
 
-// Not stored in schema, but used in API
-export type FileInterfacePath = {
-  fileID: string;
-  name: string;
-};
-
-export type FileInterfaceAccess =
-  | "public"
-  | "users"
-  | "instructors"
-  | "team"
-  | "mixed";
-
-export interface RawFileInterface {
+export interface FileInterface extends Document {
   fileID: string;
   name?: string;
-  access?: FileInterfaceAccess;
+  access?: "public" | "users" | "instructors" | "team" | "mixed";
   storageType: "file" | "folder";
   size: number;
   description?: string;
@@ -26,8 +12,6 @@ export interface RawFileInterface {
   createdBy?: string;
   downloadCount?: number;
 }
-
-export interface FileInterface extends RawFileInterface, Document {}
 
 const FileSchema = new Schema<FileInterface>({
   /**

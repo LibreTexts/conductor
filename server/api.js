@@ -8,7 +8,6 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import middleware from './middleware.js'; // Route middleware
-import assetTagFrameworkAPI from './api/assettagframeworks.js';
 import authAPI from './api/auth.js';
 import centralIdentityAPI from './api/central-identity.js';
 import usersAPI from './api/users.js';
@@ -293,38 +292,6 @@ router.route('/org/:orgID/branding-images/:assetName').post(
   orgsAPI.updateBrandingImageAsset,
 );
 
-/* Asset Tag Frameworks */
-router.route('/assettagframeworks').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  assetTagFrameworkAPI.validate('getFrameworks'),
-  middleware.checkValidationErrors,
-  assetTagFrameworkAPI.getFrameworks,
-).post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  assetTagFrameworkAPI.validate('createFramework'),
-  middleware.checkValidationErrors,
-  assetTagFrameworkAPI.createFramework,
-);
-
-router.route('/assettagframeworks/:uuid').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  assetTagFrameworkAPI.validate('getFramework'),
-  middleware.checkValidationErrors,
-  assetTagFrameworkAPI.getFramework,
-).patch(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  assetTagFrameworkAPI.validate('updateFramework'),
-  middleware.checkValidationErrors,
-  assetTagFrameworkAPI.updateFramework,
-)
 
 /* Adoption Reports */
 // (submission route can be anonymous)

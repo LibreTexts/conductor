@@ -57,7 +57,6 @@ import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
-import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -2770,9 +2769,6 @@ async function getProjectFileDownloadURL(req, res) {
       }
     }
 
-    // update tags
-    await upsertAssetTags(foundObj, req.body.tags);
-
     const updated = files.map((obj) => {
       if (obj.fileID === foundObj.fileID) {
         const updateObj = { ...obj };
@@ -3687,7 +3683,6 @@ const validate = (method) => {
         param('fileID', conductorErrors.err1).exists().isUUID(),
         body('name', conductorErrors.err1).optional().isLength({ min: 1, max: 100 }),
         body('description', conductorErrors.err1).optional().isLength({ max: 500 }),
-        body('tags', conductorErrors.err1).optional().isArray().custom(validateAssetTagArray),
       ]
     case 'updateProjectFileAccess':
       return [

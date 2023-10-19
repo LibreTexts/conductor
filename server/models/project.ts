@@ -51,7 +51,7 @@ export interface ProjectInterface extends Document {
   allowAnonPR: boolean;
   preferredPRRubric?: string;
   cidDescriptors?: string[];
-  files?: FileInterface[];
+  files?: (typeof FileSchema)[];
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -253,7 +253,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
 );
 
 ProjectSchema.index({title: "text"})
-ProjectSchema.index({"files.name": "text"})
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 
