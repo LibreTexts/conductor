@@ -359,6 +359,21 @@ export async function retrieveAllProjectFiles(
                 },
               },
             },
+            {
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
+                },
+              },
+            },
           ],
           as: "files.tags",
         },

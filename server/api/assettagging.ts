@@ -2,6 +2,7 @@ import AssetTag, { AssetTagInterface } from "../models/assettag.js";
 import { v4 } from "uuid";
 import { FileInterface } from "../models/file.js";
 import FileAssetTags from "../models/fileassettags.js";
+import AssetTagKey from "../models/assettagkey.js";
 
 async function upsertAssetTags(
   file: FileInterface,
@@ -17,13 +18,27 @@ async function upsertAssetTags(
       });
     }
 
+    const existingKeys = await AssetTagKey.find({ orgID: process.env.ORG_ID });
     const currTags = await AssetTag.find({ _id: { $in: refDoc?.tags } });
     const newTags: AssetTagInterface[] = [];
 
     for (const tag of tags) {
       const currTag = currTags.find((t) => t._id.equals(tag._id));
       if (currTag) {
-        currTag.title = tag.title;
+        //currTag.key = tag.key;
+        //TODO: Create AssetTagKey model and use it here
+        // const key = existingKeys.find((k) => k._id.equals(tag.key));
+        // if (key) {
+        //   currTag.key = key._id;
+        // } else {
+        //   const newKey = new AssetTagKey({
+        //     ...tag.key,
+        //     uuid: v4(),
+        //     orgID: process.env.ORG_ID,
+        //   });
+        //   await newKey.save();
+        //   currTag.key = newKey._id;
+        // }
         currTag.value = tag.value;
         currTag.framework = tag.framework;
         currTag.isDeleted = tag.isDeleted;
@@ -47,7 +62,7 @@ async function upsertAssetTags(
 }
 
 function validateAssetTag(tag: AssetTagInterface): boolean {
-  if (!tag.title) return false;
+  if (!tag.key) return false;
   if (!tag.value) return false;
   return true;
 }

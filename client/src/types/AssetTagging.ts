@@ -1,10 +1,16 @@
 import { GenericKeyTextValueObj, MongoBaseDocument } from "./Misc";
 
+export type AssetTagKey = {
+  orgID: string;
+  title: string;
+  hex: string;
+}
+
 export type AssetTagValue = string | number | boolean | Date | string[];
 
 export type AssetTag = {
   uuid: string
-  title: string;
+  key: string | AssetTagKey;
   value: AssetTagValue;
   framework?: string | AssetTagFramework;
   isDeleted: boolean;

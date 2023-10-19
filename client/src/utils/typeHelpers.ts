@@ -14,6 +14,7 @@ import {
   AssetTag,
   AssetTagFramework,
 } from "../types";
+import { AssetTagKey } from "../types/AssetTagging";
 
 export function isCatalogLocation(
   location: string
@@ -188,4 +189,14 @@ export const isAssetTag = (value: any): value is AssetTag => {
 
 export const isAssetTagArray = (value: any): value is AssetTag[] => {
   return Array.isArray(value) && value.every((v) => isAssetTag(v));
+}
+
+export const isAssetTagKeyObject = (value: any): value is AssetTagKey => {
+  if(!value) return false;
+  if(typeof value !== "object") return false;
+  return (
+    "orgID" in value &&
+    "title" in value &&
+    "hex" in value
+  );
 }

@@ -2,9 +2,9 @@ import { Document, Schema, model } from "mongoose";
 
 export interface AssetTagInterface extends Document {
   uuid: string;
-  title: string;
+  key: Schema.Types.ObjectId;
   value: string | number | boolean | Date | string[];
-  framework?: string;
+  framework?: Schema.Types.ObjectId;
   isDeleted: boolean;
 }
 
@@ -13,8 +13,9 @@ const AssetTagSchema = new Schema<AssetTagInterface>({
     type: String,
     required: true,
   },
-  title: {
-    type: String,
+  key: {
+    type: Schema.Types.ObjectId,
+    ref: "AssetTagKey",
     required: true,
   },
   value: {
@@ -40,7 +41,6 @@ AssetTagSchema.index({ uuid: 1 }, { unique: true });
 
 // Text search index
 AssetTagSchema.index({
-  title: "text",
   value: "text",
 });
 

@@ -20,7 +20,7 @@ import api from "../../api";
 import { getInitValueFromTemplate } from "../../utils/assetHelpers";
 import { RenderTagInput } from "./RenderTagInput";
 import { AssetTagTemplate, AssetTagValue } from "../../types/AssetTagging";
-import { isAssetTagFramework } from "../../utils/typeHelpers";
+import { isAssetTagFramework, isAssetTagKeyObject } from "../../utils/typeHelpers";
 
 interface EditFileModalProps extends ModalProps {
   show: boolean;
@@ -164,7 +164,12 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
     if (existingTags && existingTags.length > 0) {
       filtered = selectedFramework.templates.filter(
-        (t) => !existingTags.find((tag) => tag.title === t.title)
+        (t) => !existingTags.find((tag) => {
+          if(isAssetTagKeyObject(tag.key)){
+            return tag.key.title === t.title
+          }
+          return tag.key === t.title
+        })
       );
     } else {
       filtered = selectedFramework.templates;
@@ -172,7 +177,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
 
     filtered.forEach((t) => {
       addTag({
-        title: t.title,
+        key: t.title,
         value: getInitValueFromTemplate(t),
         framework: selectedFramework,
       });
@@ -180,11 +185,11 @@ const EditFile: React.FC<EditFileModalProps> = ({
   }
 
   function addTag({
-    title,
+    key,
     value,
     framework,
   }: {
-    title?: string;
+    key?: string;
     value?: AssetTagValue;
     framework?: AssetTagFramework;
   }) {
@@ -192,7 +197,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
     append(
       {
         uuid: crypto.randomUUID(), // Random UUID for new tags, will be replaced with real UUID server-side on save
-        title: title ?? "",
+        key: key ?? "",
         value: value ?? "",
         framework: framework ?? undefined,
         isDeleted: false,
@@ -254,7 +259,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
                         <Table.Cell>
                           {tag.framework ? (
                             <div className="flex flex-col">
-                              <p>{tag.title}</p>
+                              <p>{isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key}</p>
                               {/* {isAssetTagFramework(tag.framework) && (
                                 <div className="mt-1">
                                   <Label size="mini">
@@ -265,7 +270,7 @@ const EditFile: React.FC<EditFileModalProps> = ({
                             </div>
                           ) : (
                             <CtlTextInput
-                              name={`tags.${index}.title`}
+                              name={`tags.${index}.key`}
                               control={control}
                               fluid
                             />

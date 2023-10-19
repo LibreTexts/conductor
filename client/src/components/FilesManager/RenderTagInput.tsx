@@ -6,7 +6,10 @@ import {
   ProjectFile,
 } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
-import { isAssetTagFramework } from "../../utils/typeHelpers";
+import {
+  isAssetTagFramework,
+  isAssetTagKeyObject,
+} from "../../utils/typeHelpers";
 import { Dropdown } from "semantic-ui-react";
 
 interface RenderTagInputProps {
@@ -63,7 +66,9 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
   }
 
   const templateInFramework = tag.framework.templates.find(
-    (template) => template.title === tag.title
+    (template) =>
+      template.title ===
+      (isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key)
   );
 
   if (templateInFramework) {

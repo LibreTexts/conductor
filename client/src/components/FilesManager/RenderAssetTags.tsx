@@ -1,36 +1,50 @@
 import { Label } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
-import { SemanticCOLORSArray } from "../../utils/misc";
+import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 
 const RenderAssetTags: React.FC<{ file: ProjectFile }> = ({ file }) => {
+  const sortedTags = file.tags?.sort((a, b) => {
+    if (isAssetTagKeyObject(a.key) && isAssetTagKeyObject(b.key)) {
+      return a.key.title.localeCompare(b.key.title);
+    }
+    return 0;
+  });
+
   function getLabelValue(tag: AssetTag) {
-    const text = tag.title + ": " + tag.value.toString();
+    const title = isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key;
+    const text = title + ": " + tag.value.toString();
     const truncated = truncateString(text, 20);
     return truncated;
   }
 
-  // Get a random color from SemanticCOLORSArray
-  function getLabelColor() {
-    // Remove grey from the array, reserve it for the "more" truncation label
-    const colors = SemanticCOLORSArray.filter((color) => color !== "grey");
-    const randomElement =
-      colors[
-        Math.floor(Math.random() * colors.length)
-      ];
-    return randomElement;
+  function getLabelColor(tag: AssetTag) {
+    if(tag.key && isAssetTagKeyObject(tag.key)) {
+      return tag.key.hex;
+    }
+    return "grey";
   }
 
   return (
     <div className="asset-tag-container">
-      {file.tags?.slice(0, 5).map((tag) => (
-        <Label color={getLabelColor()} size="tiny" key={tag.uuid}>
+      {!sortedTags ||
+        (sortedTags.length === 0 && (
+          <span className="muted-text italic">No associated tags</span>
+        ))}
+      {sortedTags?.slice(0, 5).map((tag) => (
+        <Label style={
+          {
+            backgroundColor: getLabelColor(tag).toString(),
+            borderColor: getLabelColor(tag).toString(),
+            color: "white"
+          }
+        } size="tiny" key={tag.uuid}>
           {getLabelValue(tag)}
         </Label>
       ))}
-      {file.tags && file.tags?.length > 5 ? (
+      {sortedTags && sortedTags?.length > 5 ? (
         <Label color="grey" size="tiny">
-          +{file.tags?.length - 5} more
+          +{sortedTags?.length - 5} more
         </Label>
       ) : (
         <></>
