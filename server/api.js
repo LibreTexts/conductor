@@ -541,7 +541,7 @@ router.route('/commons/catalogs/addresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  middleware.validateZod(booksAPI.getWithBookIDSchema),
+  middleware.validateZod(booksAPI.getWithBookIDBodySchema),
   booksAPI.addBookToCustomCatalog,
 );
 
@@ -549,7 +549,7 @@ router.route('/commons/catalogs/removeresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  middleware.validateZod(booksAPI.getWithBookIDSchema),
+  middleware.validateZod(booksAPI.getWithBookIDBodySchema),
   booksAPI.removeBookFromCustomCatalog,
 );
 
