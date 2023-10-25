@@ -1,0 +1,1 @@
+export type BookSortOption = 'random' | 'author' | 'title';
