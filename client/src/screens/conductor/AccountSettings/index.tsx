@@ -61,15 +61,6 @@ const AccountSettings = () => {
   }, [setAccount, setLoading, handleGlobalError]);
 
   /**
-   * Activate the default pane if one is not yet active.
-   */
-  useEffect(() => {
-    if (!activePane) {
-      history.push(`/account/${DEFAULT_ACTIVE_PANE}`);
-    }
-  }, [activePane, history]);
-
-  /**
    * Set the page title and gather data from the server on load.
    */
   useEffect(() => {
