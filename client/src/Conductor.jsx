@@ -24,10 +24,13 @@ import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
+const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
+const KBEditPage = lazy(() => import('./screens/conductor/kb/KBEditPage'));
 const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
 import Navbar from './components/navigation/Navbar';
+import KBNavbar from './components/kb/Navbar';
 import OrganizationsManager from './components/controlpanel/OrganizationsManager';
 import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
@@ -53,6 +56,13 @@ const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
 
+const RenderNavbar = () => {
+  if(window.location.pathname.includes('/kb')){
+    return <KBNavbar />;
+  }
+  return <Navbar />
+}
+
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
  */
@@ -63,7 +73,7 @@ const Conductor = () => {
 
   return (
     <div className='conductor'>
-      <Navbar />
+      <RenderNavbar />
       <Suspense fallback={<LoadingSpinner />}>
         <Switch>
         <AnonRoute exact path='/login' component={Login} />
@@ -108,6 +118,8 @@ const Conductor = () => {
         <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
+          <Route exact path='/kb' key='kb' component={KnowledgeBase} />,
+          <Route exact path='/kb/page/edit/:id' key='kbpage' component={KBEditPage} />
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 
