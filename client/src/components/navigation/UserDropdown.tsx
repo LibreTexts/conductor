@@ -28,7 +28,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
         {showAvatar && <Image src={`${user.avatar}`} avatar />}
         <Dropdown text={user.firstName + " " + user.lastName}>
           <Dropdown.Menu direction="left">
-            <Dropdown.Item as={Link} to="/account">
+            <Dropdown.Item as={Link} to="/account/overview">
               <Icon name="settings" />
               Settings
             </Dropdown.Item>
@@ -45,7 +45,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
 
   return (
     <Menu.Menu className="!mt-2 !pl-0">
-      <Menu.Item as={Link} to="/account">
+      <Menu.Item as={Link} to="/account/overview">
         <Icon name="settings" />
         Settings
       </Menu.Item>
