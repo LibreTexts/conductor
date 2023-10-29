@@ -10,7 +10,7 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import axios from "axios";
 
-interface ConfirmDeleteModalProps extends ModalProps {
+interface ConfirmDeleteFeaturedModalProps extends ModalProps {
   open: boolean;
   onClose: () => void;
   type: "page" | "video";
@@ -18,7 +18,7 @@ interface ConfirmDeleteModalProps extends ModalProps {
   onDeleted: () => void;
 }
 
-const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
+const ConfirmDeleteFeaturedModal: React.FC<ConfirmDeleteFeaturedModalProps> = ({
   open,
   onClose,
   type,
@@ -64,7 +64,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
         <Button color="red" loading={loading} onClick={() => handleDelete()}>
           <Icon name="trash" /> Delete
         </Button>
-        <Button onClick={onClose}>
+        <Button onClick={onClose} loading={loading}>
           <Icon name="cancel" /> Cancel
         </Button>
       </Modal.Actions>
@@ -72,4 +72,4 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   );
 };
 
-export default ConfirmDeleteModal;
+export default ConfirmDeleteFeaturedModal;

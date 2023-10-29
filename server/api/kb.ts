@@ -5,6 +5,7 @@ import {
   CreateKBPageValidator,
   DeleteKBFeaturedPageValidator,
   DeleteKBFeaturedVideoValidator,
+  DeleteKBPageValidator,
   GetKBPageValidator,
   GetKBTreeValidator,
   UpdateKBPageValidator,
@@ -25,10 +26,16 @@ async function getKBPage(
 ) {
   try {
     const { uuid } = req.params;
+    const { path } = req.query;
 
-    const kbPage = await KBPage.findOne({
-      $and: [{ uuid }],
-    })
+    let matchObj = {};
+    if (uuid) {
+      matchObj = { uuid };
+    } else if (path) {
+      matchObj = { url: path };
+    }
+
+    const kbPage = await KBPage.findOne(matchObj)
       .populate({
         path: "lastEditedBy",
         model: "User",
@@ -138,9 +145,12 @@ async function createKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, parent, lastEditedBy } = req.body;
+    const { title, description, body, url, status, parent, lastEditedBy } =
+      req.body;
 
     const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
+
+    const safeURL = _generatePageURL(title, url);
 
     const kbPage = await KBPage.create({
       uuid: v4(),
@@ -148,6 +158,7 @@ async function createKBPage(
       description,
       body: _sanitizeBodyContent(body),
       status,
+      url: safeURL,
       parent,
       lastEditedBy: editor._id,
     });
@@ -167,8 +178,11 @@ async function updateKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, parent, lastEditedBy } = req.body;
+    const { title, description, body, status, url, parent, lastEditedBy } =
+      req.body;
     const { uuid } = req.params;
+
+    const safeURL = _generatePageURL(title, url);
 
     const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
     const kbPage = await KBPage.findOneAndUpdate(
@@ -177,6 +191,7 @@ async function updateKBPage(
         title,
         description,
         body: _sanitizeBodyContent(body),
+        url: safeURL,
         status,
         parent,
         lastEditedBy: editor._id,
@@ -193,9 +208,53 @@ async function updateKBPage(
   }
 }
 
+async function deleteKBPage(
+  req: z.infer<typeof DeleteKBPageValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+
+    const page = await KBPage.findOneAndDelete({ uuid }).orFail();
+
+    return res.send({
+      err: false,
+      page,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function getKBFeaturedContent(req: Request, res: Response) {
   try {
-    const pages = await KBFeaturedPage.find().lean();
+    const pages = await KBFeaturedPage.aggregate([
+      {
+        $lookup: {
+          from: "kbpages",
+          localField: "page",
+          foreignField: "uuid",
+          as: "page",
+        },
+      },
+      {
+        $unwind: "$page",
+      },
+      {
+        $project: {
+          uuid: 1,
+          page: {
+            uuid: "$page.uuid",
+            title: "$page.title",
+            description: "$page.description",
+            status: "$page.status",
+            parent: "$page.parent",
+          },
+        },
+      },
+    ]);
+
     const videos = await KBFeaturedVideo.find().lean();
 
     return res.send({
@@ -300,11 +359,19 @@ function _sanitizeBodyContent(content: string) {
   }
 }
 
+function _generatePageURL(title: string, userInput?: string) {
+  if (userInput) {
+    return encodeURIComponent(userInput);
+  }
+  return encodeURIComponent(title);
+}
+
 export default {
   getKBPage,
   getKBTree,
   createKBPage,
   updateKBPage,
+  deleteKBPage,
   getKBFeaturedContent,
   createKBFeaturedPage,
   deleteKBFeaturedPage,

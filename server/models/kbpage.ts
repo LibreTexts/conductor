@@ -6,6 +6,7 @@ export interface KBPageInterface extends Document {
   description: string;
   body: string;
   status: "draft" | "published";
+  url: string;
   parent?: string;
   lastEditedBy: Schema.Types.ObjectId;
 }
@@ -33,6 +34,10 @@ const KBPageSchema = new Schema<KBPageInterface>(
       enum: ["draft", "published"],
       default: "draft",
     },
+    url: {
+      type: String,
+      required: true,
+    },
     parent: {
       type: String,
     },
@@ -49,6 +54,7 @@ const KBPageSchema = new Schema<KBPageInterface>(
 
 KBPageSchema.index({ title: "text", description: "text", body: "text" });
 KBPageSchema.index({ uuid: 1 }, { unique: true });
+KBPageSchema.index({ url: 1 }, { unique: true }); // URL must be unique
 KBPageSchema.index({ parent: 1 });
 
 const KBPage = model<KBPageInterface>("KBPage", KBPageSchema);

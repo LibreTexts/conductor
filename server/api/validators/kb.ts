@@ -7,7 +7,22 @@ const KBUUIDParams = z.object({
 });
 
 // KB Pages
-export const GetKBPageValidator = KBUUIDParams;
+export const GetKBPageValidator = z
+  .object({
+    params: z.object({
+      uuid: z.string().uuid().optional(),
+    }),
+    query: z.object({
+      path: z.string().optional(),
+    }),
+  })
+  .refine((data) => {
+    if (!data.params.uuid && !data.query.path) {
+      throw new Error("Either uuid or path must be provided");
+    }
+    return true;
+  });
+
 export const DeleteKBPageValidator = KBUUIDParams;
 
 export const CreateKBPageValidator = z.object({
@@ -16,6 +31,7 @@ export const CreateKBPageValidator = z.object({
     description: z.string().max(200),
     body: z.string(),
     status: z.enum(["draft", "published"]),
+    url: z.string().optional(),
     parent: z.string().uuid().optional(),
     lastEditedBy: z.string().uuid(),
   }),

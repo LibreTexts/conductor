@@ -8,6 +8,7 @@ export type KBPage = {
   description: string;
   body: string;
   status: "draft" | "published";
+  url: string;
   parent?: string;
   lastEditedBy: string | KBPageEditor;
   createdAt: string;

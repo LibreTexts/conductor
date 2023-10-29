@@ -4,6 +4,7 @@ import axios from "axios";
 import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import { Icon, Popup } from "semantic-ui-react";
+import { truncateString } from "../util/HelperFunctions";
 
 const NavTree = forwardRef((props, ref) => {
   const { handleGlobalError } = useGlobalError();
@@ -22,7 +23,6 @@ const NavTree = forwardRef((props, ref) => {
 
   async function loadTree() {
     try {
-      console.log("loading tree");
       setLoading(true);
       const res = await axios.get(`/kb/tree`);
       if (res.data.err) {
@@ -54,7 +54,7 @@ const NavTree = forwardRef((props, ref) => {
   return (
     <div aria-busy={loading} className="h-screen w-1/6 border-r-2 p-4">
       <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
-        <p className="text-xl font-semibold">Knowledge Base</p>
+        <a className="text-xl font-semibold text-black" href="/kb/welcome">Knowledge Base</a>
         {user.isSuperAdmin && (
           <Popup
             trigger={
@@ -80,7 +80,7 @@ const NavTree = forwardRef((props, ref) => {
                 className="text-lg font-semibold text-black"
                 href={getLink(node.uuid)}
               >
-                - {node.title}
+                {truncateString(node.title, 50)}
               </a>
               {user.isSuperAdmin && (
                 <Popup
@@ -108,7 +108,7 @@ const NavTree = forwardRef((props, ref) => {
                         className="text-md font-semibold text-gray-600"
                         href={getLink(child.uuid)}
                       >
-                        - {child.title}
+                        {truncateString(child.title, 50)}
                       </a>
                     </div>
                   );

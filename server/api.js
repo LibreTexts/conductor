@@ -1452,6 +1452,12 @@ router.route('/kb/page/:uuid').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(kbValidators.UpdateKBPageValidator),
   kbAPI.updateKBPage  
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.DeleteKBPageValidator),
+  kbAPI.deleteKBPage
 )
 
 router.route('/kb/featured').get(

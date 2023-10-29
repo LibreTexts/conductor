@@ -15,7 +15,7 @@ const KBJumbotron: React.FC<{}> = ({}) => {
       <h1 className="text-5xl text-white font-bold">Knowledge Base</h1>
       <p className="text-white text-xl mt-2">
         Search the Knowledge Base for help with all of your LibreTexts
-        questions.
+        apps & services.
       </p>
       <Form
         className="mt-8 w-full flex justify-center"
@@ -32,6 +32,7 @@ const KBJumbotron: React.FC<{}> = ({}) => {
           value={search}
         />
       </Form>
+      <a className="mt-4 text-white text-sm underline" href="/kb/welcome">View All Content</a>
     </div>
   );
 };

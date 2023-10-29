@@ -51,7 +51,9 @@ const KBPage = () => {
   return (
     <DefaultLayoutWNavTree ref={defaultLayoutRef}>
       <AdminOptions />
-      {mode === "view" && parsedID && <KBPageViewMode id={parsedID} />}
+      {mode === "view" && parsedID && (
+        <KBPageViewMode id={parsedID} canEdit={user && user.isSuperAdmin} />
+      )}
       {["create", "edit"].includes(mode) && (
         <KBPageEditMode
           mode={mode}

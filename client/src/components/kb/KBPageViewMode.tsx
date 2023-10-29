@@ -5,8 +5,10 @@ import axios from "axios";
 import { KBPage } from "../../types";
 import KBRenderer from "./KBRenderer";
 import PageLastEditor from "./PageLastEditor";
+import KBFooter from "./KBFooter";
+import PageStatusLabel from "./PageStatusLabel";
 
-const KBPageViewMode = ({ id }: { id?: string | null }) => {
+const KBPageViewMode = ({ id, canEdit }: { id?: string | null; canEdit?: boolean }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<KBPage | null>(null);
@@ -37,14 +39,29 @@ const KBPageViewMode = ({ id }: { id?: string | null }) => {
 
   return (
     <div aria-busy={loading}>
-      <div className="flex flex-row justify-between">
+      <div className="flex flex-row items-center">
         <p className="text-4xl font-semibold">{page?.title}</p>
+        {
+          canEdit && (
+            <PageStatusLabel status={page?.status} />
+          )
+        }
       </div>
-      <PageLastEditor lastEditedBy={page?.lastEditedBy} updatedAt={page?.updatedAt} />
-      <p className="mt-2"><span className="font-medium">Description</span>: <span className="italic">{page?.description}</span></p>
+      <p>
+        <span className="font-medium">Description</span>:{" "}
+        <span className="italic">{page?.description}</span>
+      </p>
+      <div className="border-b">
+      <PageLastEditor
+        lastEditedBy={page?.lastEditedBy}
+        updatedAt={page?.updatedAt}
+      />
+      </div>
+      
       <div className="my-8">
         <KBRenderer content={page?.body} />
       </div>
+      <KBFooter />
     </div>
   );
 };

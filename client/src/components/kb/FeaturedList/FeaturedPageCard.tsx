@@ -2,7 +2,8 @@ import "./FeaturedList.css";
 import { lazy, useState } from "react";
 import { KBFeaturedPage } from "../../../types";
 import { Icon } from "semantic-ui-react";
-const ConfirmDeleteModal = lazy(() => import("./ConfirmDeleteModal"));
+import { truncateString } from "../../util/HelperFunctions";
+const ConfirmDeleteFeaturedModal = lazy(() => import("./ConfirmDeleteFeaturedModal"));
 
 const FeaturedPageCard = ({
   page,
@@ -20,22 +21,30 @@ const FeaturedPageCard = ({
     onDeleted();
   }
 
+  function handleClicked() {
+    window.location.assign(`/kb/page/${page.uuid}`);
+  }
+
   return (
-    <div className="app-item-container">
+    <div className="app-item-container" onClick={handleClicked}>
       {canDelete && (
-        <div className="flex flex-row justify-end w-full mb-2">
-          <Icon
-            name="trash"
-            size="small"
-            onClick={() => setShowDeleteModal(true)}
-          />
+        <div
+          className="flex flex-row justify-end w-full mb-2"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowDeleteModal(true);
+          }}
+        >
+          <Icon name="trash" size="small" />
         </div>
       )}
-      <div className="app-item-text-container">
-        <p className="app-item-header">{page.page.title}</p>
-        <p className="app-item-descrip">{}</p>
+      <div className="flex flex-col">
+        <p className="text-xl font-semibold">
+          {truncateString(page.page.title, 50)}
+        </p>
+        <p className="text-sm">{truncateString(page.page.description, 100)}</p>
       </div>
-      <ConfirmDeleteModal
+      <ConfirmDeleteFeaturedModal
         open={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         type="page"
