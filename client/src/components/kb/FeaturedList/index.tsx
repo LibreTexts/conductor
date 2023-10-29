@@ -1,22 +1,132 @@
-import FeaturedListArticleCard from "./FeaturedListArticleCard";
+import { Button, Icon } from "semantic-ui-react";
+import { useTypedSelector } from "../../../state/hooks";
+import FeaturedPageCard from "./FeaturedPageCard";
+import useGlobalError from "../../error/ErrorHooks";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { KBFeaturedPage, KBFeaturedVideo } from "../../../types";
+import FeaturedVideoCard from "./FeaturedVideoCard";
+import AddPageModal from "./AddPageModal";
+import AddVideoModal from "./AddVideoModal";
+import "./FeaturedList.css";
 
 const FeaturedList = () => {
+  const { handleGlobalError } = useGlobalError();
+  const user = useTypedSelector((state) => state.user);
+
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [featuredPages, setFeaturedPages] = useState<KBFeaturedPage[]>([]);
+  const [featuredVideos, setFeaturedVideos] = useState<KBFeaturedVideo[]>([]);
+  const [showAddPage, setShowAddPage] = useState(false);
+  const [showAddVideo, setShowAddVideo] = useState(false);
+
+  useEffect(() => {
+    loadFeaturedContent();
+  }, []);
+
+  async function loadFeaturedContent() {
+    try {
+      setLoadingContent(true);
+      const res = await axios.get("/kb/featured");
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.pages || !res.data.videos) {
+        throw new Error("No featured content found.");
+      }
+      if (!Array.isArray(res.data.pages) || !Array.isArray(res.data.videos)) {
+        throw new Error("Invalid response from server.");
+      }
+      setFeaturedPages(res.data.pages);
+      setFeaturedVideos(res.data.videos);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadingContent(false);
+    }
+  }
+
+  function handleCloseAddPage() {
+    setShowAddPage(false);
+    loadFeaturedContent();
+  }
+
+  function handleCloseAddVideo() {
+    setShowAddVideo(false);
+    loadFeaturedContent();
+  }
+
   return (
-    <div className="p-8">
-      <p className="text-3xl font-bold">Featured Content</p>
-      <p className="text-xl font-semibold">
-        Explore featured knowledge base articles and videos curated by the
-        LibreTexts team.
-      </p>
+    <div className="p-8" aria-busy={loadingContent}>
+      <div className="flex flex-row justify-between">
+        <div className="flex flex-col">
+          <p className="text-3xl font-bold">Featured Content</p>
+          <p className="text-xl font-semibold">
+            Explore featured knowledge base articles and videos curated by the
+            LibreTexts team.
+          </p>
+        </div>
+        {user.isSuperAdmin && (
+          <div>
+            <Button
+              size="tiny"
+              color="blue"
+              onClick={() => setShowAddPage(true)}
+            >
+              <Icon name="plus" />
+              Add Featured Article
+            </Button>
+            <Button
+              size="tiny"
+              color="blue"
+              onClick={() => setShowAddVideo(true)}
+            >
+              <Icon name="plus" />
+              Add Featured Video
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="mt-8">
         <p className="text-lg font-semibold">Featured Articles</p>
-        <div className="mt-4">
-        <FeaturedListArticleCard />
+        <div className="items-list">
+          {featuredPages.length > 0 &&
+            featuredPages.map((page) => (
+              <FeaturedPageCard
+                key={page.uuid}
+                page={page}
+                canDelete={user.isSuperAdmin}
+                onDeleted={loadFeaturedContent}
+              />
+            ))}
+          {featuredPages.length === 0 && (
+            <p className="text-md text-gray-500 italic">
+              No featured articles yet!.
+            </p>
+          )}
         </div>
       </div>
       <div className="mt-8">
         <p className="text-lg font-semibold">Featured Videos</p>
+        <div className="items-list">
+          {featuredPages.length > 0 &&
+            featuredVideos.map((video) => (
+              <FeaturedVideoCard
+                key={video.uuid}
+                video={video}
+                canDelete={user.isSuperAdmin}
+                onDeleted={loadFeaturedContent}
+              />
+            ))}
+          {featuredVideos.length === 0 && (
+            <p className="text-md text-gray-500 italic">
+              No featured videos yet!.
+            </p>
+          )}
+        </div>
       </div>
+      <AddPageModal open={showAddPage} onClose={handleCloseAddPage} />
+      <AddVideoModal open={showAddVideo} onClose={handleCloseAddVideo} />
     </div>
   );
 };

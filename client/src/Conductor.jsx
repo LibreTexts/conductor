@@ -25,7 +25,7 @@ import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
 const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
-const KBEditPage = lazy(() => import('./screens/conductor/kb/KBEditPage'));
+const KBPage = lazy(() => import('./screens/conductor/kb/KBPage'));
 const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
@@ -119,7 +119,7 @@ const Conductor = () => {
         {(org.orgID === 'libretexts') && [
           <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
           <Route exact path='/kb' key='kb' component={KnowledgeBase} />,
-          <Route exact path='/kb/page/edit/:id' key='kbpage' component={KBEditPage} />
+          <Route exact path='/kb/page/:id' key='kbpageview' component={KBPage} />,
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 

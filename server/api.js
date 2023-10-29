@@ -32,6 +32,9 @@ import CIDDescriptorsAPI from './api/ciddescriptors.js';
 import analyticsAPI from './api/analytics.js';
 import orgEventsAPI from './api/orgevents.js';
 import paymentsAPI from './api/payments.js';
+import kbAPI from './api/kb.js';
+
+import * as kbValidators from './api/validators/kb.js';
 
 const router = express.Router();
 
@@ -1426,5 +1429,65 @@ router.route('/payments/webhook').post(
   express.raw({ type: 'application/json' }),
   paymentsAPI.processStripeWebhookEvent,
 );
+
+router.route('/kb/tree').get(
+  authAPI.optionalVerifyRequest,
+  kbAPI.getKBTree
+)
+
+router.route('/kb/page').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.CreateKBPageValidator),
+  kbAPI.createKBPage
+)
+
+router.route('/kb/page/:uuid').get(
+  middleware.validateZod(kbValidators.GetKBPageValidator),
+  kbAPI.getKBPage
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.UpdateKBPageValidator),
+  kbAPI.updateKBPage  
+)
+
+router.route('/kb/featured').get(
+  kbAPI.getKBFeaturedContent
+)
+
+router.route('/kb/featured/page').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.CreateKBFeaturedPageValidator),
+  kbAPI.createKBFeaturedPage
+)
+
+router.route('/kb/featured/page/:uuid').delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.DeleteKBFeaturedPageValidator),
+  kbAPI.deleteKBFeaturedPage
+)
+
+router.route('/kb/featured/video').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.CreateKBFeaturedVideoValidator),
+  kbAPI.createKBFeaturedVideo
+)
+
+router.route('/kb/featured/video/:uuid').delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(kbValidators.DeleteKBFeaturedVideoValidator),
+  kbAPI.deleteKBFeaturedVideo
+)
 
 export default router;

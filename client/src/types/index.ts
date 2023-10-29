@@ -61,6 +61,15 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "./CentralIdentity";
 
+import {
+  KBPage,
+  KBPageEditor,
+  KBTreeNode,
+  KBFeaturedPage,
+  KBFeaturedVideo,
+  KBFeaturedContent
+} from "./kb";
+
 export type {
   CentralIdentityUser,
   CentralIdentityOrg,
@@ -110,6 +119,12 @@ export type {
   CustomFormTextBlock,
   CustomFormUIType,
   CustomFormElement,
+  KBPage,
+  KBPageEditor,
+  KBTreeNode,
+  KBFeaturedPage,
+  KBFeaturedVideo,
+  KBFeaturedContent
 };
 
 export {
