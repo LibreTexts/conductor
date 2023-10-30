@@ -1430,6 +1430,11 @@ router.route('/payments/webhook').post(
   paymentsAPI.processStripeWebhookEvent,
 );
 
+router.route('/kb/search').get(
+  middleware.validateZod(kbValidators.SearchKBValidator),
+  kbAPI.searchKB
+)
+
 router.route('/kb/tree').get(
   authAPI.optionalVerifyRequest,
   kbAPI.getKBTree
@@ -1441,6 +1446,11 @@ router.route('/kb/page').post(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(kbValidators.CreateKBPageValidator),
   kbAPI.createKBPage
+)
+
+router.route('/kb/page/slug/:slug').get(
+  middleware.validateZod(kbValidators.GetKBPageValidator),
+  kbAPI.getKBPage
 )
 
 router.route('/kb/page/:uuid').get(

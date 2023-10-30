@@ -7,3 +7,9 @@ export type GenericKeyTextValueObj<T> = {
 };
 
 export type TimeZoneOption = ITimezoneOption;
+
+export type AtlasSearchHighlight = {
+  path: string;
+  score: number;
+  text: { value: string, type: string }[];
+};

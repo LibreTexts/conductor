@@ -7,22 +7,25 @@ import KBRenderer from "./KBRenderer";
 import PageLastEditor from "./PageLastEditor";
 import KBFooter from "./KBFooter";
 import PageStatusLabel from "./PageStatusLabel";
+import { checkIsUUID } from "../../utils/kbHelpers";
 
-const KBPageViewMode = ({ id, canEdit }: { id?: string | null; canEdit?: boolean }) => {
+const KBPageViewMode = ({ slug, canEdit }: { slug?: string | null; canEdit?: boolean }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<KBPage | null>(null);
 
   useEffect(() => {
-    if (id) {
+    if (slug) {
       loadPage();
     }
   }, []);
 
   async function loadPage() {
     try {
+      const isUUID = checkIsUUID(slug);
+
       setLoading(true);
-      const res = await axios.get(`/kb/page/${id}`);
+      const res = await axios.get(`/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }

@@ -1,10 +1,40 @@
 import React, { useState } from "react";
 import { Form } from "semantic-ui-react";
+import "./index.css"
+import useGlobalError from "../../error/ErrorHooks";
+import axios from "axios";
+import KBSearchForm from "../KBSearchForm";
 
-const KBJumbotron: React.FC<{}> = ({}) => {
+const KBJumbotron: React.FC<{}> = ({ }) => {
+  const { handleGlobalError } = useGlobalError();
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+
   async function handleSearch() {
-    console.log("searching...");
+    try {
+      if (!search) return;
+      setLoading(true);
+      // const res = await axios.get('/kb/search', {
+      //   params: {
+      //     query: search
+      //   }
+      // })
+
+      // if(res.data.err){
+      //   throw new Error(res.data.err)
+      // }
+
+      // if(!res.data.pages || !Array.isArray(res.data.pages)) {
+      //   throw new Error("Invalid response from server")
+      // }
+
+      // console.log(res.data.pages)
+      window.location.href = `/kb/search?query=${encodeURIComponent(search)}`;
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -17,22 +47,13 @@ const KBJumbotron: React.FC<{}> = ({}) => {
         Search the Knowledge Base for help with all of your LibreTexts
         apps & services.
       </p>
-      <Form
-        className="mt-8 w-full flex justify-center"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSearch();
-        }}
-      >
-        <Form.Input
-          id="kb-search"
-          icon="search"
-          placeholder="Search the Knowledge Base..."
-          className="w-3/4"
-          value={search}
-        />
-      </Form>
+      <div className="mt-8 w-full">
+        <KBSearchForm />
+      </div>
       <a className="mt-4 text-white text-sm underline" href="/kb/welcome">View All Content</a>
+      <div className="typewriter mt-8 italic opacity-75">
+        <p>All of your LibreTexts questions, answered.</p>
+      </div>
     </div>
   );
 };

@@ -5,7 +5,7 @@ import axios from "axios";
 
 interface ConfirmDeletePageModalProps extends ModalProps {
   open: boolean;
-  id: string;
+  uuid: string;
   onClose: () => void;
   onDeleted: () => void;
 }
@@ -13,7 +13,7 @@ interface ConfirmDeletePageModalProps extends ModalProps {
 const ConfirmDeletePageModal: React.FC<ConfirmDeletePageModalProps> = ({
   open,
   onClose,
-  id,
+  uuid,
   onDeleted,
   ...rest
 }) => {
@@ -23,9 +23,9 @@ const ConfirmDeletePageModal: React.FC<ConfirmDeletePageModalProps> = ({
   async function handleDelete() {
     try {
       setLoading(true);
-      if (!id) return;
+      if (!uuid) return;
 
-      const res = await axios.delete(`/kb/page/${id}`);
+      const res = await axios.delete(`/kb/page/${uuid}`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }

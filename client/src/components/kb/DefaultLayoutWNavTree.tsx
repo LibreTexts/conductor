@@ -18,7 +18,7 @@ const DefaultLayoutWNavTree = forwardRef(
     }));
 
     return (
-      <div className="bg-white h-full">
+      <div className="bg-white min-h-screen">
         <div className="flex flex-row w-full">
           <NavTree ref={navTreeRef} />
           <div className="p-8 w-5/6">{props.children}</div>

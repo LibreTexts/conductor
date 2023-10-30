@@ -2,12 +2,12 @@ import { Button, Icon } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 import FeaturedPageCard from "./FeaturedPageCard";
 import useGlobalError from "../../error/ErrorHooks";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy } from "react";
 import axios from "axios";
 import { KBFeaturedPage, KBFeaturedVideo } from "../../../types";
 import FeaturedVideoCard from "./FeaturedVideoCard";
-import AddPageModal from "./AddPageModal";
-import AddVideoModal from "./AddVideoModal";
+const AddPageModal = lazy(() => import("./AddPageModal"));
+const AddVideoModal = lazy(() => import("./AddVideoModal"));
 import "./FeaturedList.css";
 
 const FeaturedList = () => {
@@ -57,8 +57,8 @@ const FeaturedList = () => {
   }
 
   return (
-    <div className="p-8" aria-busy={loadingContent}>
-      <div className="flex flex-row justify-between">
+    <div className="flex flex-col p-8" aria-busy={loadingContent}>
+      <div className="flex flex-col lg:flex-row justify-between">
         <div className="flex flex-col">
           <p className="text-3xl font-bold">Featured Content</p>
           <p className="text-xl font-semibold">
@@ -67,7 +67,7 @@ const FeaturedList = () => {
           </p>
         </div>
         {user.isSuperAdmin && (
-          <div>
+          <div className="mt-2 lg:mt-0">
             <Button
               size="tiny"
               color="blue"

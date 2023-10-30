@@ -27,8 +27,10 @@ const AddPageModal: React.FC<AddPageModalProps> = ({
   const [tree, setTree] = useState<KBTreeNode[]>([]);
 
   useEffect(() => {
-    loadTree();
-  }, []);
+    if (open) {
+      loadTree();
+    }
+  }, [open]);
 
   async function loadTree() {
     try {
@@ -58,7 +60,6 @@ const AddPageModal: React.FC<AddPageModalProps> = ({
       res.data.tree.forEach((node: KBTreeNode) => {
         flatten(node);
       });
-
       setTree(flattenedTree);
     } catch (err) {
       handleGlobalError(err);

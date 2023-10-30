@@ -22,7 +22,7 @@ const FeaturedPageCard = ({
   }
 
   function handleClicked() {
-    window.location.assign(`/kb/page/${page.uuid}`);
+    window.location.assign(`/kb/${page.page.slug}`);
   }
 
   return (

@@ -39,20 +39,21 @@ const NavTree = forwardRef((props, ref) => {
     }
   }
 
-  const getLink = (uuid: string) => {
-    return `/kb/page/${uuid}`;
+  const getLink = (slug: string) => {
+    if(!slug) return `/kb/welcome`;
+    return `/kb/${slug}`;
   };
 
   function handleCreatePage(parent?: string) {
     if (!parent) {
-      window.location.assign(`/kb/page/new`);
+      window.location.assign(`/kb/new`);
     } else {
-      window.location.assign(`/kb/page/new?parent=${parent}`);
+      window.location.assign(`/kb/new?parent=${parent}`);
     }
   }
 
   return (
-    <div aria-busy={loading} className="h-screen w-1/6 border-r-2 p-4">
+    <div aria-busy={loading} className="h-auto min-h-screen w-1/6 border-r-2 p-4">
       <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
         <a className="text-xl font-semibold text-black" href="/kb/welcome">Knowledge Base</a>
         {user.isSuperAdmin && (
@@ -78,7 +79,7 @@ const NavTree = forwardRef((props, ref) => {
             <div className="flex flex-row justify-between items-center">
               <a
                 className="text-lg font-semibold text-black"
-                href={getLink(node.uuid)}
+                href={getLink(node.slug)}
               >
                 {truncateString(node.title, 50)}
               </a>
@@ -106,7 +107,7 @@ const NavTree = forwardRef((props, ref) => {
                     <div key={child.uuid} className="p-2">
                       <a
                         className="text-md font-semibold text-gray-600"
-                        href={getLink(child.uuid)}
+                        href={getLink(child.slug)}
                       >
                         {truncateString(child.title, 50)}
                       </a>

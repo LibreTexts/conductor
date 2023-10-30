@@ -11,14 +11,12 @@ export const GetKBPageValidator = z
   .object({
     params: z.object({
       uuid: z.string().uuid().optional(),
-    }),
-    query: z.object({
-      path: z.string().optional(),
-    }),
+      slug: z.string().optional(),
+    })
   })
   .refine((data) => {
-    if (!data.params.uuid && !data.query.path) {
-      throw new Error("Either uuid or path must be provided");
+    if (!data.params.uuid && !data.params.slug) {
+      throw new Error("Either uuid or slug must be provided");
     }
     return true;
   });
@@ -31,13 +29,24 @@ export const CreateKBPageValidator = z.object({
     description: z.string().max(200),
     body: z.string(),
     status: z.enum(["draft", "published"]),
-    url: z.string().optional(),
+    slug: z.string().optional(),
     parent: z.string().uuid().optional(),
     lastEditedBy: z.string().uuid(),
+  }).refine((data) => {
+    if(data.slug && ['new', 'edit', 'create', 'welcome'].includes(data.slug)){
+      throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");
+    }
+    return true;
   }),
 });
 
 export const UpdateKBPageValidator = KBUUIDParams.merge(CreateKBPageValidator);
+
+export const SearchKBValidator = z.object({
+  query: z.object({
+    query: z.string().min(3),
+  }),
+})
 
 // KB Tree
 export const GetKBTreeValidator = z.object({

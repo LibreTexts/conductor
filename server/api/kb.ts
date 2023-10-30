@@ -8,6 +8,7 @@ import {
   DeleteKBPageValidator,
   GetKBPageValidator,
   GetKBTreeValidator,
+  SearchKBValidator,
   UpdateKBPageValidator,
 } from "./validators/kb.js";
 import { Request, Response } from "express";
@@ -25,14 +26,13 @@ async function getKBPage(
   res: Response
 ) {
   try {
-    const { uuid } = req.params;
-    const { path } = req.query;
+    const { uuid, slug } = req.params;
 
     let matchObj = {};
     if (uuid) {
       matchObj = { uuid };
-    } else if (path) {
-      matchObj = { url: path };
+    } else if (slug) {
+      matchObj = { slug: slug.toLowerCase() };
     }
 
     const kbPage = await KBPage.findOne(matchObj)
@@ -90,6 +90,7 @@ async function getKBTree(
     const mapped = treeRes.map((p) => ({
       uuid: p.uuid,
       title: p.title,
+      slug: p.slug,
       status: p.status,
       parent: p.parents && p.parents[0] ? p.parents[0].uuid : undefined,
     }));
@@ -145,12 +146,12 @@ async function createKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, url, status, parent, lastEditedBy } =
+    const { title, description, body, slug, status, parent, lastEditedBy } =
       req.body;
 
     const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
 
-    const safeURL = _generatePageURL(title, url);
+    const safeSlug = _generatePageSlug(title, slug);
 
     const kbPage = await KBPage.create({
       uuid: v4(),
@@ -158,7 +159,7 @@ async function createKBPage(
       description,
       body: _sanitizeBodyContent(body),
       status,
-      url: safeURL,
+      slug: safeSlug,
       parent,
       lastEditedBy: editor._id,
     });
@@ -178,11 +179,11 @@ async function updateKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, url, parent, lastEditedBy } =
+    const { title, description, body, status, slug, parent, lastEditedBy } =
       req.body;
     const { uuid } = req.params;
 
-    const safeURL = _generatePageURL(title, url);
+    const safeURL = _generatePageSlug(title, slug);
 
     const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
     const kbPage = await KBPage.findOneAndUpdate(
@@ -191,7 +192,7 @@ async function updateKBPage(
         title,
         description,
         body: _sanitizeBodyContent(body),
-        url: safeURL,
+        slug: safeURL,
         status,
         parent,
         lastEditedBy: editor._id,
@@ -227,6 +228,50 @@ async function deleteKBPage(
   }
 }
 
+async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
+  try {
+    const { query } = req.query;
+
+    // Use MongoDB Atlas Search to search for pages
+    const pages = await KBPage.aggregate([
+      {
+        $search: {
+          text: {
+            query,
+            path: ["title", "description", "body"],
+            fuzzy: {
+              maxEdits: 2,
+            }
+          },
+          highlight: {
+            path: "title"
+          }
+        },
+      },
+      {
+        $project: {
+          uuid: 1,
+          title: 1,
+          description: 1,
+          slug: 1,
+          status: 1,
+          parent: 1,
+          highlight: { $meta: "searchHighlights" },
+        },
+      },
+    ])
+      .limit(10);
+
+    return res.send({
+      err: false,
+      pages,
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function getKBFeaturedContent(req: Request, res: Response) {
   try {
     const pages = await KBFeaturedPage.aggregate([
@@ -248,6 +293,7 @@ async function getKBFeaturedContent(req: Request, res: Response) {
             uuid: "$page.uuid",
             title: "$page.title",
             description: "$page.description",
+            slug: "$page.slug",
             status: "$page.status",
             parent: "$page.parent",
           },
@@ -359,11 +405,13 @@ function _sanitizeBodyContent(content: string) {
   }
 }
 
-function _generatePageURL(title: string, userInput?: string) {
+function _generatePageSlug(title: string, userInput?: string) {
   if (userInput) {
-    return encodeURIComponent(userInput);
+    const spacesReplaced = userInput.replace(/\s/g, "-");
+    return encodeURIComponent(spacesReplaced.toLowerCase());
   }
-  return encodeURIComponent(title);
+  const spacesReplaced = title.replace(/\s/g, "-");
+  return encodeURIComponent(spacesReplaced.toLowerCase());
 }
 
 export default {
@@ -372,6 +420,7 @@ export default {
   createKBPage,
   updateKBPage,
   deleteKBPage,
+  searchKB,
   getKBFeaturedContent,
   createKBFeaturedPage,
   deleteKBFeaturedPage,

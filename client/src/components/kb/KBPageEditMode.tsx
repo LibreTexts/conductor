@@ -12,15 +12,16 @@ import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
+import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
 const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
 
 const KBPageEditMode = ({
   mode,
-  id,
+  slug,
   onDataChanged,
 }: {
   mode: "create" | "edit" | "view";
-  id?: string | null;
+  slug?: string | null;
   onDataChanged?: () => void;
 }) => {
   const { handleGlobalError } = useGlobalError();
@@ -32,6 +33,7 @@ const KBPageEditMode = ({
         title: "",
         description: "",
         body: "",
+        slug: "",
       },
     });
 
@@ -41,7 +43,7 @@ const KBPageEditMode = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
-    if (mode === "edit" && id) {
+    if (mode === "edit" && slug) {
       loadPage();
     }
     if (mode === "create" && parentQueryParam) {
@@ -51,8 +53,10 @@ const KBPageEditMode = ({
 
   async function loadPage() {
     try {
+      const isUUID = checkIsUUID(slug);
+
       setLoading(true);
-      const res = await axios.get(`/kb/page/${id}`);
+      const res = await axios.get(`/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -69,6 +73,7 @@ const KBPageEditMode = ({
   }
 
   async function handleSave(status: "published" | "draft") {
+    if (!await trigger()) return;
     if (mode === "edit") {
       handleUpdate(status);
     } else {
@@ -79,6 +84,7 @@ const KBPageEditMode = ({
   async function handleCreate(status: "published" | "draft") {
     try {
       setLoading(true);
+      _checkSlug();
 
       const res = await axios.post("/kb/page", {
         ...getValues(),
@@ -88,10 +94,10 @@ const KBPageEditMode = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      if (!res.data.page || !res.data.page.uuid) {
+      if (!res.data.page || !res.data.page.slug) {
         throw new Error("Error creating page");
       }
-      window.location.assign(`/kb/page/${res.data.page.uuid}`); // Redirect to new page
+      window.location.assign(`/kb/${res.data.page.slug}`); // Redirect to new page
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -102,8 +108,10 @@ const KBPageEditMode = ({
   async function handleUpdate(status: "published" | "draft") {
     try {
       setLoading(true);
+      if (!getValues('uuid')) return;
+      _checkSlug();
 
-      const res = await axios.patch(`/kb/page/${id}`, {
+      const res = await axios.patch(`/kb/page/${getValues('uuid')}`, {
         ...getValues(),
         status,
         lastEditedBy: user.uuid,
@@ -123,8 +131,10 @@ const KBPageEditMode = ({
     }
   }
 
-  function handleOpenPublicPage() {
-    window.open(`/kb/page/${id}`, "_blank");
+  function _checkSlug() {
+    if (getValues('slug') && ['new', 'edit', 'create', 'welcome'].includes(getValues('slug'))) {
+      throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");
+    }
   }
 
   const EditorOptions = ({ editMode }: { editMode: boolean }) => {
@@ -141,16 +151,6 @@ const KBPageEditMode = ({
               <Icon name="trash" />
               Delete
             </Button>
-            {getValues("status") === "published" && (
-              <Button
-                loading={loading}
-                onClick={handleOpenPublicPage}
-                size="mini"
-              >
-                <Icon name="external" />
-                View Public Page
-              </Button>
-            )}
             <Button
               color="purple"
               loading={loading}
@@ -249,16 +249,16 @@ const KBPageEditMode = ({
         <div className="mb-4">
           <CtlTextInput
             control={control}
-            name="url"
-            label="URL Path (optional)"
-            placeholder="URL path of the page. Leave blank to auto-generate."
+            name="slug"
+            label="URL Slug (optional) (ex: my-page-title)"
+            placeholder="URL slug of the page. Leave blank to auto-generate."
             fluid
           />
           <p className="text-xs text-gray-500 italic">
-            If you leave this blank, the URL path will be auto-generated based
-            on the page title. If you provide a URL path, it must be unique and
+            If you leave this blank, the URL slug will be auto-generated based
+            on the page title. If you provide a slug, it must be unique and
             will be parsed and safely encoded by the system. Use caution when
-            changing an existing URL path as it may break existing links.
+            changing an existing slug as it may break existing links.
           </p>
         </div>
 
@@ -281,12 +281,12 @@ const KBPageEditMode = ({
         title={getValues("title")}
         content={getValues("body")}
       />
-      {id && (
+      {getValues('uuid') && (
         <ConfirmDeletePageModal
           open={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
           onDeleted={() => window.location.assign("/kb/welcome")}
-          id={id}
+          uuid={getValues("uuid")}
         />
       )}
     </div>

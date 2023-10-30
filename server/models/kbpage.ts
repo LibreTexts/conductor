@@ -6,7 +6,7 @@ export interface KBPageInterface extends Document {
   description: string;
   body: string;
   status: "draft" | "published";
-  url: string;
+  slug: string;
   parent?: string;
   lastEditedBy: Schema.Types.ObjectId;
 }
@@ -34,7 +34,7 @@ const KBPageSchema = new Schema<KBPageInterface>(
       enum: ["draft", "published"],
       default: "draft",
     },
-    url: {
+    slug: {
       type: String,
       required: true,
     },
