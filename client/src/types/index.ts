@@ -9,7 +9,11 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj, TimeZoneOption, AtlasSearchHighlight } from "./Misc";
+import {
+  GenericKeyTextValueObj,
+  TimeZoneOption,
+  AtlasSearchHighlight,
+} from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
@@ -68,8 +72,10 @@ import {
   KBSearchResult,
   KBFeaturedPage,
   KBFeaturedVideo,
-  KBFeaturedContent
+  KBFeaturedContent,
 } from "./kb";
+
+import { SupportTicketGuest, SupportTicket } from "./support";
 
 export type {
   AtlasSearchHighlight,
@@ -127,7 +133,9 @@ export type {
   KBSearchResult,
   KBFeaturedPage,
   KBFeaturedVideo,
-  KBFeaturedContent
+  KBFeaturedContent,
+  SupportTicketGuest,
+  SupportTicket,
 };
 
 export {

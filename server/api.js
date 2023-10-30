@@ -198,7 +198,12 @@ router.route('/central-identity/apps').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.getApplications
+  centralIdentityAPI.getApplicationsPriveledged
+)
+
+router.route('/central-identity/public/apps').get(
+  middleware.checkCentralIdentityConfig,
+  centralIdentityAPI.getApplicationsPublic
 )
 
 router.route('/central-identity/orgs').get(

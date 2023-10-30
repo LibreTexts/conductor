@@ -28,11 +28,11 @@ const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
 const KBPage = lazy(() => import('./screens/conductor/kb/KBPage'));
 const KBCoverPage = lazy(() => import('./screens/conductor/kb/KBCoverPage'));
 const KBSearchResults = lazy(() => import('./screens/conductor/kb/KBSearchResults'));
+import KBNavbar from './components/kb/Navbar';
 const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
 import Navbar from './components/navigation/Navbar';
-import KBNavbar from './components/kb/Navbar';
 import OrganizationsManager from './components/controlpanel/OrganizationsManager';
 import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
@@ -54,6 +54,9 @@ const CentralIdentityInstructorVerifications = lazy(() => import('./screens/cond
 const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
+import SupportCenterNavbar from './components/support/Navbar';
+const SupportCenter = lazy(() => import('./screens/conductor/support'));
+const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -61,6 +64,9 @@ import PageNotFound from './components/util/PageNotFound';
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/kb')){
     return <KBNavbar />;
+  }
+  if(window.location.pathname.includes('/support')){
+    return <SupportCenterNavbar />;
   }
   return <Navbar />
 }
@@ -124,6 +130,8 @@ const Conductor = () => {
           <Route exact path='/kb/search' key='kbsearchresults' component={KBSearchResults} />,
           <Route exact path='/kb/welcome' key='kbwelcome' component={KBCoverPage} />,
           <Route exact path='/kb/:slug' key='kbpageview' component={KBPage} />,
+          <Route exact path='/support' key="support" component={SupportCenter} />,
+          <Route exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} />
         ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
 
