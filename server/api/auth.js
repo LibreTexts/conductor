@@ -568,7 +568,7 @@ async function verifyRequest(req, res, next) {
     return next();
   } catch (e) {
     let tokenExpired = false;
-    if (e.name === "TokenExpiredError") {
+    if (e.code === 'ERR_JWT_EXPIRED') {
       tokenExpired = true;
     } else {
       debugError(e);
