@@ -14,7 +14,9 @@ const KBCoverPage = () => {
           LibreVerse").
         </p>
       </div>
-      <KBFooter className="mt-8" />
+      <div className="mt-12">
+        <KBFooter />
+      </div>
     </DefaultLayoutWNavTree>
   );
 };

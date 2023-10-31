@@ -8,18 +8,23 @@ import CreateTicketFlow from "../../../components/support/CreateTicketFlow";
 const SupportCreateTicket = () => {
   const user = useTypedSelector((state) => state.user);
   const [guestMode, setGuestMode] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const isLoggedIn = () => {
-    if (user && user.email) {
-      console.log("user is logged in");
-      return true;
+  const checkIsLoggedIn = () => {
+    if (user && user.uuid) {
+      setIsLoggedIn(true);
+      return;
     }
-    return false;
+    setIsLoggedIn(false);
   };
 
   useEffect(() => {
     document.title = "LibreTexts | Contact Support";
   }, []);
+
+  useEffect(() => {
+    checkIsLoggedIn();
+  }, [user]);
 
   function redirectToLogin() {
     const loginURL = AuthHelper.generateLoginURL();
@@ -35,10 +40,10 @@ const SupportCreateTicket = () => {
             alt="LibreTexts Logo"
             className="w-96"
           />
-          <h1 className="text-4xl font-semibold -mt-8">Contact Support</h1>
+          <h1 className="text-4xl font-semibold -mt-12">Contact Support</h1>
           <>
-            {!isLoggedIn() && !guestMode && (
-              <>
+            {!isLoggedIn && !guestMode && (
+              <div className="flex flex-col w-full mt-12 items-center">
                 <button
                   onClick={() => redirectToLogin()}
                   className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
@@ -51,10 +56,10 @@ const SupportCreateTicket = () => {
                 >
                   I'm Having Trouble Logging In
                 </button>
-              </>
+              </div>
             )}
-            {(isLoggedIn() || guestMode) && (
-              <CreateTicketFlow isLoggedIn={isLoggedIn()} />
+            {(isLoggedIn || guestMode) && (
+              <CreateTicketFlow isLoggedIn={isLoggedIn} />
             )}
           </>
         </div>

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
+import CommonsFooter from "../../../components/commons/CommonsFooter";
 
 const SupportCenter = () => {
   useEffect(() => {
@@ -40,14 +41,7 @@ const SupportCenter = () => {
   return (
     <DefaultLayout>
       <SupportCenterJumbotron />
-      <div className="flex flex-col lg:flex-row w-full justify-center">
-        <HomeItem
-          title="Knowledge Base"
-          text="Search the Knowledge Base for help with all of your LibreTexts apps &
-          services."
-          icon="question circle outline"
-          link="/kb"
-        />
+      <div className="flex flex-col lg:flex-row w-full justify-center my-14 flex-1 min-h-full">
         <HomeItem
           title="Contact Support"
           text="
@@ -56,7 +50,22 @@ const SupportCenter = () => {
           icon="text telephone"
           link="/support/contact"
         />
+        <HomeItem
+          title="Knowledge Base"
+          text="Search the Knowledge Base for help with all of your LibreTexts apps &
+          services."
+          icon="question circle outline"
+          link="/kb"
+        />
+        <HomeItem
+          title="Systems Status"
+          text="
+          View systems status for all LibreTexts apps & services and check for known outages."
+          icon="doctor"
+          link="https://status.libretexts.org"
+        />
       </div>
+      <CommonsFooter />
     </DefaultLayout>
   );
 };

@@ -33,8 +33,10 @@ import analyticsAPI from './api/analytics.js';
 import orgEventsAPI from './api/orgevents.js';
 import paymentsAPI from './api/payments.js';
 import kbAPI from './api/kb.js';
+import supportAPI from './api/support.js';
 
 import * as kbValidators from './api/validators/kb.js';
+import * as supportValidators from './api/validators/support.js';
 
 const router = express.Router();
 
@@ -1509,6 +1511,53 @@ router.route('/kb/featured/video/:uuid').delete(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(kbValidators.DeleteKBFeaturedVideoValidator),
   kbAPI.deleteKBFeaturedVideo
+)
+
+router.route('/support/ticket/open').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  supportAPI.getOpenTickets
+)
+
+router.route('/support/ticket/user/:uuid').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(supportValidators.GetUserTicketsValidator),
+  supportAPI.getUserTickets
+)
+
+router.route('/support/ticket/:uuid/msg/staff').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.StaffSendTicketMessageValidator),
+  supportAPI.createStaffMessage
+).get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.GetTicketValidator),
+  supportAPI.getTicketMessages
+)
+
+router.route('/support/ticket/:uuid').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.GetTicketValidator),
+  supportAPI.getTicket
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.UpdateTicketValidator),
+  supportAPI.updateTicket
+)
+
+router.route('/support/ticket').post(
+  middleware.validateZod(supportValidators.CreateTicketValidator),
+  supportAPI.createTicket
 )
 
 export default router;

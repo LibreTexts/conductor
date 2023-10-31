@@ -75,7 +75,11 @@ import {
   KBFeaturedContent,
 } from "./kb";
 
-import { SupportTicketGuest, SupportTicket } from "./support";
+import {
+  SupportTicketGuest,
+  SupportTicket,
+  SupportTicketMessage,
+} from "./support";
 
 export type {
   AtlasSearchHighlight,
@@ -136,6 +140,7 @@ export type {
   KBFeaturedContent,
   SupportTicketGuest,
   SupportTicket,
+  SupportTicketMessage,
 };
 
 export {

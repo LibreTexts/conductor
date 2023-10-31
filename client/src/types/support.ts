@@ -21,3 +21,12 @@ export type SupportTicket = {
   timeOpened: string;
   timeClosed?: string;
 };
+
+export type SupportTicketMessage = {
+  uuid: string;
+  ticket: string;
+  message: string;
+  attachments?: string[];
+  sender: string;
+  timeSent: string;
+};

@@ -1,31 +1,65 @@
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import withUserStateDependency from "../../enhancers/withUserStateDependency.jsx";
-import { Image, Menu } from "semantic-ui-react";
+import { Button, Icon, Image } from "semantic-ui-react";
 import Launchpad from "../navigation/Launchpad.js";
+import { useTypedSelector } from "../../state/hooks.js";
 
 const SupportCenterNavbar: React.FC<{}> = () => {
-  // Global State, Location, and Error Handling
-  const location = useLocation();
+  const user = useTypedSelector((state) => state.user);
+  const [isStaff, setIsStaff] = useState(false);
+
+  useEffect(() => {
+    if (user && user.isSuperAdmin) {
+      setIsStaff(true);
+    }
+  }, [user]);
 
   return (
-    <div className="flex flex-row bg-white h-fit py-2 shadow-md border-b">
-      <Menu
-        className="flex flex-row px-4 justify-between w-full items-center"
-        secondary
-      >
-        <div className="ml-4">
+    <div className="flex flex-row bg-white h-fit py-2 shadow-md border-b items-center justify-center">
+      <div className="flex flex-row px-4 justify-between w-full items-center">
+        <div className="ml-2">
           <Launchpad />
         </div>
-        <Menu.Item as={Link} to="/kb" header name="home" className="nav-logo">
-          <div className="flex flex-row items-center">
+        <div className="flex flex-row h-12 w-full items-center justify-center">
+          <div
+            className="flex flex-row items-center cursor-pointer"
+            onClick={() => window.location.assign("/support")}
+          >
             <Image
               src="https://cdn.libretexts.net/Logos/libretexts_full.png"
-              className="nav-logo mb-2"
+              className="h-12"
             />
-            <span className="ml-2 mb-1 text-xl">Knowledge Base</span>
+            <span className="ml-2 text-2xl font-semibold">
+              | Support Center
+            </span>
           </div>
-        </Menu.Item>
-      </Menu>
+        </div>
+        <div className="flex">
+          {isStaff ? (
+            <Button
+              className="h-10 !w-44"
+              color="blue"
+              as={Link}
+              to="/support/dashboard"
+              size="small"
+            >
+              Staff Dashboard
+            </Button>
+          ) : (
+            <Button
+              className="h-10 !w-44"
+              color="blue"
+              as={Link}
+              to="/support/contact"
+              size="small"
+            >
+              <Icon name="text telephone" />
+              Contact Support
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

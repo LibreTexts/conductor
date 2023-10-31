@@ -57,9 +57,13 @@ const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel
 import SupportCenterNavbar from './components/support/Navbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
+const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
+const SupporTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
+import LibreTextsRoute from './components/util/LibreTextsRoute';
+import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 
 const RenderNavbar = () => {
   if(window.location.pathname.includes('/kb')){
@@ -124,17 +128,18 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
         <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
         <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-        {(org.orgID === 'libretexts') && [
-          <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
-          <Route exact path='/kb' key='kb' component={KnowledgeBase} />,
-          <Route exact path='/kb/search' key='kbsearchresults' component={KBSearchResults} />,
-          <Route exact path='/kb/welcome' key='kbwelcome' component={KBCoverPage} />,
-          <Route exact path='/kb/:slug' key='kbpageview' component={KBPage} />,
-          <Route exact path='/support' key="support" component={SupportCenter} />,
-          <Route exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} />
-        ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
-
+        {/* LibreTexts org public routes */}
+        <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
+        <LibreTextsRoute exact path='/kb' key='kb' component={KnowledgeBase} org={org}/>
+        <LibreTextsRoute exact path='/kb/search' key='kbsearchresults' component={KBSearchResults} org={org}/>
+        <LibreTextsRoute exact path='/kb/welcome' key='kbwelcome' component={KBCoverPage} org={org}/>
+        <LibreTextsRoute exact path='/kb/:slug' key='kbpageview' org={org} component={KBPage} />
+        <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+        <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupporTicket} />
+        {/* LibreTexts org private routes */}
+        <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
         {/* 404 */}
         <Route component={PageNotFound} />
         </Switch>
