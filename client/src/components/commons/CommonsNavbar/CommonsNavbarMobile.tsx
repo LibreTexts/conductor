@@ -35,7 +35,7 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
         </div>
       </div>
       {menuOpen && (
-        <div className="bg-white w-full px-6 shadow-xl pb-2">
+        <div className="bg-white w-full px-6 shadow-xl pb-2" style={{maxHeight: '50vh'}}>
           <Menu vertical fluid secondary>
             <AboutOrgLink org={org} isMobile={true} />
             {org.orgID === "libretexts" && (

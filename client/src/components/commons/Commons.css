@@ -13,7 +13,6 @@
     width: calc(100% - 2%);
 }
 
-
 #commons-mobilelinks {
     margin: 0;
     padding: 0;
@@ -31,6 +30,16 @@
     padding: 0;
     background-color: #127BC4;
     color: #FFFFFF;
+}
+
+.commons-mobilenav-commonslist {
+    max-height: 25vh;
+    overflow-y: auto;
+}
+
+.commons-desktopnav-commonslist {
+    max-height: 40vh;
+    overflow-y: auto;
 }
 
 /* Catalog Branding */

@@ -60,7 +60,7 @@ const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
 
   if (isMobile) {
     return (
-      <Menu.Menu id="commons-mobilenav-libmenu">
+      <Menu.Menu className="commons-mobilenav-commonslist">
         {itemsArr.map((item) => (
           <Menu.Item {...item.props}>
             <Icon name="university" />
@@ -71,8 +71,8 @@ const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
     );
   }
   return (
-    <Dropdown item text="Campus Commons">
-      <Dropdown.Menu direction="left">
+    <Dropdown item text="Campus Commons" >
+      <Dropdown.Menu direction="left" className="commons-desktopnav-commonslist">
         {itemsArr.map((item) => (
           <Dropdown.Item {...item.props}>
             <Icon name="university" />
