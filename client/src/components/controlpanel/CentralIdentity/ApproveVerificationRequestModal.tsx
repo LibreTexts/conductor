@@ -36,6 +36,7 @@ const ApproveVerificationRequestModal: React.FC<
   const [request, setRequest] = useState<CentralIdentityVerificationRequest>();
   const [allApps, setAllApps] = useState<CentralIdentityApp[]>([]);
   const [approvedApps, setApprovedApps] = useState<CentralIdentityApp[]>([]);
+  const [showDefaultLibs, setShowDefaultLibs] = useState<boolean>(false);
 
   // Effects
   useEffect(() => {
@@ -170,6 +171,13 @@ const ApproveVerificationRequestModal: React.FC<
     }
   }
 
+  function handleSelectAllLibs() {
+    const defaultLibs = allApps.filter((app) => app.is_default_library);
+    for (let i = 0; i < defaultLibs.length; i++) {
+      handleCheckApp(defaultLibs[i].id);
+    }
+  }
+
   return (
     <Modal open={show} onClose={onCancel} size="large" {...rest}>
       <Modal.Header>
@@ -213,38 +221,44 @@ const ApproveVerificationRequestModal: React.FC<
                     className="mb-1r"
                   />
                 ))}
-              <Accordion
-                className="mt-2p"
-                panels={[
-                  {
-                    key: "danger",
-                    title: {
-                      content: (
-                        <span>
-                          <strong>Change Default Libraries</strong>
-                        </span>
-                      ),
-                    },
-                    content: {
-                      content: (
-                        <div className="flex-col-div">
-                          {allApps
-                            .filter((app) => app.is_default_library)
-                            .map((app) => (
-                              <Checkbox
-                                key={app.id}
-                                label={app.name}
-                                checked={isChecked(app.id)}
-                                onChange={() => handleCheckApp(app.id)}
-                                className="mb-1r"
-                              />
-                            ))}
-                        </div>
-                      ),
-                    },
-                  },
-                ]}
-              />
+              <Accordion className="mt-2p">
+                <Accordion.Title
+                  active={showDefaultLibs}
+                  index={0}
+                  onClick={() => setShowDefaultLibs(!showDefaultLibs)}
+                >
+                  <div className="flex flex-row justify-between">
+                    <div>
+                      <Icon name="dropdown" />
+                      <strong>Change Default Libraries</strong>
+                    </div>
+                    <p
+                      className="underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectAllLibs();
+                      }}
+                    >
+                      Select All
+                    </p>
+                  </div>
+                </Accordion.Title>
+                <Accordion.Content active={showDefaultLibs}>
+                  <div className="flex-col-div">
+                    {allApps
+                      .filter((app) => app.is_default_library)
+                      .map((app) => (
+                        <Checkbox
+                          key={app.id}
+                          label={app.name}
+                          checked={isChecked(app.id)}
+                          onChange={() => handleCheckApp(app.id)}
+                          className="mb-1r"
+                        />
+                      ))}
+                  </div>
+                </Accordion.Content>
+              </Accordion>
             </Form>
           </div>
         )}
