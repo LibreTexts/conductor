@@ -19,7 +19,7 @@ const AuthHelper = {
    * @param {string} [redirectURI=null] - URI to redirect browser to upon successful login.
    * @returns {string} The generated URL.
    */
-  generateLoginURL: (redirectURI = null) => {
+  generateLoginURL: (redirectURI: string | null = null) => {
     const cookiesOptions =
       import.meta.env.MODE === "production"
         ? { domain: (import.meta.env.VITE_PRODUCTION_URLS || "").split(",")[0] }
@@ -46,27 +46,10 @@ const AuthHelper = {
    * @param {boolean} [authExpired=false] - If the logout is the result of expired authentication.
    * @param {object} [location=null] - An object containing the document's current location (URL).
    */
-  logout: (authExpired = false, location = null) => {
+  logout: (authExpired: boolean = false, location: Location | null = null) => {
     if (authExpired) {
-      let newPath = "/login?src=authexpired";
-      /* Process a possible redirect URL */
-      if (typeof location === "object") {
-        let redirectURI = "";
-        if (
-          typeof location.pathname === "string" &&
-          location.pathname.length > 0
-        ) {
-          redirectURI = location.pathname;
-        }
-        if (typeof location.search === "string" && location.search.length > 0) {
-          redirectURI = `${redirectURI}${location.search}`;
-        }
-        if (redirectURI.length > 0)
-          newPath = `${newPath}&redirect_uri=${encodeURIComponent(
-            redirectURI
-          )}`;
-      }
-      window.location.assign(newPath);
+      const url = AuthHelper.generateLoginURL(location ? location.href : null);
+      window.location.assign(url);
     } else {
       const logoutEndpoint = "/api/v1/auth/logout";
       let redirURL =
