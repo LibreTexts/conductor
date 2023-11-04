@@ -7,7 +7,7 @@
 import { Route } from 'react-router-dom';
 import React from 'react';
 
-import AuthHelper from './AuthHelper.js';
+import AuthHelper from './AuthHelper';
 
 const AnonRoute = ({ component: Component, ...rest }) => (
     <Route {...rest} render={(props) => (

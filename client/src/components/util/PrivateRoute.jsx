@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Redirect, Route } from 'react-router-dom';
-import AuthHelper from './AuthHelper.js';
+import AuthHelper from './AuthHelper';
 
 /**
  * A route in which the user SHOULD be authenticated. If the user is not

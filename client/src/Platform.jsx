@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { Provider } from "react-redux";
 import axios from "axios";
 import store from "./state/store.ts";
-import AuthHelper from "./components/util/AuthHelper.js";
+import AuthHelper from "./components/util/AuthHelper";
 import Commons from "./Commons";
 import Conductor from "./Conductor";
 import Standalone from "./Standalone";
