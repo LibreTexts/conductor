@@ -31,6 +31,11 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus
 } from "./CentralIdentity";
+import {
+  LibrariesClient,
+  LibraryTokenPair,
+  LibraryAPIRequestHeaders
+} from "./LibrariesClient";
 
 export type {
   BookSortOption,
@@ -45,6 +50,9 @@ export type {
   CustomFormHeadingType,
   CustomFormPromptType,
   CustomFormTextBlockType,
+  LibrariesClient,
+  LibraryTokenPair,
+  LibraryAPIRequestHeaders,
   TimeZoneOption,
   TypedReqUser,
   TypedReqWithUser,
