@@ -35,12 +35,8 @@ const SupportCreateTicket = () => {
     <DefaultLayout>
       <div className="flex flex-col w-full min-h-screen items-center">
         <div className="flex flex-col w-full my-8 items-center">
-          <Image
-            src="/libretexts_logo.png"
-            alt="LibreTexts Logo"
-            className="w-96"
-          />
-          <h1 className="text-4xl font-semibold -mt-12">Contact Support</h1>
+          <h1 className="text-4xl font-semibold">Contact Support</h1>
+          <p className="mt-2">Submit a support ticket to get help from our team.</p>
           <>
             {!isLoggedIn && !guestMode && (
               <div className="flex flex-col w-full mt-12 items-center">
@@ -59,7 +55,9 @@ const SupportCreateTicket = () => {
               </div>
             )}
             {(isLoggedIn || guestMode) && (
+              <div className="mt-4 flex w-full justify-center">
               <CreateTicketFlow isLoggedIn={isLoggedIn} />
+              </div>            
             )}
           </>
         </div>

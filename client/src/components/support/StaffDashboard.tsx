@@ -83,7 +83,7 @@ const StaffDashboard = () => {
                 </Table.Cell>
                 <Table.Cell>{ticket.title}</Table.Cell>
                 <Table.Cell>{ticket.guest?.firstName}</Table.Cell>
-                <Table.Cell></Table.Cell>
+                <Table.Cell>{ticket.assignedTo ? ticket.assignedTo.firstName.toString() : 'Unassigned'}</Table.Cell>
                 <Table.Cell>
                   <TicketStatusLabel status={ticket.status} />
                 </Table.Cell>

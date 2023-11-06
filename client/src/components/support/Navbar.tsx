@@ -16,21 +16,20 @@ const SupportCenterNavbar: React.FC<{}> = () => {
   }, [user]);
 
   return (
-    <div className="flex flex-row bg-white h-fit py-2 shadow-md border-b items-center justify-center">
-      <div className="flex flex-row px-4 justify-between w-full items-center">
-        <div className="ml-2">
+    <div className="flex flex-row bg-white h-fit py-2 px-4 shadow-md border-b items-center justify-between">
+      <div className="flex flex-row">
+        <div className="flex ml-2 mt-0.5">
           <Launchpad />
         </div>
-        <div className="flex flex-row h-12 w-full items-center justify-center">
           <div
             className="flex flex-row items-center cursor-pointer"
             onClick={() => window.location.assign("/support")}
           >
             <Image
               src="https://cdn.libretexts.net/Logos/libretexts_full.png"
-              className="h-12"
+              className="h-12 ml-6"
             />
-            <span className="ml-2 text-2xl font-semibold">
+            <span className="hidden lg:flex ml-2 text-2xl font-semibold">
               | Support Center
             </span>
           </div>
@@ -38,13 +37,13 @@ const SupportCenterNavbar: React.FC<{}> = () => {
         <div className="flex">
           {isStaff ? (
             <Button
-              className="h-10 !w-44"
+              className="h-10 !w-32"
               color="blue"
               as={Link}
               to="/support/dashboard"
               size="small"
             >
-              Staff Dashboard
+              Dashboard
             </Button>
           ) : (
             <Button
@@ -59,7 +58,6 @@ const SupportCenterNavbar: React.FC<{}> = () => {
             </Button>
           )}
         </div>
-      </div>
     </div>
   );
 };

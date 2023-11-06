@@ -28,7 +28,6 @@ const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
 const KBPage = lazy(() => import('./screens/conductor/kb/KBPage'));
 const KBCoverPage = lazy(() => import('./screens/conductor/kb/KBCoverPage'));
 const KBSearchResults = lazy(() => import('./screens/conductor/kb/KBSearchResults'));
-import KBNavbar from './components/kb/Navbar';
 const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
@@ -58,7 +57,7 @@ import SupportCenterNavbar from './components/support/Navbar';
 const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
-const SupporTicket = lazy(() => import('./screens/conductor/support/Ticket'));
+const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -66,10 +65,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 
 const RenderNavbar = () => {
-  if(window.location.pathname.includes('/kb')){
-    return <KBNavbar />;
-  }
-  if(window.location.pathname.includes('/support')){
+  if(window.location.pathname.includes('/kb') || window.location.pathname.includes('/support')){
     return <SupportCenterNavbar />;
   }
   return <Navbar />
@@ -137,7 +133,7 @@ const Conductor = () => {
         <LibreTextsRoute exact path='/kb/:slug' key='kbpageview' org={org} component={KBPage} />
         <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
         <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupporTicket} />
+        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
         {/* LibreTexts org private routes */}
         <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
         {/* 404 */}

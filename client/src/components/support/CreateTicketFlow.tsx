@@ -13,9 +13,13 @@ import { CentralIdentityApp, SupportTicket } from "../../types";
 import { Controller, useForm } from "react-hook-form";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
-import { SupportTicketPriorityOptions } from "../../utils/supportHelpers";
+import {
+  SupportTicketCategoryOptions,
+  SupportTicketPriorityOptions,
+} from "../../utils/supportHelpers";
 import { useTypedSelector } from "../../state/hooks";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import FileUploader from "../FileUploader";
 
 interface CreateTicketFlowProps {
   isLoggedIn: boolean;
@@ -44,11 +48,20 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   const [loading, setLoading] = useState(false);
   const [apps, setApps] = useState<CentralIdentityApp[]>([]);
+  const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     document.title = "LibreTexts | Create Support Ticket";
     loadApps();
+
+    //Check url for capturedURL query param
+    const urlParams = new URLSearchParams(window.location.search);
+    const capturedURL = urlParams.get("capturedURL");
+    if (capturedURL) {
+      setValue("capturedURL", capturedURL);
+      setAutoCapturedURL(true);
+    }
   }, []);
 
   async function loadApps() {
@@ -94,7 +107,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <div
-      className="flex flex-col border border-primary rounded-lg m-4 p-4 w-2/3 shadow-lg"
+      className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-2/3 shadow-lg"
       aria-busy={loading}
     >
       {!success && (
@@ -111,41 +124,59 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               </Message>
             )}
             {true && (
-              <>
-                <CtlTextInput
-                  control={control}
-                  name="guest.firstName"
-                  label="First Name"
-                  placeholder="Enter your first name"
-                  rules={required}
-                  required
-                />
-                <CtlTextInput
-                  control={control}
-                  name="guest.lastName"
-                  label="Last Name"
-                  placeholder="Enter your last name"
-                  rules={required}
-                  required
-                />
-                <CtlTextInput
-                  control={control}
-                  name="guest.email"
-                  label="Email"
-                  placeholder="Enter your email"
-                  rules={required}
-                  required
-                />
-                <CtlTextInput
-                  control={control}
-                  name="guest.organization"
-                  label="Organization"
-                  placeholder="Enter your school or organization"
-                  rules={required}
-                  required
-                />
-              </>
+              <div className="mb-8">
+                <p className="font-semibold mb-1">Your Contact Info</p>
+                <div className="flex flex-col lg:flex-row w-full">
+                  <div className="w-full mr-8">
+                    <CtlTextInput
+                      control={control}
+                      name="guest.firstName"
+                      label="First Name"
+                      placeholder="Enter your first name"
+                      rules={required}
+                      required
+                      fluid
+                    />
+                  </div>
+                  <div className="w-full">
+                    <CtlTextInput
+                      control={control}
+                      name="guest.lastName"
+                      label="Last Name"
+                      placeholder="Enter your last name"
+                      rules={required}
+                      required
+                      fluid
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col lg:flex-row w-full mt-4">
+                  <div className="w-full mr-8">
+                    <CtlTextInput
+                      control={control}
+                      name="guest.email"
+                      label="Email"
+                      placeholder="Enter your email"
+                      rules={required}
+                      required
+                      fluid
+                    />
+                  </div>
+                  <div className="w-full">
+                    <CtlTextInput
+                      control={control}
+                      name="guest.organization"
+                      label="Organization"
+                      placeholder="Enter your school or organization"
+                      rules={required}
+                      required
+                      fluid
+                    />
+                  </div>
+                </div>
+              </div>
             )}
+            <p className="font-semibold">Request Info</p>
             <CtlTextInput
               control={control}
               name="title"
@@ -180,7 +211,33 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     selection
                     multiple
                     search
-                    placeholder="Select the application(s) you are having trouble with"
+                    placeholder="Select the application(s) related to your ticket"
+                  />
+                )}
+              />
+            </div>
+            <div className="mt-2">
+              <label
+                className="form-field-label form-required"
+                htmlFor="selectCategory"
+              >
+                Category
+              </label>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="selectCategory"
+                    options={SupportTicketCategoryOptions}
+                    {...field}
+                    onChange={(e, { value }) => {
+                      field.onChange(value);
+                    }}
+                    fluid
+                    selection
+                    search
+                    placeholder="Select the category of your ticket"
                   />
                 )}
               />
@@ -213,7 +270,18 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 Note: A higher priority does not guarantee a faster response.
               </p>
             </div>
-            <Form.Field className="!mt-4">
+            {!autoCapturedURL && (
+              <div className="mt-2">
+                <CtlTextInput
+                  control={control}
+                  name="capturedURL"
+                  label="URL (if applicable)"
+                  placeholder="Enter the URL of the page you're having issues with"
+                  type="url"
+                />
+              </div>
+            )}
+            <Form.Field className="!mt-2">
               <label
                 className="form-field-label form-required"
                 htmlFor="description"
@@ -222,9 +290,21 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               </label>
               <TextArea
                 id="description"
-                placeholder="Please describe your issue in detail. Include any relevant information such as error messages, screenshots, etc."
+                placeholder="Please describe your issue in detail. Include any relevant information (e.g. error messages, steps to reproduce, etc.)"
                 value={watch("description")}
                 onInput={(e) => setValue("description", e.currentTarget.value)}
+              />
+            </Form.Field>
+            <Form.Field className="!mt-2">
+              <label className="form-field-label">
+                Attachments (optional) (max 4 files, 100 MB each)
+              </label>
+              <FileUploader
+                multiple={true}
+                maxFiles={4}
+                onUpload={(files) => {
+                  console.log(files);
+                }}
               />
             </Form.Field>
           </Form>
@@ -257,7 +337,12 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               <Icon name="text telephone" />
               Back to Support
             </Button>
-            <Button color="blue" as={Link} to="/" className="!mt-4 lg:!ml-2 lg:!mt-0">
+            <Button
+              color="blue"
+              as={Link}
+              to="/"
+              className="!mt-4 lg:!ml-2 lg:!mt-0"
+            >
               <Icon name="book" />
               Back to Commons
             </Button>

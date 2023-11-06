@@ -15,6 +15,8 @@ export type SupportTicket = {
   attachments?: string[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
+  category: string;
+  capturedURL?: string;
   assignedTo?: User;
   user?: User;
   guest?: SupportTicketGuest;

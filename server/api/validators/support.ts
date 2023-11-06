@@ -17,6 +17,8 @@ export const CreateTicketValidator = z.object({
       description: z.string().max(500),
       apps: z.array(z.number()).min(1),
       priority: z.enum(["low", "medium", "high"]),
+      category: z.string(),
+      capturedURL: z.string().url().optional(),
       attachments: z.array(z.string()).optional(),
       guest: z
         .object({

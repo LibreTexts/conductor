@@ -51,7 +51,7 @@ const KBJumbotron: React.FC<{}> = ({ }) => {
         <KBSearchForm />
       </div>
       <a className="mt-4 text-white text-sm underline" href="/kb/welcome">View All Content</a>
-      <div className="typewriter mt-8 italic opacity-75">
+      <div className="typewriter mt-8 italic opacity-90 font-semibold">
         <p>All of your LibreTexts questions, answered.</p>
       </div>
     </div>

@@ -17,6 +17,8 @@ export interface SupportTicketInterface extends Document {
   attachments?: string[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
+  category: string;
+  capturedURL?: string;
   assignedTo?: Schema.Types.ObjectId;
   user?: Schema.Types.ObjectId;
   guest?: SupportTicketGuestInterface;
@@ -54,6 +56,13 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: String,
     enum: ["open", "in_progress", "closed"],
     default: "open",
+  },
+  category: {
+    type: String,
+    required: true,
+  },
+  capturedURL: {
+    type: String,
   },
   assignedTo: {
     type: Schema.Types.ObjectId,
