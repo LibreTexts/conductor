@@ -14,7 +14,7 @@ import {
 import { useState, useEffect } from "react";
 import { CentralIdentityUser, User } from "../../../types";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { get, useForm } from "react-hook-form";
+import { Controller, get, useForm } from "react-hook-form";
 import {
   accountStatusOptions,
   getPrettyAuthSource,
@@ -341,23 +341,30 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                   </div>
                   <div className="flex-col-div">
                     <div className="flex-row-div flex-row-verticalcenter my-auto mt-2p mb-2p">
-                      <span>
+                      <label htmlFor="userTypeSelect">
                         <strong>User Type: </strong>
-                      </span>
+                      </label>
                       {editingUserType ? (
                         <div className="ml-1p">
-                          <Dropdown
-                            placeholder="User Type"
-                            floating
-                            selection
-                            button
-                            options={userTypeOptions}
-                            onChange={(e, { data }) => {
-                              setValue("user_type", data, {
-                                shouldDirty: true,
-                              });
-                            }}
-                            value={getValues("user_type")}
+                          <Controller
+                            name="user_type"
+                            control={control}
+                            render={({ field }) => (
+                              <Dropdown
+                                id="userTypeSelect"
+                                options={userTypeOptions}
+                                {...field}
+                                onChange={(e, data) => {
+                                  field.onChange(
+                                    data.value?.toString() ?? "student"
+                                  );
+                                }}
+                                floating
+                                selection
+                                button
+                                placeholder="User Type"
+                              />
+                            )}
                           />
                           <Icon
                             name="close"
@@ -413,25 +420,30 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         )}
                       </div>
                     )}
-                    {getValues("user_type") === "instructor" && (
+                    {watch("user_type") === "instructor" && (
                       <div className="flex-row-div flex-row-verticalcenter mb-2p">
-                        <span>
+                        <label htmlFor="verifyStatusSelect">
                           <strong>Verification Status: </strong>
-                        </span>
+                        </label>
                         {editingVerifyStatus ? (
                           <div className="ml-1p">
-                            <Dropdown
-                              placeholder="Verification Status"
-                              floating
-                              selection
-                              button
-                              options={verificationStatusOptions}
-                              onChange={(e, { data }) => {
-                                setValue("verify_status", data, {
-                                  shouldDirty: true,
-                                });
-                              }}
-                              value={getValues("verify_status")}
+                            <Controller
+                              name="verify_status"
+                              control={control}
+                              render={({ field }) => (
+                                <Dropdown
+                                  id="verifyStatusSelect"
+                                  options={verificationStatusOptions}
+                                  {...field}
+                                  onChange={(e, data) => {
+                                    field.onChange(data.value?.toString());
+                                  }}
+                                  floating
+                                  selection
+                                  button
+                                  placeholder="Verification Status"
+                                />
+                              )}
                             />
                             <Icon
                               name="close"
@@ -458,7 +470,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         )}
                       </div>
                     )}
-                    {getValues("user_type") === "instructor" && (
+                    {watch("user_type") === "instructor" && (
                       <div className="flex-row-div flex-row-verticalcenter mb-2p">
                         <span>
                           <strong>Bio URL: </strong>
