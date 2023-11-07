@@ -11,7 +11,7 @@ import {
   Dropdown,
   Popup,
 } from "semantic-ui-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy } from "react";
 import { CentralIdentityUser, User } from "../../../types";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
 import { Controller, get, useForm } from "react-hook-form";
@@ -30,9 +30,9 @@ import useGlobalError from "../../error/ErrorHooks";
 import { copyToClipboard, dirtyValues } from "../../../utils/misc";
 import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
-import AddUserAppModal from "./AddUserAppModal";
-import AddUserOrgModal from "./AddUserOrgModal";
-import ConfirmRemoveOrgOrAppModal from "./ConfirmRemoveOrgOrAppModal";
+const AddUserAppModal = lazy(() => import("./AddUserAppModal"));
+const AddUserOrgModal = lazy(() => import("./AddUserOrgModal"));
+const ConfirmRemoveOrgOrAppModal = lazy(() => import("./ConfirmRemoveOrgOrAppModal"));
 
 interface ManageUserModalProps extends ModalProps {
   show: boolean;
