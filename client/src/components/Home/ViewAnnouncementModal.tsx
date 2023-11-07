@@ -82,6 +82,7 @@ const ViewAnnouncementModal: React.FC<ViewAnnouncementModalProps> = ({
             <Modal.Description className="announcement-view-text">
               {announcement.message && (
                 <p
+                  className="prose prose-code:before:hidden prose-code:after:hidden"
                   dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(
                       marked(announcement.message, { breaks: true })

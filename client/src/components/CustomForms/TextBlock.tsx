@@ -19,7 +19,7 @@ const TextBlock: React.FC<{ item: CustomFormTextBlock }> = ({
 
   return (
     <p
-      className="mb-2p"
+      className="mb-2p prose prose-code:before:hidden prose-code:after:hidden"
       key={item.order}
       dangerouslySetInnerHTML={{
         __html: DOMPurify.sanitize(marked(item.text, { breaks: true })),

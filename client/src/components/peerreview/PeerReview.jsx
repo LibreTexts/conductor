@@ -508,7 +508,7 @@ const PeerReview = ({
                                     } else if (item.uiType === 'textBlock') {
                                         return (
                                             <p
-                                                className='mb-2p'
+                                                className='mb-2p prose prose-code:before:hidden prose-code:after:hidden'
                                                 key={item.order}
                                                 dangerouslySetInnerHTML={{
                                                     __html: DOMPurify.sanitize(marked(item.text))
