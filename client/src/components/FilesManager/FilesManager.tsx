@@ -106,9 +106,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const getFiles = useCallback(async () => {
     setFilesLoading(true);
     try {
-      const fileRes = await axios.get(
-        `/project/${projectID}/files/${currDirectory}?depth=1`
-      );
+      const fileRes = await api.getProjectFiles(projectID, currDirectory);
       if (!fileRes.data.err) {
         if (Array.isArray(fileRes.data.files)) {
           const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
