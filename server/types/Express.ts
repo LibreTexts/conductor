@@ -114,3 +114,8 @@ export interface TypedReqParamsAndBodyWithUser<T, K> extends TypedReqWithUser {
   params: Partial<T>;
   body: K;
 }
+
+export interface ConductorErrResponse {
+  err: boolean,
+  errMsg: string,
+}

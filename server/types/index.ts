@@ -29,7 +29,8 @@ import {
   CentralIdentitySystem,
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
-  CentralIdentityVerificationRequestStatus
+  CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense
 } from "./CentralIdentity";
 import {
   CXOneFetchParams,
@@ -49,6 +50,7 @@ export type {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense,
   ReaderResource,
   CustomFormHeadingType,
   CustomFormPromptType,

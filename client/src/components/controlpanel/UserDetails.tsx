@@ -271,7 +271,7 @@ const UserDetails = (props: RouteComponentProps<MatchParams>) => {
                           </Table.Cell>
                           <Table.Cell>
                             {typeof item.visibility === "string" &&
-                            item.visibility !== "" ? (
+                            item.visibility ? (
                               <p>{getVisibilityText(item.visibility)}</p>
                             ) : (
                               <p>

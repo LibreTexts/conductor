@@ -10,6 +10,11 @@ import {
   CentralIdentityVerificationRequest,
   Organization,
   KBPageEditor,
+  AssetTagTemplate,
+  AssetTagTemplateValueType,
+  AssetTag,
+  AssetTagFramework,
+  AssetTagKey,
 } from "../types";
 
 export function isCatalogLocation(
@@ -139,3 +144,69 @@ export const isKBPageEditor = (obj: any): obj is KBPageEditor => {
   if (!obj) return false;
   return "firstName" in obj && "lastName" in obj && "avatar" in obj;
 };
+
+export const isKBPageEditor = (obj: any): obj is KBPageEditor => {
+  if (!obj) return false;
+  return "firstName" in obj && "lastName" in obj && "avatar" in obj;
+};
+
+export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
+  return (
+    "uuid" in value &&
+    "name" in value &&
+    "description" in value &&
+    "orgID" in value &&
+    "templates" in value &&
+    "enabled" in value
+  );
+}
+
+// Asset Tag TEMPLATES
+export const isAssetTagTemplateValueType = (
+  value: string
+): value is AssetTagTemplateValueType => {
+  return (
+    value === "text" ||
+    value === "number" ||
+    value === "date" ||
+    value === "boolean" ||
+    value === "dropdown"
+  );
+};
+
+export const isAssetTagTemplate = (value: any): value is AssetTagTemplate => {
+  return (
+    "key" in value &&
+    "valueType" in value &&
+    "isDeleted" in value &&
+    isAssetTagTemplateValueType(value.valueType)
+  );
+};
+
+export const isAssetTagTemplateArray = (value: any): value is AssetTagTemplate[] => {
+  return Array.isArray(value) && value.every((v) => isAssetTagTemplate(v));
+}
+
+// Asset Tags
+export const isAssetTag = (value: any): value is AssetTag => {
+  return (
+    "uuid" in value &&
+    "title" in value &&
+    "value" in value &&
+    "isDeleted" in value
+  );
+};
+
+export const isAssetTagArray = (value: any): value is AssetTag[] => {
+  return Array.isArray(value) && value.every((v) => isAssetTag(v));
+}
+
+export const isAssetTagKeyObject = (value: any): value is AssetTagKey => {
+  if(!value) return false;
+  if(typeof value !== "object") return false;
+  return (
+    "orgID" in value &&
+    "title" in value &&
+    "hex" in value
+  );
+}

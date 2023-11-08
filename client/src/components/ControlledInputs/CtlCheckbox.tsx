@@ -9,7 +9,7 @@ import { ControlledInputProps } from "../../types";
 
 interface CtlCheckboxProps extends CheckboxProps {
   label?: string;
-  labelDirection?: "col" | "row";
+  labelDirection?: "col" | "row" | "col-reverse" | "row-reverse";
   required?: boolean;
   negated?: boolean;
 }
@@ -51,7 +51,7 @@ export default function CtlCheckbox<
         fieldState: { error },
       }) => (
         <div
-          className={labelDirection === "row" ? "flex-row-div" : "flex-col-div"}
+          className={`flex flex-${labelDirection} items-center`}
         >
           {label && (
             <label

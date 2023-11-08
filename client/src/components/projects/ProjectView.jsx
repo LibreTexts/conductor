@@ -92,6 +92,7 @@ import AssignAllModal from './TaskComponents/AssignAllModal';
 import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
 import ProjectLinkButtons from './ProjectLinkButtons';
 const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
+const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
@@ -112,6 +113,7 @@ const ProjectView = (props) => {
   const [showAllTeamMembers, setShowAllTeamMembers] = useState(false);
 
   // Project Data
+  const [projectID, setProjectID] = useState('');
   const [project, setProject] = useState({});
   const [projectPinned, setProjectPinned] = useState(false);
 
@@ -122,34 +124,7 @@ const ProjectView = (props) => {
 
   // Edit Information Modal
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editModalLoading, setEditModalLoading] = useState(false);
   const [projTitle, setProjTitle] = useState('');
-  const [projStatus, setProjStatus] = useState('open');
-  const [projClassification, setProjClassification] = useState('');
-  const [projVisibility, setProjVisibility] = useState('private');
-  const [projProgress, setProjProgress] = useState(0);
-  const [projPRProgress, setProjPRProgress] = useState(0);
-  const [projA11YProgress, setProjA11YProgress] = useState(0);
-  const [projURL, setProjURL] = useState('');
-  const [projTags, setProjTags] = useState([]);
-  const [projCIDs, setProjCIDs] = useState([]);
-  const [projAdaptURL, setProjAdaptURL] = useState('');
-  const [projResAuthor, setProjResAuthor] = useState('');
-  const [projResEmail, setProjResEmail] = useState('');
-  const [projResLicense, setProjResLicense] = useState('');
-  const [projResURL, setProjResURL] = useState('');
-  const [projNotes, setProjNotes] = useState('');
-  const [projTitleErr, setProjTitleErr] = useState(false);
-  const [projProgressErr, setProjProgressErr] = useState(false);
-  const [projPRProgressErr, setProjPRProgressErr] = useState(false);
-  const [projA11YProgressErr, setProjA11YProgressErr] = useState(false);
-  const [tagOptions, setTagOptions] = useState([]);
-  const [cidOptions, setCIDOptions] = useState([]);
-  const [loadedTags, setLoadedTags] = useState(false);
-  const [loadedCIDs, setLoadedCIDs] = useState(false);
-
-  // Create Workbench Modal
-  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] = useState(false);
 
   // Project Pin Modal
   const [showPinnedModal, setShowPinnedModal] = useState(false);
@@ -157,10 +132,6 @@ const ProjectView = (props) => {
 
   // Manage Team Modal
   const [showManageTeamModal, setShowManageTeamModal] = useState(false);
-
-  // Delete Project Modal
-  const [showDeleteProjModal, setShowDeleteProjModal] = useState(false);
-  const [deleteProjModalLoading, setDeleteProjModalLoading] = useState(false);
 
   // Project Tasks
   const [allProjTasks, setAllProjTasks] = useState([]);
@@ -282,6 +253,7 @@ const ProjectView = (props) => {
    * Set page title and load Project information on initial load.
    */
   useEffect(() => {
+    setProjectID(props.match.params.id);
     document.title = "LibreTexts Conductor | Projects | Project View";
     date.plugin(ordinal);
     date.plugin(day_of_week);
@@ -512,26 +484,6 @@ const ProjectView = (props) => {
    * then sets fields to their current respective values.
    */
   const openEditInfoModal = () => {
-    setEditModalLoading(true);
-    getTags();
-    getCIDDescriptors();
-    if (project.title) setProjTitle(project.title);
-    if (project.status) setProjStatus(project.status);
-    if (project.visibility) setProjVisibility(project.visibility);
-    if (project.hasOwnProperty('currentProgress')) setProjProgress(project.currentProgress);
-    if (project.hasOwnProperty('peerProgress')) setProjPRProgress(project.peerProgress);
-    if (project.hasOwnProperty('a11yProgress')) setProjA11YProgress(project.a11yProgress);
-    if (project.classification) setProjClassification(project.classification);
-    if (project.projectURL) setProjURL(project.projectURL);
-    if (project.tags) setProjTags(project.tags);
-    if (project.cidDescriptors) setProjCIDs(project.cidDescriptors);
-    if (project.adaptURL) setProjAdaptURL(project.adaptURL);
-    if (project.author) setProjResAuthor(project.author);
-    if (project.authorEmail) setProjResEmail(project.authorEmail);
-    if (project.license) setProjResLicense(project.license);
-    if (project.resourceURL) setProjResURL(project.resourceURL);
-    if (project.notes) setProjNotes(project.notes);
-    setEditModalLoading(false);
     setShowEditModal(true);
   };
 
@@ -540,129 +492,9 @@ const ProjectView = (props) => {
    * Closes the Edit Information Modal and resets all
    * fields to their default values.
    */
-  const closeEditInfoModal = () => {
+  const handleCloseEditModal = () => {
     setShowEditModal(false);
-    setEditModalLoading(false);
-    setProjTitle('');
-    setProjStatus('open');
-    setProjVisibility('private');
-    setProjProgress(0);
-    setProjPRProgress(0);
-    setProjA11YProgress(0);
-    setProjClassification('');
-    setProjURL('');
-    setProjTags([]);
-    setProjCIDs([]);
-    setProjAdaptURL('');
-    setProjResAuthor('');
-    setProjResEmail('');
-    setProjResLicense('');
-    setProjResURL('');
-    setProjNotes('');
-  };
-
-
-  /**
-   * Load existing Project Tags from the server
-   * via GET request, then sort, format, and save
-   * them to state for use in the Dropdown.
-   */
-  const getTags = () => {
-    axios.get('/projects/tags/org').then((res) => {
-      if (!res.data.err) {
-        if (res.data.tags && Array.isArray(res.data.tags)) {
-          res.data.tags.sort((tagA, tagB) => {
-            var aNorm = String(tagA.title).toLowerCase();
-            var bNorm = String(tagB.title).toLowerCase();
-            if (aNorm < bNorm) return -1;
-            if (aNorm > bNorm) return 1;
-            return 0;
-          })
-          const newTagOptions = res.data.tags.map((tagItem) => {
-            return { text: tagItem.title, value: tagItem.title };
-          });
-          setTagOptions(newTagOptions);
-          setLoadedTags(true);
-        }
-      } else {
-        handleGlobalError(res.data.errMsg);
-      }
-    }).catch((err) => {
-      handleGlobalError(err);
-    });
-  };
-
-  /**
-   * Loads C-ID Descriptors from the server, transforms them for use in UI,
-   * then saves them to state.
-   */
-  const getCIDDescriptors = () => {
-    axios.get('/c-ids', {
-      params: { detailed: true },
-    }).then((res) => {
-      if (!res.data.err) {
-        if (Array.isArray(res.data.descriptors)) {
-          const descriptors = [
-            { value: '', key: 'clear', text: 'Clear...' },
-            ...res.data.descriptors.map((item) => {
-              return {
-                value: item.descriptor,
-                key: item.descriptor,
-                text: `${item.descriptor}: ${item.title}`,
-                content: (
-                  <div>
-                    <span><strong>{item.descriptor}</strong>: {item.title}</span>
-                    <p className="mt-05p"><em>{item.description}</em></p>
-                  </div>
-                ),
-              };
-            }),
-          ];
-          setCIDOptions(descriptors);
-          setLoadedCIDs(true);
-        }
-      } else {
-        handleGlobalError(res.data.errMsg);
-      }
-    }).catch((err) => {
-      handleGlobalError(err);
-    });
-  };
-
-  /**
-   * Resets all Edit Information form error states.
-   */
-  const resetEditInfoFormErrors = () => {
-    setProjTitleErr(false);
-    setProjProgressErr(false);
-    setProjPRProgressErr(false);
-    setProjA11YProgressErr(false);
-  };
-
-
-  /**
-   * Validates the Edit Project Information form.
-   * @returns {boolean} true if all fields are valid, false otherwise
-   */
-  const validateEditInfoForm = () => {
-    var validForm = true;
-    if (isEmptyString(projTitle)) {
-      validForm = false;
-      setProjTitleErr(true);
-    }
-    if ((projProgress < 0) || (projProgress > 100)) {
-      validForm = false;
-      setProjProgressErr(true);
-    }
-    if ((projPRProgress < 0) || (projPRProgress > 100)) {
-      validForm = false;
-      setProjPRProgressErr(true);
-    }
-    if ((projA11YProgress < 0) || (projA11YProgress > 100)) {
-      validForm = false;
-      setProjA11YProgressErr(true);
-    }
-    return validForm;
+    getProject();
   };
 
   /**
@@ -707,102 +539,6 @@ const ProjectView = (props) => {
   };
 
   /**
-   * Ensure the form data is valid, then submit the
-   * data to the server via POST request. Re-syncs
-   * Project information on success.
-   */
-  const submitEditInfoForm = () => {
-    resetEditInfoFormErrors();
-    if (validateEditInfoForm()) {
-      setEditModalLoading(true);
-      var projData = {
-        projectID: props.match.params.id
-      };
-      if (Array.isArray(project.tags)) {
-        const currTags = new Set(project.tags);
-        const newTags = new Set(projTags);
-        if (!setsEqual(currTags, newTags)) {
-          projData.tags = projTags;
-        }
-      } else {
-        projData.tags = projTags;
-      }
-      if (Array.isArray(project.cidDescriptors)) {
-        const currCIDs = new Set(project.cidDescriptors);
-        const newCIDs = new Set(projCIDs);
-        if (!setsEqual(currCIDs, newCIDs)) {
-          projData.cidDescriptors = projCIDs;
-        }
-      } else {
-        projData.cidDescriptors = projCIDs;
-      }
-      if ((project.title && project.title !== projTitle) || !project.title) {
-        projData.title = projTitle;
-      }
-      if ((project.hasOwnProperty('currentProgress') && project.currentProgress !== projProgress) || !project.hasOwnProperty('currentProgress')) {
-        projData.progress = projProgress;
-      }
-      if ((project.hasOwnProperty('peerProgress') && project.peerProgress !== projPRProgress) || !project.hasOwnProperty('peerProgress')) {
-        projData.peerProgress = projPRProgress;
-      }
-      if ((project.hasOwnProperty('a11yProgress') && project.a11yProgress !== projA11YProgress) || !project.hasOwnProperty('a11yProgress')) {
-        projData.a11yProgress = projA11YProgress;
-      }
-      if ((project.classification && project.classification !== projClassification) || !project.classification) {
-        projData.classification = projClassification;
-      }
-      if ((project.status && project.status !== projStatus) || !project.status) {
-        projData.status = projStatus;
-      }
-      if ((project.visibility && project.visibility !== projVisibility) || !project.visibility) {
-        projData.visibility = projVisibility;
-      }
-      if ((project.projectURL && project.projectURL !== projURL) || !project.projectURL) {
-        projData.projectURL = projURL;
-      }
-      if ((project.adaptURL && project.adaptURL !== projAdaptURL) || !project.adaptURL) {
-        projData.adaptURL = projAdaptURL;
-      }
-      if ((project.author && project.author !== projResAuthor) || !project.author) {
-        projData.author = projResAuthor;
-      }
-      if ((project.authorEmail && project.authorEmail !== projResEmail) || !project.authorEmail) {
-        projData.authorEmail = projResEmail.trim();
-      }
-      if ((project.license && project.license !== projResLicense) || !project.license) {
-        projData.license = projResLicense;
-      }
-      if ((project.resourceURL && project.resourceURL !== projResURL) || !project.resourceURL) {
-        projData.resourceURL = projResURL;
-      }
-      if ((project.notes && project.notes !== projNotes) || !project.notes) {
-        projData.notes = projNotes;
-      }
-      if (Object.keys(projData).length > 1) {
-        axios.put('/project', projData).then((res) => {
-          if (!res.data.err) {
-            closeEditInfoModal();
-            getProject();
-          } else {
-            handleGlobalError(res.data.errMsg);
-            setEditModalLoading(false);
-          }
-        }).catch((err) => {
-          if(err.toJSON().status === 409){
-            handleGlobalError(err, 'View Project', err.response.data.projectID ?? 'unknown')
-          } else {
-            handleGlobalError(err);
-          }
-          setEditModalLoading(false);
-        });
-      } else {
-        // no changes to save
-        closeEditInfoModal();
-      }
-    }
-  };
-
-  /**
    * Opens the Manage Team Modal and sets the fields to their
    * default values, then triggers the function to retrieve the list of
    * addable users.
@@ -818,26 +554,6 @@ const ProjectView = (props) => {
    */
   const closeTeamModal = () => {
     setShowManageTeamModal(false);
-  };
-
-
-  /**
-   * Submits a DELETE request to the server to delete the project,
-   * then redirects to the Projects dashboard on success.
-   */
-  const submitDeleteProject = () => {
-    setDeleteProjModalLoading(true);
-    axios.delete(`/project/${props.match.params.id}`).then((res) => {
-      setDeleteProjModalLoading(false);
-      if (!res.data.err) {
-        props.history.push('/projects?projectDeleted=true');
-      } else {
-        handleGlobalError(res.data.errMsg);
-      }
-    }).catch((err) => {
-      handleGlobalError(err);
-      setDeleteProjModalLoading(false);
-    });
   };
 
   const handleTaskSearch = (_e, { value }) => {
@@ -1932,7 +1648,6 @@ const ProjectView = (props) => {
                       {userProjectMember &&
                         <Button
                           color='blue'
-                          loading={editModalLoading}
                           onClick={openEditInfoModal}
                           aria-label='Edit Properties'
                         >
@@ -2587,350 +2302,12 @@ const ProjectView = (props) => {
               </Grid>
             </Segment>
           </Segment.Group>
-          {/* Edit Project Information Modal */}
-          <Modal
-            open={showEditModal}
-            closeOnDimmerClick={false}
-            size='fullscreen'
-          >
-            <Modal.Header>Edit Project Properties</Modal.Header>
-            <Modal.Content scrolling>
-              <Form noValidate>
-                <Header as='h3'>Project Properties</Header>
-                <Form.Field
-                  required
-                  error={projTitleErr}
-                >
-                  <label>Project Title</label>
-                  <Form.Input
-                    type='text'
-                    placeholder='Enter the project title...'
-                    onChange={(e) => setProjTitle(e.target.value)}
-                    value={projTitle}
-                  />
-                </Form.Field>
-                <Form.Group widths='equal'>
-                  <Form.Field
-                    error={projProgressErr}
-                  >
-                    <label>Current Progress</label>
-                    <Form.Input
-                      name='currentProgress'
-                      type='number'
-                      placeholder='Enter current estimated progress...'
-                      min='0'
-                      max='100'
-                      onChange={(e) => setProjProgress(e.target.value)}
-                      value={projProgress}
-                    />
-                  </Form.Field>
-                  <Form.Field
-                    error={projPRProgressErr}
-                  >
-                    <label>Peer Review Progress</label>
-                    <Form.Input
-                      name='peerreviewprogress'
-                      type='number'
-                      placeholder='Enter current estimated progress...'
-                      min='0'
-                      max='100'
-                      onChange={(e) => setProjPRProgress(e.target.value)}
-                      value={projPRProgress}
-                    />
-                  </Form.Field>
-                  <Form.Field
-                    error={projA11YProgressErr}
-                  >
-                    <label>Accessibility Progress</label>
-                    <Form.Input
-                      name='a11yprogress'
-                      type='number'
-                      placeholder='Enter current estimated progress...'
-                      min='0'
-                      max='100'
-                      onChange={(e) => setProjA11YProgress(e.target.value)}
-                      value={projA11YProgress}
-                    />
-                  </Form.Field>
-                </Form.Group>
-                <Form.Group widths='equal'>
-                  <Form.Select
-                    fluid
-                    label={<label>Status</label>}
-                    placeholder='Status...'
-                    options={statusOptions}
-                    onChange={(_e, { value }) => setProjStatus(value)}
-                    value={projStatus}
-                  />
-                  <Form.Select
-                    fluid
-                    label={<label>Classification</label>}
-                    placeholder='Classification...'
-                    options={classificationOptions}
-                    onChange={(_e, { value }) => setProjClassification(value)}
-                    value={projClassification}
-                  />
-                  <Form.Select
-                    fluid
-                    label={<label>Visibility</label>}
-                    selection
-                    options={visibilityOptions}
-                    value={projVisibility}
-                    onChange={(_e, { value }) => setProjVisibility(value)}
-                  />
-                </Form.Group>
-                {
-                  !project.didCreateWorkbench && (
-                    <>
-                      <Form.Field>
-                      <label htmlFor='projectURL'>
-                        <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
-                        <Popup
-                          trigger={<Icon name='info circle' />}
-                          position='top center'
-                          content={(
-                            <span className='text-center'>
-                              If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
-                            </span>
-                          )}
-                        />
-                      </label>
-                      <Form.Input
-                        name='projectURL'
-                        type='url'
-                        placeholder='Enter project URL...'
-                        onChange={(e) => setProjURL(e.target.value)}
-                        value={projURL}
-                        id='projectURL'
-                      />
-                      </Form.Field>
-                      {
-                        !projURL && (
-                          <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>Create Book</Button>
-                        )
-                      }
-                      </>
-                  )
-                }
-                {
-                  project.didCreateWorkbench && (
-                    <BookCreatedLabel />
-                  )
-                }
-                <Form.Dropdown
-                  label='Project Tags'
-                  placeholder='Search tags...'
-                  multiple
-                  search
-                  selection
-                  allowAdditions
-                  options={tagOptions}
-                  loading={!loadedTags}
-                  disabled={!loadedTags}
-                  onChange={(_e, { value }) => setProjTags(value)}
-                  onAddItem={(_e, { value }) => setTagOptions([{ text: value, value }, ...tagOptions])}
-                  renderLabel={(tag) => ({
-                    color: 'blue',
-                    content: tag.text
-                  })}
-                  value={projTags}
-                />
-                <Form.Dropdown
-                  id="cidinput"
-                  label={(
-                    <label htmlFor="cidinput">
-                      <span className="mr-05p">C-ID <span className="muted-text">(if applicable)</span></span>
-                      <Popup
-                        trigger={<Icon name="info circle" />}
-                        position="top center"
-                        hoverable={true}
-                        content={(
-                          <span className="text-center">
-                            {'Use this field if your Project or resource pertains to content for a course registered with the '}
-                            <a href="https://c-id.net/" target="_blank" rel="noopener">
-                              California Course Identification Numbering System (C-ID)
-                            </a>.
-                          </span>
-                        )}
-                      />
-                    </label>
-                  )}
-                  deburr
-                  placeholder="Search C-IDs..."
-                  multiple
-                  search
-                  selection
-                  options={cidOptions}
-                  loading={!loadedCIDs}
-                  disabled={!loadedCIDs}
-                  onChange={(_e, { value }) => setProjCIDs(value)}
-                  renderLabel={(cid) => ({
-                    color: 'blue',
-                    content: cid.key,
-                  })}
-                  value={projCIDs}
-                />
-                <p className='mt-2p mb-2p'><em>For settings and properties related to Peer Reviews, please use the Settings tool on this project's Peer Review page.</em></p>
-                <Divider />
-                <Header as="h3">Homework and Assessments</Header>
-                <p>
-                  <em>
-                    {`Use this section to link your project's Commons page (if applicable) to an `}
-                    <a href="https://adapt.libretexts.org" target="_blank" rel="noreferrer">ADAPT</a>
-                    {` assessment system course. `}
-                    <strong>Ensure the course allows anonymous users.</strong>
-                  </em>
-                </p>
-                <Form.Field>
-                  <label htmlFor="adaptURL">
-                    <span className="mr-05p">ADAPT Course URL <span className="muted-text">(if applicable)</span></span>
-                    <Popup
-                      trigger={<Icon name="info circle" />}
-                      position="top center"
-                      content={(
-                        <span className="text-center">
-                          Paste the URL of your Course Dashboard (assignments list) or Course Properties page. The Course ID will be automatically determined.
-                        </span>
-                      )}
-                    />
-                  </label>
-                  <Form.Input
-                    name="adaptURL"
-                    type="url"
-                    placeholder="Enter ADAPT Course Dashboard URL..."
-                    onChange={(e) => setProjAdaptURL(e.target.value)}
-                    value={projAdaptURL}
-                    id="adaptURL"
-                    className="mb-2p"
-                  />
-                </Form.Field>
-                <Divider />
-                <Header as='h3'>Source Properties</Header>
-                <p><em>Use this section if your project pertains to a particular resource or tool.</em></p>
-                <Form.Group widths='equal'>
-                  <Form.Field>
-                    <label>Author</label>
-                    <Form.Input
-                      name='resourceAuthor'
-                      type='text'
-                      placeholder='Enter resource author name...'
-                      onChange={(e) => setProjResAuthor(e.target.value)}
-                      value={projResAuthor}
-                    />
-                  </Form.Field>
-                  <Form.Field>
-                    <label>Author's Email</label>
-                    <Form.Input
-                      name='resourceEmail'
-                      type='email'
-                      placeholder="Enter resource author's email..."
-                      onChange={(e) => setProjResEmail(e.target.value)}
-                      value={projResEmail}
-                    />
-                  </Form.Field>
-                </Form.Group>
-                <Form.Group widths='equal'>
-                  <Form.Select
-                    fluid
-                    label='License'
-                    placeholder='License...'
-                    options={licenseOptions}
-                    onChange={(_e, { value }) => setProjResLicense(value)}
-                    value={projResLicense}
-                  />
-                  <Form.Field>
-                    <label>Original URL</label>
-                    <Form.Input
-                      name='resourceURL'
-                      type='url'
-                      placeholder='Enter resource URL...'
-                      onChange={(e) => setProjResURL(e.target.value)}
-                      value={projResURL}
-                    />
-                  </Form.Field>
-                </Form.Group>
-                <Divider />
-                <Header as='h3'>Additional Information</Header>
-                <Form.Field>
-                  <label>Notes</label>
-                  <TextArea
-                    placeholder='Enter additional notes here...'
-                    textValue={projNotes}
-                    onTextChange={(value) => setProjNotes(value)}
-                    contentType='notes'
-                  />
-                </Form.Field>
-              </Form>
-              <Accordion className='mt-2p' panels={[{
-                key: 'danger',
-                title: {
-                  content: <span className='color-semanticred'><strong>Danger Zone</strong></span>
-                },
-                content: {
-                  content: (
-                    <div>
-                      <p className='color-semanticred'>Use caution with the options in this area!</p>
-                      <Button
-                        color='red'
-                        fluid
-                        onClick={() => setShowDeleteProjModal(true)}
-                      >
-                        <Icon name='trash alternate' />
-                        Delete Project
-                      </Button>
-                    </div>
-                  )
-                }
-              }]} />
-            </Modal.Content>
-            <Modal.Actions>
-              <Button
-                onClick={closeEditInfoModal}
-              >
-                Cancel
-              </Button>
-              <Button
-                icon
-                labelPosition='left'
-                color='green'
-                loading={editModalLoading}
-                onClick={submitEditInfoForm}
-              >
-                <Icon name='save' />
-                Save Changes
-              </Button>
-            </Modal.Actions>
-          </Modal>
+          {/* Edit Project Modal */}
+          <ProjectPropertiesModal show={showEditModal} projectID={projectID} onClose={() => handleCloseEditModal()}/>
           {/* Manage Team Modal */}
           <Suspense fallback={<LoadingSpinner/>}>
             <ManageTeamModal show={showManageTeamModal} project={project} onDataChanged={getProject} onClose={closeTeamModal} />
           </Suspense>
-          {/* Confirm Delete Modal */}
-          <Modal
-            open={showDeleteProjModal}
-            closeOnDimmerClick={false}
-          >
-            <Modal.Header>Confirm Project Deletion</Modal.Header>
-            <Modal.Content>
-              <p>Are you sure you want to delete this project? <strong>This cannot be undone.</strong></p>
-              <Button
-                color='red'
-                fluid
-                loading={deleteProjModalLoading}
-                onClick={submitDeleteProject}
-              >
-                <Icon name='trash alternate' />
-                Delete Project
-              </Button>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button
-                onClick={() => setShowDeleteProjModal(false)}
-              >
-                Cancel
-              </Button>
-            </Modal.Actions>
-          </Modal>
           {/* Manage (Add/Edit) Task Modal */}
           <Modal
             open={showMngTaskModal}

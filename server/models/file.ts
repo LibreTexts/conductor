@@ -1,17 +1,55 @@
 import { model, Schema, Document } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
 
-export interface FileInterface extends Document {
+// Not stored in schema, but used in API
+export type FileInterfacePath = {
+  fileID: string;
+  name: string;
+};
+
+export type FileInterfaceAccess =
+  | "public"
+  | "users"
+  | "instructors"
+  | "team"
+  | "mixed";
+
+export interface FileLicense {
+  name?: string;
+  url?: string;
+  version?: string;
+  sourceURL?: string;
+  modifiedFromSource?: boolean;
+  additionalTerms?: string;
+}
+
+export interface FileAuthor {
+  name?: string;
+  email?: string;
+  url?: string;
+}
+
+export interface FilePublisher {
+  name?: string;
+  url?: string;
+}
+
+export interface RawFileInterface {
   fileID: string;
   name?: string;
-  access?: "public" | "users" | "instructors" | "team" | "mixed";
+  access?: FileInterfaceAccess;
   storageType: "file" | "folder";
   size: number;
   description?: string;
   parent?: string;
   createdBy?: string;
   downloadCount?: number;
+  license?: FileLicense;
+  author?: FileAuthor;
+  publisher?: FilePublisher;
 }
+
+export interface FileInterface extends RawFileInterface, Document {}
 
 const FileSchema = new Schema<FileInterface>({
   /**
@@ -64,6 +102,32 @@ const FileSchema = new Schema<FileInterface>({
    * Number of times the entry has been downloaded on Commons, if entry is a "file".
    */
   downloadCount: Number,
+  /**
+   * License information for the entry.
+   */
+  license: {
+    name: String,
+    url: String,
+    version: String,
+    sourceURL: String,
+    modifiedFromSource: Boolean,
+    additionalTerms: String,
+  },
+  /**
+   * Author information for the entry.
+   */
+  author: {
+    name: String,
+    email: String,
+    url: String,
+  },
+  /**
+   * Publisher information for the entry.
+   */
+  publisher: {
+    name: String,
+    url: String,
+  },
 });
 
 // We don't need export Mongoose model()  here because we only need the schema, not a seperate collection.
