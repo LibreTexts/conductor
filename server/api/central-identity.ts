@@ -28,7 +28,7 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
 } from "../types";
-import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
+import { CentralIdentityLicense, CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -687,6 +687,29 @@ async function getVerificationRequest(
   }
 }
 
+async function getLicenses(
+  req: Request,
+  res: Response<{
+    err: boolean;
+    licenses: CentralIdentityLicense[]; 
+  }>
+){
+  try {
+    const licensesRes = await centralIdentityAxios.get('/licenses');
+    if(!licensesRes.data || !licensesRes.data.data){
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      licenses: licensesRes.data.data
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function updateVerificationRequest(
   req: TypedReqParamsAndBody<
     { id: string },
@@ -911,5 +934,6 @@ export default {
   updateUser,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
+  getLicenses,
   validate,
 };

@@ -76,6 +76,7 @@ const CommonsCatalog = () => {
     course?: string;
     publisher?: string;
     cidDescriptor?: string;
+    assets?: boolean;
   };
   const [searchString, setSearchString] = useState<string>("");
   const [libraryFilter, setLibraryFilter] = useState<string>("");
@@ -94,6 +95,7 @@ const CommonsCatalog = () => {
     org.orgID === "libretexts" ? true : false
   );
   const [includeCampus, setIncludeCampus] = useState<boolean>(true);
+  const [includeAssets, setIncludeAssets] = useState<boolean>(true);
 
   const [subjectOptions, setSubjectOptions] = useState<
     GenericKeyTextValueObj<string>[]
@@ -185,6 +187,7 @@ const CommonsCatalog = () => {
     searchURL = updateParams(searchURL, "library", libraryFilter);
     searchURL = updateParams(searchURL, "subject", subjectFilter);
     searchURL = updateParams(searchURL, "location", locationFilter);
+    searchURL = updateParams(searchURL, "assets", includeAssets ? "1" : "0");
     searchURL = updateParams(searchURL, "author", authorFilter);
     searchURL = updateParams(searchURL, "license", licenseFilter);
     searchURL = updateParams(searchURL, "affiliation", affilFilter);
@@ -203,6 +206,7 @@ const CommonsCatalog = () => {
     setLibraryFilter("");
     setSubjectFilter("");
     setLocationFilter(org.orgID === "libretexts" ? "all" : "campus");
+    setIncludeAssets(true);
     setAuthorFilter("");
     setLicenseFilter("");
     setAffilFilter("");
@@ -214,6 +218,7 @@ const CommonsCatalog = () => {
     searchURL = updateParams(searchURL, "library", "");
     searchURL = updateParams(searchURL, "subject", "");
     searchURL = updateParams(searchURL, "location", "");
+    searchURL = updateParams(searchURL, "assets", "");
     searchURL = updateParams(searchURL, "author", "");
     searchURL = updateParams(searchURL, "license", "");
     searchURL = updateParams(searchURL, "affiliation", "");
@@ -266,6 +271,7 @@ const CommonsCatalog = () => {
       if (!isEmptyString(cidFilter)) {
         paramsObj.cidDescriptor = cidFilter;
       }
+    paramsObj.assets = includeAssets;
 
       const res = await axios.get("/commons/catalog", {
         params: paramsObj,
@@ -896,6 +902,13 @@ const CommonsCatalog = () => {
                     tabIndex={-1}
                     loading={!loadedFilters}
                     className="commons-filter"
+                  />
+                </div>
+                <div className="flex justify-center mt-2">
+                  <Checkbox 
+                  checked={includeAssets}
+                  onChange={(e, data) => setIncludeAssets(data.checked ?? true)}
+                  label="Include Assets"
                   />
                 </div>
                 {!includeCampus && !includeCentral && (

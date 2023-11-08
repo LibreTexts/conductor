@@ -103,3 +103,11 @@ export type CentralIdentityVerificationRequestStatus =
   | "denied"
   | "needs_change"
   | "open";
+
+export type CentralIdentityLicense = {
+  name: string;
+  version?: string;
+  url?: string;
+  created_at: Date;
+  updated_at: Date;
+};
