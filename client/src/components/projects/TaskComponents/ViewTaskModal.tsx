@@ -403,7 +403,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
                     Description
                   </Header>
                   <p
-                    className="word-break-word"
+                    className="word-break-word prose prose-code:before:hidden prose-code:after:hidden"
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(
                         marked(viewTaskData.description)

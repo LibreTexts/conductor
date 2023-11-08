@@ -2003,7 +2003,7 @@ const ProjectView = (props) => {
                           {(project.flagDescrip && !isEmptyString(project.flagDescrip)) &&
                             <div>
                               <p className='project-flag-message-text'><strong>Reason for flagging:</strong></p>
-                              <div className='ui message' dangerouslySetInnerHTML={{
+                              <div className='ui message prose prose-code:before:hidden prose-code:after:hidden' dangerouslySetInnerHTML={{
                                 __html: DOMPurify.sanitize(marked(project.flagDescrip))
                               }} />
                             </div>
@@ -2181,7 +2181,7 @@ const ProjectView = (props) => {
                           <Grid.Column>
                             <Header as='h3' dividing>Notes</Header>
                             <p
-                              className='project-notes-body'
+                              className='project-notes-body prose prose-code:before:hidden prose-code:after:hidden'
                               dangerouslySetInnerHTML={{
                                 __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
                               }}

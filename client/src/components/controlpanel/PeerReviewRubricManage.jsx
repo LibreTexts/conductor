@@ -1009,7 +1009,7 @@ const PeerReviewRubricManage = (props) => {
                                                     )}
                                                     {(item.uiType === 'textBlock') && (
                                                         <div className='flex-col-div'>
-                                                            <p
+                                                            <p className='prose prose-code:before:hidden prose-code:after:hidden'
                                                                 dangerouslySetInnerHTML={{
                                                                     __html: DOMPurify.sanitize(marked(item.text))
                                                                 }}

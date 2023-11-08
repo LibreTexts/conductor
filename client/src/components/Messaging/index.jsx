@@ -251,7 +251,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                                     >
                                         {item.title}
                                     </p>
-                                    <p className='conductor-messaging-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
+                                    <p className='conductor-messaging-threads-list-descrip prose prose-code:before:hidden prose-code:after:hidden' dangerouslySetInnerHTML={readyLastMsg}>
                                     </p>
                                 </div>
                             )

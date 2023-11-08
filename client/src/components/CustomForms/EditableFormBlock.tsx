@@ -72,7 +72,7 @@ const EditableFormBlock: React.FC<EditableFormBlockProps> = ({
         </span>
       </Label>
       <div className="flex-row-div">
-        <div className="left-flex" dangerouslySetInnerHTML={renderedTextHTML} />
+        <div className="left-flex prose prose-code:before:hidden prose-code:after:hidden" dangerouslySetInnerHTML={renderedTextHTML} />
         <div className="right-flex">
           <Button.Group>
             <Button
