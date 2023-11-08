@@ -141,25 +141,19 @@ const EditFile: React.FC<EditFileProps> = ({
     try {
       if (!projectID || !fileID) return;
       setLoading(true);
-      const res = await axios.get(`/project/${projectID}/files/${fileID}`);
-      if (
-        !res ||
-        res.data.err ||
-        !Array.isArray(res.data.files) ||
-        res.data.files.length === 0
-      ) {
+      const res = await api.getProjectFile(projectID, fileID);
+      if (!res || res.data.err || !res.data.file) {
         throw new Error("Failed to load file");
       }
 
-      const fileData = res.data.files[res.data.files.length - 1]; // Target file should be last in array
-      const parsedExistingTags: AssetTag[] = fileData.tags?.map(
-        (t: AssetTagWithKey) => {
+      const fileData = res.data.file;
+      const parsedExistingTags: AssetTag[] =
+        fileData.tags?.map((t: AssetTagWithKey) => {
           return {
             ...t,
             key: t.key.title,
           };
-        }
-      );
+        }) ?? [];
       reset({
         ...fileData,
         tags: parsedExistingTags,
