@@ -148,10 +148,10 @@ const EditFile: React.FC<EditFileProps> = ({
 
       const fileData = res.data.file;
       const parsedExistingTags: AssetTag[] =
-        fileData.tags?.map((t: AssetTagWithKey) => {
+        fileData.tags?.map((t: AssetTag | AssetTagWithKey) => {
           return {
             ...t,
-            key: t.key.title,
+            key: isAssetTagKeyObject(t.key) ?  t.key.title : t.key,
           };
         }) ?? [];
       reset({
