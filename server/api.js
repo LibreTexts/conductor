@@ -1340,6 +1340,14 @@ router.route('/project/:projectID/files/:fileID/move').put(
   projectsAPI.moveProjectFile,
 );
 
+router.route('/project/:projectID/files/content/:folderID?').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('getProjectFolderContents'),
+  middleware.checkValidationErrors,
+  projectsAPI.getProjectFolderContents,
+)
+
 router.route('/project/:projectID/files/:fileID?')
   .post(
     authAPI.verifyRequest,
@@ -1351,9 +1359,9 @@ router.route('/project/:projectID/files/:fileID?')
   ).get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('getProjectFiles'),
+    projectsAPI.validate('getProjectFile'),
     middleware.checkValidationErrors,
-    projectsAPI.getProjectFiles,
+    projectsAPI.getProjectFile,
   ).put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,

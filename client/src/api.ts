@@ -179,6 +179,25 @@ class API {
     return res;
   }
 
+  async getProjectFiles(projectID: string, folderID?: string) {
+    const res = await axios.get<
+      {
+        files: ProjectFile[];
+        path: { fileID: string; name: string }[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/content/${folderID ? folderID : ""}`);
+    return res;
+  }
+
+  async getProjectFile(projectID: string, fileID: string) {
+    const res = await axios.get<
+      {
+        file: ProjectFile;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/${fileID}`);
+    return res;
+  }
+
   async getFileDownloadURL(
     projectID: string,
     fileID: string,
@@ -196,16 +215,13 @@ class API {
     return res;
   }
 
-  async bulkDownloadFiles(
-    projectID: string,
-    fileIDs: string[],
-  ) {
+  async bulkDownloadFiles(projectID: string, fileIDs: string[]) {
     const arrQuery = fileIDs.map((id) => `fileID=${id}`).join(`&`);
     const res = await axios.get<Blob>(`/project/${projectID}/files/bulk`, {
       params: {
         fileIDs: arrQuery,
       },
-      responseType: 'blob'
+      responseType: "blob",
     });
     return res;
   }

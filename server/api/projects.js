@@ -46,6 +46,7 @@ import {
     updateTeamWorkbenchPermissions,
     isFileInterfaceAccess,
     generateZIPFile,
+    retrieveSingleProjectFile,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -2814,18 +2815,18 @@ async function bulkDownloadProjectFiles(req, res) {
 }
 
 /**
- * Retrieves a list of Files linked to a Project.
+ * Retrieves the contents of a Project (Files/Assets) Folder.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  */
- async function getProjectFiles(req, res) {
+ async function getProjectFolderContents(req, res) {
   try {
     const projectID = req.params.projectID;
-    const fileID = req.params.fileID || '';
+    const folderID = req.params.folderID || '';
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
-      return conductor404Error(res);
+      return conductor404Err(res);
     }
 
     if (!checkProjectGeneralPermission(project, req.user)) {
@@ -2835,7 +2836,7 @@ async function bulkDownloadProjectFiles(req, res) {
       });
     }
 
-    const [files, path] = await retrieveProjectFiles(projectID, fileID, undefined, req.user.decoded.uuid);
+    const [files, path] = await retrieveProjectFiles(projectID, folderID, undefined, req.user.decoded.uuid);
     if (!files) { // error encountered
       throw (new Error('retrieveerror'));
     }
@@ -2844,6 +2845,47 @@ async function bulkDownloadProjectFiles(req, res) {
       err: false,
       msg: 'Successfully retrieved files!',
       files,
+      path
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Retrieves a single Project File/Folder.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ */
+async function getProjectFile(req, res) {
+  try {
+    const { projectID, fileID } = req.params;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return conductor404Err(res);
+    }
+
+    if (!checkProjectGeneralPermission(project, req.user)) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const [file, path] = await retrieveSingleProjectFile(projectID, fileID, undefined, req.user.decoded.uuid);
+    if (!file) { // error encountered
+      return conductor404Err(res);
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Successfully retrieved files!',
+      file,
       path
     });
   } catch (e) {
@@ -3800,10 +3842,15 @@ const validate = (method) => {
         body('parentID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('folderName', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
       ]
-    case 'getProjectFiles':
+    case 'getProjectFolderContents':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('fileID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+        param('folderID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
+      ]
+    case 'getProjectFile':
+      return [
+        param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
+        param('fileID', conductorErrors.err1).exists().isUUID(),
       ]
     case 'getProjectFileDownloadUrl':
       return [
@@ -3884,7 +3931,8 @@ export default {
     addProjectFile,
     getProjectFileDownloadURL,
     bulkDownloadProjectFiles,
-    getProjectFiles,
+    getProjectFolderContents,
+    getProjectFile,
     updateProjectFile,
     updateProjectFileAccess,
     moveProjectFile,
