@@ -8,6 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import middleware from './middleware.js'; // Route middleware
+import assetTagFrameworkAPI from './api/assettagframeworks.js';
 import authAPI from './api/auth.js';
 import centralIdentityAPI from './api/central-identity.js';
 import usersAPI from './api/users.js';
@@ -32,6 +33,7 @@ import CIDDescriptorsAPI from './api/ciddescriptors.js';
 import analyticsAPI from './api/analytics.js';
 import orgEventsAPI from './api/orgevents.js';
 import paymentsAPI from './api/payments.js';
+import * as ProjectValidators from './api/validators/projects.js';
 
 const router = express.Router();
 
@@ -250,6 +252,12 @@ router.route('/central-identity/verification-requests/:id').get(
   centralIdentityAPI.updateVerificationRequest
 )
 
+// Public route
+router.route('/central-identity/licenses').get(
+  middleware.checkCentralIdentityConfig,
+  centralIdentityAPI.getLicenses
+)
+
 /* OAuth (server) */
 router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
 
@@ -292,6 +300,38 @@ router.route('/org/:orgID/branding-images/:assetName').post(
   orgsAPI.updateBrandingImageAsset,
 );
 
+/* Asset Tag Frameworks */
+router.route('/assettagframeworks').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  assetTagFrameworkAPI.validate('getFrameworks'),
+  middleware.checkValidationErrors,
+  assetTagFrameworkAPI.getFrameworks,
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  assetTagFrameworkAPI.validate('createFramework'),
+  middleware.checkValidationErrors,
+  assetTagFrameworkAPI.createFramework,
+);
+
+router.route('/assettagframeworks/:uuid').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  assetTagFrameworkAPI.validate('getFramework'),
+  middleware.checkValidationErrors,
+  assetTagFrameworkAPI.getFramework,
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  assetTagFrameworkAPI.validate('updateFramework'),
+  middleware.checkValidationErrors,
+  assetTagFrameworkAPI.updateFramework,
+)
 
 /* Adoption Reports */
 // (submission route can be anonymous)
@@ -1245,6 +1285,14 @@ router.route('/project/:projectID?')
     projectsAPI.deleteProject,
   );
 
+router.route('/project/:projectID/files/bulk').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('bulkDownloadProjectFiles'),
+  middleware.checkValidationErrors,
+  projectsAPI.bulkDownloadProjectFiles,
+)
+
 router.route('/project/:projectID/files/:fileID/access').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -1286,8 +1334,7 @@ router.route('/project/:projectID/files/:fileID?')
   ).put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('updateProjectFile'),
-    middleware.checkValidationErrors,
+    middleware.validateZod(ProjectValidators.updateProjectFileSchema),
     projectsAPI.updateProjectFile,
   ).delete(
     authAPI.verifyRequest,

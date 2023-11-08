@@ -45,6 +45,7 @@ app.use(
         "'self'",
         "https://*.libretexts.org",
         "*.google-analytics.com", // gtag.js
+        '*.cloudfront.net' // TODO: Review
       ],
       defaultSrc: ["'self'"],
       fontSrc: [

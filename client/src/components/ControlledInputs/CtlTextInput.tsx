@@ -22,6 +22,10 @@ export default function CtlTextInput<
   required = false,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
+
+  const { className: restClassName } = rest;
+  delete rest.className;
+
   return (
     <Controller
       control={control}
@@ -31,7 +35,7 @@ export default function CtlTextInput<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <>
+        <div className={`${restClassName ?? ''}`}>
           {label && (
             <label
               className={`form-field-label ${required ? "form-required" : ""}`}
@@ -44,9 +48,10 @@ export default function CtlTextInput<
             onChange={onChange}
             onBlur={onBlur}
             error={error?.message}
+            className="mt-1"
             {...rest}
           />
-        </>
+        </div>
       )}
     />
   );

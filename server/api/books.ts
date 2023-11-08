@@ -1798,29 +1798,24 @@ async function downloadBookFile(
       });
     }
 
-    const downloadURL = await downloadProjectFile(
+    const downloadURLs = await downloadProjectFiles(
       project.projectID,
-      fileID,
+      [fileID],
       false,
       true,
       req
     );
-    if (downloadURL === null) {
+    if (downloadURL === null || !Array.isArray(downloadURLs) || downloadURLs.length < 1) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err63,
-      });
-    } else if (downloadURL === false) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
       });
     }
 
     return res.send({
       err: false,
       msg: "Successfully generated download link!",
-      url: downloadURL,
+      url: downloadURLs[0], // only first index because only one file requested
     });
   } catch (e) {
     return res.status(500).send({

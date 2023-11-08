@@ -1,6 +1,6 @@
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { param, body } from "express-validator";
 import {
   CentralIdentityOrg,
@@ -27,7 +27,7 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
 } from "../types";
-import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
+import { CentralIdentityLicense, CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
 
 const centralIdentityAxios = useCentralIdentityAxios();
 
@@ -538,6 +538,29 @@ async function getVerificationRequest(
   }
 }
 
+async function getLicenses(
+  req: Request,
+  res: Response<{
+    err: boolean;
+    licenses: CentralIdentityLicense[]; 
+  }>
+){
+  try {
+    const licensesRes = await centralIdentityAxios.get('/licenses');
+    if(!licensesRes.data || !licensesRes.data.data){
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      licenses: licensesRes.data.data
+    })
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function updateVerificationRequest(
   req: TypedReqParamsAndBody<
     { id: string },
@@ -657,5 +680,6 @@ export default {
   getVerificationRequest,
   updateVerificationRequest,
   updateUser,
+  getLicenses,
   validate,
 };

@@ -40,10 +40,11 @@ import {
     retrieveProjectFiles,
     PROJECT_FILES_S3_CLIENT_CONFIG,
     updateProjectFiles,
-    downloadProjectFile,
+    downloadProjectFiles,
     computeStructureAccessSettings,
-    PROJECT_FILES_ACCESS_SETTINGS,
     checkIfBookLinkedToProject,
+    isFileInterfaceAccess,
+    generateZIPFile,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -57,6 +58,10 @@ import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
+import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
+import fse from 'fs-extra';
+import * as MiscValidators from './validators/misc.js';
+import { conductor404Err } from '../util/errorutils.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -615,6 +620,10 @@ async function updateProject(req, res) {
     }
     if (Array.isArray(req.body.cidDescriptors)) {
       updateObj.cidDescriptors = req.body.cidDescriptors;
+    }
+
+    if (Array.isArray(req.body.associatedOrgs)) {
+      updateObj.associatedOrgs = req.body.associatedOrgs;
     }
 
     if (Object.keys(updateObj).length > 0) {
@@ -2636,7 +2645,8 @@ const autoGenerateProjects = (newBooks) => {
  */
 async function getProjectFileDownloadURL(req, res) {
   try {
-    const { projectID, fileID } = req.params;
+    const { projectID, fileID} = req.params;
+    const { shouldIncrement = true } = req.query;
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -2645,23 +2655,118 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const downloadURL = await downloadProjectFile(projectID, fileID, undefined, req.user.decoded.uuid);
-    if (downloadURL === null) {
+    const downloadURLs = await downloadProjectFiles(projectID, [fileID], undefined, req.user.decoded.uuid, shouldIncrement);
+    if (downloadURLs === null || !Array.isArray(downloadURLs) || downloadURLs.length === 0) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err63,
-      });
-    } else if (downloadURL === false) {
-      return res.status(401).send({
-        err: true,
-        errMsg: conductorErrors.err8,
       });
     }
 
     return res.send({
       err: false,
       msg: 'Successfully generated download link!',
-      url: downloadURL,
+      url: downloadURLs[0], // Only first index because we only requested one file
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function bulkDownloadProjectFiles(req, res) {
+  try {
+    const { projectID } = req.params;
+    const rawIds = req.query.fileIDs;
+    const split = rawIds.split("&");
+    const parsed = split.map((item) => item.split("=")[1]);
+    const fileIDs = parsed.filter(
+      (item) => item !== undefined && MiscValidators.isUUID(item)
+    );
+
+    if (!fileIDs || !Array.isArray(fileIDs) || fileIDs.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err62,
+      });
+    }
+
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const allFiles = await retrieveAllProjectFiles(
+      projectID,
+      false,
+      req.user.decoded.uuid
+    );
+    if (!allFiles) {
+      throw new Error("retrieveerror");
+    }
+
+    const foundFiles = allFiles.filter((file) => fileIDs.includes(file.fileID));
+
+    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const downloadCommands = [];
+
+    if (foundFiles.length > 0) {
+      // create zip file
+      foundFiles.forEach((file) => {
+        const fileKey = assembleUrl([projectID, file.fileID]);
+        downloadCommands.push(
+          new GetObjectCommand({
+            Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+            Key: fileKey,
+          })
+        );
+      });
+    } else {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    const items = [];
+    const downloadRes = await Promise.all(
+      downloadCommands.map((command) => storageClient.send(command))
+    );
+
+    for (let i = 0; i < downloadRes.length; i++) {
+      const byteArray = await downloadRes[i].Body?.transformToByteArray();
+      if (foundFiles[i]) {
+        foundFiles[i].name = foundFiles[i].name;
+        items.push({
+          name: foundFiles[i].name,
+          data: byteArray,
+        });
+      } else {
+        items.push({
+          name: v4(), // Fallback to random name
+          data: byteArray,
+        });
+      }
+    }
+
+    const zipPath = await generateZIPFile(items);
+    if (!zipPath) {
+      throw new Error("ziperror");
+    }
+
+    //TODO: update download count
+
+    return res.download(zipPath, `${projectID}.zip`, async (err) => {
+      if(err) {
+        throw new Error("downloaderror");
+      }
+      await fse.unlink(zipPath) // delete temp zip file
     });
   } catch (e) {
     debugError(e);
@@ -2684,10 +2789,7 @@ async function getProjectFileDownloadURL(req, res) {
     const fileID = req.params.fileID || '';
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err11,
-      });
+      return conductor404Error(res);
     }
 
     if (!checkProjectGeneralPermission(project, req.user)) {
@@ -2734,15 +2836,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    const { name, description } = req.body;
-
-    // check if there are any updates to perform (account for unsetting the description)
-    if (typeof (name) !== 'string' && typeof (description) !== 'string') {
-      return res.send({
-        err: false,
-        msg: 'No fields provided to update.',
-      });
-    }
+    const { name, description, license, author, publisher } = req.body;
 
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
@@ -2769,6 +2863,9 @@ async function getProjectFileDownloadURL(req, res) {
       }
     }
 
+    // update tags
+    await upsertAssetTags(foundObj, req.body.tags);
+
     const updated = files.map((obj) => {
       if (obj.fileID === foundObj.fileID) {
         const updateObj = { ...obj };
@@ -2777,6 +2874,15 @@ async function getProjectFileDownloadURL(req, res) {
         }
         if (typeof (description) === 'string') { // account for unsetting
           updateObj.description = description;
+        }
+        if (license) {
+          updateObj.license = license;
+        }
+        if(author) {
+          updateObj.author = author;
+        }
+        if(publisher) {
+          updateObj.publisher = publisher;
         }
         return updateObj;
       }
@@ -3478,16 +3584,6 @@ const validateProjectRole = (role) => {
 };
 
 /**
- * Validates a provided Project File access/visibility setting.
- *
- * @param {string} access - The setting identifier to validate. 
- * @returns {boolean} True if valid role, false otherwise. 
- */
-const validateFileAccessSetting = (access) => {
-  return PROJECT_FILES_ACCESS_SETTINGS.includes(access)
-};
-
-/**
  * Verifies that a provided ADAPT Course URL contains a Course ID number.
  *
  * @param {string} url - The course url to validate. 
@@ -3579,6 +3675,7 @@ const validate = (method) => {
           body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),
           body('adaptURL', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateADAPTCourseURL),
           body('cidDescriptors', conductorErrors.err1).optional().custom(validateCIDDescriptors),
+          body('associatedOrgs', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
       ]
     case 'getProject':
       return [
@@ -3676,19 +3773,18 @@ const validate = (method) => {
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         param('fileID', conductorErrors.err1).exists().isUUID(),
+        query('shouldIncrement', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
       ]
-    case 'updateProjectFile':
+    case 'bulkDownloadProjectFiles':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
-        param('fileID', conductorErrors.err1).exists().isUUID(),
-        body('name', conductorErrors.err1).optional().isLength({ min: 1, max: 100 }),
-        body('description', conductorErrors.err1).optional().isLength({ max: 500 }),
+        query('fileIDs', conductorErrors.err1).exists(),
       ]
     case 'updateProjectFileAccess':
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         param('fileID', conductorErrors.err1).exists().isUUID(),
-        body('newAccess', conductorErrors.err1).exists().isString().custom(validateFileAccessSetting),
+        body('newAccess', conductorErrors.err1).exists().isString().custom(isFileInterfaceAccess),
       ]
     case 'moveProjectFile':
       return [
@@ -3751,6 +3847,7 @@ export default {
     fileUploadHandler,
     addProjectFile,
     getProjectFileDownloadURL,
+    bulkDownloadProjectFiles,
     getProjectFiles,
     updateProjectFile,
     updateProjectFileAccess,

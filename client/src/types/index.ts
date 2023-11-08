@@ -9,14 +9,16 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj, TimeZoneOption } from "./Misc";
+import { GenericKeyTextValueObj, TimeZoneOption, MongoBaseDocument, ConductorBaseResponse } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
   Project,
   ProjectFile,
+  ProjectTag,
   ProjectClassification,
   ProjectStatus,
+  CIDDescriptor
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
@@ -59,9 +61,25 @@ import {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense
 } from "./CentralIdentity";
+import {
+  AssetTag,
+  AssetTagWithKey,
+  AssetTagKey,
+  AssetTagTemplate,
+  AssetTagFramework,
+  AssetTagTemplateValueType,
+  AssetTagTemplateValueTypeOptions,
+} from "./AssetTagging"
 
 export type {
+  AssetTag,
+  AssetTagWithKey,
+  AssetTagKey,
+  AssetTagTemplate,
+  AssetTagTemplateValueType,
+  AssetTagFramework,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
@@ -69,6 +87,8 @@ export type {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense,
+  ConductorBaseResponse,
   Organization,
   CampusSettingsOpts,
   Collection,
@@ -76,6 +96,7 @@ export type {
   ControlledInputProps,
   GenericKeyTextValueObj,
   TimeZoneOption,
+  MongoBaseDocument,
   CollectionDirectoryPathObj,
   Book,
   BookLinks,
@@ -84,6 +105,8 @@ export type {
   a11ySectionReviewSchema,
   Project,
   ProjectFile,
+  ProjectTag,
+  CIDDescriptor,
   User,
   Account,
   AuthorizedApp,
@@ -113,6 +136,7 @@ export type {
 };
 
 export {
+  AssetTagTemplateValueTypeOptions,
   CollectionPrivacyOptions,
   CollectionResourceType,
   CollectionLocations,

@@ -27,7 +27,8 @@ import {
   CentralIdentitySystem,
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
-  CentralIdentityVerificationRequestStatus
+  CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense
 } from "./CentralIdentity";
 
 export type {
@@ -39,6 +40,7 @@ export type {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
+  CentralIdentityLicense,
   ReaderResource,
   CustomFormHeadingType,
   CustomFormPromptType,
