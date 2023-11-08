@@ -21,6 +21,7 @@ import {
 import fs from "fs-extra";
 import AdmZip from "adm-zip";
 import { v4 } from "uuid";
+import { all } from "bluebird";
 
 export const projectClassifications = [
   "harvesting",
@@ -472,7 +473,7 @@ export async function retrieveAllProjectFiles(
  * Retrieves a list of Project Files for a Project in hierarchical format.
  *
  * @param {string} projectID - The LibreTexts standard project identifier.
- * @param {string} [filesKey=''] - The folder identifier to restrict the search to, if desired.
+ * @param {string} [folderID=''] - The folder identifier to restrict the search to, if desired.
  * @param {boolean} [publicOnly=false] - Only return Public files regardless of user access level
  * @param {string} [userID=''] - Uuid of user initating request (if provided)
  * @param {boolean} [details=false] - Include additional details about each file, such as uploader.
@@ -481,7 +482,7 @@ export async function retrieveAllProjectFiles(
  */
 export async function retrieveProjectFiles(
   projectID: string,
-  filesKey = "",
+  folderID = "",
   publicOnly = false,
   userID = "",
   details = false
@@ -499,6 +500,7 @@ export async function retrieveProjectFiles(
       publicOnly,
       userID
     );
+
     if (!allFiles) {
       throw new Error("retrieveerror");
     }
@@ -506,31 +508,93 @@ export async function retrieveProjectFiles(
       return [[], path];
     }
 
-    let foundFolder;
-    if (filesKey !== "") {
-      foundFolder = allFiles.find((obj) => obj.fileID === filesKey);
-      if (!foundFolder) {
-        return [null, null];
-      }
-    }
-    const foundEntries = allFiles.filter((obj) => obj.parent === filesKey);
-
-    if (foundFolder) {
-      path.push(..._buildParentPath(foundFolder, allFiles));
+    const foundItems = [];
+    if (folderID) {
+      foundItems.push(...allFiles.filter((obj) => obj.parent === folderID));
+    } else {
+      foundItems.push(...allFiles.filter((obj) => !obj.parent));
     }
 
     const sortedResults = sortProjectFiles(
-      foundEntries.map((obj) => _buildChildList(obj, allFiles))
+      foundItems.map((obj) => _buildChildList(obj, allFiles))
     );
 
-    return [sortedResults, path];
+    let finalPath;
+    if (folderID) {
+      const folder = allFiles.find((obj) => obj.fileID === folderID);
+      if (!folder) {
+        return [null, null];
+      }
+      finalPath = [...path, ..._buildParentPath(folder, allFiles)];
+    }
+
+    return [sortedResults, finalPath ?? path];
   } catch (e) {
     debugError(e);
     return [null, null];
   }
 }
 
-function _buildParentPath(obj: FileInterface, allFiles: FileInterface[]) {
+/**
+ * Retrieves a list of Project Files for a Project in hierarchical format.
+ *
+ * @param {string} projectID - The LibreTexts standard project identifier.
+ * @param {string} fileID - The file identifier to get.
+ * @param {boolean} [publicOnly=false] - Only return Public files regardless of user access level
+ * @param {string} [userID=''] - Uuid of user initating request (if provided)
+ * @param {boolean} [details=false] - Include additional details about each file, such as uploader.
+ * @returns {Promise<[object, object[]]|[null, null]>} A 2-tuple containing the list of files and the path
+ * leading to the results, or nulls if error encountered.
+ */
+export async function retrieveSingleProjectFile(
+  projectID: string,
+  folderID: string,
+  publicOnly = false,
+  userID = "",
+  details = false
+): Promise<[RawFileInterface, FileInterfacePath[]] | [null, null]> {
+  try {
+    const allFiles = await retrieveAllProjectFiles(
+      projectID,
+      publicOnly,
+      userID
+    );
+
+    if (!allFiles || allFiles.length === 0) {
+      throw new Error("retrieveerror");
+    }
+
+    const foundItem = allFiles.find((obj) => obj.fileID === folderID);
+    if (!foundItem) {
+      return [null, null];
+    }
+
+    if (!details) {
+      delete foundItem["createdBy"];
+      delete foundItem["downloadCount"];
+      delete foundItem["createdBy"];
+    }
+
+    const withChildren = _buildChildList(foundItem, allFiles);
+    const path = _buildParentPath(foundItem, allFiles);
+
+    return [
+      withChildren,
+      [
+        {
+          fileID: "",
+          name: "",
+        },
+        ...path,
+      ],
+    ];
+  } catch (e) {
+    debugError(e);
+    return [null, null];
+  }
+}
+
+const _buildParentPath = (obj: FileInterface, allFiles: FileInterface[]) => {
   let pathNodes: FileInterfacePath[] = [];
   pathNodes.push({
     fileID: obj.fileID,
@@ -543,25 +607,24 @@ function _buildParentPath(obj: FileInterface, allFiles: FileInterface[]) {
     }
   }
   return pathNodes;
-}
+};
 
-function _buildChildList(
+const _buildChildList = (
   obj: FileInterface,
   allFiles: FileInterface[],
   details = false
-) {
-  const currObj = obj;
+) => {
   let children: RawFileInterface[] = [];
   if (!details) {
-    delete currObj["createdBy"];
-    delete currObj["downloadCount"];
-    delete currObj["createdBy"];
+    delete obj["createdBy"];
+    delete obj["downloadCount"];
+    delete obj["createdBy"];
   }
   if (obj.storageType !== "folder") {
-    return currObj;
+    return obj;
   }
   const foundChildren = allFiles.filter(
-    (childObj) => childObj.parent === currObj.fileID
+    (childObj) => childObj.parent === obj.fileID
   );
   if (foundChildren.length > 0) {
     children = foundChildren.map((childObj) =>
@@ -569,11 +632,12 @@ function _buildChildList(
     );
     children = sortProjectFiles(children);
   }
+
   return {
-    ...currObj,
+    ...obj,
     children,
   };
-}
+};
 
 /**
  * Generates a pre-signed download URL for a Project File, if access settings allow.
@@ -798,11 +862,11 @@ export async function checkIfBookLinkedToProject(
 }
 
 export async function generateZIPFile(
-  items: {name: string, data: Uint8Array}[] 
+  items: { name: string; data: Uint8Array }[]
 ): Promise<string | null> {
   try {
     const zip = new AdmZip();
-    for(let i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i++) {
       const buffer = Buffer.from(items[i].data);
       zip.addFile(items[i].name, buffer);
     }
