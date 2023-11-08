@@ -276,7 +276,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               type="number"
               min="0"
               max="100"
-              className="basis-1/4"
+              className="w-full mr-6"
             />
             <CtlTextInput
               name="peerProgress"
@@ -286,7 +286,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               type="number"
               min="0"
               max="100"
-              className="basis-1/4"
+              className="w-full mr-6"
             />
             <CtlTextInput
               name="a11yProgress"
@@ -296,12 +296,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               type="number"
               min="0"
               max="100"
-              className="basis-1/4"
+              className="w-full"
             />
           </div>
           <div className="flex flex-row justify-between mt-4">
-            <Form.Field>
-              <label htmlFor="projectStatus">Status</label>
+            <div className="w-full mr-6">
+              <label htmlFor="projectStatus" className="form-field-label">Status</label>
               <Controller
                 name="status"
                 control={control}
@@ -316,12 +316,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Status..."
+                    className="w-full mr-6"
                   />
                 )}
               />
-            </Form.Field>
-            <Form.Field>
-              <label htmlFor="projectClassification">Classification</label>
+              </div>
+            <div className="w-full mr-6">
+              <label htmlFor="projectClassification" className="form-field-label">Classification</label>
               <Controller
                 name="classification"
                 control={control}
@@ -336,12 +337,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Classification..."
+                    className="w-full mr-6"
                   />
                 )}
               />
-            </Form.Field>
-            <Form.Field>
-              <label htmlFor="projectVisibility">Visibility</label>
+            </div>
+            <div className="w-full">
+              <label htmlFor="projectVisibility" className="form-field-label">Visibility</label>
               <Controller
                 name="visibility"
                 control={control}
@@ -356,10 +358,11 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Visibility..."
+                    className="w-full"
                   />
                 )}
               />
-            </Form.Field>
+            </div>
           </div>
           <Form.Field className="flex flex-col !mt-4">
             <label htmlFor="projectURL">
