@@ -86,3 +86,11 @@ export type CentralIdentityUpdateVerificationRequestBody = {
   reason?: string;
   approved_applications?: number[];
 };
+
+export type CentralIdentityLicense = {
+  name: string;
+  version?: string;
+  url?: string;
+  created_at: Date;
+  updated_at: Date;
+}

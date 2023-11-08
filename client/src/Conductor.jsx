@@ -44,7 +44,7 @@ import ProjectsFlagged from './components/projects/ProjectsFlagged';
 import ProjectsPortal from './components/projects/ProjectsPortal';
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
-import Search from './components/search/Search';
+const Search = lazy(() => import('./screens/conductor/Search'));
 import UserDetails from './components/controlpanel/UserDetails';
 import UsersManager from './components/controlpanel/UsersManager';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -105,7 +105,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
         <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
-        {/*<PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />*/}
+        <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

@@ -185,30 +185,7 @@ const checkSuperAdmin = (roles) => {
   return false;
 };
 
-/**
- * Formats a number of bytes as a UI-ready/human-readable string.
- *
- * @param {number} bytes - The file size in bytes.
- * @param {number} [dp=1] - Number of decimal points to round to.
- */
-function fileSizePresentable(bytes, dp = 1) {
-  let fileBytes = bytes;
-  const metric = 1000;
-  if (Math.abs(fileBytes) < metric) {
-    return `${fileBytes} B`;
-  }
 
-  const UNITS = ['KB', 'MB', 'GB', 'TB'];
-  let u = -1;
-  const r = 10**dp;
-
-  do {
-    fileBytes /= metric;
-    ++u;
-  } while (Math.round(Math.abs(fileBytes) * r) / r >= metric && u < UNITS.length - 1);
-
-  return `${fileBytes.toFixed(dp)} ${UNITS[u]}`;
-}
 
 /**
  * Checks if two Sets are equal.
@@ -236,6 +213,5 @@ export {
     basicArraysEqual,
     checkCampusAdmin,
     checkSuperAdmin,
-    fileSizePresentable,
     setsEqual,
 };

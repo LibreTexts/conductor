@@ -13,3 +13,12 @@ export type AtlasSearchHighlight = {
   score: number;
   texts: { value: string, type: 'hit' | 'text' }[];
 };
+
+export type MongoBaseDocument = {
+  _id?: string;
+  __v?: any;
+};
+
+export type ConductorBaseResponse =
+  | { err: false }
+  | { err: true; errMsg: string };

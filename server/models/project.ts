@@ -1,10 +1,7 @@
 import { model, Schema, Document } from "mongoose";
-import {
-  projectClassifications,
-  PROJECT_FILES_ACCESS_SETTINGS,
-} from "../util/projectutils.js";
+import { projectClassifications } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
-import  FileSchema, { FileInterface } from "./file.js";
+import FileSchema, { FileInterface } from "./file.js";
 
 export interface ProjectInterface extends Document {
   orgID: string;
@@ -51,7 +48,8 @@ export interface ProjectInterface extends Document {
   allowAnonPR: boolean;
   preferredPRRubric?: string;
   cidDescriptors?: string[];
-  files?: (typeof FileSchema)[];
+  associatedOrgs?: string[];
+  files?: FileInterface[];
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -243,6 +241,10 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     cidDescriptors: [String],
     /**
+     * Associated Organization names.
+     */
+    associatedOrgs: [String],
+    /**
      * Project Files associated with the Book.
      */
     files: [FileSchema],
@@ -252,7 +254,8 @@ const ProjectSchema = new Schema<ProjectInterface>(
   }
 );
 
-ProjectSchema.index({title: "text"})
+ProjectSchema.index({ title: "text" });
+ProjectSchema.index({ "files.name": "text" });
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 

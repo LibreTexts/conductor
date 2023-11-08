@@ -1,4 +1,5 @@
-import { Project, User } from "../../types";
+import { Project, ProjectFile, User } from "../../types";
+import { ProjectFileLicense } from "../../types/Project";
 import { threePointLikertOptions, fivePointLikertOptions, sevenPointLikertOptions } from "./LikertHelpers";
 
 const visibilityOptions = [
@@ -358,6 +359,13 @@ const getFilesAccessText = (access: string) => {
   return 'Unknown';
 };
 
+const getFilesLicenseText = (license: ProjectFileLicense | undefined) => {
+    if (license) {
+        return `${license.name} ${license.version}`;
+    }
+    return 'Unknown';
+}
+
 export {
     PROJECT_FILES_ACCESS_SETTINGS,
     PROJECT_ROLE_SORT_ORDER,
@@ -379,5 +387,6 @@ export {
     checkCanViewProjectDetails,
     checkProjectAdminPermission,
     checkProjectMemberPermission,
-    getFilesAccessText
+    getFilesAccessText,
+    getFilesLicenseText,
 }

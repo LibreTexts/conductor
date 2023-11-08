@@ -1,17 +1,19 @@
 import { FieldValues, FieldPath, Controller } from "react-hook-form";
-import { Form, FormInputProps } from "semantic-ui-react";
+import { Form, FormTextAreaProps } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
 
-interface CtlTextInputProps extends FormInputProps {
+interface CtlTextAreaProps extends FormTextAreaProps {
   label?: string;
   required?: boolean;
+  maxLength?: number;
+  showRemaining?: boolean;
 }
 
 /**
- * Semantic UI Form.Input component wrapped in react-hook-form controller
+ * Semantic UI Form.TextArea component wrapped in react-hook-form controller
  * Fall-through props allow for finer-grained control and styling on a case-by-case basis
  */
-export default function CtlTextInput<
+export default function CtlTextArea<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 >({
@@ -20,11 +22,18 @@ export default function CtlTextInput<
   rules,
   label,
   required = false,
+  maxLength,
+  showRemaining = false,
   ...rest
-}: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
-
+}: ControlledInputProps<TFieldValues, TName> & CtlTextAreaProps) {
   const { className: restClassName } = rest;
   delete rest.className;
+
+  const getRemainingChars = (str?: string) => {
+    if (!maxLength) return 0;
+    if (!str) return maxLength;
+    return maxLength - str.length;
+  };
 
   return (
     <Controller
@@ -35,7 +44,7 @@ export default function CtlTextInput<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <div className={`${restClassName ?? ''}`}>
+        <div className={`${restClassName ?? ""}`}>
           {label && (
             <label
               className={`form-field-label ${required ? "form-required" : ""}`}
@@ -43,14 +52,19 @@ export default function CtlTextInput<
               {label}
             </label>
           )}
-          <Form.Input
+          <Form.TextArea
             value={value}
             onChange={onChange}
             onBlur={onBlur}
             error={error?.message}
-            className="mt-1"
+            className="!m-0"
             {...rest}
           />
+          {maxLength && showRemaining && typeof value === "string" && (
+            <span className="muted-text small-text">
+              Characters remaining: {getRemainingChars(value)}
+            </span>
+          )}
         </div>
       )}
     />

@@ -84,14 +84,12 @@ const ControlPanel = () => {
 
 
     let campusAdminTools: ControlPanelListItem[] = [
-        /*
         {
             url: '/controlpanel/assettagsmanager',
             icon: 'tags',
             title: 'Asset Tags Manager',
             description: 'Manage templates for metadata tags that can be applied to assets in Conductor projects'
         },
-        */
         {
             url: '/controlpanel/booksmanager',
             icon: 'book',
