@@ -61,6 +61,7 @@ const CentralIdentityInstructorVerifications = () => {
       const res = await axios.get("/central-identity/verification-requests", {
         params: {
           activePage,
+          limit: itemsPerPage,
           query: searchString,
           status: 'open',
         },
