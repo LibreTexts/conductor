@@ -1,4 +1,4 @@
-import { Card, CardContentProps, Image } from "semantic-ui-react";
+import { Card, CardContentProps, Icon, Image } from "semantic-ui-react";
 import { ProjectFile } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 
@@ -9,14 +9,21 @@ interface FileCardContentProps extends CardContentProps {
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content">
-      <Card.Header as="h3" className="commons-content-card-header">
+      <div className="flex justify-center">
+        <Icon name="file alternate outline" size="massive" color="black" />
+      </div>
+      <Card.Header as="h3" className="commons-content-card-header !mt-4">
         {truncateString(file.name, 50)}
       </Card.Header>
-      <Card.Meta>{file.author ? file.author.name : "Unknown"}</Card.Meta>
-      <Card.Meta>{file.author ? file.author.name : "Unknown"}</Card.Meta>
+      <Card.Meta>
+        <Icon name="user" color="blue" />{" "}
+        {file.author ? file.author.name : "Unknown Author"}</Card.Meta>
+      <Card.Meta>
+        <Icon name="legal" color="blue" />{" "}
+        {file.license ? file.license.name : "Unknown License"}</Card.Meta>
       <Card.Description>
         <p className="commons-content-card-author">
-          {truncateString(file.description, 50)}
+          {truncateString(file.description, 100)}
         </p>
       </Card.Description>
     </Card.Content>
