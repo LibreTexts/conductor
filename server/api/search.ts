@@ -48,6 +48,7 @@ async function performSearch(
   res: Response
 ) {
   try {
+    console.log(req.query);
     const query = req.query.searchQuery;
     const queryRegex = {
       $regex: query,
@@ -209,14 +210,7 @@ async function performSearch(
       Project.aggregate([
         {
           $match: {
-            $and: [
-              { "files.access": "public" }, // Only return public files
-              {
-                $text: {
-                  $search: query as string,
-                },
-              },
-            ],
+            visibility: "public",
           },
         },
         {
@@ -226,23 +220,58 @@ async function performSearch(
           },
         },
         {
-          // Add projectID to each file
-          $addFields: {
-            "files.projectID": "$projectID",
+          $unwind: {
+            path: "$files",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $match: {
+            "files.access": "public",
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [
+                {
+                  projectID: "$projectID",
+                },
+                "$files",
+              ],
+            },
           },
         },
         {
           $lookup: {
             from: "fileassettags",
-            localField: "files._id",
+            localField: "_id",
             foreignField: "fileID",
-            as: "files.tags",
+            as: "foundTags",
+          },
+        },
+        {
+          $unwind: {
+            path: "$foundTags",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [
+                "$$ROOT",
+                {
+                  foundTags: "$foundTags.tags",
+                },
+              ],
+            },
           },
         },
         {
           $lookup: {
             from: "assettags",
-            localField: "files.tags.tags",
+            localField: "foundTags",
             foreignField: "_id",
             pipeline: [
               {
@@ -261,16 +290,12 @@ async function performSearch(
                 },
               },
             ],
-            as: "files.tags",
+            as: "tags",
           },
         },
         {
-          // Flatten the array of files
-          $group: {
-            _id: null,
-            flattened: {
-              $push: "$files",
-            },
+          $project: {
+            foundTags: 0,
           },
         },
       ])
@@ -399,24 +424,27 @@ async function performSearch(
     const results = {
       projects: aggregateResults[0],
       books: aggregateResults[1],
-      files: aggregateResults[2][0]?.flattened ?? [], //TODO: Flatten array in aggregation so this isn't needed
+      files: aggregateResults[2],
       filesFromTags: aggregateResults[3],
       homework: aggregateResults[3],
       users: aggregateResults[4],
     };
 
-    results.files = [...results.files, ...results.filesFromTags] // Merge files from text search and files from tags
-      .filter((file, index, self) => {
-        // Remove duplicates
-        return (
-          index ===
-          self.findIndex((f) => f._id.toString() === file._id.toString())
-        );
-      })
-      .filter((file) => {
+    // Merge files from text search and files from tags
+    results.files = [...results.files, ...results.filesFromTags].filter(
+      (file) => {
         // Remove files that don't have a projectID
-        return file.projectID;
-      });
+        return file.projectID && file.fileID;
+      }
+    );
+
+    // Remove duplicate files
+    const fileIDs = results.files.map((file: FileInterface) => file.fileID);
+    results.files = results.files.filter(
+      (file: FileInterface, index: number) => {
+        return !fileIDs.includes(file.fileID, index + 1);
+      }
+    );
 
     const resultsCount =
       results.projects.length +
