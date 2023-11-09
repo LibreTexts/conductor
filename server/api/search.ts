@@ -20,6 +20,7 @@ import { Mongoose } from "mongoose";
 import { FileInterface } from "../models/file.js";
 import { TypeOf, z } from "zod";
 import { conductorSearchSchema } from "./validators/search.js";
+import AssetTag from "../models/assettag.js";
 
 export const projectSortOptions = [
   "title",
@@ -207,9 +208,6 @@ async function performSearch(
       // Search project files for names that match the query
       Project.aggregate([
         {
-          $unwind: "$files",
-        },
-        {
           $match: {
             $and: [
               { "files.access": "public" }, // Only return public files
@@ -277,81 +275,83 @@ async function performSearch(
         },
       ])
     );
-    aggregations.push([
-      {
-        $match: {
-          $text: {
-            $search: query,
+    aggregations.push(
+      AssetTag.aggregate([
+        {
+          $match: {
+            $text: {
+              $search: query,
+            },
           },
         },
-      },
-      {
-        $lookup: {
-          from: "fileassettags",
-          localField: "_id",
-          foreignField: "tags",
-          as: "matchingFileAssetTags",
-        },
-      },
-      {
-        $lookup: {
-          from: "projects",
-          as: "matchingProjectFiles",
-          let: {
-            fileIDs: "$matchingFileAssetTags.fileID",
+        {
+          $lookup: {
+            from: "fileassettags",
+            localField: "_id",
+            foreignField: "tags",
+            as: "matchingFileAssetTags",
           },
-          pipeline: [
-            {
-              $match: {
-                orgID: process.env.ORG_ID,
-                visibility: "public",
-              },
+        },
+        {
+          $lookup: {
+            from: "projects",
+            as: "matchingProjectFiles",
+            let: {
+              fileIDs: "$matchingFileAssetTags.fileID",
             },
-            {
-              $unwind: {
-                path: "$files",
+            pipeline: [
+              {
+                $match: {
+                  orgID: process.env.ORG_ID,
+                  visibility: "public",
+                },
               },
-            },
-            {
-              $replaceRoot: {
-                newRoot: {
-                  $mergeObjects: [
+              {
+                $unwind: {
+                  path: "$files",
+                },
+              },
+              {
+                $replaceRoot: {
+                  newRoot: {
+                    $mergeObjects: [
+                      {
+                        projectID: "$projectID",
+                      },
+                      "$files",
+                    ],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $and: [
                     {
-                      projectID: "$projectID",
+                      access: "public",
                     },
-                    "$files",
+                    {
+                      $expr: {
+                        $in: ["$_id", "$$fileIDs"],
+                      },
+                    },
                   ],
                 },
               },
-            },
-            {
-              $match: {
-                $and: [
-                  {
-                    access: "public",
-                  },
-                  {
-                    $expr: {
-                      $in: ["$_id", "$$fileIDs"],
-                    },
-                  },
-                ],
-              },
-            },
-          ],
+            ],
+          },
         },
-      },
-      {
-        $unwind: {
-          path: "$matchingProjectFiles",
+        {
+          $unwind: {
+            path: "$matchingProjectFiles",
+          },
         },
-      },
-      {
-        $replaceRoot: {
-          newRoot: "$matchingProjectFiles",
+        {
+          $replaceRoot: {
+            newRoot: "$matchingProjectFiles",
+          },
         },
-      },
-    ]);
+      ])
+    );
     aggregations.push(
       Homework.aggregate([
         {
@@ -400,9 +400,23 @@ async function performSearch(
       projects: aggregateResults[0],
       books: aggregateResults[1],
       files: aggregateResults[2][0]?.flattened ?? [], //TODO: Flatten array in aggregation so this isn't needed
+      filesFromTags: aggregateResults[3],
       homework: aggregateResults[3],
       users: aggregateResults[4],
     };
+
+    results.files = [...results.files, ...results.filesFromTags] // Merge files from text search and files from tags
+      .filter((file, index, self) => {
+        // Remove duplicates
+        return (
+          index ===
+          self.findIndex((f) => f._id.toString() === file._id.toString())
+        );
+      })
+      .filter((file) => {
+        // Remove files that don't have a projectID
+        return file.projectID;
+      });
 
     const resultsCount =
       results.projects.length +
@@ -585,7 +599,14 @@ async function performSearch(
     return res.send({
       err: false,
       numResults: resultsCount,
-      results,
+      // don't send filesFromTags, its merged into files
+      results: {
+        projects: results.projects,
+        books: results.books,
+        files: results.files,
+        homework: results.homework,
+        users: results.users,
+      },
     });
   } catch (err) {
     debugError(err);
