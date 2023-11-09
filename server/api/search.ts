@@ -9,46 +9,41 @@ import { debugError } from "../debug.js";
 import { isValidDateObject } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import authAPI from "./auth.js";
-import { TypedReqQueryWithUser } from "../types/Express.js";
+import {
+  TypedReqQueryWithUser,
+  ZodReqWithOptionalUser,
+  ZodReqWithUser,
+} from "../types/Express.js";
 import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { Mongoose } from "mongoose";
 import { FileInterface } from "../models/file.js";
+import { TypeOf, z } from "zod";
+import { conductorSearchSchema } from "./validators/search.js";
 
-const projectSortOptions = [
+export const projectSortOptions = [
   "title",
   "progress",
   "classification",
   "visibility",
   "lead",
   "updated",
-];
-const bookSortOptions = [
+] as const;
+export const bookSortOptions = [
   "title",
   "author",
   "library",
   "subject",
   "affiliation",
-];
-const homeworkSortOptions = ["name", "description"];
-const userSortOptions = ["first", "last"];
+] as const;
+export const homeworkSortOptions = ["name", "description"] as const;
+export const userSortOptions = ["first", "last"] as const;
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
- * @param {object} req - The Express.js request object.
- * @param {object} res - The Express.js response object.
  */
 async function performSearch(
-  req: TypedReqQueryWithUser<{
-    searchQuery: string;
-    projLocation?: string;
-    projStatus?: string;
-    projVisibility?: string;
-    projSort?: string;
-    bookSort?: string;
-    hwSort?: string;
-    userSort?: string;
-  }>,
+  req: ZodReqWithOptionalUser<z.infer<typeof conductorSearchSchema>>,
   res: Response
 ) {
   try {
@@ -64,11 +59,9 @@ async function performSearch(
     let projectFilters = [];
     let projectFiltersOptions = {};
 
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin"
-    );
+    const isSuperAdmin = req.user
+      ? authAPI.checkHasRole(req.user, "libretexts", "superadmin")
+      : false;
 
     /* Project Location Filter, only needed if 'local' */
     if (
@@ -86,7 +79,7 @@ async function performSearch(
     }
     /* Project Visibility Filter, only needed if not 'any' */
     const teamMemberQuery = projectAPI.constructProjectTeamMemberQuery(
-      req.user.decoded.uuid
+      req.user?.decoded.uuid || ""
     );
     const privateProjectQueryParts: Record<any, any>[] = [
       { visibility: "private" },
@@ -219,8 +212,12 @@ async function performSearch(
         {
           $match: {
             $and: [
-              { "files.name": queryRegex },
               { "files.access": "public" }, // Only return public files
+              {
+                $text: {
+                  $search: query as string,
+                },
+              },
             ],
           },
         },
@@ -280,6 +277,81 @@ async function performSearch(
         },
       ])
     );
+    aggregations.push([
+      {
+        $match: {
+          $text: {
+            $search: query,
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "fileassettags",
+          localField: "_id",
+          foreignField: "tags",
+          as: "matchingFileAssetTags",
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          as: "matchingProjectFiles",
+          let: {
+            fileIDs: "$matchingFileAssetTags.fileID",
+          },
+          pipeline: [
+            {
+              $match: {
+                orgID: process.env.ORG_ID,
+                visibility: "public",
+              },
+            },
+            {
+              $unwind: {
+                path: "$files",
+              },
+            },
+            {
+              $replaceRoot: {
+                newRoot: {
+                  $mergeObjects: [
+                    {
+                      projectID: "$projectID",
+                    },
+                    "$files",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                $and: [
+                  {
+                    access: "public",
+                  },
+                  {
+                    $expr: {
+                      $in: ["$_id", "$$fileIDs"],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: "$matchingProjectFiles",
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$matchingProjectFiles",
+        },
+      },
+    ]);
     aggregations.push(
       Homework.aggregate([
         {
@@ -521,128 +593,6 @@ async function performSearch(
   }
 }
 
-/**
- * Validates a provided Project Location filter option.
- * @param {string} location - The search scope option selected.
- * @returns {boolean} True if valid selection, false otherwise.
- */
-const validateProjectLocationFilter = (location: string) => {
-  if (typeof location === "string") {
-    return ["global", "local"].includes(location);
-  }
-  return false;
-};
-
-/**
- * Validates a provided Project Status filter option.
- * @param {string} status - The status filter option selected.
- * @returns {boolean} True if valid selection, false otherwise.
- */
-const validateProjectStatusFilter = (status: string) => {
-  if (typeof status === "string") {
-    return ["any", ...projectAPI.projectStatusOptions].includes(status);
-  }
-  return false;
-};
-
-/**
- * Validates a provided Project Visibility filter option.
- * @param {string} visibility - The visibility filter option selected.
- * @returns {boolean} True if valid selection, false otherwise.
- */
-const validateProjectVisibilityFilter = (visibility: string) => {
-  if (typeof visibility === "string") {
-    return ["any", ...projectAPI.projectVisibilityOptions].includes(visibility);
-  }
-  return false;
-};
-
-/**
- * Validates a provided Project sort option.
- * @param {string} sort - The sort option selected.
- * @returns {boolean} True if valid option, false otherwise.
- */
-const validateProjectSort = (sort: string) => {
-  if (typeof sort === "string") {
-    return projectSortOptions.includes(sort);
-  }
-  return false;
-};
-
-/**
- * Validates a provided Book sort option.
- * @param {string} sort - The sort option selected.
- * @returns {boolean} True if valid option, false otherwise.
- */
-const validateBookSort = (sort: string) => {
-  if (typeof sort === "string") {
-    return bookSortOptions.includes(sort);
-  }
-  return false;
-};
-
-/**
- * Validates a provided Homework sort option.
- * @param {string} sort - The sort option selected.
- * @returns {boolean} True if valid option, false otherwise.
- */
-const validateHomeworkSort = (sort: string) => {
-  if (typeof sort === "string") {
-    return homeworkSortOptions.includes(sort);
-  }
-  return false;
-};
-
-/**
- * Validates a provided User sort option.
- * @param {string} sort - The sort option selected.
- * @returns {boolean} True if valid option, false otherwise.
- */
-const validateUserSort = (sort: string) => {
-  if (typeof sort === "string") {
-    return userSortOptions.includes(sort);
-  }
-  return false;
-};
-
-/**
- * Middleware(s) to verify requests contain
- * necessary and/or valid fields.
- */
-const validate = (method: string) => {
-  switch (method) {
-    case "performSearch":
-      return [
-        query("searchQuery", conductorErrors.err1)
-          .exists()
-          .isString()
-          .isLength({ min: 1, max: 200 }),
-        query("projLocation", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateProjectLocationFilter),
-        query("projStatus", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateProjectStatusFilter),
-        query("projVisibility", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateProjectVisibilityFilter),
-        query("projSort", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateProjectSort),
-        query("bookSort", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateBookSort),
-        query("hwSort", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateHomeworkSort),
-        query("userSort", conductorErrors.err1)
-          .optional({ checkFalsy: true })
-          .custom(validateUserSort),
-      ];
-  }
-};
-
 export default {
   performSearch,
-  validate,
 };

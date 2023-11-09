@@ -39,6 +39,7 @@ import supportAPI from './api/support.js';
 import * as kbValidators from './api/validators/kb.js';
 import * as supportValidators from './api/validators/support.js';
 import * as ProjectValidators from './api/validators/projects.js';
+import * as SearchValidators from './api/validators/search.js';
 
 const router = express.Router();
 
@@ -625,10 +626,8 @@ router.route('/commons/homework/sync/automated').put(
 
 /* Search */
 router.route('/search').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  searchAPI.validate('performSearch'),
-  middleware.checkValidationErrors,
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.conductorSearchSchema),
   searchAPI.performSearch,
 );
 

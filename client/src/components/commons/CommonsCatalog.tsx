@@ -32,10 +32,18 @@ import { catalogItemsPerPageOptions } from "../util/PaginationOptions.js";
 import { catalogDisplayOptions } from "../util/CatalogOptions";
 import { updateParams, isEmptyString } from "../util/HelperFunctions.js";
 import { ResultsText } from "../util/ConductorPagination";
-import { Book, CatalogLocation, GenericKeyTextValueObj } from "../../types";
+import {
+  Book,
+  CatalogLocation,
+  GenericKeyTextValueObj,
+  ProjectFile,
+} from "../../types";
 import { isCatalogLocation } from "../../utils/typeHelpers";
 import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
 import CatalogCard from "./CommonsCatalog/CatalogCard";
+import api from "../../api";
+import CatalogTable from "./CommonsCatalog/CatalogTable";
+import { useQueryState } from "../../hooks/useQueryState";
 
 const CommonsCatalog = () => {
   const { handleGlobalError } = useGlobalError();
@@ -46,10 +54,9 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
 
   // Data
-  const [catalogBooks, setCatalogBooks] = useState<Book[]>([]);
-  const [pageBooks, setPageBooks] = useState<Book[]>([]);
-  const [numResultBooks, setNumResultBooks] = useState<number>(0);
-  const [numTotalBooks, setNumTotalBooks] = useState<number>(0);
+  const [items, setItems] = useState<Array<Book | ProjectFile>>([]);
+  const [numResultItems, setNumResultItems] = useState<number>(0);
+  const [numTotalItems, setNumTotalItems] = useState<number>(0);
 
   /** UI **/
   const [itemsPerPage, setItemsPerPage] = useState<number>(12);
@@ -78,24 +85,28 @@ const CommonsCatalog = () => {
     cidDescriptor?: string;
     assets?: boolean;
   };
-  const [searchString, setSearchString] = useState<string>("");
-  const [libraryFilter, setLibraryFilter] = useState<string>("");
-  const [locationFilter, setLocationFilter] = useState<CatalogLocation>(
-    org.orgID === "libretexts" ? "all" : "campus"
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [libraryFilter, setLibraryFilter] = useQueryState<string>("library");
+  const [locationFilter, setLocationFilter] = useQueryState<string>("location");
+  const [subjectFilter, setSubjectFilter] = useQueryState<string>("subject");
+  const [authorFilter, setAuthorFilter] = useQueryState<string>("author");
+  const [licenseFilter, setLicenseFilter] = useQueryState<string>("license");
+  const [affilFilter, setAffilFilter] = useQueryState<string>("affiliation");
+  const [instrFilter, setInstrFilter] = useQueryState<string>("instructor");
+  const [courseFilter, setCourseFilter] = useQueryState<string>("course");
+  const [pubFilter, setPubFilter] = useQueryState<string>("publisher");
+  const [cidFilter, setCIDFilter] = useQueryState<string>("cid");
+  const [displayMode, setDisplayMode] = useQueryState<string>("mode", {defaultValue: "visual"});
+  const [includeCentral, setIncludeCentral] = useQueryState<boolean>(
+    "central",
+    { coerce: "boolean" }
   );
-  const [subjectFilter, setSubjectFilter] = useState<string>("");
-  const [authorFilter, setAuthorFilter] = useState<string>("");
-  const [licenseFilter, setLicenseFilter] = useState<string>("");
-  const [affilFilter, setAffilFilter] = useState<string>("");
-  const [instrFilter, setInstrFilter] = useState<string>("");
-  const [courseFilter, setCourseFilter] = useState<string>("");
-  const [pubFilter, setPubFilter] = useState<string>("");
-  const [cidFilter, setCIDFilter] = useState<string>("");
-  const [includeCentral, setIncludeCentral] = useState<boolean>(
-    org.orgID === "libretexts" ? true : false
-  );
-  const [includeCampus, setIncludeCampus] = useState<boolean>(true);
-  const [includeAssets, setIncludeAssets] = useState<boolean>(true);
+  const [includeCampus, setIncludeCampus] = useQueryState<boolean>("campus", {
+    coerce: "boolean",
+  });
+  const [includeAssets, setIncludeAssets] = useQueryState<boolean>("assets", {
+    coerce: "boolean",
+  });
 
   const [subjectOptions, setSubjectOptions] = useState<
     GenericKeyTextValueObj<string>[]
@@ -132,6 +143,7 @@ const CommonsCatalog = () => {
    */
   useEffect(() => {
     getFilterOptions();
+    searchCommonsCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -147,89 +159,27 @@ const CommonsCatalog = () => {
     }
   }, [org]);
 
-  useEffect(() => {
-    if (includeCampus && includeCentral) {
-      setLocationFilter("all");
-    } else if (includeCampus && !includeCentral) {
-      setLocationFilter("campus");
-    } else if (!includeCampus && includeCentral) {
-      setLocationFilter("central");
-    } else {
-      //Fallback to all if both are unchecked
-      setIncludeCampus(true);
-      setIncludeCentral(true);
-      setLocationFilter("all");
-    }
-  }, [includeCampus, includeCentral]);
+  // useEffect(() => {
+  //   if (includeCampus && includeCentral) {
+  //     setLocationFilter("all");
+  //   } else if (includeCampus && !includeCentral) {
+  //     setLocationFilter("campus");
+  //   } else if (!includeCampus && includeCentral) {
+  //     setLocationFilter("central");
+  //   } else {
+  //     //Fallback to all if both are unchecked
+  //     setIncludeCampus(true);
+  //     setIncludeCentral(true);
+  //     setLocationFilter("all");
+  //   }
+  // }, [includeCampus, includeCentral]);
 
   /**
    * Watch selected locations and automatically re-search
    */
-  useEffect(() => {
-    performSearch();
-  }, [locationFilter]);
-
-  /**
-   * Build the new search URL and push it onto the history stack.
-   * Change to location triggers the network request to fetch results.
-   */
-  const performSearch = () => {
-    let sort = sortChoice;
-    if (!initialSearch.current) {
-      initialSearch.current = true;
-      /* change to ordered on first search */
-      if (sort !== "title" && sort !== "author") {
-        sort = "title";
-      }
-    }
-    let searchURL = location.search;
-    searchURL = updateParams(searchURL, "search", searchString);
-    searchURL = updateParams(searchURL, "library", libraryFilter);
-    searchURL = updateParams(searchURL, "subject", subjectFilter);
-    searchURL = updateParams(searchURL, "location", locationFilter);
-    searchURL = updateParams(searchURL, "assets", includeAssets ? "1" : "0");
-    searchURL = updateParams(searchURL, "author", authorFilter);
-    searchURL = updateParams(searchURL, "license", licenseFilter);
-    searchURL = updateParams(searchURL, "affiliation", affilFilter);
-    searchURL = updateParams(searchURL, "course", courseFilter);
-    searchURL = updateParams(searchURL, "publisher", pubFilter);
-    searchURL = updateParams(searchURL, "cid", cidFilter);
-    searchURL = updateParams(searchURL, "sort", sort);
-    history.push({
-      pathname: location.pathname,
-      search: searchURL,
-    });
-  };
-
-  const resetSearch = () => {
-    setSearchString("");
-    setLibraryFilter("");
-    setSubjectFilter("");
-    setLocationFilter(org.orgID === "libretexts" ? "all" : "campus");
-    setIncludeAssets(true);
-    setAuthorFilter("");
-    setLicenseFilter("");
-    setAffilFilter("");
-    setCourseFilter("");
-    setPubFilter("");
-    setCIDFilter("");
-    let searchURL = location.search;
-    searchURL = updateParams(searchURL, "search", "");
-    searchURL = updateParams(searchURL, "library", "");
-    searchURL = updateParams(searchURL, "subject", "");
-    searchURL = updateParams(searchURL, "location", "");
-    searchURL = updateParams(searchURL, "assets", "");
-    searchURL = updateParams(searchURL, "author", "");
-    searchURL = updateParams(searchURL, "license", "");
-    searchURL = updateParams(searchURL, "affiliation", "");
-    searchURL = updateParams(searchURL, "course", "");
-    searchURL = updateParams(searchURL, "publisher", "");
-    searchURL = updateParams(searchURL, "cid", "");
-    history.push({
-      pathname: location.pathname,
-      search: searchURL,
-    });
-  };
+  // useEffect(() => {
+  //   performSearch();
+  // }, [locationFilter]);
 
   /**
    * Perform GET request for books
@@ -238,58 +188,46 @@ const CommonsCatalog = () => {
   const searchCommonsCatalog = async () => {
     try {
       setLoadedData(false);
-      let paramsObj: FilterParams = {
-        sort: sortChoice,
-      };
-      if (!isEmptyString(searchString)) {
-        paramsObj.search = searchString;
-      }
-      if (!isEmptyString(libraryFilter)) {
-        paramsObj.library = libraryFilter;
-      }
-      if (!isEmptyString(subjectFilter)) {
-        paramsObj.subject = subjectFilter;
-      }
-      if (!isEmptyString(locationFilter)) {
-        paramsObj.location = locationFilter;
-      }
-      if (!isEmptyString(authorFilter)) {
-        paramsObj.author = authorFilter;
-      }
-      if (!isEmptyString(licenseFilter)) {
-        paramsObj.license = licenseFilter;
-      }
-      if (!isEmptyString(affilFilter)) {
-        paramsObj.affiliation = affilFilter;
-      }
-      if (!isEmptyString(courseFilter)) {
-        paramsObj.course = courseFilter;
-      }
-      if (!isEmptyString(pubFilter)) {
-        paramsObj.publisher = pubFilter;
-      }
-      if (!isEmptyString(cidFilter)) {
-        paramsObj.cidDescriptor = cidFilter;
-      }
-    paramsObj.assets = includeAssets;
+      // let paramsObj: FilterParams = {
+      //   sort: sortChoice,
+      //   search: searchQuery,
+      //   library: libraryFilter,
+      //   subject: subjectFilter,
+      //   location: locationFilter,
+      //   author: authorFilter,
+      //   license: licenseFilter,
+      //   affiliation: affilFilter,
+      //   course: courseFilter,
+      //   publisher: pubFilter,
+      //   cidDescriptor: cidFilter,
+      //   assets: includeAssets,
+      // };
 
-      const res = await axios.get("/commons/catalog", {
-        params: paramsObj,
+      // console.log(paramsObj.search);
+      const res = await api.conductorSearch({
+        searchQuery,
+        activePage,
+        limit: itemsPerPage,
       });
 
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      
-      if (Array.isArray(res.data.books)) {
-        setCatalogBooks(res.data.books);
+
+      if (!res.data.results) {
+        throw new Error("No results found.");
       }
-      if (typeof res.data.numFound === "number") {
-        setNumResultBooks(res.data.numFound);
+
+      setItems([...res.data.results.books, ...res.data.results.files]);
+
+      if (typeof res.data.numResults === "number") {
+        setNumResultItems(res.data.numResults);
+        const totalPages = Math.ceil(res.data.numResults / itemsPerPage);
+        setTotalPages(totalPages);
       }
-      if (typeof res.data.numTotal === "number") {
-        setNumTotalBooks(res.data.numTotal);
-      }
+      // if (typeof res.data.numTotal === "number") {
+      //   setNumTotalBooks(res.data.numTotal);
+      // }
     } catch (err) {
       handleGlobalError(err);
       setLoadedData(true);
@@ -390,178 +328,26 @@ const CommonsCatalog = () => {
    * initial URL params sync has been
    * performed.
    */
-  useEffect(() => {
-    if (checkedParams.current) {
-      searchCommonsCatalog();
-    }
-  }, [checkedParams.current, location.search]);
+  // useEffect(() => {
+  //   if (checkedParams.current) {
+  //     searchCommonsCatalog();
+  //   }
+  // }, [checkedParams.current, location.search, activePage, itemsPerPage]);
 
   /**
    * Update the URL query with the sort choice
    * AFTER a search has been performed and a
    * change has been made.
    */
-  useEffect(() => {
-    if (initialSearch.current) {
-      const searchURL = updateParams(location.search, "sort", sortChoice);
-      history.push({
-        pathname: location.pathname,
-        search: searchURL,
-      });
-    }
-  }, [sortChoice]);
-
-  /**
-   * Update the URL query with the display mode
-   * AFTER a search has been performed and a
-   * change has been made.
-   */
-  useEffect(() => {
-    if (initialSearch.current) {
-      const searchURL = updateParams(location.search, "mode", displayChoice);
-      history.push({
-        pathname: location.pathname,
-        search: searchURL,
-      });
-    }
-  }, [displayChoice]);
-
-  /**
-   * Track changes to the number of books loaded
-   * and the selected itemsPerPage and update the
-   * set of books to display.
-   */
-  useEffect(() => {
-    setTotalPages(Math.ceil(catalogBooks.length / itemsPerPage));
-    setPageBooks(
-      catalogBooks.slice(
-        (activePage - 1) * itemsPerPage,
-        activePage * itemsPerPage
-      )
-    );
-  }, [itemsPerPage, catalogBooks, activePage]);
-
-  /**
-   * Subscribe to changes in the URL search string
-   * and update state accordingly.
-   */
-  useEffect(() => {
-    let params = queryString.parse(location.search);
-    if (Object.keys(params).length > 0 && !initialSearch.current) {
-      // enable results for those entering a direct search URL
-      initialSearch.current = true;
-    }
-    if (params.mode && params.mode !== displayChoice) {
-      if (params.mode === "visual" || params.mode === "itemized") {
-        setDisplayChoice(params.mode);
-      }
-    }
-    if (
-      params.items &&
-      typeof params.items === "number" &&
-      parseInt(params.items) !== itemsPerPage
-    ) {
-      if (!isNaN(parseInt(params.items))) {
-        setItemsPerPage(params.items);
-      }
-    }
-    if (
-      params.search !== undefined &&
-      params.search !== searchString &&
-      typeof params.search === "string"
-    ) {
-      setSearchString(params.search);
-    }
-    if (
-      params.sort !== undefined &&
-      params.sort !== sortChoice &&
-      typeof params.sort === "string"
-    ) {
-      setSortChoice(params.sort);
-    }
-    if (
-      params.library !== undefined &&
-      params.library !== libraryFilter &&
-      typeof params.library === "string"
-    ) {
-      setLibraryFilter(params.library);
-    }
-    if (
-      params.subject !== undefined &&
-      params.subject !== subjectFilter &&
-      typeof params.subject === "string"
-    ) {
-      setSubjectFilter(params.subject);
-    }
-    if (
-      params.location !== undefined &&
-      params.location !== locationFilter &&
-      typeof params.location === "string" &&
-      isCatalogLocation(params.location)
-    ) {
-      if (params.location === "all") {
-        setIncludeCampus(true);
-        setIncludeCentral(true);
-      } else if (params.location === "campus") {
-        setIncludeCampus(true);
-        setIncludeCentral(false);
-      } else if (params.location === "central") {
-        setIncludeCampus(false);
-        setIncludeCentral(true);
-      } else {
-        setIncludeCampus(false);
-        setIncludeCentral(false);
-      }
-      setLocationFilter(params.location);
-    }
-    if (
-      params.license !== undefined &&
-      params.license !== licenseFilter &&
-      typeof params.license === "string"
-    ) {
-      setLicenseFilter(params.license);
-    }
-    if (
-      params.author !== undefined &&
-      params.author !== authorFilter &&
-      typeof params.author === "string"
-    ) {
-      setAuthorFilter(params.author);
-    }
-    if (
-      params.affiliation !== undefined &&
-      params.affiliation !== affilFilter &&
-      typeof params.affiliation === "string"
-    ) {
-      setAffilFilter(params.affiliation);
-    }
-    if (
-      params.course !== undefined &&
-      params.course !== courseFilter &&
-      typeof params.course === "string"
-    ) {
-      setCourseFilter(params.course);
-    }
-    if (
-      params.publisher !== undefined &&
-      params.publisher !== pubFilter &&
-      typeof params.publisher === "string"
-    ) {
-      setPubFilter(params.publisher);
-    }
-    if (
-      params.cid !== undefined &&
-      params.cid !== cidFilter &&
-      typeof params.cid === "string"
-    ) {
-      setCIDFilter(params.cid);
-    }
-    if (!checkedParams.current) {
-      // set the initial URL params sync to complete
-      checkedParams.current = true;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search]);
+  // useEffect(() => {
+  //   if (initialSearch.current) {
+  //     const searchURL = updateParams(location.search, "sort", sortChoice);
+  //     history.push({
+  //       pathname: location.pathname,
+  //       search: searchURL,
+  //     });
+  //   }
+  // }, [sortChoice]);
 
   /**
    * Updates the Active Page selection in state.
@@ -577,11 +363,11 @@ const CommonsCatalog = () => {
   }
 
   const VisualMode = () => {
-    if (pageBooks.length > 0) {
+    if (items.length > 0) {
       return (
         <div className="commons-content-card-grid">
-          {pageBooks.map((item, index) => (
-            <CatalogCard book={item} key={index} />
+          {items.map((item, index) => (
+            <CatalogCard item={item} key={index} />
           ))}
         </div>
       );
@@ -595,78 +381,7 @@ const CommonsCatalog = () => {
   };
 
   const ItemizedMode = () => {
-    return (
-      <Table celled title="Search Results">
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell scope="col">
-              <Image
-                centered
-                src={getLibGlyphURL("")}
-                className="commons-itemized-glyph"
-                alt={getLibGlyphAltText("")}
-              />
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Title</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Subject</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Author</Header>
-            </Table.HeaderCell>
-            <Table.HeaderCell scope="col">
-              <Header sub>Affiliation</Header>
-            </Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {pageBooks.length > 0 &&
-            pageBooks.map((item, index) => {
-              return (
-                <Table.Row key={index}>
-                  <Table.Cell>
-                    <Image
-                      centered
-                      src={getLibGlyphURL(item.library)}
-                      className="commons-itemized-glyph"
-                      alt={getLibGlyphAltText(item.library)}
-                    />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <p>
-                      <strong>
-                        <Link to={`/book/${item.bookID}`}>{item.title}</Link>
-                      </strong>
-                    </p>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <p>{item.subject}</p>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <p>{item.author}</p>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <p>
-                      <em>{item.affiliation}</em>
-                    </p>
-                  </Table.Cell>
-                </Table.Row>
-              );
-            })}
-          {pageBooks.length === 0 && (
-            <Table.Row>
-              <Table.Cell colSpan={5}>
-                <p className="text-center">
-                  <em>No results found.</em>
-                </p>
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table.Body>
-      </Table>
-    );
+    return <CatalogTable items={items} />;
   };
 
   return (
@@ -703,7 +418,7 @@ const CommonsCatalog = () => {
             )}
             <Segment>
               <div id="commons-searchbar-container">
-                <Form onSubmit={performSearch}>
+                <Form onSubmit={searchCommonsCatalog}>
                   <Form.Input
                     icon="search"
                     placeholder="Search..."
@@ -711,10 +426,10 @@ const CommonsCatalog = () => {
                     id="commons-search-input"
                     iconPosition="left"
                     onChange={(e) => {
-                      setSearchString(e.target.value);
+                      setSearchQuery(e.target.value);
                     }}
                     fluid
-                    value={searchString}
+                    value={searchQuery}
                     aria-label="Search query"
                   />
                 </Form>
@@ -723,7 +438,7 @@ const CommonsCatalog = () => {
                 <Button
                   fluid
                   id="commons-search-button"
-                  onClick={performSearch}
+                  onClick={searchCommonsCatalog}
                   style={
                     org.orgID !== "libretexts" && org.primaryColor
                       ? {
@@ -741,11 +456,6 @@ const CommonsCatalog = () => {
                 >
                   Search Catalog
                 </Button>
-                {initialSearch.current && (
-                  <Button fluid id="commons-reset-button" onClick={resetSearch}>
-                    Clear
-                  </Button>
-                )}
                 <button
                   id="commons-advancedsrch-button"
                   onClick={() => {
@@ -905,10 +615,12 @@ const CommonsCatalog = () => {
                   />
                 </div>
                 <div className="flex justify-center mt-2">
-                  <Checkbox 
-                  checked={includeAssets}
-                  onChange={(e, data) => setIncludeAssets(data.checked ?? true)}
-                  label="Include Assets"
+                  <Checkbox
+                    checked={includeAssets}
+                    onChange={(e, data) =>
+                      setIncludeAssets(data.checked ?? true)
+                    }
+                    label="Include Assets"
                   />
                 </div>
                 {!includeCampus && !includeCentral && (
@@ -923,6 +635,14 @@ const CommonsCatalog = () => {
                   </div>
                 )}
               </div>
+              {initialSearch.current && (
+                <p
+                  className="underline text-center my-2 cursor-pointer"
+                  //onClick={resetSearch}
+                >
+                  Reset All
+                </p>
+              )}
             </Segment>
             <Segment>
               <Breakpoint name="desktop">
@@ -957,10 +677,7 @@ const CommonsCatalog = () => {
                       value={itemsPerPage}
                       aria-label="Number of results to display per page"
                     />
-                    <ResultsText
-                      resultsCount={numResultBooks}
-                      totalCount={numTotalBooks}
-                    />
+                    <ResultsText resultsCount={numResultItems} totalCount={0} />
                   </div>
                   <div className="commons-content-pagemenu-center">
                     <ConductorPagination
@@ -1036,8 +753,8 @@ const CommonsCatalog = () => {
                           aria-label="Number of results to display per page"
                         />
                         <ResultsText
-                          resultsCount={numResultBooks}
-                          totalCount={numTotalBooks}
+                          resultsCount={numResultItems}
+                          totalCount={0}
                         />
                       </div>
                     </Grid.Column>
@@ -1116,10 +833,7 @@ const CommonsCatalog = () => {
                       value={itemsPerPage}
                       aria-label="Number of results to display per page"
                     />
-                    <ResultsText
-                      resultsCount={numResultBooks}
-                      totalCount={numTotalBooks}
-                    />
+                    <ResultsText resultsCount={numResultItems} totalCount={0} />
                   </div>
                   <div className="commons-content-pagemenu-right">
                     <ConductorPagination
@@ -1151,8 +865,8 @@ const CommonsCatalog = () => {
                           aria-label="Number of results to display per page"
                         />
                         <ResultsText
-                          resultsCount={numResultBooks}
-                          totalCount={numTotalBooks}
+                          resultsCount={numResultItems}
+                          totalCount={0}
                         />
                       </div>
                     </Grid.Column>
