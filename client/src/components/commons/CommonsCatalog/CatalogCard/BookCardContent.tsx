@@ -1,21 +1,15 @@
-import { Link } from "react-router-dom";
-import { Card, CardProps, Image } from "semantic-ui-react";
-import { truncateString } from "../../util/HelperFunctions";
-import { getLibGlyphURL, getLibraryName } from "../../util/LibraryOptions";
-import { Book } from "../../../types";
+import { Card, CardContentProps, Image } from "semantic-ui-react";
+import { Book } from "../../../../types";
+import { truncateString } from "../../../util/HelperFunctions";
+import { getLibGlyphURL, getLibraryName } from "../../../util/LibraryOptions";
 
-interface CatalogCardProps extends CardProps {
+interface BookCardContentProps extends CardContentProps {
   book: Book;
 }
 
-const CatalogCard: React.FC<CatalogCardProps> = ({ book, ...props }) => {
+const BookCardContent: React.FC<BookCardContentProps> = ({ book, ...rest }) => {
   return (
-    <Card
-      as={Link}
-      to={`/book/${book.bookID}`}
-      className="commons-content-card"
-      {...props}
-    >
+    <>
       <div className="commons-content-card-img-wrapper">
         <div
           className="commons-content-card-img"
@@ -39,8 +33,8 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ book, ...props }) => {
           </p>
         </Card.Description>
       </Card.Content>
-    </Card>
+    </>
   );
 };
 
-export default CatalogCard;
+export default BookCardContent;

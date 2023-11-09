@@ -14,6 +14,8 @@ import {
   AssetTag,
   AssetTagFramework,
   AssetTagKey,
+  Book,
+  ProjectFile,
 } from "../types";
 
 export function isCatalogLocation(
@@ -148,7 +150,7 @@ export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
     "templates" in value &&
     "enabled" in value
   );
-}
+};
 
 // Asset Tag TEMPLATES
 export const isAssetTagTemplateValueType = (
@@ -172,9 +174,11 @@ export const isAssetTagTemplate = (value: any): value is AssetTagTemplate => {
   );
 };
 
-export const isAssetTagTemplateArray = (value: any): value is AssetTagTemplate[] => {
+export const isAssetTagTemplateArray = (
+  value: any
+): value is AssetTagTemplate[] => {
   return Array.isArray(value) && value.every((v) => isAssetTagTemplate(v));
-}
+};
 
 // Asset Tags
 export const isAssetTag = (value: any): value is AssetTag => {
@@ -188,14 +192,47 @@ export const isAssetTag = (value: any): value is AssetTag => {
 
 export const isAssetTagArray = (value: any): value is AssetTag[] => {
   return Array.isArray(value) && value.every((v) => isAssetTag(v));
-}
+};
 
 export const isAssetTagKeyObject = (value: any): value is AssetTagKey => {
-  if(!value) return false;
-  if(typeof value !== "object") return false;
+  if (!value) return false;
+  if (typeof value !== "object") return false;
+  return "orgID" in value && "title" in value && "hex" in value;
+};
+
+// Book
+export const isBook = (obj: any): obj is Book => {
+  if (!obj) return false;
+  if (typeof obj !== "object") return false;
   return (
-    "orgID" in value &&
-    "title" in value &&
-    "hex" in value
+    "bookID" in obj &&
+    "title" in obj &&
+    "author" in obj &&
+    "affiliation" in obj &&
+    "library" in obj &&
+    "subject" in obj &&
+    "location" in obj &&
+    "course" in obj &&
+    "program" in obj &&
+    "license" in obj &&
+    "thumbnail" in obj &&
+    "summary" in obj &&
+    "links" in obj &&
+    "lastUpdated" in obj &&
+    "libraryTags" in obj
   );
-}
+};
+
+// Project Files
+export const isProjectFile = (obj: any): obj is ProjectFile => {
+  if (!obj) return false;
+  if (typeof obj !== "object") return false;
+  return (
+    "fileID" in obj &&
+    "name" in obj &&
+    "access" in obj &&
+    "storageType" in obj &&
+    "size" in obj &&
+    "description" in obj
+  );
+};
