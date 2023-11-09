@@ -316,7 +316,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Status..."
-                    className="w-full mr-6"
                   />
                 )}
               />
@@ -337,7 +336,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Classification..."
-                    className="w-full mr-6"
                   />
                 )}
               />
@@ -358,7 +356,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     fluid
                     selection
                     placeholder="Visibility..."
-                    className="w-full"
                   />
                 )}
               />

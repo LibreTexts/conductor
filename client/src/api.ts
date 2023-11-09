@@ -108,15 +108,19 @@ class API {
     bookSort,
     hwSort,
     userSort,
+    activePage,
+    limit,
   }: {
-    searchQuery: string;
-    projLocation: string;
-    projStatus: string;
-    projVisibility: string;
-    projSort: string;
-    bookSort: string;
-    hwSort: string;
-    userSort: string;
+    searchQuery?: string;
+    projLocation?: string;
+    projStatus?: string;
+    projVisibility?: string;
+    projSort?: string;
+    bookSort?: string;
+    hwSort?: string;
+    userSort?: string;
+    activePage?: number;
+    limit?: number;
   }) {
     const res = await axios.get<
       {
@@ -139,6 +143,8 @@ class API {
         bookSort,
         hwSort,
         userSort,
+        activePage,
+        limit,
       },
     });
     return res;
