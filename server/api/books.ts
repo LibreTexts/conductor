@@ -721,7 +721,7 @@ const buildOrganizationNamesList = (orgData: OrganizationInterface) => {
  * @param {express.Response} res - Outgoing resposne object.
  */
 async function getCommonsCatalog(
-  req: z.infer<typeof getCommonsCatalogSchema>,
+  req: z.input<typeof getCommonsCatalogSchema>,
   res: Response
 ) {
   try {
@@ -1047,14 +1047,17 @@ async function getCommonsCatalog(
       ...allFoundBooks.filter((book) => resultBookIDs.includes(book.bookID)),
     ];
 
-    const offset = getPaginationOffset(req.query.activePage, req.query.limit);
-    const paginatedBooks = resultBooks.slice(offset, offset + req.query.limit);
+    // const page = req.query.activePage ? parseInt(req.query.activePage) : 1;
+    // const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+
+    // const offset = getPaginationOffset(page , limit);
+    // const paginatedBooks = resultBooks.slice(offset, offset + req.query.limit);
 
     return res.send({
       err: false,
       numFound: resultBooks.length,
       numTotal: totalNumBooks,
-      books: sortBooks(paginatedBooks, sortChoice),
+      books: sortBooks(resultBooks, sortChoice),
     });
   } catch (e) {
     debugError(e);
@@ -2065,8 +2068,8 @@ const retrieveKBExport = (_req: Request, res: Response) => {
 
 const getCommonsCatalogSchema = z.object({
   query: z.object({
-    activePage: z.coerce.number().min(1).optional().default(1),
-    limit: z.coerce.number().min(1).optional().default(10),
+    activePage: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).default(10),
     sort: z
       .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()

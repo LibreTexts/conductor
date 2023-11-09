@@ -98,6 +98,20 @@ class API {
     return res;
   }
 
+  // Commons
+  async getCommonsCatalog(paramsObj?: object) {
+    const res = await axios.get<
+      {
+        books: Book[];
+        numFound: number;
+        numTotal: number;
+      } & ConductorBaseResponse
+    >("/commons/catalog", {
+      params: paramsObj,
+    });
+    return res;
+  }
+
   // Search
   async conductorSearch({
     searchQuery,

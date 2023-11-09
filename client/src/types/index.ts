@@ -15,6 +15,7 @@ import { a11ySectionReviewSchema } from "./a11y";
 import {
   Project,
   ProjectFile,
+  ProjectFileWProjectID,
   ProjectTag,
   ProjectClassification,
   ProjectStatus,
@@ -105,6 +106,7 @@ export type {
   a11ySectionReviewSchema,
   Project,
   ProjectFile,
+  ProjectFileWProjectID,
   ProjectTag,
   CIDDescriptor,
   User,
