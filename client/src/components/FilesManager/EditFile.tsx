@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Modal,
@@ -125,16 +125,37 @@ const EditFile: React.FC<EditFileProps> = ({
     }
   }, [selectedFramework]);
 
-  // Update license URL and version when license name changes
+  // Update license URL and (version as appropriate) when license name changes
   useEffect(() => {
-    if (!getValues("license.name")) return;
+    if (getValues("license.name") === undefined) return;
+
+    // If license name is cleared, clear license URL and version
+    if (getValues("license.name") === "") {
+      setValue("license.url", "");
+      setValue("license.version", "");
+      return;
+    }
+
     const license = licenseOptions.find(
       (l) => l.name === getValues("license.name")
     );
     if (!license) return;
+
+    // If license no longer has versions, clear license version
+    if (!license.versions || license.versions.length === 0) {
+      setValue("license.version", "");
+    }
     setValue("license.url", license.url);
-    setValue("license.version", license.version);
   }, [watch("license.name")]);
+
+  // Return new license version options when license name changes
+  const selectedLicenseVersions = useCallback(() => {
+    const license = licenseOptions.find(
+      (l) => l.name === getValues("license.name")
+    );
+    if (!license) return [];
+    return license.versions ?? [];
+  }, [watch("license.name"), licenseOptions]);
 
   // Handlers & Methods
   async function loadFile() {
@@ -151,7 +172,7 @@ const EditFile: React.FC<EditFileProps> = ({
         fileData.tags?.map((t: AssetTag | AssetTagWithKey) => {
           return {
             ...t,
-            key: isAssetTagKeyObject(t.key) ?  t.key.title : t.key,
+            key: isAssetTagKeyObject(t.key) ? t.key.title : t.key,
           };
         }) ?? [];
       reset({
@@ -422,14 +443,14 @@ const EditFile: React.FC<EditFileProps> = ({
                     <div>
                       <label
                         className="form-field-label form-required"
-                        htmlFor="selectLicense"
+                        htmlFor="selectLicenseName"
                       >
                         Name
                       </label>
                       <Controller
                         render={({ field }) => (
                           <Dropdown
-                            id="selectLicense"
+                            id="selectLicenseName"
                             options={licenseOptions.map((l) => ({
                               key: l.name,
                               value: l.name,
@@ -449,6 +470,38 @@ const EditFile: React.FC<EditFileProps> = ({
                         rules={required}
                       />
                     </div>
+                    {selectedLicenseVersions().length > 0 && (
+                      <div className="mt-2">
+                        <label
+                          className="form-field-label form-required"
+                          htmlFor="selectLicenseVersion"
+                        >
+                          Version
+                        </label>
+                        <Controller
+                          render={({ field }) => (
+                            <Dropdown
+                              id="selectLicenseVersion"
+                              options={selectedLicenseVersions().map((v) => ({
+                                key: v,
+                                value: v,
+                                text: v,
+                              }))}
+                              {...field}
+                              onChange={(e, data) => {
+                                field.onChange(data.value?.toString() ?? "");
+                              }}
+                              fluid
+                              selection
+                              placeholder="Select license version"
+                            />
+                          )}
+                          name="license.version"
+                          control={control}
+                          rules={required}
+                        />
+                      </div>
+                    )}
                     <CtlTextInput
                       name="license.sourceURL"
                       control={control}
@@ -458,7 +511,7 @@ const EditFile: React.FC<EditFileProps> = ({
                       required
                       rules={required}
                     />
-                    <div className="flex items-start mt-2">
+                    <div className="flex items-start mt-3">
                       <CtlCheckbox
                         name="license.modifiedFromSource"
                         control={control}
