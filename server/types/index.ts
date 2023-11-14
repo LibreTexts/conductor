@@ -13,6 +13,8 @@ import {
   TypedReqParamsAndQueryWithUser,
   TypedReqParamsAndBody,
   TypedReqParamsAndBodyWithUser,
+  ZodReqWithUser,
+  ZodReqWithOptionalUser
 } from "./Express";
 import { BookSortOption } from "./Book";
 import {
@@ -56,4 +58,6 @@ export type {
   TypedReqParamsAndQueryWithUser,
   TypedReqParamsAndBody,
   TypedReqParamsAndBodyWithUser,
+  ZodReqWithUser,
+  ZodReqWithOptionalUser
 };

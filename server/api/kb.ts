@@ -15,11 +15,14 @@ import { Request, Response } from "express";
 import { debugError } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
 import KBPage, { KBPageInterface } from "../models/kbpage.js";
+import authAPI from "./auth.js";
 import { v4 } from "uuid";
 import User from "../models/user.js";
 import DOMPurify from "isomorphic-dompurify";
 import KBFeaturedPage from "../models/kbfeaturedpage.js";
 import KBFeaturedVideo from "../models/kbfeaturedvideo.js";
+import { ZodReqWithOptionalUser } from "../types/Express.js";
+import { is } from "bluebird";
 
 async function getKBPage(
   req: z.infer<typeof GetKBPageValidator>,
@@ -65,13 +68,33 @@ async function getKBPage(
 }
 
 async function getKBTree(
-  req: z.infer<typeof GetKBTreeValidator>,
+  req: ZodReqWithOptionalUser<z.infer<typeof GetKBTreeValidator>>,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
+    let isAuthorized = false;
+
+    // If user is logged in, check if they have the libretexts superadmin role
+    if (req.user) {
+      const foundUser = await User.findOne({ uuid: req.user.decoded.uuid });
+      if(foundUser && authAPI.checkHasRole(foundUser, "libretexts", "superadmin")){
+        isAuthorized = true;
+      }
+    }
+
+    // Restrict the tree to only published pages if the user is not authorized
+    let matchObj = {};
+    if (!isAuthorized) {
+      matchObj = {
+        status: "published",
+      };
+    }
 
     const treeRes = await KBPage.aggregate([
+      {
+        $match: matchObj,
+      },
       {
         $graphLookup: {
           from: "kbpages",
@@ -79,6 +102,9 @@ async function getKBTree(
           connectFromField: "parent",
           connectToField: "uuid",
           as: "parents",
+          restrictSearchWithMatch: {
+            status: "published",
+          },
         },
       },
     ]);
@@ -241,11 +267,11 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
             path: ["title", "description", "body"],
             fuzzy: {
               maxEdits: 2,
-            }
+            },
           },
           highlight: {
-            path: "title"
-          }
+            path: "title",
+          },
         },
       },
       {
@@ -259,13 +285,12 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
           highlight: { $meta: "searchHighlights" },
         },
       },
-    ])
-      .limit(10);
+    ]).limit(10);
 
     return res.send({
       err: false,
       pages,
-    })
+    });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);

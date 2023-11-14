@@ -13,6 +13,9 @@ export interface TypedReqUser {
   roles: { _id: string; org: string; role: string }[];
 }
 
+export type ZodReqWithUser<T> = T &  { user: TypedReqUser };
+export type ZodReqWithOptionalUser<T> = T & { user?: TypedReqUser };
+
 /**
  * Basic req with extracted User;
  * (only suitable for authenticated endpoints)

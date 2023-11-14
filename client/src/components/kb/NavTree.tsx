@@ -81,7 +81,7 @@ const NavTree = forwardRef((props, ref) => {
                 className="text-lg font-semibold text-black"
                 href={getLink(node.slug)}
               >
-                {truncateString(node.title, 50)}
+                {truncateString(node.title, 50)} ({node.status})
               </a>
               {user.isSuperAdmin && (
                 <Popup
@@ -109,7 +109,7 @@ const NavTree = forwardRef((props, ref) => {
                         className="text-md font-semibold text-gray-600"
                         href={getLink(child.slug)}
                       >
-                        {truncateString(child.title, 50)}
+                        {truncateString(child.title, 50)} ({child.status})
                       </a>
                     </div>
                   );
