@@ -75,35 +75,35 @@ const FileRenderer: React.FC<FileRendererProps> = ({
   }
 
   if (!loading) {
-    if (!validImgExt || !fileBlob) {
+    if (validImgExt && fileBlob) {
       return (
-        <div className="bg-gray-100 p-4 rounded-md">
-          {!validImgExt && !fileBlob && (
-            <p className="font-semibold">
-              Preview is not available for this file type.
-            </p>
-          )}
-          {validImgExt && !fileBlob && (
-            <p className="font-semibold">
-              Oops, we ran into an error loading this file.
-            </p>
-          )}
+        <div
+          aria-busy={loading}
+          className="cursor-pointer"
+          onClick={handleDownloadFile}
+          {...rest}
+        >
+          <img
+            src={URL.createObjectURL(fileBlob)}
+            alt="Rendered File"
+            className="cursor-pointer"
+          ></img>
         </div>
       );
     }
 
     return (
-      <div
-        aria-busy={loading}
-        className="cursor-pointer"
-        onClick={handleDownloadFile}
-        {...rest}
-      >
-        <img
-          src={URL.createObjectURL(fileBlob)}
-          alt="Rendered File"
-          className="cursor-pointer"
-        ></img>
+      <div className="bg-gray-100 p-4 rounded-md">
+        {!validImgExt && !fileBlob && (
+          <p className="font-semibold">
+            Preview is not available for this file type.
+          </p>
+        )}
+        {validImgExt && !fileBlob && (
+          <p className="font-semibold">
+            Oops, we ran into an error loading this file.
+          </p>
+        )}
       </div>
     );
   }

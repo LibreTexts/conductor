@@ -30,6 +30,7 @@ import {
 import { licenseOptions } from "../util/LicenseOptions";
 import api from "../../api";
 import axios from "axios";
+import useDebounce from "../../hooks/useDebounce";
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
 interface ProjectPropertiesModalProps extends ModalProps {
@@ -49,6 +50,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 }) => {
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
   const {
     control,
     getValues,
@@ -195,10 +197,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     }
   }
 
-  async function getOrgs() {
+  async function getOrgs(searchQuery?: string) {
     try {
       setLoadedOrgs(false);
-      const res = await api.getCentralIdentityOrgs();
+      const res = await api.getCentralIdentityOrgs({
+        query: searchQuery ?? undefined,
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -214,13 +218,27 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         };
       });
 
-      setOrgOptions(orgs);
+      // We also want to include any existing orgs that are already associated with this project
+      const existingOrgs = watch("associatedOrgs").map((name) => {
+        return {
+          key: crypto.randomUUID(),
+          text: name,
+          value: name,
+        };
+      });
+
+      setOrgOptions([...orgs, ...existingOrgs]);
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setLoadedOrgs(true);
     }
   }
+
+  const getOrgsDebounced = debounce(
+    (inputVal: string) => getOrgs(inputVal),
+    200
+  );
 
   /**
    * Ensure the form data is valid, then submit the
@@ -301,7 +319,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
           </div>
           <div className="flex flex-row justify-between mt-4">
             <div className="w-full mr-6">
-              <label htmlFor="projectStatus" className="form-field-label">Status</label>
+              <label htmlFor="projectStatus" className="form-field-label">
+                Status
+              </label>
               <Controller
                 name="status"
                 control={control}
@@ -319,9 +339,14 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   />
                 )}
               />
-              </div>
+            </div>
             <div className="w-full mr-6">
-              <label htmlFor="projectClassification" className="form-field-label">Classification</label>
+              <label
+                htmlFor="projectClassification"
+                className="form-field-label"
+              >
+                Classification
+              </label>
               <Controller
                 name="classification"
                 control={control}
@@ -341,7 +366,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               />
             </div>
             <div className="w-full">
-              <label htmlFor="projectVisibility" className="form-field-label">Visibility</label>
+              <label htmlFor="projectVisibility" className="form-field-label">
+                Visibility
+              </label>
               <Controller
                 name="visibility"
                 control={control}
@@ -491,6 +518,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   selection
                   multiple
                   search
+                  onSearchChange={(e, { searchQuery }) => {
+                    getOrgsDebounced(searchQuery);
+                  }}
+                  additionLabel="Add organization: "
                   allowAdditions
                   loading={!loadedOrgs}
                   onAddItem={(e, { value }) => {
@@ -589,8 +620,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </div>
           <div className="flex flex-row justify-between mt-4">
-            <Form.Field>
-              <label htmlFor="license">License</label>
+            <div className="w-full mr-6">
+              <label htmlFor="license" className="form-field-label">
+                License
+              </label>
               <Controller
                 name="license"
                 control={control}
@@ -609,13 +642,14 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   />
                 )}
               />
-            </Form.Field>
+            </div>
             <CtlTextInput
               name="resourceURL"
               label="Original URL"
               control={control}
               placeholder="Enter resource URL..."
               type="url"
+              className="w-full"
             />
           </div>
           <Divider />
