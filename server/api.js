@@ -206,6 +206,8 @@ router.route('/central-identity/orgs').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  centralIdentityAPI.validate('getOrgs'),
+  middleware.checkValidationErrors,
   centralIdentityAPI.getOrgs
 )
 
