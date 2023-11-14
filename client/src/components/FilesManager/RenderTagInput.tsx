@@ -57,7 +57,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
 
   const TextInput = () => {
     return (
-      <CtlTextInput name={`tags.${index}.value`} control={control} fluid />
+      <CtlTextInput name={`tags.${index}.value`} control={control} fluid placeholder='Enter value'/>
     );
   };
 
@@ -86,6 +86,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
                 }}
                 fluid
                 selection
+                placeholder="Select a value"
               />
             )}
             name={`tags.${index}.value`}
@@ -113,6 +114,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
                 multiple
                 search
                 allowAdditions
+                placeholder="Select value(s)"
                 onAddItem={(e, { value }) => {
                   if (value) {
                     templateInFramework.options?.push(value.toString());
