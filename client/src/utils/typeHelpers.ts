@@ -172,7 +172,8 @@ export const isAssetTagTemplateValueType = (
     value === "number" ||
     value === "date" ||
     value === "boolean" ||
-    value === "dropdown"
+    value === "dropdown" ||
+    value === "multiselect"
   );
 };
 
