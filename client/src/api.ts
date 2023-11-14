@@ -79,13 +79,27 @@ class API {
   }
 
   // Central Identity
-  async getCentralIdentityOrgs() {
+  async getCentralIdentityOrgs({
+    activePage,
+    limit,
+    query,
+  }: {
+    activePage?: number;
+    limit?: number;
+    query?: string;
+  }) {
     const res = await axios.get<
       {
         orgs: CentralIdentityOrg[];
         totalCount: number;
       } & ConductorBaseResponse
-    >("/central-identity/orgs");
+    >("/central-identity/orgs", {
+      params: {
+        activePage,
+        limit,
+        query,
+      },
+    });
     return res;
   }
 

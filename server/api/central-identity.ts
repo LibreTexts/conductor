@@ -485,7 +485,7 @@ async function getLibraryFromSubdomain(subdomain: string): Promise<CentralIdenti
 }
 
 async function getOrgs(
-  req: TypedReqQuery<{ activePage?: number }>,
+  req: TypedReqQuery<{ activePage?: number, limit?: number, query?: string }>,
   res: Response<{
     err: boolean;
     orgs: CentralIdentityOrg[];
@@ -494,7 +494,7 @@ async function getOrgs(
 ) {
   try {
     let page = 1;
-    let limit = 25;
+    let limit = req.query.limit || 25;
     if (
       req.query.activePage &&
       Number.isInteger(parseInt(req.query.activePage.toString()))
@@ -507,6 +507,7 @@ async function getOrgs(
       params: {
         offset,
         limit,
+        query: req.query.query ? req.query.query : undefined,
       },
     });
 
@@ -896,6 +897,13 @@ function validate(method: string) {
           .isString()
           .custom(validateVerificationRequestStatus),
       ];
+    }
+    case 'getOrgs': {
+      return [
+        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("limit", conductorErrors.err1).optional().isInt(),
+        param("query", conductorErrors.err1).optional().isString(),
+      ]
     }
     case "getVerificationRequest": {
       return [param("id", conductorErrors.err1).exists().isString()];
