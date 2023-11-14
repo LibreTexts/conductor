@@ -5,6 +5,7 @@ import AboutOrgLink from "./AboutOrgLink";
 import { Organization, User } from "../../../types";
 import CommonsList from "./CommonsList";
 import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
+import DonateLink from "./DonateLink";
 
 interface CommonsNavbarDesktopProps extends MenuProps {
   org: Organization;
@@ -32,6 +33,7 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
             <AboutOrgLink org={org} />
             {org.orgID === "libretexts" && (
               <>
+                <DonateLink />
                 <AccountRequestLink />
                 <CommonsList />
               </>

@@ -5,6 +5,7 @@ import AccountRequestLink from "./AccountRequestLink";
 import CommonsList from "./CommonsList";
 import { useState } from "react";
 import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
+import DonateLink from "./DonateLink";
 
 interface CommonsNavbarMobileProps {
   org: Organization;
@@ -40,6 +41,7 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
             <AboutOrgLink org={org} isMobile={true} />
             {org.orgID === "libretexts" && (
               <>
+                <DonateLink isMobile={true} />
                 <AccountRequestLink isMobile={true} />
                 <Menu.Item onClick={() => setCommonsOpen(!commonsOpen)}>
                   Campus Commons
