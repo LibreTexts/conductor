@@ -361,7 +361,11 @@ const getFilesAccessText = (access: string) => {
 
 const getFilesLicenseText = (license: ProjectFileLicense | undefined) => {
     if (license) {
-        return `${license.name} ${license.version}`;
+        if(license.name && license.version){
+            return `${license.name} (${license.version})`;
+        } else if(license.name){
+            return license.name.toString();
+        }
     }
     return 'Unknown';
 }
