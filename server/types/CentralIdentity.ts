@@ -90,7 +90,7 @@ export type CentralIdentityUpdateVerificationRequestBody = {
 
 export type CentralIdentityLicense = {
   name: string;
-  version?: string;
+  versions?: string[];
   url?: string;
   created_at: Date;
   updated_at: Date;
