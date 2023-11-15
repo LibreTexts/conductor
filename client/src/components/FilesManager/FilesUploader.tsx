@@ -1,10 +1,18 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { Button, Modal, ModalProps } from "semantic-ui-react";
+import {
+  Button,
+  Divider,
+  Form,
+  Icon,
+  Modal,
+  ModalProps,
+} from "semantic-ui-react";
 import ProgressBar from "../ProgressBar";
 import useGlobalError from "../error/ErrorHooks";
 import FileUploader from "../FileUploader";
 import styles from "./FilesManager.module.css";
+import { z } from "zod";
 
 type FilesUploaderProps = ModalProps & {
   show: boolean;
@@ -32,12 +40,45 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
 
   // State
   const [loading, setLoading] = useState<boolean>(false);
+  const [urlDisabled, setUrlDisabled] = useState<boolean>(false);
+  const [fileDisabled, setFileDisabled] = useState<boolean>(false);
+  const [validURL, setValidURL] = useState<boolean>(false);
+  const [urlInput, setUrlInput] = useState<string>("");
   const [percentUploaded, setPercentUploaded] = useState<number>(0);
   const [finishedFileTransfer, setFinishedFileTransfer] =
     useState<boolean>(false);
   const abortControllerRef = useRef<AbortController>(new AbortController());
-
+  const URL_SCHEMA = z.string().trim().url();
   const dirText = directory ? directory : "root";
+
+  // Reset URL input when modal is closed/opened
+  useEffect(() => {
+    if (show) {
+      setUrlInput("");
+      setUrlDisabled(false);
+      setFileDisabled(false);
+    }
+  }, [show]);
+
+  // Disable file upload if URL is entered
+  useEffect(() => {
+    if (urlInput) {
+      setFileDisabled(true);
+    } else {
+      setFileDisabled(false);
+    }
+  }, [urlInput]);
+
+  useEffect(() => {
+    if (!urlInput) return;
+
+    const result = URL_SCHEMA.safeParse(urlInput);
+    if (result.success) {
+      setValidURL(true);
+    } else {
+      setValidURL(false);
+    }
+  }, [urlInput]);
 
   /**
    * Handles upload to the server after files are collected using the FileUploader.
@@ -85,6 +126,32 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
     }
   }
 
+  async function handleURLUpload() {
+    try {
+      setLoading(true);
+
+      await URL_SCHEMA.parseAsync(urlInput); // Will throw if invalid URL
+
+      const formData = new FormData();
+      formData.append("parentID", uploadPath);
+      formData.append("fileURL", urlInput);
+      formData.append("isURL", "true");
+
+      const res = await axios.post(`/project/${projectID}/files`, formData, {
+        signal: abortControllerRef.current.signal,
+      });
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      cleanupFileUploader();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleCancelUpload() {
     try {
       if (abortControllerRef.current) {
@@ -119,7 +186,34 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
               multiple={true}
               maxFiles={10}
               onUpload={handleUpload}
+              disabled={fileDisabled}
             />
+            <Divider horizontal>Or</Divider>
+            <div>
+              <Form onSubmit={(e) => e.preventDefault()}>
+                <div className="">
+                  <label className="form-field-label">
+                    Externally Hosted Asset URL{" "}
+                    <span className="italic">
+                      (this will not download the asset to Conductor)
+                    </span>
+                  </label>
+                  <Form.Input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://example.com/my-asset.png"
+                    disabled={urlDisabled}
+                    error={!validURL && urlInput ? true : false}
+                  />
+                  {!validURL && urlInput && (
+                    <p className="text-red-400 -mt-3">
+                      Please enter a valid URL.
+                    </p>
+                  )}
+                </div>
+              </Form>
+            </div>
           </div>
         ) : (
           <ProgressBar
@@ -142,6 +236,19 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
           <Button onClick={onClose}>Cancel</Button>
         ) : (
           <Button onClick={handleCancelUpload}>Cancel Upload</Button>
+        )}
+        {urlInput && (
+          <Button
+            color="green"
+            icon
+            labelPosition="left"
+            disabled={!validURL}
+            loading={loading}
+            onClick={handleURLUpload}
+          >
+            <Icon name="save" />
+            Save URL
+          </Button>
         )}
       </Modal.Actions>
     </Modal>
