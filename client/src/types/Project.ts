@@ -44,6 +44,8 @@ export type ProjectFile = {
   storageType: "file" | "folder";
   size: number;
   description: string;
+  isURL?: boolean;
+  url?: string;
   parent: string;
   createdBy: string;
   uploader?: User;

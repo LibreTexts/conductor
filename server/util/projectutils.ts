@@ -691,13 +691,20 @@ export async function downloadProjectFiles(
       return null;
     }
 
+    // If any of the files are URLs, return them as-is
+    const urlsAsFiles = foundFiles.filter((obj) => obj.storageType === "file" && obj.isURL && obj.url);
+
+    const signedURLs: string[] = [];
+    signedURLs.push(
+      ...urlsAsFiles.map((obj) => obj.url as string)
+    );
+
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
     const privKey = base64.decode(
       process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
     );
 
-    const signedURLs = [];
     for (const f of foundFiles) {
       const fileURL = assembleUrl([
         "https://",
