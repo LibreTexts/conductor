@@ -1,10 +1,11 @@
-import { Document, Schema, model } from "mongoose";
+import { Document, Schema, Types, model } from "mongoose";
+import { AssetTagKeyInterface } from "./assettagkey";
 
 export interface AssetTagInterface extends Document {
   uuid: string;
-  key: Schema.Types.ObjectId;
+  key: Types.ObjectId | AssetTagKeyInterface | string;
   value: string | number | boolean | Date | string[];
-  framework?: Schema.Types.ObjectId;
+  framework?: Types.ObjectId;
   isDeleted: boolean;
 }
 
