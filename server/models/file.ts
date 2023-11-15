@@ -40,6 +40,8 @@ export interface RawFileInterface {
   access?: FileInterfaceAccess;
   storageType: "file" | "folder";
   size: number;
+  isURL?: boolean;
+  url?: string;
   description?: string;
   parent?: string;
   createdBy?: string;
@@ -85,6 +87,17 @@ const FileSchema = new Schema<FileInterface>({
     type: Number,
     default: 0,
   },
+  /**
+   * Indicates whether the entry is a URL or not.
+   */
+  isURL: {
+    type: Boolean,
+    default: false,
+  },
+  /**
+   * URL of the entry, if entry is a URL.
+   */
+  url: String,
   /**
    * UI text describing the entry and its contents.
    */

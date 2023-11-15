@@ -2502,6 +2502,10 @@ const autoGenerateProjects = (newBooks) => {
  * @returns {function} The Project File upload handler.
  */
  function fileUploadHandler(req, res, next) {
+  // If the 'file' is a URL, skip multer
+  if(req.body.isURL && req.body.fileURL){
+    return next();
+  }
   const fileUploadConfig = multer({
     storage: filesStorage,
     limits: {
@@ -2601,7 +2605,24 @@ const autoGenerateProjects = (newBooks) => {
         });
       });
       await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
-    } else { // Adding a folder
+    } else if (req.body.isURL && req.body.fileURL) {
+      // Adding a file from URL
+      fileEntries.push({
+        fileID: v4(),
+        name: 'URL: ' + req.body.fileURL.toString(),
+        isURL: true,
+        url: req.body.fileURL,
+        size: 0,
+        createdBy: req.user.decoded.uuid,
+        storageType: 'file',
+        parent,
+        access: accessSetting,
+        license: {
+          sourceURL: req.body.fileURL, // Set Source url as url
+        }
+      })
+    } else {
+      // Adding a folder
       if (!req.body.folderName) {
         return res.status(400).send({
           err: true,
@@ -2656,6 +2677,7 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
+    console.log('HERE')
     const downloadURLs = await downloadProjectFiles(projectID, [fileID], undefined, req.user.decoded.uuid, shouldIncrement);
     if (downloadURLs === null || !Array.isArray(downloadURLs) || downloadURLs.length === 0) {
       return res.status(404).send({
@@ -2931,7 +2953,7 @@ async function getProjectFile(req, res) {
       return obj;
     });
 
-    if (foundObj.storageType === 'file') {
+    if (foundObj.storageType === 'file' && !foundObj.isURL && !foundObj.url) {
       const fileKey = `${projectID}/${fileID}`;
       const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const s3File = await storageClient.send(new GetObjectCommand({
@@ -3805,6 +3827,8 @@ const validate = (method) => {
         param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
         body('parentID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('folderName', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 100 }),
+        body('isURL', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+        body('fileURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
       ]
     case 'getProjectFolderContents':
       return [

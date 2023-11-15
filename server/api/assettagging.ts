@@ -17,10 +17,12 @@ async function upsertAssetTags(
   try {
     const reqTags = tags;
     let refDoc = await FileAssetTags.findOne({ fileID: file._id });
+    let createdRefDoc = false;
 
     if (!refDoc) {
+      createdRefDoc = true;
       refDoc = new FileAssetTags({
-        fileID: file._id,
+        fileID: new Types.ObjectId(file._id),
         tags: [],
       });
     }
@@ -73,6 +75,11 @@ async function upsertAssetTags(
     }
 
     const finalTags = [...currTags, ...newTags];
+
+    // If there are no tags, and we created a refDoc, don't save it
+    if(finalTags.length === 0 && createdRefDoc) {
+      return;
+    }
 
     // Update refDoc
     refDoc.tags = finalTags.map((t) => t._id);

@@ -8,7 +8,7 @@ import styles from './FileUploader.module.css';
  * A drag-and-drop (or click) file upload area with customizations for
  * multiple and maximum numbers of files.
  */
-const FileUploader = ({ multiple, maxFiles, onUpload, ...props }) => {
+const FileUploader = ({ multiple, maxFiles, onUpload, disabled=false, ...props }) => {
 
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -110,6 +110,7 @@ const FileUploader = ({ multiple, maxFiles, onUpload, ...props }) => {
         id={styles.uploader_input}
         multiple={multiple}
         onChange={handleInputChange}
+        disabled={disabled}
       />
       <label
         id={styles.uploader_label}
@@ -121,11 +122,12 @@ const FileUploader = ({ multiple, maxFiles, onUpload, ...props }) => {
           <Button
             onClick={handleUploadClick}
             color="blue"
+            disabled={disabled}
           >
             Select file(s)
           </Button>
       </label>
-      {dragActive && (
+      {dragActive && !disabled && (
         <div
           id={styles.uploader_drag_area}
           onDragEnter={handleFileDrag}
