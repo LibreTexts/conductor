@@ -429,6 +429,18 @@ export async function retrieveAllProjectFiles(
         },
       },
       {
+        //filter asset tags where isDeleted = true
+        $set: {
+          "files.tags": {
+            $filter: {
+              input: "$files.tags",
+              as: "tag",
+              cond: { $ne: ["$$tag.isDeleted", true] },
+            },
+          },
+        },
+      },
+      {
         $addFields: {
           "files.uploader": {
             $arrayElemAt: ["$files.uploader", 0],
