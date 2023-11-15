@@ -360,13 +360,14 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     getFiles();
   }
 
-  function handleDownloadRequest(){
-    const requested = files.filter((obj) => obj.checked && obj.storageType === 'file');
-    if(requested.length === 0) return;
-    if(requested.length === 1){
+  function handleDownloadRequest() {
+    const requested = files.filter(
+      (obj) => obj.checked && obj.storageType === "file"
+    );
+    if (requested.length === 0) return;
+    if (requested.length === 1) {
       handleDownloadFile(projectID, requested[0].fileID);
-    }
-    else{
+    } else {
       handleBulkDownload(requested.map((obj) => obj.fileID));
     }
   }
@@ -383,10 +384,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   async function handleBulkDownload(ids: string[]) {
     try {
       setDownloadLoading(true);
-      const res = await api.bulkDownloadFiles(
-        projectID,
-        ids
-      );
+      const res = await api.bulkDownloadFiles(projectID, ids);
 
       saveAs(res.data, `${projectID}.zip`);
     } catch (err) {
@@ -471,7 +469,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 loading={downloadLoading}
               >
                 <Icon name="download" />
-                Download {itemsChecked > 1 ? '(ZIP)' : ''}
+                Download {itemsChecked > 1 ? "(ZIP)" : ""}
               </Button>
               <Button color="olive" onClick={handleShowAddFolder}>
                 <Icon name="add" />
@@ -644,6 +642,17 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   </Table.Row>
                 )}
               </Table.Body>
+              <Table.Footer>
+                <Table.Row>
+                  <Table.Cell colSpan={TABLE_COLS.length} >
+                    <p className="text-center text-sm text-gray-500 italic !-mt-3">
+                      Use caution when opening files/links from unknown sources.
+                      LibreTexts is not responsible for the content of the
+                      files/links above.
+                    </p>
+                  </Table.Cell>
+                </Table.Row>
+              </Table.Footer>
             </Table>
           </>
         ) : (

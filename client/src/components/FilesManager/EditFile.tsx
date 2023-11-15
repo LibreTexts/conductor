@@ -32,6 +32,7 @@ import {
 } from "../../types/AssetTagging";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
+import URLFileIFrame from "./URLFileIFrame";
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
 interface EditFileProps extends ModalProps {
@@ -88,12 +89,11 @@ const EditFile: React.FC<EditFileProps> = ({
     mode: "onChange",
     reValidateMode: "onChange",
   });
-  const { fields, append, prepend, remove, swap, move, insert, update } = useFieldArray(
-    {
+  const { fields, append, prepend, remove, swap, move, insert, update } =
+    useFieldArray({
       control,
       name: "tags",
-    }
-  );
+    });
 
   // Data & UI
   const [loading, setLoading] = useState(false);
@@ -195,6 +195,11 @@ const EditFile: React.FC<EditFileProps> = ({
     // Don't show preview for folders
     if (fileData.storageType !== "file") {
       setShouldShowPreview(false);
+      return;
+    }
+
+    if (fileData.storageType === "file" && fileData.isURL && fileData.url) {
+      setShouldShowPreview(true);
       return;
     }
 
@@ -410,14 +415,19 @@ const EditFile: React.FC<EditFileProps> = ({
               <div className="mt-8">
                 <p className="font-semibold">File Preview</p>
                 <div className="mt-2">
-                  {filePreviewURL && (
-                    <FileRenderer
-                      url={filePreviewURL}
-                      projectID={projectID}
-                      fileID={fileID}
-                      validImgExt={shouldShowPreview}
-                      className="max-w-full max-h-full p-2"
-                    />
+                  {filePreviewURL &&
+                    !getValues("isURL") &&
+                    !getValues("url") && (
+                      <FileRenderer
+                        url={filePreviewURL}
+                        projectID={projectID}
+                        fileID={fileID}
+                        validImgExt={shouldShowPreview}
+                        className="max-w-full max-h-full p-2"
+                      />
+                    )}
+                  {filePreviewURL && getValues("isURL") && getValues("url") && (
+                    <URLFileIFrame url={getValues("url")} />
                   )}
                 </div>
               </div>
