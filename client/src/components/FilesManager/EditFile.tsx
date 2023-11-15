@@ -88,7 +88,7 @@ const EditFile: React.FC<EditFileProps> = ({
     mode: "onChange",
     reValidateMode: "onChange",
   });
-  const { fields, append, prepend, remove, swap, move, insert } = useFieldArray(
+  const { fields, append, prepend, remove, swap, move, insert, update } = useFieldArray(
     {
       control,
       name: "tags",
@@ -618,13 +618,6 @@ const EditFile: React.FC<EditFileProps> = ({
                                             ? tag.key.title
                                             : tag.key}
                                         </p>
-                                        {/* {isAssetTagFramework(tag.framework) && (
-                                <div className="mt-1">
-                                  <Label size="mini">
-                                    {tag.framework.name}
-                                  </Label>
-                                </div>
-                              )} */}
                                       </div>
                                     ) : (
                                       <CtlTextInput
