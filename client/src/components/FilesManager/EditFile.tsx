@@ -244,7 +244,19 @@ const EditFile: React.FC<EditFileProps> = ({
       if (!res.data.licenses) {
         throw new Error("Failed to load license options");
       }
-      setLicenseOptions(res.data.licenses);
+
+      const versionsSorted = res.data.licenses.map((l) => {
+        return {
+          ...l,
+          versions: l.versions?.sort((a, b) => {
+            if (a === b) return 0;
+            if (!a) return -1;
+            if (!b) return 1;
+            return b.localeCompare(a);
+          }),
+        };
+      })
+      setLicenseOptions(versionsSorted);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -379,10 +391,6 @@ const EditFile: React.FC<EditFileProps> = ({
     setShowAuthorInfo(!currVal);
     setShowTags(!currVal);
   }
-
-  useEffect(() => {
-    console.log(watch("tags.2"))
-  }, [watch('tags.2')])
 
   return (
     <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
