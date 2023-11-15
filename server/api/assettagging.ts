@@ -33,9 +33,18 @@ async function upsertAssetTags(
       isDeleted: { $ne: true },
     });
 
+
     const currTags = await AssetTag.find({ _id: { $in: refDoc?.tags } });
     const newTags: AssetTagInterface[] = [];
+    
+    //Find deleted tags where the tag is in the refDoc but not in the tags array (and has an _id) (presumed it was removed)
+    const deletedTags = currTags.filter((t) => t._id && !reqTags.includes(t));
+    for (const tag of deletedTags) {
+      tag.isDeleted = true;
+      await tag.save();
+    }
 
+    currTags.filter((t) => !deletedTags.includes(t)); //Remove deleted tags from currTags
     for (const tag of reqTags) {
       const existingTag = currTags.find((t) => t._id.equals(tag._id));
 
@@ -63,21 +72,10 @@ async function upsertAssetTags(
       }
     }
 
-    const allTags = [...currTags, ...newTags];
-
-    // // Remove deleted tags
-    // // for (const tag of allTags) {
-    // //   // If a tag is in the refDoc but not in the tags array, delete it (presumed it was removed)
-    // //   if (!tags.filter((t) => !!t._id).includes(tag._id)) {
-    // //     console.log("Deleting tag");
-    // //     tag.isDeleted = true;
-    // //     await tag.save();
-    // //     allTags.filter((t) => !t._id.equals(tag._id));
-    // //   }
-    // // }
+    const finalTags = [...currTags, ...newTags];
 
     // Update refDoc
-    refDoc.tags = allTags.map((t) => t._id);
+    refDoc.tags = finalTags.map((t) => t._id);
     await refDoc.save();
   } catch (err) {
     throw err;
