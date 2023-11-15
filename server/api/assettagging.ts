@@ -35,10 +35,9 @@ async function upsertAssetTags(
       isDeleted: { $ne: true },
     });
 
-
     const currTags = await AssetTag.find({ _id: { $in: refDoc?.tags } });
     const newTags: AssetTagInterface[] = [];
-    
+
     //Find deleted tags where the tag is in the refDoc but not in the tags array (and has an _id) (presumed it was removed)
     const deletedTags = currTags.filter((t) => t._id && !reqTags.includes(t));
     for (const tag of deletedTags) {
@@ -56,7 +55,11 @@ async function upsertAssetTags(
         existingTag.framework = tag.framework;
         existingTag.isDeleted = tag.isDeleted;
         existingTag.key = new Types.ObjectId(
-          await getUpsertedAssetTagKey(existingKeys, existingTag)
+          await getUpsertedAssetTagKey(
+            existingKeys,
+            existingTag,
+            tag.key.toString()
+          ) // Pass the key from the request in case it was updated and is no longer a valid mongoID/object
         );
         await existingTag.save();
       }
@@ -77,7 +80,7 @@ async function upsertAssetTags(
     const finalTags = [...currTags, ...newTags];
 
     // If there are no tags, and we created a refDoc, don't save it
-    if(finalTags.length === 0 && createdRefDoc) {
+    if (finalTags.length === 0 && createdRefDoc) {
       return;
     }
 
@@ -91,7 +94,8 @@ async function upsertAssetTags(
 
 async function getUpsertedAssetTagKey(
   existingKeys: AssetTagKeyInterface[],
-  tag: AssetTagInterface
+  tag: AssetTagInterface,
+  updatedKey?: string
 ): Promise<string> {
   /**
    * If key is ObjectId, find where tag.key === key._id (likely an existing tag)
@@ -119,7 +123,7 @@ async function getUpsertedAssetTagKey(
 
   // If the key doesn't exist, create it and return it's ObjectId
   const newKey = new AssetTagKey({
-    title: tag.key,
+    title: updatedKey ? updatedKey : tag.key.toString(),
     hex: getRandomColor(),
     orgID: process.env.ORG_ID,
     framework: tag.framework,
