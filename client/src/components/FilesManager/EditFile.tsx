@@ -380,6 +380,10 @@ const EditFile: React.FC<EditFileProps> = ({
     setShowTags(!currVal);
   }
 
+  useEffect(() => {
+    console.log(watch("tags.2"))
+  }, [watch('tags.2')])
+
   return (
     <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
       <Modal.Header>

@@ -2713,7 +2713,6 @@ async function getProjectFileDownloadURL(req, res) {
       });
     }
 
-    console.log('HERE')
     const downloadURLs = await downloadProjectFiles(projectID, [fileID], undefined, req.user.decoded.uuid, shouldIncrement);
     if (downloadURLs === null || !Array.isArray(downloadURLs) || downloadURLs.length === 0) {
       return res.status(404).send({
