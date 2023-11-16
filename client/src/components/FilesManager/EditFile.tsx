@@ -33,6 +33,7 @@ import {
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import URLFileIFrame from "./URLFileIFrame";
+import URLFileHyperlink from "./URLFileHyperlink";
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
 interface EditFileProps extends ModalProps {
@@ -255,7 +256,7 @@ const EditFile: React.FC<EditFileProps> = ({
             return b.localeCompare(a);
           }),
         };
-      })
+      });
       setLicenseOptions(versionsSorted);
     } catch (err) {
       handleGlobalError(err);
@@ -425,11 +426,10 @@ const EditFile: React.FC<EditFileProps> = ({
                 />
               </div>
               <div className="mt-8">
-                <p className="font-semibold">File Preview</p>
-                <div className="mt-2">
-                  {filePreviewURL &&
-                    !getValues("isURL") &&
-                    !getValues("url") && (
+                {filePreviewURL && !getValues("isURL") && !getValues("url") && (
+                  <>
+                    <p className="font-semibold">File Preview</p>
+                    <div className="mt-2">
                       <FileRenderer
                         url={filePreviewURL}
                         projectID={projectID}
@@ -437,11 +437,17 @@ const EditFile: React.FC<EditFileProps> = ({
                         validImgExt={shouldShowPreview}
                         className="max-w-full max-h-full p-2"
                       />
-                    )}
-                  {filePreviewURL && getValues("isURL") && getValues("url") && (
-                    <URLFileIFrame url={getValues("url")} />
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
+                {filePreviewURL && getValues("isURL") && getValues("url") && (
+                  <>
+                    <p className="font-semibold">External URL</p>
+                    <div className="mt-2">
+                      <URLFileHyperlink url={getValues("url")} />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex flex-col basis-1/2">
