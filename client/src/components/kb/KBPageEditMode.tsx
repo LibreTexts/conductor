@@ -228,11 +228,12 @@ const KBPageEditMode = ({
           <CtlTextInput
             control={control}
             name="title"
-            label="Title"
+            label="Title (max 100 characters)"
             placeholder="Page Title"
             rules={required}
             required
             fluid
+            maxLength={100}
           />
         </div>
         <div className="mb-4">

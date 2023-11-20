@@ -26,10 +26,10 @@ const FeaturedPageCard = ({
   }
 
   return (
-    <div className="app-item-container" onClick={handleClicked}>
+    <div className="featured-article-card" onClick={handleClicked}>
       {canDelete && (
         <div
-          className="flex flex-row justify-end w-full mb-2"
+          className="flex flex-row justify-end w-full mb-1"
           onClick={(e) => {
             e.stopPropagation();
             setShowDeleteModal(true);
@@ -39,10 +39,10 @@ const FeaturedPageCard = ({
         </div>
       )}
       <div className="flex flex-col">
-        <p className="text-xl font-semibold">
+        <p className="text-lg font-semibold flex-wrap">
           {truncateString(page.page.title, 50)}
         </p>
-        <p className="text-sm">{truncateString(page.page.description, 100)}</p>
+        <p className="text-sm flex-wrap">{truncateString(page.page.description, 100)}</p>
       </div>
       <ConfirmDeleteFeaturedModal
         open={showDeleteModal}

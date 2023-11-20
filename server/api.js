@@ -1450,7 +1450,7 @@ router.route('/kb/tree').get(
 router.route('/kb/page').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBPageValidator),
   kbAPI.createKBPage
 )
@@ -1466,13 +1466,13 @@ router.route('/kb/page/:uuid').get(
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.UpdateKBPageValidator),
   kbAPI.updateKBPage  
 ).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBPageValidator),
   kbAPI.deleteKBPage
 )
@@ -1492,7 +1492,7 @@ router.route('/kb/featured').get(
 router.route('/kb/featured/page').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBFeaturedPageValidator),
   kbAPI.createKBFeaturedPage
 )
@@ -1500,7 +1500,7 @@ router.route('/kb/featured/page').post(
 router.route('/kb/featured/page/:uuid').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBFeaturedPageValidator),
   kbAPI.deleteKBFeaturedPage
 )
@@ -1508,7 +1508,7 @@ router.route('/kb/featured/page/:uuid').delete(
 router.route('/kb/featured/video').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBFeaturedVideoValidator),
   kbAPI.createKBFeaturedVideo
 )
@@ -1516,7 +1516,7 @@ router.route('/kb/featured/video').post(
 router.route('/kb/featured/video/:uuid').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBFeaturedVideoValidator),
   kbAPI.deleteKBFeaturedVideo
 )

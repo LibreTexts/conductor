@@ -9,6 +9,7 @@ import FeaturedVideoCard from "./FeaturedVideoCard";
 const AddPageModal = lazy(() => import("./AddPageModal"));
 const AddVideoModal = lazy(() => import("./AddVideoModal"));
 import "./FeaturedList.css";
+import { canEditKB } from "../../../utils/kbHelpers";
 
 const FeaturedList = () => {
   const { handleGlobalError } = useGlobalError();
@@ -19,10 +20,15 @@ const FeaturedList = () => {
   const [featuredVideos, setFeaturedVideos] = useState<KBFeaturedVideo[]>([]);
   const [showAddPage, setShowAddPage] = useState(false);
   const [showAddVideo, setShowAddVideo] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     loadFeaturedContent();
   }, []);
+
+  useEffect(() => {
+    setCanEdit(canEditKB(user));
+  }, [user]);
 
   async function loadFeaturedContent() {
     try {
@@ -66,7 +72,7 @@ const FeaturedList = () => {
             LibreTexts team.
           </p>
         </div>
-        {user.isSuperAdmin && (
+        {canEdit && (
           <div className="mt-2 lg:mt-0">
             <Button
               size="tiny"
@@ -95,7 +101,7 @@ const FeaturedList = () => {
               <FeaturedPageCard
                 key={page.uuid}
                 page={page}
-                canDelete={user.isSuperAdmin}
+                canDelete={canEdit}
                 onDeleted={loadFeaturedContent}
               />
             ))}
@@ -114,7 +120,7 @@ const FeaturedList = () => {
               <FeaturedVideoCard
                 key={video.uuid}
                 video={video}
-                canDelete={user.isSuperAdmin}
+                canDelete={canEdit}
                 onDeleted={loadFeaturedContent}
               />
             ))}

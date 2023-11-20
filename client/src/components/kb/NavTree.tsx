@@ -5,12 +5,14 @@ import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import { Icon, Label, LabelProps, Popup } from "semantic-ui-react";
 import { truncateString } from "../util/HelperFunctions";
+import { canEditKB } from "../../utils/kbHelpers";
 
 const NavTree = forwardRef((props, ref) => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [tree, setTree] = useState<KBTreeNode[]>([]);
+  const [canEdit, setCanEdit] = useState(false);
 
   // Allows parent component to call this function
   useImperativeHandle(ref, () => ({
@@ -20,6 +22,10 @@ const NavTree = forwardRef((props, ref) => {
   useEffect(() => {
     loadTree();
   }, []);
+
+  useEffect(() => {
+    setCanEdit(canEditKB(user));
+  }, [user]);
 
   async function loadTree() {
     try {
@@ -58,7 +64,7 @@ const NavTree = forwardRef((props, ref) => {
   }: Pick<KBTreeNode, "status"> & LabelProps) => {
     return (
       <Label
-        color={status === "draft" ? "teal" : "green"}
+        color={status === "draft" ? "blue" : "green"}
         size="mini"
         circular
         basic
@@ -78,7 +84,7 @@ const NavTree = forwardRef((props, ref) => {
         <a className="text-xl font-semibold text-black" href="/kb/welcome">
           Knowledge Base
         </a>
-        {user.isSuperAdmin && (
+        {canEdit && (
           <Popup
             trigger={
               <Icon
@@ -106,11 +112,11 @@ const NavTree = forwardRef((props, ref) => {
                 >
                   {truncateString(node.title, 50)}
                 </a>
-                {user.isSuperAdmin && (
+                {canEdit && (
                   <StatusLabel status={node.status} className="!ml-2" />
                 )}
               </div>
-              {user.isSuperAdmin && (
+              {canEdit && (
                 <Popup
                   trigger={
                     <Icon
@@ -141,7 +147,7 @@ const NavTree = forwardRef((props, ref) => {
                       >
                         {truncateString(child.title, 50)}
                       </a>
-                      {user.isSuperAdmin && (
+                      {canEdit && (
                         <StatusLabel status={child.status} className="!ml-2" />
                       )}
                     </div>

@@ -5,6 +5,7 @@ import KBPageViewMode from "../../../components/kb/KBPageViewMode";
 import KBPageEditMode from "../../../components/kb/KBPageEditMode";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon } from "semantic-ui-react";
+import { canEditKB } from "../../../utils/kbHelpers";
 
 const KBPage = () => {
   const { slug } = useParams<{ slug: any }>();
@@ -12,6 +13,7 @@ const KBPage = () => {
   const user = useTypedSelector((state) => state.user);
   const [parsedSlug, setParsedSlug] = useState<string | null>(null);
   const [mode, setMode] = useState<"create" | "edit" | "view">("view");
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     if (typeof slug === "string" && slug !== "new") {
@@ -20,6 +22,10 @@ const KBPage = () => {
       setMode("create");
     }
   }, []);
+
+  useEffect(() => {
+    setCanEdit(canEditKB(user));
+  }, [user]);
 
   function switchToEditMode() {
     setMode("edit");
@@ -34,7 +40,7 @@ const KBPage = () => {
   const AdminOptions = () => {
     return (
       <>
-        {user && user.isSuperAdmin && (
+        {canEdit && (
           <div className="flex flex-row justify-end">
             {mode === "view" && parsedSlug && (
               <Button color="blue" onClick={switchToEditMode} size="small">
@@ -52,7 +58,7 @@ const KBPage = () => {
     <DefaultLayoutWNavTree ref={defaultLayoutRef}>
       <AdminOptions />
       {mode === "view" && parsedSlug && (
-        <KBPageViewMode slug={parsedSlug} canEdit={user && user.isSuperAdmin} />
+        <KBPageViewMode slug={parsedSlug} canEdit={canEdit} />
       )}
       {["create", "edit"].includes(mode) && (
         <KBPageEditMode

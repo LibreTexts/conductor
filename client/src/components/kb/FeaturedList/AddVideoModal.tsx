@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Form, Icon, Modal, ModalProps } from "semantic-ui-react";
 import useGlobalError from "../../error/ErrorHooks";
 import axios from "axios";
@@ -18,7 +18,7 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
   ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
-  const { control, getValues, trigger } = useForm<KBFeaturedVideo>({
+  const { control, getValues, trigger, reset } = useForm<KBFeaturedVideo>({
     defaultValues: {
       title: "",
       url: "",
@@ -26,6 +26,12 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
   });
 
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      reset(); // Reset form when modal opens
+    }
+  }, []);
 
   async function handleSave() {
     try {
@@ -55,10 +61,11 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
           <CtlTextInput
             control={control}
             name="title"
-            label="Title"
+            label="Title (max 100 characters)"
             placeholder="Title"
             rules={required}
             required
+            maxLength={100}
           />
           <CtlTextInput
             control={control}

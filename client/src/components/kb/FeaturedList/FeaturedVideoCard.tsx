@@ -2,7 +2,10 @@ import "./FeaturedList.css";
 import { lazy, useState } from "react";
 import { KBFeaturedVideo } from "../../../types";
 import { Icon } from "semantic-ui-react";
-const ConfirmDeleteFeaturedModal = lazy(() => import("./ConfirmDeleteFeaturedModal"));
+import { truncateString } from "../../util/HelperFunctions";
+const ConfirmDeleteFeaturedModal = lazy(
+  () => import("./ConfirmDeleteFeaturedModal")
+);
 
 const FeaturedVideoCard = ({
   video,
@@ -32,7 +35,9 @@ const FeaturedVideoCard = ({
         </div>
       )}
       <iframe src={video.url} className="max-w-full rounded-md" />
-      <p className="text-md font-medium mt-2 px-3">{video.title}</p>
+      <p className="text-md font-medium mt-2 px-3">
+        {truncateString(video.title, 100)}
+      </p>
       <ConfirmDeleteFeaturedModal
         open={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

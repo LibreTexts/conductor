@@ -29,6 +29,7 @@ const AddPageModal: React.FC<AddPageModalProps> = ({
   useEffect(() => {
     if (open) {
       loadTree();
+      setPageID(""); // Reset page ID when modal opens
     }
   }, [open]);
 

@@ -25,7 +25,7 @@ export const DeleteKBPageValidator = KBUUIDParams;
 
 export const CreateKBPageValidator = z.object({
   body: z.object({
-    title: z.string(),
+    title: z.string().max(100),
     description: z.string().max(200),
     body: z.string(),
     status: z.enum(["draft", "published"]),
@@ -69,7 +69,7 @@ export const DeleteKBFeaturedPageValidator = KBUUIDParams;
 // KB Featured Videos
 export const CreateKBFeaturedVideoValidator = z.object({
   body: z.object({
-    title: z.string(),
+    title: z.string().max(100),
     url: z.string().url(),
   }),
 });

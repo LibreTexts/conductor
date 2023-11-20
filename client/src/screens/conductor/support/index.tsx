@@ -41,7 +41,10 @@ const SupportCenter = () => {
   return (
     <DefaultLayout>
       <SupportCenterJumbotron />
-      <div className="flex flex-col lg:flex-row w-full justify-center my-14 flex-1 min-h-full">
+      <div
+        className="flex flex-col lg:flex-row w-full justify-center my-14 "
+        style={{ minHeight: "50vh" }}
+      >
         <HomeItem
           title="Contact Support"
           text="

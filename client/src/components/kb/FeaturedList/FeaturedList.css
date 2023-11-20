@@ -5,66 +5,25 @@
   grid-gap: 1rem;
   padding-top: 0.5rem;
 }
-.app-item-container {
+.featured-article-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-items: center;
   text-align: center;
-  width: 12rem;
-  height: 12rem;
-  padding: 0.5rem 0.2rem;
+  width: 18rem;
+  height: 10rem;
+  padding: 0.5rem 0.3rem;
   margin-right: 1.5rem;
   margin-bottom: 1.25rem;
   cursor: pointer;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   box-shadow: 0 4px 6px -2px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  overflow: hidden;
 }
-.app-item-container:hover {
+.featured-article-card:hover {
   box-shadow: 0 6px 10px 0px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-}
-.app-item-icon-container {
-  position: relative;
-  display: flex;
-  width: 95%;
-  height: 60%;
-  border-radius: 5px;
-  background-color: #e5e7eb;
-  align-items: center;
-  justify-content: center;
-}
-.app-item-icon-overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 2rem;
-  height: 2rem;
-  background-color: #f8fafc;
-  border-top-right-radius: 5px;
-  border-bottom-left-radius: 5px;
-  padding-top: 2px;
-}
-.app-item-key-icon {
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-.app-item-unsupported-icon {
-  color: #127bc4;
-  font-size: 0.9rem;
-}
-.app-item-text-container {
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-}
-.app-item-header {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-.app-item-descrip {
-  font-size: 0.7rem;
-  color: #6b7280;
 }
 .video-item {
   display: flex;
@@ -73,7 +32,7 @@
   justify-items: center;
   text-align: center;
   width: 20rem;
-  height: 15rem;
+  height: 18rem;
   padding: 0.5rem;
   margin-right: 1rem;
   cursor: pointer;
