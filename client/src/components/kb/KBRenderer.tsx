@@ -17,7 +17,16 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
 
   const getInnerHTML = () => {
     if (!content) return "";
-    return DOMPurify.sanitize(content);
+    return DOMPurify.sanitize(content, {
+      ADD_TAGS: ["iframe"],
+      ADD_ATTR: [
+        "allow",
+        "allowfullscreen",
+        "frameborder",
+        "scrolling",
+        "srcdoc",
+      ],
+    });
   };
 
   return (

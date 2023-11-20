@@ -111,6 +111,8 @@ const KBPageEditMode = ({
       if (!getValues('uuid')) return;
       _checkSlug();
 
+      console.log(getValues('body'))
+
       const res = await axios.patch(`/kb/page/${getValues('uuid')}`, {
         ...getValues(),
         status,

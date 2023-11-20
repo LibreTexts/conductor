@@ -625,7 +625,16 @@ async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
 
 function _sanitizeBodyContent(content: string) {
   try {
-    return DOMPurify.sanitize(content);
+    return DOMPurify.sanitize(content, {
+      ADD_TAGS: ["iframe"],
+      ADD_ATTR: [
+        "allow",
+        "allowfullscreen",
+        "frameborder",
+        "scrolling",
+        "srcdoc",
+      ],
+    });
   } catch (err) {
     throw err;
   }

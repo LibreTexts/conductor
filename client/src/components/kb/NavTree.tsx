@@ -105,7 +105,7 @@ const NavTree = forwardRef((props, ref) => {
         return (
           <div key={node.uuid} className="p-2 rounded-xl hover:bg-slate-100">
             <div className="flex flex-row justify-between items-center">
-              <div className="flex flex-row items-center">
+              <div className="flex flex-row items-center overflow-x-clip">
                 <a
                   className="text-lg font-semibold text-black"
                   href={getLink(node.slug)}
@@ -113,7 +113,7 @@ const NavTree = forwardRef((props, ref) => {
                   {truncateString(node.title, 50)}
                 </a>
                 {canEdit && (
-                  <StatusLabel status={node.status} className="!ml-2" />
+                  <StatusLabel status={node.status} className="!ml-2 !mr-3" />
                 )}
               </div>
               {canEdit && (
@@ -148,7 +148,7 @@ const NavTree = forwardRef((props, ref) => {
                         {truncateString(child.title, 50)}
                       </a>
                       {canEdit && (
-                        <StatusLabel status={child.status} className="!ml-2" />
+                        <StatusLabel status={child.status} className="!ml-2 !mr-2" />
                       )}
                     </div>
                   );

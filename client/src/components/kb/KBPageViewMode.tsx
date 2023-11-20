@@ -61,7 +61,7 @@ const KBPageViewMode = ({ slug, canEdit }: { slug?: string | null; canEdit?: boo
       />
       </div>
       
-      <div className="my-8">
+      <div className="mt-6 mb-9">
         <KBRenderer content={page?.body} />
       </div>
       <KBFooter />
