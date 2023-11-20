@@ -110,7 +110,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
             </p>
           )}
           {messages.map((msg) => (
-            <TicketComment {...msg} />
+            <TicketComment key={msg.uuid} {...msg} />
           ))}
           <div className="mt-4">
             <p className="font-semibold mb-1 ml-1 !mt-4">Send Message:</p>

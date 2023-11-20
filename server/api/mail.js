@@ -758,6 +758,83 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
     })
 };
 
+/**
+ * Sends a confirmation email to the user who submitted a support ticket.
+ * @param {string} recipientAddress - the user's email address
+ * @param {string} ticketID - the ticket's uuid
+ */
+const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: 'Support Ticket Created',
+        html: `
+            <p>Hi,</p>
+            <p>We're just writing to let you know that your support ticket has been created. You can view your ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    })
+};
+
+/**
+ * Sends a notification to the LibreTexts team that a new support ticket has been created.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} ticketID - the ticket's uuid 
+ * @param {string} ticketTitle - the ticket's title/subject
+ * @param {string} ticketBody - the ticket's body/description
+ * @param {string} ticketAuthor - the ticket's author
+ * @param {string} ticketCategory - the ticket's category
+ * @param {string} ticketPriority - the ticket's priority
+ */
+const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketID, ticketTitle, ticketBody, ticketAuthor, ticketCategory, ticketPriority) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `New Support Ticket Created (ID #${ticketID})`,
+        html: `
+            <p>Hi,</p>
+            <p>A new support ticket has been created.</p>
+            <p><strong>Title:</strong> ${ticketTitle}</p>
+            <p><strong>Author:</strong> ${ticketAuthor}</p>
+            <p><strong>Category:</strong> ${ticketCategory}</p>
+            <p><strong>Priority:</strong> ${ticketPriority}</p>
+            <br />
+            <p><strong>Body:</strong> ${ticketBody}</p>
+            <br />
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
+/**
+ * Sends a notification to the specified email addresses that a new message has been posted to a support ticket.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} ticketTitle - the ticket's title/subject
+ * @param {'requester' | 'team'} recipientType - the type of recipient ('requester' or 'team') 
+ */
+const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketTitle, recipientType) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `New Message on Support Ticket (ID #${ticketID})`,
+        html: `
+            <p>Hi,</p>
+            <p>A new message has been posted to ${recipientType === 'requester' ? 'your' : 'a'} support ticket.</p>
+            <p><strong>Title:</strong> ${ticketTitle}</p>
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -785,5 +862,8 @@ export default {
     sendAnalyticsAccessRequestDenied,
     sendAnalyticsInvite,
     sendAnalyticsInviteAccepted,
-    sendOrgEventRegistrationConfirmation
+    sendOrgEventRegistrationConfirmation,
+    sendSupportTicketCreateConfirmation,
+    sendSupportTicketCreateInternalNotification,
+    sendNewTicketMessageNotification
 }

@@ -50,6 +50,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [apps, setApps] = useState<CentralIdentityApp[]>([]);
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
   const [success, setSuccess] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
     document.title = "LibreTexts | Create Support Ticket";
@@ -86,6 +87,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     try {
       setLoading(true);
       if (!(await trigger())) return;
+
       const res = await axios.post("/support/ticket", {
         ...getValues(),
       });
@@ -97,12 +99,51 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       if (!res.data.ticket) {
         throw new Error("Invalid response from server");
       }
-      setSuccess(true);
+
+      if (!files || files.length === 0) {
+        setSuccess(true);
+        return;
+      }
+
+      await handleAttachmentsUpload(res.data.ticket.uuid, files);
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAttachmentsUpload(ticketID: string, files: File[]) {
+    setLoading(true);
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const uploadRes = await axios.post(
+        `/support/ticket/${ticketID}/attachments`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (uploadRes.data.err) {
+        throw new Error(uploadRes.data.errMsg);
+      }
+      setSuccess(true);
+    } catch (e: any) {
+      if (e.message === "canceled") return; // Noop if canceled
+      setLoading(false);
+      handleGlobalError(e);
+    }
+  }
+
+  async function saveFilesToState(files: FileList) {
+    console.log("files", files);
+    setLoading(true);
+    setFiles(Array.from(files));
+    setLoading(false);
   }
 
   return (
@@ -112,7 +153,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     >
       {!success && (
         <>
-          <Form className="m-2">
+          <Form className="m-2" onSubmit={(e) => e.preventDefault()}>
             {false && (
               <Message color="green" icon size="tiny">
                 <Icon name="check" />
@@ -295,19 +336,15 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 onInput={(e) => setValue("description", e.currentTarget.value)}
               />
             </Form.Field>
-            <Form.Field className="!mt-2">
-              <label className="form-field-label">
+          </Form>
+          <label className="form-field-label">
                 Attachments (optional) (max 4 files, 100 MB each)
               </label>
               <FileUploader
                 multiple={true}
                 maxFiles={4}
-                onUpload={(files) => {
-                  console.log(files);
-                }}
+                onUpload={saveFilesToState}
               />
-            </Form.Field>
-          </Form>
           <div className="flex flex-row justify-end mt-4">
             <Button
               color="blue"

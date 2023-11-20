@@ -38,6 +38,8 @@ export const CreateTicketValidator = z.object({
     }),
 });
 
+export const AddTicketAttachementsValidator = TicketUUIDParams;
+
 export const UpdateTicketValidator = z
   .object({
     body: z.object({

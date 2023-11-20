@@ -1477,6 +1477,14 @@ router.route('/kb/page/:uuid').get(
   kbAPI.deleteKBPage
 )
 
+router.route('/kb/page/:uuid/files').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(kbValidators.AddKbImageValidator),
+  kbAPI.imageUploadHandler,
+  kbAPI.addKBImage,
+)
+
 router.route('/kb/featured').get(
   kbAPI.getKBFeaturedContent
 )
@@ -1541,6 +1549,12 @@ router.route('/support/ticket/:uuid/msg/staff').post(
   supportAPI.getTicketMessages
 )
 
+router.route('/support/ticket/:uuid/attachments').post(
+  middleware.validateZod(supportValidators.AddTicketAttachementsValidator),
+  supportAPI.ticketAttachmentUploadHandler,
+  supportAPI.addTicketAttachments
+);
+
 router.route('/support/ticket/:uuid').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -1557,6 +1571,7 @@ router.route('/support/ticket/:uuid').get(
 
 router.route('/support/ticket').post(
   middleware.validateZod(supportValidators.CreateTicketValidator),
+  supportAPI.ticketAttachmentUploadHandler,
   supportAPI.createTicket
 )
 

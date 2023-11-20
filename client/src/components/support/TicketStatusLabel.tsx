@@ -22,7 +22,7 @@ const TicketStatusLabel: React.FC<TicketStatusLabelProps> = ({
   };
 
   return (
-    <Label color={color()} {...rest}>
+    <Label color={color()} basic {...rest}>
       {status === "open"
         ? "Open"
         : status === "in_progress"

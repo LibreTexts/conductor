@@ -3,7 +3,7 @@ import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
-import { Icon, Popup } from "semantic-ui-react";
+import { Icon, Label, LabelProps, Popup } from "semantic-ui-react";
 import { truncateString } from "../util/HelperFunctions";
 
 const NavTree = forwardRef((props, ref) => {
@@ -40,7 +40,7 @@ const NavTree = forwardRef((props, ref) => {
   }
 
   const getLink = (slug: string) => {
-    if(!slug) return `/kb/welcome`;
+    if (!slug) return `/kb/welcome`;
     return `/kb/${slug}`;
   };
 
@@ -52,10 +52,32 @@ const NavTree = forwardRef((props, ref) => {
     }
   }
 
+  const StatusLabel = ({
+    status,
+    ...rest
+  }: Pick<KBTreeNode, "status"> & LabelProps) => {
+    return (
+      <Label
+        color={status === "draft" ? "teal" : "green"}
+        size="mini"
+        circular
+        basic
+        {...rest}
+      >
+        {status === "draft" ? "D" : <Icon name="check" className="!m-0" />}
+      </Label>
+    );
+  };
+
   return (
-    <div aria-busy={loading} className="h-auto min-h-screen w-1/6 border-r-2 p-4">
+    <div
+      aria-busy={loading}
+      className="h-auto min-h-screen w-1/6 border-r-2 p-4"
+    >
       <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
-        <a className="text-xl font-semibold text-black" href="/kb/welcome">Knowledge Base</a>
+        <a className="text-xl font-semibold text-black" href="/kb/welcome">
+          Knowledge Base
+        </a>
         {user.isSuperAdmin && (
           <Popup
             trigger={
@@ -77,12 +99,17 @@ const NavTree = forwardRef((props, ref) => {
         return (
           <div key={node.uuid} className="p-2 rounded-xl hover:bg-slate-100">
             <div className="flex flex-row justify-between items-center">
-              <a
-                className="text-lg font-semibold text-black"
-                href={getLink(node.slug)}
-              >
-                {truncateString(node.title, 50)} ({node.status})
-              </a>
+              <div className="flex flex-row items-center">
+                <a
+                  className="text-lg font-semibold text-black"
+                  href={getLink(node.slug)}
+                >
+                  {truncateString(node.title, 50)}
+                </a>
+                {user.isSuperAdmin && (
+                  <StatusLabel status={node.status} className="!ml-2" />
+                )}
+              </div>
               {user.isSuperAdmin && (
                 <Popup
                   trigger={
@@ -104,13 +131,19 @@ const NavTree = forwardRef((props, ref) => {
               {node.children &&
                 node.children.map((child) => {
                   return (
-                    <div key={child.uuid} className="p-2">
+                    <div
+                      key={child.uuid}
+                      className="p-2 flex flex-row items-center"
+                    >
                       <a
                         className="text-md font-semibold text-gray-600"
                         href={getLink(child.slug)}
                       >
-                        {truncateString(child.title, 50)} ({child.status})
+                        {truncateString(child.title, 50)}
                       </a>
+                      {user.isSuperAdmin && (
+                        <StatusLabel status={child.status} className="!ml-2" />
+                      )}
                     </div>
                   );
                 })}

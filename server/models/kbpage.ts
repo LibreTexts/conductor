@@ -8,6 +8,7 @@ export interface KBPageInterface extends Document {
   status: "draft" | "published";
   slug: string;
   parent?: string;
+  imgURLs?: string[];
   lastEditedBy: Schema.Types.ObjectId;
 }
 
@@ -40,6 +41,9 @@ const KBPageSchema = new Schema<KBPageInterface>(
     },
     parent: {
       type: String,
+    },
+    imgURLs: {
+      type: [String],
     },
     lastEditedBy: {
       type: Schema.Types.ObjectId,

@@ -5,7 +5,7 @@ import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
 import { get, useForm } from "react-hook-form";
 import { KBPage } from "../../types";
-import KBCKEditor from "./KBQuillEditor";
+import KBQuillEditor from "./KBQuillEditor";
 import PreviewPageModal from "./PreviewPageModal";
 import PageLastEditor from "./PageLastEditor";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
@@ -124,6 +124,7 @@ const KBPageEditMode = ({
       if (onDataChanged) {
         onDataChanged();
       }
+      window.scrollTo(0, 0);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -264,8 +265,9 @@ const KBPageEditMode = ({
 
         <div className="mt-8">
           <p className="form-field-label mb-1">Content</p>
-          <KBCKEditor
+          <KBQuillEditor
             data={watch("body")}
+            pageUUID={watch("uuid")}
             onDataChange={(newData: string) => {
               setValue("body", newData);
             }}

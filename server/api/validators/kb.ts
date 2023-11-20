@@ -40,6 +40,8 @@ export const CreateKBPageValidator = z.object({
   }),
 });
 
+export const AddKbImageValidator = KBUUIDParams;
+
 export const UpdateKBPageValidator = KBUUIDParams.merge(CreateKBPageValidator);
 
 export const SearchKBValidator = z.object({

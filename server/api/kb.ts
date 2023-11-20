@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AddKbImageValidator,
   CreateKBFeaturedPageValidator,
   CreateKBFeaturedVideoValidator,
   CreateKBPageValidator,
@@ -11,7 +12,7 @@ import {
   SearchKBValidator,
   UpdateKBPageValidator,
 } from "./validators/kb.js";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { debugError } from "../debug.js";
 import { conductor500Err } from "../util/errorutils.js";
 import KBPage, { KBPageInterface } from "../models/kbpage.js";
@@ -22,7 +23,25 @@ import DOMPurify from "isomorphic-dompurify";
 import KBFeaturedPage from "../models/kbfeaturedpage.js";
 import KBFeaturedVideo from "../models/kbfeaturedvideo.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
-import { is } from "bluebird";
+import multer from "multer";
+import conductorErrors from "../conductor-errors.js";
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ClientConfig,
+} from "@aws-sdk/client-s3";
+import { assembleUrl } from "../util/helpers.js";
+import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
+import base64 from "base-64";
+
+export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
+  credentials: {
+    accessKeyId: process.env.AWS_KBFILES_ACCESS_KEY ?? "",
+    secretAccessKey: process.env.AWS_KBFILES_SECRET_KEY ?? "",
+  },
+  region: process.env.AWS_KBFILES_REGION ?? "",
+};
 
 async function getKBPage(
   req: z.infer<typeof GetKBPageValidator>,
@@ -78,7 +97,10 @@ async function getKBTree(
     // If user is logged in, check if they have the libretexts superadmin role
     if (req.user) {
       const foundUser = await User.findOne({ uuid: req.user.decoded.uuid });
-      if(foundUser && authAPI.checkHasRole(foundUser, "libretexts", "superadmin")){
+      if (
+        foundUser &&
+        authAPI.checkHasRole(foundUser, "libretexts", "superadmin")
+      ) {
         isAuthorized = true;
       }
     }
@@ -200,30 +222,138 @@ async function createKBPage(
   }
 }
 
+async function imageUploadHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const config = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      files: 1,
+      fileSize: 100000000,
+    },
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith("image")) {
+        return cb(new Error("notimagefile"));
+      }
+      return cb(null, true);
+    },
+  }).single("file");
+  return config(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+        errMsg = conductorErrors.err60;
+      }
+      if (err.message === "notimagefile") {
+        errMsg = conductorErrors.err55;
+      }
+      return res.status(400).send({
+        err: true,
+        errMsg,
+      });
+    }
+    return next();
+  });
+}
+
+async function addKBImage(
+  req: z.infer<typeof AddKbImageValidator> & { file: Express.Multer.File },
+  res: Response
+) {
+  try {
+    const pageID = req.params.uuid;
+    const page = await KBPage.findOne({ uuid: pageID }).orFail();
+
+    if (
+      !KB_FILES_S3_CLIENT_CONFIG ||
+      !process.env.AWS_KBFILES_BUCKET ||
+      !process.env.AWS_KBFILES_DOMAIN
+    ) {
+      throw new Error("Missing file storage config");
+    }
+
+    const storageClient = new S3Client(KB_FILES_S3_CLIENT_CONFIG);
+    const imageFile = req.file;
+
+    if (!imageFile) {
+      throw new Error("No image file provided");
+    }
+
+    const fileUUID = v4();
+    const fileKey = `${page.uuid}/${fileUUID}`;
+
+    const uploadResult = await storageClient.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_KBFILES_BUCKET,
+        Key: fileKey,
+        Body: imageFile.buffer,
+        ContentDisposition: `inline; filename="${fileUUID}"`,
+        ContentType: imageFile.mimetype ?? "application/octet-stream",
+      })
+    );
+
+    if (uploadResult.$metadata.httpStatusCode !== 200) {
+      throw new Error("Failed to upload image");
+    }
+
+    const url = assembleUrl([
+      "https://",
+      process.env.AWS_KBFILES_DOMAIN,
+      fileKey,
+    ]);
+
+    // Add the image URL to the page & save
+    page.imgURLs = page.imgURLs ? [...page.imgURLs, url] : [url];
+    await page.save();
+
+    return res.send({
+      err: false,
+      url,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function updateKBPage(
   req: z.infer<typeof UpdateKBPageValidator>,
   res: Response
 ) {
   try {
     const { title, description, body, status, slug, parent, lastEditedBy } =
-      req.body;
+      req.body; // Image URLs should not be updated directly
     const { uuid } = req.params;
 
     const safeURL = _generatePageSlug(title, slug);
 
     const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
-    const kbPage = await KBPage.findOneAndUpdate(
-      { uuid },
-      {
-        title,
-        description,
-        body: _sanitizeBodyContent(body),
-        slug: safeURL,
-        status,
-        parent,
-        lastEditedBy: editor._id,
+    const kbPage = await KBPage.findOne({ uuid }).orFail();
+
+    kbPage.title = title;
+    kbPage.description = description;
+    kbPage.body = _sanitizeBodyContent(body);
+    kbPage.slug = safeURL;
+    kbPage.status = status;
+    kbPage.parent = parent;
+    kbPage.lastEditedBy = editor._id;
+
+    const urlsToDelete = _checkForDeletedImages(body, kbPage.imgURLs);
+    if (urlsToDelete.length > 0) {
+      const deleteImagesResult = await _deleteKBImagesFromStorage(urlsToDelete);
+      if (!deleteImagesResult) {
+        debugError("Failed to delete one or more images from storage"); // Silently fail, but log
+      } else {
+        // Remove the deleted images from the page
+        kbPage.imgURLs = kbPage.imgURLs?.filter(
+          (url) => !urlsToDelete.includes(url)
+        );
       }
-    ).orFail();
+    }
+
+    await kbPage.save();
 
     return res.send({
       err: false,
@@ -242,7 +372,15 @@ async function deleteKBPage(
   try {
     const { uuid } = req.params;
 
-    const page = await KBPage.findOneAndDelete({ uuid }).orFail();
+    const page = await KBPage.findOne({ uuid }).orFail();
+    if (page.imgURLs && page.imgURLs.length > 0) {
+      const deleteImagesResult = await _deleteKBImagesFromStorage(page.imgURLs);
+      if (!deleteImagesResult) {
+        debugError("Failed to delete one or more images from storage"); // Silently fail, but log
+      }
+    }
+
+    await KBPage.findOneAndDelete({ uuid }).orFail();
 
     return res.send({
       err: false,
@@ -422,6 +560,69 @@ async function deleteKBFeaturedVideo(
   }
 }
 
+function _checkForDeletedImages(newBody: string, oldURLs?: string[]) {
+  try {
+    if (!oldURLs || oldURLs.length === 0) {
+      return [];
+    }
+    // if url is not in newBody, delete it
+    const urlsToDelete = [];
+    for (const url of oldURLs) {
+      if (!newBody.includes(url)) {
+        urlsToDelete.push(url);
+      }
+    }
+    return urlsToDelete;
+  } catch (err) {
+    throw err;
+  }
+}
+
+async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
+  try {
+    if (
+      !KB_FILES_S3_CLIENT_CONFIG ||
+      !process.env.AWS_KBFILES_BUCKET ||
+      !process.env.AWS_KBFILES_DOMAIN
+    ) {
+      throw new Error("Missing file storage config");
+    }
+    const storageClient = new S3Client(KB_FILES_S3_CLIENT_CONFIG);
+    const promises = [];
+
+    for (const url of urls) {
+      //split url on '/' and get last two elements
+      const urlSplit = url.split("/");
+      const fileKey = `${urlSplit[urlSplit.length - 2]}/${
+        urlSplit[urlSplit.length - 1]
+      }`;
+      if (!fileKey) {
+        throw new Error("invalidurl");
+      }
+
+      promises.push(
+        storageClient.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.AWS_KBFILES_BUCKET,
+            Key: fileKey,
+          })
+        )
+      );
+    }
+
+    await Promise.all(promises);
+
+    return true;
+  } catch (err: any) {
+    // if the image doesn't exist, no-op, return false
+    if (err.message === "invalidurl" || err.code === "NoSuchKey") {
+      return false;
+    } else {
+      throw err;
+    }
+  }
+}
+
 function _sanitizeBodyContent(content: string) {
   try {
     return DOMPurify.sanitize(content);
@@ -443,6 +644,8 @@ export default {
   getKBPage,
   getKBTree,
   createKBPage,
+  imageUploadHandler,
+  addKBImage,
   updateKBPage,
   deleteKBPage,
   searchKB,
