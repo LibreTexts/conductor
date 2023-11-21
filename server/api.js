@@ -1521,10 +1521,18 @@ router.route('/kb/featured/video/:uuid').delete(
   kbAPI.deleteKBFeaturedVideo
 )
 
+router.route('/support/metrics').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  supportAPI.getSupportMetrics
+)
+
 router.route('/support/ticket/open').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.GetOpenTicketsValidator),
   supportAPI.getOpenTickets
 )
 
@@ -1570,6 +1578,7 @@ router.route('/support/ticket/:uuid').get(
 )
 
 router.route('/support/ticket').post(
+  authAPI.optionalVerifyRequest,
   middleware.validateZod(supportValidators.CreateTicketValidator),
   supportAPI.ticketAttachmentUploadHandler,
   supportAPI.createTicket

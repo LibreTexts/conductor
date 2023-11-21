@@ -11,31 +11,23 @@ export const DeleteTicketValidator = TicketUUIDParams;
 export const GetUserTicketsValidator = TicketUUIDParams; // this is user uuid, but same validation..
 
 export const CreateTicketValidator = z.object({
-  body: z
-    .object({
-      title: z.string(),
-      description: z.string().max(500),
-      apps: z.array(z.number()).min(1),
-      priority: z.enum(["low", "medium", "high"]),
-      category: z.string(),
-      capturedURL: z.string().url().optional(),
-      attachments: z.array(z.string()).optional(),
-      guest: z
-        .object({
-          firstName: z.string(),
-          lastName: z.string(),
-          email: z.string().email(),
-          organization: z.string(),
-        })
-        .optional(),
-      user: z.string().uuid().optional(),
-    })
-    .refine((data) => {
-      if (!data.guest && !data.user) {
-        throw new Error("Either guest or user must be provided");
-      }
-      return true;
-    }),
+  body: z.object({
+    title: z.string().max(200),
+    description: z.string().max(1000),
+    apps: z.array(z.number()).min(1),
+    priority: z.enum(["low", "medium", "high"]),
+    category: z.string(),
+    capturedURL: z.string().url().optional(),
+    attachments: z.array(z.string()).optional(),
+    guest: z
+      .object({
+        firstName: z.string(),
+        lastName: z.string(),
+        email: z.string().email(),
+        organization: z.string(),
+      })
+      .optional(),
+  }),
 });
 
 export const AddTicketAttachementsValidator = TicketUUIDParams;
@@ -54,6 +46,13 @@ export const SearchTicketsValidator = z.object({
     query: z.string().min(3),
   }),
 });
+
+export const GetOpenTicketsValidator = z.object({
+  query: z.object({
+    page: z.number().min(1).optional(),
+    limit: z.number().min(1).optional(),
+  }),
+})
 
 export const StaffSendTicketMessageValidator = z
   .object({

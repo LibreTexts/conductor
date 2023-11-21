@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   AddTicketAttachementsValidator,
   CreateTicketValidator,
+  GetOpenTicketsValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
   StaffSendTicketMessageValidator,
@@ -21,6 +22,9 @@ import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
+import { ZodReqWithOptionalUser } from "../types";
+import { getPaginationOffset } from "../util/helpers.js";
+import { differenceInMinutes, subDays } from "date-fns";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -65,12 +69,67 @@ async function getUserTickets(
   }
 }
 
-async function getOpenTickets(req: Request, res: Response) {
+async function getOpenTickets(
+  req: z.infer<typeof GetOpenTicketsValidator>,
+  res: Response
+) {
   try {
-    const tickets = await SupportTicket.find({ status: "open" });
+    let page = 1;
+    let limit = 25;
+    if (req.query.page) page = req.query.page;
+    const offset = getPaginationOffset(page, limit);
+
+    const tickets = await SupportTicket.find({ status: "open" })
+      .skip(offset)
+      .limit(limit)
+      .populate("user");
+
+    const total = await SupportTicket.countDocuments({ status: "open" });
+
     return res.send({
       err: false,
       tickets,
+      total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getSupportMetrics(req: Request, res: Response) {
+  try {
+    const totalOpenTickets = await SupportTicket.countDocuments({
+      status: "open",
+    });
+
+    // Get average time between ticket open date and ticket close date
+    const closedTickets = await SupportTicket.find({ status: "closed" });
+    const totalClosedTickets = closedTickets.length;
+    let totalClosedTicketMins = 0;
+    closedTickets
+      .filter((t) => t.timeOpened && t.timeClosed)
+      .forEach((ticket) => {
+        const timeOpened = new Date(ticket.timeOpened);
+        const timeClosed = new Date(ticket.timeClosed as string);
+
+        totalClosedTicketMins += differenceInMinutes(timeClosed, timeOpened);
+      });
+    const avgMinsToClose = totalClosedTicketMins / totalClosedTickets;
+
+    const sevenDaysAgo = subDays(new Date(), 7);
+
+    const lastSevenTicketCount = await SupportTicket.countDocuments({
+      timeOpened: { $gte: sevenDaysAgo.toISOString() },
+    });
+
+    return res.send({
+      err: false,
+      metrics: {
+        totalOpenTickets,
+        avgMinsToClose,
+        lastSevenTicketCount,
+      },
     });
   } catch (err) {
     debugError(err);
@@ -97,6 +156,7 @@ async function ticketAttachmentUploadHandler(
     },
   }).array("attachments", 4);
   return config(req, res, (err) => {
+    console.log(err);
     if (err) {
       let errMsg = conductorErrors.err53;
       if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
@@ -115,24 +175,24 @@ async function ticketAttachmentUploadHandler(
 }
 
 async function createTicket(
-  req: z.infer<typeof CreateTicketValidator>,
+  req: ZodReqWithOptionalUser<z.infer<typeof CreateTicketValidator>>,
   res: Response
 ) {
   try {
-    const {
-      title,
-      description,
-      apps,
-      category,
-      priority,
-      attachments,
-      guest,
-      user,
-    } = req.body;
+    const { title, description, apps, category, priority, attachments, guest } =
+      req.body;
+    const userUUID = req.user?.decoded.uuid;
+
+    // If no guest or user, fail
+    if (!guest && !userUUID)
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
 
     let foundUser;
-    if (user) {
-      foundUser = await User.findOne({ uuid: user }).orFail();
+    if (userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID }).orFail();
     }
 
     const ticket = await SupportTicket.create({
@@ -207,7 +267,7 @@ async function addTicketAttachments(
       ticket.uuid,
       req.files
     );
-    ticket.attachments = [...ticket.attachments ?? [], ...uploadedFiles];
+    ticket.attachments = [...(ticket.attachments ?? []), ...uploadedFiles];
     await ticket.save();
 
     return res.send({
@@ -373,6 +433,7 @@ export default {
   getTicket,
   getUserTickets,
   getOpenTickets,
+  getSupportMetrics,
   createTicket,
   addTicketAttachments,
   updateTicket,

@@ -10,7 +10,7 @@ import useGlobalError from "../error/ErrorHooks";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { CentralIdentityApp, SupportTicket } from "../../types";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, get, useForm } from "react-hook-form";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import {
@@ -88,8 +88,13 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       setLoading(true);
       if (!(await trigger())) return;
 
+      const vals = getValues();
+      if (user && user.isAuthenticated) {
+        vals.guest = undefined;
+      }
+
       const res = await axios.post("/support/ticket", {
-        ...getValues(),
+        ...vals,
       });
 
       if (res.data.err) {
@@ -146,6 +151,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     setLoading(false);
   }
 
+  const getRemainingChars = (newDescrip: string) => {
+    const charsRemain = 1000 - newDescrip.length;
+    return charsRemain;
+  };
+
   return (
     <div
       className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-2/3 shadow-lg"
@@ -154,7 +164,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       {!success && (
         <>
           <Form className="m-2" onSubmit={(e) => e.preventDefault()}>
-            {false && (
+            {user && (
               <Message color="green" icon size="tiny">
                 <Icon name="check" />
                 <Message.Content>
@@ -164,7 +174,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 </Message.Content>
               </Message>
             )}
-            {true && (
+            {!user && (
               <div className="mb-8">
                 <p className="font-semibold mb-1">Your Contact Info</p>
                 <div className="flex flex-col lg:flex-row w-full">
@@ -225,6 +235,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               placeholder="Enter a subject/brief title for your ticket"
               rules={required}
               required
+              maxLength={200}
             />
             <div className="mt-2">
               <label
@@ -317,7 +328,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                   control={control}
                   name="capturedURL"
                   label="URL (if applicable)"
-                  placeholder="Enter the URL of the page you're having issues with"
+                  placeholder="Enter the URL of the page you're having trouble with"
                   type="url"
                 />
               </div>
@@ -334,22 +345,28 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 placeholder="Please describe your issue in detail. Include any relevant information (e.g. error messages, steps to reproduce, etc.)"
                 value={watch("description")}
                 onInput={(e) => setValue("description", e.currentTarget.value)}
+                maxLength={1000}
               />
+              <p className="text-xs text-gray-500 italic">
+                Chars Remaining: {getRemainingChars(watch("description"))}.
+                Note: Please do not include any sensitive information (e.g.
+                passwords, etc.) in your description.
+              </p>
             </Form.Field>
           </Form>
           <label className="form-field-label">
-                Attachments (optional) (max 4 files, 100 MB each)
-              </label>
-              <FileUploader
-                multiple={true}
-                maxFiles={4}
-                onUpload={saveFilesToState}
-              />
+            Attachments (optional) (max 4 files, 100 MB each)
+          </label>
+          <FileUploader
+            multiple={true}
+            maxFiles={4}
+            onUpload={saveFilesToState}
+          />
           <div className="flex flex-row justify-end mt-4">
             <Button
               color="blue"
               loading={loading}
-              onClick={() => handleSubmit()}
+              onClick={handleSubmit}
             >
               <Icon name="send" />
               Submit

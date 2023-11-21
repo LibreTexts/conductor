@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { KBPage, User } from "../types";
+import { KBPage, SupportTicket, User } from "../types";
 
 export const checkIsUUID = (str?: string | null) => {
   if (!str) return false;
@@ -28,3 +28,13 @@ export const canEditKB = (user?: User): boolean => {
   if (superAdmin) return true; // superadmins can edit KB
   return orgMatches.some((match) => match.role === "kbeditor");
 };
+
+export const getRequesterText = (ticket: SupportTicket) => {
+  if (ticket.user) {
+    return `${ticket.user.firstName} ${ticket.user.lastName} (${ticket.user.email})`;
+  } else if (ticket.guest) {
+    return `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`;
+  } else {
+    return "Unknown";
+  }
+}
