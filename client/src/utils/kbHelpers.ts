@@ -12,7 +12,7 @@ export const getKBSharingObj = (page: KBPage) => {
   return {
     title: page.title,
     text: page.description,
-    url: `commons.libretexts.org/kb/page/${page.slug}`,
+    url: `commons.libretexts.org/insight/page/${page.slug}`,
   };
 };
 
@@ -23,10 +23,10 @@ export const getKBSharingObj = (page: KBPage) => {
  */
 export const canEditKB = (user?: User): boolean => {
   if (!user || !user.roles) return false;
-  const orgMatches = user.roles.filter((org) => org.org === "libretexts");
-  const superAdmin = user.roles.some((role) => role.role === "superadmin");
+  const libretextsRoles = user.roles.filter((org) => org.org === "libretexts");
+  const superAdmin = libretextsRoles.some((role) => role.role === "superadmin");
   if (superAdmin) return true; // superadmins can edit KB
-  return orgMatches.some((match) => match.role === "kbeditor");
+  return libretextsRoles.some((match) => match.role === "kbeditor");
 };
 
 export const getRequesterText = (ticket: SupportTicket) => {
@@ -37,4 +37,4 @@ export const getRequesterText = (ticket: SupportTicket) => {
   } else {
     return "Unknown";
   }
-}
+};

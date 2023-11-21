@@ -21,43 +21,67 @@ const SupportCenterNavbar: React.FC<{}> = () => {
         <div className="flex ml-2 mt-0.5">
           <Launchpad />
         </div>
-          <div
-            className="flex flex-row items-center cursor-pointer"
-            onClick={() => window.location.assign("/support")}
+        <div
+          className="flex flex-row items-center cursor-pointer"
+          onClick={() => window.location.assign("/support")}
+        >
+          <Image
+            src="https://cdn.libretexts.net/Logos/libretexts_full.png"
+            className="h-12 ml-6"
+          />
+          <span className="hidden lg:flex ml-2 text-2xl font-semibold">
+            | Support Center
+          </span>
+        </div>
+      </div>
+      <div className="flex">
+        {/* {user && (
+          <Button
+            className="h-10 !w-48"
+            color="blue"
+            as={Link}
+            to="/home"
+            size="small"
+            basic
           >
-            <Image
-              src="https://cdn.libretexts.net/Logos/libretexts_full.png"
-              className="h-12 ml-6"
-            />
-            <span className="hidden lg:flex ml-2 text-2xl font-semibold">
-              | Support Center
-            </span>
-          </div>
-        </div>
-        <div className="flex">
-          {isStaff ? (
-            <Button
-              className="h-10 !w-32"
-              color="blue"
-              as={Link}
-              to="/support/dashboard"
-              size="small"
-            >
-              Dashboard
-            </Button>
-          ) : (
-            <Button
-              className="h-10 !w-44"
-              color="blue"
-              as={Link}
-              to="/support/contact"
-              size="small"
-            >
-              <Icon name="text telephone" />
-              Contact Support
-            </Button>
-          )}
-        </div>
+            <Icon name="lightning" />
+            Go to Conductor
+          </Button>
+        )}
+        <Button
+          className="h-10 !w-48"
+          color="blue"
+          as={Link}
+          to="/"
+          size="small"
+          basic
+        >
+          <Icon name="book" />
+          Go to Commons
+        </Button> */}
+        {isStaff ? (
+          <Button
+            className="h-10 !w-32"
+            color="blue"
+            as={Link}
+            to="/support/dashboard"
+            size="small"
+          >
+            Dashboard
+          </Button>
+        ) : (
+          <Button
+            className="h-10 !w-44"
+            color="blue"
+            as={Link}
+            to="/support/contact"
+            size="small"
+          >
+            <Icon name="text telephone" />
+            Contact Support
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

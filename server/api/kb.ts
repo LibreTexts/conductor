@@ -32,8 +32,6 @@ import {
   S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { assembleUrl } from "../util/helpers.js";
-import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
-import base64 from "base-64";
 
 export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -408,7 +406,7 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
             },
           },
           highlight: {
-            path: "title",
+            path: ["title", "description", "body"],
           },
         },
       },

@@ -290,7 +290,7 @@ const KBPageEditMode = ({
         <ConfirmDeletePageModal
           open={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
-          onDeleted={() => window.location.assign("/kb/welcome")}
+          onDeleted={() => window.location.assign("/insight/welcome")}
           uuid={getValues("uuid")}
         />
       )}

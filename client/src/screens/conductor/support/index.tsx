@@ -56,24 +56,24 @@ const SupportCenter = () => {
           title="Contact Support"
           text="
           Contact the LibreTexts Support Team for help
-          (Coming Soon!)
+          (Coming Soon!). Please email support@libretexts.org in the meantime.
           "
           icon="text telephone"
           link="/support/contact"
           disabled
         />
         <HomeItem
-          title="Knowledge Base"
-          text="Search the Knowledge Base for help with all of your LibreTexts apps &
+          title="Insight"
+          text="Search Insight for help with all of your LibreTexts apps &
           services."
           icon="question circle outline"
-          link="/kb"
+          link="/insight"
         />
         <HomeItem
           title="Systems Status"
           text="
           View systems status for all LibreTexts apps & services and check for known outages."
-          icon="doctor"
+          icon="dashboard"
           link="https://status.libretexts.org"
         />
       </div>

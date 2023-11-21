@@ -1,8 +1,12 @@
 import DefaultLayout from "../../../components/kb/DefaultLayout";
-import { useEffect, useState } from "react";
+import { useEffect, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
-import StaffDashboard from "../../../components/support/StaffDashboard";
-import UserDashboard from "../../../components/support/UserDashboard";
+const StaffDashboard = lazy(
+  () => import("../../../components/support/StaffDashboard")
+);
+const UserDashboard = lazy(
+  () => import("../../../components/support/UserDashboard")
+);
 
 const SupportDashboard = () => {
   const user = useTypedSelector((state) => state.user);
@@ -13,8 +17,7 @@ const SupportDashboard = () => {
 
   return (
     <DefaultLayout>
-      <UserDashboard />
-      {/* {user.isSuperAdmin ? <StaffDashboard /> : <UserDashboard />} */}
+      {user.isSuperAdmin ? <StaffDashboard /> : <UserDashboard />}
     </DefaultLayout>
   );
 };

@@ -46,15 +46,15 @@ const NavTree = forwardRef((props, ref) => {
   }
 
   const getLink = (slug: string) => {
-    if (!slug) return `/kb/welcome`;
-    return `/kb/${slug}`;
+    if (!slug) return `/insight/welcome`;
+    return `/insight/${slug}`;
   };
 
   function handleCreatePage(parent?: string) {
     if (!parent) {
-      window.location.assign(`/kb/new`);
+      window.location.assign(`/insight/new`);
     } else {
-      window.location.assign(`/kb/new?parent=${parent}`);
+      window.location.assign(`/insight/new?parent=${parent}`);
     }
   }
 
@@ -81,8 +81,8 @@ const NavTree = forwardRef((props, ref) => {
       className="h-auto min-h-screen w-1/6 border-r-2 p-4"
     >
       <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
-        <a className="text-xl font-semibold text-black" href="/kb/welcome">
-          Knowledge Base
+        <a className="text-xl font-semibold text-black" href="/insight/welcome">
+          Insight Articles
         </a>
         {canEdit && (
           <Popup

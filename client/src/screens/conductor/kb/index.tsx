@@ -5,7 +5,7 @@ import KBJumbotron from "../../../components/kb/Jumbotron";
 
 const KnowledgeBase = () => {
   useEffect(() => {
-    document.title = "LibreTexts | Knowledge Base";
+    document.title = "LibreTexts | Insight";
   }, []);
   
   return (

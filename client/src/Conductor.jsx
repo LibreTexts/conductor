@@ -65,7 +65,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 
 const RenderNavbar = () => {
-  if(window.location.pathname.includes('/kb') || window.location.pathname.includes('/support')){
+  if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
     return <SupportCenterNavbar />;
   }
   return <Navbar />
@@ -127,10 +127,10 @@ const Conductor = () => {
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
         {/* LibreTexts org public routes */}
         <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
-        <LibreTextsRoute exact path='/kb' key='kb' component={KnowledgeBase} org={org}/>
-        <LibreTextsRoute exact path='/kb/search' key='kbsearchresults' component={KBSearchResults} org={org}/>
-        <LibreTextsRoute exact path='/kb/welcome' key='kbwelcome' component={KBCoverPage} org={org}/>
-        <LibreTextsRoute exact path='/kb/:slug' key='kbpageview' org={org} component={KBPage} />
+        <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+        <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+        <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+        <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
         <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
         <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
         <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />

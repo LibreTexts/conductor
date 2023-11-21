@@ -68,7 +68,7 @@ const FeaturedList = () => {
         <div className="flex flex-col">
           <p className="text-3xl font-bold">Featured Content</p>
           <p className="text-xl font-semibold">
-            Explore featured knowledge base articles and videos curated by the
+            Explore featured insight articles and videos curated by the
             LibreTexts team.
           </p>
         </div>

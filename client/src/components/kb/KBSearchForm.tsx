@@ -11,7 +11,7 @@ const KBSearchForm: React.FC<KBSearchFormProps> = ({
 
     async function handleSearch() {
         if (!search) return;
-        window.location.href = `/kb/search?query=${encodeURIComponent(search)}`;
+        window.location.href = `/insight/search?query=${encodeURIComponent(search)}`;
     }
 
     return (
@@ -26,7 +26,7 @@ const KBSearchForm: React.FC<KBSearchFormProps> = ({
             <Form.Input
                 id="kb-search"
                 icon="search"
-                placeholder="Search the Knowledge Base..."
+                placeholder="Search Insight Articles..."
                 className="w-3/4"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
