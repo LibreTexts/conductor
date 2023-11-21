@@ -22,7 +22,7 @@ import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
-import { ZodReqWithOptionalUser } from "../types";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { getPaginationOffset } from "../util/helpers.js";
 import { differenceInMinutes, subDays } from "date-fns";
 
@@ -52,16 +52,34 @@ async function getTicket(
 }
 
 async function getUserTickets(
-  req: z.infer<typeof GetUserTicketsValidator>,
+  req: ZodReqWithUser<z.infer<typeof GetUserTicketsValidator>>,
   res: Response
 ) {
   try {
-    const { uuid } = req.params;
+    const { uuid } = req.user?.decoded;
+    if (!uuid) {
+      return res.send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    let page = 1;
+    let limit = 25;
+    if (req.query.page) page = req.query.page;
+    const offset = getPaginationOffset(page, limit);
+
     const user = await User.findOne({ uuid }).orFail();
-    const tickets = await SupportTicket.find({ user: user._id });
+    const tickets = await SupportTicket.find({ user: user._id })
+      .skip(offset)
+      .limit(limit)
+      .populate("user");
+
+    const total = await SupportTicket.countDocuments({ user: user._id });
     return res.send({
       err: false,
       tickets,
+      total,
     });
   } catch (err) {
     debugError(err);

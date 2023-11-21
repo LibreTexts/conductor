@@ -13,7 +13,8 @@ const SupportDashboard = () => {
 
   return (
     <DefaultLayout>
-      {user.isSuperAdmin ? <StaffDashboard /> : <UserDashboard />}
+      <UserDashboard />
+      {/* {user.isSuperAdmin ? <StaffDashboard /> : <UserDashboard />} */}
     </DefaultLayout>
   );
 };

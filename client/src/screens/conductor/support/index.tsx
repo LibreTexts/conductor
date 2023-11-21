@@ -14,16 +14,23 @@ const SupportCenter = () => {
     text,
     icon,
     link,
+    disabled = false,
   }: {
     title: string;
     text: string;
     icon: SemanticICONS;
     link: string;
+    disabled?: boolean;
   }) => {
     return (
       <div
-        onClick={() => openLink(link)}
-        className="flex flex-col h-80 w-96 p-4 mx-auto my-4 lg:m-4 border rounded-xl shadow-md hover:shadow-xl items-center cursor-pointer"
+        onClick={() => {
+          if (!disabled) openLink(link);
+        }}
+        className={`flex flex-col h-80 w-96 p-4 mx-auto my-4 lg:m-4 border rounded-xl shadow-md items-center cursor-pointer ${
+          disabled ? "opacity-50" : "opacity-100 hover:shadow-xl"
+        }`}
+        aria-disabled={disabled}
       >
         <div className="w-16 h-16 my-8">
           <Icon name={icon} size="huge" className="text-primary" />
@@ -49,9 +56,11 @@ const SupportCenter = () => {
           title="Contact Support"
           text="
           Contact the LibreTexts Support Team for help
+          (Coming Soon!)
           "
           icon="text telephone"
           link="/support/contact"
+          disabled
         />
         <HomeItem
           title="Knowledge Base"

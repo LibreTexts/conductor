@@ -8,7 +8,12 @@ const TicketUUIDParams = z.object({
 
 export const GetTicketValidator = TicketUUIDParams;
 export const DeleteTicketValidator = TicketUUIDParams;
-export const GetUserTicketsValidator = TicketUUIDParams; // this is user uuid, but same validation..
+export const GetUserTicketsValidator = z.object({
+  query: z.object({
+    page: z.number().min(1).optional(),
+    limit: z.number().min(1).optional(),
+  }),
+});
 
 export const CreateTicketValidator = z.object({
   body: z.object({
@@ -52,7 +57,7 @@ export const GetOpenTicketsValidator = z.object({
     page: z.number().min(1).optional(),
     limit: z.number().min(1).optional(),
   }),
-})
+});
 
 export const StaffSendTicketMessageValidator = z
   .object({

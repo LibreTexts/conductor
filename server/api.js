@@ -1536,7 +1536,7 @@ router.route('/support/ticket/open').get(
   supportAPI.getOpenTickets
 )
 
-router.route('/support/ticket/user/:uuid').get(
+router.route('/support/ticket/user').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(supportValidators.GetUserTicketsValidator),
