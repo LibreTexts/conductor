@@ -132,10 +132,10 @@ const Conductor = () => {
         <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
         <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
         <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-        <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
+        {/* <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} /> */}
         {/* LibreTexts org private routes */}
-        <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+        {/* <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} /> */}
         {/* 404 */}
         <Route component={PageNotFound} />
         </Switch>
