@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { KBPage, SupportTicket, User } from "../types";
+import { AtlasSearchHighlight, KBPage, SupportTicket, User } from "../types";
+import DOMPurify from "dompurify";
 
 export const checkIsUUID = (str?: string | null) => {
   if (!str) return false;
@@ -37,4 +38,35 @@ export const getRequesterText = (ticket: SupportTicket) => {
   } else {
     return "Unknown";
   }
+};
+
+export const getHighlightedTextSafe = (
+  original?: string,
+  highlight?: AtlasSearchHighlight
+): string => {
+  if (!original) return "";
+  if (!highlight) return original;
+  let result = original;
+  const texts = highlight.texts;
+  const replacements = texts
+    .map((text) => {
+      if (text.type === "hit") {
+        return "<mark>" + text.value + "</mark>";
+      } else {
+        return text.value;
+      }
+    })
+    .join("");
+  const originals = texts.map((text) => text.value).join("");
+  result = result.replace(originals, replacements);
+  result = DOMPurify.sanitize(result);
+  return result;
+};
+
+export const extractPathHiglights = (
+  path: string,
+  arr?: AtlasSearchHighlight[],
+): AtlasSearchHighlight | undefined => {
+  if (!arr) return undefined;
+  return arr.find((item) => item.path === path);
 };

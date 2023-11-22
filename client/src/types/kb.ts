@@ -25,7 +25,7 @@ export type KBTreeNode = {
 };
 
 export type KBSearchResult = Pick<KBPage, "uuid" | "title" | "description" | "slug" | "status" | "parent"> & {
-  highlight: AtlasSearchHighlight[];
+  highlight?: AtlasSearchHighlight[];
 };
 
 export type KBFeaturedPage = {
