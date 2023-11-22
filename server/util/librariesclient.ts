@@ -1,16 +1,20 @@
 import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
 import { debugError } from "../debug.js";
 import {
-  LibrariesClient,
+  CXOneFetchParams,
+  LibrariesSSMClient,
   LibraryAPIRequestHeaders,
   LibraryTokenPair,
-} from "../types/LibrariesClient.js";
+  CXOneGroup,
+  CXOneUser,
+} from "../types";
 import { createHmac } from "crypto";
+import CXOne from "./CXOne/index.js";
 
-export async function generateLibrariesClient(): Promise<LibrariesClient | null> {
+export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient | null> {
   try {
     const libTokenPairPath =
-      process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/production/libraries";
+      process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
     const ssm = new SSMClient({
@@ -37,7 +41,7 @@ export async function generateLibrariesClient(): Promise<LibrariesClient | null>
  */
 export async function getLibraryTokenPair(
   lib: string,
-  client: LibrariesClient
+  client: LibrariesSSMClient
 ): Promise<LibraryTokenPair | null> {
   try {
     const basePath = client.libTokenPairPath.endsWith("/")
@@ -51,21 +55,18 @@ export async function getLibraryTokenPair(
         WithDecryption: true,
       })
     );
+
     if (pairResponse.$metadata.httpStatusCode !== 200) {
-      console.error({
-        msg: "Error retrieving library token pair!",
-        lib,
-        metadata: pairResponse.$metadata,
-      });
+      console.error("Error retrieving library token pair. Lib: " + lib);
+      console.error("Metadata: ");
+      console.error(pairResponse.$metadata);
       throw new Error("Error retrieving library token pair.");
     }
     if (!pairResponse.Parameters) {
-      console.error({
-        msg: "No results returned during library token pair retrieval!",
-        lib,
-      });
+      console.error("No data returned from token pair retrieval. Lib: " + lib);
       throw new Error("Error retrieving library token pair.");
     }
+
     const libKey = pairResponse.Parameters.find((p) =>
       p.Name?.includes(`${lib}/key`)
     );
@@ -73,11 +74,10 @@ export async function getLibraryTokenPair(
       p.Name?.includes(`${lib}/secret`)
     );
     if (!libKey?.Value || !libSec?.Value) {
-      console.error({
-        msg: "Requried parameter not found during library token pair retrieval!",
-      });
+      console.error("Key param not found in token pair retrieval. Lib: " + lib);
       throw new Error("Error retrieving library token pair.");
     }
+
     return {
       key: libKey.Value,
       secret: libSec.Value,
@@ -93,10 +93,13 @@ export async function getLibraryTokenPair(
  * including the API token.
  */
 export async function generateAPIRequestHeaders(
-  lib: string
+  lib: string,
+  libClient?: LibrariesSSMClient
 ): Promise<LibraryAPIRequestHeaders | null> {
   try {
-    const libsClient = await generateLibrariesClient();
+    const libsClient = libClient
+      ? libClient
+      : await generateLibrariesSSMClient(); // generate a new client if one is not provided
     if (!libsClient) {
       throw new Error("Error generating libraries client.");
     }
@@ -119,3 +122,284 @@ export async function generateAPIRequestHeaders(
     return null;
   }
 }
+
+/**
+ * fetch wrapper function that automatically uses Mindtouch browser or server API tokens
+ * @param {string|number} path - the path or pageID of the target page. Can also instead take a full arbitrary API url.
+ * @param {string} api - the /pages {@link https://success.mindtouch.com/Integrations/API/API_Calls/pages|sub-endpoint} that you are calling
+ * @param {string} subdomain - subdomain that the target page belongs to
+ * @param {string} username - the user that is performing this request
+ * @param {Object} [options={}] - optional options that will be passed to fetch()
+ * @param {boolean} [silentFail=false] - if true, will not throw an error if the fetch fails
+ */
+export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
+  try {
+    const { scope, subdomain, options, silentFail } = params;
+
+    const generatedHeaders = await generateAPIRequestHeaders(subdomain);
+    if (!generatedHeaders) {
+      throw new Error("Error generating API request headers.");
+    }
+    const finalOptions = _optionsMerge(generatedHeaders, options);
+
+    let request;
+    if (scope === "groups") {
+      request = fetch(
+        `https://${subdomain}.libretexts.org/@api/deki/groups?dream.out.format=json`,
+        finalOptions
+      );
+    } else if (scope === "users") {
+      request = fetch(
+        `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json`,
+        finalOptions
+      );
+    } else {
+      const { path, api } = params;
+      const isNumber = typeof path === "number" && !isNaN(path);
+      console.log(finalOptions);
+      const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
+        isNumber ? "" : "="
+      }${encodeURIComponent(encodeURIComponent(path))}/${api}`;
+      console.log(url);
+      request = fetch(url, finalOptions);
+    }
+
+    const result = await request;
+    if (!result.ok && !silentFail) {
+      throw new Error(
+        `Error fetching ${
+          params.scope === "groups"
+            ? "groups"
+            : params.scope === "users"
+            ? "users"
+            : "page"
+        } from ${subdomain}. ${result.statusText}`
+      );
+    }
+    return result;
+  } catch (err: any) {
+    throw new Error(`Request failed: ${err.message}`);
+  }
+}
+
+/**
+ * Add a property to a library page.
+ *
+ * @param {string} subdomain - Library identifier.
+ * @param {string|number} path - Target page path or ID.
+ * @param {keyof typeof LibrariesClientPageProperties} property - Name of the property to add/set.
+ * @param {string | boolean | number} value - Value of the new property.
+ * @returns {Promise<boolean>} True if successfully set, false if error encountered.
+ */
+export async function addPageProperty(
+  subdomain: string,
+  path: string | number,
+  property: keyof typeof CXOne.PageProps,
+  value: string | boolean | number
+): Promise<boolean> {
+  try {
+    const addRes = await CXOneFetch({
+      scope: "page",
+      path,
+      api: CXOne.API.Page.POST_Properties,
+      subdomain: subdomain,
+      options: {
+        method: "POST",
+        body: value,
+        headers: { Slug: CXOne.PageProps[property] },
+      },
+    });
+
+    if (!addRes || !addRes.ok) {
+      throw new Error(`Error adding property ${property} to ${path}.`);
+    }
+
+    return true;
+  } catch (e) {
+    debugError(e);
+    return false;
+  }
+}
+
+export async function getPage(
+  path: string | number,
+  subdomain: string
+): Promise<any> {
+  try {
+    const res = await CXOneFetch({
+      scope: "page",
+      path,
+      api: CXOne.API.Page.GET_Page_Info,
+      subdomain,
+    });
+    const raw = await res.json();
+    return raw;
+  } catch (err) {
+    debugError(err);
+    return null;
+  }
+}
+
+export async function getPageID(
+  path: string,
+  subdomain: string
+): Promise<string | null> {
+  try {
+    const res = await getPage(path, subdomain);
+    console.log('PAGE INFO');
+    console.log(res);
+    if (!res) {
+      throw new Error(`Error retrieving page ID for ${path}.`);
+    }
+    const id = res["@id"]?.toString();
+    if (!id) {
+      throw new Error(`Error retrieving page ID for ${path}.`);
+    }
+    return id;
+  } catch (err) {
+    debugError(err);
+    return null;
+  }
+}
+
+/**
+ * Returns the user groups of a library.
+ *
+ * @param subdomain - The subdomain of the library
+ * @returns {Promise<CXOneGroup[]>} - The user groups of the library
+ */
+export async function getGroups(subdomain: string): Promise<CXOneGroup[]> {
+  try {
+    const res = await CXOneFetch({
+      scope: "groups",
+      subdomain,
+    });
+
+    const raw = await res.json();
+
+    const finalGroups: CXOneGroup[] = [];
+    if (raw["@count"] !== "0" && raw.group) {
+      const groupsArr = raw.group.length ? raw.group : [raw.group];
+      const mapped = groupsArr.map((prop: any) => {
+        return {
+          name: prop["groupname"]?.toString(),
+          id: prop["@id"]?.toString(),
+          role: prop["permissions.group"].role["#text"]?.toString(),
+        };
+      });
+      finalGroups.push(...mapped);
+    }
+
+    return finalGroups;
+  } catch (err) {
+    debugError(err);
+    return [];
+  }
+}
+
+/**
+ * Returns the Developer group for a library.
+ *
+ * @param subdomain - The subdomain of the library
+ * @returns {Promise<CXOneGroup>} - The Developer group of the library
+ */
+export async function getDeveloperGroup(
+  subdomain: string
+): Promise<CXOneGroup | undefined> {
+  try {
+    const groups = await getGroups(subdomain);
+    return groups.find((g) => g.name === "Developer");
+  } catch (err) {
+    debugError(err);
+    return undefined;
+  }
+}
+
+/**
+ * Returns all users of a library.
+ *
+ * @param subdomain - The subdomain of the library
+ * @returns {Promise<CXOneUser[]>} - The users of the library
+ */
+export async function getLibUsers(subdomain: string): Promise<CXOneUser[]> {
+  try {
+    const res = await CXOneFetch({
+      scope: "users",
+      subdomain,
+    });
+
+    const raw = await res.json();
+
+    const finalUsers: CXOneUser[] = [];
+    if (raw["@count"] !== "0" && raw.user) {
+      const usersArr = raw.user.length ? raw.user : [raw.user];
+      const mapped = usersArr.map((prop: any) => {
+        return {
+          username: prop["username"]?.toString(),
+          email: prop["email"]?.toString(),
+          id: prop["@id"]?.toString(),
+        };
+      });
+      finalUsers.push(...mapped);
+    }
+
+    return finalUsers;
+  } catch (err) {
+    debugError(err);
+    return [];
+  }
+}
+
+/**
+ * Returns a user of a library.
+ *
+ * @param email - The email of the user to retrieve
+ * @param subdomain - The subdomain of the library
+ * @returns {Promise<CXOneUser | undefined>} - The user of the library, or undefined if not found
+ */
+export async function getLibUser(
+  email: string,
+  subdomain: string
+): Promise<CXOneUser | undefined> {
+  try {
+    const users = await getLibUsers(subdomain);
+    return users.find((u) => u.email === email);
+  } catch (err) {
+    debugError(err);
+    return undefined;
+  }
+}
+
+function _optionsMerge(
+  headers: Record<string, any>,
+  options?: Record<string, any>
+) {
+  if (!options) {
+    return { headers };
+  }
+  if (options.headers) {
+    options.headers = Object.assign(headers, options.headers);
+  } else {
+    options.headers = headers;
+  }
+  return options;
+}
+
+/**
+ * Returns a tuple containing the CXOne path and URL of a book.
+ * @param subdomain - The subdomain of the library
+ * @param title - The title of the book
+ * @returns {[string, string]} - The CXOne [path,URL] of the book
+ */
+export const generateBookPathAndURL = (
+  subdomain: string,
+  title: string
+): [string, string] => {
+  const path = `Workbench/${encodeURIComponent(title)}`;
+  const url = `https://${subdomain}.libretexts.org/${path}`;
+  return [path, url];
+};
+
+export const generateChapterOnePath = (bookPath: string): string => {
+  return `${bookPath}/01:_First_Chapter`;
+};

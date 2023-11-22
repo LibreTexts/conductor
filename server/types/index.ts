@@ -32,9 +32,12 @@ import {
   CentralIdentityVerificationRequestStatus
 } from "./CentralIdentity";
 import {
-  LibrariesClient,
+  CXOneFetchParams,
+  LibrariesSSMClient,
   LibraryTokenPair,
-  LibraryAPIRequestHeaders
+  LibraryAPIRequestHeaders,
+  CXOneGroup,
+  CXOneUser
 } from "./LibrariesClient";
 
 export type {
@@ -50,7 +53,10 @@ export type {
   CustomFormHeadingType,
   CustomFormPromptType,
   CustomFormTextBlockType,
-  LibrariesClient,
+  CXOneFetchParams,
+  CXOneGroup,
+  CXOneUser,
+  LibrariesSSMClient,
   LibraryTokenPair,
   LibraryAPIRequestHeaders,
   TimeZoneOption,

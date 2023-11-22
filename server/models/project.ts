@@ -32,6 +32,7 @@ export interface ProjectInterface extends Document {
   libreCoverID: string;
   libreShelf: string;
   libreCampus: string;
+  didCreateWorkbench?: boolean;
   author: string;
   authorEmail: string;
   license: string;
@@ -154,6 +155,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * The "Campus" the associated Book belongs to.
      */
     libreCampus: String,
+    /**
+     * Whether the Project has a corresponding Workbench.
+     */
+    didCreateWorkbench: {
+      type: Boolean,
+      default: false,
+    },
     /**
      * Name of the associated Book/resource's author.
      */

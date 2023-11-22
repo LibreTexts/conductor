@@ -288,3 +288,23 @@ export function getPaginationOffset(page, offsetMultiplier = 25) {
 
   return offset;
 }
+
+/**
+ * Breaks up a url into the subdomain and path
+ * @param {string} url
+ * @returns {string[]}
+ */
+export function parseURL(url) {
+  if (url.includes('?')) //strips any query parameters
+      url = url.split('?')[0];
+  if (url && url.match(/https?:\/\/.*?\.libretexts\.org/)) {
+      return [url.match(/(?<=https?:\/\/).*?(?=\.)/)[0], url.match(/(?<=https?:\/\/.*?\/).*/)[0]]
+  }
+  else {
+      return [];
+  }
+}
+
+export async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

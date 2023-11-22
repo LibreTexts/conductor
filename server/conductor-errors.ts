@@ -78,6 +78,8 @@ const conductorErrors = {
     'err81': "Oops, your fee waiver code is invalid or expired.",
     "err82": "Oops, it looks like you've already registered for this event.",
     "err83": "Oops, a fee waiver with that name already exists for this event.",
+    "err84": "Unable to create new coverpage.",
+    "err85": "Unable to create chapter.",
 };
 
 export default conductorErrors;

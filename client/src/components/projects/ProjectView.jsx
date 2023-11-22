@@ -89,6 +89,7 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
+const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
@@ -144,6 +145,9 @@ const ProjectView = (props) => {
   const [cidOptions, setCIDOptions] = useState([]);
   const [loadedTags, setLoadedTags] = useState(false);
   const [loadedCIDs, setLoadedCIDs] = useState(false);
+
+  // Create Workbench Modal
+  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] = useState(false);
 
   // Project Pin Modal
   const [showPinnedModal, setShowPinnedModal] = useState(false);
@@ -2688,6 +2692,7 @@ const ProjectView = (props) => {
                     id='projectURL'
                   />
                 </Form.Field>
+                <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)}><Icon name='plus'/>New Book</Button>
                 <Form.Dropdown
                   label='Project Tags'
                   placeholder='Search tags...'
@@ -3174,6 +3179,7 @@ const ProjectView = (props) => {
               />
             )
           }
+          <CreateWorkbenchModal open={showCreateWorkbenchModal} onClose={() => setShowCreateWorkbenchModal(false)} />
         </Grid.Column>
       </Grid.Row>
     </Grid>

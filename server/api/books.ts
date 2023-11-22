@@ -1,4 +1,4 @@
-//@ts-nocheck
+// @ts-nocheck
 import Promise from "bluebird";
 import { Request, Response } from "express";
 import fs from "fs-extra";
@@ -12,7 +12,7 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { isEmptyString, isValidDateObject } from "../util/helpers.js";
+import { isEmptyString, isValidDateObject, sleep } from "../util/helpers.js";
 import {
   checkBookIDFormat,
   extractLibFromID,
@@ -42,6 +42,20 @@ import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
+import {
+  addPageProperty,
+  CXOneFetch,
+  generateBookPathAndURL,
+  generateChapterOnePath,
+  getDeveloperGroup,
+  getLibUser,
+  getPageID,
+} from "../util/LibrariesClient.js";
+import MindTouch from "../util/CXOne/index.js";
+import { conductor500Err } from "../util/errorutils.js";
+import { ZodReqWithUser } from "../types/Express.js";
+import User from "../models/user.js";
+const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
 /**
  * Accepts a library shortname and returns the LibreTexts API URL for the current
@@ -1346,6 +1360,164 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
 }
 
 /**
+ * Creates a new book with default features in a user's sandbox.
+ *
+ * @param {express.Request} req - Incoming request.
+ * @param {express.Response} res - Outgoing response.
+ */
+async function createBook(
+  req: ZodReqWithUser<z.infer<typeof createBookSchema>>,
+  res: Response
+) {
+  try {
+    const { subdomain, title, projectID } = req.body;
+    const { uuid: userID } = req.user.decoded;
+
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const project = await Project.findOne({ projectID }).orFail();
+
+    // Create book coverpage
+    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
+    const createBookRes = await CXOneFetch({
+      scope: "page",
+      path: bookPath,
+      api: MindTouch.API.Page.POST_Contents_Title(title),
+      subdomain,
+      options: {
+        method: "POST",
+        body: MindTouch.Templates.POST_CreateBook,
+      },
+    });
+
+    if (!createBookRes.ok) {
+      throw new Error(`Error creating Workbench book: "${title}"`);
+    }
+
+    await Promise.all([
+      addPageProperty(subdomain, bookPath, "WelcomeHidden", true),
+      addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
+    ]);
+
+    //TODO: Use real user email
+    const CXOneUser = await getLibUser("bot@libretexts.org", subdomain);
+    console.log(CXOneUser);
+    if (!CXOneUser) {
+      throw new Error("CXOne user not found");
+    }
+
+    const developerGroup = await getDeveloperGroup(subdomain);
+    console.log(developerGroup);
+    if (!developerGroup) {
+      throw new Error("Developer group not found");
+    }
+
+    const permsRes = await CXOneFetch({
+      scope: "page",
+      path: bookPath,
+      api: MindTouch.API.Page.PUT_Security,
+      subdomain,
+      options: {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: MindTouch.Templates.PUT_SetSemiPrivatePermissions(
+          CXOneUser.id,
+          developerGroup.id
+        ),
+      },
+    });
+
+    if (!permsRes.ok) {
+      throw new Error(
+        `Error updating permissions for Workbench book: "${title}"`
+      );
+    }
+
+    const imageRes = await fetch(`${defaultImagesURL}/default.png`);
+    const defaultBookImage = await imageRes.blob();
+    await CXOneFetch({
+      scope: "page",
+      path: bookPath,
+      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+      subdomain,
+      options: { method: "PUT", body: defaultBookImage },
+      //silentFail: true,
+    }).catch((e) => {
+      // Warn, but don't throw error
+      console.warn("[createBook] Error setting coverpage thumbnail:");
+      console.warn(e);
+    });
+
+    // Create first chapter
+    const chapterOnePath = generateChapterOnePath(bookPath);
+    await CXOneFetch({
+      scope: "page",
+      path: chapterOnePath,
+      api: MindTouch.API.Page.POST_Contents_Title("1: First Chapter"),
+      subdomain,
+      options: {
+        method: "POST",
+        body: MindTouch.Templates.POST_CreateBookChapter,
+      },
+    });
+
+    await Promise.all([
+      addPageProperty(subdomain, chapterOnePath, "WelcomeHidden", true),
+      addPageProperty(subdomain, chapterOnePath, "GuideDisplay", "single"),
+      addPageProperty(
+        subdomain,
+        chapterOnePath,
+        "GuideTabs",
+        MindTouch.Templates.PROP_GuideTabs
+      ),
+    ]);
+
+    await CXOneFetch({
+      scope: "page",
+      path: chapterOnePath,
+      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+      subdomain,
+      options: { method: "PUT", body: defaultBookImage },
+      //silentFail: true,
+    }).catch((e) => {
+      // Warn, but don't throw error
+      console.warn("[createBook] Error setting Chapter 1 thumbnail:");
+      console.warn(e);
+    });
+
+    // Create Front & Back Matter
+    const matterRes = fetch(
+      `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
+      {
+        headers: { origin: "commons.libretexts.org" },
+      }
+    ); // Don't wait for response, no-op if fails
+
+    sleep(1500); // let CXone catch up with page creations
+
+    const newBookID = await getPageID(bookPath, subdomain);
+    if (!newBookID) {
+      throw new Error(`Error saving book ID for Workbench book: "${title}":`);
+    }
+
+    // Update Project with new book info
+    project.libreLibrary = subdomain;
+    project.libreCoverID = newBookID;
+    project.didCreateWorkbench = true;
+    await project.save();
+
+    console.log(`[createBook] Created ${bookPath}.`);
+    return res.send({
+      err: false,
+      path: bookPath,
+      url: bookURL,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Returns a Book object given a book ID.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookDetail'
@@ -2043,6 +2215,14 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
+const createBookSchema = z.object({
+  body: z.object({
+    subdomain: z.string().min(1).max(255),
+    title: z.string().min(1).max(255),
+    projectID: z.string().length(10),
+  }),
+});
+
 const getCommonsCatalogSchema = z.object({
   query: z.object({
     sort: z
@@ -2118,6 +2298,7 @@ export default {
   runAutomatedSyncWithLibraries,
   getCommonsCatalog,
   getMasterCatalog,
+  createBook,
   getBookDetail,
   getBookPeerReviews,
   getCatalogFilterOptions,
@@ -2129,6 +2310,7 @@ export default {
   getBookTOC,
   getLicenseReport,
   retrieveKBExport,
+  createBookSchema,
   getCommonsCatalogSchema,
   getMasterCatalogSchema,
   getWithBookIDParamSchema,

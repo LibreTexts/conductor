@@ -511,6 +511,12 @@ router.route('/commons/mastercatalog').get(
   booksAPI.getMasterCatalog,
 );
 
+router.route('/commons/book').post(
+  authAPI.verifyRequest,
+  middleware.validateZod(booksAPI.createBookSchema),
+  booksAPI.createBook,
+)
+
 router.route('/commons/book/:bookID').get(
   middleware.validateZod(booksAPI.getWithBookIDParamSchema),
   booksAPI.getBookDetail,
