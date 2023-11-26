@@ -14,7 +14,7 @@ import {
 } from "./validators/kb.js";
 import { NextFunction, Request, Response } from "express";
 import { debugError } from "../debug.js";
-import { conductor500Err } from "../util/errorutils.js";
+import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import KBPage, { KBPageInterface } from "../models/kbpage.js";
 import authAPI from "./auth.js";
 import { v4 } from "uuid";
@@ -22,7 +22,7 @@ import User from "../models/user.js";
 import DOMPurify from "isomorphic-dompurify";
 import KBFeaturedPage from "../models/kbfeaturedpage.js";
 import KBFeaturedVideo from "../models/kbfeaturedvideo.js";
-import { ZodReqWithOptionalUser } from "../types/Express.js";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
 import multer from "multer";
 import conductorErrors from "../conductor-errors.js";
 import {
@@ -56,11 +56,7 @@ async function getKBPage(
     }
 
     const kbPage = await KBPage.findOne(matchObj)
-      .populate({
-        path: "lastEditedBy",
-        model: "User",
-        select: "firstName lastName avatar -_id",
-      })
+      .populate("lastEditedBy")
       .lean()
       .orFail();
 
@@ -105,8 +101,12 @@ async function getKBTree(
 
     // Restrict the tree to only published pages if the user is not authorized
     let matchObj = {};
+    let restriction = {};
     if (!isAuthorized) {
       matchObj = {
+        status: "published",
+      };
+      restriction = {
         status: "published",
       };
     }
@@ -122,9 +122,7 @@ async function getKBTree(
           connectFromField: "parent",
           connectToField: "uuid",
           as: "parents",
-          restrictSearchWithMatch: {
-            status: "published",
-          },
+          restrictSearchWithMatch: restriction,
         },
       },
     ]);
@@ -188,14 +186,15 @@ async function getKBTree(
 }
 
 async function createKBPage(
-  req: z.infer<typeof CreateKBPageValidator>,
+  req: ZodReqWithUser<z.infer<typeof CreateKBPageValidator>>,
   res: Response
 ) {
   try {
-    const { title, description, body, slug, status, parent, lastEditedBy } =
+    const { title, description, body, slug, status, parent } =
       req.body;
+    const { decoded } = req.user;
 
-    const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
+    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
 
     const safeSlug = _generatePageSlug(title, slug);
 
@@ -207,7 +206,7 @@ async function createKBPage(
       status,
       slug: safeSlug,
       parent,
-      lastEditedBy: editor._id,
+      lastEditedByUUID: editor.uuid,
     });
 
     return res.send({
@@ -317,17 +316,18 @@ async function addKBImage(
 }
 
 async function updateKBPage(
-  req: z.infer<typeof UpdateKBPageValidator>,
+  req: ZodReqWithUser<z.infer<typeof UpdateKBPageValidator>>,
   res: Response
 ) {
   try {
-    const { title, description, body, status, slug, parent, lastEditedBy } =
+    const { title, description, body, status, slug, parent } =
       req.body; // Image URLs should not be updated directly
     const { uuid } = req.params;
+    const { decoded } = req.user;
 
     const safeURL = _generatePageSlug(title, slug);
 
-    const editor = await User.findOne({ uuid: lastEditedBy }).orFail();
+    const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
     const kbPage = await KBPage.findOne({ uuid }).orFail();
 
     kbPage.title = title;
@@ -336,7 +336,7 @@ async function updateKBPage(
     kbPage.slug = safeURL;
     kbPage.status = status;
     kbPage.parent = parent;
-    kbPage.lastEditedBy = editor._id;
+    kbPage.lastEditedByUUID = editor.uuid;
 
     const urlsToDelete = _checkForDeletedImages(body, kbPage.imgURLs);
     if (urlsToDelete.length > 0) {
@@ -482,7 +482,7 @@ async function createKBFeaturedPage(
   try {
     const { page } = req.body;
 
-    const kbPage = await KBPage.findOne({ uuid: page }).orFail();
+    const kbPage = await KBPage.findOne({ uuid: page, status: 'published' }).orFail();
 
     const newFeaturedPage = await KBFeaturedPage.create({
       uuid: v4(),
@@ -493,7 +493,10 @@ async function createKBFeaturedPage(
       err: false,
       page: newFeaturedPage,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if(err.name === 'DocumentNotFoundError') {
+      return conductor404Err(res);
+    }
     debugError(err);
     return conductor500Err(res);
   }

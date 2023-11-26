@@ -27,8 +27,6 @@ const KBFeaturedVideoSchema = new Schema<KBFeaturedVideoInterface>(
   }
 );
 
-KBFeaturedVideoSchema.index({ uuid: 1 });
-
 const KBFeaturedVideo = model<KBFeaturedVideoInterface>(
   "KBFeaturedVideo",
   KBFeaturedVideoSchema

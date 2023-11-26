@@ -19,8 +19,8 @@ export interface SupportTicketInterface extends Document {
   status: "open" | "in_progress" | "closed";
   category: string;
   capturedURL?: string;
-  assignedTo?: Schema.Types.ObjectId;
-  user?: Schema.Types.ObjectId;
+  assignedToUUID?: string; // User uuid
+  userUUID?: string; // User uuid
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
   timeClosed?: string;
@@ -64,13 +64,11 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   capturedURL: {
     type: String,
   },
-  assignedTo: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
+  assignedToUUID: {
+    type: String,
   },
-  user: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
+  userUUID: {
+    type: String
   },
   guest: {
     firstName: {
@@ -95,7 +93,20 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
 });
 
-SupportTicketSchema.index({ uuid: 1 }, { unique: true });
+SupportTicketSchema.virtual("assignedTo", {
+  ref: "User",
+  localField: "assignedToUUID",
+  foreignField: "uuid",
+  justOne: true,
+});
+
+SupportTicketSchema.virtual("user", {
+  ref: "User",
+  localField: "userUUID",
+  foreignField: "uuid",
+  justOne: true,
+});
+
 SupportTicketSchema.index({ title: "text" });
 
 const SupportTicket = model<SupportTicketInterface>(

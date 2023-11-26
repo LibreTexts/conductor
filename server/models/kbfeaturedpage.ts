@@ -22,8 +22,6 @@ const KBFeaturedPageSchema = new Schema<KBFeaturedPageInterface>(
   }
 );
 
-KBFeaturedPageSchema.index({ uuid: 1 });
-
 const KBFeaturedPage = model<KBFeaturedPageInterface>(
   "KBFeaturedPage",
   KBFeaturedPageSchema

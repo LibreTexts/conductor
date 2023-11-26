@@ -9,8 +9,6 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "@ckeditor/ckeditor5-build-classic": "^40.0.0",
-    "@ckeditor/ckeditor5-react": "^6.1.0",
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@tailwindcss/typography": "^0.5.10",
     "@testing-library/jest-dom": "^5.14.1",

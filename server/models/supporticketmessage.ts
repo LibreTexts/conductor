@@ -43,8 +43,6 @@ const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>(
   }
 );
 
-SupportTicketMessageSchema.index({ uuid: 1 }, { unique: true });
-
 const SupportTicketMessage = model<SupportTicketMessageInterface>(
   "SupportTicketMessage",
   SupportTicketMessageSchema

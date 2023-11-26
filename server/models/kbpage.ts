@@ -9,7 +9,7 @@ export interface KBPageInterface extends Document {
   slug: string;
   parent?: string;
   imgURLs?: string[];
-  lastEditedBy: Schema.Types.ObjectId;
+  lastEditedByUUID: string; // User uuid
 }
 
 const KBPageSchema = new Schema<KBPageInterface>(
@@ -45,9 +45,8 @@ const KBPageSchema = new Schema<KBPageInterface>(
     imgURLs: {
       type: [String],
     },
-    lastEditedBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+    lastEditedByUUID: {
+      type: String,
       required: true,
     },
   },
@@ -56,9 +55,15 @@ const KBPageSchema = new Schema<KBPageInterface>(
   }
 );
 
+KBPageSchema.virtual("lastEditedBy", {
+  ref: "User",
+  localField: "lastEditedByUUID",
+  foreignField: "uuid",
+  justOne: true,
+})
+
 KBPageSchema.index({ title: "text", description: "text", body: "text" });
-KBPageSchema.index({ uuid: 1 }, { unique: true });
-KBPageSchema.index({ url: 1 }, { unique: true }); // URL must be unique
+KBPageSchema.index({ slug: 1 }, { unique: true }); // slug must be unique
 KBPageSchema.index({ parent: 1 });
 
 const KBPage = model<KBPageInterface>("KBPage", KBPageSchema);

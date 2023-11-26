@@ -31,7 +31,6 @@ export const CreateKBPageValidator = z.object({
     status: z.enum(["draft", "published"]),
     slug: z.string().optional(),
     parent: z.string().uuid().optional(),
-    lastEditedBy: z.string().uuid(),
   }).refine((data) => {
     if(data.slug && ['new', 'edit', 'create', 'welcome'].includes(data.slug)){
       throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");

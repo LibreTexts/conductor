@@ -10,7 +10,7 @@ import {
 } from "./validators/support";
 import { NextFunction, Request, Response } from "express";
 import { debugError } from "../debug.js";
-import { conductor500Err } from "../util/errorutils.js";
+import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import User from "../models/user.js";
 import { v4 } from "uuid";
 import SupportTicket, {
@@ -45,7 +45,10 @@ async function getTicket(
       err: false,
       ticket,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if(err.name === "DocumentNotFoundError") {
+      return conductor404Err(res);
+    }
     debugError(err);
     return conductor500Err(res);
   }
@@ -221,7 +224,7 @@ async function createTicket(
       category,
       priority,
       attachments,
-      user: foundUser ? foundUser._id : undefined,
+      user: foundUser ? foundUser.uuid: undefined,
       guest,
       timeOpened: new Date().toISOString(),
     });
@@ -334,7 +337,7 @@ async function getTicketMessages(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
     const ticketMessages = await SupportTicketMessage.find({
       ticket: ticket.uuid,
-    });
+    }).sort({ createdAt: -1 });
 
     return res.send({
       err: false,
@@ -436,9 +439,9 @@ const _getSupportTeamEmails = () => {
 const _getTicketAuthorEmail = async (
   ticket: SupportTicketInterface
 ): Promise<string | undefined> => {
-  const hasUser = !!ticket.user;
+  const hasUser = !!ticket.userUUID;
   if (hasUser) {
-    const foundUser = await User.findOne({ _id: ticket.user });
+    const foundUser = await User.findOne({ _id: ticket.userUUID });
     return foundUser?.email;
   }
   if (ticket.guest) {

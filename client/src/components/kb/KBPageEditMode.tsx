@@ -89,7 +89,6 @@ const KBPageEditMode = ({
       const res = await axios.post("/kb/page", {
         ...getValues(),
         status,
-        lastEditedBy: user.uuid,
       });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -110,8 +109,6 @@ const KBPageEditMode = ({
       setLoading(true);
       if (!getValues('uuid')) return;
       _checkSlug();
-
-      console.log(getValues('body'))
 
       const res = await axios.patch(`/kb/page/${getValues('uuid')}`, {
         ...getValues(),
@@ -135,7 +132,7 @@ const KBPageEditMode = ({
   }
 
   function _checkSlug() {
-    if (getValues('slug') && ['new', 'edit', 'create', 'welcome'].includes(getValues('slug'))) {
+    if (getValues('slug') && ['new', 'edit', 'create', 'welcome'].includes(getValues('slug').trim())) {
       throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");
     }
   }

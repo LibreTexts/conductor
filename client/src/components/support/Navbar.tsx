@@ -114,16 +114,17 @@ const SupportCenterNavbar: React.FC<{}> = () => {
             Dashboard
           </Button>
         ) : (
-          <Button
-            className="h-10 !w-44"
-            color="blue"
-            as={Link}
-            to="/support/contact"
-            size="small"
-          >
-            <Icon name="text telephone" />
-            Contact Support
-          </Button>
+          <></>
+          // <Button
+          //   className="h-10 !w-44"
+          //   color="blue"
+          //   as={Link}
+          //   to="/support/contact"
+          //   size="small"
+          // >
+          //   <Icon name="text telephone" />
+          //   Contact Support
+          // </Button>
         )}
       </div>
     </div>

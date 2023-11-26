@@ -335,17 +335,22 @@ async function getApplicationsPublic(
   }>
 ) {
   try {
-    // let page = 1;
-    // let limit = 25;
-    // if (
-    //   req.query.activePage &&
-    //   Number.isInteger(parseInt(req.query.activePage.toString()))
-    // ) {
-    //   page = req.query.activePage;
-    // }
-    // const offset = getPaginationOffset(page, limit);
+    let page = 1;
+    let limit = 25;
+    if (
+      req.query.activePage &&
+      Number.isInteger(parseInt(req.query.activePage.toString()))
+    ) {
+      page = req.query.activePage;
+    }
+    const offset = getPaginationOffset(page, limit);
 
-    const appsRes = await useCentralIdentityAxios().get("/applications");
+    const appsRes = await useCentralIdentityAxios().get("/applications", {
+      params: {
+        offset,
+        limit,
+      }
+    });
 
     if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
       return conductor500Err(res);
