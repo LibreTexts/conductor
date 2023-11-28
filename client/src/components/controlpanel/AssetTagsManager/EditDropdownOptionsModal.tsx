@@ -65,6 +65,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
             ))}
           </Table.Body>
         </Table>
+        <p className="text-muted italic text-center -mt-2 mb-2">Options are sorted alphabetically (A-Z) on save</p>
         <Button color="blue" onClick={() => append("", {shouldFocus: false})}>
           <Icon name="plus" />
           Add Option
