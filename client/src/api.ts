@@ -113,7 +113,7 @@ class API {
   }
 
   // Commons
-  async getCommonsCatalog(paramsObj?: object) {
+  async getCommonsCatalog(paramsObj?: { activePage?: number; limit?: number }) {
     const res = await axios.get<
       {
         books: Book[];
@@ -256,6 +256,17 @@ class API {
         fileIDs: arrQuery,
       },
       responseType: "blob",
+    });
+    return res;
+  }
+
+  async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
+    const res = await axios.get<
+      {
+        files: ProjectFileWProjectID[];
+      } & ConductorBaseResponse
+    >("/projects/files/public", {
+      params,
     });
     return res;
   }

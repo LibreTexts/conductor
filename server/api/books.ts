@@ -11,7 +11,11 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { getPaginationOffset, isEmptyString, isValidDateObject } from "../util/helpers.js";
+import {
+  getPaginationOffset,
+  isEmptyString,
+  isValidDateObject,
+} from "../util/helpers.js";
 import {
   checkBookIDFormat,
   extractLibFromID,
@@ -41,6 +45,7 @@ import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
+import { PipelineStage } from "mongoose";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -726,338 +731,45 @@ async function getCommonsCatalog(
 ) {
   try {
     const orgID = process.env.ORG_ID;
-    let textSearchTerm = null;
-    let cidFilter = false;
+    const activePage = req.query.activePage ? parseInt(req.query.activePage) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+    const offset = getPaginationOffset(activePage, limit);
 
-    const searchOptions: Record<string, string | object> = {};
-    const institutionOptions = [];
-
-    const searchQueries = [];
-    const projectWithAssociatedBookQuery = {
-      $expr: {
-        $and: [
-          { $eq: ["$orgID", orgID] },
-          { $ne: [{ $type: "$libreLibrary" }, "missing"] },
-          { $gt: [{ $strLenBytes: "$libreLibrary" }, 0] },
-          { $ne: [{ $type: "$libreCoverID" }, "missing"] },
-          { $gt: [{ $strLenBytes: "$libreCoverID" }, 0] },
-        ],
-      },
-    };
-
-    let sortChoice: BookSortOption = "title"; // default to title sort
-    if (req.query.sort && !isEmptyString(req.query.sort)) {
-      sortChoice = req.query.sort;
-    }
-
-    const setStringIfPresent = (
-      obj: Record<string, string | object>,
-      prop: string | undefined,
-      key: string
-    ) => {
-      if (prop && !isEmptyString(prop)) {
-        obj[key] = prop;
-      }
-    };
-
-    // Build search options
-    setStringIfPresent(searchOptions, req.query.library, "library");
-    setStringIfPresent(searchOptions, req.query.subject, "subject");
-    setStringIfPresent(searchOptions, req.query.author, "author");
-    setStringIfPresent(searchOptions, req.query.license, "license");
-    setStringIfPresent(searchOptions, req.query.affiliation, "affiliation");
-    setStringIfPresent(searchOptions, req.query.course, "course");
-    setStringIfPresent(searchOptions, req.query.publisher, "publisher");
-
-    if (req.query.location && !isEmptyString(req.query.location)) {
-      if (req.query.location === "all") {
-        // Set to both locations if "all", otherwise use string passed in query
-        searchOptions.location = { $in: ["central", "campus"] };
-      } else {
-        searchOptions.location = req.query.location;
-      }
-    } else {
-      if (orgID === "libretexts") {
-        searchOptions.location = "central"; // default to Central Bookshelves
-      } else {
-        searchOptions.location = "campus"; // default to Campus Bookshelves
-      }
-    }
-
-    const searchOptionsArr = Object.entries(searchOptions).map(
-      ([key, value]) => ({
-        [key]: value,
-      })
-    );
-
-    // Text search
-    if (req.query.search && !isEmptyString(req.query.search)) {
-      textSearchTerm = req.query.search;
-    }
-
-    // Search on/using C-ID Descriptor
-    if (
-      textSearchTerm ||
-      (req.query.cidDescriptor && !isEmptyString(req.query.cidDescriptor))
-    ) {
-      let searchObj = {};
-      if (req.query.cidDescriptor) {
-        // filter on specific descriptor
-        searchObj = {
-          $expr: {
-            $eq: ["$descriptor", req.query.cidDescriptor],
-          },
-        };
-        cidFilter = true;
-      } else {
-        // general search
-        searchObj = {
-          $or: [
-            { $text: { $search: textSearchTerm } },
-            { descriptor: textSearchTerm },
-          ],
-        };
-      }
-
-      // Search for matching C-ID Descriptors
-      const cidResults = await CIDDescriptor.aggregate([
-        {
-          $match: searchObj,
-        },
-        {
-          $project: {
-            _id: 0,
-            descriptor: 1,
-          },
-        },
-      ]);
-
-      // Search Projects with matching descriptor(s) that are linked to Books
-      if (Array.isArray(cidResults) && cidResults.length > 0) {
-        const descriptors = cidResults
-          .map((item) => item.descriptor)
-          .filter((item) => item !== undefined);
-        const projMatchObj = {
-          $and: [
-            projectWithAssociatedBookQuery,
-            { cidDescriptors: { $in: descriptors } },
-          ],
-        };
-        const newQueryArr = await _buildSearchQueryFromProjectResults(
-          projMatchObj,
-          searchOptionsArr
-        );
-        if (newQueryArr.length > 0) {
-          searchQueries.push(...newQueryArr);
-        }
-      }
-    }
-
-    // Search on tags
-    if (textSearchTerm && !cidFilter) {
-      // Search for similar tags
-      const tagResults = await Tag.aggregate([
-        {
-          $match: {
-            $and: [{ $text: { $search: textSearchTerm } }, { orgID }],
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            tagID: 1,
-          },
-        },
-      ]);
-
-      // Search for Projects using found Tags that are linked to Books
-      if (Array.isArray(tagResults) && tagResults.length > 0) {
-        const tagIDs = tagResults
-          .map((item) => item.tagID)
-          .filter((item) => item !== undefined);
-        const projMatchObj = {
-          $and: [projectWithAssociatedBookQuery, { tags: { $in: tagIDs } }],
-        };
-        const newQueryArr = await _buildSearchQueryFromProjectResults(
-          projMatchObj,
-          searchOptionsArr
-        );
-        if (newQueryArr.length > 0) {
-          searchQueries.push(...newQueryArr);
-        }
-      }
-    }
-
-    if (orgID !== "libretexts" && req.query.location !== "all" && !cidFilter) {
-      const orgData = await Organization.findOne(
-        { orgID },
-        {
-          _id: 0,
-          orgID: 1,
-          name: 1,
-          shortName: 1,
-          abbreviation: 1,
-          aliases: 1,
-          catalogMatchingTags: 1,
-        }
-      )
-        .lean()
-        .orFail();
-      const customCatalog = await CustomCatalog.findOne(
-        { orgID },
-        {
-          _id: 0,
-          orgID: 1,
-          resources: 1,
-        }
-      ).lean();
-
-      const hasCustomEntries =
-        customCatalog &&
-        Array.isArray(customCatalog.resources) &&
-        customCatalog.resources.length > 0;
-      const hasCatalogMatchingTags =
-        Array.isArray(orgData.catalogMatchingTags) &&
-        orgData.catalogMatchingTags.length > 0;
-
-      const campusNames = buildOrganizationNamesList(orgData);
-      if (searchOptions.course && typeof searchOptions.course === "string") {
-        campusNames.unshift(searchOptions.course);
-      }
-      if (
-        searchOptions.publisher &&
-        typeof searchOptions.publisher === "string"
-      ) {
-        campusNames.unshift(searchOptions.publisher);
-      }
-
-      if (req.query.location === "campus") {
-        institutionOptions.push({ course: { $in: campusNames } });
-        institutionOptions.push({ publisher: { $in: campusNames } });
-      }
-
-      if (hasCustomEntries || hasCatalogMatchingTags) {
-        // remove location filter to allow custom entries
-        const customSearchOptionsArr = searchOptionsArr.filter(
-          (obj) => !obj.location
-        );
-
-        let searchAreaObj = {};
-        let customSearchObj = {};
-        const idMatchObj = { bookID: { $in: customCatalog?.resources } };
-        const tagMatchObj = {
-          libraryTags: { $in: orgData.catalogMatchingTags },
-        };
-        if (hasCustomEntries && hasCatalogMatchingTags) {
-          searchAreaObj = { $or: [idMatchObj, tagMatchObj] };
-        } else if (hasCustomEntries) {
-          searchAreaObj = idMatchObj;
-        } else {
-          searchAreaObj = tagMatchObj;
-        }
-
-        if (customSearchOptionsArr.length > 0 && textSearchTerm) {
-          customSearchObj = {
-            $text: { $search: textSearchTerm },
-            $and: [...customSearchOptionsArr, searchAreaObj],
-          };
-        } else if (customSearchOptionsArr.length > 0) {
-          customSearchObj = {
-            $and: [...customSearchOptionsArr, searchAreaObj],
-          };
-        } else if (textSearchTerm) {
-          customSearchObj = {
-            ...searchAreaObj,
-            $text: { $search: textSearchTerm },
-          };
-        } else {
-          customSearchObj = searchAreaObj;
-        }
-
-        searchQueries.push(
-          Book.aggregate([
-            { $match: customSearchObj },
-            { $project: BOOK_PROJECTION },
-          ])
-        );
-      }
-    }
-
-    // Build main query
-    let mainSearchObj = {};
-    if (
-      searchOptionsArr.length > 0 &&
-      institutionOptions.length > 0 &&
-      textSearchTerm
-    ) {
-      mainSearchObj = {
-        $text: { $search: textSearchTerm },
-        $and: searchOptionsArr,
-        $or: institutionOptions,
+    let sortObj = {};
+    if(req.query.sort && req.query.sort === 'author'){
+      sortObj = {
+        author: 1
       };
-    } else if (searchOptionsArr.length > 0 && institutionOptions.length > 0) {
-      mainSearchObj = {
-        $and: searchOptionsArr,
-        $or: institutionOptions,
+    } 
+    if(req.query.sort && req.query.sort === 'title'){
+      sortObj = {
+        title: 1
       };
-    } else if (searchOptionsArr.length > 0 && textSearchTerm) {
-      mainSearchObj = {
-        $text: { $search: textSearchTerm },
-        $and: searchOptionsArr,
-      };
-    } else if (institutionOptions.length > 0 && textSearchTerm) {
-      mainSearchObj = {
-        $text: { $search: textSearchTerm },
-        $or: institutionOptions,
-      };
-    } else if (searchOptionsArr.length > 0) {
-      mainSearchObj = {
-        $and: searchOptionsArr,
-      };
-    } else if (institutionOptions.length > 0) {
-      mainSearchObj = {
-        $or: institutionOptions,
-      };
-    } else if (textSearchTerm) {
-      mainSearchObj = { $text: { $search: textSearchTerm } };
     }
 
-    if (!cidFilter) {
-      searchQueries.push(
-        Book.aggregate([
-          { $match: mainSearchObj },
-          { $project: BOOK_PROJECTION },
-        ])
-      );
+    const pipeline: PipelineStage[] = [
+      { $match: {} },
+      { $project: BOOK_PROJECTION },
+    ]
+
+    if(Object.keys(sortObj).length > 0){
+      pipeline.push({ $sort: sortObj });
     }
 
-    // Execute all searches and combine
-    const allQueryResults = await Promise.all(searchQueries);
-    const allFoundBooks: BookInterface[] = allQueryResults.reduce(
-      (arr, results) => arr.concat(results),
-      []
-    );
+    const aggResults = await Book.aggregate(pipeline).skip(offset).limit(limit);
     const totalNumBooks = await Book.estimatedDocumentCount();
 
     // Ensure no duplicates
-    const resultBookIDs = [
-      ...new Set(allFoundBooks.map((book) => book.bookID)),
-    ];
+    const resultBookIDs = [...new Set(aggResults.map((book) => book.bookID))];
     const resultBooks = [
-      ...allFoundBooks.filter((book) => resultBookIDs.includes(book.bookID)),
+      ...aggResults.filter((book) => resultBookIDs.includes(book.bookID)),
     ];
-
-    // const page = req.query.activePage ? parseInt(req.query.activePage) : 1;
-    // const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-
-    // const offset = getPaginationOffset(page , limit);
-    // const paginatedBooks = resultBooks.slice(offset, offset + req.query.limit);
 
     return res.send({
       err: false,
       numFound: resultBooks.length,
       numTotal: totalNumBooks,
-      books: sortBooks(resultBooks, sortChoice),
+      books: resultBooks,
     });
   } catch (e) {
     debugError(e);
@@ -1833,7 +1545,11 @@ async function downloadBookFile(
       true,
       req
     );
-    if (downloadURL === null || !Array.isArray(downloadURLs) || downloadURLs.length < 1) {
+    if (
+      downloadURL === null ||
+      !Array.isArray(downloadURLs) ||
+      downloadURLs.length < 1
+    ) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err63,
@@ -2074,23 +1790,6 @@ const getCommonsCatalogSchema = z.object({
       .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()
       .default("title"),
-    library: z
-      .string()
-      .refine(isValidLibrary, {
-        message: conductorErrors.err1,
-      })
-      .optional(),
-    subject: z.string().min(1).optional(),
-    author: z.string().min(1).optional(),
-    license: z.string().min(1).optional(),
-    affiliation: z.string().min(1).optional(),
-    course: z.string().min(1).optional(),
-    publisher: z.string().min(1).optional(),
-    search: z.string().min(1).optional(),
-    cidDescriptor: z.string().min(1).optional(),
-    location: z
-      .union([z.literal("central"), z.literal("campus"), z.literal("all")])
-      .optional(),
   }),
 });
 
