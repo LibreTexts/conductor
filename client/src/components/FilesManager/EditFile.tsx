@@ -393,6 +393,18 @@ const EditFile: React.FC<EditFileProps> = ({
     setShowTags(!currVal);
   }
 
+  function handleMoveUp(index: number) {
+    if (index === 0) return; // Don't move if already at top
+    // Check index - 1 exists
+    if (!fields[index - 1]) return;
+    move(index, index - 1);
+  }
+
+  function handleMoveDown(index: number) {
+    if (index === fields.length - 1) return; // Don't move if already at bottom
+    move(index, index + 1);
+  }
+
   return (
     <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
       <Modal.Header>
@@ -663,10 +675,20 @@ const EditFile: React.FC<EditFileProps> = ({
                                     />
                                   </Table.Cell>
                                   <Table.Cell>
+                                    {/* <Button
+                                      icon="arrow up"
+                                      onClick={() => handleMoveUp(index)}
+                                    />
+                                    <Button
+                                      icon="arrow down"
+                                      onClick={() => handleMoveDown(index)}
+                                      className="!ml-1"
+                                    /> */}
                                     <Button
                                       color="red"
                                       icon="trash"
                                       onClick={() => remove(index)}
+                                      className="!ml-1"
                                     ></Button>
                                   </Table.Cell>
                                 </Table.Row>

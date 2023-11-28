@@ -51,7 +51,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
         templates: [],
       },
     });
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control,
     name: "templates",
   });
@@ -177,6 +177,18 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
     onClose();
   }
 
+  function handleMoveUp(index: number) {
+    if (index === 0) return; // Don't move if already at top
+    // Check index - 1 exists
+    if (!fields[index - 1]) return;
+    move(index, index - 1);
+  }
+
+  function handleMoveDown(index: number) {
+    if (index === fields.length - 1) return; // Don't move if already at bottom
+    move(index, index + 1);
+  }
+
   return (
     <Modal open={open} onClose={() => handleClose()} size="fullscreen">
       <Modal.Header>
@@ -213,7 +225,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                   <Table.HeaderCell>
                     Options / Default Value (optional)
                   </Table.HeaderCell>
-                  <Table.HeaderCell width={1}>Actions</Table.HeaderCell>
+                  <Table.HeaderCell width={2}>Actions</Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -275,10 +287,20 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                         </Table.Cell>
                         <Table.Cell>
                           <Button
+                            icon="arrow up"
+                            onClick={() => handleMoveUp(index)}
+                          />
+                          <Button
+                            icon="arrow down"
+                            onClick={() => handleMoveDown(index)}
+                            className="!ml-1"
+                          />
+                          <Button
                             color="red"
                             icon="trash"
                             onClick={() => remove(index)}
-                          ></Button>
+                            className="!ml-1"
+                          />
                         </Table.Cell>
                       </Table.Row>
                     )
