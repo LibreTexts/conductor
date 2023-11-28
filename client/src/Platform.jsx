@@ -49,6 +49,7 @@ const Platform = () => {
     "/homework",
     "/underdevelopment",
     "/libraries",
+    "/search-results",
   ];
   const standalonePaths = [
     "/adopt",
