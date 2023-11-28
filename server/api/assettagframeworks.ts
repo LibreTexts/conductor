@@ -20,7 +20,6 @@ import {
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { isAssetTagKeyObject } from "../util/typeHelpers.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
-import { te } from "date-fns/locale";
 
 async function getFrameworks(
   req: TypedReqQuery<{
@@ -214,6 +213,13 @@ async function _upsertTemplates(
     }
 
     await AssetTagKey.insertMany(newKeys);
+
+    // Sort dropdown/multiselect options
+    upsertedTemplates.forEach((t) => {
+      if (t.options) {
+        t.options.sort()
+      }
+    });
 
     return upsertedTemplates;
   } catch (err) {
