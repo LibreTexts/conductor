@@ -79,7 +79,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
       const parsed: AssetTagTemplate[] = res.data.framework.templates.map(
         (t) => {
           return {
-            key: isAssetTagKeyObject(t.key) ? t.key.title: "",
+            key: isAssetTagKeyObject(t.key) ? t.key.title : "",
             valueType: t.valueType,
             defaultValue: t.defaultValue,
             options: t.options,
@@ -144,6 +144,11 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
   function handleCloseEditDropdownOptionsModal() {
     setEditDropdownOptionsIndex(null);
     setShowEditDropdownOptions(false);
+    // Sort dropdown/multiselect options (for all tags) alphabetically
+    const values = getValues();
+    values.templates.forEach((t: AssetTagTemplate) => {
+      if (t.options) t.options.sort();
+    });
   }
 
   function getOptionsString(index: number): string {
