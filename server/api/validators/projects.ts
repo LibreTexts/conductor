@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PaginationSchema } from "./misc.js";
 
 export const assetTagSchema = z.object({
   key: z.string(),
@@ -47,3 +48,7 @@ export const updateProjectFileSchema = z.object({
   }),
   body: projectFileSchema,
 });
+
+export const getPublicProjectFilesSchema = z.object({
+  query: PaginationSchema
+})

@@ -18,6 +18,7 @@ import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import useInfiniteScroll from "../../hooks/useInfiniteScroll";
 import VisualMode from "./CommonsCatalog/VisualMode";
 import CatalogBookFilters from "./CommonsCatalog/CatalogBookFilters";
+import CatalogAssetFilters from "./CommonsCatalog/CatalogAssetFilters";
 
 const CommonsCatalog = () => {
   const { handleGlobalError, error } = useGlobalError();
@@ -28,17 +29,19 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
 
   // Data
-  const [items, setItems] = useState<Array<Book | ProjectFileWProjectID>>([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [allItems, setAllItems] = useState<Array<Book | ProjectFileWProjectID>>(
     []
   );
+  const [files, setFiles] = useState<ProjectFileWProjectID[]>([]);
   const [numResultItems, setNumResultItems] = useState<number>(0);
   const [numTotalItems, setNumTotalItems] = useState<number>(0);
 
   /** UI **/
-  const [itemsPerPage, setItemsPerPage] = useState<number>(12);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [activePage, setActivePage] = useState<number>(1);
+  const [activeBookPage, setActiveBookPage] = useState<number>(1);
+  const [activeAssetPage, setActiveAssetPage] = useState<number>(1);
   const [loadedData, setLoadedData] = useState<boolean>(true);
 
   const [loadedFilters, setLoadedFilters] = useState<boolean>(false);
@@ -46,11 +49,17 @@ const CommonsCatalog = () => {
 
   const initialSearch = useRef(true);
   const checkedParams = useRef(false);
+  const catalogTabsRef = useRef<React.ElementRef<typeof CatalogTabs>>(null);
 
   const { observe } = useInfiniteScroll(
     () => {
-      console.log("intersected");
-      setActivePage(activePage + 1);
+      if (catalogTabsRef.current?.getActiveTab() === "books") {
+        setActiveBookPage(activeBookPage + 1);
+      } else if (catalogTabsRef.current?.getActiveTab() === "assets") {
+        setActiveAssetPage(activeAssetPage + 1);
+      } else {
+        console.error("no active tab");
+      }
     },
     {
       loading: false,
@@ -124,11 +133,19 @@ const CommonsCatalog = () => {
    * on initial load.
    */
   useEffect(() => {
-    getFilterOptions();
     loadCommonsCatalog();
+    loadPublicAssets();
     //searchCommonsCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadCommonsCatalog();
+  }, [activeBookPage]);
+
+  useEffect(() => {
+    loadPublicAssets();
+  }, [activeAssetPage])
 
   /**
    * Update the page title based on
@@ -226,19 +243,43 @@ const CommonsCatalog = () => {
   async function loadCommonsCatalog() {
     try {
       setLoadedData(false);
-      const res = await api.getCommonsCatalog();
+      const res = await api.getCommonsCatalog({
+        activePage: activeBookPage,
+        limit: itemsPerPage,
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
 
       if (Array.isArray(res.data.books)) {
-        setAllItems(res.data.books);
+        setBooks([...books, ...res.data.books])
       }
       if (typeof res.data.numFound === "number") {
         setNumResultItems(res.data.numFound);
       }
       if (typeof res.data.numTotal === "number") {
         setNumTotalItems(res.data.numTotal);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadedData(true);
+    }
+  }
+
+  async function loadPublicAssets() {
+    try {
+      setLoadedData(false);
+      const res = await api.getPublicProjectFiles({
+        page: activeAssetPage,
+        limit: itemsPerPage,
+      });
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (Array.isArray(res.data.files)) {
+        setFiles([...files, ...res.data.files]);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -323,7 +364,7 @@ const CommonsCatalog = () => {
       // console.log(paramsObj.search);
       const res = await api.conductorSearch({
         searchQuery: searchString,
-        activePage,
+        activePage: activeBookPage,
         limit: itemsPerPage,
       });
 
@@ -335,7 +376,7 @@ const CommonsCatalog = () => {
         throw new Error("No results found.");
       }
 
-      setItems([...res.data.results.books, ...res.data.results.files]);
+      //setBooks([...res.data.results, ...res.data.results.files]);
 
       if (typeof res.data.numResults === "number") {
         setNumResultItems(res.data.numResults);
@@ -352,99 +393,6 @@ const CommonsCatalog = () => {
       setLoadedData(true);
     }
   };
-
-  /**
-   * Retrieve the list(s) of dynamic
-   * filter options from the server.
-   */
-  const getFilterOptions = async () => {
-    try {
-      const res = await axios.get("/commons/filters");
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      const newAuthorOptions = [{ key: "empty", text: "Clear...", value: "" }];
-      const newSubjectOptions = [{ key: "empty", text: "Clear...", value: "" }];
-      const newAffOptions = [{ key: "empty", text: "Clear...", value: "" }];
-      const newCourseOptions = [{ key: "empty", text: "Clear...", value: "" }];
-      const newPubOptions = [{ key: "empty", text: "Clear...", value: "" }];
-      const newCIDOptions = [{ key: "empty", text: "Clear...", value: "" }];
-
-      if (res.data.authors && Array.isArray(res.data.authors)) {
-        res.data.authors.forEach((author: string) => {
-          newAuthorOptions.push({
-            key: author,
-            text: author,
-            value: author,
-          });
-        });
-      }
-      if (res.data.subjects && Array.isArray(res.data.subjects)) {
-        res.data.subjects.forEach((subject: string) => {
-          newSubjectOptions.push({
-            key: subject,
-            text: subject,
-            value: subject,
-          });
-        });
-      }
-      if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
-        res.data.affiliations.forEach((affiliation: string) => {
-          newAffOptions.push({
-            key: affiliation,
-            text: affiliation,
-            value: affiliation,
-          });
-        });
-      }
-      if (res.data.courses && Array.isArray(res.data.courses)) {
-        res.data.courses.forEach((course: string) => {
-          newCourseOptions.push({
-            key: course,
-            text: course,
-            value: course,
-          });
-        });
-      }
-      if (res.data.publishers && Array.isArray(res.data.publishers)) {
-        res.data.publishers.forEach((publisher: string) => {
-          newPubOptions.push({
-            key: publisher,
-            text: publisher,
-            value: publisher,
-          });
-        });
-      }
-      if (Array.isArray(res.data.cids)) {
-        res.data.cids.forEach((descriptor: string) => {
-          newCIDOptions.push({
-            key: descriptor,
-            text: descriptor,
-            value: descriptor,
-          });
-        });
-      }
-
-      setAuthorOptions(newAuthorOptions);
-      setSubjectOptions(newSubjectOptions);
-      setAffOptions(newAffOptions);
-      setCourseOptions(newCourseOptions);
-      setPubOptions(newPubOptions);
-      setCIDOptions(newCIDOptions);
-    } catch (err) {
-      handleGlobalError(err);
-      setLoadedFilters(true);
-    } finally {
-      setLoadedFilters(true);
-    }
-  };
-
-  useEffect(() => {
-    if (allItems.length > 0) {
-      const sliceEnd = activePage * itemsPerPage;
-      setItems(allItems.slice(0, sliceEnd));
-    }
-  }, [activePage, allItems, itemsPerPage, setItems]);
 
   /**
    * Perform the Catalog search based on
@@ -611,7 +559,7 @@ const CommonsCatalog = () => {
   // }, [location.search]);
 
   const ItemizedMode = () => {
-    return <CatalogTable items={items} />;
+    return <CatalogTable items={books} />;
   };
 
   return (
@@ -663,12 +611,23 @@ const CommonsCatalog = () => {
                 </Form>
               </div>
               <CatalogTabs
-                paneProps={{ loading: false}}
+                paneProps={{ loading: false }}
                 booksCount={allItems.length}
-              >
-                <CatalogBookFilters />
-                <VisualMode items={items} />
-              </CatalogTabs>
+                booksContent={
+                  <>
+                    <CatalogBookFilters />
+                    <VisualMode items={books} />
+                  </>
+                }
+                assetsContent={
+                  <>
+                    <CatalogAssetFilters />
+                    <VisualMode items={files} />
+                  </>
+                }
+                projectsContent={<ItemizedMode />}
+                ref={catalogTabsRef}
+              />
               <div
                 className="commons-content-card-grid-sentry text-center"
                 ref={observe}

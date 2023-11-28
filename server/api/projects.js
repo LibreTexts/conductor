@@ -53,7 +53,7 @@ import {
   getBookTOCFromAPI,
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
-import { isEmptyString, assembleUrl } from '../util/helpers.js';
+import { isEmptyString, assembleUrl, getPaginationOffset } from '../util/helpers.js';
 import { libraryNameKeys } from '../util/librariesmap.js';
 import authAPI from './auth.js';
 import mailAPI from './mail.js';
@@ -62,7 +62,7 @@ import alertsAPI from './alerts.js';
 import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
 import fse from 'fs-extra';
 import * as MiscValidators from './validators/misc.js';
-import { conductor404Err } from '../util/errorutils.js';
+import { conductor404Err, conductor500Err } from '../util/errorutils.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -3260,6 +3260,70 @@ async function moveProjectFile(req, res) {
 }
 
 /**
+ * Returns all available public Project Files (in public Projects).
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ * @returns 
+ */
+async function getPublicProjectFiles(req, res) {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = getPaginationOffset(page, limit);
+
+    const aggRes = await Project.aggregate(
+      [
+        {
+          $match: {
+            visibility: "public",
+            files: {
+              $exists: true,
+              $not: {
+                $size: 0,
+              },
+            },
+          },
+        },
+        {
+          $unwind: "$files",
+        },
+        {
+          $match: {
+            "files.access": "public",
+          },
+        },
+        {
+          $addFields: {
+            "files.projectID": "$projectID",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            files: {
+              $push: "$files",
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            files: 1,
+          },
+        },
+    ]).skip(offset).limit(limit);
+
+    return res.send({
+      err: false,
+      files: aggRes[0]?.files ?? [],
+    });
+  } catch (e) {
+    debugError(e);
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Retrieves a list of Reader Resources for a Book linked to a Project.
  *
  * @param {express.Request} req - Incoming request object.
@@ -3924,6 +3988,7 @@ export default {
     updateProjectFileAccess,
     moveProjectFile,
     removeProjectFile,
+    getPublicProjectFiles,
     getProjectBookReaderResources,
     updateProjectBookReaderResources,
     checkProjectGeneralPermission,
