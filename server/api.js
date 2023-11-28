@@ -1032,6 +1032,11 @@ router.route('/projects/tags/org').get(
   projectsAPI.getOrgTags,
 );
 
+router.route('/projects/files/public').get(
+  middleware.validateZod(ProjectValidators.getPublicProjectFilesSchema),
+  projectsAPI.getPublicProjectFiles,
+)
+
 router.route('/project/flag').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

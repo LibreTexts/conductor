@@ -23,7 +23,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {file.license ? file.license.name : "Unknown License"}</Card.Meta>
       <Card.Description>
         <p className="commons-content-card-author">
-          {truncateString(file.description, 100)}
+          {truncateString(file.description, 100) ? truncateString(file.description, 100) : "No description provided"}
         </p>
       </Card.Description>
     </Card.Content>
