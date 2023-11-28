@@ -53,13 +53,6 @@
 
 
 /* Search and Filters */
-#commons-searchbar-container {
-    margin-top: 1rem;
-    width: 100%;
-    padding-left: 15%;
-    padding-right: 15%;
-}
-
 #commons-search-input {
     box-shadow: 0px 0px 1px 0px #c2c2c2;
     -webkit-box-shadow: 0px 0px 1px 0px #c2c2c2;
