@@ -465,11 +465,24 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               <Button
                 color="blue"
                 onClick={handleDownloadRequest}
-                disabled={itemsChecked < 1 || !checkProjectMemberPermission}
-                loading={downloadLoading}
+                disabled={itemsChecked < 1 || !checkProjectMemberPermission || downloadLoading}
               >
-                <Icon name="download" />
-                Download {itemsChecked > 1 ? "(ZIP)" : ""}
+                {
+                  !downloadLoading && (
+                    <>
+                    <Icon name="download" />
+                    Download {itemsChecked > 1 ? "(ZIP)" : ""}    
+                    </>
+                  )
+                }
+                {
+                  downloadLoading && (
+                    <>
+                    <Icon name="spinner" loading />
+                    This may take a moment...
+                    </>
+                  )
+                }
               </Button>
               <Button color="olive" onClick={handleShowAddFolder}>
                 <Icon name="add" />
