@@ -20,6 +20,7 @@ type FilesUploaderProps = ModalProps & {
   directory: string;
   projectID: string;
   uploadPath: string;
+  projectHasDefaultLicense?: boolean;
   onFinishedUpload: () => void;
 };
 
@@ -32,6 +33,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   directory,
   projectID,
   uploadPath,
+  projectHasDefaultLicense = false,
   onFinishedUpload,
   ...props
 }) => {
@@ -214,6 +216,13 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
                 </div>
               </Form>
             </div>
+            {projectHasDefaultLicense && (
+              <p className="mt-4 text-center italic">
+                This project has a default license set for assets. You can
+                change the license information for this file after uploading as
+                needed.
+              </p>
+            )}
           </div>
         ) : (
           <ProgressBar

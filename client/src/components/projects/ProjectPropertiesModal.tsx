@@ -11,6 +11,7 @@ import {
   Dropdown,
 } from "semantic-ui-react";
 import {
+  CentralIdentityLicense,
   GenericKeyTextValueObj,
   Project,
   ProjectClassification,
@@ -18,7 +19,7 @@ import {
 } from "../../types";
 import { Controller, useForm } from "react-hook-form";
 import useGlobalError from "../error/ErrorHooks";
-import { lazy, useEffect, useState } from "react";
+import { lazy, useEffect, useState, useCallback } from "react";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -27,10 +28,10 @@ import {
   statusOptions,
   visibilityOptions,
 } from "../util/ProjectHelpers";
-import { licenseOptions } from "../util/LicenseOptions";
 import api from "../../api";
 import axios from "axios";
 import useDebounce from "../../hooks/useDebounce";
+import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
 interface ProjectPropertiesModalProps extends ModalProps {
@@ -48,6 +49,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   onClose,
   projectID,
 }) => {
+  const DESCRIP_MAX_CHARS = 500;
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
@@ -78,6 +80,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       resourceURL: "",
       notes: "",
       associatedOrgs: [],
+      defaultFileLicense: {},
     },
   });
 
@@ -90,6 +93,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const [loadedTags, setLoadedTags] = useState<boolean>(false);
   const [cidOptions, setCIDOptions] = useState<CIDDescriptorOption[]>([]);
   const [loadedCIDs, setLoadedCIDs] = useState<boolean>(false);
+  const [licenseOptions, setLicenseOptions] = useState<
+    CentralIdentityLicense[]
+  >([]);
+  const [loadedLicenses, setLoadedLicenses] = useState<boolean>(false);
   const [orgOptions, setOrgOptions] = useState<
     GenericKeyTextValueObj<string>[]
   >([]);
@@ -100,9 +107,42 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       loadProject();
       getTags();
       getCIDDescriptors();
+      getLicenseOptions();
       getOrgs();
     }
   }, [show, projectID]);
+
+  // Update license URL and (version as appropriate) when license name changes
+  useEffect(() => {
+    if (getValues("defaultFileLicense.name") === undefined) return;
+
+    // If license name is cleared, clear license URL and version
+    if (getValues("defaultFileLicense.name") === "") {
+      setValue("defaultFileLicense.url", "");
+      setValue("defaultFileLicense.version", "");
+      return;
+    }
+
+    const license = licenseOptions.find(
+      (l) => l.name === getValues("defaultFileLicense.name")
+    );
+    if (!license) return;
+
+    // If license no longer has versions, clear license version
+    if (!license.versions || license.versions.length === 0) {
+      setValue("defaultFileLicense.version", "");
+    }
+    setValue("defaultFileLicense.url", license.url);
+  }, [watch("defaultFileLicense.name")]);
+
+  // Return new license version options when license name changes
+  const selectedLicenseVersions = useCallback(() => {
+    const license = licenseOptions.find(
+      (l) => l.name === getValues("defaultFileLicense.name")
+    );
+    if (!license) return [];
+    return license.versions ?? [];
+  }, [watch("defaultFileLicense.name"), licenseOptions]);
 
   async function loadProject() {
     try {
@@ -194,6 +234,36 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       setLoadedCIDs(true);
     } catch (err) {
       handleGlobalError(err);
+    }
+  }
+
+  async function getLicenseOptions() {
+    try {
+      setLoadedLicenses(false);
+      const res = await api.getCentralIdentityLicenses();
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.licenses) {
+        throw new Error("Failed to load license options");
+      }
+
+      const versionsSorted = res.data.licenses.map((l) => {
+        return {
+          ...l,
+          versions: l.versions?.sort((a, b) => {
+            if (a === b) return 0;
+            if (!a) return -1;
+            if (!b) return 1;
+            return b.localeCompare(a);
+          }),
+        };
+      });
+      setLicenseOptions(versionsSorted);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadedLicenses(true);
     }
   }
 
@@ -652,6 +722,102 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               className="w-full"
             />
           </div>
+          <Divider />
+          <Header as="h3">Asset Settings</Header>
+          <p className="!my-1">
+            <strong>Default License</strong>
+          </p>
+          <p className="!mt-0 !mb-3">
+            <em>
+              Use this section to set the default license information for
+              uploaded assets. Users will be able to override this setting on a
+              per-file basis.
+            </em>
+          </p>
+          <div>
+            <label className="form-field-label" htmlFor="selectLicenseName">
+              Name
+            </label>
+            <Controller
+              render={({ field }) => (
+                <Dropdown
+                  id="selectLicenseName"
+                  options={licenseOptions.map((l) => ({
+                    key: crypto.randomUUID(),
+                    value: l.name,
+                    text: l.name,
+                  }))}
+                  {...field}
+                  onChange={(e, data) => {
+                    field.onChange(data.value?.toString() ?? "");
+                  }}
+                  fluid
+                  selection
+                  placeholder="Select a license..."
+                />
+              )}
+              name="defaultFileLicense.name"
+              control={control}
+            />
+          </div>
+          {selectedLicenseVersions().length > 0 && (
+            <div className="mt-2">
+              <label
+                className="form-field-label form-required"
+                htmlFor="selectLicenseVersion"
+              >
+                Version
+              </label>
+              <Controller
+                render={({ field }) => (
+                  <Dropdown
+                    id="selectLicenseVersion"
+                    options={selectedLicenseVersions().map((v) => ({
+                      key: crypto.randomUUID(),
+                      value: v,
+                      text: v,
+                    }))}
+                    {...field}
+                    onChange={(e, data) => {
+                      field.onChange(data.value?.toString() ?? "");
+                    }}
+                    fluid
+                    selection
+                    placeholder="Select license version"
+                  />
+                )}
+                name="defaultFileLicense.version"
+                control={control}
+                rules={required}
+              />
+            </div>
+          )}
+          <CtlTextInput
+            name="defaultFileLicense.sourceURL"
+            control={control}
+            label="File Source URL"
+            placeholder="https://example.com"
+            className="mt-2"
+          />
+          <div className="flex items-start mt-3">
+            <CtlCheckbox
+              name="defaultFileLicense.modifiedFromSource"
+              control={control}
+              label="File modified from source?"
+              className="ml-2"
+              labelDirection="row-reverse"
+            />
+          </div>
+          <CtlTextArea
+            name="defaultFileLicense.additionalTerms"
+            control={control}
+            label="Additional License Terms"
+            placeholder="Additional terms (if applicable)..."
+            className="mt-2"
+            maxLength={DESCRIP_MAX_CHARS}
+            showRemaining
+          />
+
           <Divider />
           <Header as="h3">Additional Information</Header>
           <CtlTextArea
