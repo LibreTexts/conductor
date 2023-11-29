@@ -42,6 +42,7 @@ interface FilesManagerProps extends SegmentProps {
   projectID: string;
   toggleFilesManager: () => void;
   canViewDetails: boolean;
+  projectHasDefaultLicense?: boolean;
 }
 
 type FileEntry = ProjectFile & {
@@ -55,6 +56,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   projectID,
   toggleFilesManager,
   canViewDetails = false,
+  projectHasDefaultLicense = false,
 }) => {
   const TABLE_COLS: {
     key: string;
@@ -678,6 +680,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
           projectID={projectID}
           uploadPath={currDirectory}
           onFinishedUpload={handleUploadFinished}
+          projectHasDefaultLicense={projectHasDefaultLicense}
         />
         <AddFolder
           show={showAddFolder}
