@@ -1,6 +1,7 @@
 import axios from "axios";
 import {
   AssetTagFramework,
+  AssetTagFrameworkWithCampusDefault,
   Book,
   CentralIdentityLicense,
   CentralIdentityOrg,
@@ -37,7 +38,7 @@ class API {
   }) {
     const res = await axios.get<
       {
-        frameworks: AssetTagFramework[];
+        frameworks: AssetTagFrameworkWithCampusDefault[];
         totalCount: number;
       } & ConductorBaseResponse
     >("/assettagframeworks", {
@@ -60,6 +61,15 @@ class API {
     return res;
   }
 
+  async getCampusDefaultFramework(orgID: string) {
+    const res = await axios.get<
+      {
+        framework: AssetTagFramework | null;
+      } & ConductorBaseResponse
+    >(`/assettagframeworks/campusdefault/${orgID}`);
+    return res;
+  }
+
   async createFramework(framework: AssetTagFramework) {
     const res = await axios.post<
       {
@@ -75,6 +85,13 @@ class API {
         framework: AssetTagFramework;
       } & ConductorBaseResponse
     >(`/assettagframeworks/${framework.uuid}`, framework);
+    return res;
+  }
+
+  async setAsCampusDefaultFramework(orgID: string, frameworkID: string) {
+    const res = await axios.put<ConductorBaseResponse>(`/org/${orgID}`, {
+      defaultAssetTagFrameworkUUID: frameworkID,
+    });
     return res;
   }
 

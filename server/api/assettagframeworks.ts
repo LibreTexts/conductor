@@ -11,6 +11,7 @@ import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import AssetTagFramework, {
   AssetTagFrameworkInterface,
+  AssetTagFrameworkInterfaceWithCampusDefault,
 } from "../models/assettagframework.js";
 import { v4 } from "uuid";
 import {
@@ -20,6 +21,9 @@ import {
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { isAssetTagKeyObject } from "../util/typeHelpers.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
+import Organization from "../models/organization.js";
+import { z } from "zod";
+import * as AssetTagFrameworkValidators from "./validators/assettagframeworks.js";
 
 async function getFrameworks(
   req: TypedReqQuery<{
@@ -59,12 +63,23 @@ async function getFrameworks(
       };
     }
 
-    const frameworks = await AssetTagFramework.find(matchObj, undefined, {
+    const frameworks = (await AssetTagFramework.find(matchObj, undefined, {
       sort: req.query.sort ? { [req.query.sort]: 1 } : { title: 1 },
     })
       .skip(offset)
       .limit(limit)
+      .lean()) as AssetTagFrameworkInterfaceWithCampusDefault[];
+
+    const org = await Organization.findOne({ orgID: process.env.ORG_ID })
+      .orFail()
       .lean();
+    const defaultFramework = org.defaultAssetTagFrameworkUUID;
+    if (defaultFramework) {
+      const found = frameworks.find((f) => f.uuid === defaultFramework);
+      if (found) {
+        found.isCampusDefault = true;
+      }
+    }
 
     if (!frameworks) {
       return conductor500Err(res);
@@ -102,9 +117,8 @@ async function getFramework(
     const keys = await AssetTagKey.find({
       orgID: process.env.ORG_ID,
       _id: { $in: framework.templates.map((t) => t.key) },
-      isDeleted: {$ne: true},
+      isDeleted: { $ne: true },
     }).lean();
-
 
     const keyMap = new Map();
     for (const key of keys) {
@@ -112,7 +126,61 @@ async function getFramework(
     }
 
     for (const template of framework.templates) {
-      if(template.key){
+      if (template.key) {
+        template.key = keyMap.get(template.key.toString());
+      }
+    }
+
+    return res.send({
+      err: false,
+      framework,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getCampusDefaultFramework(
+  req: z.infer<
+    typeof AssetTagFrameworkValidators.getCampusDefaultFrameworkValidator
+  >,
+  res: Response
+) {
+  try {
+    const { orgID } = req.params;
+
+    const org = await Organization.findOne({ orgID }).orFail().lean();
+    const defaultFramework = org.defaultAssetTagFrameworkUUID;
+    if (!defaultFramework) {
+      return res.send({
+        err: false,
+        framework: null,
+      });
+    }
+
+    const framework = await AssetTagFramework.findOne({
+      uuid: defaultFramework,
+      orgID,
+    }).lean();
+
+    if (!framework) {
+      return conductor404Err(res);
+    }
+
+    const keys = await AssetTagKey.find({
+      orgID: process.env.ORG_ID,
+      _id: { $in: framework.templates.map((t) => t.key) },
+      isDeleted: { $ne: true },
+    }).lean();
+
+    const keyMap = new Map();
+    for (const key of keys) {
+      keyMap.set(key._id.toString(), key);
+    }
+
+    for (const template of framework.templates) {
+      if (template.key) {
         template.key = keyMap.get(template.key.toString());
       }
     }
@@ -166,7 +234,10 @@ async function updateFramework(
 
     framework.name = req.body.name;
     framework.description = req.body.description;
-    framework.templates = await _upsertTemplates(framework._id, req.body.templates);
+    framework.templates = await _upsertTemplates(
+      framework._id,
+      req.body.templates
+    );
     framework.enabled = req.body.enabled;
 
     await framework.save();
@@ -190,7 +261,7 @@ async function _upsertTemplates(
     const existingKeyDocs = await AssetTagKey.find({
       orgID: process.env.ORG_ID,
       title: { $in: templates.map((t) => t.key) },
-      isDeleted: {$ne: true},
+      isDeleted: { $ne: true },
       framework: framework_mongo_id,
     }).lean();
 
@@ -217,7 +288,7 @@ async function _upsertTemplates(
     // Sort dropdown/multiselect options
     upsertedTemplates.forEach((t) => {
       if (t.options) {
-        t.options.sort()
+        t.options.sort();
       }
     });
 
@@ -291,6 +362,7 @@ function validate(method: string) {
 export default {
   getFrameworks,
   getFramework,
+  getCampusDefaultFramework,
   createFramework,
   updateFramework,
   validateAssetTagTemplate,
