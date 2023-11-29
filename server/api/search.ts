@@ -1,12 +1,11 @@
 import Promise from "bluebird";
-import { query } from "express-validator";
 import User from "../models/user.js";
 import Project from "../models/project.js";
 import Book from "../models/book.js";
 import Homework from "../models/homework.js";
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { isValidDateObject } from "../util/helpers.js";
+import { getPaginationOffset, isValidDateObject } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import authAPI from "./auth.js";
 import {
@@ -54,11 +53,28 @@ async function performSearch(
       $regex: query,
       $options: "i",
     };
+
+    const booksPage = parseInt(req.query.booksPage?.toString()) || 1;
+    const booksLimit = parseInt(req.query.booksLimit?.toString()) || 25;
+    const booksOffset = getPaginationOffset(booksPage, booksLimit);
+    const assetsPage = parseInt(req.query.assetsPage?.toString()) || 1;
+    const assetsLimit = parseInt(req.query.assetsLimit?.toString()) || 25;
+    const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
+    const projectsPage = parseInt(req.query.projectsPage?.toString()) || 1;
+    const projectsLimit = parseInt(req.query.projectsLimit?.toString()) || 25;
+    const projectsOffset = getPaginationOffset(projectsPage, projectsLimit);
+    const homeworkPage = parseInt(req.query.homeworkPage?.toString()) || 1;
+    const homeworkLimit = parseInt(req.query.homeworkLimit?.toString()) || 25;
+    const homeworkOffset = getPaginationOffset(homeworkPage, homeworkLimit);
+    const usersPage = parseInt(req.query.usersPage?.toString()) || 1;
+    const usersLimit = parseInt(req.query.usersLimit?.toString()) || 25;
+    const usersOffset = getPaginationOffset(usersPage, usersLimit);
+
     const projSortOption = req.query?.projSort || "title";
     const bookSortOption = req.query?.bookSort || "title";
     const homeworkSortOption = req.query?.hwSort || "name";
     const userSortOption = req.query?.userSort || "first";
-    let projectFilters = [];
+    const projectFilters = [];
     let projectFiltersOptions = {};
 
     const isSuperAdmin = req.user
@@ -79,33 +95,34 @@ async function performSearch(
     ) {
       projectFilters.push({ status: req.query.projStatus });
     }
-    /* Project Visibility Filter, only needed if not 'any' */
-    const teamMemberQuery = projectAPI.constructProjectTeamMemberQuery(
-      req.user?.decoded.uuid || ""
-    );
-    const privateProjectQueryParts: Record<any, any>[] = [
-      { visibility: "private" },
-    ];
-    if (!isSuperAdmin) {
-      privateProjectQueryParts.push({ $or: teamMemberQuery });
-    }
-    const privateProjectQuery = { $and: privateProjectQueryParts };
-    const publicProjectQuery = { visibility: "public" };
-    // PUBLIC OR (PRIVATE AND [TEAM] INCLUDES USER)
-    const anyVisibilityQuery = {
-      $or: [publicProjectQuery, privateProjectQuery],
-    };
-    if (typeof req.query.projVisibility === "string") {
-      if (req.query.projVisibility === "public") {
-        projectFilters.push(publicProjectQuery);
-      } else if (req.query.projVisibility === "private") {
-        projectFilters.push(privateProjectQuery);
-      } else {
-        projectFilters.push(anyVisibilityQuery);
-      }
-    } else {
-      projectFilters.push(anyVisibilityQuery);
-    }
+
+    // /* Project Visibility Filter, only needed if not 'any' */
+    // const teamMemberQuery = projectAPI.constructProjectTeamMemberQuery(
+    //   req.user?.decoded.uuid || ""
+    // );
+    // const privateProjectQueryParts: Record<any, any>[] = [
+    //   { visibility: "private" },
+    // ];
+    // if (!isSuperAdmin) {
+    //   privateProjectQueryParts.push({ $or: teamMemberQuery });
+    // }
+    // const privateProjectQuery = { $and: privateProjectQueryParts };
+    // const publicProjectQuery = { visibility: "public" };
+    // // PUBLIC OR (PRIVATE AND [TEAM] INCLUDES USER)
+    // const anyVisibilityQuery = {
+    //   $or: [publicProjectQuery, privateProjectQuery],
+    // };
+    // if (typeof req.query.projVisibility === "string") {
+    //   if (req.query.projVisibility === "public") {
+    //     projectFilters.push(publicProjectQuery);
+    //   } else if (req.query.projVisibility === "private") {
+    //     projectFilters.push(privateProjectQuery);
+    //   } else {
+    //     projectFilters.push(anyVisibilityQuery);
+    //   }
+    // } else {
+    //   projectFilters.push(anyVisibilityQuery);
+    // }
     if (projectFilters.length > 1) {
       projectFiltersOptions = { $and: projectFilters };
     } else {
@@ -121,6 +138,7 @@ async function performSearch(
             { libreCoverID: queryRegex },
             { libreShelf: queryRegex },
             { libreCampus: queryRegex },
+            { associatedOrgs: queryRegex },
           ],
         },
         {
@@ -180,6 +198,8 @@ async function performSearch(
           },
         },
       ])
+        .skip(projectsOffset)
+        .limit(projectsLimit)
     );
     aggregations.push(
       Book.aggregate([
@@ -204,13 +224,29 @@ async function performSearch(
           },
         },
       ])
+        .skip(booksOffset)
+        .limit(booksLimit)
     );
     aggregations.push(
       // Search project files for names that match the query
       Project.aggregate([
         {
           $match: {
-            visibility: "public",
+            $and: [
+              {
+                orgID: process.env.ORG_ID,
+              },
+              {
+                visibility: "public",
+              },
+              {
+                $or: [
+                  { "files.name": queryRegex },
+                  { "files.description": queryRegex },
+                  { associatedOrgs: queryRegex },
+                ],
+              },
+            ],
           },
         },
         {
@@ -395,6 +431,8 @@ async function performSearch(
           },
         },
       ])
+        .skip(homeworkOffset)
+        .limit(homeworkLimit)
     );
     aggregations.push(
       User.aggregate([
@@ -418,6 +456,8 @@ async function performSearch(
           },
         },
       ])
+        .skip(usersOffset)
+        .limit(usersLimit)
     );
 
     const aggregateResults = await Promise.all(aggregations);
@@ -452,6 +492,12 @@ async function performSearch(
       results.files.length +
       results.homework.length +
       results.users.length;
+
+    // 'Paginate' results since we can't use skip/limit since there are two aggregations
+    results.files = results.files.slice(
+      assetsOffset,
+      assetsOffset + assetsLimit
+    );
 
     //Sort projects
     results.projects.sort((a, b) => {
