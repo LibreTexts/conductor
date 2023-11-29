@@ -116,6 +116,7 @@ export type Project = {
   cidDescriptors: CIDDescriptor[];
   associatedOrgs: string[];
   files: ProjectFile[];
+  defaultFileLicense?: ProjectFileLicense;
   createdAt: string;
   updatedAt?: string;
 };

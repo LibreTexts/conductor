@@ -1978,6 +1978,7 @@ const ProjectView = (props) => {
                       projectID={props.match.params.id}
                       toggleFilesManager={handleChangeFilesVis}
                       canViewDetails={canViewDetails}
+                      projectHasDefaultLicense={project.defaultFileLicense && Object.keys(project.defaultFileLicense).length > 0}
                     />
                   }
                   {!showFiles &&

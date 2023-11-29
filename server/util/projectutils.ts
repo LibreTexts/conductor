@@ -114,6 +114,27 @@ export const validateRoadmapStep = (step: string) => {
   return constrRoadmapSteps.includes(step);
 };
 
+export const validateDefaultFileLicense = (obj: object): boolean => {
+  // Only check if name is present for now
+  if(!('name' in obj) || typeof obj.name !== 'string') {
+    return false;
+  }
+
+  if('url' in obj && typeof obj.url !== 'string') {
+    return false;
+  }
+  if('version' in obj && typeof obj.version !== 'string') {
+    return false;
+  }
+  if('sourceURL' in obj && typeof obj.sourceURL !== 'string') {
+    return false;
+  }
+  if('modifiedFromSource' in obj && typeof obj.modifiedFromSource !== 'boolean') {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Retrieves the UI-ready representation of a Text Use option.
  * @param {String} use - The internal Text Use identifier.
