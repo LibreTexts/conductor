@@ -21,6 +21,7 @@ export interface OrganizationInterface extends Document {
   addToLibreGridList?: boolean;
   catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
+  defaultAssetTagFrameworkUUID?: string;
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -119,11 +120,22 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Emails to notify when a support ticket is created.
      */
     supportTicketNotifiers: [String],
+    /**
+     * The default Asset Tag Framework for the Organization.
+     */
+    defaultAssetTagFrameworkUUID: String,
   },
   {
     timestamps: true,
   }
 );
+
+OrganizationSchema.virtual("defaultAssetTagFramework", {
+  ref: "AssetTagFramework",
+  localField: "defaultAssetTagFrameworkUUID",
+  foreignField: "uuid",
+  justOne: true,
+});
 
 const Organization = model<OrganizationInterface>(
   "Organization",

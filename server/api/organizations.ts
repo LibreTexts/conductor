@@ -224,6 +224,7 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('collectionsMessage');
     addToUpdateIfPresent('catalogMatchingTags');
     addToUpdateIfPresent('supportTicketNotifiers');
+    addToUpdateIfPresent('defaultAssetTagFrameworkUUID');
 
     if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
       // Reset label to 'Collections' if empty string was passed 
@@ -396,6 +397,7 @@ function validate(method: string) {
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('catalogMatchingTags', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
         body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail()
+        body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID()
       ];
     case 'updateBrandingImageAsset':
       return [

@@ -3,6 +3,10 @@ import AssetTagTemplateSchema, {
   AssetTagTemplateInterface,
 } from "./assettagtemplate.js";
 
+export interface AssetTagFrameworkInterfaceWithCampusDefault extends AssetTagFrameworkInterface {
+  isCampusDefault?: boolean;
+};
+
 export interface AssetTagFrameworkInterface extends Document {
   uuid: string;
   name: string;
