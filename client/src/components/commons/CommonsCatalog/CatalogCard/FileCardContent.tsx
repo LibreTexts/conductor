@@ -8,7 +8,7 @@ interface FileCardContentProps extends CardContentProps {
 
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
-    <Card.Content className="commons-content-card-inner-content">
+    <Card.Content className="commons-content-card-inner-content" {...rest}>
       <div className="flex justify-center">
         <Icon name="file alternate outline" size="massive" color="black" />
       </div>

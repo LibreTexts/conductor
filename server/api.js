@@ -1010,6 +1010,11 @@ router.route('/projects/completed').get(
   projectsAPI.getCompletedProjects,
 );
 
+router.route('/projects/public').get(
+  middleware.validateZod(ProjectValidators.getPublicProjectsSchema),
+  projectsAPI.getPublicProjects,
+)
+
 router.route('/projects/tags/org').get(
   authAPI.verifyRequest,
   projectsAPI.getOrgTags,
