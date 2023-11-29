@@ -27,6 +27,7 @@ type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
 
 type CatalogAssetFiltersRef = {
   getSelectedFilters: () => AssetFilters;
+  resetFilters: () => void;
 };
 
 const CatalogAssetFilters = forwardRef(
@@ -55,6 +56,9 @@ const CatalogAssetFilters = forwardRef(
     useImperativeHandle(ref, () => ({
       getSelectedFilters: () => {
         return selectedFilters;
+      },
+      resetFilters: () => {
+        setSelectedFilters({});
       },
     }));
 
@@ -147,6 +151,19 @@ const CatalogAssetFilters = forwardRef(
       }
     }
 
+    const getFilterText = (key: string) => {
+      switch (key) {
+        case "assetLicense":
+          return "License";
+        case "assetOrg":
+          return "Organization";
+        case "assetFileType":
+          return "File Type";
+        default:
+          return "";
+      }
+    };
+
     return (
       <div
         aria-busy={loading}
@@ -204,7 +221,7 @@ const CatalogAssetFilters = forwardRef(
             ))}
           </Dropdown.Menu>
         </Dropdown>
-        <Dropdown
+        {/* <Dropdown
           text="File Type"
           icon="file alternate outline"
           floating
@@ -229,16 +246,29 @@ const CatalogAssetFilters = forwardRef(
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>
-        </Dropdown>
-        {Object.keys(selectedFilters).length > 0 && (
+        </Dropdown> */}
+        {Object.entries(selectedFilters).map(([key, val]) => (
           <Button
+            key={key}
             circular
-            className="!ml-8"
-            onClick={() => setSelectedFilters({})}
+            className="!ml-2"
+            onClick={() => {
+              const newFilters = { ...selectedFilters };
+              delete newFilters[key as keyof AssetFilters];
+              setSelectedFilters(newFilters);
+            }}
           >
             <Icon name="x" />
-            Clear {Object.keys(selectedFilters).length} filters
+            {getFilterText(key)}: {val}
           </Button>
+        ))}
+        {Object.keys(selectedFilters).length > 0 && (
+          <p
+            className="underline cursor-pointer ml-2"
+            onClick={() => setSelectedFilters({})}
+          >
+            Clear All
+          </p>
         )}
       </div>
     );

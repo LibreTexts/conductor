@@ -19,16 +19,19 @@ import { libraryOptions } from "../../util/LibraryOptions";
 
 type CatalogBookFiltersRef = {
   getSelectedFilters: () => BookFilters;
+  resetFilters: () => void;
 };
 
 const CatalogBookFilters = forwardRef(
-  (props: {
-    onFiltersChange: (filters: BookFilters) => void;
-  }, ref: ForwardedRef<CatalogBookFiltersRef>) => {
+  (
+    props: {
+      onFiltersChange: (filters: BookFilters) => void;
+    },
+    ref: ForwardedRef<CatalogBookFiltersRef>
+  ) => {
     const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
     const { handleGlobalError } = useGlobalError();
 
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [subjectOptions, setSubjectOptions] = useState<
       GenericKeyTextValueObj<string>[]
     >([]);
@@ -59,6 +62,9 @@ const CatalogBookFilters = forwardRef(
     useImperativeHandle(ref, () => ({
       getSelectedFilters: () => {
         return selectedFilters;
+      },
+      resetFilters: () => {
+        setSelectedFilters({});
       },
     }));
 
@@ -210,6 +216,31 @@ const CatalogBookFilters = forwardRef(
     //   });
     // };
 
+    const getFilterText = (filter: string) => {
+      switch (filter) {
+        case "bookLibrary":
+          return "Library";
+        case "bookSubject":
+          return "Subject";
+        case "bookLocation":
+          return "Location";
+        case "bookLicense":
+          return "License";
+        case "bookAuthor":
+          return "Author";
+        case "bookCourse":
+          return "Course";
+        case "bookPublisher":
+          return "Publisher";
+        case "bookAffiliation":
+          return "Affiliation";
+        case "bookCID":
+          return "C-ID";
+        default:
+          return "";
+      }
+    };
+
     return (
       <div
         aria-busy={loading}
@@ -316,158 +347,158 @@ const CatalogBookFilters = forwardRef(
             ))}
           </Dropdown.Menu>
         </Dropdown>
-        {showAdvanced && (
-          <>
-            <Dropdown
-              text="Author"
-              icon="user"
-              floating
-              labeled
-              button
-              className="icon"
-              loading={loading}
-              basic
-            >
-              <Dropdown.Menu className={MENU_CLASSES}>
-                {authorOptions.map((author) => (
-                  <Dropdown.Item
-                    key={author.key}
-                    onClick={() =>
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        bookAuthor: author.value,
-                      })
-                    }
-                  >
-                    {author.text}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-            <Dropdown
-              text="Course"
-              icon="users"
-              floating
-              labeled
-              button
-              className="icon"
-              loading={loading}
-              basic
-            >
-              <Dropdown.Menu className={MENU_CLASSES}>
-                {courseOptions.map((course) => (
-                  <Dropdown.Item
-                    key={course.key}
-                    onClick={() =>
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        bookCourse: course.value,
-                      })
-                    }
-                  >
-                    {course.text}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-            <Dropdown
-              text="Publisher"
-              icon="print"
-              floating
-              labeled
-              button
-              className="icon"
-              loading={loading}
-              basic
-            >
-              <Dropdown.Menu className={MENU_CLASSES}>
-                {pubOptions.map((publisher) => (
-                  <Dropdown.Item
-                    key={publisher.key}
-                    onClick={() =>
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        bookPublisher: publisher.value,
-                      })
-                    }
-                  >
-                    {publisher.text}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-            <Dropdown
-              text="Affiliation"
-              icon="filter"
-              floating
-              labeled
-              button
-              className="icon"
-              loading={loading}
-              basic
-            >
-              <Dropdown.Menu className={MENU_CLASSES}>
-                {affOptions.map((affiliation) => (
-                  <Dropdown.Item
-                    key={affiliation.key}
-                    onClick={() =>
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        bookAffiliation: affiliation.value,
-                      })
-                    }
-                  >
-                    {affiliation.text}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-            <Dropdown
-              text="C-ID"
-              icon="hashtag"
-              floating
-              labeled
-              button
-              className="icon"
-              loading={loading}
-              basic
-            >
-              <Dropdown.Menu className={MENU_CLASSES}>
-                {cidOptions.map((cid) => (
-                  <Dropdown.Item
-                    key={cid.key}
-                    onClick={() =>
-                      setSelectedFilters({
-                        ...selectedFilters,
-                        bookCID: cid.value,
-                      })
-                    }
-                  >
-                    {cid.text}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-          </>
-        )}
-        <p
-          className="ml-2 cursor-pointer"
-          onClick={() => setShowAdvanced(!showAdvanced)}
+        <Dropdown
+          text="Author"
+          icon="user"
+          floating
+          labeled
+          button
+          className="icon"
+          loading={loading}
+          basic
         >
-          <Icon
-            name={showAdvanced ? "minus circle" : "plus circle"}
-            color="blue"
-          />
-        </p>
-        {Object.keys(selectedFilters).length > 0 && (
+          <Dropdown.Menu className={MENU_CLASSES}>
+            {authorOptions.map((author) => (
+              <Dropdown.Item
+                key={author.key}
+                onClick={() =>
+                  setSelectedFilters({
+                    ...selectedFilters,
+                    bookAuthor: author.value,
+                  })
+                }
+              >
+                {author.text}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+        <Dropdown
+          text="Course"
+          icon="users"
+          floating
+          labeled
+          button
+          className="icon"
+          loading={loading}
+          basic
+        >
+          <Dropdown.Menu className={MENU_CLASSES}>
+            {courseOptions.map((course) => (
+              <Dropdown.Item
+                key={course.key}
+                onClick={() =>
+                  setSelectedFilters({
+                    ...selectedFilters,
+                    bookCourse: course.value,
+                  })
+                }
+              >
+                {course.text}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+        <Dropdown
+          text="Publisher"
+          icon="print"
+          floating
+          labeled
+          button
+          className="icon"
+          loading={loading}
+          basic
+        >
+          <Dropdown.Menu className={MENU_CLASSES}>
+            {pubOptions.map((publisher) => (
+              <Dropdown.Item
+                key={publisher.key}
+                onClick={() =>
+                  setSelectedFilters({
+                    ...selectedFilters,
+                    bookPublisher: publisher.value,
+                  })
+                }
+              >
+                {publisher.text}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+        <Dropdown
+          text="Affiliation"
+          icon="filter"
+          floating
+          labeled
+          button
+          className="icon"
+          loading={loading}
+          basic
+        >
+          <Dropdown.Menu className={MENU_CLASSES}>
+            {affOptions.map((affiliation) => (
+              <Dropdown.Item
+                key={affiliation.key}
+                onClick={() =>
+                  setSelectedFilters({
+                    ...selectedFilters,
+                    bookAffiliation: affiliation.value,
+                  })
+                }
+              >
+                {affiliation.text}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+        <Dropdown
+          text="C-ID"
+          icon="hashtag"
+          floating
+          labeled
+          button
+          className="icon"
+          loading={loading}
+          basic
+        >
+          <Dropdown.Menu className={MENU_CLASSES}>
+            {cidOptions.map((cid) => (
+              <Dropdown.Item
+                key={cid.key}
+                onClick={() =>
+                  setSelectedFilters({
+                    ...selectedFilters,
+                    bookCID: cid.value,
+                  })
+                }
+              >
+                {cid.text}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+        {Object.entries(selectedFilters).map(([key, val]) => (
           <Button
+            key={key}
             circular
-            className="!ml-8"
-            onClick={() => setSelectedFilters({})}
+            className="!ml-2"
+            onClick={() => {
+              const newFilters = { ...selectedFilters };
+              delete newFilters[key as keyof BookFilters];
+              setSelectedFilters(newFilters);
+            }}
           >
             <Icon name="x" />
-            Clear {Object.keys(selectedFilters).length} filters
+            {getFilterText(key)}: {val}
           </Button>
+        ))}
+        {Object.keys(selectedFilters).length > 0 && (
+          <p
+            className="underline cursor-pointer ml-2"
+            onClick={() => setSelectedFilters({})}
+          >
+            Clear All
+          </p>
         )}
       </div>
     );
