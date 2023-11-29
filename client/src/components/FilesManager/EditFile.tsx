@@ -459,6 +459,12 @@ const EditFile: React.FC<EditFileProps> = ({
                   showRemaining
                 />
               </div>
+              <div className="mt-4">
+                <Button color="blue" onClick={() => {}} disabled>
+                  <Icon name="upload" />
+                  Replace File
+                </Button>
+              </div>
               <div className="mt-8">
                 {filePreviewURL && !getValues("isURL") && !getValues("url") && (
                   <>

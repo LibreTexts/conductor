@@ -2555,7 +2555,7 @@ const autoGenerateProjects = (newBooks) => {
       }
       return cb(null, true);
     },
-  }).array('files', 10);
+  }).array('files', req.method === 'POST' ? 10 : 1);
   return fileUploadConfig(req, res, (err) => {
     if (err) {
       let errMsg = conductorErrors.err53;
@@ -2924,7 +2924,7 @@ async function getProjectFile(req, res) {
 }
 
 /**
- * Renames or updates the description of a Project File.
+ * Updates file metadata (including name) and/or replaces the file body.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
@@ -2940,7 +2940,7 @@ async function getProjectFile(req, res) {
       });
     }
 
-    const { name, description, license, author, publisher } = req.body;
+    const { name, description, license, author, publisher, isURL, fileURL } = req.body;
 
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
@@ -2988,12 +2988,23 @@ async function getProjectFile(req, res) {
         if(publisher) {
           updateObj.publisher = publisher;
         }
+        // allow updating of URL if file is a URL
+        if (isURL && fileURL && obj.isURL && obj.url !== fileURL) {
+          updateObj.isURL = true;
+          updateObj.url = fileURL;
+          updateObj.license = {
+            ...obj.license,
+            sourceURL: fileURL,
+          }
+        }
         return updateObj;
       }
       return obj;
     });
 
-    if (foundObj.storageType === 'file' && !foundObj.isURL && !foundObj.url) {
+    const isPhysicalFile = foundObj.storageType === 'file' && !foundObj.isURL && !foundObj.url;
+    if (isPhysicalFile && processedName && processedName !== foundObj.name) {
+      // rename file
       const fileKey = `${projectID}/${fileID}`;
       const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const s3File = await storageClient.send(new GetObjectCommand({
@@ -3013,6 +3024,17 @@ async function getProjectFile(req, res) {
         ContentDisposition: `inline; filename=${processedName}`,
         ContentType: newContentType,
         MetadataDirective: "REPLACE",
+      }));
+    } else if (isPhysicalFile && req.files.length > 0) {
+      // replace file
+      const file = req.files[0];
+      const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+      await storageClient.send(new PutObjectCommand({
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        Key: assembleUrl([projectID, foundObj.fileID]),
+        Body: file.buffer,
+        ContentDisposition: `inline; filename=${file.originalname}`,
+        ContentType: file.mimetype || 'application/octet-stream',
       }));
     }
 

@@ -1360,6 +1360,7 @@ router.route('/project/:projectID/files/:fileID?')
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectValidators.updateProjectFileSchema),
+    projectsAPI.fileUploadHandler,
     projectsAPI.updateProjectFile,
   ).delete(
     authAPI.verifyRequest,

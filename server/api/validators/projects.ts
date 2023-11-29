@@ -39,6 +39,8 @@ export const projectFileSchema = z.object({
       url: z.string().url().optional(),
     })
     .optional(),
+  isURL: z.boolean().optional(),
+  fileURL: z.string().url().optional(),
 });
 
 export const updateProjectFileSchema = z.object({

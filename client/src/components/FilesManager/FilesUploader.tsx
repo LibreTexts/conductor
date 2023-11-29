@@ -22,6 +22,7 @@ type FilesUploaderProps = ModalProps & {
   uploadPath: string;
   projectHasDefaultLicense?: boolean;
   onFinishedUpload: () => void;
+  mode?: 'add' | 'replace';
 };
 
 /**
@@ -35,6 +36,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   uploadPath,
   projectHasDefaultLicense = false,
   onFinishedUpload,
+  mode = 'add',
   ...props
 }) => {
   // Global Error Handling
