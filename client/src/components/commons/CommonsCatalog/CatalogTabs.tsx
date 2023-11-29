@@ -60,7 +60,7 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? booksContent : null}
+            {!paneProps?.loading ? booksContent : <Icon name="spinner" loading />}
           </Tab.Pane>
         ),
       },
@@ -74,7 +74,7 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? assetsContent : null}
+            {!paneProps?.loading ? assetsContent : <Icon name="spinner" loading />}
           </Tab.Pane>
         ),
       },
@@ -88,7 +88,7 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? projectsContent : null}
+            {!paneProps?.loading ? projectsContent : <Icon name="spinner" loading />}
           </Tab.Pane>
         ),
       },

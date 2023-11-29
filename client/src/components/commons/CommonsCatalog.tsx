@@ -1,6 +1,6 @@
 import "./Commons.css";
 import { Grid, Segment, Header, Form, Dropdown } from "semantic-ui-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import { useLocation, useHistory } from "react-router-dom";
 import axios from "axios";
@@ -37,7 +37,7 @@ const CommonsCatalog = () => {
   const [files, setFiles] = useState<ProjectFileWProjectID[]>([]);
   const [filesTotal, setFilesTotal] = useState<number>(0);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsTotal, setProjectsTota] = useState<number>(0);
+  const [projectsTotal, setProjectsTotal] = useState<number>(0);
 
   /** UI **/
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
@@ -45,6 +45,7 @@ const CommonsCatalog = () => {
   const [activeAssetPage, setActiveAssetPage] = useState<number>(1);
   const [activeProjectPage, setActiveProjectPage] = useState<number>(1);
   const [loadedData, setLoadedData] = useState<boolean>(true);
+  const [isInitialSearch, setIsInitialSearch] = useState<boolean>(true);
 
   // const initialSearch = useRef(true);
   // const checkedParams = useRef(false);
@@ -61,29 +62,15 @@ const CommonsCatalog = () => {
       } else if (catalogTabsRef.current?.getActiveTab() === "projects") {
         setActiveProjectPage(activeProjectPage + 1);
       } else {
-        console.log("No active tab")
+        console.error("No active tab")
       }
     },
     {
-      loading: false,
+      loading: !loadedData,
       preventUnobserve: true,
     }
   );
 
-  // Content Filters
-  type FilterParams = {
-    sort: string;
-    search?: string;
-    library?: string;
-    subject?: string;
-    location?: string;
-    author?: string;
-    license?: string;
-    affiliation?: string;
-    course?: string;
-    publisher?: string;
-    cidDescriptor?: string;
-  };
   const [searchString, setSearchString] = useState<string>("");
 
   // Sort and Search Filters
@@ -274,7 +261,7 @@ const CommonsCatalog = () => {
         setProjects([...projects, ...res.data.projects]);
       }
       if (typeof res.data.totalCount === "number") {
-        setProjectsTota(res.data.totalCount);
+        setProjectsTotal(res.data.totalCount);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -348,18 +335,34 @@ const CommonsCatalog = () => {
   //   }
   // };
 
-  const handleFiltersChanged = (filters: BookFilters | AssetFilters) => {
-    if(Object.keys(filters).length === 0) return;
-    newSearch();
-  }
-
-  const updateQueryAndSearch = () => {
+  const resetState = () => {
     setActiveBookPage(1);
     setActiveAssetPage(1);
     setActiveProjectPage(1);
     setBooks([]);
     setFiles([]);
     setProjects([]);
+  }
+
+
+  const handleResetSearch = () => {
+    setIsInitialSearch(true);
+    setSearchString("");
+    catalogBookFiltersRef.current?.resetFilters();
+    catalogAssetFiltersRef.current?.resetFilters();
+    resetState();
+    loadCommonsCatalog();
+    loadPublicAssets();
+    loadPublicProjects();
+  }
+
+  const handleFiltersChanged = (filters: BookFilters | AssetFilters) => {
+    if(Object.keys(filters).length === 0) return;
+    newSearch();
+  }
+
+  const updateQueryAndSearch = () => {
+    resetState();
     newSearch();
   }
 
@@ -370,6 +373,7 @@ const CommonsCatalog = () => {
   const newSearch = async () => {
     try {
       setLoadedData(false);
+      setIsInitialSearch(false);
 
       const bookFilters = catalogBookFiltersRef.current?.getSelectedFilters();
       const assetFilters = catalogAssetFiltersRef.current?.getSelectedFilters();
@@ -576,10 +580,6 @@ const CommonsCatalog = () => {
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [location.search]);
 
-  const ItemizedMode = () => {
-    return <CatalogTable items={books} />;
-  };
-
   return (
     <Grid className="commons-container">
       <Grid.Row>
@@ -606,8 +606,11 @@ const CommonsCatalog = () => {
               </Segment>
             )}
             <Segment>
-              <div className="my-8 mx-56">
-                <Form onSubmit={updateQueryAndSearch}>
+              <div className="mt-8 mb-6 mx-56">
+                <Form onSubmit={(e) => {
+                  e.preventDefault();
+                  updateQueryAndSearch();
+                }}>
                   <Form.Input
                     icon="search"
                     placeholder="Search..."
@@ -627,12 +630,13 @@ const CommonsCatalog = () => {
                     }}
                   />
                 </Form>
+                <p className="underline cursor-pointer text-center mt-4" onClick={handleResetSearch}>Reset Search</p>
               </div>
               <CatalogTabs
                 paneProps={{ loading: false }}
-                booksCount={booksTotal}
-                assetsCount={filesTotal}
-                projectsCount={projectsTotal}
+                booksCount={isInitialSearch ? booksTotal : books.length}
+                assetsCount={isInitialSearch ? filesTotal : files.length}
+                projectsCount={isInitialSearch ? projectsTotal : projects.length}
                 booksContent={
                   <>
                     <CatalogBookFilters ref={catalogBookFiltersRef} onFiltersChange={(filters) => handleFiltersChanged(filters)} />
