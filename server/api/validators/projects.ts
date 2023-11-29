@@ -52,3 +52,7 @@ export const updateProjectFileSchema = z.object({
 export const getPublicProjectFilesSchema = z.object({
   query: PaginationSchema
 })
+
+export const getPublicProjectsSchema = z.object({
+  query: PaginationSchema
+})

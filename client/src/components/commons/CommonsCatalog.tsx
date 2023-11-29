@@ -10,6 +10,7 @@ import {
   Book,
   CatalogLocation,
   GenericKeyTextValueObj,
+  Project,
   ProjectFileWProjectID,
 } from "../../types";
 import api from "../../api";
@@ -30,18 +31,21 @@ const CommonsCatalog = () => {
 
   // Data
   const [books, setBooks] = useState<Book[]>([]);
+  const [booksTotal, setBooksTotal] = useState<number>(0);
   const [allItems, setAllItems] = useState<Array<Book | ProjectFileWProjectID>>(
     []
   );
   const [files, setFiles] = useState<ProjectFileWProjectID[]>([]);
-  const [numResultItems, setNumResultItems] = useState<number>(0);
-  const [numTotalItems, setNumTotalItems] = useState<number>(0);
+  const [filesTotal, setFilesTotal] = useState<number>(0);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsTotal, setProjectsTota] = useState<number>(0);
 
   /** UI **/
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [activeBookPage, setActiveBookPage] = useState<number>(1);
   const [activeAssetPage, setActiveAssetPage] = useState<number>(1);
+  const [activeProjectPage, setActiveProjectPage] = useState<number>(1);
   const [loadedData, setLoadedData] = useState<boolean>(true);
 
   const [loadedFilters, setLoadedFilters] = useState<boolean>(false);
@@ -57,8 +61,10 @@ const CommonsCatalog = () => {
         setActiveBookPage(activeBookPage + 1);
       } else if (catalogTabsRef.current?.getActiveTab() === "assets") {
         setActiveAssetPage(activeAssetPage + 1);
+      } else if (catalogTabsRef.current?.getActiveTab() === "projects") {
+        setActiveProjectPage(activeProjectPage + 1);
       } else {
-        console.error("no active tab");
+        console.log("No active tab")
       }
     },
     {
@@ -135,6 +141,7 @@ const CommonsCatalog = () => {
   useEffect(() => {
     loadCommonsCatalog();
     loadPublicAssets();
+    loadPublicProjects();
     //searchCommonsCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -254,11 +261,8 @@ const CommonsCatalog = () => {
       if (Array.isArray(res.data.books)) {
         setBooks([...books, ...res.data.books])
       }
-      if (typeof res.data.numFound === "number") {
-        setNumResultItems(res.data.numFound);
-      }
       if (typeof res.data.numTotal === "number") {
-        setNumTotalItems(res.data.numTotal);
+        setBooksTotal(res.data.numTotal);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -274,12 +278,41 @@ const CommonsCatalog = () => {
         page: activeAssetPage,
         limit: itemsPerPage,
       });
+
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
 
       if (Array.isArray(res.data.files)) {
         setFiles([...files, ...res.data.files]);
+      }
+      if (typeof res.data.totalCount === "number") {
+        setFilesTotal(res.data.totalCount);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadedData(true);
+    }
+  }
+
+  async function loadPublicProjects() {
+    try {
+      setLoadedData(false);
+      const res = await api.getPublicProjects({
+        page: activeAssetPage,
+        limit: itemsPerPage,
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (Array.isArray(res.data.projects)) {
+        setProjects([...projects, ...res.data.projects]);
+      }
+      if (typeof res.data.totalCount === "number") {
+        setProjectsTota(res.data.totalCount);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -379,7 +412,7 @@ const CommonsCatalog = () => {
       //setBooks([...res.data.results, ...res.data.results.files]);
 
       if (typeof res.data.numResults === "number") {
-        setNumResultItems(res.data.numResults);
+        //setNumResultItems(res.data.numResults);
         const totalPages = Math.ceil(res.data.numResults / itemsPerPage);
         setTotalPages(totalPages);
       }
@@ -612,7 +645,9 @@ const CommonsCatalog = () => {
               </div>
               <CatalogTabs
                 paneProps={{ loading: false }}
-                booksCount={allItems.length}
+                booksCount={booksTotal}
+                assetsCount={filesTotal}
+                projectsCount={projectsTotal}
                 booksContent={
                   <>
                     <CatalogBookFilters />
@@ -625,7 +660,9 @@ const CommonsCatalog = () => {
                     <VisualMode items={files} />
                   </>
                 }
-                projectsContent={<ItemizedMode />}
+                projectsContent={
+                  <VisualMode items={projects} />
+                }
                 ref={catalogTabsRef}
               />
               <div

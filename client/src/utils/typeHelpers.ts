@@ -17,6 +17,7 @@ import {
   AssetTagKey,
   Book,
   ProjectFile,
+  Project,
 } from "../types";
 
 export function isCatalogLocation(
@@ -232,6 +233,18 @@ export const isBook = (obj: any): obj is Book => {
     "links" in obj &&
     "lastUpdated" in obj &&
     "libraryTags" in obj
+  );
+};
+
+// Project
+export const isProject = (obj: any): obj is Project => {
+  if (!obj) return false;
+  if (typeof obj !== "object") return false;
+  return (
+    "projectID" in obj &&
+    "title" in obj &&
+    "visibility" in obj &&
+    "status" in obj
   );
 };
 

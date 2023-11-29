@@ -16,7 +16,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book, ...rest }) => {
           style={{ backgroundImage: `url(${book.thumbnail})` }}
         />
       </div>
-      <Card.Content className="commons-content-card-inner-content">
+      <Card.Content className="commons-content-card-inner-content" {...rest}>
         <Card.Header as="h3" className="commons-content-card-header">
           {truncateString(book.title, 50)}
         </Card.Header>
