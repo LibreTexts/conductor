@@ -3,11 +3,13 @@ import { Grid, Segment, Header, Form, Dropdown } from "semantic-ui-react";
 import { useEffect, useState, useRef } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import { useLocation, useHistory } from "react-router-dom";
-import axios, { all } from "axios";
+import axios from "axios";
 import useGlobalError from "../error/ErrorHooks";
 import { updateParams } from "../util/HelperFunctions.js";
 import {
+  AssetFilters,
   Book,
+  BookFilters,
   CatalogLocation,
   GenericKeyTextValueObj,
   Project,
@@ -32,9 +34,6 @@ const CommonsCatalog = () => {
   // Data
   const [books, setBooks] = useState<Book[]>([]);
   const [booksTotal, setBooksTotal] = useState<number>(0);
-  const [allItems, setAllItems] = useState<Array<Book | ProjectFileWProjectID>>(
-    []
-  );
   const [files, setFiles] = useState<ProjectFileWProjectID[]>([]);
   const [filesTotal, setFilesTotal] = useState<number>(0);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -42,18 +41,16 @@ const CommonsCatalog = () => {
 
   /** UI **/
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
-  const [totalPages, setTotalPages] = useState<number>(1);
   const [activeBookPage, setActiveBookPage] = useState<number>(1);
   const [activeAssetPage, setActiveAssetPage] = useState<number>(1);
   const [activeProjectPage, setActiveProjectPage] = useState<number>(1);
   const [loadedData, setLoadedData] = useState<boolean>(true);
 
-  const [loadedFilters, setLoadedFilters] = useState<boolean>(false);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
-
-  const initialSearch = useRef(true);
-  const checkedParams = useRef(false);
+  // const initialSearch = useRef(true);
+  // const checkedParams = useRef(false);
   const catalogTabsRef = useRef<React.ElementRef<typeof CatalogTabs>>(null);
+  const catalogBookFiltersRef = useRef<React.ElementRef<typeof CatalogBookFilters>>(null);
+  const catalogAssetFiltersRef = useRef<React.ElementRef<typeof CatalogAssetFilters>>(null);
 
   const { observe } = useInfiniteScroll(
     () => {
@@ -88,41 +85,6 @@ const CommonsCatalog = () => {
     cidDescriptor?: string;
   };
   const [searchString, setSearchString] = useState<string>("");
-  const [libraryFilter, setLibraryFilter] = useState<string>("");
-  const [locationFilter, setLocationFilter] = useState<CatalogLocation>(
-    org.orgID === "libretexts" ? "all" : "campus"
-  );
-  const [subjectFilter, setSubjectFilter] = useState<string>("");
-  const [authorFilter, setAuthorFilter] = useState<string>("");
-  const [licenseFilter, setLicenseFilter] = useState<string>("");
-  const [affilFilter, setAffilFilter] = useState<string>("");
-  const [instrFilter, setInstrFilter] = useState<string>("");
-  const [courseFilter, setCourseFilter] = useState<string>("");
-  const [pubFilter, setPubFilter] = useState<string>("");
-  const [cidFilter, setCIDFilter] = useState<string>("");
-  const [includeCentral, setIncludeCentral] = useState<boolean>(
-    org.orgID === "libretexts" ? true : false
-  );
-  const [includeCampus, setIncludeCampus] = useState<boolean>(true);
-
-  const [subjectOptions, setSubjectOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [authorOptions, setAuthorOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [affOptions, setAffOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [courseOptions, setCourseOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [pubOptions, setPubOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [cidOptions, setCIDOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
 
   // Sort and Search Filters
   const [sortChoice, setSortChoice] = useState("random");
@@ -166,86 +128,86 @@ const CommonsCatalog = () => {
     }
   }, [org]);
 
-  useEffect(() => {
-    if (includeCampus && includeCentral) {
-      setLocationFilter("all");
-    } else if (includeCampus && !includeCentral) {
-      setLocationFilter("campus");
-    } else if (!includeCampus && includeCentral) {
-      setLocationFilter("central");
-    } else {
-      //Fallback to all if both are unchecked
-      setIncludeCampus(true);
-      setIncludeCentral(true);
-      setLocationFilter("all");
-    }
-  }, [includeCampus, includeCentral]);
+  // useEffect(() => {
+  //   if (includeCampus && includeCentral) {
+  //     setLocationFilter("all");
+  //   } else if (includeCampus && !includeCentral) {
+  //     setLocationFilter("campus");
+  //   } else if (!includeCampus && includeCentral) {
+  //     setLocationFilter("central");
+  //   } else {
+  //     //Fallback to all if both are unchecked
+  //     setIncludeCampus(true);
+  //     setIncludeCentral(true);
+  //     setLocationFilter("all");
+  //   }
+  // }, [includeCampus, includeCentral]);
 
   /**
    * Watch selected locations and automatically re-search
    */
-  useEffect(() => {
-    performSearch();
-  }, [locationFilter]);
+  // useEffect(() => {
+  //   performSearch();
+  // }, [locationFilter]);
 
   /**
    * Build the new search URL and push it onto the history stack.
    * Change to location triggers the network request to fetch results.
    */
-  const performSearch = () => {
-    let sort = sortChoice;
-    if (!initialSearch.current) {
-      initialSearch.current = true;
-      /* change to ordered on first search */
-      if (sort !== "title" && sort !== "author") {
-        sort = "title";
-      }
-    }
-    let searchURL = location.search;
-    searchURL = updateParams(searchURL, "search", searchString);
-    searchURL = updateParams(searchURL, "library", libraryFilter);
-    searchURL = updateParams(searchURL, "subject", subjectFilter);
-    searchURL = updateParams(searchURL, "location", locationFilter);
-    searchURL = updateParams(searchURL, "author", authorFilter);
-    searchURL = updateParams(searchURL, "license", licenseFilter);
-    searchURL = updateParams(searchURL, "affiliation", affilFilter);
-    searchURL = updateParams(searchURL, "course", courseFilter);
-    searchURL = updateParams(searchURL, "publisher", pubFilter);
-    searchURL = updateParams(searchURL, "cid", cidFilter);
-    searchURL = updateParams(searchURL, "sort", sort);
-    history.push({
-      pathname: location.pathname,
-      search: searchURL,
-    });
-  };
+  // const performSearch = () => {
+  //   let sort = sortChoice;
+  //   if (!initialSearch.current) {
+  //     initialSearch.current = true;
+  //     /* change to ordered on first search */
+  //     if (sort !== "title" && sort !== "author") {
+  //       sort = "title";
+  //     }
+  //   }
+  //   let searchURL = location.search;
+  //   searchURL = updateParams(searchURL, "search", searchString);
+  //   searchURL = updateParams(searchURL, "library", libraryFilter);
+  //   searchURL = updateParams(searchURL, "subject", subjectFilter);
+  //   searchURL = updateParams(searchURL, "location", locationFilter);
+  //   searchURL = updateParams(searchURL, "author", authorFilter);
+  //   searchURL = updateParams(searchURL, "license", licenseFilter);
+  //   searchURL = updateParams(searchURL, "affiliation", affilFilter);
+  //   searchURL = updateParams(searchURL, "course", courseFilter);
+  //   searchURL = updateParams(searchURL, "publisher", pubFilter);
+  //   searchURL = updateParams(searchURL, "cid", cidFilter);
+  //   searchURL = updateParams(searchURL, "sort", sort);
+  //   history.push({
+  //     pathname: location.pathname,
+  //     search: searchURL,
+  //   });
+  // };
 
-  const resetSearch = () => {
-    setSearchString("");
-    setLibraryFilter("");
-    setSubjectFilter("");
-    setLocationFilter(org.orgID === "libretexts" ? "all" : "campus");
-    setAuthorFilter("");
-    setLicenseFilter("");
-    setAffilFilter("");
-    setCourseFilter("");
-    setPubFilter("");
-    setCIDFilter("");
-    let searchURL = location.search;
-    searchURL = updateParams(searchURL, "search", "");
-    searchURL = updateParams(searchURL, "library", "");
-    searchURL = updateParams(searchURL, "subject", "");
-    searchURL = updateParams(searchURL, "location", "");
-    searchURL = updateParams(searchURL, "author", "");
-    searchURL = updateParams(searchURL, "license", "");
-    searchURL = updateParams(searchURL, "affiliation", "");
-    searchURL = updateParams(searchURL, "course", "");
-    searchURL = updateParams(searchURL, "publisher", "");
-    searchURL = updateParams(searchURL, "cid", "");
-    history.push({
-      pathname: location.pathname,
-      search: searchURL,
-    });
-  };
+  // const resetSearch = () => {
+  //   setSearchString("");
+  //   setLibraryFilter("");
+  //   setSubjectFilter("");
+  //   setLocationFilter(org.orgID === "libretexts" ? "all" : "campus");
+  //   setAuthorFilter("");
+  //   setLicenseFilter("");
+  //   setAffilFilter("");
+  //   setCourseFilter("");
+  //   setPubFilter("");
+  //   setCIDFilter("");
+  //   let searchURL = location.search;
+  //   searchURL = updateParams(searchURL, "search", "");
+  //   searchURL = updateParams(searchURL, "library", "");
+  //   searchURL = updateParams(searchURL, "subject", "");
+  //   searchURL = updateParams(searchURL, "location", "");
+  //   searchURL = updateParams(searchURL, "author", "");
+  //   searchURL = updateParams(searchURL, "license", "");
+  //   searchURL = updateParams(searchURL, "affiliation", "");
+  //   searchURL = updateParams(searchURL, "course", "");
+  //   searchURL = updateParams(searchURL, "publisher", "");
+  //   searchURL = updateParams(searchURL, "cid", "");
+  //   history.push({
+  //     pathname: location.pathname,
+  //     search: searchURL,
+  //   });
+  // };
 
   async function loadCommonsCatalog() {
     try {
@@ -386,6 +348,21 @@ const CommonsCatalog = () => {
   //   }
   // };
 
+  const handleFiltersChanged = (filters: BookFilters | AssetFilters) => {
+    if(Object.keys(filters).length === 0) return;
+    newSearch();
+  }
+
+  const updateQueryAndSearch = () => {
+    setActiveBookPage(1);
+    setActiveAssetPage(1);
+    setActiveProjectPage(1);
+    setBooks([]);
+    setFiles([]);
+    setProjects([]);
+    newSearch();
+  }
+
   /**
    * Perform GET request for books
    * and update catalogBooks.
@@ -394,11 +371,20 @@ const CommonsCatalog = () => {
     try {
       setLoadedData(false);
 
-      // console.log(paramsObj.search);
+      const bookFilters = catalogBookFiltersRef.current?.getSelectedFilters();
+      const assetFilters = catalogAssetFiltersRef.current?.getSelectedFilters();
+      if(!searchString) return; //TODO: Remove this?
+
       const res = await api.conductorSearch({
         searchQuery: searchString,
-        activePage: activeBookPage,
-        limit: itemsPerPage,
+        assetsPage: activeAssetPage,
+        assetsLimit: itemsPerPage,
+        booksPage: activeBookPage,
+        booksLimit: itemsPerPage,
+        projectsPage: activeProjectPage,
+        projectsLimit: itemsPerPage,
+        ...bookFilters,
+        ...assetFilters,
       });
 
       if (res.data.err) {
@@ -409,16 +395,15 @@ const CommonsCatalog = () => {
         throw new Error("No results found.");
       }
 
-      //setBooks([...res.data.results, ...res.data.results.files]);
-
-      if (typeof res.data.numResults === "number") {
-        //setNumResultItems(res.data.numResults);
-        const totalPages = Math.ceil(res.data.numResults / itemsPerPage);
-        setTotalPages(totalPages);
+      if(Array.isArray(res.data.results.books)) {
+        setBooks(res.data.results.books);
       }
-      // if (typeof res.data.numTotal === "number") {
-      //   setNumTotalBooks(res.data.numTotal);
-      // }
+      if(Array.isArray(res.data.results.files)) {
+        setFiles(res.data.results.files);
+      }
+      if(Array.isArray(res.data.results.projects)) {
+        setProjects(res.data.results.projects);
+      }
     } catch (err) {
       handleGlobalError(err);
       setLoadedData(true);
@@ -433,41 +418,41 @@ const CommonsCatalog = () => {
    * initial URL params sync has been
    * performed.
    */
-  useEffect(() => {
-    if (checkedParams.current) {
-      // searchCommonsCatalog();
-    }
-  }, [checkedParams.current]);
+  // useEffect(() => {
+  //   if (checkedParams.current) {
+  //     // searchCommonsCatalog();
+  //   }
+  // }, [checkedParams.current]);
 
   /**
    * Update the URL query with the sort choice
    * AFTER a search has been performed and a
    * change has been made.
    */
-  useEffect(() => {
-    if (initialSearch.current) {
-      const searchURL = updateParams(location.search, "sort", sortChoice);
-      history.push({
-        pathname: location.pathname,
-        search: searchURL,
-      });
-    }
-  }, [sortChoice]);
+  // useEffect(() => {
+  //   if (initialSearch.current) {
+  //     const searchURL = updateParams(location.search, "sort", sortChoice);
+  //     history.push({
+  //       pathname: location.pathname,
+  //       search: searchURL,
+  //     });
+  //   }
+  // }, [sortChoice]);
 
   /**
    * Update the URL query with the display mode
    * AFTER a search has been performed and a
    * change has been made.
    */
-  useEffect(() => {
-    if (initialSearch.current) {
-      const searchURL = updateParams(location.search, "mode", displayChoice);
-      history.push({
-        pathname: location.pathname,
-        search: searchURL,
-      });
-    }
-  }, [displayChoice]);
+  // useEffect(() => {
+  //   if (initialSearch.current) {
+  //     const searchURL = updateParams(location.search, "mode", displayChoice);
+  //     history.push({
+  //       pathname: location.pathname,
+  //       search: searchURL,
+  //     });
+  //   }
+  // }, [displayChoice]);
 
   /**
    * Subscribe to changes in the URL search string
@@ -622,7 +607,7 @@ const CommonsCatalog = () => {
             )}
             <Segment>
               <div className="my-8 mx-56">
-                <Form onSubmit={newSearch}>
+                <Form onSubmit={updateQueryAndSearch}>
                   <Form.Input
                     icon="search"
                     placeholder="Search..."
@@ -638,7 +623,7 @@ const CommonsCatalog = () => {
                     action={{
                       content: "Search Catalog",
                       color: "blue",
-                      onClick: newSearch,
+                      onClick: updateQueryAndSearch,
                     }}
                   />
                 </Form>
@@ -650,13 +635,13 @@ const CommonsCatalog = () => {
                 projectsCount={projectsTotal}
                 booksContent={
                   <>
-                    <CatalogBookFilters />
+                    <CatalogBookFilters ref={catalogBookFiltersRef} onFiltersChange={(filters) => handleFiltersChanged(filters)} />
                     <VisualMode items={books} />
                   </>
                 }
                 assetsContent={
                   <>
-                    <CatalogAssetFilters />
+                    <CatalogAssetFilters ref={catalogAssetFiltersRef} onFiltersChange={(filters) => handleFiltersChanged(filters)}/>
                     <VisualMode items={files} />
                   </>
                 }

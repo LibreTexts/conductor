@@ -1,8 +1,10 @@
 import axios from "axios";
 import {
+  AssetFilters,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Book,
+  BookFilters,
   CentralIdentityLicense,
   CentralIdentityOrg,
   ConductorBaseResponse,
@@ -144,29 +146,28 @@ class API {
   }
 
   // Search
-  async conductorSearch({
-    searchQuery,
-    projLocation,
-    projStatus,
-    projVisibility,
-    projSort,
-    bookSort,
-    hwSort,
-    userSort,
-    activePage,
-    limit,
-  }: {
-    searchQuery?: string;
-    projLocation?: string;
-    projStatus?: string;
-    projVisibility?: string;
-    projSort?: string;
-    bookSort?: string;
-    hwSort?: string;
-    userSort?: string;
-    activePage?: number;
-    limit?: number;
-  }) {
+  async conductorSearch(
+    params?: {
+      searchQuery?: string;
+      projLocation?: string;
+      projStatus?: string;
+      projSort?: string;
+      bookSort?: string;
+      hwSort?: string;
+      userSort?: string;
+      booksPage?: number;
+      booksLimit?: number;
+      assetsPage?: number;
+      assetsLimit?: number;
+      projectsPage?: number;
+      projectsLimit?: number;
+      homeworkPage?: number;
+      homeworkLimit?: number;
+      usersPage?: number;
+      usersLimit?: number;
+    } & AssetFilters &
+      BookFilters
+  ) {
     const res = await axios.get<
       {
         numResults: number;
@@ -179,18 +180,7 @@ class API {
         };
       } & ConductorBaseResponse
     >("/search", {
-      params: {
-        searchQuery,
-        projLocation,
-        projStatus,
-        projVisibility,
-        projSort,
-        bookSort,
-        hwSort,
-        userSort,
-        activePage,
-        limit,
-      },
+      params,
     });
     return res;
   }
