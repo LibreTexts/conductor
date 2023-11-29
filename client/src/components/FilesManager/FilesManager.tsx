@@ -64,13 +64,13 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     width: SemanticWIDTHS;
     collapsing?: boolean;
   }[] = [
-    { key: "name", text: "Name", width: 6 },
+    { key: "name", text: "Name", width: 5 },
     { key: "access", text: "Access", width: 2 },
     { key: "license", text: "License", width: 2 },
     { key: "size", text: "Size", width: 1 },
     { key: "uploaded", text: "Created/Uploaded", width: 3 },
     { key: "tags", text: "Tags", width: 6 },
-    { key: "download", text: "", width: 1, collapsing: true },
+    { key: "download", text: "", width: 3, collapsing: true },
   ];
 
   // Global Error Handling
@@ -599,16 +599,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                               </span>
                             )}
                           </div>
-                          {canViewDetails && (
-                            <Button
-                              icon="edit"
-                              size="small"
-                              basic
-                              circular
-                              title="Edit name or description"
-                              onClick={() => handleEditFile(item.fileID)}
-                            />
-                          )}
                         </div>
                       </Table.Cell>
                       <Table.Cell>{getFilesAccessText(item.access)}</Table.Cell>
@@ -616,8 +606,8 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         {getFilesLicenseText(item.license)}
                       </Table.Cell>
                       <Table.Cell>
-                        {item.storageType === "file" &&
-                          fileSizePresentable(item.size)}
+                        {item.storageType === "file" ?
+                          fileSizePresentable(item.size) : "N/A"}
                       </Table.Cell>
                       <Table.Cell>
                         {item.createdDate && (
@@ -630,7 +620,15 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       <Table.Cell>
                         <RenderAssetTags file={item} />
                       </Table.Cell>
-                      <Table.Cell textAlign="center">
+                      <Table.Cell className="flex flex-row justify-end">
+                      {canViewDetails && (
+                            <Button
+                              icon="edit"
+                              size="small"
+                              title="Edit name or description"
+                              onClick={() => handleEditFile(item.fileID)}
+                            />
+                          )}
                         {item.storageType === "file" && (
                           <Button
                             icon
