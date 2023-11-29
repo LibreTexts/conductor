@@ -217,7 +217,7 @@ const Search = () => {
           searchQuery: query,
           projLocation: projLoc,
           projStatus: projStatus,
-          projVisibility: projVis,
+          //projVisibility: projVis,
           projSort: projSortChoice,
           bookSort: bookSortChoice,
           hwSort: homeworkSortChoice,
