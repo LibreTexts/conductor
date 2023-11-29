@@ -34,6 +34,7 @@ import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import URLFileIFrame from "./URLFileIFrame";
 import URLFileHyperlink from "./URLFileHyperlink";
+import { useTypedSelector } from "../../state/hooks";
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
 interface EditFileProps extends ModalProps {
@@ -56,6 +57,7 @@ const EditFile: React.FC<EditFileProps> = ({
 
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
+  const org = useTypedSelector((state) => state.org);
   const {
     control,
     getValues,
@@ -115,8 +117,8 @@ const EditFile: React.FC<EditFileProps> = ({
   // Effects
   useEffect(() => {
     if (show) {
-      loadFile();
       loadLicenseOptions();
+      loadFile();
     }
   }, [show]);
 
@@ -183,8 +185,28 @@ const EditFile: React.FC<EditFileProps> = ({
       setIsFolder(fileData.storageType !== "file");
       _checkShouldShowPreview(fileData);
       if (fileData.storageType === "file") {
+        checkCampusDefault(); // We want to make sure the file is loaded before checking for campus default and updating tags (if applicable)
         loadFileURL(); // Don't await this, we don't want to block the rest of the load
       }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * Loads the default framework for the campus, if one exists.
+   */
+  async function checkCampusDefault() {
+    try {
+      setLoading(true);
+      const res = await api.getCampusDefaultFramework(org.orgID);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.framework) return;
+      setSelectedFramework(res.data.framework);
     } catch (err) {
       handleGlobalError(err);
     } finally {
