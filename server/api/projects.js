@@ -47,6 +47,7 @@ import {
     isFileInterfaceAccess,
     generateZIPFile,
     retrieveSingleProjectFile,
+    validateDefaultFileLicense,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -630,6 +631,10 @@ async function updateProject(req, res) {
       updateObj.associatedOrgs = req.body.associatedOrgs;
     }
 
+    if(req.body.hasOwnProperty('defaultFileLicense')) {
+      updateObj.defaultFileLicense = req.body.defaultFileLicense;
+    }
+    
     if (Object.keys(updateObj).length > 0) {
       const updateRes = await Project.updateOne({ projectID }, updateObj);
       if (updateRes.modifiedCount !== 1) {
@@ -2591,6 +2596,9 @@ const autoGenerateProjects = (newBooks) => {
       });
     }
 
+    // Set the file license to the project default if it exists
+    const licenseObj = project.defaultFileLicense || undefined;
+
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) {
       throw (new Error('retrieveerror'));
@@ -2638,6 +2646,7 @@ const autoGenerateProjects = (newBooks) => {
           downloadCount: 0,
           storageType: 'file',
           parent,
+          license: licenseObj,
         });
       });
       await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
@@ -2653,7 +2662,7 @@ const autoGenerateProjects = (newBooks) => {
         storageType: 'file',
         parent,
         access: accessSetting,
-        license: {
+        license: licenseObj ? {...licenseObj, sourceURL: req.body.fileURL} : {
           sourceURL: req.body.fileURL, // Set Source url as url
         }
       })
@@ -3839,6 +3848,7 @@ const validate = (method) => {
           body('adaptURL', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateADAPTCourseURL),
           body('cidDescriptors', conductorErrors.err1).optional().custom(validateCIDDescriptors),
           body('associatedOrgs', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
+          body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
       ]
     case 'getProject':
       return [
