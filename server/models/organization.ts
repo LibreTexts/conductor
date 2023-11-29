@@ -20,6 +20,7 @@ export interface OrganizationInterface extends Document {
   defaultProjectLead?: string;
   addToLibreGridList?: boolean;
   catalogMatchingTags?: string[];
+  defaultAssetTagFrameworkUUID?: string;
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -114,11 +115,22 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Tags on LibreTexts books used to associate them with the organization.
      */
     catalogMatchingTags: [String],
+    /**
+     * The default Asset Tag Framework for the Organization.
+     */
+    defaultAssetTagFrameworkUUID: String,
   },
   {
     timestamps: true,
   }
 );
+
+OrganizationSchema.virtual("defaultAssetTagFramework", {
+  ref: "AssetTagFramework",
+  localField: "defaultAssetTagFrameworkUUID",
+  foreignField: "uuid",
+  justOne: true,
+});
 
 const Organization = model<OrganizationInterface>(
   "Organization",

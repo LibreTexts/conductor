@@ -35,6 +35,7 @@ import orgEventsAPI from './api/orgevents.js';
 import paymentsAPI from './api/payments.js';
 import * as ProjectValidators from './api/validators/projects.js';
 import * as SearchValidators from './api/validators/search.js';
+import * as AssetTagFrameworkValidators from './api/validators/assettagframeworks.js';
 
 const router = express.Router();
 
@@ -318,6 +319,11 @@ router.route('/assettagframeworks').get(
   assetTagFrameworkAPI.validate('createFramework'),
   middleware.checkValidationErrors,
   assetTagFrameworkAPI.createFramework,
+);
+
+router.route('/assettagframeworks/campusdefault/:orgID').get(
+  middleware.validateZod(AssetTagFrameworkValidators.getCampusDefaultFrameworkValidator),
+  assetTagFrameworkAPI.getCampusDefaultFramework,
 );
 
 router.route('/assettagframeworks/:uuid').get(

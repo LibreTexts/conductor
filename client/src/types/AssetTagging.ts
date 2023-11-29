@@ -49,6 +49,10 @@ export interface AssetTagFramework extends MongoBaseDocument {
   templates: AssetTagTemplate[];
 }
 
+export interface AssetTagFrameworkWithCampusDefault extends AssetTagFramework {
+  isCampusDefault?: boolean;
+}
+
 export const AssetTagTemplateValueTypeOptions: GenericKeyTextValueObj<string>[] =
   [
     {

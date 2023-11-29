@@ -70,6 +70,7 @@ import {
   AssetTagKey,
   AssetTagTemplate,
   AssetTagFramework,
+  AssetTagFrameworkWithCampusDefault,
   AssetTagTemplateValueType,
   AssetTagTemplateValueTypeOptions,
 } from "./AssetTagging"
@@ -81,6 +82,7 @@ export type {
   AssetTagTemplate,
   AssetTagTemplateValueType,
   AssetTagFramework,
+  AssetTagFrameworkWithCampusDefault,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
