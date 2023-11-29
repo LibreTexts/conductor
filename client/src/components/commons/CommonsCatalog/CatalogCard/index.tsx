@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
 import { Card, CardProps } from "semantic-ui-react";
-import { Book, ProjectFileWProjectID } from "../../../../types";
-import { isBook } from "../../../../utils/typeHelpers";
+import { Book, Project, ProjectFileWProjectID } from "../../../../types";
+import { isBook, isProject } from "../../../../utils/typeHelpers";
 import BookCardContent from "./BookCardContent";
 import FileCardContent from "./FileCardContent";
 import { downloadFile } from "../../../../utils/assetHelpers";
 import useGlobalError from "../../../error/ErrorHooks";
 import "../../Commons.css";
+import ProjectCardContent from "./ProjectCardContent";
 
 interface CatalogCardProps extends CardProps {
-  item: Book | ProjectFileWProjectID;
+  item: Book | ProjectFileWProjectID | Project;
 }
 
 const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
@@ -36,6 +37,19 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
         {...props}
       >
         <BookCardContent book={item} />
+      </Card>
+    );
+  }
+
+  if (isProject(item)) {
+    return (
+      <Card
+        as={Link}
+        to={`/project/${item.projectID}`}
+        className="commons-content-card"
+        {...props}
+      >
+        <ProjectCardContent project={item} />
       </Card>
     );
   }

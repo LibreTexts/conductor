@@ -1,9 +1,10 @@
 import { RefObject } from "react";
-import { Book, ProjectFileWProjectID } from "../../../types";
+import { Book, Project, ProjectFileWProjectID } from "../../../types";
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 
-const VisualMode = ({ items }: { items: (Book | ProjectFileWProjectID)[] }) => {
+const VisualMode = ({ items }: { items: (Book | ProjectFileWProjectID | Project)[] }) => {
+  console.log(items)
   return (
     <div className="commons-content-card-grid">
       {items.map((item, index) => (
