@@ -196,6 +196,17 @@ class API {
   }
 
   //Projects
+  async getPublicProjects(params?: { page?: number; limit?: number }) {
+    const res = await axios.get<
+      {
+        projects: Project[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/projects/public", {
+      params,
+    });
+    return res;
+  }
   async getProject(projectID: string) {
     const res = await axios.get("/project", {
       params: {
@@ -281,6 +292,7 @@ class API {
     const res = await axios.get<
       {
         files: ProjectFileWProjectID[];
+        totalCount: number;
       } & ConductorBaseResponse
     >("/projects/files/public", {
       params,

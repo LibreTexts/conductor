@@ -1235,6 +1235,38 @@ const getProjectsUnderDevelopment = (req, res) => {
 };
 
 /**
+ * Retrieves a list of public Projects with 'public' visibility.
+ * @param {express.Request} req - Incoming request object. 
+ * @param {express.Response} res - Outgoing response object.
+ * @returns 
+ */
+async function getPublicProjects(req, res) {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = getPaginationOffset(page, limit);
+
+    const projects = await Project.find({
+      visibility: "public",
+    }).lean();
+
+    const totalCount = projects.length;
+    const paginatedProjects = projects.slice(offset, offset + limit);
+    return res.send({
+      err: false,
+      projects: paginatedProjects,
+      totalCount,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
  * Retrieves a list of Users that can be added to a Project team.
  *
  * @param {express.Request} req - Incoming request object. 
@@ -3356,11 +3388,15 @@ async function getPublicProjectFiles(req, res) {
             files: 1,
           },
         },
-    ]).skip(offset).limit(limit);
+    ])
+
+    const files = aggRes[0]?.files ?? [];
+    const paginatedFiles = files.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      files: aggRes[0]?.files ?? [],
+      files: paginatedFiles,
+      totalCount: files.length,
     });
   } catch (e) {
     debugError(e);
@@ -4006,6 +4042,7 @@ export default {
     getAvailableProjects,
     getCompletedProjects,
     getProjectsUnderDevelopment,
+    getPublicProjects,
     getAddableMembers,
     addMemberToProject,
     getProjectTeam,
