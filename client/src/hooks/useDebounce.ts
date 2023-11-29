@@ -7,7 +7,7 @@ const useDebounce = () => {
     (func: Function, wait: number = 0) =>
     (...args: any[]) => {
       clearTimeout(timeout.current);
-      timeout.current = setTimeout(() => func(...args), wait);
+      timeout.current = window.setTimeout(() => func(...args), wait);
     };
 
   useEffect(() => {
