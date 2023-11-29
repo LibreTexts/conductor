@@ -23,7 +23,7 @@ import {
   ProjectTag,
   ProjectClassification,
   ProjectStatus,
-  CIDDescriptor
+  CIDDescriptor,
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
@@ -66,7 +66,7 @@ import {
   CentralIdentityApp,
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
-  CentralIdentityLicense
+  CentralIdentityLicense,
 } from "./CentralIdentity";
 
 import {
@@ -94,10 +94,13 @@ import {
   AssetTagFrameworkWithCampusDefault,
   AssetTagTemplateValueType,
   AssetTagTemplateValueTypeOptions,
-} from "./AssetTagging"
+} from "./AssetTagging";
+
+import { AssetFilters, BookFilters } from "./Search";
 
 export type {
   AtlasSearchHighlight,
+  AssetFilters,
   AssetTag,
   AssetTagWithKey,
   AssetTagKey,
@@ -105,6 +108,7 @@ export type {
   AssetTagTemplateValueType,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
+  BookFilters,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
