@@ -30,6 +30,7 @@ import {
 import {
   retrieveProjectFiles,
   downloadProjectFile,
+  addTeamToWorkbench,
 } from "../util/projectutils.js";
 import { buildPeerReviewAggregation } from "../util/peerreviewutils.js";
 import {
@@ -1410,37 +1411,6 @@ async function createBook(
       addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
     ]);
 
-    // const CXOneUser = await getLibUser("bot@libretexts.org", subdomain);
-    // if (!CXOneUser) {
-    //   throw new Error("CXOne user not found");
-    // }
-
-    // const developerGroup = await getDeveloperGroup(subdomain);
-    // if (!developerGroup) {
-    //   throw new Error("Developer group not found");
-    // }
-
-    // const permsRes = await CXOneFetch({
-    //   scope: "page",
-    //   path: bookPath,
-    //   api: MindTouch.API.Page.PUT_Security,
-    //   subdomain,
-    //   options: {
-    //     method: "PUT",
-    //     headers: { "Content-Type": "application/xml; charset=utf-8" },
-    //     body: MindTouch.Templates.PUT_SetSemiPrivatePermissions(
-    //       CXOneUser.id,
-    //       developerGroup.id
-    //     ),
-    //   },
-    // });
-
-    // if (!permsRes.ok) {
-    //   throw new Error(
-    //     `Error updating permissions for Workbench book: "${title}"`
-    //   );
-    // }
-
     const imageRes = await fetch(`${defaultImagesURL}/default.png`);
     const defaultBookImage = await imageRes.blob();
     await CXOneFetch({
@@ -1513,6 +1483,17 @@ async function createBook(
     project.libreCoverID = newBookID;
     project.didCreateWorkbench = true;
     await project.save();
+
+    const permsUpdated = await addTeamToWorkbench(
+      projectID,
+      subdomain,
+      newBookID
+    );
+
+    if(!permsUpdated) {
+      console.log(`[createBook] Failed to update permissions for ${projectID}.`) // Silent fail
+    }
+
 
     console.log(`[createBook] Created ${bookPath}.`);
     return res.send({

@@ -160,7 +160,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
       );
     } else {
       const { path, api } = params;
-      const isNumber = typeof path === "number" && !isNaN(path);
+      const isNumber = !isNaN(Number(path));
       const queryIsFirst = api.includes("?") ? false : true;
       const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
         isNumber ? "" : "="
@@ -168,10 +168,13 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
+      console.log(url)
       request = fetch(url, finalOptions);
     }
 
     const result = await request;
+    const temp = result.clone();
+    console.log(await temp.json())
     if (!result.ok && !silentFail) {
       throw new Error(
         `Error fetching ${

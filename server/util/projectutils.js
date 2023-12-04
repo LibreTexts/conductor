@@ -16,6 +16,9 @@ import User from "../models/user.js";
 import base64 from "base-64";
 import projectsAPI from "../api/projects.js";
 import usersAPI from "../api/users.js";
+import projects from "../api/projects.js";
+import { CXOneFetch, getLibUsers } from "./librariesclient.js";
+import MindTouch from "./CXOne/index.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -649,5 +652,57 @@ export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
   } catch (err) {
     debugError(err);
     return true;
+  }
+}
+
+export async function addTeamToWorkbench(projectID, subdomain, coverID) {
+  try {
+    if (!projectID) {
+      throw new Error("Invalid projectID passed to addTeamToWorkbench");
+    }
+
+    const project = await Project.findOne({ projectID }).orFail();
+    const team = [
+      ...project.leads,
+      ...project.liaisons,
+      ...project.members,
+      ...project.auditors,
+    ];
+
+    const conductorUsers = await User.find({ uuid: { $in: team } });
+    const centralIDs = conductorUsers
+      .filter((user) => user.centralID)
+      .map((user) => user.centralID.toString());
+
+    const libUsers = await getLibUsers(subdomain);
+    const foundUsers = libUsers.filter((u) =>
+      centralIDs.includes(u.username.toString())
+    );
+
+    const permsRes = await CXOneFetch({
+      scope: "page",
+      path: coverID,
+      api: MindTouch.API.Page.POST_Security,
+      subdomain,
+      options: {
+        method: "POST",
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: MindTouch.Templates.POST_GrantContributorRole(
+          foundUsers.map((u) => u.id)
+        ),
+      },
+      query: {
+        cascade: "delta",
+      },
+    });
+
+    if (!permsRes.ok) {
+      throw new Error(
+        `Error updating permissions for Workbench book: "${title}"`
+      );
+    }
+  } catch (err) {
+    debugError(err);
+    return false;
   }
 }
