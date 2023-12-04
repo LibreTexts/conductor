@@ -50,7 +50,8 @@ import {
   getDeveloperGroup,
   getLibUser,
   getPageID,
-} from "../util/LibrariesClient.js";
+  getSubdomainFromLibrary,
+} from "../util/librariesclient.js";
 import MindTouch from "../util/CXOne/index.js";
 import { conductor500Err } from "../util/errorutils.js";
 import { ZodReqWithUser } from "../types/Express.js";
@@ -1370,11 +1371,16 @@ async function createBook(
   res: Response
 ) {
   try {
-    const { subdomain, title, projectID } = req.body;
+    const { library, title, projectID } = req.body;
     const { uuid: userID } = req.user.decoded;
 
     const user = await User.findOne({ uuid: userID }).orFail();
     const project = await Project.findOne({ projectID }).orFail();
+
+    const subdomain = getSubdomainFromLibrary(library);
+    if(!subdomain) {
+      throw new Error("Invalid library");
+    }
 
     // Create book coverpage
     const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
@@ -1387,8 +1393,14 @@ async function createBook(
         method: "POST",
         body: MindTouch.Templates.POST_CreateBook,
       },
+      query: { abort: 'exists'}
+    }).catch((e) => {
+      const err = new Error(conductorErrors.err86);
+      err.name = "CreateBookError";
+      throw err;
     });
 
+    // createBookRes didn't throw, but didn't return a successful response
     if (!createBookRes.ok) {
       throw new Error(`Error creating Workbench book: "${title}"`);
     }
@@ -1398,39 +1410,36 @@ async function createBook(
       addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
     ]);
 
-    //TODO: Use real user email
-    const CXOneUser = await getLibUser("bot@libretexts.org", subdomain);
-    console.log(CXOneUser);
-    if (!CXOneUser) {
-      throw new Error("CXOne user not found");
-    }
+    // const CXOneUser = await getLibUser("bot@libretexts.org", subdomain);
+    // if (!CXOneUser) {
+    //   throw new Error("CXOne user not found");
+    // }
 
-    const developerGroup = await getDeveloperGroup(subdomain);
-    console.log(developerGroup);
-    if (!developerGroup) {
-      throw new Error("Developer group not found");
-    }
+    // const developerGroup = await getDeveloperGroup(subdomain);
+    // if (!developerGroup) {
+    //   throw new Error("Developer group not found");
+    // }
 
-    const permsRes = await CXOneFetch({
-      scope: "page",
-      path: bookPath,
-      api: MindTouch.API.Page.PUT_Security,
-      subdomain,
-      options: {
-        method: "PUT",
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-        body: MindTouch.Templates.PUT_SetSemiPrivatePermissions(
-          CXOneUser.id,
-          developerGroup.id
-        ),
-      },
-    });
+    // const permsRes = await CXOneFetch({
+    //   scope: "page",
+    //   path: bookPath,
+    //   api: MindTouch.API.Page.PUT_Security,
+    //   subdomain,
+    //   options: {
+    //     method: "PUT",
+    //     headers: { "Content-Type": "application/xml; charset=utf-8" },
+    //     body: MindTouch.Templates.PUT_SetSemiPrivatePermissions(
+    //       CXOneUser.id,
+    //       developerGroup.id
+    //     ),
+    //   },
+    // });
 
-    if (!permsRes.ok) {
-      throw new Error(
-        `Error updating permissions for Workbench book: "${title}"`
-      );
-    }
+    // if (!permsRes.ok) {
+    //   throw new Error(
+    //     `Error updating permissions for Workbench book: "${title}"`
+    //   );
+    // }
 
     const imageRes = await fetch(`${defaultImagesURL}/default.png`);
     const defaultBookImage = await imageRes.blob();
@@ -1513,6 +1522,12 @@ async function createBook(
     });
   } catch (err) {
     debugError(err);
+    if(err.name === "CreateBookError") {
+      return res.status(400).send({
+        err: true,
+        errMsg: err.message,
+      });
+    }
     return conductor500Err(res);
   }
 }
@@ -2217,7 +2232,7 @@ const retrieveKBExport = (_req: Request, res: Response) => {
 
 const createBookSchema = z.object({
   body: z.object({
-    subdomain: z.string().min(1).max(255),
+    library: z.string().min(1).max(255),
     title: z.string().min(1).max(255),
     projectID: z.string().length(10),
   }),

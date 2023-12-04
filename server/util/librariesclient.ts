@@ -130,11 +130,12 @@ export async function generateAPIRequestHeaders(
  * @param {string} subdomain - subdomain that the target page belongs to
  * @param {string} username - the user that is performing this request
  * @param {Object} [options={}] - optional options that will be passed to fetch()
+ * @param {Object} [query={}] - optional query parameters that will be appended to the request url
  * @param {boolean} [silentFail=false] - if true, will not throw an error if the fetch fails
  */
 export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
   try {
-    const { scope, subdomain, options, silentFail } = params;
+    const { scope, subdomain, options, query, silentFail } = params;
 
     const generatedHeaders = await generateAPIRequestHeaders(subdomain);
     if (!generatedHeaders) {
@@ -145,22 +146,28 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
     let request;
     if (scope === "groups") {
       request = fetch(
-        `https://${subdomain}.libretexts.org/@api/deki/groups?dream.out.format=json`,
+        `https://${subdomain}.libretexts.org/@api/deki/groups?dream.out.format=json${_parseQuery(
+          query
+        )}`,
         finalOptions
       );
     } else if (scope === "users") {
       request = fetch(
-        `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json`,
+        `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json${_parseQuery(
+          query
+        )}`,
         finalOptions
       );
     } else {
       const { path, api } = params;
       const isNumber = typeof path === "number" && !isNaN(path);
-      console.log(finalOptions);
+      const queryIsFirst = api.includes("?") ? false : true;
       const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${
         isNumber ? "" : "="
-      }${encodeURIComponent(encodeURIComponent(path))}/${api}`;
-      console.log(url);
+      }${encodeURIComponent(encodeURIComponent(path))}/${api}${_parseQuery(
+        query,
+        queryIsFirst
+      )}`;
       request = fetch(url, finalOptions);
     }
 
@@ -246,8 +253,6 @@ export async function getPageID(
 ): Promise<string | null> {
   try {
     const res = await getPage(path, subdomain);
-    console.log('PAGE INFO');
-    console.log(res);
     if (!res) {
       throw new Error(`Error retrieving page ID for ${path}.`);
     }
@@ -386,6 +391,22 @@ function _optionsMerge(
 }
 
 /**
+ *
+ * @param {object} query - Object containing query parameters
+ * @param {boolean} first - Whether or not this is the first query parameter (defaults to false)
+ * @returns {string} - An encoded query string (e.g. '&key=value&key2=value2' or '?key=value&key2=value2' if first is true)
+ */
+function _parseQuery(query?: Record<string, any>, first = false) {
+  if (!query) return "";
+
+  const searchParams = new URLSearchParams();
+  for (const key in query) {
+    searchParams.append(key, query[key]);
+  }
+  return `${first ? "?" : "&"}${searchParams.toString()}`;
+}
+
+/**
  * Returns a tuple containing the CXOne path and URL of a book.
  * @param subdomain - The subdomain of the library
  * @param title - The title of the book
@@ -402,4 +423,16 @@ export const generateBookPathAndURL = (
 
 export const generateChapterOnePath = (bookPath: string): string => {
   return `${bookPath}/01:_First_Chapter`;
+};
+
+export const getSubdomainFromLibrary = (library: string): string | null => {
+  // TODO: get full list
+  if (library === "chem") return "chem";
+  if (library === "phys") return "phys";
+  if (library === "bio") return "bio";
+  if (library === "eng") return "eng";
+  if (library === "math") return "math";
+  if (library === "stats") return "stats";
+  if (library === "dev") return "dev";
+  return null;
 };

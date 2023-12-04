@@ -80,6 +80,7 @@ const conductorErrors = {
     "err83": "Oops, a fee waiver with that name already exists for this event.",
     "err84": "Unable to create new coverpage.",
     "err85": "Unable to create chapter.",
+    "err86": "Unable to create book. Please check that your book title is unique and try again.",
 };
 
 export default conductorErrors;

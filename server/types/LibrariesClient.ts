@@ -3,6 +3,7 @@ import { SSMClient } from "@aws-sdk/client-ssm";
 type CXOneFetchBase = {
   subdomain: string;
   options?: Record<string, any>;
+  query?: Record<string, any>;
   silentFail?: boolean;
 };
 
