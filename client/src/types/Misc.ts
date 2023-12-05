@@ -1,4 +1,5 @@
 import { ITimezoneOption } from "react-timezone-select";
+import { ProjectFile } from "./Project";
 
 export type GenericKeyTextValueObj<T> = {
   key: string;
@@ -11,7 +12,7 @@ export type TimeZoneOption = ITimezoneOption;
 export type AtlasSearchHighlight = {
   path: string;
   score: number;
-  texts: { value: string, type: 'hit' | 'text' }[];
+  texts: { value: string; type: "hit" | "text" }[];
 };
 
 export type MongoBaseDocument = {
@@ -22,3 +23,9 @@ export type MongoBaseDocument = {
 export type ConductorBaseResponse =
   | { err: false }
   | { err: true; errMsg: string };
+
+export type _MoveFile = Pick<ProjectFile, "fileID" | "name" | "storageType" | "description">;
+export type _MoveFileWithChildren = _MoveFile & {
+  children: _MoveFileWithChildren[];
+  disabled: boolean;
+};
