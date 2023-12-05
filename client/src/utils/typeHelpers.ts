@@ -148,11 +148,6 @@ export const isKBPageEditor = (obj: any): obj is KBPageEditor => {
   return "firstName" in obj && "lastName" in obj && "avatar" in obj;
 };
 
-export const isKBPageEditor = (obj: any): obj is KBPageEditor => {
-  if (!obj) return false;
-  return "firstName" in obj && "lastName" in obj && "avatar" in obj;
-};
-
 export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
   return (
     "uuid" in value &&
