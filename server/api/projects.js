@@ -1269,16 +1269,43 @@ async function getAddableMembers(req, res) {
 
     const users = await User.aggregate([
       {
-        $match: {...matchObj}
-      }, {
+        $match: { ...matchObj },
+      },
+      {
+        $lookup: {
+          from: "organizations",
+          localField: "roles.0.org",
+          foreignField: "orgID",
+          as: "organization",
+        },
+      },
+      {
+        $addFields: {
+          primaryOrg: {
+            $arrayElemAt: ["$organization", 0],
+          },
+        },
+      },
+      {
         $project: {
           _id: 0,
           uuid: 1,
           firstName: 1,
           lastName: 1,
           avatar: 1,
+          primaryOrg: {
+            shortName: 1
+          },
+          document: "$$ROOT" // Include both current and new fields so we can get the primaryOrg field we added
+          // https://stackoverflow.com/questions/20497499/mongodb-project-retain-previous-pipeline-fields
         },
-      }, {
+      },
+      {
+        $project: {
+          document: 0 // Remove the document field before returning the results
+        }
+      },
+      {
         $sort: { firstName: -1 },
       },
     ]);

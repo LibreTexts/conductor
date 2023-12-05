@@ -86,10 +86,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       }
 
       const newOptions: TeamUserOpt[] = [];
-      res.data.users.forEach((item: User) => {
+      res.data.users.forEach((item: User & {primaryOrg?: {shortName?: string}}) => {
         newOptions.push({
           key: item.uuid,
-          text: `${item.firstName} ${item.lastName}`,
+          text: `${item.firstName} ${item.lastName} ${item.primaryOrg && item.primaryOrg.shortName ? `(${item.primaryOrg.shortName})` : ""}`,
           value: item.uuid,
           image: {
             avatar: true,
