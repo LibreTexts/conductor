@@ -412,7 +412,7 @@ async function _uploadTicketAttachments(
       const contentType = file.mimetype || "application/octet-stream";
       uploadCommands.push(
         new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET_NAME,
+          Bucket: process.env.AWS_SUPPORTFILES_BUCKET,
           Key: fileKey,
           Body: file.buffer,
           ContentDisposition: `attachment; filename="${fileUUID}"`,
