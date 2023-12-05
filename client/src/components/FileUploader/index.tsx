@@ -11,6 +11,7 @@ interface FileUploaderProps
   > {
   multiple?: boolean;
   maxFiles?: number;
+  disabled?: boolean;
   onUpload: (files: FileList) => void;
 }
 
@@ -21,6 +22,7 @@ interface FileUploaderProps
 const FileUploader: React.FC<FileUploaderProps> = ({
   multiple = false,
   maxFiles = 1,
+  disabled = false,
   onUpload,
   ...props
 }) => {
@@ -129,6 +131,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         id={styles.uploader_input}
         multiple={multiple}
         onChange={handleInputChange}
+        disabled={disabled}
       />
       <label
         id={styles.uploader_label}
@@ -137,11 +140,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       >
         <Icon name="upload" size="big" />
         <p id={styles.uploader_instructions}>Drag and drop your file or</p>
-        <Button onClick={handleUploadClick} color="blue">
+        <Button onClick={handleUploadClick} color="blue" disabled={disabled}>
           Select file(s)
         </Button>
       </label>
-      {dragActive && (
+      {!disabled && dragActive && (
         <div
           id={styles.uploader_drag_area}
           onDragEnter={handleFileDrag}
