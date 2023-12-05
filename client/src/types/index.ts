@@ -9,7 +9,11 @@ import {
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
-import { GenericKeyTextValueObj, TimeZoneOption } from "./Misc";
+import {
+  GenericKeyTextValueObj,
+  TimeZoneOption,
+  AtlasSearchHighlight,
+} from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
 import {
@@ -61,7 +65,24 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "./CentralIdentity";
 
+import {
+  KBPage,
+  KBPageEditor,
+  KBTreeNode,
+  KBSearchResult,
+  KBFeaturedPage,
+  KBFeaturedVideo,
+  KBFeaturedContent,
+} from "./kb";
+
+import {
+  SupportTicketGuest,
+  SupportTicket,
+  SupportTicketMessage,
+} from "./support";
+
 export type {
+  AtlasSearchHighlight,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,
@@ -110,6 +131,16 @@ export type {
   CustomFormTextBlock,
   CustomFormUIType,
   CustomFormElement,
+  KBPage,
+  KBPageEditor,
+  KBTreeNode,
+  KBSearchResult,
+  KBFeaturedPage,
+  KBFeaturedVideo,
+  KBFeaturedContent,
+  SupportTicketGuest,
+  SupportTicket,
+  SupportTicketMessage,
 };
 
 export {

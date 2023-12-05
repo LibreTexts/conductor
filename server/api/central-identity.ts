@@ -29,8 +29,6 @@ import {
 } from "../types";
 import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
 
-const centralIdentityAxios = useCentralIdentityAxios();
-
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
   res: Response<{
@@ -50,7 +48,7 @@ async function getUsers(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const usersRes = await centralIdentityAxios.get("/users", {
+    const usersRes = await useCentralIdentityAxios(false).get("/users", {
       params: {
         offset,
         limit,
@@ -82,7 +80,7 @@ async function getUser(
       return conductor400Err(res);
     }
 
-    const userRes = await centralIdentityAxios.get(`/users/${req.params.id}`);
+    const userRes = await useCentralIdentityAxios(false).get(`/users/${req.params.id}`);
 
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
@@ -107,7 +105,7 @@ async function updateUser(
       return conductor400Err(res);
     }
 
-    const userRes = await centralIdentityAxios.patch(
+    const userRes = await useCentralIdentityAxios(false).patch(
       `/users/${req.params.id}`,
       req.body
     );
@@ -131,7 +129,7 @@ async function getUserApplications(
   res: Response<{ err: boolean; applications: CentralIdentityApp[] }>
 ) {
   try {
-    const appsRes = await centralIdentityAxios.get(
+    const appsRes = await useCentralIdentityAxios(false).get(
       `/users/${req.params.id}/applications`
     );
 
@@ -154,7 +152,7 @@ async function getUserOrgs(
   res: Response<{ err: boolean; orgs: CentralIdentityOrg[] }>
 ) {
   try {
-    const orgsRes = await centralIdentityAxios.get(
+    const orgsRes = await useCentralIdentityAxios(false).get(
       `/users/${req.params.id}/organizations`
     );
 
@@ -184,7 +182,7 @@ async function addUserApplications(
       id.toString()
     );
     const promiseArr = parsedIds.map((id) =>
-      centralIdentityAxios.post(`/users/${req.params.id}/applications`, {
+    useCentralIdentityAxios(false).post(`/users/${req.params.id}/applications`, {
         application_id: id,
       })
     );
@@ -214,7 +212,7 @@ async function deleteUserApplication(
   res: Response<{ err: boolean }>
 ) {
   try {
-    const appRes = await centralIdentityAxios.delete(
+    const appRes = await useCentralIdentityAxios(false).delete(
       `/users/${
         req.params.id
       }/applications/${req.params.applicationId?.toString()}`
@@ -240,7 +238,7 @@ async function addUserOrgs(
   try {
     const parsedIds: string[] = req.body.orgs.map((id) => id.toString());
     const promiseArr = parsedIds.map((id) =>
-      centralIdentityAxios.post(`/users/${req.params.id}/organizations`, {
+    useCentralIdentityAxios(false).post(`/users/${req.params.id}/organizations`, {
         organization_id: id,
       })
     );
@@ -270,7 +268,7 @@ async function deleteUserOrg(
   res: Response<{ err: boolean }>
 ) {
   try {
-    const orgRes = await centralIdentityAxios.delete(
+    const orgRes = await useCentralIdentityAxios(false).delete(
       `/users/${req.params.id}/organizations/${req.params.orgId?.toString()}`
     );
 
@@ -287,7 +285,7 @@ async function deleteUserOrg(
   }
 }
 
-async function getApplications(
+async function getApplicationsPriveledged(
   req: TypedReqQuery<{ activePage?: number }>,
   res: Response<{
     err: boolean;
@@ -306,11 +304,52 @@ async function getApplications(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const appsRes = await centralIdentityAxios.get("/applications", {
+    const appsRes = await useCentralIdentityAxios(false).get("/applications", {
       params: {
         offset,
         limit,
       },
+    });
+
+    if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
+      return conductor500Err(res);
+    }
+
+    return res.send({
+      err: false,
+      applications: appsRes.data.data,
+      totalCount: appsRes.data.meta.total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getApplicationsPublic(
+  req: TypedReqQuery<{ activePage?: number }>,
+  res: Response<{
+    err: boolean;
+    applications: CentralIdentityApp[];
+    totalCount: number;
+  }>
+) {
+  try {
+    let page = 1;
+    let limit = 25;
+    if (
+      req.query.activePage &&
+      Number.isInteger(parseInt(req.query.activePage.toString()))
+    ) {
+      page = req.query.activePage;
+    }
+    const offset = getPaginationOffset(page, limit);
+
+    const appsRes = await useCentralIdentityAxios().get("/applications", {
+      params: {
+        offset,
+        limit,
+      }
     });
 
     if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
@@ -347,7 +386,7 @@ async function getOrgs(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await centralIdentityAxios.get("/organizations", {
+    const orgsRes = await useCentralIdentityAxios(false).get("/organizations", {
       params: {
         offset,
         limit,
@@ -388,7 +427,7 @@ async function getSystems(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await centralIdentityAxios.get("/organization-systems", {
+    const orgsRes = await useCentralIdentityAxios(false).get("/organization-systems", {
       params: {
         offset,
         limit,
@@ -429,7 +468,7 @@ async function getServices(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await centralIdentityAxios.get("/services", {
+    const orgsRes = await useCentralIdentityAxios(false).get("/services", {
       params: {
         offset,
         limit,
@@ -474,7 +513,7 @@ async function getVerificationRequests(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const requestsRes = await centralIdentityAxios.get(
+    const requestsRes = await useCentralIdentityAxios(false).get(
       "/verification-requests",
       {
         params: {
@@ -492,7 +531,7 @@ async function getVerificationRequests(
     // TODO: This is a temporary fix until the backend is updated to return the user object
     for (const rec of requestsRes.data.data) {
       rec.user = (
-        await centralIdentityAxios.get(`/users/${rec.user_id}`)
+        await useCentralIdentityAxios(false).get(`/users/${rec.user_id}`)
       ).data.data;
     }
 
@@ -515,7 +554,7 @@ async function getVerificationRequest(
   }>
 ) {
   try {
-    const requestRes = await centralIdentityAxios.get(
+    const requestRes = await useCentralIdentityAxios(false).get(
       `/verification-requests/${req.params.id}`
     );
 
@@ -525,7 +564,7 @@ async function getVerificationRequest(
 
     // TODO: This is a temporary fix until the backend is updated to return the user object
     requestRes.data.data.user = (
-      await centralIdentityAxios.get(`/users/${requestRes.data.data.user_id}`)
+      await useCentralIdentityAxios(false).get(`/users/${requestRes.data.data.user_id}`)
     ).data.data;
 
     return res.send({
@@ -548,7 +587,7 @@ async function updateVerificationRequest(
   }>
 ) {
   try {
-    const patch = await centralIdentityAxios.patch(
+    const patch = await useCentralIdentityAxios(false).patch(
       `/verification-requests/${req.params.id}`,
       req.body.request
     );
@@ -649,7 +688,8 @@ export default {
   deleteUserApplication,
   addUserOrgs,
   deleteUserOrg,
-  getApplications,
+  getApplicationsPriveledged,
+  getApplicationsPublic,
   getOrgs,
   getSystems,
   getServices,

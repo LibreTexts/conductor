@@ -9,6 +9,7 @@ import {
   CentralIdentityUser,
   CentralIdentityVerificationRequest,
   Organization,
+  KBPageEditor,
 } from "../types";
 
 export function isCatalogLocation(
@@ -132,4 +133,9 @@ export const isCentralIdentityVerificationRequestProperty = (
 
 export const isOrganization = (obj: any): obj is Organization => {
   return "orgID" in obj && "name" in obj && "domain" in obj;
+};
+
+export const isKBPageEditor = (obj: any): obj is KBPageEditor => {
+  if (!obj) return false;
+  return "firstName" in obj && "lastName" in obj && "avatar" in obj;
 };

@@ -6,7 +6,7 @@ const ONE_AUTH_HEADER = `Basic ${Buffer.from(
 ).toString("base64")}`;
 
 /**
- * @returns {boolean} True if central identity url is set in env
+ * @returns {boolean} True if central identity env variables are set for priveleged requests
  */
 export const centralIdentityConfigured =
   process.env.CENTRAL_IDENTITY_URL &&
@@ -17,15 +17,22 @@ export const centralIdentityConfigured =
   process.env.CENTRAL_IDENTITY_KEY.length > 0;
 
 /**
+ * @returns {boolean} True if central identity env variables are set for public requests
+ */
+export const centralIdentityPublicConfigured =
+  process.env.CENTRAL_IDENTITY_URL &&
+  process.env.CENTRAL_IDENTITY_URL.length > 0;
+
+/**
  *
+ * @param {boolean} publicRequest True if request is public (default true)
  * @returns {AxiosInstance} axios instance with predefined central identity url and auth header
  */
-export function useCentralIdentityAxios() {
+export function useCentralIdentityAxios(publicRequest = true) {
+  const headersObj = publicRequest ? undefined : { authorization: ONE_AUTH_HEADER };
   const axiosInstance = axios.create({
     baseURL: process.env.CENTRAL_IDENTITY_URL,
-    headers: {
-      authorization: ONE_AUTH_HEADER,
-    },
+    headers: headersObj,
   });
 
   return axiosInstance;

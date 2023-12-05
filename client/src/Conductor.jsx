@@ -24,6 +24,10 @@ import HarvestingRequests from './components/controlpanel/HarvestingRequests';
 import HarvestRequest from './components/harvestrequest/HarvestRequest';
 import Home from './screens/conductor/Home';
 import HomeworkManager from './components/controlpanel/HomeworkManager';
+const KnowledgeBase = lazy(() => import('./screens/conductor/kb'));
+const KBPage = lazy(() => import('./screens/conductor/kb/KBPage'));
+const KBCoverPage = lazy(() => import('./screens/conductor/kb/KBCoverPage'));
+const KBSearchResults = lazy(() => import('./screens/conductor/kb/KBSearchResults'));
 const Login = lazy(() => import('./screens/conductor/Login'));
 import ManageEvent from './screens/conductor/controlpanel/EventsManager/ManageEvent';
 import MyAlerts from './components/alerts/MyAlerts';
@@ -49,9 +53,23 @@ const CentralIdentityInstructorVerifications = lazy(() => import('./screens/cond
 const CentralIdentityOrgs = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrgs'));
 const CentralIdentityServices = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityServices'));
 const CentralIdentityUsers = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityUsers'));
+import SupportCenterNavbar from './components/support/Navbar';
+const SupportCenter = lazy(() => import('./screens/conductor/support'));
+const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
+const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
+const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
+import LibreTextsRoute from './components/util/LibreTextsRoute';
+import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
+
+const RenderNavbar = () => {
+  if(window.location.pathname.includes('/insight') || window.location.pathname.includes('/support')){
+    return <SupportCenterNavbar />;
+  }
+  return <Navbar />
+}
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -63,7 +81,7 @@ const Conductor = () => {
 
   return (
     <div className='conductor'>
-      <Navbar />
+      <RenderNavbar />
       <Suspense fallback={<LoadingSpinner />}>
         <Switch>
         <AnonRoute exact path='/login' component={Login} />
@@ -106,11 +124,18 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/usersmanager' component={UsersManager} />
         <PrivateRoute exact path='/controlpanel/usersmanager/:uuid' component={UserDetails} />
         <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
-        {(org.orgID === 'libretexts') && [
-          <Route exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} />,
-        ]}
         <Route exact path='/peerreview/:id' component={PeerReviewPage} />
-
+        {/* LibreTexts org public routes */}
+        <LibreTextsRoute exact path='/harvestrequest' key='harvestrequest' component={HarvestRequest} org={org}/>
+        <LibreTextsRoute exact path='/insight' key='insight' component={KnowledgeBase} org={org}/>
+        <LibreTextsRoute exact path='/insight/search' key='insightsearchresults' component={KBSearchResults} org={org}/>
+        <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
+        <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
+        <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
+        {/* <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} /> */}
+        {/* LibreTexts org private routes */}
+        {/* <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} /> */}
         {/* 404 */}
         <Route component={PageNotFound} />
         </Switch>

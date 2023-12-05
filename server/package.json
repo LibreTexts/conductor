@@ -36,6 +36,7 @@
     "form-data": "^4.0.0",
     "fs-extra": "^10.0.0",
     "helmet": "^4.1.1",
+    "isomorphic-dompurify": "^1.9.0",
     "jose": "^4.14.4",
     "mailgun.js": "^3.5.8",
     "marked": "^4.0.10",
@@ -54,6 +55,8 @@
   },
   "author": "LibreTexts <info@libretexts.org>",
   "devDependencies": {
+    "@types/async": "^3.2.23",
+    "@types/base-64": "^1.0.2",
     "@types/base62-random": "^0.3.0",
     "@types/bluebird": "^3.5.38",
     "@types/cookie-parser": "^1.4.3",
