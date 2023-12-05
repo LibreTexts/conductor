@@ -13,6 +13,8 @@ import {
   GenericKeyTextValueObj,
   TimeZoneOption, MongoBaseDocument, ConductorBaseResponse,
   AtlasSearchHighlight,
+  _MoveFile,
+  _MoveFileWithChildren
 } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
@@ -174,6 +176,8 @@ export type {
   SupportTicket,
   SupportTicketMessage,
   SupportTicketFeedEntry
+  _MoveFile,
+  _MoveFileWithChildren
 };
 
 export {
