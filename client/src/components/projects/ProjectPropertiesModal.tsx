@@ -80,7 +80,14 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       resourceURL: "",
       notes: "",
       associatedOrgs: [],
-      defaultFileLicense: {},
+      defaultFileLicense: {
+        name: "",
+        version: "",
+        url: "",
+        sourceURL: "",
+        modifiedFromSource: false,
+        additionalTerms: "",
+      },
     },
   });
 
