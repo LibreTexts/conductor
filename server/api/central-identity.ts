@@ -586,7 +586,7 @@ async function getLicenses(
   }>
 ){
   try {
-    const licensesRes = await centralIdentityAxios.get('/licenses');
+    const licensesRes = await useCentralIdentityAxios().get('/licenses');
     if(!licensesRes.data || !licensesRes.data.data){
       return conductor500Err(res);
     }
