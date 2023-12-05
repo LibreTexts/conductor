@@ -114,6 +114,10 @@ export const validateRoadmapStep = (step: string) => {
 };
 
 export const validateDefaultFileLicense = (obj: object): boolean => {
+  if(!obj || typeof obj !== 'object') {
+    return false;
+  }
+  
   // Only check if name is present for now
   if(!('name' in obj) || typeof obj.name !== 'string') {
     return false;
