@@ -62,7 +62,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
             header: true,
             skipEmptyLines: true,
             trimHeaders: true,
-            preview: 200, // Only parse first 200 rows
+            preview: 1500, // Only parse first 1500 rows
             complete: (results) => {
               resolve(results); // Resolve the Promise with parsed data
             },
@@ -86,9 +86,9 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
       const uniqueOptions = [...new Set(stringOptions)];
       const sortedOptions = uniqueOptions.sort((a, b) => a.localeCompare(b));
 
-      if (sortedOptions.length + fields.length > 500) {
+      if (sortedOptions.length + fields.length > 1500) {
         throw new Error(
-          "Dropdown/multi-select options have a maximum of 500 total options. This request would exceed that limit."
+          "Dropdown/multi-select options have a maximum of 1500 total options. This request would exceed that limit."
         );
       }
 
@@ -171,7 +171,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
               Add from CSV
             </Button>
             <Popup
-              content="Create a CSV file with one option per line. The first line should be the column header 'options' (no quotes). All other columns will be ignored. Any duplicate options will be ignored. For safety and performance, only the first 200 rows will be parsed. Dropdown/multi-select options have a maximum of 500 options."
+              content="Create a CSV file with one option per line. The first line should be the column header 'options' (no quotes). All other columns will be ignored. Any duplicate options will be ignored. To prevent misuse, only the first 1500 rows will be parsed. Dropdown/multi-select options have a maximum of 1500 options."
               trigger={
                 <span className="ml-1 underline cursor-pointer">
                   How do I use this?
