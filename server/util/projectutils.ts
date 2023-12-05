@@ -21,7 +21,6 @@ import {
 import fs from "fs-extra";
 import AdmZip from "adm-zip";
 import { v4 } from "uuid";
-import { all } from "bluebird";
 
 export const projectClassifications = [
   "harvesting",

@@ -440,7 +440,11 @@ const EditFile: React.FC<EditFileProps> = ({
           loading={loading}
         >
           <div className="flex flex-row -mt-1">
-            <div className="flex flex-col basis-1/2 pr-8 mt-1">
+            <div
+              className={`flex flex-col pr-8 mt-1 ${
+                isFolder ? "w-full" : "basis-1/2"
+              }`}
+            >
               <CtlTextInput
                 name="name"
                 label="Name"
@@ -484,70 +488,40 @@ const EditFile: React.FC<EditFileProps> = ({
                 )}
               </div>
             </div>
-            <div className="flex flex-col basis-1/2">
-              <p
-                onClick={handleToggleAll}
-                className="text-right underline text-sm text-gray-500 mr-2 mb-2 cursor-pointer"
-              >
-                Toggle All
-              </p>
-              <div className="flex flex-col rounded-md shadow-lg border p-4">
-                <Accordion>
-                  <Accordion.Title
-                    active={showLicenseInfo}
-                    index={0}
-                    onClick={() => setShowLicenseInfo(!showLicenseInfo)}
-                  >
-                    <Icon name="dropdown" />
-                    <span className="font-semibold">License Info</span>
-                  </Accordion.Title>
-                  <Accordion.Content active={showLicenseInfo}>
-                    <div>
-                      <label
-                        className="form-field-label form-required"
-                        htmlFor="selectLicenseName"
-                      >
-                        Name
-                      </label>
-                      <Controller
-                        render={({ field }) => (
-                          <Dropdown
-                            id="selectLicenseName"
-                            options={licenseOptions.map((l) => ({
-                              key: l.name,
-                              value: l.name,
-                              text: l.name,
-                            }))}
-                            {...field}
-                            onChange={(e, data) => {
-                              field.onChange(data.value?.toString() ?? "");
-                            }}
-                            fluid
-                            selection
-                            placeholder="Select a license..."
-                          />
-                        )}
-                        name="license.name"
-                        control={control}
-                        rules={required}
-                      />
-                    </div>
-                    {selectedLicenseVersions().length > 0 && (
-                      <div className="mt-2">
+            {!isFolder && (
+              <div className="flex flex-col basis-1/2">
+                <p
+                  onClick={handleToggleAll}
+                  className="text-right underline text-sm text-gray-500 mr-2 mb-2 cursor-pointer"
+                >
+                  Toggle All
+                </p>
+                <div className="flex flex-col rounded-md shadow-lg border p-4">
+                  <Accordion>
+                    <Accordion.Title
+                      active={showLicenseInfo}
+                      index={0}
+                      onClick={() => setShowLicenseInfo(!showLicenseInfo)}
+                    >
+                      <Icon name="dropdown" />
+                      <span className="font-semibold">License Info</span>
+                    </Accordion.Title>
+                    <Accordion.Content active={showLicenseInfo}>
+                      <div>
                         <label
                           className="form-field-label form-required"
-                          htmlFor="selectLicenseVersion"
+                          htmlFor="selectLicenseName"
                         >
-                          Version
+                          Name
                         </label>
                         <Controller
                           render={({ field }) => (
                             <Dropdown
-                              id="selectLicenseVersion"
-                              options={selectedLicenseVersions().map((v) => ({
-                                key: v,
-                                value: v,
-                                text: v,
+                              id="selectLicenseName"
+                              options={licenseOptions.map((l) => ({
+                                key: l.name,
+                                value: l.name,
+                                text: l.name,
                               }))}
                               {...field}
                               onChange={(e, data) => {
@@ -555,149 +529,178 @@ const EditFile: React.FC<EditFileProps> = ({
                               }}
                               fluid
                               selection
-                              placeholder="Select license version"
+                              placeholder="Select a license..."
                             />
                           )}
-                          name="license.version"
+                          name="license.name"
                           control={control}
                           rules={required}
                         />
                       </div>
-                    )}
-                    <CtlTextInput
-                      name="license.sourceURL"
-                      control={control}
-                      label="File Source URL"
-                      placeholder="https://example.com"
-                      className="mt-2"
-                      required
-                      rules={required}
-                    />
-                    <div className="flex items-start mt-3">
-                      <CtlCheckbox
-                        name="license.modifiedFromSource"
+                      {selectedLicenseVersions().length > 0 && (
+                        <div className="mt-2">
+                          <label
+                            className="form-field-label form-required"
+                            htmlFor="selectLicenseVersion"
+                          >
+                            Version
+                          </label>
+                          <Controller
+                            render={({ field }) => (
+                              <Dropdown
+                                id="selectLicenseVersion"
+                                options={selectedLicenseVersions().map((v) => ({
+                                  key: v,
+                                  value: v,
+                                  text: v,
+                                }))}
+                                {...field}
+                                onChange={(e, data) => {
+                                  field.onChange(data.value?.toString() ?? "");
+                                }}
+                                fluid
+                                selection
+                                placeholder="Select license version"
+                              />
+                            )}
+                            name="license.version"
+                            control={control}
+                            rules={required}
+                          />
+                        </div>
+                      )}
+                      <CtlTextInput
+                        name="license.sourceURL"
                         control={control}
-                        label="File modified from source?"
-                        className="ml-2"
-                        labelDirection="row-reverse"
+                        label="File Source URL"
+                        placeholder="https://example.com"
+                        className="mt-2"
+                        required
+                        rules={required}
                       />
-                    </div>
-                    <CtlTextArea
-                      name="license.additionalTerms"
-                      control={control}
-                      label="Additional License Terms"
-                      placeholder="Additional terms (if applicable)..."
-                      className="mt-2"
-                      maxLength={DESCRIP_MAX_CHARS}
-                      showRemaining
-                    />
-                  </Accordion.Content>
-                </Accordion>
-              </div>
-              {!isFolder && (
-                <>
-                  <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
-                    <Accordion>
-                      <Accordion.Title
-                        active={showAuthorInfo}
-                        index={0}
-                        onClick={() => setShowAuthorInfo(!showAuthorInfo)}
-                      >
-                        <Icon name="dropdown" />
-                        <span className="font-semibold">
-                          Author & Publisher Info
-                        </span>
-                      </Accordion.Title>
-                      <Accordion.Content active={showAuthorInfo}>
-                        <CtlTextInput
-                          name="author.name"
+                      <div className="flex items-start mt-3">
+                        <CtlCheckbox
+                          name="license.modifiedFromSource"
                           control={control}
-                          label="Author Name"
-                          placeholder="John Doe"
+                          label="File modified from source?"
+                          className="ml-2"
+                          labelDirection="row-reverse"
                         />
-                        <CtlTextInput
-                          name="author.email"
-                          control={control}
-                          label="Author Email"
-                          placeholder="author@example.com"
-                          className="mt-2"
-                        />
-                        <CtlTextInput
-                          name="author.url"
-                          control={control}
-                          label="Author URL"
-                          placeholder="https://example.com"
-                          className="mt-2"
-                        />
-                        <CtlTextInput
-                          name="publisher.name"
-                          control={control}
-                          label="Publisher Name"
-                          placeholder="John Doe"
-                          className="mt-2"
-                        />
-                        <CtlTextInput
-                          name="publisher.url"
-                          control={control}
-                          label="Publisher URL"
-                          placeholder="https://example.com"
-                          className="mt-2"
-                        />
-                      </Accordion.Content>
-                    </Accordion>
-                  </div>
+                      </div>
+                      <CtlTextArea
+                        name="license.additionalTerms"
+                        control={control}
+                        label="Additional License Terms"
+                        placeholder="Additional terms (if applicable)..."
+                        className="mt-2"
+                        maxLength={DESCRIP_MAX_CHARS}
+                        showRemaining
+                      />
+                    </Accordion.Content>
+                  </Accordion>
+                </div>
+                <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
+                  <Accordion>
+                    <Accordion.Title
+                      active={showAuthorInfo}
+                      index={0}
+                      onClick={() => setShowAuthorInfo(!showAuthorInfo)}
+                    >
+                      <Icon name="dropdown" />
+                      <span className="font-semibold">
+                        Author & Publisher Info
+                      </span>
+                    </Accordion.Title>
+                    <Accordion.Content active={showAuthorInfo}>
+                      <CtlTextInput
+                        name="author.name"
+                        control={control}
+                        label="Author Name"
+                        placeholder="John Doe"
+                      />
+                      <CtlTextInput
+                        name="author.email"
+                        control={control}
+                        label="Author Email"
+                        placeholder="author@example.com"
+                        className="mt-2"
+                      />
+                      <CtlTextInput
+                        name="author.url"
+                        control={control}
+                        label="Author URL"
+                        placeholder="https://example.com"
+                        className="mt-2"
+                      />
+                      <CtlTextInput
+                        name="publisher.name"
+                        control={control}
+                        label="Publisher Name"
+                        placeholder="John Doe"
+                        className="mt-2"
+                      />
+                      <CtlTextInput
+                        name="publisher.url"
+                        control={control}
+                        label="Publisher URL"
+                        placeholder="https://example.com"
+                        className="mt-2"
+                      />
+                    </Accordion.Content>
+                  </Accordion>
+                </div>
 
-                  <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
-                    <Accordion>
-                      <Accordion.Title
-                        active={showTags}
-                        index={0}
-                        onClick={() => setShowTags(!showTags)}
-                      >
-                        <Icon name="dropdown" />
-                        <span className="font-semibold">Tags</span>
-                      </Accordion.Title>
-                      <Accordion.Content active={showTags}>
-                        <Table celled>
-                          <Table.Header fullWidth>
-                            <Table.Row key="header">
-                              <Table.HeaderCell>Tag Title</Table.HeaderCell>
-                              <Table.HeaderCell>Value</Table.HeaderCell>
-                              <Table.HeaderCell width={1}>
-                                Actions
-                              </Table.HeaderCell>
-                            </Table.Row>
-                          </Table.Header>
-                          <Table.Body>
-                            {fields && fields.length > 0 ? (
-                              fields.map((tag, index) => (
-                                <Table.Row key={tag.id}>
-                                  <Table.Cell>
-                                    {tag.framework ? (
-                                      <div className="flex flex-col">
-                                        <p>
-                                          {isAssetTagKeyObject(tag.key)
-                                            ? tag.key.title
-                                            : tag.key}
-                                        </p>
-                                      </div>
-                                    ) : (
-                                      <CtlTextInput
-                                        name={`tags.${index}.key`}
-                                        control={control}
-                                        fluid
-                                      />
-                                    )}
-                                  </Table.Cell>
-                                  <Table.Cell>
-                                    <RenderTagInput
-                                      tag={tag}
-                                      index={index}
+                <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
+                  <Accordion>
+                    <Accordion.Title
+                      active={showTags}
+                      index={0}
+                      onClick={() => setShowTags(!showTags)}
+                    >
+                      <Icon name="dropdown" />
+                      <span className="font-semibold">Tags</span>
+                    </Accordion.Title>
+                    <Accordion.Content active={showTags}>
+                      <Table celled>
+                        <Table.Header fullWidth>
+                          <Table.Row key="header">
+                            <Table.HeaderCell>Tag Title</Table.HeaderCell>
+                            <Table.HeaderCell>Value</Table.HeaderCell>
+                            <Table.HeaderCell width={1}>
+                              Actions
+                            </Table.HeaderCell>
+                          </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                          {fields && fields.length > 0 ? (
+                            fields.map((tag, index) => (
+                              <Table.Row key={tag.id}>
+                                <Table.Cell>
+                                  {tag.framework ? (
+                                    <div className="flex flex-col">
+                                      <p>
+                                        {isAssetTagKeyObject(tag.key)
+                                          ? tag.key.title
+                                          : tag.key}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <CtlTextInput
+                                      name={`tags.${index}.key`}
                                       control={control}
+                                      fluid
                                     />
-                                  </Table.Cell>
-                                  <Table.Cell>
-                                    {/* <Button
+                                  )}
+                                </Table.Cell>
+                                <Table.Cell>
+                                  <RenderTagInput
+                                    tag={tag}
+                                    index={index}
+                                    control={control}
+                                  />
+                                </Table.Cell>
+                                <Table.Cell>
+                                  {/* <Button
                                       icon="arrow up"
                                       onClick={() => handleMoveUp(index)}
                                     />
@@ -706,44 +709,43 @@ const EditFile: React.FC<EditFileProps> = ({
                                       onClick={() => handleMoveDown(index)}
                                       className="!ml-1"
                                     /> */}
-                                    <Button
-                                      color="red"
-                                      icon="trash"
-                                      onClick={() => remove(index)}
-                                      className="!ml-1"
-                                    ></Button>
-                                  </Table.Cell>
-                                </Table.Row>
-                              ))
-                            ) : (
-                              <Table.Row>
-                                <Table.Cell colSpan={3} className="text-center">
-                                  No tags have been added to this file.
+                                  <Button
+                                    color="red"
+                                    icon="trash"
+                                    onClick={() => remove(index)}
+                                    className="!ml-1"
+                                  ></Button>
                                 </Table.Cell>
                               </Table.Row>
-                            )}
-                          </Table.Body>
-                        </Table>
+                            ))
+                          ) : (
+                            <Table.Row>
+                              <Table.Cell colSpan={3} className="text-center">
+                                No tags have been added to this file.
+                              </Table.Cell>
+                            </Table.Row>
+                          )}
+                        </Table.Body>
+                      </Table>
 
-                        <div className="flex flex-row">
-                          <Button color="blue" onClick={() => addTag({})}>
-                            <Icon name="plus" />
-                            Add Tag
-                          </Button>
-                          <Button
-                            color="blue"
-                            onClick={() => setShowSelectFramework(true)}
-                          >
-                            <Icon name="plus" />
-                            Add From Framework
-                          </Button>
-                        </div>
-                      </Accordion.Content>
-                    </Accordion>
-                  </div>
-                </>
-              )}
-            </div>
+                      <div className="flex flex-row">
+                        <Button color="blue" onClick={() => addTag({})}>
+                          <Icon name="plus" />
+                          Add Tag
+                        </Button>
+                        <Button
+                          color="blue"
+                          onClick={() => setShowSelectFramework(true)}
+                        >
+                          <Icon name="plus" />
+                          Add From Framework
+                        </Button>
+                      </div>
+                    </Accordion.Content>
+                  </Accordion>
+                </div>
+              </div>
+            )}
           </div>
         </Form>
       </Modal.Content>
