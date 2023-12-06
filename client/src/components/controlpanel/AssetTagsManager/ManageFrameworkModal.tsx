@@ -282,6 +282,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                               name={`templates.${index}.defaultValue`}
                               control={control}
                               fluid
+                              placeholder="Enter default value (optional)..."
                             />
                           )}
                         </Table.Cell>
