@@ -835,6 +835,22 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketTi
     });
 };
 
+const sendZIPFileReadyNotification = (url, recipientAddress) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply@libretexts.org>',
+        to: [recipientAddress],
+        subject: 'ZIP File Ready',
+        html: `
+            <p>Hi,</p>
+            <p>The ZIP file you requested with project assets is ready. You can download it <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>.</p>
+            <p>Please note that this link will expire in 1 week.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -865,5 +881,6 @@ export default {
     sendOrgEventRegistrationConfirmation,
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
-    sendNewTicketMessageNotification
+    sendNewTicketMessageNotification,
+    sendZIPFileReadyNotification
 }

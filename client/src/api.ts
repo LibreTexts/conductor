@@ -267,14 +267,21 @@ class API {
     return res;
   }
 
-  async bulkDownloadFiles(projectID: string, fileIDs: string[]) {
+  async bulkDownloadFiles(
+    projectID: string,
+    fileIDs: string[],
+    emailToNotify: string
+  ) {
     const arrQuery = fileIDs.map((id) => `fileID=${id}`).join(`&`);
-    const res = await axios.get<Blob>(`/project/${projectID}/files/bulk`, {
-      params: {
-        fileIDs: arrQuery,
-      },
-      responseType: "blob",
-    });
+    const res = await axios.get<{ file?: string } & ConductorBaseResponse>(
+      `/project/${projectID}/files/bulk`,
+      {
+        params: {
+          fileIDs: arrQuery,
+          emailToNotify,
+        },
+      }
+    );
     return res;
   }
 

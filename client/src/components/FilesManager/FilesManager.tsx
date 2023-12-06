@@ -19,6 +19,7 @@ const FileIcon = React.lazy(() => import("../FileIcon"));
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const MoveFiles = React.lazy(() => import("./MoveFiles"));
 const EditFile = React.lazy(() => import("./EditFile"));
+const LargeDownloadModal = React.lazy(() => import("./LargeDownloadModal"));
 import {
   checkProjectMemberPermission,
   getFilesLicenseText,
@@ -37,6 +38,8 @@ import {
 } from "../../utils/assetHelpers";
 import api from "../../api";
 import { saveAs } from "file-saver";
+import { useTypedSelector } from "../../state/hooks";
+import { base64ToBlob } from "../../utils/misc";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -76,6 +79,8 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
 
+  const user = useTypedSelector((state) => state.user);
+
   const [files, setFiles] = useState<FileEntry[]>([]);
 
   const [showUploader, setShowUploader] = useState(false);
@@ -84,6 +89,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState<boolean>(false);
   const [showMove, setShowMove] = useState(false);
+  const [showLargeDownload, setShowLargeDownload] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [itemsChecked, setItemsChecked] = useState(0);
@@ -386,13 +392,27 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   async function handleBulkDownload(ids: string[]) {
     try {
       setDownloadLoading(true);
-      const res = await api.bulkDownloadFiles(projectID, ids);
+      const res = await api.bulkDownloadFiles(projectID, ids, user.email);
 
-      saveAs(res.data, `${projectID}.zip`);
+      if (!res.data || res.data.err) {
+        throw new Error("Unable to download files. Please try again later.");
+      }
+
+      if (!res.data.file) {
+        setShowLargeDownload(true);
+      } else {
+        const b64Data = res.data.file;
+        const blob = base64ToBlob(b64Data, "application/zip");
+        if (!blob) {
+          throw new Error("Unable to download files. Please try again later.");
+        }
+        saveAs(blob, `${projectID}.zip`);
+      }
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setDownloadLoading(false);
+      handleToggleAllChecked();
     }
   }
 
@@ -467,24 +487,24 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               <Button
                 color="blue"
                 onClick={handleDownloadRequest}
-                disabled={itemsChecked < 1 || !checkProjectMemberPermission || downloadLoading}
-              >
-                {
-                  !downloadLoading && (
-                    <>
-                    <Icon name="download" />
-                    Download {itemsChecked > 1 ? "(ZIP)" : ""}    
-                    </>
-                  )
+                disabled={
+                  itemsChecked < 1 ||
+                  !checkProjectMemberPermission ||
+                  downloadLoading
                 }
-                {
-                  downloadLoading && (
-                    <>
+              >
+                {!downloadLoading && (
+                  <>
+                    <Icon name="download" />
+                    Download {itemsChecked > 1 ? "(ZIP)" : ""}
+                  </>
+                )}
+                {downloadLoading && (
+                  <>
                     <Icon name="spinner" loading />
                     This may take a moment...
-                    </>
-                  )
-                }
+                  </>
+                )}
               </Button>
               <Button color="olive" onClick={handleShowAddFolder}>
                 <Icon name="add" />
@@ -606,8 +626,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         {getFilesLicenseText(item.license)}
                       </Table.Cell>
                       <Table.Cell>
-                        {item.storageType === "file" ?
-                          fileSizePresentable(item.size) : "N/A"}
+                        {item.storageType === "file"
+                          ? fileSizePresentable(item.size)
+                          : "N/A"}
                       </Table.Cell>
                       <Table.Cell>
                         {item.createdDate && (
@@ -621,14 +642,14 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         <RenderAssetTags file={item} />
                       </Table.Cell>
                       <Table.Cell className="flex flex-row justify-end">
-                      {canViewDetails && (
-                            <Button
-                              icon="edit"
-                              size="small"
-                              title="Edit name or description"
-                              onClick={() => handleEditFile(item.fileID)}
-                            />
-                          )}
+                        {canViewDetails && (
+                          <Button
+                            icon="edit"
+                            size="small"
+                            title="Edit name or description"
+                            onClick={() => handleEditFile(item.fileID)}
+                          />
+                        )}
                         {item.storageType === "file" && (
                           <Button
                             icon
@@ -657,7 +678,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               </Table.Body>
               <Table.Footer>
                 <Table.Row>
-                  <Table.Cell colSpan={TABLE_COLS.length} >
+                  <Table.Cell colSpan={TABLE_COLS.length}>
                     <p className="text-center text-sm text-gray-500 italic !-mt-3">
                       Use caution when opening files/links from unknown sources.
                       LibreTexts is not responsible for the content of the
@@ -679,6 +700,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
           uploadPath={currDirectory}
           onFinishedUpload={handleUploadFinished}
           projectHasDefaultLicense={projectHasDefaultLicense}
+          mode="add"
         />
         <AddFolder
           show={showAddFolder}
@@ -717,6 +739,10 @@ const FilesManager: React.FC<FilesManagerProps> = ({
           projectID={projectID}
           files={deleteFiles}
           onFinishedDelete={handleDeleteFinished}
+        />
+        <LargeDownloadModal
+          show={showLargeDownload}
+          onClose={() => setShowLargeDownload(false)}
         />
       </Segment.Group>
     </Grid.Column>
