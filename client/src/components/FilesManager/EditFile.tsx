@@ -301,8 +301,12 @@ const EditFile: React.FC<EditFileProps> = ({
     //   */
     setLoading(true);
     try {
-      clearErrors(); // Clear any previous errors
-      if (!(await trigger())) return; // Trigger validation on all fields
+      //clearErrors(); // Clear any previous errors
+      const valid = await trigger(); // Trigger validation on all fields
+      console.log(valid);
+      console.log(formState.errors);
+      console.log(formState.isValid);
+      if (!valid) return;
       const editRes = await axios.put(
         `/project/${projectID}/files/${getValues().fileID}`,
         getValues()
@@ -470,7 +474,11 @@ const EditFile: React.FC<EditFileProps> = ({
                 />
               </div>
               <div className="mt-4">
-                <Button color="blue" onClick={() => setShowUploader(true)} disabled={false}>
+                <Button
+                  color="blue"
+                  onClick={() => setShowUploader(true)}
+                  disabled={false}
+                >
                   <Icon name="upload" />
                   Replace File
                 </Button>
@@ -542,6 +550,9 @@ const EditFile: React.FC<EditFileProps> = ({
                               fluid
                               selection
                               placeholder="Select a license..."
+                              error={
+                                formState.errors.license?.name ? true : false
+                              }
                             />
                           )}
                           name="license.name"
@@ -573,6 +584,11 @@ const EditFile: React.FC<EditFileProps> = ({
                                 fluid
                                 selection
                                 placeholder="Select license version"
+                                error={
+                                  formState.errors.license?.version
+                                    ? true
+                                    : false
+                                }
                               />
                             )}
                             name="license.version"
@@ -709,6 +725,7 @@ const EditFile: React.FC<EditFileProps> = ({
                                     tag={tag}
                                     index={index}
                                     control={control}
+                                    formState={formState}
                                   />
                                 </Table.Cell>
                                 <Table.Cell>
@@ -739,7 +756,6 @@ const EditFile: React.FC<EditFileProps> = ({
                           )}
                         </Table.Body>
                       </Table>
-
                       <div className="flex flex-row">
                         <Button color="blue" onClick={() => addTag({})}>
                           <Icon name="plus" />
@@ -753,6 +769,13 @@ const EditFile: React.FC<EditFileProps> = ({
                           Add From Framework
                         </Button>
                       </div>
+                      {formState.errors.tags && (
+                        <p className="text-red-500 text-center mt-4 italic">
+                          {formState.errors.tags
+                            ? "One or more tags are missing values. If you do not wish to provide a value for an input, delete the tag before saving."
+                            : ""}
+                        </p>
+                      )}
                     </Accordion.Content>
                   </Accordion>
                 </div>
@@ -777,16 +800,16 @@ const EditFile: React.FC<EditFileProps> = ({
         }}
       />
       <FilesUploader
-          show={showUploader}
-          onClose={() => setShowUploader(false)}
-          directory={''}
-          projectID={projectID}
-          uploadPath={watch('parent') ?? ''}
-          onFinishedUpload={handleUploadFinished}
-          projectHasDefaultLicense={false}
-          mode="replace"
-          fileID={fileID}
-        />
+        show={showUploader}
+        onClose={() => setShowUploader(false)}
+        directory={""}
+        projectID={projectID}
+        uploadPath={watch("parent") ?? ""}
+        onFinishedUpload={handleUploadFinished}
+        projectHasDefaultLicense={false}
+        mode="replace"
+        fileID={fileID}
+      />
     </Modal>
   );
 };

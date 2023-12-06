@@ -1,4 +1,4 @@
-import { Control, Controller } from "react-hook-form";
+import { Control, Controller, FormState } from "react-hook-form";
 import {
   AssetTag,
   AssetTagTemplate,
@@ -11,17 +11,20 @@ import {
   isAssetTagKeyObject,
 } from "../../utils/typeHelpers";
 import { Dropdown } from "semantic-ui-react";
+import { required } from "../../utils/formRules";
 
 interface RenderTagInputProps {
   tag: AssetTag;
   index: number;
   control: Control<ProjectFile>;
+  formState: FormState<ProjectFile>;
 }
 
 export const RenderTagInput: React.FC<RenderTagInputProps> = ({
   tag,
   index,
   control,
+  formState,
 }) => {
   const genMultiSelectOptions = ({
     template,
@@ -55,9 +58,16 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
     return options;
   };
 
-  const TextInput = () => {
+  const TagTextInput = () => {
     return (
-      <CtlTextInput name={`tags.${index}.value`} control={control} fluid placeholder='Enter value'/>
+      <CtlTextInput
+        name={`tags.${index}.value`}
+        control={control}
+        fluid
+        placeholder="Enter value"
+        rules={required}
+        showErrorMsg={false}
+      />
     );
   };
 
@@ -87,10 +97,15 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
                 fluid
                 selection
                 placeholder="Select a value"
+                error={
+                  (formState.errors.tags &&
+                  formState.errors.tags[index]) ? true : false
+                }
               />
             )}
             name={`tags.${index}.value`}
             control={control}
+            rules={required}
           />
         );
       }
@@ -124,17 +139,20 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
                     ]);
                   }
                 }}
+                error={
+                  (formState.errors.tags &&
+                  formState.errors.tags[index]) ? true : false
+                }
               />
             )}
             name={`tags.${index}.value`}
             control={control}
+            rules={required}
           />
         );
       }
-    } else {
-      return <TextInput />; // Fall back to text input
     }
   }
 
-  return <TextInput />; // Fall back to text input
+  return <TagTextInput />; // Fall back to text input
 };
