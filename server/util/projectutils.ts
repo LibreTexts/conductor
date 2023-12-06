@@ -25,6 +25,12 @@ import {
   CloudFrontClient,
   CreateInvalidationCommand,
 } from "@aws-sdk/client-cloudfront";
+import { AssetTagInterface } from "../models/assettag.js";
+import { AssetTagTemplateWithKey, AssetTagWithFramework, AssetTagWithFrameworkAndKey } from "../types/AssetTags.js";
+import { AssetTagFrameworkInterface } from "../models/assettagframework.js";
+import { isAssetTagFrameworkObject, isAssetTagKeyObject } from "./typeHelpers.js";
+import { sortXByOrderOfY } from "./assettaggingutils.js";
+import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -502,6 +508,16 @@ export async function retrieveAllProjectFiles(
       }
       return 0;
     });
+
+    for(const file of sorted) {
+      // @ts-ignore
+      if(!file.tags || file.tags.length === 0) {
+        continue;
+      }
+      //@ts-ignore
+      file.tags = _sortTagsLikeTheirFrameworks(file.tags);
+    }
+
     return sorted;
   } catch (e) {
     debugError(e);
@@ -573,6 +589,60 @@ export async function retrieveProjectFiles(
     debugError(e);
     return [null, null];
   }
+}
+
+function _sortTagsLikeTheirFrameworks(paramTags: AssetTagWithFrameworkAndKey[]) {
+  const tags = [...paramTags];
+  if (!tags || tags.length === 0) return paramTags;
+  const allFrameworksInTags = tags.reduce(
+    (acc: AssetTagFrameworkInterface[], curr: AssetTagWithFramework) => {
+      if (!isAssetTagFrameworkObject(curr.framework)) return acc;
+      if (
+        curr.framework &&
+        !acc.map((a) => a.uuid).includes(curr.framework.uuid)
+      ) {
+        return [...acc, curr.framework];
+      }
+      return acc;
+    },
+    []
+  );
+
+  const _sortTagsByFrameworkTemplates = (x: AssetTagWithFrameworkAndKey[], y: AssetTagTemplateWithKey[]): AssetTagWithFramework[] => {
+    // Create a map of elements in array Y to their indices
+    const mapY = new Map<string, number>();
+    y.forEach((element, index) => {
+      mapY.set(element.key.title, index);
+    });
+  
+    // Sort array X based on the order in array Y
+    x.sort((a, b) => {
+      const indexA = mapY.has(isAssetTagKeyObject(a.key) ? a.key.title : a.key) ? mapY.get(isAssetTagKeyObject(a.key) ? a.key.title : a.key) : Infinity;
+      const indexB = mapY.has(isAssetTagKeyObject(b.key) ? b.key.title : b.key) ? mapY.get(isAssetTagKeyObject(b.key) ? b.key.title : b.key) : Infinity;
+      if(!indexA || !indexB) {
+        return 0;
+      }
+      return indexA - indexB;
+    });
+  
+    return x;
+  }
+
+  const endResult = [];
+  for (const framework of allFrameworksInTags) {
+    const tagsForFramework = tags.filter(
+      (t) => isAssetTagFrameworkObject(t.framework) && t.framework.uuid === framework.uuid
+    );
+    const sortedTags = _sortTagsByFrameworkTemplates(
+      [...tagsForFramework],
+      framework.templates as unknown as AssetTagTemplateWithKey[]
+    );
+    endResult.push(...sortedTags);
+  }
+
+  const tagsWithoutFrameworks = tags.filter((t) => !t.framework); // Append tags without frameworks to the end
+  endResult.push(...tagsWithoutFrameworks);
+  return endResult;
 }
 
 /**

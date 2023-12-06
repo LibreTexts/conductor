@@ -30,11 +30,15 @@ import {
   AssetTagValue,
   AssetTagWithKey,
 } from "../../types/AssetTagging";
-import { isAssetTagKeyObject } from "../../utils/typeHelpers";
+import {
+  isAssetTagFramework,
+  isAssetTagKeyObject,
+} from "../../utils/typeHelpers";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import URLFileIFrame from "./URLFileIFrame";
 import URLFileHyperlink from "./URLFileHyperlink";
 import { useTypedSelector } from "../../state/hooks";
+import { sortXByOrderOfY } from "../../utils/misc";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -202,6 +206,8 @@ const EditFile: React.FC<EditFileProps> = ({
    */
   async function checkCampusDefault() {
     try {
+      const existing = getValues("tags");
+      if(existing && existing.length > 0) return; // Don't load campus default if tags already exist
       setLoading(true);
       const res = await api.getCampusDefaultFramework(org.orgID);
       if (res.data.err) {
@@ -303,9 +309,6 @@ const EditFile: React.FC<EditFileProps> = ({
     try {
       //clearErrors(); // Clear any previous errors
       const valid = await trigger(); // Trigger validation on all fields
-      console.log(valid);
-      console.log(formState.errors);
-      console.log(formState.isValid);
       if (!valid) return;
       const editRes = await axios.put(
         `/project/${projectID}/files/${getValues().fileID}`,
