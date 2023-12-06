@@ -370,14 +370,14 @@ const EditFile: React.FC<EditFileProps> = ({
     let filtered: AssetTagTemplate[] = [];
 
     if (existingTags && existingTags.length > 0) {
+      const valsToCheck = existingTags.map((t) =>
+        isAssetTagKeyObject(t.key) ? t.key.title : t.key
+      );
       filtered = selectedFramework.templates.filter(
         (t) =>
-          !existingTags.find((tag) => {
-            if (isAssetTagKeyObject(tag.key)) {
-              return tag.key.title === t.key;
-            }
-            return tag.key === t.key;
-          })
+          !valsToCheck.includes(
+            isAssetTagKeyObject(t.key) ? t.key.title : t.key
+          )
       );
     } else {
       filtered = selectedFramework.templates;
