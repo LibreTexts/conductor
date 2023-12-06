@@ -15,6 +15,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectAttributesCommand,
 } from '@aws-sdk/client-s3';
 import b62 from 'base62-random';
 import multer from 'multer';
@@ -50,6 +51,8 @@ import {
     retrieveSingleProjectFile,
     validateDefaultFileLicense,
     invalidateCloudfrontPath,
+    parseAndZipS3Objects,
+    createZIPAndNotify,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -2780,7 +2783,10 @@ async function getProjectFileDownloadURL(req, res) {
 
 async function bulkDownloadProjectFiles(req, res) {
   try {
+    // 50mb limit 
+    const MAX_COMBINED_SIZE = 52428800;
     const { projectID } = req.params;
+    const { emailToNotify } = req.query;
     const rawIds = req.query.fileIDs;
     const split = rawIds.split("&");
     const parsed = split.map((item) => item.split("=")[1]);
@@ -2817,9 +2823,22 @@ async function bulkDownloadProjectFiles(req, res) {
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const downloadCommands = [];
 
-    if (foundFiles.length > 0) {
+    if (foundFiles.length === 0) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err63,
+      });
+    }
+
+    let totalSize = 0;
+    foundFiles.forEach((file) => {
+      totalSize += file.size;
+    });
+    const isOverLimit = totalSize > MAX_COMBINED_SIZE;
+
+    if (!isOverLimit) {
       // create zip file
-      foundFiles.forEach((file) => {
+      foundFiles.forEach(async (file) => {
         const fileKey = assembleUrl([projectID, file.fileID]);
         downloadCommands.push(
           new GetObjectCommand({
@@ -2828,47 +2847,42 @@ async function bulkDownloadProjectFiles(req, res) {
           })
         );
       });
+
+      const downloadRes = await Promise.all(
+        downloadCommands.map((command) => storageClient.send(command))
+      );
+
+      const zipPath = await parseAndZipS3Objects(downloadRes, foundFiles);
+      if (!zipPath) {
+        throw new Error("ziperror");
+      }
+
+      //TODO: update download count
+
+      const rawFile = await fse.readFile(zipPath);
+      const base64File = rawFile.toString("base64");
+      await fse.unlink(zipPath); // delete temp zip file
+
+      return res.send({
+        err: false,
+        msg: "Successfully requested download!",
+        file: base64File,
+      });
     } else {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err63,
+      const fileKeys = [];
+      foundFiles.forEach((file) => {
+        const fileKey = assembleUrl([projectID, file.fileID]);
+        fileKeys.push(fileKey);
+      });
+
+      createZIPAndNotify(fileKeys, foundFiles, emailToNotify); // Don't await, just run in background and return success
+
+      res.setHeader('content-type', 'application/json');
+      return res.send({
+        err: false,
+        msg: "Successfully requested download!",
       });
     }
-
-    const items = [];
-    const downloadRes = await Promise.all(
-      downloadCommands.map((command) => storageClient.send(command))
-    );
-
-    for (let i = 0; i < downloadRes.length; i++) {
-      const byteArray = await downloadRes[i].Body?.transformToByteArray();
-      if (foundFiles[i]) {
-        foundFiles[i].name = foundFiles[i].name;
-        items.push({
-          name: foundFiles[i].name,
-          data: byteArray,
-        });
-      } else {
-        items.push({
-          name: v4(), // Fallback to random name
-          data: byteArray,
-        });
-      }
-    }
-
-    const zipPath = await generateZIPFile(items);
-    if (!zipPath) {
-      throw new Error("ziperror");
-    }
-
-    //TODO: update download count
-
-    return res.download(zipPath, `${projectID}.zip`, async (err) => {
-      if(err) {
-        throw new Error("downloaderror");
-      }
-      await fse.unlink(zipPath) // delete temp zip file
-    });
   } catch (e) {
     debugError(e);
     return res.status(500).send({
@@ -4038,6 +4052,7 @@ const validate = (method) => {
       return [
         param('projectID', conductorErrors.err1).exists().isLength({ min: 10, max: 10 }),
         query('fileIDs', conductorErrors.err1).exists(),
+        query('emailToNotify', conductorErrors.err1).exists().isEmail(),
       ]
     case 'updateProjectFileAccess':
       return [
