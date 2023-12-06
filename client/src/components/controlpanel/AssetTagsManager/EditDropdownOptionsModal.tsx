@@ -123,7 +123,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
               </Table.Row>
             )}
             {fields.map((opt, idx) => (
-              <Table.Row key={idx}>
+              <Table.Row key={opt.id}>
                 <Table.Cell>
                   <Controller
                     render={({ field }) => <Input {...field} fluid />}
