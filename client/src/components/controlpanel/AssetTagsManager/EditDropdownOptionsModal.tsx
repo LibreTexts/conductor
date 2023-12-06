@@ -13,6 +13,7 @@ import { AssetTagFramework } from "../../../types";
 import "../../../styles/global.css";
 import useGlobalError from "../../error/ErrorHooks";
 import { ParseResult, parse } from "papaparse";
+import { fi } from "date-fns/locale";
 
 interface EditDropdownOptionsModalProps extends ModalProps {
   open: boolean;
@@ -103,7 +104,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={() => onClose()} size="small">
+    <Modal open={open} onClose={() => onClose()} size="large">
       <Modal.Header>Edit Dropdown Options</Modal.Header>
       <Modal.Content scrolling>
         <p className="form-field-label">Dropdown Options</p>
@@ -126,7 +127,9 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
               <Table.Row key={opt.id}>
                 <Table.Cell>
                   <Controller
-                    render={({ field }) => <Input {...field} fluid />}
+                    render={({ field }) => (
+                      <Input {...field} fluid placeholder="Enter value..." />
+                    )}
                     name={`templates.${index}.options.${idx}`}
                     control={control}
                   />
@@ -149,7 +152,14 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
           onChange={handleFileChange}
           className="hidden"
         />
-        <div className="flex justify-end">
+        <div className="flex flex-row justify-between">
+          {fields?.length > 0 && (
+            <Button color="red" onClick={() => remove()} loading={loading}>
+              <Icon name="trash" />
+              Remove All
+            </Button>
+          )}
+          <div>
           <Button
             color="blue"
             onClick={() => append("", { shouldFocus: false })}
@@ -158,6 +168,7 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
             <Icon name="plus" />
             Add Option
           </Button>
+          </div>
         </div>
         <p className="text-muted italic text-center mb-4">
           Options are sorted alphabetically (A-Z) on save
