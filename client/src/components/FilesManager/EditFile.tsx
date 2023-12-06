@@ -35,6 +35,7 @@ import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import URLFileIFrame from "./URLFileIFrame";
 import URLFileHyperlink from "./URLFileHyperlink";
 import { useTypedSelector } from "../../state/hooks";
+const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
 interface EditFileProps extends ModalProps {
@@ -106,6 +107,7 @@ const EditFile: React.FC<EditFileProps> = ({
   const [licenseOptions, setLicenseOptions] = useState<
     CentralIdentityLicense[]
   >([]);
+  const [showUploader, setShowUploader] = useState(false);
   const [shouldShowPreview, setShouldShowPreview] = useState(false);
   const [showLicenseInfo, setShowLicenseInfo] = useState(true);
   const [showAuthorInfo, setShowAuthorInfo] = useState(true);
@@ -427,6 +429,10 @@ const EditFile: React.FC<EditFileProps> = ({
     move(index, index + 1);
   }
 
+  function handleUploadFinished() {
+    onFinishedEdit();
+  }
+
   return (
     <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
       <Modal.Header>
@@ -462,6 +468,12 @@ const EditFile: React.FC<EditFileProps> = ({
                   maxLength={DESCRIP_MAX_CHARS}
                   showRemaining
                 />
+              </div>
+              <div className="mt-4">
+                <Button color="blue" onClick={() => setShowUploader(true)} disabled={false}>
+                  <Icon name="upload" />
+                  Replace File
+                </Button>
               </div>
               <div className="mt-8">
                 {filePreviewURL && !getValues("isURL") && !getValues("url") && (
@@ -764,6 +776,17 @@ const EditFile: React.FC<EditFileProps> = ({
           setShowSelectFramework(false);
         }}
       />
+      <FilesUploader
+          show={showUploader}
+          onClose={() => setShowUploader(false)}
+          directory={''}
+          projectID={projectID}
+          uploadPath={watch('parent') ?? ''}
+          onFinishedUpload={handleUploadFinished}
+          projectHasDefaultLicense={false}
+          mode="replace"
+          fileID={fileID}
+        />
     </Modal>
   );
 };

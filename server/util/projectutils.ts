@@ -21,6 +21,10 @@ import {
 import fs from "fs-extra";
 import AdmZip from "adm-zip";
 import { v4 } from "uuid";
+import {
+  CloudFrontClient,
+  CreateInvalidationCommand,
+} from "@aws-sdk/client-cloudfront";
 
 export const projectClassifications = [
   "harvesting",
@@ -924,5 +928,43 @@ export async function generateZIPFile(
   } catch (err) {
     debugError(err);
     return null;
+  }
+}
+
+export async function invalidateCloudfrontPath(projectID: string){
+  try {
+    const cf = new CloudFrontClient({
+      credentials: {
+        accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY || "",
+        secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY || "",
+      },
+      region: process.env.AWS_PROJECTFILES_REGION || "",
+    });
+    const ref = v4();
+    const invalidationPath = `/${projectID}/*`;
+
+    console.log('[SYSTEM] Invalidating Cloudfront cache for path: ' + projectID + ' with reference: ' + ref + ' and path: ' + invalidationPath)
+    const command = new CreateInvalidationCommand({
+      DistributionId: process.env.AWS_PROJECTFILES_CLOUDFRONT_DISTRIBUTION_ID,
+      InvalidationBatch: {
+        CallerReference: ref,
+        Paths: {
+          Quantity: 1,
+          Items: [invalidationPath.toString()]
+        }
+      }
+    });
+
+    const res = await cf.send(command);
+
+    if(res.$metadata.httpStatusCode && ![200, 201].includes(res.$metadata.httpStatusCode)){
+      console.log('[SYSTEM] Error invalidating Cloudfront cache for path: ' + projectID + ' with reference: ' + ref + ' and path: ' + invalidationPath)
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
   }
 }
