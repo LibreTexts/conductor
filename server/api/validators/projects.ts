@@ -39,6 +39,8 @@ export const projectFileSchema = z.object({
       url: z.string().url().optional(),
     })
     .optional(),
+  isURL: z.boolean().optional(),
+  fileURL: z.string().url().optional(),
 });
 
 export const updateProjectFileSchema = z.object({
@@ -46,7 +48,7 @@ export const updateProjectFileSchema = z.object({
     projectID: z.string().trim().min(10).max(10),
     fileID: z.string().uuid(),
   }),
-  body: projectFileSchema,
+  body: projectFileSchema.partial(),
 });
 
 export const getPublicProjectFilesSchema = z.object({

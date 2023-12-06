@@ -11,6 +11,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.465.0",
     "@aws-sdk/client-s3": "^3.363.0",
     "@aws-sdk/client-ssm": "^3.441.0",
     "@aws-sdk/cloudfront-signer": "^3.127.0",
