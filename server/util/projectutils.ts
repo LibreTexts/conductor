@@ -31,6 +31,9 @@ import { AssetTagFrameworkInterface } from "../models/assettagframework.js";
 import { isAssetTagFrameworkObject, isAssetTagKeyObject } from "./typeHelpers.js";
 import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
+import { GetObjectCommand, GetObjectCommandOutput, PutObjectCommand, S3Client, ServiceOutputTypes } from "@aws-sdk/client-s3";
+import mailAPI from "../api/mail.js";
+import { Worker } from "worker_threads";
 
 export const projectClassifications = [
   "harvesting",
@@ -1032,6 +1035,118 @@ export async function invalidateCloudfrontPath(projectID: string){
       return false;
     }
 
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
+  }
+}
+
+export async function parseAndZipS3Objects(
+  s3Res: GetObjectCommandOutput[],
+  files: FileInterface[]
+): Promise<string | null> {
+  const items = [];
+  for (let i = 0; i < s3Res.length; i++) {
+    const byteArray = await s3Res[i].Body?.transformToByteArray();
+    if (files[i]) {
+      items.push({
+        name: files[i].name,
+        data: byteArray,
+      });
+    } else {
+      items.push({
+        name: v4(), // Fallback to random name
+        data: byteArray,
+      });
+    }
+  }
+
+  const noUndefined = items.filter((item) => item.name && item.data) as {
+    name: string;
+    data: Uint8Array;
+  }[];
+
+  const zipPath = await generateZIPFile(noUndefined);
+  return zipPath ?? null;
+}
+
+/**
+ * Prepares and calls the downloadAndZipFilesWorker to download and zip files.
+ * Sends an email to the user when the zip file is ready with a signed Cloudfront url.
+ * 
+ * @param projectID - The project ID to download files from
+ * @param fileKeys - The file keys to download
+ * @param allFiles - All relevant files in the project
+ * @param emailToNotify - The email to notify when the zip file is ready
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+export async function createZIPAndNotify(
+  fileKeys: string[],
+  allFiles: FileInterface[],
+  emailToNotify: string
+): Promise<boolean> {
+  try {
+    // @ts-ignore
+    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+
+    const downloadCommands: GetObjectCommand[] = [];
+    fileKeys.forEach(async (key) => {
+      downloadCommands.push(
+        new GetObjectCommand({
+          Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+          Key: key,
+        })
+      );
+    });
+
+    const downloadRes = await Promise.all(
+      downloadCommands.map((command) => storageClient.send(command))
+    );
+
+    const zipPath = await parseAndZipS3Objects(downloadRes, allFiles);
+    if (!zipPath) throw new Error("Zip path is undefined");
+    // Read zip file from local fs and get buffer
+    const zipFile = await fs.readFile(zipPath);
+    const zipBuffer = Buffer.from(zipFile);
+
+    const tempFileID = v4();
+    const tempFileKey = `temp/${tempFileID}.zip`;
+    await storageClient.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        Key: tempFileKey,
+        Body: zipBuffer,
+        ContentDisposition: `inline; filename=${tempFileID}.zip`,
+        ContentType: "application/zip",
+      })
+    );
+
+    const fileURL = assembleUrl([
+      "https://",
+      // @ts-ignore
+      process.env.AWS_PROJECTFILES_DOMAIN,
+      tempFileKey,
+    ]);
+
+    const exprDate = new Date();
+    exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
+    const privKey = base64.decode(
+      // @ts-ignore
+      process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
+    );
+
+    const signedURL = getSignedUrl({
+      url: fileURL,
+      // @ts-ignore
+      keyPairId: process.env.AWS_PROJECTFILES_KEYPAIR_ID,
+      dateLessThan: exprDate.toString(),
+      privateKey: privKey,
+    });
+
+    await fs.unlink(zipPath); // Delete zip file from local fs
+
+    await mailAPI.sendZIPFileReadyNotification(emailToNotify, signedURL);
     return true;
   } catch (err) {
     debugError(err);
