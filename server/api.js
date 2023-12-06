@@ -35,6 +35,7 @@ import paymentsAPI from './api/payments.js';
 import kbAPI from './api/kb.js';
 import supportAPI from './api/support.js';
 
+import * as centralIdentityValidators from './api/validators/central-identity.js';
 import * as kbValidators from './api/validators/kb.js';
 import * as supportValidators from './api/validators/support.js';
 
@@ -1436,6 +1437,13 @@ router.route('/payments/webhook').post(
   express.raw({ type: 'application/json' }),
   paymentsAPI.processStripeWebhookEvent,
 );
+
+router.route('/central-identity/webhooks/new-user').post(
+  express.raw({ type: 'application/json' }),
+  middleware.authLibreOneRequest,
+  middleware.validateZod(centralIdentityValidators.NewUserWebhookValidator),
+  centralIdentityAPI.processNewUserWebhookEvent,
+)
 
 router.route('/kb/search').get(
   middleware.validateZod(kbValidators.SearchKBValidator),
