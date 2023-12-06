@@ -5,6 +5,7 @@ import { ControlledInputProps } from "../../types";
 interface CtlTextInputProps extends FormInputProps {
   label?: string;
   required?: boolean;
+  showErrorMsg?: boolean;
 }
 
 /**
@@ -20,9 +21,9 @@ export default function CtlTextInput<
   rules,
   label,
   required = false,
+  showErrorMsg = true,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
-
   const { className: restClassName } = rest;
   delete rest.className;
 
@@ -35,7 +36,7 @@ export default function CtlTextInput<
         field: { value, onChange, onBlur },
         fieldState: { error },
       }) => (
-        <div className={`${restClassName ?? ''}`}>
+        <div className={`${restClassName ?? ""}`}>
           {label && (
             <label
               className={`form-field-label ${required ? "form-required" : ""}`}
@@ -47,7 +48,13 @@ export default function CtlTextInput<
             value={value}
             onChange={onChange}
             onBlur={onBlur}
-            error={error?.message}
+            error={
+              error?.message && showErrorMsg
+                ? error.message
+                : error?.message
+                ? true
+                : false
+            } // Display error message if showErrorMsg is true, otherwise just display error state
             className="mt-1"
             {...rest}
           />
