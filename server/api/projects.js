@@ -14,6 +14,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   PutObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import b62 from 'base62-random';
 import multer from 'multer';
@@ -48,6 +49,7 @@ import {
     generateZIPFile,
     retrieveSingleProjectFile,
     validateDefaultFileLicense,
+    invalidateCloudfrontPath,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -2591,7 +2593,7 @@ const autoGenerateProjects = (newBooks) => {
       }
       return cb(null, true);
     },
-  }).array('files', 10);
+  }).array('files', req.method === 'POST' ? 10 : 1);
   return fileUploadConfig(req, res, (err) => {
     if (err) {
       let errMsg = conductorErrors.err53;
@@ -2960,7 +2962,7 @@ async function getProjectFile(req, res) {
 }
 
 /**
- * Renames or updates the description of a Project File.
+ * Updates file metadata (including name) and/or replaces the file body.
  *
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
@@ -2976,7 +2978,7 @@ async function getProjectFile(req, res) {
       });
     }
 
-    const { name, description, license, author, publisher } = req.body;
+    const { name, description, license, author, publisher, isURL, fileURL } = req.body;
 
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
@@ -3004,7 +3006,9 @@ async function getProjectFile(req, res) {
     }
 
     // update tags
-    await upsertAssetTags(foundObj, req.body.tags);
+    if(req.body.tags){
+      await upsertAssetTags(foundObj, req.body.tags);
+    }
 
     const updated = files.map((obj) => {
       if (obj.fileID === foundObj.fileID) {
@@ -3024,12 +3028,28 @@ async function getProjectFile(req, res) {
         if(publisher) {
           updateObj.publisher = publisher;
         }
+        // allow updating of URL if file is a URL
+        if (Boolean(isURL) && fileURL
+         //&& obj.isURL && obj.url !== fileURL
+         ) {
+          updateObj.isURL = true;
+          updateObj.url = fileURL;
+          updateObj.storageType = undefined;
+          updateObj.license = {
+            ...obj.license,
+            sourceURL: fileURL,
+          }
+        }
         return updateObj;
       }
       return obj;
     });
 
-    if (foundObj.storageType === 'file' && !foundObj.isURL && !foundObj.url) {
+    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+
+    const isPhysicalFile = foundObj.storageType === 'file' && !foundObj.isURL && !foundObj.url;
+    if (isPhysicalFile && processedName && processedName !== foundObj.name) {
+      // rename file
       const fileKey = `${projectID}/${fileID}`;
       const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
       const s3File = await storageClient.send(new GetObjectCommand({
@@ -3049,6 +3069,27 @@ async function getProjectFile(req, res) {
         ContentDisposition: `inline; filename=${processedName}`,
         ContentType: newContentType,
         MetadataDirective: "REPLACE",
+      }));
+    } else if (isPhysicalFile && req.files?.length > 0) {
+      // replace file
+      const file = req.files[0];
+      const replaceKey = assembleUrl([projectID, fileID]);
+      await storageClient.send(new PutObjectCommand({
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        Key: replaceKey,
+        Body: file.buffer,
+        ContentDisposition: `inline; filename=${file.originalname}`,
+        ContentType: file.mimetype || 'application/octet-stream',
+      }));
+
+      await invalidateCloudfrontPath(projectID)
+    }
+
+    // Delete the old file if it has been replaced with a URL
+    if(foundObj.storageType === 'file' && isURL && fileURL){
+      await storageClient.send(new DeleteObjectCommand({
+        Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+        Key: `${projectID}/${fileID}`,
       }));
     }
 

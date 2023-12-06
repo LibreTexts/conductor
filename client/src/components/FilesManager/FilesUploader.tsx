@@ -14,15 +14,24 @@ import FileUploader from "../FileUploader";
 import styles from "./FilesManager.module.css";
 import { z } from "zod";
 
+type _AddProps = {
+  mode: "add";
+  directory: string;
+  projectHasDefaultLicense?: boolean;
+};
+
+type _ReplaceProps = {
+  mode: "replace";
+  fileID: string;
+};
+
 type FilesUploaderProps = ModalProps & {
   show: boolean;
   onClose: () => void;
-  directory: string;
   projectID: string;
   uploadPath: string;
-  projectHasDefaultLicense?: boolean;
   onFinishedUpload: () => void;
-};
+} & (_AddProps | _ReplaceProps);
 
 /**
  * Modal interface to upload Project Files to a Project.
@@ -35,6 +44,8 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   uploadPath,
   projectHasDefaultLicense = false,
   onFinishedUpload,
+  mode = "add",
+  fileID,
   ...props
 }) => {
   // Global Error Handling
@@ -88,35 +99,39 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
    * @param {FileList} files - Files selected for upload by the user.
    */
   async function handleUpload(files: FileList) {
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("parentID", uploadPath);
-    Array.from(files).forEach((file) => {
-      formData.append("files", file);
-    });
-
     try {
-      const uploadRes = await axios.post(
-        `/project/${projectID}/files`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-          onUploadProgress: (progressEvent) => {
-            if (
-              typeof progressEvent.loaded === "number" &&
-              typeof progressEvent.total === "number"
-            ) {
-              const progress =
-                (progressEvent.loaded / progressEvent.total) * 100;
-              setPercentUploaded(progress);
-              if (progress === 100) {
-                setFinishedFileTransfer(true);
-              }
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("parentID", uploadPath);
+      Array.from(files).forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const url = `/project/${projectID}/files${
+        mode === "add" ? "" : `/${fileID}`
+      }`;
+      const opts = {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent: any) => {
+          if (
+            typeof progressEvent.loaded === "number" &&
+            typeof progressEvent.total === "number"
+          ) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            setPercentUploaded(progress);
+            if (progress === 100) {
+              setFinishedFileTransfer(true);
             }
-          },
-          signal: abortControllerRef.current.signal,
-        }
-      );
+          }
+        },
+        signal: abortControllerRef.current.signal,
+      };
+
+      const uploadRes =
+        mode === "add"
+          ? await axios.post(url, formData, opts)
+          : await axios.put(url, formData, opts);
+
       if (uploadRes.data.err) {
         throw new Error(uploadRes.data.errMsg);
       }
@@ -139,9 +154,11 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       formData.append("fileURL", urlInput);
       formData.append("isURL", "true");
 
-      const res = await axios.post(`/project/${projectID}/files`, formData, {
-        signal: abortControllerRef.current.signal,
-      });
+      const url = mode === "add" ? `/project/${projectID}/files` : `/project/${projectID}/files/${fileID}`;
+      const signal = abortControllerRef.current.signal;
+
+      const res = mode === "add" ? await axios.post(url, formData, { signal }) : await axios.put(url, formData, { signal });
+      
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -175,18 +192,30 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
 
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
-      <Modal.Header>Upload Files</Modal.Header>
+      <Modal.Header>
+        {mode === "add" ? "Upload Files" : "Replace Files"}
+      </Modal.Header>
       <Modal.Content>
         {!loading ? (
           <div>
-            <p>
-              Files will be uploaded to the <strong>{dirText}</strong> folder.
-              Up to 10 files can be uploaded at once, with a maximum of 100 MB
-              each.
-            </p>
+            {mode === "replace" && (
+              <p className="mb-2 text-center">
+                <strong>Warning:</strong> Replacing an existing file with a new
+                file or URL will remove and overwrite the old file. This action
+                cannot be undone!
+              </p>
+            )}
+            {mode === "add" && (
+              <p>
+                Files will be uploaded to the <strong>{dirText}</strong> folder.
+                Up to 10 files can be uploaded at once, with a maximum of 100 MB
+                each.
+              </p>
+            )}
+
             <FileUploader
-              multiple={true}
-              maxFiles={10}
+              multiple={mode === "add" ? true : false}
+              maxFiles={mode === "add" ? 10 : 1}
               onUpload={handleUpload}
               disabled={fileDisabled}
             />
