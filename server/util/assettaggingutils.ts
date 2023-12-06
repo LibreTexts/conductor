@@ -17,3 +17,20 @@ export const getRandomColor = (): string => {
     Math.floor(Math.random() * SEMANTIC_UI_COLORS.length)
   ];
 };
+
+export function sortXByOrderOfY<T, K>(x: T[], y: K[]): T[] {
+  // Create a map of elements in array Y to their indices
+  const mapY = new Map();
+  y.forEach((element, index) => {
+    mapY.set(element, index);
+  });
+
+  // Sort array X based on the order in array Y
+  x.sort((a, b) => {
+    const indexA = mapY.has(a) ? mapY.get(a) : Infinity;
+    const indexB = mapY.has(b) ? mapY.get(b) : Infinity;
+    return indexA - indexB;
+  });
+
+  return x;
+}
