@@ -1,3 +1,4 @@
+import { AssetTagWithFramework, AssetTagTemplateWithKey, AssetTagWithFrameworkAndKey } from "./AssetTags";
 import { ReaderResource } from "../types/ReaderResource";
 import { TimeZoneOption } from "./Misc";
 import {
@@ -42,6 +43,9 @@ import {
 } from "./LibrariesClient";
 
 export type {
+  AssetTagWithFramework,
+  AssetTagWithFrameworkAndKey,
+  AssetTagTemplateWithKey,
   BookSortOption,
   CentralIdentityUser,
   CentralIdentityOrg,
