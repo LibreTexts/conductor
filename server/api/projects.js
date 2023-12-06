@@ -2999,6 +2999,8 @@ async function getProjectFile(req, res) {
           updateObj.isURL = true;
           updateObj.url = fileURL;
           updateObj.storageType = undefined;
+          updateObj.size = undefined;
+          updateObj.downloadCount = undefined;
           updateObj.license = {
             ...obj.license,
             sourceURL: fileURL,
