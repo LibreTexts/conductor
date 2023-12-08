@@ -48,6 +48,7 @@ const withUserStateDependency = (WrappedComponent) => {
                 lastName: res.data.user.lastName,
                 avatar: res.data.user.avatar,
                 roles: res.data.user.roles,
+                email: res.data.user.email,
                 verifiedInstructor: res.data.user.verifiedInstructor,
               }
             });

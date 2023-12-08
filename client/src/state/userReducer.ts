@@ -69,6 +69,7 @@ export default function userReducer(
         lastName: action.payload.lastName,
         roles: action.payload.roles,
         avatar: action.payload.avatar,
+        email: action.payload.email,
         isCampusAdmin: action.payload.isCampusAdmin,
         isSuperAdmin: action.payload.isSuperAdmin,
         verifiedInstructor: action.payload.verifiedInstructor,
