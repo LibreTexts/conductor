@@ -26,6 +26,7 @@ import AlertModal from "../../../components/alerts/AlertModal.jsx";
 import ConductorPagination from "../../../components/util/ConductorPagination";
 import {
   getClassificationText,
+  getFilesLicenseText,
   getVisibilityText,
 } from "../../../components/util/ProjectHelpers";
 import {
@@ -36,7 +37,7 @@ import { truncateString } from "../../../components/util/HelperFunctions.js";
 import { catalogItemsPerPageOptions } from "../../../components/util/PaginationOptions.js";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { Book, Homework, Project, ProjectFile, User } from "../../../types";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, set } from "date-fns";
 import RenderAssetTags from "../../../components/FilesManager/RenderAssetTags";
 import api from "../../../api";
 import {
@@ -83,45 +84,44 @@ const Search = () => {
   const [projVisibilityFilter, setProjVisibilityFilter] = useState(
     projVisibilityDefault
   );
-  const [numResults, setNumResults] = useState<number>(0);
 
-  const [projResults, setProjResults] = useState<Project[]>([]);
-  const [projSort, setProjSort] = useState(projSortDefault);
-  const [displayProjects, setDisplayProjects] = useState<Project[]>([]);
-  const [projActivePage, setProjActivePage] = useState<number>(1);
-  const [projTotalPages, setProjTotalPages] = useState<number>(1);
-  const [projectsPerPage, setProjectsPerPage] = useState<number>(12);
+  const [numTotalResults, setNumTotalResults] = useState<number>(0);
 
-  const [bookResults, setBookResults] = useState<Book[]>([]);
-  const [bookSort, setBookSort] = useState(bookSortDefault);
-  const [displayBooks, setDisplayBooks] = useState<Book[]>([]);
-  const [bookActivePage, setBookActivePage] = useState<number>(1);
-  const [bookTotalPages, setBookTotalPages] = useState<number>(1);
-  const [booksPerPage, setBooksPerPage] = useState<number>(12);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsSort, setProjectsSort] = useState(projSortDefault);
+  const [projectsTotal, setProjectsTotal] = useState<number>(0);
 
-  const [assetResults, setAssetResults] = useState<ProjectFileWProjectID[]>([]);
-  const [displayAssets, setDisplayAssets] = useState<ProjectFileWProjectID[]>(
-    []
-  );
-  const [assetActivePage, setAssetActivePage] = useState<number>(1);
-  const [assetTotalPages, setAssetTotalPages] = useState<number>(1);
-  const [assetsPerPage, setAssetsPerPage] = useState<number>(12);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [booksSort, setBooksSort] = useState(bookSortDefault);
+  const [booksTotal, setBooksTotal] = useState<number>(0);
 
-  const [hwResults, setHwResults] = useState<Homework[]>([]);
-  const [hwSort, setHwSort] = useState(hwSortDefault);
-  const [displayHomework, setDisplayHomework] = useState<Homework[]>([]);
-  const [hwActivePage, setHwActivePage] = useState<number>(1);
-  const [hwTotalPages, setHwTotalPages] = useState<number>(1);
-  const [hwPerPage, setHwPerPage] = useState<number>(12);
-  const [showHwModal, setShowHwModal] = useState<boolean>(false);
+  const [assets, setAssets] = useState<ProjectFileWProjectID[]>([]);
+  const [assetsSort, setAssetsSort] = useState(bookSortDefault);
+  const [assetsTotal, setAssetsTotal] = useState<number>(0);
+
+  const [homework, setHomework] = useState<Homework[]>([]);
+  const [homeworkSort, setHomeworkSort] = useState(hwSortDefault);
+  const [homeworkTotal, setHomeworkTotal] = useState<number>(0);
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersSort, setUsersSort] = useState(userSortDefault);
+  const [usersTotal, setUsersTotal] = useState<number>(0);
+
+  const [activeProjectPage, setActiveProjectPage] = useState<number>(1);
+  const [activeBookPage, setActiveBookPage] = useState<number>(1);
+  const [activeAssetPage, setActiveAssetPage] = useState<number>(1);
+  const [activeHWPage, setActiveHWPage] = useState<number>(1);
+  const [activeUserPage, setActiveUserPage] = useState<number>(1);
+
+  const [projectsLimit, setProjectsLimit] = useState<number>(12);
+  const [booksLimit, setBooksLimit] = useState<number>(12);
+  const [assetsLimit, setAssetsLimit] = useState<number>(12);
+  const [hwLimit, setHwLimit] = useState<number>(12);
+  const [usersLimit, setUsersLimit] = useState<number>(12);
+
+  // Homework Modal
   const [selectedHW, setSelectedHW] = useState<Homework | null>(null);
-
-  const [userResults, setUserResults] = useState<User[]>([]);
-  const [userSort, setUserSort] = useState(userSortDefault);
-  const [displayUsers, setDisplayUsers] = useState<User[]>([]);
-  const [userActivePage, setUserActivePage] = useState<number>(1);
-  const [userTotalPages, setUserTotalPages] = useState<number>(1);
-  const [usersPerPage, setUsersPerPage] = useState<number>(12);
+  const [showHwModal, setShowHwModal] = useState<boolean>(false);
 
   // Create Alert
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -226,20 +226,20 @@ const Search = () => {
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        if (typeof res.data.numResults === "number") {
-          setNumResults(res.data.numResults);
-        }
+
         if (res.data.results) {
           if (Array.isArray(res.data.results.projects))
-            setProjResults(res.data.results.projects);
+            setProjects(res.data.results.projects);
           if (Array.isArray(res.data.results.books))
-            setBookResults(res.data.results.books);
+            setBooks(res.data.results.books);
           if (Array.isArray(res.data.results.files))
-            setAssetResults(res.data.results.files);
+            setAssets(res.data.results.files);
           if (Array.isArray(res.data.results.homework))
-            setHwResults(res.data.results.homework);
+            setHomework(res.data.results.homework);
           if (Array.isArray(res.data.results.users))
-            setUserResults(res.data.results.users);
+            setUsers(res.data.results.users);
+
+          setNumTotalResults(res.data.numResults);
         }
       } catch (err) {
         handleGlobalError(err);
@@ -249,209 +249,123 @@ const Search = () => {
     },
     [
       setLoadedData,
-      setNumResults,
-      setProjResults,
-      setBookResults,
-      setHwResults,
-      setUserResults,
+      setProjects,
+      setBooks,
+      setAssets,
+      setHomework,
+      setUsers,
       handleGlobalError,
     ]
   );
 
-  /**
-   * Subscribe to changes in the URL search query, process parameters,
-   * and trigger the search function.
-   */
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const query = urlParams.get("query");
-    const projLocation =
-      urlParams.get(projLocationParam) || projLocationDefault;
-    const projStatus = urlParams.get(projStatusParam) || projStatusDefault;
-    const projVisibility =
-      urlParams.get(projVisibilityParam) || projVisibilityDefault;
-    const projSortChoice = urlParams.get(projSortParam) || projSortDefault;
-    const bookSortChoice = urlParams.get(bookSortParam) || bookSortDefault;
-    const hwSortChoice = urlParams.get(hwSortParam) || hwSortDefault;
-    const userSortChoice = urlParams.get(userSortParam) || userSortDefault;
-    setProjLocationFilter(projLocation);
-    setProjStatusFilter(projStatus);
-    setProjVisibilityFilter(projVisibility);
-    setProjSort(projSortChoice);
-    setBookSort(bookSortChoice);
-    setHwSort(hwSortChoice);
-    setUserSort(userSortChoice);
     if (typeof query === "string" && query.length > 0) {
       document.title = `LibreTexts Conductor | Search | "${query}" | Results`;
       setSearchQuery(query);
       performSearch(
         query,
-        projLocation,
-        projStatus,
-        projVisibility,
-        projSortChoice,
-        bookSortChoice,
-        hwSortChoice,
-        userSortChoice
+        projLocationFilter,
+        projStatusFilter,
+        projVisibilityFilter,
+        projectsSort,
+        booksSort,
+        homeworkSort,
+        usersSort
       );
     } else {
       handleGlobalError("Oops, please provide a valid search query.");
     }
-  }, [
-    location.search,
-    performSearch,
-    setSearchQuery,
-    setProjLocationFilter,
-    setProjStatusFilter,
-    setProjVisibilityFilter,
-    setProjSort,
-    setBookSort,
-    setHwSort,
-    setUserSort,
-    handleGlobalError,
-  ]);
+  }, [location.search])
 
   /**
-   * Update the URL search query with a new value after a filter or sort option change.
-   * @param {string} name - The internal filter or sort option name.
-   * @param {string} newValue - The new value of the search parameter to set.
+   * Subscribe to changes in the URL search query, process parameters,
+   * and trigger the search function.
    */
-  const handleFilterSortChange = (name: string, newValue: string) => {
-    let urlParams = new URLSearchParams(location.search);
-    switch (name) {
-      case "location":
-        urlParams.set(projLocationParam, newValue);
-        break;
-      case "status":
-        urlParams.set(projStatusParam, newValue);
-        break;
-      case "visibility":
-        urlParams.set(projVisibilityParam, newValue);
-        break;
-      case "projSort":
-        urlParams.set(projSortParam, newValue);
-        break;
-      case "bookSort":
-        urlParams.set(bookSortParam, newValue);
-        break;
-      case "hwSort":
-        urlParams.set(hwSortParam, newValue);
-        break;
-      case "userSort":
-        urlParams.set(userSortParam, newValue);
-        break;
-      default:
-        break;
-    }
-    history.push({ search: urlParams.toString() });
-  };
+  // useEffect(() => {
+  //   const urlParams = new URLSearchParams(location.search);
+  //   const query = urlParams.get("query");
+  //   const projLocation =
+  //     urlParams.get(projLocationParam) || projLocationDefault;
+  //   const projStatus = urlParams.get(projStatusParam) || projStatusDefault;
+  //   const projVisibility =
+  //     urlParams.get(projVisibilityParam) || projVisibilityDefault;
+  //   const projSortChoice = urlParams.get(projSortParam) || projSortDefault;
+  //   const bookSortChoice = urlParams.get(bookSortParam) || bookSortDefault;
+  //   const hwSortChoice = urlParams.get(hwSortParam) || hwSortDefault;
+  //   const userSortChoice = urlParams.get(userSortParam) || userSortDefault;
+  //   setProjLocationFilter(projLocation);
+  //   setProjStatusFilter(projStatus);
+  //   setProjVisibilityFilter(projVisibility);
+  //   setProjSort(projSortChoice);
+  //   setBookSort(bookSortChoice);
+  //   setHwSort(hwSortChoice);
+  //   setUserSort(userSortChoice);
+  //   if (typeof query === "string" && query.length > 0) {
+  //     document.title = `LibreTexts Conductor | Search | "${query}" | Results`;
+  //     setSearchQuery(query);
+  //     performSearch(
+  //       query,
+  //       projLocation,
+  //       projStatus,
+  //       projVisibility,
+  //       projSortChoice,
+  //       bookSortChoice,
+  //       hwSortChoice,
+  //       userSortChoice
+  //     );
+  //   } else {
+  //     handleGlobalError("Oops, please provide a valid search query.");
+  //   }
+  // }, [
+  //   location.search,
+  //   performSearch,
+  //   setSearchQuery,
+  //   setProjLocationFilter,
+  //   setProjStatusFilter,
+  //   setProjVisibilityFilter,
+  //   setProjSort,
+  //   setBookSort,
+  //   setHwSort,
+  //   setUserSort,
+  //   handleGlobalError,
+  // ]);
 
-  /**
-   * Subscribe to changes in the Project Results pagination options and update UI/state accordingly.
-   */
-  useEffect(() => {
-    const newPageCount = Math.ceil(projResults.length / projectsPerPage);
-    setProjTotalPages(newPageCount);
-    setDisplayProjects(
-      projResults.slice(
-        (projActivePage - 1) * projectsPerPage,
-        projActivePage * projectsPerPage
-      )
-    );
-    if (projActivePage > newPageCount) setProjActivePage(1);
-  }, [
-    projResults,
-    projectsPerPage,
-    projActivePage,
-    setProjTotalPages,
-    setDisplayProjects,
-    setProjActivePage,
-  ]);
-
-  /**
-   * Subscribe to changes in the Book Results pagination options and update UI/state accordingly.
-   */
-  useEffect(() => {
-    const newPageCount = Math.ceil(bookResults.length / booksPerPage);
-    setBookTotalPages(newPageCount);
-    setDisplayBooks(
-      bookResults.slice(
-        (bookActivePage - 1) * booksPerPage,
-        bookActivePage * booksPerPage
-      )
-    );
-    if (bookActivePage > newPageCount) setBookActivePage(1);
-  }, [
-    bookResults,
-    booksPerPage,
-    bookActivePage,
-    setBookTotalPages,
-    setDisplayBooks,
-    setBookActivePage,
-  ]);
-
-  /**
-   * Subscribe to changes in the Asset Results pagination options and update UI/state accordingly.
-   */
-  useEffect(() => {
-    const newPageCount = Math.ceil(assetResults.length / assetsPerPage);
-    setAssetTotalPages(newPageCount);
-    setDisplayAssets(
-      assetResults.slice(
-        (assetActivePage - 1) * assetsPerPage,
-        assetActivePage * assetsPerPage
-      )
-    );
-    if (assetActivePage > newPageCount) setAssetActivePage(1);
-  }, [
-    assetResults,
-    assetsPerPage,
-    assetActivePage,
-    setAssetTotalPages,
-    setDisplayAssets,
-    setAssetActivePage,
-  ]);
-
-  /**
-   * Subscribe to changes in the Homework Results pagination options and update UI/state accordingly.
-   */
-  useEffect(() => {
-    const newPageCount = Math.ceil(hwResults.length / hwPerPage);
-    setHwTotalPages(newPageCount);
-    setDisplayHomework(
-      hwResults.slice((hwActivePage - 1) * hwPerPage, hwActivePage * hwPerPage)
-    );
-    if (hwActivePage > newPageCount) setHwActivePage(1);
-  }, [
-    hwResults,
-    hwPerPage,
-    hwActivePage,
-    setHwTotalPages,
-    setDisplayHomework,
-    setHwActivePage,
-  ]);
-
-  /**
-   * Subscribe to changes in the User Results pagination options and update UI/state accordingly.
-   */
-  useEffect(() => {
-    const newPageCount = Math.ceil(userResults.length / usersPerPage);
-    setUserTotalPages(newPageCount);
-    setDisplayUsers(
-      userResults.slice(
-        (userActivePage - 1) * usersPerPage,
-        userActivePage * usersPerPage
-      )
-    );
-    if (userActivePage > newPageCount) setUserActivePage(1);
-  }, [
-    userResults,
-    usersPerPage,
-    userActivePage,
-    setUserTotalPages,
-    setDisplayUsers,
-    setUserActivePage,
-  ]);
+  // /**
+  //  * Update the URL search query with a new value after a filter or sort option change.
+  //  * @param {string} name - The internal filter or sort option name.
+  //  * @param {string} newValue - The new value of the search parameter to set.
+  //  */
+  // const handleFilterSortChange = (name: string, newValue: string) => {
+  //   let urlParams = new URLSearchParams(location.search);
+  //   switch (name) {
+  //     case "location":
+  //       urlParams.set(projLocationParam, newValue);
+  //       break;
+  //     case "status":
+  //       urlParams.set(projStatusParam, newValue);
+  //       break;
+  //     case "visibility":
+  //       urlParams.set(projVisibilityParam, newValue);
+  //       break;
+  //     case "projSort":
+  //       urlParams.set(projSortParam, newValue);
+  //       break;
+  //     case "bookSort":
+  //       urlParams.set(bookSortParam, newValue);
+  //       break;
+  //     case "hwSort":
+  //       urlParams.set(hwSortParam, newValue);
+  //       break;
+  //     case "userSort":
+  //       urlParams.set(userSortParam, newValue);
+  //       break;
+  //     default:
+  //       break;
+  //   }
+  //   history.push({ search: urlParams.toString() });
+  // };
 
   /**
    * Enter a Homework result into state and open the Homework View modal.
@@ -514,10 +428,7 @@ const Search = () => {
                   placeholder="Project Location..."
                   value={projLocationFilter}
                   onChange={(e, { value }) =>
-                    handleFilterSortChange(
-                      "location",
-                      (value as string) ?? "global"
-                    )
+                    setProjLocationFilter((value as string) ?? "global")
                   }
                 />
                 <Form.Select
@@ -526,7 +437,7 @@ const Search = () => {
                   placeholder="Project Status..."
                   value={projStatusFilter}
                   onChange={(e, { value }) =>
-                    handleFilterSortChange("status", (value as string) ?? "any")
+                    setProjStatusFilter((value as string) ?? "any")
                   }
                 />
                 <Form.Select
@@ -535,10 +446,7 @@ const Search = () => {
                   placeholder="Project Visibility"
                   value={projVisibilityFilter}
                   onChange={(e, { value }) =>
-                    handleFilterSortChange(
-                      "visibility",
-                      (value as string) ?? "any"
-                    )
+                    setProjVisibilityFilter((value as string) ?? "any")
                   }
                 />
               </Form.Group>
@@ -554,7 +462,7 @@ const Search = () => {
                 <Label color="grey">
                   <Icon name="hashtag" />
                   Results
-                  <Label.Detail>{numResults.toLocaleString()}</Label.Detail>
+                  <Label.Detail>{numTotalResults.toLocaleString()}</Label.Detail>
                 </Label>
               </div>
               <div className="right-flex">
@@ -578,7 +486,7 @@ const Search = () => {
             </div>
             {loadedData ? (
               <>
-                {numResults > 0 && (
+                {numTotalResults > 0 && (
                   <>
                     <Header as="h3" dividing>
                       Projects
@@ -593,28 +501,24 @@ const Search = () => {
                               selection
                               options={catalogItemsPerPageOptions}
                               onChange={(_e, { value }) =>
-                                setProjectsPerPage((value as number) ?? 12)
+                                setProjectsLimit((value as number) ?? 12)
                               }
-                              value={projectsPerPage}
+                              value={projectsLimit}
                               aria-label="Number of results to display per page"
                             />
                             <span>
                               {" "}
-                              items per page of{" "}
-                              <strong>
-                                {Number(projResults.length).toLocaleString()}
-                              </strong>{" "}
-                              results.
+                              items per page.
                             </span>
                           </div>
                           <div className="center-flex">
                             <ConductorPagination
-                              activePage={projActivePage}
-                              totalPages={projTotalPages}
+                              activePage={activeProjectPage}
+                              totalPages={(projectsTotal / projectsLimit) ? projectsTotal / projectsLimit : 1}
                               firstItem={null}
                               lastItem={null}
                               onPageChange={(e, data) =>
-                                setProjActivePage(
+                                setActiveProjectPage(
                                   (data.activePage as number) ?? 1
                                 )
                               }
@@ -628,12 +532,9 @@ const Search = () => {
                               button
                               options={projSortOptions}
                               onChange={(_e, { value }) =>
-                                handleFilterSortChange(
-                                  "projSort",
-                                  (value as string) ?? "title"
-                                )
+                                setProjectsSort((value as string) ?? "title")
                               }
-                              value={projSort}
+                              value={projectsSort}
                               aria-label="Sort Project Results by"
                             />
                           </div>
@@ -666,8 +567,8 @@ const Search = () => {
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                          {displayProjects.length > 0 &&
-                            displayProjects.map((item, index) => {
+                          {projects.length > 0 &&
+                            projects.map((item, index) => {
                               let projectLead = "Unknown";
                               if (item.leads && Array.isArray(item.leads)) {
                                 item.leads.forEach((lead, leadIdx) => {
@@ -769,7 +670,7 @@ const Search = () => {
                                 </Table.Row>
                               );
                             })}
-                          {displayProjects.length === 0 && (
+                          {projects.length === 0 && (
                             <Table.Row>
                               <Table.Cell colSpan={6}>
                                 <p className="text-center">
@@ -794,28 +695,25 @@ const Search = () => {
                               selection
                               options={catalogItemsPerPageOptions}
                               onChange={(_e, { value }) =>
-                                setBooksPerPage((value as number) ?? 12)
+                                setBooksLimit((value as number) ?? 12)
                               }
-                              value={booksPerPage}
+                              value={booksLimit}
                               aria-label="Number of results to display per page"
                             />
                             <span>
                               {" "}
-                              items per page of{" "}
-                              <strong>
-                                {Number(bookResults.length).toLocaleString()}
-                              </strong>{" "}
+                              items per page.
                               results.
                             </span>
                           </div>
                           <div className="center-flex">
                             <ConductorPagination
-                              activePage={bookActivePage}
-                              totalPages={bookTotalPages}
+                              activePage={activeBookPage}
+                              totalPages={(booksTotal / booksLimit) ? booksTotal / booksLimit : 1}
                               firstItem={null}
                               lastItem={null}
                               onPageChange={(e, data) =>
-                                setBookActivePage(
+                                setActiveBookPage(
                                   (data.activePage as number) ?? 1
                                 )
                               }
@@ -829,12 +727,9 @@ const Search = () => {
                               button
                               options={bookSortOptions}
                               onChange={(_e, { value }) =>
-                                handleFilterSortChange(
-                                  "bookSort",
-                                  (value as string) ?? "title"
-                                )
+                                setBooksSort((value as string) ?? "title")
                               }
-                              value={bookSort}
+                              value={booksSort}
                               aria-label="Sort Book Results by"
                             />
                           </div>
@@ -866,8 +761,8 @@ const Search = () => {
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                          {displayBooks.length > 0 &&
-                            displayBooks.map((item, index) => {
+                          {books.length > 0 &&
+                            books.map((item, index) => {
                               return (
                                 <Table.Row key={index}>
                                   <Table.Cell>
@@ -905,7 +800,7 @@ const Search = () => {
                                 </Table.Row>
                               );
                             })}
-                          {displayBooks.length === 0 && (
+                          {books.length === 0 && (
                             <Table.Row>
                               <Table.Cell colSpan={5}>
                                 <p className="text-center">
@@ -930,28 +825,24 @@ const Search = () => {
                               selection
                               options={catalogItemsPerPageOptions}
                               onChange={(_e, { value }) =>
-                                setBooksPerPage((value as number) ?? 12)
+                                setAssetsLimit((value as number) ?? 12)
                               }
-                              value={booksPerPage}
+                              value={assetsLimit}
                               aria-label="Number of results to display per page"
                             />
                             <span>
                               {" "}
-                              items per page of{" "}
-                              <strong>
-                                {Number(assetResults.length).toLocaleString()}
-                              </strong>{" "}
-                              results.
+                              items per page.
                             </span>
                           </div>
                           <div className="center-flex">
                             <ConductorPagination
-                              activePage={assetActivePage}
-                              totalPages={assetTotalPages}
+                              activePage={activeAssetPage}
+                              totalPages={(assetsTotal / assetsLimit) ? assetsTotal / assetsLimit : 1}
                               firstItem={null}
                               lastItem={null}
                               onPageChange={(e, data) =>
-                                setAssetActivePage(
+                                setActiveAssetPage(
                                   (data.activePage as number) ?? 1
                                 )
                               }
@@ -979,8 +870,11 @@ const Search = () => {
                       <Table celled attached title="Asset Search Results">
                         <Table.Header>
                           <Table.Row>
-                            <Table.HeaderCell scope="col">
+                            <Table.HeaderCell scope="col" width={7}>
                               <Header sub>Name</Header>
+                            </Table.HeaderCell>
+                            <Table.HeaderCell scope="col">
+                              <Header sub>License</Header>
                             </Table.HeaderCell>
                             <Table.HeaderCell scope="col">
                               <Header sub>Size</Header>
@@ -994,8 +888,8 @@ const Search = () => {
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                          {displayAssets.length > 0 &&
-                            displayAssets.map((item, index) => {
+                          {assets.length > 0 &&
+                            assets.map((item, index) => {
                               return (
                                 <Table.Row key={index}>
                                   <Table.Cell>
@@ -1011,6 +905,11 @@ const Search = () => {
                                     >
                                       {item.name}
                                     </a>
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                    {item.license && (
+                                      <span>{getFilesLicenseText(item.license) ?? 'Unknown'}</span>
+                                    )}
                                   </Table.Cell>
                                   <Table.Cell>
                                     {item.storageType === "file" &&
@@ -1036,7 +935,7 @@ const Search = () => {
                                 </Table.Row>
                               );
                             })}
-                          {displayAssets.length === 0 && (
+                          {assets.length === 0 && (
                             <Table.Row>
                               <Table.Cell colSpan={5}>
                                 <p className="text-center">
@@ -1061,28 +960,24 @@ const Search = () => {
                               selection
                               options={catalogItemsPerPageOptions}
                               onChange={(_e, { value }) =>
-                                setHwPerPage((value as number) ?? 12)
+                                setHwLimit((value as number) ?? 12)
                               }
-                              value={hwPerPage}
+                              value={hwLimit}
                               aria-label="Number of results to display per page"
                             />
                             <span>
                               {" "}
-                              items per page of{" "}
-                              <strong>
-                                {Number(hwResults.length).toLocaleString()}
-                              </strong>{" "}
-                              results.
+                              items per page.
                             </span>
                           </div>
                           <div className="center-flex">
                             <ConductorPagination
-                              activePage={hwActivePage}
-                              totalPages={hwTotalPages}
+                              activePage={activeHWPage}
+                              totalPages={(homeworkTotal / hwLimit) ? homeworkTotal / hwLimit : 1}
                               firstItem={null}
                               lastItem={null}
                               onPageChange={(e, data) =>
-                                setHwActivePage(
+                                setActiveHWPage(
                                   (data.activePage as number) ?? 1
                                 )
                               }
@@ -1096,12 +991,9 @@ const Search = () => {
                               button
                               options={hwSortOptions}
                               onChange={(_e, { value }) =>
-                                handleFilterSortChange(
-                                  "hwSort",
-                                  (value as string) ?? "name"
-                                )
+                                setHomeworkSort((value as string) ?? "name")
                               }
-                              value={hwSort}
+                              value={homeworkSort}
                               aria-label="Sort Homework and Assessments Results by"
                             />
                           </div>
@@ -1119,8 +1011,8 @@ const Search = () => {
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                          {displayHomework.length > 0 &&
-                            displayHomework.map((item, index) => {
+                          {homework.length > 0 &&
+                            homework.map((item, index) => {
                               return (
                                 <Table.Row key={index}>
                                   <Table.Cell>
@@ -1140,7 +1032,7 @@ const Search = () => {
                                 </Table.Row>
                               );
                             })}
-                          {displayHomework.length === 0 && (
+                          {homework.length === 0 && (
                             <Table.Row>
                               <Table.Cell colSpan="2">
                                 <p className="text-center">
@@ -1165,28 +1057,24 @@ const Search = () => {
                               selection
                               options={catalogItemsPerPageOptions}
                               onChange={(_e, { value }) =>
-                                setUsersPerPage((value as number) ?? 12)
+                                setUsersLimit((value as number) ?? 12)
                               }
-                              value={usersPerPage}
+                              value={usersLimit}
                               aria-label="Number of results to display per page"
                             />
                             <span>
                               {" "}
-                              items per page of{" "}
-                              <strong>
-                                {Number(userResults.length).toLocaleString()}
-                              </strong>{" "}
-                              results.
+                              items per page.
                             </span>
                           </div>
                           <div className="center-flex">
                             <ConductorPagination
-                              activePage={userActivePage}
-                              totalPages={userTotalPages}
+                              activePage={activeUserPage}
+                              totalPages={(usersTotal / usersLimit) ? usersTotal / usersLimit : 1}
                               firstItem={null}
                               lastItem={null}
                               onPageChange={(e, data) =>
-                                setUserActivePage(
+                                setActiveUserPage(
                                   (data.activePage as number) ?? 1
                                 )
                               }
@@ -1200,21 +1088,18 @@ const Search = () => {
                               button
                               options={userSortOptions}
                               onChange={(_e, { value }) =>
-                                handleFilterSortChange(
-                                  "userSort",
-                                  (value as string) ?? "first"
-                                )
+                                setUsersSort((value as string) ?? "first")
                               }
-                              value={userSort}
+                              value={usersSort}
                               aria-label="Sort User Results by"
                             />
                           </div>
                         </div>
                       </Segment>
                       <Segment basic attached>
-                        {displayUsers.length > 0 && (
+                        {users.length > 0 && (
                           <List divided relaxed verticalAlign="middle">
-                            {displayUsers.map((item, idx) => {
+                            {users.map((item, idx) => {
                               return (
                                 <List.Item key={`user-result-${idx}`}>
                                   <div className="flex-row-div">
@@ -1237,14 +1122,14 @@ const Search = () => {
                             })}
                           </List>
                         )}
-                        {displayUsers.length === 0 && (
+                        {users.length === 0 && (
                           <p className="text-center">No results found.</p>
                         )}
                       </Segment>
                     </Segment>
                   </>
                 )}
-                {numResults === 0 && (
+                {numTotalResults === 0 && (
                   <Message>
                     <p>No results found.</p>
                   </Message>

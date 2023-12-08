@@ -481,6 +481,7 @@ const EditFile: React.FC<EditFileProps> = ({
                   color="blue"
                   onClick={() => setShowUploader(true)}
                   disabled={false}
+                  type="button"
                 >
                   <Icon name="upload" />
                   Replace File

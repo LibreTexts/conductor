@@ -230,110 +230,173 @@ async function performSearch(
     aggregations.push(
       // Search project files for names that match the query
       Project.aggregate([
-        {
-          $match: {
-            $and: [
-              {
-                orgID: process.env.ORG_ID,
-              },
-              {
-                visibility: "public",
-              },
-              {
-                $or: [
-                  { "files.name": queryRegex },
-                  { "files.description": queryRegex },
-                  { associatedOrgs: queryRegex },
+          {
+            $match: {
+              $and: [
+                {
+                  orgID: "libretexts",
+                },
+                {
+                  visibility: "public",
+                },
+                {
+               $or: [
+                 { "files.name": queryRegex },
+                 { "files.description": queryRegex },
+                 { associatedOrgs: queryRegex },
+               ],
+             },
+              ],
+            },
+          },
+          {
+            $project: {
+              files: 1,
+              projectID: 1,
+            },
+          },
+          {
+            $unwind: {
+              path: "$files",
+              preserveNullAndEmptyArrays: false,
+            },
+          },
+          {
+            $match: {
+              "files.access": "public",
+            },
+          },
+          {
+            $replaceRoot: {
+              newRoot: {
+                $mergeObjects: [
+                  {
+                    projectID: "$projectID",
+                  },
+                  "$files",
                 ],
               },
-            ],
-          },
-        },
-        {
-          $project: {
-            files: 1,
-            projectID: 1,
-          },
-        },
-        {
-          $unwind: {
-            path: "$files",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $match: {
-            "files.access": "public",
-          },
-        },
-        {
-          $replaceRoot: {
-            newRoot: {
-              $mergeObjects: [
-                {
-                  projectID: "$projectID",
-                },
-                "$files",
-              ],
             },
           },
-        },
-        {
-          $lookup: {
-            from: "fileassettags",
-            localField: "_id",
-            foreignField: "fileID",
-            as: "foundTags",
-          },
-        },
-        {
-          $unwind: {
-            path: "$foundTags",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $replaceRoot: {
-            newRoot: {
-              $mergeObjects: [
-                "$$ROOT",
-                {
-                  foundTags: "$foundTags.tags",
-                },
-              ],
+          {
+            $lookup: {
+              from: "fileassettags",
+              localField: "_id",
+              foreignField: "fileID",
+              as: "tags",
             },
           },
-        },
-        {
-          $lookup: {
-            from: "assettags",
-            localField: "foundTags",
-            foreignField: "_id",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "assettagframeworks",
-                  localField: "framework",
-                  foreignField: "_id",
-                  as: "framework",
+          {
+            $lookup: {
+              from: "assettags",
+              localField: "tags.tags",
+              foreignField: "_id",
+              pipeline: [
+                {
+                  $lookup: {
+                    from: "assettagframeworks",
+                    localField: "framework",
+                    foreignField: "_id",
+                    pipeline: [
+                      // Go through each template in framework and lookup key
+                      {
+                        $unwind: {
+                          path: "$templates",
+                          preserveNullAndEmptyArrays: true,
+                        },
+                      },
+                      {
+                        $lookup: {
+                          from: "assettagkeys",
+                          let: {
+                            key: "$templates.key",
+                          },
+                          pipeline: [
+                            {
+                              $match: {
+                                $expr: {
+                                  $eq: ["$_id", "$$key"],
+                                },
+                              },
+                            },
+                          ],
+                          as: "key",
+                        },
+                      },
+                      {
+                        $set: {
+                          "templates.key": {
+                            $arrayElemAt: ["$key", 0],
+                          },
+                        },
+                      },
+                      {
+                        $group: {
+                          _id: "$_id",
+                          uuid: {
+                            $first: "$uuid",
+                          },
+                          name: {
+                            $first: "$name",
+                          },
+                          description: {
+                            $first: "$description",
+                          },
+                          enabled: {
+                            $first: "$enabled",
+                          },
+                          orgID: {
+                            $first: "$orgID",
+                          },
+                          templates: {
+                            $push: "$templates",
+                          },
+                        },
+                      },
+                    ],
+                    as: "framework",
+                  },
                 },
-              },
-              {
-                $set: {
-                  framework: {
-                    $arrayElemAt: ["$framework", 0],
+                {
+                  $set: {
+                    framework: {
+                      $arrayElemAt: ["$framework", 0],
+                    },
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "assettagkeys",
+                    localField: "key",
+                    foreignField: "_id",
+                    as: "key",
+                  },
+                },
+                {
+                  $set: {
+                    key: {
+                      $arrayElemAt: ["$key", 0],
+                    },
+                  },
+                },
+              ],
+              as: "tags",
+            },
+          },
+          {
+            //filter asset tags where isDeleted = true
+            $set: {
+              tags: {
+                $filter: {
+                  input: "$tags",
+                  as: "tag",
+                  cond: {
+                    $ne: ["$$tag.isDeleted", true],
                   },
                 },
               },
-            ],
-            as: "tags",
+            },
           },
-        },
-        {
-          $project: {
-            foundTags: 0,
-          },
-        },
       ])
     );
     aggregations.push(
