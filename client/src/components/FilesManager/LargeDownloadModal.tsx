@@ -17,7 +17,7 @@ const LargeDownloadModal: React.FC<LargeDownloadModalProps> = ({
         <p>
           The files you've requested will take some time to prepare. We'll
           get your download ready in the background and send you an email when
-          it's ready!
+          it's ready! Please be sure to check your spam folder if you don't receive an email.
         </p>
       </Modal.Content>
       <Modal.Actions>
