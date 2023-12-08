@@ -1046,29 +1046,34 @@ export async function parseAndZipS3Objects(
   s3Res: GetObjectCommandOutput[],
   files: FileInterface[]
 ): Promise<string | null> {
-  const items = [];
-  for (let i = 0; i < s3Res.length; i++) {
-    const byteArray = await s3Res[i].Body?.transformToByteArray();
-    if (files[i]) {
-      items.push({
-        name: files[i].name,
-        data: byteArray,
-      });
-    } else {
-      items.push({
-        name: v4(), // Fallback to random name
-        data: byteArray,
-      });
+  try {
+    const items = [];
+    for (let i = 0; i < s3Res.length; i++) {
+      const byteArray = await s3Res[i].Body?.transformToByteArray();
+      if (files[i]) {
+        items.push({
+          name: files[i].name,
+          data: byteArray,
+        });
+      } else {
+        items.push({
+          name: v4(), // Fallback to random name
+          data: byteArray,
+        });
+      }
     }
+  
+    const noUndefined = items.filter((item) => item.name && item.data) as {
+      name: string;
+      data: Uint8Array;
+    }[];
+  
+    const zipPath = await generateZIPFile(noUndefined);
+    return zipPath ?? null;  
+  } catch (e) {
+    debugError(e);
+    return null;
   }
-
-  const noUndefined = items.filter((item) => item.name && item.data) as {
-    name: string;
-    data: Uint8Array;
-  }[];
-
-  const zipPath = await generateZIPFile(noUndefined);
-  return zipPath ?? null;
 }
 
 /**
@@ -1090,7 +1095,6 @@ export async function createZIPAndNotify(
     // @ts-ignore
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
 
-    console.log('fileKeys: ' + fileKeys)
     const downloadCommands: GetObjectCommand[] = [];
     fileKeys.forEach(async (key) => {
       downloadCommands.push(
@@ -1101,12 +1105,10 @@ export async function createZIPAndNotify(
       );
     });
 
-    console.log('starting download')
     const downloadRes = await Promise.all(
       downloadCommands.map((command) => storageClient.send(command))
     );
 
-    console.log('parsing and zipping files')
     const zipPath = await parseAndZipS3Objects(downloadRes, allFiles);
     if (!zipPath) throw new Error("Zip path is undefined");
     // Read zip file from local fs and get buffer
@@ -1125,16 +1127,12 @@ export async function createZIPAndNotify(
       })
     );
 
-    console.log('put object in S3')
-
     const fileURL = assembleUrl([
       "https://",
       // @ts-ignore
       process.env.AWS_PROJECTFILES_DOMAIN,
       tempFileKey,
     ]);
-
-    console.log('assembled file URL: ' + fileURL)
 
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
@@ -1153,7 +1151,7 @@ export async function createZIPAndNotify(
 
     await fs.unlink(zipPath); // Delete zip file from local fs
 
-    await mailAPI.sendZIPFileReadyNotification(emailToNotify, signedURL);
+    await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
     return true;
   } catch (err) {
     debugError(err);
