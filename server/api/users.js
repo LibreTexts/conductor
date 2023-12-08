@@ -26,6 +26,7 @@ const getBasicUserInfo = (req, res) => {
         lastName: 1,
         roles: 1,
         avatar: 1,
+        email: 1,
         verifiedInstructor: 1,
     }).lean().then((user) => {
         if (user) {
