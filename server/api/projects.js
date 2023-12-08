@@ -2992,7 +2992,7 @@ async function getProjectFile(req, res) {
       });
     }
 
-    const { name, description, license, author, publisher, isURL, fileURL } = req.body;
+    const { name, description, license, author, publisher, tags, isURL, fileURL } = req.body;
 
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
@@ -3020,8 +3020,8 @@ async function getProjectFile(req, res) {
     }
 
     // update tags
-    if(req.body.tags){
-      await upsertAssetTags(foundObj, req.body.tags);
+    if(tags){
+      await upsertAssetTags(foundObj, tags);
     }
 
     const updated = files.map((obj) => {

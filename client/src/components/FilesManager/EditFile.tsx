@@ -207,7 +207,7 @@ const EditFile: React.FC<EditFileProps> = ({
   async function checkCampusDefault() {
     try {
       const existing = getValues("tags");
-      if(existing && existing.length > 0) return; // Don't load campus default if tags already exist
+      if (existing && existing.length > 0) return; // Don't load campus default if tags already exist
       setLoading(true);
       const res = await api.getCampusDefaultFramework(org.orgID);
       if (res.data.err) {
@@ -310,9 +310,18 @@ const EditFile: React.FC<EditFileProps> = ({
       //clearErrors(); // Clear any previous errors
       const valid = await trigger(); // Trigger validation on all fields
       if (!valid) return;
+      const vals = getValues();
+
       const editRes = await axios.put(
-        `/project/${projectID}/files/${getValues().fileID}`,
-        getValues()
+        `/project/${projectID}/files/${vals.fileID}`,
+        {
+          name: vals.name,
+          description: vals.description,
+          license: vals.license,
+          author: vals.author,
+          publisher: vals.publisher,
+          tags: vals.tags,
+        }
       );
 
       if (editRes.data.err) {
@@ -476,17 +485,19 @@ const EditFile: React.FC<EditFileProps> = ({
                   showRemaining
                 />
               </div>
-              <div className="mt-4">
-                <Button
-                  color="blue"
-                  onClick={() => setShowUploader(true)}
-                  disabled={false}
-                  type="button"
-                >
-                  <Icon name="upload" />
-                  Replace File
-                </Button>
-              </div>
+              {!isFolder && (
+                <div className="mt-4">
+                  <Button
+                    color="blue"
+                    onClick={() => setShowUploader(true)}
+                    disabled={false}
+                    type="button"
+                  >
+                    <Icon name="upload" />
+                    Replace File
+                  </Button>
+                </div>
+              )}
               <div className="mt-8">
                 {filePreviewURL && !getValues("isURL") && !getValues("url") && (
                   <>
