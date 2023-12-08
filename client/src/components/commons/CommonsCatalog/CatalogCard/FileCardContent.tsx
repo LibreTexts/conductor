@@ -1,6 +1,7 @@
 import { Card, CardContentProps, Icon, Image } from "semantic-ui-react";
 import { ProjectFile } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
+import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 
 interface FileCardContentProps extends CardContentProps {
   file: ProjectFile;
@@ -25,6 +26,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         <p className="commons-content-card-author">
           {truncateString(file.description, 100) ? truncateString(file.description, 100) : "No description provided"}
         </p>
+        <RenderAssetTags file={file} />
       </Card.Description>
     </Card.Content>
   );
