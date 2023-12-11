@@ -96,7 +96,7 @@ const KBPageEditMode = ({
       if (!res.data.page || !res.data.page.slug) {
         throw new Error("Error creating page");
       }
-      window.location.assign(`/kb/${res.data.page.slug}`); // Redirect to new page
+      window.location.assign(`/insight/${res.data.page.slug}`); // Redirect to new page
     } catch (err) {
       handleGlobalError(err);
     } finally {

@@ -642,12 +642,17 @@ function _sanitizeBodyContent(content: string) {
 }
 
 function _generatePageSlug(title: string, userInput?: string) {
-  if (userInput) {
-    const spacesReplaced = userInput.replace(/\s/g, "-");
-    return encodeURIComponent(spacesReplaced.toLowerCase());
+  let val = '';
+  if (userInput && userInput.length > 0) {
+    val = userInput;
+  } else {
+    val = title
   }
-  const spacesReplaced = title.replace(/\s/g, "-");
-  return encodeURIComponent(spacesReplaced.toLowerCase());
+  const trimmed = val.trim(); // remove leading and trailing whitespace
+  const noQuotations = trimmed.replace(/['"]+/g, ""); // remove quotations
+  const noSpecialChars = noQuotations.replace(/[!@#$%^&*]/g, ""); // remove special characters
+  const spacesReplaced = noSpecialChars.replace(/\s/g, "-"); // replace spaces with hyphens
+  return encodeURIComponent(spacesReplaced.toLowerCase()); // encode the slug
 }
 
 export default {
