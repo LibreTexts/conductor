@@ -870,8 +870,11 @@ const Search = () => {
                       <Table celled attached title="Asset Search Results">
                         <Table.Header>
                           <Table.Row>
-                            <Table.HeaderCell scope="col" width={7}>
+                            <Table.HeaderCell scope="col" width={6}>
                               <Header sub>Name</Header>
+                            </Table.HeaderCell>
+                            <Table.HeaderCell scope="col">
+                              <Header sub>Author</Header>
                             </Table.HeaderCell>
                             <Table.HeaderCell scope="col">
                               <Header sub>License</Header>
@@ -905,6 +908,13 @@ const Search = () => {
                                     >
                                       {item.name}
                                     </a>
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                    {item.author?.name ? (
+                                      <span>{item.author.name}</span>
+                                    ) : (
+                                      <span>Unknown</span>
+                                    )}
                                   </Table.Cell>
                                   <Table.Cell>
                                     {item.license && (
