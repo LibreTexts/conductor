@@ -41,6 +41,7 @@ export const projectFileSchema = z.object({
     .optional(),
   isURL: z.boolean().optional(),
   fileURL: z.string().url().optional(),
+  overwriteName: z.coerce.boolean().optional(),
 });
 
 export const updateProjectFileSchema = z.object({

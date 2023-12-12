@@ -2956,7 +2956,12 @@ async function getProjectFile(req, res) {
       });
     }
 
-    const { name, description, license, author, publisher, tags, isURL, fileURL } = req.body;
+    const { name, description, license, author, publisher, tags, isURL, fileURL, overwriteName } = req.body;
+
+    let shouldOverwriteName = overwriteName === undefined ? true : overwriteName;
+    if (typeof shouldOverwriteName === 'string') {
+      shouldOverwriteName = shouldOverwriteName.toLowerCase() === 'true';
+    }
 
     const files = await retrieveAllProjectFiles(projectID, false, req.user.decoded.uuid);
     if (!files) { // error encountered
@@ -2971,7 +2976,22 @@ async function getProjectFile(req, res) {
       });
     }
 
-    let processedName = name;
+
+
+    let processedName = '';
+
+    if(!name) {
+      // If replacing file and overwriteName is true, use the 'originalname' of replacement file
+      if(req.files?.length > 0 && shouldOverwriteName){
+        processedName = req.files[0].originalname;
+      } else {
+        processedName = name; // fallback to undefined
+      }
+    } else {
+      processedName = name;
+    }
+
+
     if (processedName) {
       // Ensure file extension remains in new name
       if (!processedName.includes('.')) {
@@ -2992,6 +3012,7 @@ async function getProjectFile(req, res) {
       if (obj.fileID === foundObj.fileID) {
         const updateObj = { ...obj };
         if (processedName) {
+          console.log('PROCESS NAME: ', processedName)
           updateObj.name = processedName;
         }
         if (typeof (description) === 'string') { // account for unsetting
