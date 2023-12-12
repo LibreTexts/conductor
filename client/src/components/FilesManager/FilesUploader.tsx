@@ -7,6 +7,7 @@ import {
   Icon,
   Modal,
   ModalProps,
+  Checkbox,
 } from "semantic-ui-react";
 import ProgressBar from "../ProgressBar";
 import useGlobalError from "../error/ErrorHooks";
@@ -57,6 +58,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   const [fileDisabled, setFileDisabled] = useState<boolean>(false);
   const [validURL, setValidURL] = useState<boolean>(false);
   const [urlInput, setUrlInput] = useState<string>("");
+  const [overwriteName, setOverwriteName] = useState<boolean>(true);
   const [percentUploaded, setPercentUploaded] = useState<number>(0);
   const [finishedFileTransfer, setFinishedFileTransfer] =
     useState<boolean>(false);
@@ -103,6 +105,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       setLoading(true);
       const formData = new FormData();
       formData.append("parentID", uploadPath);
+      mode === "replace" && formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
@@ -153,12 +156,19 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       formData.append("parentID", uploadPath);
       formData.append("fileURL", urlInput);
       formData.append("isURL", "true");
+      formData.append("overwriteName", overwriteName.toString());
 
-      const url = mode === "add" ? `/project/${projectID}/files` : `/project/${projectID}/files/${fileID}`;
+      const url =
+        mode === "add"
+          ? `/project/${projectID}/files`
+          : `/project/${projectID}/files/${fileID}`;
       const signal = abortControllerRef.current.signal;
 
-      const res = mode === "add" ? await axios.post(url, formData, { signal }) : await axios.put(url, formData, { signal });
-      
+      const res =
+        mode === "add"
+          ? await axios.post(url, formData, { signal })
+          : await axios.put(url, formData, { signal });
+
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -199,11 +209,20 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         {!loading ? (
           <div>
             {mode === "replace" && (
-              <p className="mb-2 text-center">
-                <strong>Warning:</strong> Replacing an existing file with a new
-                file or URL will remove and overwrite the old file. This action
-                cannot be undone!
-              </p>
+              <div className="flex flex-col justify-center items-center">
+                <p className="mb-2 text-center">
+                  <strong>Warning:</strong> Replacing an existing file with a
+                  new file or URL will remove and overwrite the old file. This
+                  action cannot be undone!
+                </p>
+                <Checkbox
+                  label="Overwrite file name?"
+                  toggle
+                  className="mb-4"
+                  checked={overwriteName}
+                  onChange={() => setOverwriteName(!overwriteName)}
+                />
+              </div>
             )}
             {mode === "add" && (
               <p>
