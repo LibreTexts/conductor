@@ -18,9 +18,9 @@ export const projectFileSchema = z.object({
   tags: z.array(assetTagSchema).optional(),
   license: z
     .object({
-      name: z.string().trim().max(255).optional(),
-      url: z.string().url().optional(),
-      version: z.string().trim().max(255).optional(),
+      name: z.string().trim().max(255).optional().or(z.literal("")),
+      url: z.string().trim().url().optional().or(z.literal("")),
+      version: z.string().trim().max(255).optional().or(z.literal("")),
       sourceURL: z.string().url().optional(),
       modifiedFromSource: z.boolean().optional(),
       additionalTerms: z.string().trim().max(500).optional(),
@@ -52,9 +52,9 @@ export const updateProjectFileSchema = z.object({
 });
 
 export const getPublicProjectFilesSchema = z.object({
-  query: PaginationSchema
-})
+  query: PaginationSchema,
+});
 
 export const getPublicProjectsSchema = z.object({
-  query: PaginationSchema
-})
+  query: PaginationSchema,
+});

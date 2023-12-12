@@ -154,7 +154,7 @@ const EditFile: React.FC<EditFileProps> = ({
     if (!license.versions || license.versions.length === 0) {
       setValue("license.version", "");
     }
-    setValue("license.url", license.url);
+    setValue("license.url", license.url ?? "");
   }, [watch("license.name")]);
 
   // Return new license version options when license name changes
