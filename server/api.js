@@ -229,6 +229,12 @@ router.route('/central-identity/orgs').get(
   centralIdentityAPI.getOrgs
 )
 
+router.route('/central-identity/adapt-orgs').get(
+  centralIdentityAPI.validate('getADAPTOrgs'), // Don't need checkCentralIdentityConfig here because it's does not require a valid API key
+  middleware.checkValidationErrors,
+  centralIdentityAPI.getADAPTOrgs
+)
+
 router.route('/central-identity/systems').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,

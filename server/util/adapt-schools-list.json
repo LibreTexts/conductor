@@ -1,0 +1,950 @@
+[
+    {
+      "name": "A & W Healthcare Educators"
+    },
+    {
+      "name": "ABC Beauty Academy"
+    },
+    {
+      "name": "Allan Hancock College"
+    },
+    {
+      "name": "Allegheny College"
+    },
+    {
+      "name": "Alpena Community College"
+    },
+    {
+      "name": "American River College"
+    },
+    {
+      "name": "Angelina College"
+    },
+    {
+      "name": "Angelo State University"
+    },
+    {
+      "name": "Anoka-Ramsey Community College"
+    },
+    {
+      "name": "Arcadia University"
+    },
+    {
+      "name": "Arizona State University-Tempe"
+    },
+    {
+      "name": "Arkansas Baptist College"
+    },
+    {
+      "name": "Arkansas Tech University"
+    },
+    {
+      "name": "Austin College"
+    },
+    {
+      "name": "Baker College of Owosso"
+    },
+    {
+      "name": "Bakersfield College"
+    },
+    {
+      "name": "Baltimore City Community College"
+    },
+    {
+      "name": "Barton County Community College"
+    },
+    {
+      "name": "Bates College"
+    },
+    {
+      "name": "Bellevue College"
+    },
+    {
+      "name": "Bentley University"
+    },
+    {
+      "name": "Berkeley City College"
+    },
+    {
+      "name": "Bethune-Cookman University"
+    },
+    {
+      "name": "Bismarck State College"
+    },
+    {
+      "name": "Bloomsburg University of Pennsylvania"
+    },
+    {
+      "name": "Boise State University"
+    },
+    {
+      "name": "Brigham Young University-Hawaii"
+    },
+    {
+      "name": "Butler Community College"
+    },
+    {
+      "name": "Butte College"
+    },
+    {
+      "name": "Cabrillo College"
+    },
+    {
+      "name": "California Career School"
+    },
+    {
+      "name": "California Lutheran University"
+    },
+    {
+      "name": "California State University - Chancellor's Office"
+    },
+    {
+      "name": "California State University - Chico"
+    },
+    {
+      "name": "California State University - East Bay"
+    },
+    {
+      "name": "California State University - Fresno"
+    },
+    {
+      "name": "California State University - Fullerton"
+    },
+    {
+      "name": "California State University - Long Beach"
+    },
+    {
+      "name": "California State University - Los Angeles"
+    },
+    {
+      "name": "California State University - Northridge"
+    },
+    {
+      "name": "California State University - San Bernardino"
+    },
+    {
+      "name": "California State University - San Marcos"
+    },
+    {
+      "name": "Canada College"
+    },
+    {
+      "name": "Carleton University"
+    },
+    {
+      "name": "Carlos Albizu University-Miami"
+    },
+    {
+      "name": "Central Carolina Community College"
+    },
+    {
+      "name": "Central Lakes College-Brainerd"
+    },
+    {
+      "name": "Centralia College"
+    },
+    {
+      "name": "Cerritos College"
+    },
+    {
+      "name": "Cerro Coso Community College"
+    },
+    {
+      "name": "Chabot College"
+    },
+    {
+      "name": "Chaffey College"
+    },
+    {
+      "name": "Charter Oak State College"
+    },
+    {
+      "name": "Chicago State University"
+    },
+    {
+      "name": "Chippewa Valley Technical College"
+    },
+    {
+      "name": "Citrus College"
+    },
+    {
+      "name": "City College of San Francisco"
+    },
+    {
+      "name": "City Colleges of Chicago-Harold Washington College"
+    },
+    {
+      "name": "City Colleges of Chicago-Harry S Truman College"
+    },
+    {
+      "name": "City Colleges of Chicago-Richard J Daley College"
+    },
+    {
+      "name": "Clackamas Community College"
+    },
+    {
+      "name": "Cleveland State Community College"
+    },
+    {
+      "name": "Clinton College"
+    },
+    {
+      "name": "Clovis Community College"
+    },
+    {
+      "name": "Coastline Community College"
+    },
+    {
+      "name": "College of Central Florida"
+    },
+    {
+      "name": "College of Lake County"
+    },
+    {
+      "name": "College of Marin"
+    },
+    {
+      "name": "College of San Mateo"
+    },
+    {
+      "name": "College of the Albemarle"
+    },
+    {
+      "name": "College of the Canyons"
+    },
+    {
+      "name": "College of the Desert"
+    },
+    {
+      "name": "College of the Mainland"
+    },
+    {
+      "name": "College of the Sequoias"
+    },
+    {
+      "name": "Colorado State University-Fort Collins"
+    },
+    {
+      "name": "Columbia College"
+    },
+    {
+      "name": "Community College of Allegheny County"
+    },
+    {
+      "name": "Compton College"
+    },
+    {
+      "name": "Concordia University-Saint Paul"
+    },
+    {
+      "name": "Contra Costa College"
+    },
+    {
+      "name": "Cosumnes River College"
+    },
+    {
+      "name": "Cuesta College"
+    },
+    {
+      "name": "CUNY Bernard M Baruch College"
+    },
+    {
+      "name": "CUNY Queens College"
+    },
+    {
+      "name": "Cuyamaca College"
+    },
+    {
+      "name": "Cypress College"
+    },
+    {
+      "name": "Davenport University"
+    },
+    {
+      "name": "De Anza College"
+    },
+    {
+      "name": "DePaul University"
+    },
+    {
+      "name": "DePauw University"
+    },
+    {
+      "name": "Diablo Valley College"
+    },
+    {
+      "name": "Dixie State University"
+    },
+    {
+      "name": "Duke University"
+    },
+    {
+      "name": "Durham Technical Community College"
+    },
+    {
+      "name": "East Central University"
+    },
+    {
+      "name": "East Los Angeles College"
+    },
+    {
+      "name": "Eastern Michigan University"
+    },
+    {
+      "name": "El Camino College-Compton Center"
+    },
+    {
+      "name": "El Camino Community College District"
+    },
+    {
+      "name": "Emporia State University"
+    },
+    {
+      "name": "Essex County College"
+    },
+    {
+      "name": "Estrella Mountain Community College"
+    },
+    {
+      "name": "Evergreen Valley College"
+    },
+    {
+      "name": "Feather River Community College District"
+    },
+    {
+      "name": "Finger Lakes Community College"
+    },
+    {
+      "name": "Fitchburg State University"
+    },
+    {
+      "name": "Folsom Lake College"
+    },
+    {
+      "name": "Fort Hays State University"
+    },
+    {
+      "name": "Fort Valley State University"
+    },
+    {
+      "name": "Fox Valley Technical College"
+    },
+    {
+      "name": "Franklin and Marshall College"
+    },
+    {
+      "name": "Fresno City College"
+    },
+    {
+      "name": "Fullerton College"
+    },
+    {
+      "name": "Furman University"
+    },
+    {
+      "name": "Gavilan College"
+    },
+    {
+      "name": "George Mason University"
+    },
+    {
+      "name": "Georgia College and State University"
+    },
+    {
+      "name": "Georgia State University"
+    },
+    {
+      "name": "Gettysburg College"
+    },
+    {
+      "name": "Glendale Community College"
+    },
+    {
+      "name": "Grand Rapids Community College"
+    },
+    {
+      "name": "Grand Valley State University"
+    },
+    {
+      "name": "Greenfield Community College"
+    },
+    {
+      "name": "Grossmont College"
+    },
+    {
+      "name": "Grossmont-Cuyamaca Community College District"
+    },
+    {
+      "name": "Harper College"
+    },
+    {
+      "name": "Harrisburg Area Community College-Harrisburg"
+    },
+    {
+      "name": "Hartnell College"
+    },
+    {
+      "name": "Hawaii Community College"
+    },
+    {
+      "name": "Highline Community College"
+    },
+    {
+      "name": "Holy Names University"
+    },
+    {
+      "name": "Hope College"
+    },
+    {
+      "name": "Housatonic Community College"
+    },
+    {
+      "name": "Humboldt State University"
+    },
+    {
+      "name": "Imperial Valley College"
+    },
+    {
+      "name": "Independence Community College"
+    },
+    {
+      "name": "Indian River State College"
+    },
+    {
+      "name": "Indiana Institute of Technology"
+    },
+    {
+      "name": "Indiana University-Purdue University-Fort Wayne"
+    },
+    {
+      "name": "Iowa State University"
+    },
+    {
+      "name": "Irvine Valley College"
+    },
+    {
+      "name": "Kalamazoo College"
+    },
+    {
+      "name": "Kansas State University"
+    },
+    {
+      "name": "Kentucky State University"
+    },
+    {
+      "name": "Kirkwood Community College"
+    },
+    {
+      "name": "La Salle University"
+    },
+    {
+      "name": "La Sierra University"
+    },
+    {
+      "name": "Lake Tahoe Community College"
+    },
+    {
+      "name": "Lakeshore Technical College"
+    },
+    {
+      "name": "Laney College"
+    },
+    {
+      "name": "Lansing Community College"
+    },
+    {
+      "name": "Las Positas College"
+    },
+    {
+      "name": "Liberty University"
+    },
+    {
+      "name": "Lindsey Wilson College"
+    },
+    {
+      "name": "Long Beach City College"
+    },
+    {
+      "name": "Los Angeles City College"
+    },
+    {
+      "name": "Los Angeles Harbor College"
+    },
+    {
+      "name": "Los Angeles Mission College"
+    },
+    {
+      "name": "Los Angeles Pierce College"
+    },
+    {
+      "name": "Los Angeles Trade Technical College"
+    },
+    {
+      "name": "Los Angeles Valley College"
+    },
+    {
+      "name": "Los Medanos College"
+    },
+    {
+      "name": "Los Rios Community College District Office"
+    },
+    {
+      "name": "Madera Community College"
+    },
+    {
+      "name": "Madison Area Technical College"
+    },
+    {
+      "name": "Manchester University"
+    },
+    {
+      "name": "Martin Luther College"
+    },
+    {
+      "name": "Mary Baldwin College"
+    },
+    {
+      "name": "Mendocino College"
+    },
+    {
+      "name": "Mercer County Community College"
+    },
+    {
+      "name": "Mercy College"
+    },
+    {
+      "name": "Merrimack College"
+    },
+    {
+      "name": "Milwaukee Area Technical College"
+    },
+    {
+      "name": "MiraCosta College"
+    },
+    {
+      "name": "Modesto Junior College"
+    },
+    {
+      "name": "Montana State University"
+    },
+    {
+      "name": "Montgomery College"
+    },
+    {
+      "name": "Moorpark College"
+    },
+    {
+      "name": "Moreno Valley College"
+    },
+    {
+      "name": "Mount Aloysius College"
+    },
+    {
+      "name": "Mount Saint Mary's University (Los Angeles)"
+    },
+    {
+      "name": "Mt San Antonio College"
+    },
+    {
+      "name": "Mt San Jacinto Community College District"
+    },
+    {
+      "name": "Muhlenberg College"
+    },
+    {
+      "name": "Muskegon Community College"
+    },
+    {
+      "name": "National University"
+    },
+    {
+      "name": "New Age Training"
+    },
+    {
+      "name": "New Mexico State University-Main Campus"
+    },
+    {
+      "name": "Norco College"
+    },
+    {
+      "name": "North Central Michigan College"
+    },
+    {
+      "name": "North Iowa Area Community College"
+    },
+    {
+      "name": "Northeast Wisconsin Technical College"
+    },
+    {
+      "name": "Northeastern Illinois University"
+    },
+    {
+      "name": "Northern Michigan University"
+    },
+    {
+      "name": "Northwest Nazarene University"
+    },
+    {
+      "name": "Not Specified"
+    },
+    {
+      "name": "Notre Dame of Maryland University"
+    },
+    {
+      "name": "Ohio Northern University"
+    },
+    {
+      "name": "Ohlone College"
+    },
+    {
+      "name": "Orange Coast College"
+    },
+    {
+      "name": "Oregon Institute of Technology"
+    },
+    {
+      "name": "Oregon State University"
+    },
+    {
+      "name": "Oxnard College"
+    },
+    {
+      "name": "Palo Verde College"
+    },
+    {
+      "name": "Parkland College"
+    },
+    {
+      "name": "Pasadena City College"
+    },
+    {
+      "name": "Pennsylvania State University-Main Campus"
+    },
+    {
+      "name": "Pittsburg State University"
+    },
+    {
+      "name": "Porterville College"
+    },
+    {
+      "name": "Portland Community College"
+    },
+    {
+      "name": "Prince George's Community College"
+    },
+    {
+      "name": "Providence College"
+    },
+    {
+      "name": "Reedley College"
+    },
+    {
+      "name": "Rio Hondo College"
+    },
+    {
+      "name": "Riverland Community College"
+    },
+    {
+      "name": "Rockhurst University"
+    },
+    {
+      "name": "Sacramento City College"
+    },
+    {
+      "name": "Sacred Heart University"
+    },
+    {
+      "name": "Saddleback College"
+    },
+    {
+      "name": "Saginaw Valley State University"
+    },
+    {
+      "name": "Saint Mary's College"
+    },
+    {
+      "name": "San Bernardino Valley College"
+    },
+    {
+      "name": "San Diego City College"
+    },
+    {
+      "name": "San Diego Community College District-District Office"
+    },
+    {
+      "name": "San Diego Mesa College"
+    },
+    {
+      "name": "San Diego Miramar College"
+    },
+    {
+      "name": "San Francisco State University"
+    },
+    {
+      "name": "San Jacinto Community College"
+    },
+    {
+      "name": "San Joaquin Delta College"
+    },
+    {
+      "name": "San José City College"
+    },
+    {
+      "name": "San Jose-Evergreen Community College District"
+    },
+    {
+      "name": "Santa Barbara City College"
+    },
+    {
+      "name": "Santa Monica College"
+    },
+    {
+      "name": "Santa Rosa Junior College"
+    },
+    {
+      "name": "Savannah Technical College"
+    },
+    {
+      "name": "Schreiner University"
+    },
+    {
+      "name": "Shasta College"
+    },
+    {
+      "name": "Sierra College"
+    },
+    {
+      "name": "Solano Community College"
+    },
+    {
+      "name": "Sonoma State University"
+    },
+    {
+      "name": "South Dakota State University"
+    },
+    {
+      "name": "South Mountain Community College"
+    },
+    {
+      "name": "South Plains College"
+    },
+    {
+      "name": "South Puget Sound Community College"
+    },
+    {
+      "name": "South Texas College"
+    },
+    {
+      "name": "Southwest Wisconsin Technical College"
+    },
+    {
+      "name": "Southwestern College"
+    },
+    {
+      "name": "Southwestern Community College"
+    },
+    {
+      "name": "St Olaf College"
+    },
+    {
+      "name": "Stanford University"
+    },
+    {
+      "name": "SUNY Oneonta"
+    },
+    {
+      "name": "Tacoma Community College"
+    },
+    {
+      "name": "Taft College"
+    },
+    {
+      "name": "Temple University"
+    },
+    {
+      "name": "Tennessee State University"
+    },
+    {
+      "name": "Tompkins Cortland Community College"
+    },
+    {
+      "name": "Touro College"
+    },
+    {
+      "name": "Towson University"
+    },
+    {
+      "name": "Tufts University"
+    },
+    {
+      "name": "Tulsa Community College"
+    },
+    {
+      "name": "Tusculum College"
+    },
+    {
+      "name": "Union College"
+    },
+    {
+      "name": "United States Coast Guard Academy"
+    },
+    {
+      "name": "University of Arkansas at Little Rock"
+    },
+    {
+      "name": "University of California - Davis"
+    },
+    {
+      "name": "University of California - Irvine"
+    },
+    {
+      "name": "University of California - Merced"
+    },
+    {
+      "name": "University of California - Riverside"
+    },
+    {
+      "name": "University of California - Santa Cruz"
+    },
+    {
+      "name": "University of Central Florida"
+    },
+    {
+      "name": "University of Central Oklahoma"
+    },
+    {
+      "name": "University of Connecticut"
+    },
+    {
+      "name": "University of Delaware"
+    },
+    {
+      "name": "University of Florida"
+    },
+    {
+      "name": "University of Houston"
+    },
+    {
+      "name": "University of Illinois at Urbana-Champaign"
+    },
+    {
+      "name": "University of Iowa"
+    },
+    {
+      "name": "University of Kansas"
+    },
+    {
+      "name": "University of Kentucky"
+    },
+    {
+      "name": "University of Louisiana at Lafayette"
+    },
+    {
+      "name": "University of Massachusetts-Lowell"
+    },
+    {
+      "name": "University of New England"
+    },
+    {
+      "name": "University of Ontario Institute of Technology"
+    },
+    {
+      "name": "University of Rochester"
+    },
+    {
+      "name": "University of San Francisco"
+    },
+    {
+      "name": "University of South Carolina-Union"
+    },
+    {
+      "name": "University of South Dakota"
+    },
+    {
+      "name": "University of Southern California"
+    },
+    {
+      "name": "University of Southern Maine"
+    },
+    {
+      "name": "University of Washington-Seattle Campus"
+    },
+    {
+      "name": "University of Wisconsin Extension"
+    },
+    {
+      "name": "University of Wisconsin-Eau Claire"
+    },
+    {
+      "name": "University of Wisconsin-Whitewater"
+    },
+    {
+      "name": "Utah State University"
+    },
+    {
+      "name": "Ventura College"
+    },
+    {
+      "name": "Victor Valley College"
+    },
+    {
+      "name": "Virginia Commonwealth University"
+    },
+    {
+      "name": "Virginia Polytechnic Institute and State University"
+    },
+    {
+      "name": "Waubonsee Community College"
+    },
+    {
+      "name": "Waukesha County Technical College"
+    },
+    {
+      "name": "West Hills College-Lemoore"
+    },
+    {
+      "name": "West Los Angeles College"
+    },
+    {
+      "name": "West Shore Community College"
+    },
+    {
+      "name": "West Valley College"
+    },
+    {
+      "name": "West Virginia University"
+    },
+    {
+      "name": "Western Technical College"
+    },
+    {
+      "name": "Whatcom Community College"
+    },
+    {
+      "name": "Wheaton College"
+    },
+    {
+      "name": "Whittier College"
+    },
+    {
+      "name": "Whitworth University"
+    },
+    {
+      "name": "Widener University-Main Campus"
+    },
+    {
+      "name": "Wiley College"
+    },
+    {
+      "name": "Woodland Community College"
+    },
+    {
+      "name": "Yale University"
+    },
+    {
+      "name": "Yeshiva University"
+    },
+    {
+      "name": "Yuba College"
+    }
+  ]

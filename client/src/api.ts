@@ -122,6 +122,30 @@ class API {
     return res;
   }
 
+  async getCentralIdentityADAPTOrgs({
+    activePage,
+    limit,
+    query,
+  }: {
+    activePage?: number;
+    limit?: number;
+    query?: string;
+  }) {
+    const res = await axios.get<
+      {
+        orgs: string[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/central-identity/adapt-orgs", {
+      params: {
+        activePage,
+        limit,
+        query,
+      },
+    });
+    return res;
+  }
+
   async getCentralIdentityLicenses() {
     const res = await axios.get<
       {
