@@ -3,7 +3,12 @@ import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 
-const RenderAssetTags: React.FC<{ file: ProjectFile }> = ({ file }) => {
+const RenderAssetTags: React.FC<{
+  file: ProjectFile;
+  max?: number;
+  showNoTagsMessage?: boolean;
+  size?: "small" | "large";
+}> = ({ file, max = 5, showNoTagsMessage = true, size = "large" }) => {
   const sortedTags = file.tags?.sort((a, b) => {
     if (isAssetTagKeyObject(a.key) && isAssetTagKeyObject(b.key)) {
       return a.key.title.localeCompare(b.key.title);
@@ -19,7 +24,7 @@ const RenderAssetTags: React.FC<{ file: ProjectFile }> = ({ file }) => {
   }
 
   function getLabelColor(tag: AssetTag) {
-    if(tag.key && isAssetTagKeyObject(tag.key)) {
+    if (tag.key && isAssetTagKeyObject(tag.key)) {
       return tag.key.hex;
     }
     return "grey";
@@ -28,23 +33,25 @@ const RenderAssetTags: React.FC<{ file: ProjectFile }> = ({ file }) => {
   return (
     <div className="asset-tag-container">
       {!sortedTags ||
-        (sortedTags.length === 0 && (
+        (sortedTags.length === 0 && showNoTagsMessage && (
           <span className="muted-text italic">No associated tags</span>
         ))}
-      {sortedTags?.slice(0, 5).map((tag) => (
-        <Label style={
-          {
+      {sortedTags?.slice(0, max).map((tag) => (
+        <Label
+          style={{
             backgroundColor: getLabelColor(tag).toString(),
             borderColor: getLabelColor(tag).toString(),
-            color: "white"
-          }
-        } size="tiny" key={tag.uuid}>
+            color: "white",
+          }}
+          size={size === "small" ? "mini" : "tiny"}
+          key={tag.uuid}
+        >
           {getLabelValue(tag)}
         </Label>
       ))}
-      {sortedTags && sortedTags?.length > 5 ? (
-        <Label color="grey" size="tiny">
-          +{sortedTags?.length - 5} more
+      {sortedTags && sortedTags?.length > max ? (
+        <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
+          +{sortedTags?.length - max} more
         </Label>
       ) : (
         <></>
