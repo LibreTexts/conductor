@@ -36,6 +36,7 @@ import { LibraryAccessWebhookValidator, NewUserWebhookValidator, CheckUserApplic
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
+import fse from 'fs-extra';
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -526,6 +527,56 @@ async function getOrgs(
   }
 }
 
+/**
+ * Returns the same list of orgs as ADAPT, for use where live/unclean (ie getOrgs) data is not appropriate.
+ */
+async function getADAPTOrgs(
+  req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
+  res: Response<{
+    err: boolean;
+    orgs: string[];
+    totalCount: number;
+  }>
+) {
+  try {
+    let page = 1;
+    let limit = req.query.limit || 25;
+    if (
+      req.query.activePage &&
+      Number.isInteger(parseInt(req.query.activePage.toString()))
+    ) {
+      page = req.query.activePage;
+    }
+    const offset = getPaginationOffset(page, limit);
+
+    const data = await fse.readJSON(process.cwd() + "/util/adapt-schools-list.json");
+    if (!data) {
+      throw new Error("Failed to read ADAPT schools list");
+    }
+
+    const orgs = data.map((org: any) => org.name);
+    if(!orgs || !Array.isArray(orgs)){
+      throw new Error("Failed to parse ADAPT schools list");
+    }
+
+    const search = (query: string) => {
+      return orgs.filter((org) => org.toLowerCase().indexOf(query.toLowerCase()) >= 0);
+    }
+
+    const searched = req.query.query ? search(req.query.query) : orgs; // If no query, return all orgs
+    const paginated = searched.slice(offset, offset + limit);
+
+    return res.send({
+      err: false,
+      orgs: paginated,
+      totalCount: orgs.length,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function getSystems(
   req: TypedReqQuery<{ activePage?: number }>,
   res: Response<{
@@ -905,6 +956,13 @@ function validate(method: string) {
         param("query", conductorErrors.err1).optional().isString(),
       ]
     }
+    case 'getADAPTOrgs': {
+      return [
+        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("limit", conductorErrors.err1).optional().isInt(),
+        param("query", conductorErrors.err1).optional().isString(),
+      ]
+    }
     case "getVerificationRequest": {
       return [param("id", conductorErrors.err1).exists().isString()];
     }
@@ -934,6 +992,7 @@ export default {
   getApplicationById,
   getLibraryFromSubdomain,
   getOrgs,
+  getADAPTOrgs,
   getSystems,
   getServices,
   getVerificationRequests,

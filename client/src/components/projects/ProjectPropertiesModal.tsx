@@ -277,7 +277,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   async function getOrgs(searchQuery?: string) {
     try {
       setLoadedOrgs(false);
-      const res = await api.getCentralIdentityOrgs({
+      const res = await api.getCentralIdentityADAPTOrgs({
         query: searchQuery ?? undefined,
       });
       if (res.data.err) {
@@ -289,9 +289,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 
       const orgs = res.data.orgs.map((org) => {
         return {
-          value: org.name,
-          key: org.id.toString(),
-          text: org.name,
+          value: org,
+          key: crypto.randomUUID(),
+          text: org,
         };
       });
 

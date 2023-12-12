@@ -1077,7 +1077,7 @@ export async function parseAndZipS3Objects(
 }
 
 /**
- * Prepares and calls the downloadAndZipFilesWorker to download and zip files.
+ * Downloads and zips files from S3.
  * Sends an email to the user when the zip file is ready with a signed Cloudfront url.
  * 
  * @param projectID - The project ID to download files from
