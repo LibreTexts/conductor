@@ -2648,6 +2648,7 @@ const autoGenerateProjects = (newBooks) => {
           storageType: 'file',
           parent,
           license: licenseObj,
+          mimeType: file.mimetype
         });
       });
       await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
@@ -2976,8 +2977,6 @@ async function getProjectFile(req, res) {
       });
     }
 
-
-
     let processedName = '';
 
     if(!name) {
@@ -3027,6 +3026,9 @@ async function getProjectFile(req, res) {
         if(publisher) {
           updateObj.publisher = publisher;
         }
+        if(req.files[0] && req.files[0].mimetype){
+          updateObj.mimeType = req.files[0].mimetype;
+        }
         // allow updating of URL if file is a URL
         if (Boolean(isURL) && fileURL
          //&& obj.isURL && obj.url !== fileURL
@@ -3036,6 +3038,7 @@ async function getProjectFile(req, res) {
           updateObj.storageType = undefined;
           updateObj.size = undefined;
           updateObj.downloadCount = undefined;
+          updateObj.mimeType = undefined;
           updateObj.license = {
             ...obj.license,
             sourceURL: fileURL,

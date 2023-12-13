@@ -49,6 +49,7 @@ export interface RawFileInterface {
   license?: FileLicense;
   author?: FileAuthor;
   publisher?: FilePublisher;
+  mimeType?: string;
 }
 
 export interface FileInterface extends RawFileInterface, Document {}
@@ -141,6 +142,10 @@ const FileSchema = new Schema<FileInterface>({
     name: String,
     url: String,
   },
+  /**
+   * MIME type of the entry.
+   */
+  mimeType: String,
 });
 
 // We don't need export Mongoose model()  here because we only need the schema, not a seperate collection.
