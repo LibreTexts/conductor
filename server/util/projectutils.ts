@@ -31,7 +31,7 @@ import { AssetTagFrameworkInterface } from "../models/assettagframework.js";
 import { isAssetTagFrameworkObject, isAssetTagKeyObject } from "./typeHelpers.js";
 import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
-import { GetObjectCommand, GetObjectCommandOutput, PutObjectCommand, S3Client, ServiceOutputTypes } from "@aws-sdk/client-s3";
+import { GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, ServiceOutputTypes } from "@aws-sdk/client-s3";
 import mailAPI from "../api/mail.js";
 import { Worker } from "worker_threads";
 
@@ -591,6 +591,23 @@ export async function retrieveProjectFiles(
   } catch (e) {
     debugError(e);
     return [null, null];
+  }
+}
+
+export async function getProjectFileS3Metadata(projectID: string, fileID: string): Promise<HeadObjectCommandOutput | null> {
+  try {
+    // @ts-ignore
+    const s3 = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const fileKey = `${projectID}/${fileID}`;
+    const command = new HeadObjectCommand({
+      Bucket: process.env.AWS_PROJECTFILES_BUCKET ?? "",
+      Key: fileKey,
+    });
+    const res = await s3.send(command);
+    return res;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 
