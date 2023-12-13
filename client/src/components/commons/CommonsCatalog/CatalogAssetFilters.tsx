@@ -15,6 +15,7 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
+import COMMON_MIME_TYPES from "../../../utils/common-mime-types";
 
 type NameVersionObj = {
   name: string;
@@ -65,6 +66,7 @@ const CatalogAssetFilters = forwardRef(
     useEffect(() => {
       getOrgs();
       getLicenseOptions();
+      getFileTypeOptions();
     }, []);
 
     useEffect(() => {
@@ -151,6 +153,26 @@ const CatalogAssetFilters = forwardRef(
       }
     }
 
+    const getFileTypeOptions = () => {
+      const opts = COMMON_MIME_TYPES.reduce((acc, curr) => {
+        acc.push({
+          key: crypto.randomUUID(),
+          text: curr.title + " (Any)",
+          value: curr.anySubType,
+        });
+        curr.mimeTypes.forEach((mt) => {
+          acc.push({
+            key: crypto.randomUUID(),
+            text: mt.name,
+            value: mt.value,
+          });
+        });
+        return acc;
+      }, [] as GenericKeyTextValueObj<string>[]);
+      const sorted = opts.sort((a, b) => a.text.localeCompare(b.text));
+      setFileTypeOptions(sorted);
+    };
+
     const getFilterText = (key: string) => {
       switch (key) {
         case "assetLicense":
@@ -221,7 +243,7 @@ const CatalogAssetFilters = forwardRef(
             ))}
           </Dropdown.Menu>
         </Dropdown>
-        {/* <Dropdown
+        <Dropdown
           text="File Type"
           icon="file alternate outline"
           floating
@@ -246,7 +268,7 @@ const CatalogAssetFilters = forwardRef(
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>
-        </Dropdown> */}
+        </Dropdown>
         {Object.entries(selectedFilters).map(([key, val]) => (
           <Button
             key={key}
