@@ -3011,7 +3011,6 @@ async function getProjectFile(req, res) {
       if (obj.fileID === foundObj.fileID) {
         const updateObj = { ...obj };
         if (processedName) {
-          console.log('PROCESS NAME: ', processedName)
           updateObj.name = processedName;
         }
         if (typeof (description) === 'string') { // account for unsetting
@@ -3026,7 +3025,7 @@ async function getProjectFile(req, res) {
         if(publisher) {
           updateObj.publisher = publisher;
         }
-        if(req.files[0] && req.files[0].mimetype){
+        if(req.files && req.files[0] && req.files[0].mimetype){
           updateObj.mimeType = req.files[0].mimetype;
         }
         // allow updating of URL if file is a URL

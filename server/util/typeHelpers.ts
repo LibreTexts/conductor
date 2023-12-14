@@ -2,6 +2,7 @@ import { BookSortOption } from "../types";
 import { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { AssetTagFrameworkInterface } from "../models/assettagframework";
 import { Types } from "mongoose";
+import { z } from "zod";
 
 export const isBookSortOption = (text: string): text is BookSortOption => {
   return text === "title" || text === "author" || text === "random";
@@ -41,3 +42,21 @@ export const compareMongoIDs = (firstID: any, secondID: any): boolean => {
   // Use the ObjectID.equals() method to compare the two IDs
   return firstIDtoOID.equals(secondIDtoOID);
 };
+
+function _getDefaultsFromSchema<Schema extends z.AnyZodObject>(schema: Schema) {
+  return Object.fromEntries(
+    Object.entries(schema.shape).map(([key, value]) => {
+      if (value instanceof z.ZodDefault)
+        return [key, value._def.defaultValue()];
+      return [key, undefined];
+    })
+  );
+}
+
+export function getSchemaWithDefaults<Schema extends z.AnyZodObject>(
+  actual: z.infer<typeof schema>,
+  schema: Schema
+) {
+  const defaults = _getDefaultsFromSchema(schema);
+  return Object.assign(defaults, actual);
+}

@@ -11,10 +11,12 @@ import { ControlledInputProps } from "./ControlledInputs";
 import { Organization, CampusSettingsOpts } from "./Organization";
 import {
   GenericKeyTextValueObj,
-  TimeZoneOption, MongoBaseDocument, ConductorBaseResponse,
+  TimeZoneOption,
+  MongoBaseDocument,
+  ConductorBaseResponse,
   AtlasSearchHighlight,
   _MoveFile,
-  _MoveFileWithChildren
+  _MoveFileWithChildren,
 } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
@@ -97,7 +99,13 @@ import {
   AssetTagTemplateValueTypeOptions,
 } from "./AssetTagging";
 
-import { AssetFilters, BookFilters } from "./Search";
+import {
+  AssetFilters,
+  BookFilters,
+  ConductorSearchResponse,
+  ConductorSearchResultsObject,
+  CommonsSearchResultsObject,
+} from "./Search";
 
 export type {
   AtlasSearchHighlight,
@@ -119,6 +127,9 @@ export type {
   CentralIdentityVerificationRequestStatus,
   CentralIdentityLicense,
   ConductorBaseResponse,
+  ConductorSearchResponse,
+  ConductorSearchResultsObject,
+  CommonsSearchResultsObject,
   Organization,
   CampusSettingsOpts,
   Collection,
@@ -175,7 +186,7 @@ export type {
   SupportTicket,
   SupportTicketMessage,
   _MoveFile,
-  _MoveFileWithChildren
+  _MoveFileWithChildren,
 };
 
 export {

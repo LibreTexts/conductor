@@ -7,37 +7,17 @@ import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { getPaginationOffset, isValidDateObject } from "../util/helpers.js";
 import projectAPI from "./projects.js";
-import authAPI from "./auth.js";
-import {
-  TypedReqQueryWithUser,
-  ZodReqWithOptionalUser,
-  ZodReqWithUser,
-} from "../types/Express.js";
+import { ZodReqWithOptionalUser } from "../types/Express.js";
 import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
-import { Mongoose } from "mongoose";
 import { FileInterface } from "../models/file.js";
-import { TypeOf, z } from "zod";
-import { conductorSearchSchema } from "./validators/search.js";
+import { z } from "zod";
+import {
+  conductorSearchQuerySchema,
+  conductorSearchSchema,
+} from "./validators/search.js";
 import AssetTag from "../models/assettag.js";
-
-export const projectSortOptions = [
-  "title",
-  "progress",
-  "classification",
-  "visibility",
-  "lead",
-  "updated",
-] as const;
-export const bookSortOptions = [
-  "title",
-  "author",
-  "library",
-  "subject",
-  "affiliation",
-] as const;
-export const homeworkSortOptions = ["name", "description"] as const;
-export const userSortOptions = ["first", "last"] as const;
+import { getSchemaWithDefaults } from "../util/typeHelpers.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -47,111 +27,57 @@ async function performSearch(
   res: Response
 ) {
   try {
+    req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
     console.log(req.query);
+
+    // Create regex for query
     const query = req.query.searchQuery;
-    const queryRegex = {
-      $regex: query,
-      $options: "i",
-    };
+    const queryRegex = query
+      ? {
+          $regex: query,
+          $options: "i",
+        }
+      : undefined;
 
-    const booksPage = parseInt(req.query.booksPage?.toString()) || 1;
-    const booksLimit = parseInt(req.query.booksLimit?.toString()) || 25;
-    const booksOffset = getPaginationOffset(booksPage, booksLimit);
-    const assetsPage = parseInt(req.query.assetsPage?.toString()) || 1;
-    const assetsLimit = parseInt(req.query.assetsLimit?.toString()) || 25;
-    const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
-    const projectsPage = parseInt(req.query.projectsPage?.toString()) || 1;
-    const projectsLimit = parseInt(req.query.projectsLimit?.toString()) || 25;
-    const projectsOffset = getPaginationOffset(projectsPage, projectsLimit);
-    const homeworkPage = parseInt(req.query.homeworkPage?.toString()) || 1;
-    const homeworkLimit = parseInt(req.query.homeworkLimit?.toString()) || 25;
-    const homeworkOffset = getPaginationOffset(homeworkPage, homeworkLimit);
-    const usersPage = parseInt(req.query.usersPage?.toString()) || 1;
-    const usersLimit = parseInt(req.query.usersLimit?.toString()) || 25;
-    const usersOffset = getPaginationOffset(usersPage, usersLimit);
+    // Get pagination offsets
+    const {
+      booksLimit,
+      booksOffset,
+      assetsLimit,
+      assetsOffset,
+      projectsLimit,
+      projectsOffset,
+      homeworkLimit,
+      homeworkOffset,
+      usersLimit,
+      usersOffset,
+    } = _generateOffsetsAndLimits(req);
 
-    const projSortOption = req.query?.projSort || "title";
-    const bookSortOption = req.query?.bookSort || "title";
-    const homeworkSortOption = req.query?.hwSort || "name";
-    const userSortOption = req.query?.userSort || "first";
-    const projectFilters = [];
-    let projectFiltersOptions = {};
+    const projectMatchObj = _generateProjectMatchObj({
+      projLocation: req.query.projLocation || undefined,
+      projStatus: req.query.projStatus || undefined,
+      projVisibility: req.query.projVisibility || undefined,
+      queryRegex,
+      userUUID: req.user?.decoded.uuid || undefined,
+      origin: req.query.origin || "commons",
+    });
 
-    const isSuperAdmin = req.user
-      ? authAPI.checkHasRole(req.user, "libretexts", "superadmin")
-      : false;
+    const projectFilesMatchObj = _generateProjectFilesMatchObj({
+      queryRegex,
+    });
 
-    /* Project Location Filter, only needed if 'local' */
-    if (
-      typeof req.query.projLocation === "string" &&
-      req.query.projLocation === "local"
-    ) {
-      projectFilters.push({ orgID: process.env.ORG_ID });
-    }
-    /* Project Status Filter, only needed if not 'any' */
-    if (
-      typeof req.query.projStatus === "string" &&
-      projectAPI.projectStatusOptions.includes(req.query.projStatus)
-    ) {
-      projectFilters.push({ status: req.query.projStatus });
-    }
-
-    // /* Project Visibility Filter, only needed if not 'any' */
-    // const teamMemberQuery = projectAPI.constructProjectTeamMemberQuery(
-    //   req.user?.decoded.uuid || ""
-    // );
-    // const privateProjectQueryParts: Record<any, any>[] = [
-    //   { visibility: "private" },
-    // ];
-    // if (!isSuperAdmin) {
-    //   privateProjectQueryParts.push({ $or: teamMemberQuery });
-    // }
-    // const privateProjectQuery = { $and: privateProjectQueryParts };
-    // const publicProjectQuery = { visibility: "public" };
-    // // PUBLIC OR (PRIVATE AND [TEAM] INCLUDES USER)
-    // const anyVisibilityQuery = {
-    //   $or: [publicProjectQuery, privateProjectQuery],
-    // };
-    // if (typeof req.query.projVisibility === "string") {
-    //   if (req.query.projVisibility === "public") {
-    //     projectFilters.push(publicProjectQuery);
-    //   } else if (req.query.projVisibility === "private") {
-    //     projectFilters.push(privateProjectQuery);
-    //   } else {
-    //     projectFilters.push(anyVisibilityQuery);
-    //   }
-    // } else {
-    //   projectFilters.push(anyVisibilityQuery);
-    // }
-    if (projectFilters.length > 1) {
-      projectFiltersOptions = { $and: projectFilters };
-    } else {
-      projectFiltersOptions = { ...projectFilters[0] };
-    }
-    const projectMatchOptions = {
-      $and: [
-        {
-          $or: [
-            { title: queryRegex },
-            { author: queryRegex },
-            { libreLibrary: queryRegex },
-            { libreCoverID: queryRegex },
-            { libreShelf: queryRegex },
-            { libreCampus: queryRegex },
-            { associatedOrgs: queryRegex },
-          ],
-        },
-        {
-          ...projectFiltersOptions,
-        },
-      ],
-    };
+    const projectFilesSubQuery = _generateProjectFilesSubMatchObj({
+      queryRegex,
+      fileTypeFilter: req.query.assetFileType || undefined,
+      licenseFilter: req.query.assetLicense || undefined,
+      licenseVersionFilter: req.query.assetLicenseVersion || undefined,
+    });
 
     const aggregations = [];
     aggregations.push(
       Project.aggregate([
         {
-          $match: projectMatchOptions,
+          $match: projectMatchObj,
         },
         {
           $lookup: {
@@ -230,183 +156,162 @@ async function performSearch(
     aggregations.push(
       // Search project files for names that match the query
       Project.aggregate([
-          {
-            $match: {
-              $and: [
+        {
+          $match: projectFilesMatchObj,
+        },
+        {
+          $project: {
+            files: 1,
+            projectID: 1,
+          },
+        },
+        {
+          $unwind: {
+            path: "$files",
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        {
+          $match: projectFilesSubQuery,
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [
                 {
-                  orgID: "libretexts",
+                  projectID: "$projectID",
                 },
-                {
-                  visibility: "public",
-                },
-                {
-               $or: [
-                 { "files.name": queryRegex },
-                 { "files.description": queryRegex },
-                 { associatedOrgs: queryRegex },
-               ],
-             },
+                "$files",
               ],
             },
           },
-          {
-            $project: {
-              files: 1,
-              projectID: 1,
-            },
+        },
+        {
+          $lookup: {
+            from: "fileassettags",
+            localField: "_id",
+            foreignField: "fileID",
+            as: "tags",
           },
-          {
-            $unwind: {
-              path: "$files",
-              preserveNullAndEmptyArrays: false,
-            },
-          },
-          {
-            $match: {
-              "files.access": "public",
-            },
-          },
-          {
-            $replaceRoot: {
-              newRoot: {
-                $mergeObjects: [
-                  {
-                    projectID: "$projectID",
-                  },
-                  "$files",
-                ],
-              },
-            },
-          },
-          {
-            $lookup: {
-              from: "fileassettags",
-              localField: "_id",
-              foreignField: "fileID",
-              as: "tags",
-            },
-          },
-          {
-            $lookup: {
-              from: "assettags",
-              localField: "tags.tags",
-              foreignField: "_id",
-              pipeline: [
-                {
-                  $lookup: {
-                    from: "assettagframeworks",
-                    localField: "framework",
-                    foreignField: "_id",
-                    pipeline: [
-                      // Go through each template in framework and lookup key
-                      {
-                        $unwind: {
-                          path: "$templates",
-                          preserveNullAndEmptyArrays: true,
-                        },
+        },
+        {
+          $lookup: {
+            from: "assettags",
+            localField: "tags.tags",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "assettagframeworks",
+                  localField: "framework",
+                  foreignField: "_id",
+                  pipeline: [
+                    // Go through each template in framework and lookup key
+                    {
+                      $unwind: {
+                        path: "$templates",
+                        preserveNullAndEmptyArrays: true,
                       },
-                      {
-                        $lookup: {
-                          from: "assettagkeys",
-                          let: {
-                            key: "$templates.key",
-                          },
-                          pipeline: [
-                            {
-                              $match: {
-                                $expr: {
-                                  $eq: ["$_id", "$$key"],
-                                },
+                    },
+                    {
+                      $lookup: {
+                        from: "assettagkeys",
+                        let: {
+                          key: "$templates.key",
+                        },
+                        pipeline: [
+                          {
+                            $match: {
+                              $expr: {
+                                $eq: ["$_id", "$$key"],
                               },
                             },
-                          ],
-                          as: "key",
-                        },
+                          },
+                        ],
+                        as: "key",
                       },
-                      {
-                        $set: {
-                          "templates.key": {
-                            $arrayElemAt: ["$key", 0],
-                          },
-                        },
-                      },
-                      {
-                        $group: {
-                          _id: "$_id",
-                          uuid: {
-                            $first: "$uuid",
-                          },
-                          name: {
-                            $first: "$name",
-                          },
-                          description: {
-                            $first: "$description",
-                          },
-                          enabled: {
-                            $first: "$enabled",
-                          },
-                          orgID: {
-                            $first: "$orgID",
-                          },
-                          templates: {
-                            $push: "$templates",
-                          },
-                        },
-                      },
-                    ],
-                    as: "framework",
-                  },
-                },
-                {
-                  $set: {
-                    framework: {
-                      $arrayElemAt: ["$framework", 0],
                     },
-                  },
-                },
-                {
-                  $lookup: {
-                    from: "assettagkeys",
-                    localField: "key",
-                    foreignField: "_id",
-                    as: "key",
-                  },
-                },
-                {
-                  $set: {
-                    key: {
-                      $arrayElemAt: ["$key", 0],
+                    {
+                      $set: {
+                        "templates.key": {
+                          $arrayElemAt: ["$key", 0],
+                        },
+                      },
                     },
+                    {
+                      $group: {
+                        _id: "$_id",
+                        uuid: {
+                          $first: "$uuid",
+                        },
+                        name: {
+                          $first: "$name",
+                        },
+                        description: {
+                          $first: "$description",
+                        },
+                        enabled: {
+                          $first: "$enabled",
+                        },
+                        orgID: {
+                          $first: "$orgID",
+                        },
+                        templates: {
+                          $push: "$templates",
+                        },
+                      },
+                    },
+                  ],
+                  as: "framework",
+                },
+              },
+              {
+                $set: {
+                  framework: {
+                    $arrayElemAt: ["$framework", 0],
                   },
                 },
-              ],
-              as: "tags",
-            },
+              },
+              {
+                $lookup: {
+                  from: "assettagkeys",
+                  localField: "key",
+                  foreignField: "_id",
+                  as: "key",
+                },
+              },
+              {
+                $set: {
+                  key: {
+                    $arrayElemAt: ["$key", 0],
+                  },
+                },
+              },
+            ],
+            as: "tags",
           },
-          {
-            //filter asset tags where isDeleted = true
-            $set: {
-              tags: {
-                $filter: {
-                  input: "$tags",
-                  as: "tag",
-                  cond: {
-                    $ne: ["$$tag.isDeleted", true],
-                  },
+        },
+        {
+          //filter asset tags where isDeleted = true
+          $set: {
+            tags: {
+              $filter: {
+                input: "$tags",
+                as: "tag",
+                cond: {
+                  $ne: ["$$tag.isDeleted", true],
                 },
               },
             },
           },
+        },
       ])
     );
+
     aggregations.push(
       AssetTag.aggregate([
         {
-          $match: {
-            $text: {
-              $search: query,
-            },
-          },
+          $match: _generateAssetTagsMatchObj(query),
         },
         {
           $lookup: {
@@ -425,10 +330,7 @@ async function performSearch(
             },
             pipeline: [
               {
-                $match: {
-                  orgID: process.env.ORG_ID,
-                  visibility: "public",
-                },
+                $match: projectFilesSubQuery,
               },
               {
                 $unwind: {
@@ -474,8 +376,129 @@ async function performSearch(
             newRoot: "$matchingProjectFiles",
           },
         },
+        {
+          $lookup: {
+            from: "fileassettags",
+            localField: "_id",
+            foreignField: "fileID",
+            as: "tags",
+          },
+        },
+        {
+          $lookup: {
+            from: "assettags",
+            localField: "tags.tags",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "assettagframeworks",
+                  localField: "framework",
+                  foreignField: "_id",
+                  pipeline: [
+                    // Go through each template in framework and lookup key
+                    {
+                      $unwind: {
+                        path: "$templates",
+                        preserveNullAndEmptyArrays: true,
+                      },
+                    },
+                    {
+                      $lookup: {
+                        from: "assettagkeys",
+                        let: {
+                          key: "$templates.key",
+                        },
+                        pipeline: [
+                          {
+                            $match: {
+                              $expr: {
+                                $eq: ["$_id", "$$key"],
+                              },
+                            },
+                          },
+                        ],
+                        as: "key",
+                      },
+                    },
+                    {
+                      $set: {
+                        "templates.key": {
+                          $arrayElemAt: ["$key", 0],
+                        },
+                      },
+                    },
+                    {
+                      $group: {
+                        _id: "$_id",
+                        uuid: {
+                          $first: "$uuid",
+                        },
+                        name: {
+                          $first: "$name",
+                        },
+                        description: {
+                          $first: "$description",
+                        },
+                        enabled: {
+                          $first: "$enabled",
+                        },
+                        orgID: {
+                          $first: "$orgID",
+                        },
+                        templates: {
+                          $push: "$templates",
+                        },
+                      },
+                    },
+                  ],
+                  as: "framework",
+                },
+              },
+              {
+                $set: {
+                  framework: {
+                    $arrayElemAt: ["$framework", 0],
+                  },
+                },
+              },
+              {
+                $lookup: {
+                  from: "assettagkeys",
+                  localField: "key",
+                  foreignField: "_id",
+                  as: "key",
+                },
+              },
+              {
+                $set: {
+                  key: {
+                    $arrayElemAt: ["$key", 0],
+                  },
+                },
+              },
+            ],
+            as: "tags",
+          },
+        },
+        {
+          //filter asset tags where isDeleted = true
+          // TODO: Is this necessary? We already filter out deleted tags in the asset tag search
+          $set: {
+            tags: {
+              $filter: {
+                input: "$tags",
+                as: "tag",
+                cond: {
+                  $ne: ["$$tag.isDeleted", true],
+                },
+              },
+            },
+          },
+        },
       ])
     );
+
     aggregations.push(
       Homework.aggregate([
         {
@@ -497,31 +520,35 @@ async function performSearch(
         .skip(homeworkOffset)
         .limit(homeworkLimit)
     );
-    aggregations.push(
-      User.aggregate([
-        {
-          $match: {
-            $and: [
-              {
-                $or: [{ firstName: queryRegex }, { lastName: queryRegex }],
-              },
-              { $expr: { $not: "$isSystem" } },
-            ],
+
+    // Only search for users if origin is conductor
+    if (req.query.origin === "conductor") {
+      aggregations.push(
+        User.aggregate([
+          {
+            $match: {
+              $and: [
+                {
+                  $or: [{ firstName: queryRegex }, { lastName: queryRegex }],
+                },
+                { $expr: { $not: "$isSystem" } },
+              ],
+            },
           },
-        },
-        {
-          $project: {
-            _id: 0,
-            uuid: 1,
-            firstName: 1,
-            lastName: 1,
-            avatar: 1,
+          {
+            $project: {
+              _id: 0,
+              uuid: 1,
+              firstName: 1,
+              lastName: 1,
+              avatar: 1,
+            },
           },
-        },
-      ])
-        .skip(usersOffset)
-        .limit(usersLimit)
-    );
+        ])
+          .skip(usersOffset)
+          .limit(usersLimit)
+      );
+    }
 
     const aggregateResults = await Promise.all(aggregations);
     const results = {
@@ -529,8 +556,8 @@ async function performSearch(
       books: aggregateResults[1],
       files: aggregateResults[2],
       filesFromTags: aggregateResults[3],
-      homework: aggregateResults[3],
-      users: aggregateResults[4],
+      homework: aggregateResults[4],
+      users: aggregateResults[5] || [],
     };
 
     // Merge files from text search and files from tags
@@ -566,58 +593,15 @@ async function performSearch(
     results.projects.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (projSortOption === "title") {
-        aData = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (projSortOption === "classification") {
-        aData = String(a.classification)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.classification)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (projSortOption === "visibility") {
-        aData = String(a.visibility)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.visibility)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (projSortOption === "lead") {
-        if (Array.isArray(a.leads) && a.leads.length > 0) {
-          aData = String(a.leads[0]?.firstName)
-            .toLowerCase()
-            .replace(/[^A-Za-z]+/g, "");
-        } else {
-          aData = "";
-        }
-        if (Array.isArray(b.leads) && b.leads.length > 0) {
-          bData = String(b.leads[0]?.firstName)
-            .toLowerCase()
-            .replace(/[^A-Za-z]+/g, "");
-        } else {
-          bData = "";
-        }
-      } else if (projSortOption === "progress") {
-        aData = a.currentProgress;
-        bData = b.currentProgress;
-      } else if (projSortOption === "updated") {
-        if (a.updatedAt) {
-          let aUpdated = new Date(a.updatedAt);
-          if (isValidDateObject(aUpdated)) aData = aUpdated;
-        } else {
-          aData = 0;
-        }
-        if (b.updatedAt) {
-          let bUpdated = new Date(b.updatedAt);
-          if (isValidDateObject(bUpdated)) bData = bUpdated;
-        } else {
-          aData = 0;
-        }
+      if (req.query.projSort === "title") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.projSort === "classification") {
+        aData = _transformToCompare(a.classification);
+        bData = _transformToCompare(b.classification);
+      } else if (req.query.projSort === "visibility") {
+        aData = _transformToCompare(a.visibility);
+        bData = _transformToCompare(b.visibility);
       }
       if (aData !== null && bData !== null) {
         if (aData < bData) return -1;
@@ -630,41 +614,21 @@ async function performSearch(
     results.books.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (bookSortOption === "title") {
-        aData = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (bookSortOption === "author") {
-        aData = String(a.author)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.author)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (bookSortOption === "library") {
-        aData = String(a.library)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.library)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (bookSortOption === "subject") {
-        aData = String(a.subject)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.subject)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (bookSortOption === "affiliation") {
-        aData = String(a.affiliation)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.affiliation)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
+      if (req.query.bookSort === "title") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.bookSort === "author") {
+        aData = _transformToCompare(a.author);
+        bData = _transformToCompare(b.author);
+      } else if (req.query.bookSort === "library") {
+        aData = _transformToCompare(a.library);
+        bData = _transformToCompare(b.library);
+      } else if (req.query.bookSort === "subject") {
+        aData = _transformToCompare(a.subject);
+        bData = _transformToCompare(b.subject);
+      } else if (req.query.bookSort === "affiliation") {
+        aData = _transformToCompare(a.affiliation);
+        bData = _transformToCompare(b.affiliation);
       }
       if (aData !== null && bData !== null) {
         if (aData < bData) return -1;
@@ -685,20 +649,12 @@ async function performSearch(
     results.homework.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (homeworkSortOption === "name") {
-        aData = String(a.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.title)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (homeworkSortOption === "description") {
-        aData = String(a.description)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.description)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
+      if (req.query.homeworkSort === "name") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.homeworkSort === "description") {
+        aData = _transformToCompare(a.description);
+        bData = _transformToCompare(b.description);
       }
       if (aData !== null && bData !== null) {
         if (aData < bData) return -1;
@@ -711,20 +667,12 @@ async function performSearch(
     results.users.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (userSortOption === "first") {
-        aData = String(a.firstName)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.firstName)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-      } else if (userSortOption === "last") {
-        aData = String(a.lastName)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
-        bData = String(b.lastName)
-          .toLowerCase()
-          .replace(/[^A-Za-z]+/g, "");
+      if (req.query.userSort === "first") {
+        aData = _transformToCompare(a.firstName);
+        bData = _transformToCompare(b.firstName);
+      } else if (req.query.userSort === "last") {
+        aData = _transformToCompare(a.lastName);
+        bData = _transformToCompare(b.lastName);
       }
       if (aData !== null && bData !== null) {
         if (aData < bData) return -1;
@@ -749,6 +697,254 @@ async function performSearch(
     debugError(err);
     return conductor500Err(res);
   }
+}
+
+function _generateProjectMatchObj({
+  projLocation,
+  projStatus,
+  projVisibility,
+  queryRegex,
+  userUUID,
+  origin,
+}: {
+  projLocation?: string;
+  projStatus?: string;
+  projVisibility?: "public" | "private";
+  queryRegex?: object;
+  userUUID?: string;
+  origin?: "commons" | "conductor";
+}) {
+  const projectFilters = [];
+  let projectFiltersOptions = {};
+
+  // If project location is not 'any', add it to the filters
+  if (projLocation === "local") {
+    projectFilters.push({ orgID: process.env.ORG_ID });
+  }
+
+  // If project status is not 'any', add it to the filters
+  if (projStatus && projectAPI.projectStatusOptions.includes(projStatus)) {
+    projectFilters.push({ status: projStatus });
+  }
+
+  // Generate visibility query
+  let visibilityQuery = {};
+  // if (origin === "conductor" && userUUID && projVisibility === "private") {
+  //   const teamMemberQuery =
+  //     projectAPI.constructProjectTeamMemberQuery(userUUID);
+
+  //   const privateProjectQuery = {
+  //     $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
+  //   };
+
+  //   visibilityQuery = {
+  //     ...privateProjectQuery,
+  //   };
+  // } else {
+  //   visibilityQuery = { visibility: "public" };
+  // }
+  // projectFilters.push(visibilityQuery);
+  projectFilters.push({ visibility: "public" }); // TODO: handle showing private projects when logged in
+
+  // If multiple filters, use $and, otherwise just use the filter
+  if (projectFilters.length > 1) {
+    projectFiltersOptions = { $and: projectFilters };
+  } else {
+    projectFiltersOptions = { ...projectFilters[0] };
+  }
+
+  // Combine all filters and return
+  const projectMatchOptions = {
+    $and: [
+      {
+        $or: [
+          { title: queryRegex },
+          { author: queryRegex },
+          { libreLibrary: queryRegex },
+          { libreCoverID: queryRegex },
+          { libreShelf: queryRegex },
+          { libreCampus: queryRegex },
+          { associatedOrgs: queryRegex },
+        ],
+      },
+      {
+        ...projectFiltersOptions,
+      },
+    ],
+  };
+  return projectMatchOptions;
+}
+
+function _generateProjectFilesMatchObj({
+  queryRegex,
+}: {
+  queryRegex?: object;
+}) {
+  const andQuery: Record<string, any>[] = [
+    {
+      orgID: process.env.ORG_ID,
+    },
+    {
+      visibility: "public",
+    },
+  ];
+
+  // TODO: revisit this
+  // if (queryRegex) {
+  //   // If query regex is provided, search for projects that have matching associatedOrgs
+  //   andQuery.push({
+  //     $or: [{ associatedOrgs: queryRegex }],
+  //   });
+  // }
+
+  return {
+    $and: andQuery,
+  };
+}
+
+function _generateProjectFilesSubMatchObj({
+  queryRegex,
+  fileTypeFilter,
+  licenseFilter,
+  licenseVersionFilter,
+}: {
+  queryRegex?: object;
+  fileTypeFilter?: string;
+  licenseFilter?: string;
+  licenseVersionFilter?: string;
+}) {
+  const andQuery: Record<string, any>[] = [
+    {
+      "files.access": "public",
+    },
+  ];
+
+  if (fileTypeFilter) {
+    const parsed = fileTypeFilter.includes("*")
+      ? fileTypeFilter.split("/")[0]
+      : fileTypeFilter;
+
+    const fileTypeRegex = {
+      $regex: parsed,
+      $options: "i",
+    };
+
+    // Push to outer $and query, we want this to be 'strict'
+    andQuery.push(
+      {
+        "files.mimeType": fileTypeRegex,
+      },
+      {
+        "files.storageType": "file",
+      }
+    );
+  }
+
+  if (licenseFilter) {
+    const licenseRegex = {
+      $regex: licenseFilter,
+      $options: "i",
+    };
+
+    // Push to outer $and query, we want this to be 'strict'
+    andQuery.push({
+      "files.license.name": licenseRegex,
+    });
+  }
+
+  if (licenseVersionFilter) {
+    const licenseVersionRegex = {
+      $regex: licenseVersionFilter,
+      $options: "i",
+    };
+
+    // Push to outer $and query, we want this to be 'strict'
+    andQuery.push({
+      "files.license.version": licenseVersionRegex,
+    });
+  }
+
+  if (queryRegex) {
+    andQuery.push({
+      $or: [{ "files.name": queryRegex }, { "files.description": queryRegex }],
+    });
+  }
+
+  let subQuery = {};
+  if (andQuery.length > 1) {
+    subQuery = {
+      $and: andQuery,
+    };
+  } else {
+    subQuery = andQuery[0];
+  }
+
+  return subQuery;
+}
+
+function _generateAssetTagsMatchObj(query?: string) {
+  if (query) {
+    return {
+      $and: [
+        {
+          $text: {
+            $search: query,
+          },
+        },
+        { isDeleted: false },
+      ],
+    };
+  }
+  return {};
+}
+
+function _generateOffsetsAndLimits(req: z.infer<typeof conductorSearchSchema>) {
+  const queryObj = req.query;
+
+  const booksPage = parseInt(req.query.booksPage?.toString()) || 1;
+  const booksLimit = parseInt(req.query.booksLimit?.toString()) || 25;
+  const booksOffset = getPaginationOffset(booksPage, queryObj.booksLimit);
+
+  const assetsPage = parseInt(req.query.assetsPage?.toString()) || 1;
+  const assetsLimit = parseInt(req.query.assetsLimit?.toString()) || 25;
+  const assetsOffset = getPaginationOffset(assetsPage, queryObj.assetsLimit);
+
+  const projectsPage = parseInt(req.query.projectsPage?.toString()) || 1;
+  const projectsLimit = parseInt(req.query.projectsLimit?.toString()) || 25;
+  const projectsOffset = getPaginationOffset(
+    projectsPage,
+    queryObj.projectsLimit
+  );
+
+  const homeworkPage = parseInt(req.query.homeworkPage?.toString()) || 1;
+  const homeworkLimit = parseInt(req.query.homeworkLimit?.toString()) || 25;
+  const homeworkOffset = getPaginationOffset(
+    homeworkPage,
+    queryObj.homeworkLimit
+  );
+
+  const usersPage = parseInt(req.query.usersPage?.toString()) || 1;
+  const usersLimit = parseInt(req.query.usersLimit?.toString()) || 25;
+  const usersOffset = getPaginationOffset(usersPage, queryObj.usersLimit);
+
+  return {
+    booksLimit,
+    booksOffset,
+    assetsLimit,
+    assetsOffset,
+    projectsLimit,
+    projectsOffset,
+    homeworkLimit,
+    homeworkOffset,
+    usersLimit,
+    usersOffset,
+  };
+}
+
+function _transformToCompare(val: any) {
+  return String(val)
+    .toLowerCase()
+    .replace(/[^A-Za-z]+/g, "");
 }
 
 export default {

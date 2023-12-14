@@ -646,7 +646,7 @@ const getUserAttributes = (req, res, next) => {
  * @param {String} role - The role identifier.
  * @returns {Boolean} True if user has role/permission, false otherwise.
  */
-const checkHasRole = (user, org, role) => {
+const checkHasRole = (user, org, role, silent = false) => {
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     let foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
@@ -671,7 +671,9 @@ const checkHasRole = (user, org, role) => {
     if (foundRole !== undefined) return true;
     return false;
   }
-  debugError(conductorErrors.err9);
+  if (!silent){
+    debugError(conductorErrors.err9);
+  }
   return false;
 };
 
