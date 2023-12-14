@@ -19,6 +19,7 @@ interface RenderTagInputProps {
   index: number;
   control: Control<ProjectFile>;
   formState: FormState<ProjectFile>;
+  strictRequire?: boolean;
 }
 
 const genMultiSelectOptions = ({
@@ -56,9 +57,11 @@ const genMultiSelectOptions = ({
 const TagTextInput = ({
   index,
   control,
+  strictRequire = false,
 }: {
   index: number;
   control: Control<ProjectFile>;
+  strictRequire?: boolean;
 }) => {
   return (
     <CtlTextInput
@@ -66,7 +69,7 @@ const TagTextInput = ({
       control={control}
       fluid
       placeholder="Enter value"
-      rules={required}
+      rules={strictRequire ? required : undefined}
       showErrorMsg={false}
     />
   );
@@ -77,11 +80,13 @@ const DropdownController = ({
   control,
   formState,
   templateInFramework,
+  strictRequire = false,
 }: {
   index: number;
   control: Control<ProjectFile>;
   formState: FormState<ProjectFile>;
   templateInFramework: AssetTagTemplate;
+  strictRequire?: boolean;
 }) => {
   return (
     <Controller
@@ -107,7 +112,7 @@ const DropdownController = ({
       )}
       name={`tags.${index}.value`}
       control={control}
-      rules={required}
+      rules={strictRequire ? required : undefined}
     />
   );
 };
@@ -118,12 +123,14 @@ const MultiSelectController = ({
   formState,
   templateInFramework,
   tag,
+  strictRequire = false,
 }: {
   index: number;
   control: Control<ProjectFile>;
   formState: FormState<ProjectFile>;
   templateInFramework: AssetTagTemplate;
   tag: AssetTag;
+  strictRequire?: boolean;
 }) => {
   return (
     <Controller
@@ -157,7 +164,7 @@ const MultiSelectController = ({
       )}
       name={`tags.${index}.value`}
       control={control}
-      rules={required}
+      rules={strictRequire ? required : undefined}
     />
   );
 };
@@ -167,6 +174,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
   index,
   control,
   formState,
+  strictRequire = false,
 }) => {
   if (tag.framework && isAssetTagFramework(tag.framework)) {
     const templateInFramework = tag.framework.templates.find(
@@ -183,6 +191,7 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
             control={control}
             formState={formState}
             templateInFramework={templateInFramework}
+            strictRequire={strictRequire}
           />
         );
       }
@@ -195,11 +204,18 @@ export const RenderTagInput: React.FC<RenderTagInputProps> = ({
             formState={formState}
             templateInFramework={templateInFramework}
             tag={tag}
+            strictRequire={strictRequire}
           />
         );
       }
     }
   }
 
-  return <TagTextInput index={index} control={control} />; // Fall back to text input
+  return (
+    <TagTextInput
+      index={index}
+      control={control}
+      strictRequire={strictRequire}
+    />
+  ); // Fall back to text input
 };

@@ -4,7 +4,7 @@ import { AssetTagKeyInterface } from "./assettagkey";
 export interface AssetTagInterface extends Document {
   uuid: string;
   key: Types.ObjectId | AssetTagKeyInterface | string;
-  value: string | number | boolean | Date | string[];
+  value?: string | number | boolean | Date | string[];
   framework?: Types.ObjectId;
   isDeleted: boolean;
 }
@@ -21,7 +21,6 @@ const AssetTagSchema = new Schema<AssetTagInterface>({
   },
   value: {
     type: Schema.Types.Mixed,
-    required: true,
   },
   framework: {
     type: Schema.Types.ObjectId,

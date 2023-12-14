@@ -18,7 +18,9 @@ const RenderAssetTags: React.FC<{
 
   function getLabelValue(tag: AssetTag) {
     const title = isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key;
-    const text = title + ": " + tag.value.toString();
+    const text = tag.value
+      ? title + ": " + tag.value.toString()
+      : title + ": " + "Unknown";
     const truncated = truncateString(text, 20);
     return truncated;
   }

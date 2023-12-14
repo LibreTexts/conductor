@@ -10,7 +10,7 @@ export type AssetTagValue = string | number | boolean | Date | string[];
 
 interface AssetTagBase {
   uuid: string;
-  value: AssetTagValue;
+  value?: AssetTagValue;
   framework?: string | AssetTagFramework;
   isDeleted: boolean;
 }
