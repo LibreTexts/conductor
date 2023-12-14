@@ -55,6 +55,7 @@ export type ProjectFile = {
   license?: ProjectFileLicense;
   author?: ProjectFileAuthor;
   publisher?: ProjectFilePublisher;
+  mimeType?: string;
 };
 
 export type ProjectFileWProjectID = ProjectFile & { projectID: string };

@@ -8,6 +8,7 @@ import {
   CentralIdentityLicense,
   CentralIdentityOrg,
   ConductorBaseResponse,
+  ConductorSearchResponse,
   Homework,
   Project,
   ProjectFile,
@@ -170,14 +171,16 @@ class API {
   }
 
   // Search
-  async conductorSearch(
+  async conductorSearch<T extends 'commons' | 'conductor'>(
+    origin: T,
     params?: {
       searchQuery?: string;
       projLocation?: string;
       projStatus?: string;
+      projVisibility?: string;
       projSort?: string;
       bookSort?: string;
-      hwSort?: string;
+      homeworkSort?: string;
       userSort?: string;
       booksPage?: number;
       booksLimit?: number;
@@ -193,18 +196,12 @@ class API {
       BookFilters
   ) {
     const res = await axios.get<
-      {
-        numResults: number;
-        results: {
-          projects: Project[];
-          books: Book[];
-          files: ProjectFileWProjectID[];
-          homework: Homework[];
-          users: User[];
-        };
-      } & ConductorBaseResponse
+      ConductorSearchResponse<T> & ConductorBaseResponse
     >("/search", {
-      params,
+      params: {
+        origin,
+        ...params,
+      },
     });
     return res;
   }

@@ -53,19 +53,12 @@ const PreviewHomework = lazy(
 );
 
 const Search = () => {
-  const projLocationParam = "proj_location";
   const projLocationDefault = "global";
-  const projStatusParam = "proj_status";
   const projStatusDefault = "any";
-  const projVisibilityParam = "proj_visibility";
-  const projVisibilityDefault = "any";
-  const projSortParam = "proj_sort";
+  const projVisibilityDefault = "public";
   const projSortDefault = "title";
-  const bookSortParam = "book_sort";
   const bookSortDefault = "title";
-  const hwSortParam = "hw_sort";
   const hwSortDefault = "name";
-  const userSortParam = "user_sort";
   const userSortDefault = "first";
 
   // Global State and Error Handling
@@ -145,7 +138,6 @@ const Search = () => {
     },
   ];
   const projVisibilityOptions = [
-    { key: "any", text: "Any Visibility", value: "any" },
     { key: "public", text: "Public Projects", value: "public" },
     {
       key: "private",
@@ -155,15 +147,12 @@ const Search = () => {
   ];
   const projSortOptions = [
     { key: "title", text: "Sort by Title", value: "title" },
-    { key: "progress", text: "Sort by Current Progress", value: "progress" },
     {
       key: "classification",
       text: "Sort by Classification",
       value: "classification",
     },
     { key: "visibility", text: "Sort by Visibility", value: "visibility" },
-    { key: "lead", text: "Sort by Project Lead", value: "lead" },
-    { key: "updated", text: "Sort by Last Updated", value: "updated" },
   ];
   const bookSortOptions = [
     { key: "title", text: "Sort by Title", value: "title" },
@@ -213,14 +202,14 @@ const Search = () => {
     ) => {
       try {
         setLoadedData(false);
-        const res = await api.conductorSearch({
+        const res = await api.conductorSearch('conductor', {
           searchQuery: query,
           projLocation: projLoc,
           projStatus: projStatus,
-          //projVisibility: projVis,
+          projVisibility: projVis,
           projSort: projSortChoice,
           bookSort: bookSortChoice,
-          hwSort: homeworkSortChoice,
+          homeworkSort: homeworkSortChoice,
           userSort: userSortChoice,
         });
         if (res.data.err) {
@@ -1009,7 +998,7 @@ const Search = () => {
                           </div>
                         </div>
                       </Segment>
-                      <Table celled title="Homework Search Results">
+                      <Table celled attached title="Homework Search Results">
                         <Table.Header>
                           <Table.Row>
                             <Table.HeaderCell width={6} scope="col">
