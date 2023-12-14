@@ -4,7 +4,7 @@
 //
 
 'use strict';
-import Promise from 'bluebird';
+import BluebirdPromise from 'bluebird';
 import express from 'express';
 import async from 'async';
 import { body, query, param } from 'express-validator';
@@ -57,6 +57,7 @@ import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
+import centralIdentity from './central-identity.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -1272,46 +1273,31 @@ async function getAddableMembers(req, res) {
         $match: { ...matchObj },
       },
       {
-        $lookup: {
-          from: "organizations",
-          localField: "roles.0.org",
-          foreignField: "orgID",
-          as: "organization",
-        },
-      },
-      {
-        $addFields: {
-          primaryOrg: {
-            $arrayElemAt: ["$organization", 0],
-          },
-        },
-      },
-      {
         $project: {
           _id: 0,
           uuid: 1,
+          centralID: 1,
           firstName: 1,
           lastName: 1,
           avatar: 1,
-          primaryOrg: {
-            shortName: 1
-          },
-          document: "$$ROOT" // Include both current and new fields so we can get the primaryOrg field we added
-          // https://stackoverflow.com/questions/20497499/mongodb-project-retain-previous-pipeline-fields
         },
-      },
-      {
-        $project: {
-          document: 0 // Remove the document field before returning the results
-        }
       },
       {
         $sort: { firstName: -1 },
       },
-    ]);
+    ]).limit(10); // limit to 10 results
+
+    const filtered = users.filter((user) => user.centralID) // filter out users without a centralID
+    const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
+
+    for(let i = 0; i < settled.length; i++) {
+      if(settled[i].status === 'fulfilled') {
+        filtered[i].orgs = settled[i].value ?? []
+      }
+    }
 
     return res.send({
-      users,
+      users: filtered,
       err: false,
     });
   } catch (e) {
@@ -2389,7 +2375,7 @@ const autoGenerateProjects = (newBooks) => {
     let numCreated = 0;
     let newProjects = [];
     let newProjectsDbIds = [];
-    return Promise.try(() => {
+    return BluebirdPromise.try(() => {
         if (Array.isArray(newBooks) && newBooks.length > 0) {
             return Organization.findOne({ orgID: 'libretexts' }, {
                 _id: 0,
