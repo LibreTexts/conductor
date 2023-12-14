@@ -119,11 +119,8 @@ const CatalogAssetFilters = forwardRef(
         }
 
         const reduced = res.data.licenses.reduce((acc: any, curr: any) => {
-          if (Array.isArray(curr.versions)) {
-            if (curr.versions.length === 0) {
-              acc.push(curr);
-              return acc;
-            }
+          if (Array.isArray(curr.versions) && curr.versions.length > 0) {
+            acc.push(curr);
             curr.versions.forEach((version: any) => {
               const newObj = { ...curr, version };
               delete newObj.versions;
@@ -177,6 +174,8 @@ const CatalogAssetFilters = forwardRef(
       switch (key) {
         case "assetLicense":
           return "License";
+        case "assetLicenseVersion":
+          return "License Version";
         case "assetOrg":
           return "Organization";
         case "assetFileType":
@@ -209,6 +208,7 @@ const CatalogAssetFilters = forwardRef(
                   setSelectedFilters({
                     ...selectedFilters,
                     assetLicense: license.value.name,
+                    assetLicenseVersion: license.value.version ?? undefined,
                   })
                 }
               >
@@ -269,21 +269,23 @@ const CatalogAssetFilters = forwardRef(
             ))}
           </Dropdown.Menu>
         </Dropdown>
-        {Object.entries(selectedFilters).map(([key, val]) => (
-          <Button
-            key={key}
-            circular
-            className="!ml-2"
-            onClick={() => {
-              const newFilters = { ...selectedFilters };
-              delete newFilters[key as keyof AssetFilters];
-              setSelectedFilters(newFilters);
-            }}
-          >
-            <Icon name="x" />
-            {getFilterText(key)}: {val}
-          </Button>
-        ))}
+        {Object.entries(selectedFilters)
+          .filter((e) => (e[1] ? true : false))
+          .map(([key, val]) => (
+            <Button
+              key={key}
+              circular
+              className="!ml-2"
+              onClick={() => {
+                const newFilters = { ...selectedFilters };
+                delete newFilters[key as keyof AssetFilters];
+                setSelectedFilters(newFilters);
+              }}
+            >
+              <Icon name="x" />
+              {getFilterText(key)}: {val}
+            </Button>
+          ))}
         {Object.keys(selectedFilters).length > 0 && (
           <p
             className="underline cursor-pointer ml-2"

@@ -71,6 +71,7 @@ const CommonsCatalog = () => {
     }
   );
 
+
   const [searchString, setSearchString] = useState<string>("");
 
   // Sort and Search Filters
@@ -102,6 +103,11 @@ const CommonsCatalog = () => {
   useEffect(() => {
     loadPublicAssets();
   }, [activeAssetPage])
+
+  // useEffect(() => {
+  //   if(isInitialSearch) return;
+  //   newSearch();
+  // }, [activeProjectPage, activeAssetPage, activeBookPage])
 
   /**
    * Update the page title based on
@@ -377,12 +383,12 @@ const CommonsCatalog = () => {
 
       const bookFilters = catalogBookFiltersRef.current?.getSelectedFilters();
       const assetFilters = catalogAssetFiltersRef.current?.getSelectedFilters();
-      if(!searchString) return; //TODO: Remove this?
+      //if(!searchString) return; //TODO: Remove this?
 
-      const res = await api.conductorSearch({
+      const res = await api.conductorSearch('commons', {
         searchQuery: searchString,
-        assetsPage: activeAssetPage,
-        assetsLimit: itemsPerPage,
+        //assetsPage: activeAssetPage,
+        //assetsLimit: itemsPerPage,
         booksPage: activeBookPage,
         booksLimit: itemsPerPage,
         projectsPage: activeProjectPage,

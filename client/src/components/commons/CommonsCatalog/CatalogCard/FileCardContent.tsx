@@ -42,8 +42,8 @@ const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
-      <div className="flex justify-center">
-        <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
+      <div className="flex justify-center my-2">
+        <Icon name={getFileTypeIcon(file)} size="huge" color="black" />
       </div>
       <Card.Header as="h3" className="commons-content-card-header !mt-4">
         {truncateString(file.name, 50)}
@@ -57,16 +57,21 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
         {file.license?.version ? `(${file.license.version})` : ""}
       </Card.Meta>
+      {!file.isURL && file.storageType === "file" && (
+        <Card.Meta>
+          <Icon name="file alternate outline" color="blue" /> {truncateString(file.mimeType ?? '', 30)}
+        </Card.Meta>
+      )}
       <Card.Description className="overflow-hidden">
         <p className="commons-content-card-author">
           {file.description
-            ? truncateString(file.description, 65)
+            ? truncateString(file.description, 75)
             : "No description provided"}
         </p>
         <div className="max-h-14 overflow-hidden">
           <RenderAssetTags
             file={file}
-            max={2}
+            max={3}
             showNoTagsMessage={false}
             size="small"
           />
