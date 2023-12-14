@@ -4,12 +4,12 @@ import { PaginationSchema } from "./misc.js";
 export const assetTagSchema = z.object({
   key: z.string(),
   value: z.union([
-    z.string().min(1),
+    z.string(),
     z.number(),
     z.boolean(),
     z.date(),
-    z.array(z.string().min(1)),
-  ]),
+    z.array(z.string()),
+  ]).optional(),
 });
 
 export const projectFileSchema = z.object({
