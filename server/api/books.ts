@@ -30,7 +30,7 @@ import {
 import {
   retrieveProjectFiles,
   downloadProjectFile,
-  addTeamToWorkbench,
+  updateTeamWorkbenchPermissions,
 } from "../util/projectutils.js";
 import { buildPeerReviewAggregation } from "../util/peerreviewutils.js";
 import {
@@ -1484,7 +1484,7 @@ async function createBook(
     project.didCreateWorkbench = true;
     await project.save();
 
-    const permsUpdated = await addTeamToWorkbench(
+    const permsUpdated = await updateTeamWorkbenchPermissions(
       projectID,
       subdomain,
       newBookID
@@ -1501,7 +1501,7 @@ async function createBook(
       path: bookPath,
       url: bookURL,
     });
-  } catch (err) {
+  } catch (err: any) {
     debugError(err);
     if(err.name === "CreateBookError") {
       return res.status(400).send({

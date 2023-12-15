@@ -44,6 +44,7 @@ import {
     computeStructureAccessSettings,
     PROJECT_FILES_ACCESS_SETTINGS,
     checkIfBookLinkedToProject,
+    updateTeamWorkbenchPermissions,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -58,6 +59,7 @@ import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
 import centralIdentity from './central-identity.js';
+import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -1365,6 +1367,17 @@ async function addMemberToProject(req, res) {
     }
 
     const updatedTeam = constructProjectTeam(updatedProject);
+
+    // PUT user permissions for updated team if project is linked to a Workbench book
+    if(updatedProject.didCreateWorkbench && updatedProject.libreLibrary && updatedProject.libreCoverID) {
+      const subdomain = getSubdomainFromLibrary(updatedProject.libreLibrary);
+      if(!subdomain) {
+        throw new Error("Invalid library");
+      }
+      
+      await updateTeamWorkbenchPermissions(projectID, subdomain, updatedProject.libreCoverID)
+    }
+
     const foundTeam = await User.find({'uuid': { $in: updatedTeam }}, '-_id email');
     if (!foundTeam) {
       throw (new Error('Error finding updated members.'));
@@ -1709,6 +1722,16 @@ async function removeMemberFromProject(req, res) {
         assignees: uuid,
       },
     }).catch((e) => debugError(e));
+
+    // PUT user permissions for updated team if project is linked to a Workbench book
+    if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
+      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      if(!subdomain) {
+        throw new Error("Invalid library");
+      }
+      
+      await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
+    }
 
     return res.send({
       err: false,

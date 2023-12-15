@@ -7,7 +7,7 @@ const CXOneTemplates = {
     <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
   `,
-  POST_GrantContributorRole: (userIDs: string[]) =>
+  POST_OR_PUT_GrantContributorRole: (userIDs: string[]) =>
     `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>

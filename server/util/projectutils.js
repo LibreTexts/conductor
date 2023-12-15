@@ -655,7 +655,7 @@ export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
   }
 }
 
-export async function addTeamToWorkbench(projectID, subdomain, coverID) {
+export async function updateTeamWorkbenchPermissions(projectID, subdomain, coverID) {
   try {
     if (!projectID) {
       throw new Error("Invalid projectID passed to addTeamToWorkbench");
@@ -682,12 +682,12 @@ export async function addTeamToWorkbench(projectID, subdomain, coverID) {
     const permsRes = await CXOneFetch({
       scope: "page",
       path: coverID,
-      api: MindTouch.API.Page.POST_Security,
+      api: MindTouch.API.Page.PUT_Security,
       subdomain,
       options: {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/xml; charset=utf-8" },
-        body: MindTouch.Templates.POST_GrantContributorRole(
+        body: MindTouch.Templates.POST_OR_PUT_GrantContributorRole(
           foundUsers.map((u) => u.id)
         ),
       },
