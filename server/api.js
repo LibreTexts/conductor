@@ -641,6 +641,11 @@ router.route('/search').get(
   middleware.validateZod(SearchValidators.conductorSearchSchema),
   searchAPI.performSearch,
 );
+router.route('/assets-search').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.conductorSearchSchema),
+  searchAPI.assetsSearch,
+);
 
 
 /* Users */

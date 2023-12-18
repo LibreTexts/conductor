@@ -197,7 +197,7 @@ class API {
   ) {
     const res = await axios.get<
       ConductorSearchResponse<T> & ConductorBaseResponse
-    >("/search", {
+    >("/assets-search", {
       params: {
         origin,
         ...params,

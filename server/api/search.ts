@@ -947,6 +947,240 @@ function _transformToCompare(val: any) {
     .replace(/[^A-Za-z]+/g, "");
 }
 
+function _buildFilesFilter({
+  fileTypeFilter,
+  licenseFilter,
+  licenseVersionFilter,
+}: {
+  fileTypeFilter?: string;
+  licenseFilter?: string;
+  licenseVersionFilter?: string;
+}){
+  const andQuery: Record<string, any>[] = [
+    {
+      "files.access": "public",
+    },
+    {
+      "files.storageType": 'file',
+    },
+  ];
+
+  if(fileTypeFilter){
+    andQuery.push({
+      "files.mimeType": fileTypeFilter,
+    })
+  }
+
+  if(licenseFilter){
+    andQuery.push({
+      "files.license.name": licenseFilter,
+    })
+  }
+
+  if(licenseVersionFilter){
+    andQuery.push({
+      "files.license.version": licenseVersionFilter,
+    })
+  }
+
+  return {
+    $and: andQuery,
+  };
+}
+
+export async function assetsSearch(
+  req: ZodReqWithOptionalUser<z.infer<typeof conductorSearchSchema>>,
+  res: Response
+) {
+  try {
+    req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
+    
+    const mongoSearchQueryTerm = req.query.searchQuery;
+    if(!mongoSearchQueryTerm) {
+      throw new Error("No search query provided");
+    }
+
+    const matchObj = _buildFilesFilter({
+      fileTypeFilter: req.query.assetFileType || undefined,
+      licenseFilter: req.query.assetLicense || undefined,
+      licenseVersionFilter: req.query.assetLicenseVersion || undefined,
+    });
+
+    const results = await Project.aggregate([
+      {
+        $search: {
+          embeddedDocument: {
+            path: "files",
+            operator: {
+              text: {
+                query: mongoSearchQueryTerm,
+                path: {'wildcard': 'files.*'}
+              }
+            },
+          },
+          scoreDetails: true,
+        },
+      },
+      {
+        $project: {
+          files: 1,
+          projectID: 1,
+          source: 1,
+          score: { $meta: "searchScore" },
+        },
+      },
+      {
+        $unwind: {
+          path: "$files",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $match: matchObj,
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              {
+                projectID: "$projectID",
+              },
+              {
+                score: "$score",
+              },
+              "$files",
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "fileassettags",
+          localField: "_id",
+          foreignField: "fileID",
+          as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "tags.tags",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $ne: ["isDeleted", true],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "assettagframeworks",
+                localField: "framework",
+                foreignField: "_id",
+                pipeline: [
+                  // Go through each template in framework and lookup key
+                  {
+                    $unwind: {
+                      path: "$templates",
+                      preserveNullAndEmptyArrays: true,
+                    },
+                  },
+                  {
+                    $lookup: {
+                      from: "assettagkeys",
+                      let: {
+                        key: "$templates.key",
+                      },
+                      pipeline: [
+                        {
+                          $match: {
+                            $expr: {
+                              $eq: ["$_id", "$$key"],
+                            },
+                          },
+                        },
+                      ],
+                      as: "key",
+                    },
+                  },
+                  {
+                    $set: {
+                      "templates.key": {
+                        $arrayElemAt: ["$key", 0],
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: "$_id",
+                      uuid: {
+                        $first: "$uuid",
+                      },
+                      name: {
+                        $first: "$name",
+                      },
+                      description: {
+                        $first: "$description",
+                      },
+                      enabled: {
+                        $first: "$enabled",
+                      },
+                      orgID: {
+                        $first: "$orgID",
+                      },
+                      templates: {
+                        $push: "$templates",
+                      },
+                    },
+                  },
+                ],
+                as: "framework",
+              },
+            },
+            {
+              $set: {
+                framework: {
+                  $arrayElemAt: ["$framework", 0],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
+                },
+              },
+            },
+          ],
+          as: "tags",
+        },
+      },
+    ]).limit(100);
+
+    res.send({
+      err: false,
+      results: {
+        files: results,
+      },
+    })
+
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 export default {
   performSearch,
+  assetsSearch,
 };
