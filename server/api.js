@@ -1323,6 +1323,15 @@ router.route('/project/accessibility/section/item').put(
   projectsAPI.updateA11YReviewSectionItem,
 );
 
+router.route('/project/:projectID/thumbnail').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  projectsAPI.validate('uploadProjectThumbnail'),
+  middleware.checkValidationErrors,
+  projectsAPI.thumbnailUploadHandler,
+  projectsAPI.uploadProjectThumbnail,
+)
+
 router.route('/project/:projectID?')
   .get(
     authAPI.verifyRequest,
