@@ -100,6 +100,14 @@ export const PROJECT_FILES_ACCESS_SETTINGS = [
   "mixed",
 ];
 
+export const PROJECT_THUMBNAILS_S3_CLIENT_CONFIG = {
+  credentials: {
+    accessKeyId: process.env.AWS_PROJECT_THUMBNAILS_ACCESS_KEY ?? "",
+    secretAccessKey: process.env.AWS_PROJECT_THUMBNAILS_SECRET_KEY ?? "",
+  },
+  region: process.env.AWS_PROJECT_THUMBNAILS_REGION ?? "",
+};
+
 export const isFileInterfaceAccess = (
   access: string
 ): access is FileInterfaceAccess => {

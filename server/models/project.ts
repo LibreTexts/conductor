@@ -53,6 +53,7 @@ export interface ProjectInterface extends Document {
   associatedOrgs?: string[];
   files?: FileInterface[];
   defaultFileLicense?: FileLicense;
+  thumbnail?: string;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -278,6 +279,10 @@ const ProjectSchema = new Schema<ProjectInterface>(
       modifiedFromSource: Boolean,
       additionalTerms: String,
     },
+    /**
+     * URL of the Project's thumbnail image.
+     */
+    thumbnail: String,
   },
   {
     timestamps: true,

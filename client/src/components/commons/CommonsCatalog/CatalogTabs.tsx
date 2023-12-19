@@ -1,4 +1,10 @@
-import { forwardRef, ForwardedRef, useImperativeHandle, useState } from "react";
+import {
+  forwardRef,
+  ForwardedRef,
+  useImperativeHandle,
+  useState,
+  useEffect,
+} from "react";
 import {
   Tab,
   TabProps,
@@ -16,6 +22,7 @@ interface CatalogTabsProps extends TabProps {
   assetsCount?: number;
   projectsCount?: number;
   paneProps?: TabPaneProps;
+  fireTabChange?: (newTab: "books" | "assets" | "projects") => void;
 }
 
 type CatalogTabsRef = {
@@ -24,7 +31,7 @@ type CatalogTabsRef = {
 
 const CatalogTabs = forwardRef(
   (props: CatalogTabsProps, ref: ForwardedRef<CatalogTabsRef>) => {
-    const [activeIndex, setActiveIndex] = useState<0 | 1| 2>(0);
+    const [activeIndex, setActiveIndex] = useState<0 | 1 | 2>(0);
     const {
       booksContent,
       assetsContent,
@@ -33,8 +40,15 @@ const CatalogTabs = forwardRef(
       assetsCount,
       projectsCount,
       paneProps,
+      fireTabChange,
       ...rest
     } = props;
+
+    useEffect(() => {
+      const activeTab =
+        activeIndex === 0 ? "books" : activeIndex === 1 ? "assets" : "projects";
+      fireTabChange && fireTabChange(activeTab);
+    }, [activeIndex]);
 
     useImperativeHandle(ref, () => ({
       getActiveTab: () => {
@@ -60,7 +74,11 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? booksContent : <Icon name="spinner" loading />}
+            {!paneProps?.loading ? (
+              booksContent
+            ) : (
+              <Icon name="spinner" loading />
+            )}
           </Tab.Pane>
         ),
       },
@@ -74,7 +92,11 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? assetsContent : <Icon name="spinner" loading />}
+            {!paneProps?.loading ? (
+              assetsContent
+            ) : (
+              <Icon name="spinner" loading />
+            )}
           </Tab.Pane>
         ),
       },
@@ -88,7 +110,11 @@ const CatalogTabs = forwardRef(
         ),
         render: () => (
           <Tab.Pane attached={false} className={paneClasses} {...paneProps}>
-            {!paneProps?.loading ? projectsContent : <Icon name="spinner" loading />}
+            {!paneProps?.loading ? (
+              projectsContent
+            ) : (
+              <Icon name="spinner" loading />
+            )}
           </Tab.Pane>
         ),
       },
