@@ -16,9 +16,18 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
 }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
-      <div className="flex justify-center">
-        <Icon name="clipboard list" size="massive" color="black" />
-      </div>
+      {project.thumbnail ? (
+        <div className="commons-content-card-img-wrapper">
+          <div
+            className="commons-content-card-img"
+            style={{ backgroundImage: `url(${project.thumbnail})` }}
+          />
+        </div>
+      ) : (
+        <div className="flex justify-center">
+          <Icon name="clipboard list" size="massive" color="black" />
+        </div>
+      )}
       <Card.Header as="h3" className="commons-content-card-header !mt-4">
         {truncateString(project.title, 50)}
       </Card.Header>

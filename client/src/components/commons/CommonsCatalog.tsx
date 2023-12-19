@@ -71,22 +71,22 @@ const CommonsCatalog = () => {
     loadCommonsCatalog();
     loadPublicAssets();
     loadPublicProjects();
-    //searchCommonsCatalog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    if (!isInitialSearch) return;
     loadCommonsCatalog();
   }, [activeBookPage]);
 
   useEffect(() => {
+    if (!isInitialSearch) return;
     loadPublicAssets();
   }, [activeAssetPage]);
 
-  // useEffect(() => {
-  //   if(isInitialSearch) return;
-  //   newSearch();
-  // }, [activeProjectPage, activeAssetPage, activeBookPage])
+  useEffect(() => {
+    if (!isInitialSearch) return;
+    loadPublicProjects();
+  }, [activeProjectPage]);
 
   /**
    * Update the page title based on
@@ -194,13 +194,19 @@ const CommonsCatalog = () => {
     loadPublicProjects();
   };
 
-  const handleFiltersChanged = (filters: BookFilters | AssetFilters) => {
-    assetsSearch();
-  };
-
+  // Resets state and performs search based on active tab.
   const updateQueryAndSearch = () => {
     resetState();
-    assetsSearch();
+    const activeTab = catalogTabsRef.current?.getActiveTab();
+    if (activeTab === "books") {
+      booksSearch();
+    }
+    if (activeTab === "assets") {
+      assetsSearch();
+    }
+    if (activeTab === "projects") {
+      projectsSearch();
+    }
   };
 
   /**
@@ -213,14 +219,13 @@ const CommonsCatalog = () => {
       setIsInitialSearch(false);
 
       const assetFilters = catalogAssetFiltersRef.current?.getSelectedFilters();
-      //if(!searchString) return; //TODO: Remove this?
 
       const res = await api.assetsSearch({
         searchQuery: searchString,
         strictMode,
         page: activeAssetPage,
         limit: itemsPerPage,
-        ...assetFilters
+        ...assetFilters,
       });
 
       if (res.data.err) {
@@ -233,6 +238,82 @@ const CommonsCatalog = () => {
 
       if (Array.isArray(res.data.results)) {
         setFiles(res.data.results);
+      }
+      if (typeof res.data.numResults === "number") {
+        setFilesTotal(res.data.numResults);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+      setLoadedData(true);
+    } finally {
+      setLoadedData(true);
+    }
+  };
+
+  const booksSearch = async () => {
+    try {
+      setLoadedData(false);
+      setIsInitialSearch(false);
+
+      const bookFilters = catalogBookFiltersRef.current?.getSelectedFilters();
+
+      const res = await api.booksSearch({
+        searchQuery: searchString,
+        strictMode,
+        page: activeBookPage,
+        limit: itemsPerPage,
+        ...bookFilters,
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (!res.data.results) {
+        throw new Error("No results found.");
+      }
+
+      if (Array.isArray(res.data.results)) {
+        setBooks(res.data.results);
+      }
+
+      if (typeof res.data.numResults === "number") {
+        setBooksTotal(res.data.numResults);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+      setLoadedData(true);
+    } finally {
+      setLoadedData(true);
+    }
+  };
+
+  const projectsSearch = async () => {
+    try {
+      setLoadedData(false);
+      setIsInitialSearch(false);
+
+      const res = await api.projectsSearch({
+        searchQuery: searchString,
+        strictMode,
+        page: activeProjectPage,
+        limit: itemsPerPage,
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (!res.data.results) {
+        throw new Error("No results found.");
+      }
+
+      if (Array.isArray(res.data.results)) {
+        setProjects(res.data.results);
+      }
+
+      if (typeof res.data.numResults === "number") {
+        setProjectsTotal(res.data.numResults);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -304,6 +385,7 @@ const CommonsCatalog = () => {
               <CatalogTabs
                 paneProps={{ loading: false }}
                 ref={catalogTabsRef}
+                fireTabChange={updateQueryAndSearch}
                 booksCount={isInitialSearch ? booksTotal : books.length}
                 assetsCount={isInitialSearch ? filesTotal : files.length}
                 projectsCount={
@@ -313,9 +395,7 @@ const CommonsCatalog = () => {
                   <>
                     <CatalogBookFilters
                       ref={catalogBookFiltersRef}
-                      onFiltersChange={(filters) =>
-                        handleFiltersChanged(filters)
-                      }
+                      onFiltersChange={updateQueryAndSearch}
                       strictMode={strictMode}
                       onStrictModeChange={(mode) => setStrictMode(mode)}
                     />
@@ -342,9 +422,7 @@ const CommonsCatalog = () => {
                   <>
                     <CatalogAssetFilters
                       ref={catalogAssetFiltersRef}
-                      onFiltersChange={(filters) =>
-                        handleFiltersChanged(filters)
-                      }
+                      onFiltersChange={updateQueryAndSearch}
                       strictMode={strictMode}
                       onStrictModeChange={(mode) => setStrictMode(mode)}
                     />

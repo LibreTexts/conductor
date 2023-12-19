@@ -118,6 +118,7 @@ export type Project = {
   associatedOrgs: string[];
   files: ProjectFile[];
   defaultFileLicense?: ProjectFileLicense;
+  thumbnail?: string;
   createdAt: string;
   updatedAt?: string;
 };

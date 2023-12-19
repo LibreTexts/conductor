@@ -52,6 +52,7 @@ import {
     invalidateCloudfrontPath,
     parseAndZipS3Objects,
     createZIPAndNotify,
+    PROJECT_THUMBNAILS_S3_CLIENT_CONFIG,
 } from '../util/projectutils.js';
 import {
   checkBookIDFormat,
@@ -445,6 +446,119 @@ async function getProject(req, res) {
   }
 };
 
+/**
+ * Multer handler to process and validate Project thumbnail uploads.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing response object.
+ * @param {express.NextFunction} next - The next middleware to call.
+ * @returns {function} The Project thumbnail upload handler.
+ */
+function thumbnailUploadHandler(req, res, next) {
+  const thumbnailUploadConfig = multer({
+    storage: filesStorage,
+    limits: {
+      files: 1,
+      fileSize: 10000000, // 10MB
+    },
+    fileFilter: (_req, file, cb) => {
+      if (file.originalname.includes('/')) {
+        return cb(new Error('filenameslash'), false);
+      }
+      return cb(null, true);
+    },
+  }).single('thumbnail');
+  return thumbnailUploadConfig(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err53;
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        errMsg = conductorErrors.err60;
+      }
+      if (err.message === 'filenameslash') {
+        errMsg = conductorErrors.err61;
+      }
+      return res.status(400).send({
+        err: true,
+        errMsg,
+      });
+    }
+    return next();
+  });
+}
+
+async function uploadProjectThumbnail(req, res) {
+  try {
+    const { projectID } = req.params;
+
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    if (!checkProjectMemberPermission(project, req.user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err61,
+      });
+    }
+
+    const thumbnail = req.file;
+    const thumbnailKey = project.projectID;
+    const thumbnailParams = {
+      Bucket: process.env.AWS_PROJECT_THUMBNAILS_BUCKET,
+      Key: thumbnailKey,
+      Body: thumbnail.buffer,
+      ContentDisposition: `inline; filename="${thumbnailKey}"`,
+      ContentType: thumbnail.mimetype ?? "application/octet-stream",
+    };
+    const s3Client = new S3Client(PROJECT_THUMBNAILS_S3_CLIENT_CONFIG);
+    const uploadResult = await s3Client.send(
+      new PutObjectCommand(thumbnailParams)
+    );
+
+    if (uploadResult.$metadata.httpStatusCode !== 200) {
+      throw new Error("Failed to upload thumbnail image");
+    }
+
+    const url = assembleUrl([
+      process.env.AWS_PROJECT_THUMBNAILS_DOMAIN,
+      thumbnailKey,
+    ]);
+
+    const updateRes = await Project.updateOne(
+      { projectID },
+      { thumbnail: url }
+    );
+    if (updateRes.modifiedCount !== 1) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err3,
+      });
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully uploaded thumbnail image!",
+      thumbnail: url,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
 
 /**
  * Updates the Project identified by the projectID in the request body.
@@ -3904,6 +4018,10 @@ const validate = (method) => {
       return [
           param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
       ]
+    case 'uploadProjectThumbnail':
+      return [
+          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
+      ]
     case 'updateProject':
       return [
           body('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 }),
@@ -4078,6 +4196,8 @@ export default {
     createProject,
     deleteProject,
     getProject,
+    thumbnailUploadHandler,
+    uploadProjectThumbnail,
     updateProject,
     getUserProjects,
     getUserProjectsAdmin,

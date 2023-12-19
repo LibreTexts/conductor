@@ -257,6 +257,15 @@ class API {
     return res;
   }
 
+  async uploadProjectThumbnail(projectID: string, formData: FormData) {
+    const res = await axios.put(`/project/${projectID}/thumbnail`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res;
+  }
+
   async getTags() {
     const res = await axios.get<{ tags: ProjectTag[] } & ConductorBaseResponse>(
       "projects/tags/org"

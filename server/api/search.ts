@@ -99,6 +99,7 @@ async function projectsSearch(
           classification: 1,
           leads: 1,
           author: 1,
+          thumbnail: 1,
           updatedAt: 1,
         },
       },
@@ -746,8 +747,18 @@ function _buildFilesFilter({
   // If query is not provided, return like strict mode
   if (strictMode || !query) {
     if (fileTypeFilter) {
+      const isWildCard = fileTypeFilter.includes("*");
+      const parsedFileFilter = isWildCard
+        ? fileTypeFilter.split("/")[0]
+        : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
+      const wildCardRegex = isWildCard
+        ? {
+            $regex: query,
+            $options: "i",
+          }
+        : undefined;
       andQuery.push({
-        "files.mimeType": fileTypeFilter,
+        "files.mimeType": isWildCard ? wildCardRegex : parsedFileFilter,
       });
     }
 
@@ -804,10 +815,14 @@ function _buildAssetsSearchQuery({
 
   const compoundQueries = [];
   if (fileTypeFilter) {
+    const isWildCard = fileTypeFilter.includes("*");
+    const parsedFileFilter = isWildCard
+      ? fileTypeFilter.split("/")[0]
+      : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
     compoundQueries.push({
       text: {
         path: "files.mimeType",
-        query: fileTypeFilter,
+        query: parsedFileFilter,
       },
     });
   }

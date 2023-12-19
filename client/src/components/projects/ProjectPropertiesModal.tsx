@@ -80,6 +80,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       resourceURL: "",
       notes: "",
       associatedOrgs: [],
+      thumbnail: "",
       defaultFileLicense: {
         name: "",
         version: "",
@@ -347,6 +348,39 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       setLoading(false);
     }
   };
+
+  function handleOpenThumbnailUpload() {
+    const input = document.getElementById(
+      "thumbnail-hidden-input"
+    ) as HTMLInputElement;
+    if (input) {
+      input.click();
+    }
+  }
+
+  async function handleThumbnailUpload(e: React.ChangeEvent) {
+    try {
+      setLoading(true);
+
+      // @ts-expect-error
+      const files = (e as React.ChangeEvent).target?.files;
+      if (!files || files.length === 0) return;
+
+      const formData = new FormData();
+      formData.append("thumbnail", files[0]);
+
+      const res = await api.uploadProjectThumbnail(projectID, formData);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      window.location.reload();
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
@@ -624,6 +658,58 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               control={control}
             />
           </Form.Field>
+          <div className="flex flex-col !mt-4">
+            <label htmlFor="thumbnail" className="form-field-label">
+              <span className="mr-05p">Thumbnail</span>
+              <Popup
+                trigger={<Icon name="info circle" />}
+                position="top center"
+                content={
+                  <span className="text-center">
+                    A thumbnail image for the project. This will be displayed in
+                    the project's card on the Commons page (if project is
+                    publicly visible). Project thumbnails are stored publicly
+                    (regardless of project visibility) and appear best with a
+                    16:9 aspect ratio. It may take a few minutes for a new thumbnail to propogate to all locations.
+                  </span>
+                }
+              />
+            </label>
+            <div className="flex flex-row justify-start mt-2">
+              {getValues("thumbnail") && (
+                <Button
+                  id="thumbnail-current"
+                  icon
+                  labelPosition="left"
+                  onClick={() =>
+                    window.open(getValues("thumbnail") as string, "_blank")
+                  }
+                >
+                  <Icon name="external square" />
+                  View Current
+                </Button>
+              )}
+              <Button
+                id="thumbnail"
+                icon
+                labelPosition="left"
+                color="blue"
+                className="!ml-2"
+                onClick={handleOpenThumbnailUpload}
+              >
+                <Icon name="upload" />
+                {getValues("thumbnail") ? "Replace" : "Upload"}
+              </Button>
+              <input
+                id="thumbnail-hidden-input"
+                type="file"
+                hidden
+                accept="image/*"
+                max={1}
+                onChange={handleThumbnailUpload}
+              />
+            </div>
+          </div>
           <p>
             <em>
               For settings and properties related to Peer Reviews, please use
