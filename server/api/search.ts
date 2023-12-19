@@ -12,23 +12,25 @@ import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { FileInterface } from "../models/file.js";
 import { z } from "zod";
-import {
-  conductorSearchQuerySchema,
-  conductorSearchSchema,
-} from "./validators/search.js";
 import AssetTag from "../models/assettag.js";
 import { getSchemaWithDefaults } from "../util/typeHelpers.js";
+import {
+  assetSearchSchema,
+  bookSearchSchema,
+  homeworkSearchSchema,
+  projectSearchSchema,
+  userSearchSchema,
+} from "./validators/search.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
  */
-async function performSearch(
-  req: ZodReqWithOptionalUser<z.infer<typeof conductorSearchSchema>>,
+async function projectsSearch(
+  req: ZodReqWithOptionalUser<z.infer<typeof projectSearchSchema>>,
   res: Response
 ) {
   try {
-    req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
-    console.log(req.query);
+    //req = getSchemaWithDefaults(req, projectSearchSchema);
 
     // Create regex for query
     const query = req.query.searchQuery;
@@ -40,566 +42,85 @@ async function performSearch(
       : undefined;
 
     // Get pagination offsets
-    const {
-      booksLimit,
-      booksOffset,
-      assetsLimit,
-      assetsOffset,
-      projectsLimit,
-      projectsOffset,
-      homeworkLimit,
-      homeworkOffset,
-      usersLimit,
-      usersOffset,
-    } = _generateOffsetsAndLimits(req);
+    const projectsPage = parseInt(req.query.page?.toString()) || 1;
+    const projectsLimit = parseInt(req.query.limit?.toString()) || 25;
+    const projectsOffset = getPaginationOffset(projectsPage, req.query.limit);
 
     const projectMatchObj = _generateProjectMatchObj({
-      projLocation: req.query.projLocation || undefined,
-      projStatus: req.query.projStatus || undefined,
-      projVisibility: req.query.projVisibility || undefined,
+      projLocation: req.query.location || undefined,
+      projStatus: req.query.status || undefined,
+      projVisibility: req.query.visibility || undefined,
       queryRegex,
       userUUID: req.user?.decoded.uuid || undefined,
-      origin: req.query.origin || "commons",
     });
 
-    const projectFilesMatchObj = _generateProjectFilesMatchObj({
-      queryRegex,
-    });
-
-    const projectFilesSubQuery = _generateProjectFilesSubMatchObj({
-      queryRegex,
-      fileTypeFilter: req.query.assetFileType || undefined,
-      licenseFilter: req.query.assetLicense || undefined,
-      licenseVersionFilter: req.query.assetLicenseVersion || undefined,
-    });
-
-    const aggregations = [];
-    aggregations.push(
-      Project.aggregate([
-        {
-          $match: projectMatchObj,
-        },
-        {
-          $lookup: {
-            from: "users",
-            let: {
-              leads: "$leads",
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $in: ["$uuid", "$$leads"],
-                  },
-                },
-              },
-              {
-                $project: {
-                  _id: 0,
-                  uuid: 1,
-                  firstName: 1,
-                  lastName: 1,
-                  avatar: 1,
-                },
-              },
-            ],
-            as: "leads",
+    const results = await Project.aggregate([
+      {
+        $match: projectMatchObj,
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            leads: "$leads",
           },
-        },
-        {
-          $project: {
-            _id: 0,
-            orgID: 1,
-            projectID: 1,
-            title: 1,
-            status: 1,
-            visibility: 1,
-            currentProgress: 1,
-            peerProgress: 1,
-            a11yProgress: 1,
-            classification: 1,
-            leads: 1,
-            author: 1,
-            updatedAt: 1,
-          },
-        },
-      ])
-        .skip(projectsOffset)
-        .limit(projectsLimit)
-    );
-    aggregations.push(
-      Book.aggregate([
-        {
-          $match: {
-            $or: [
-              { title: queryRegex },
-              { author: queryRegex },
-              { affiliation: queryRegex },
-              { library: queryRegex },
-              { subject: queryRegex },
-              { course: queryRegex },
-              { program: queryRegex },
-              { summary: queryRegex },
-            ],
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            __v: 0,
-          },
-        },
-      ])
-        .skip(booksOffset)
-        .limit(booksLimit)
-    );
-    aggregations.push(
-      // Search project files for names that match the query
-      Project.aggregate([
-        {
-          $match: projectFilesMatchObj,
-        },
-        {
-          $project: {
-            files: 1,
-            projectID: 1,
-          },
-        },
-        {
-          $unwind: {
-            path: "$files",
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $match: projectFilesSubQuery,
-        },
-        {
-          $replaceRoot: {
-            newRoot: {
-              $mergeObjects: [
-                {
-                  projectID: "$projectID",
-                },
-                "$files",
-              ],
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: "fileassettags",
-            localField: "_id",
-            foreignField: "fileID",
-            as: "tags",
-          },
-        },
-        {
-          $lookup: {
-            from: "assettags",
-            localField: "tags.tags",
-            foreignField: "_id",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "assettagframeworks",
-                  localField: "framework",
-                  foreignField: "_id",
-                  pipeline: [
-                    // Go through each template in framework and lookup key
-                    {
-                      $unwind: {
-                        path: "$templates",
-                        preserveNullAndEmptyArrays: true,
-                      },
-                    },
-                    {
-                      $lookup: {
-                        from: "assettagkeys",
-                        let: {
-                          key: "$templates.key",
-                        },
-                        pipeline: [
-                          {
-                            $match: {
-                              $expr: {
-                                $eq: ["$_id", "$$key"],
-                              },
-                            },
-                          },
-                        ],
-                        as: "key",
-                      },
-                    },
-                    {
-                      $set: {
-                        "templates.key": {
-                          $arrayElemAt: ["$key", 0],
-                        },
-                      },
-                    },
-                    {
-                      $group: {
-                        _id: "$_id",
-                        uuid: {
-                          $first: "$uuid",
-                        },
-                        name: {
-                          $first: "$name",
-                        },
-                        description: {
-                          $first: "$description",
-                        },
-                        enabled: {
-                          $first: "$enabled",
-                        },
-                        orgID: {
-                          $first: "$orgID",
-                        },
-                        templates: {
-                          $push: "$templates",
-                        },
-                      },
-                    },
-                  ],
-                  as: "framework",
-                },
-              },
-              {
-                $set: {
-                  framework: {
-                    $arrayElemAt: ["$framework", 0],
-                  },
-                },
-              },
-              {
-                $lookup: {
-                  from: "assettagkeys",
-                  localField: "key",
-                  foreignField: "_id",
-                  as: "key",
-                },
-              },
-              {
-                $set: {
-                  key: {
-                    $arrayElemAt: ["$key", 0],
-                  },
-                },
-              },
-            ],
-            as: "tags",
-          },
-        },
-        {
-          //filter asset tags where isDeleted = true
-          $set: {
-            tags: {
-              $filter: {
-                input: "$tags",
-                as: "tag",
-                cond: {
-                  $ne: ["$$tag.isDeleted", true],
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$uuid", "$$leads"],
                 },
               },
             },
-          },
-        },
-      ])
-    );
-
-    aggregations.push(
-      AssetTag.aggregate([
-        {
-          $match: _generateAssetTagsMatchObj(query),
-        },
-        {
-          $lookup: {
-            from: "fileassettags",
-            localField: "_id",
-            foreignField: "tags",
-            as: "matchingFileAssetTags",
-          },
-        },
-        {
-          $lookup: {
-            from: "projects",
-            as: "matchingProjectFiles",
-            let: {
-              fileIDs: "$matchingFileAssetTags.fileID",
-            },
-            pipeline: [
-              {
-                $match: projectFilesSubQuery,
-              },
-              {
-                $unwind: {
-                  path: "$files",
-                },
-              },
-              {
-                $replaceRoot: {
-                  newRoot: {
-                    $mergeObjects: [
-                      {
-                        projectID: "$projectID",
-                      },
-                      "$files",
-                    ],
-                  },
-                },
-              },
-              {
-                $match: {
-                  $and: [
-                    {
-                      access: "public",
-                    },
-                    {
-                      $expr: {
-                        $in: ["$_id", "$$fileIDs"],
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        },
-        {
-          $unwind: {
-            path: "$matchingProjectFiles",
-          },
-        },
-        {
-          $replaceRoot: {
-            newRoot: "$matchingProjectFiles",
-          },
-        },
-        {
-          $lookup: {
-            from: "fileassettags",
-            localField: "_id",
-            foreignField: "fileID",
-            as: "tags",
-          },
-        },
-        {
-          $lookup: {
-            from: "assettags",
-            localField: "tags.tags",
-            foreignField: "_id",
-            pipeline: [
-              {
-                $lookup: {
-                  from: "assettagframeworks",
-                  localField: "framework",
-                  foreignField: "_id",
-                  pipeline: [
-                    // Go through each template in framework and lookup key
-                    {
-                      $unwind: {
-                        path: "$templates",
-                        preserveNullAndEmptyArrays: true,
-                      },
-                    },
-                    {
-                      $lookup: {
-                        from: "assettagkeys",
-                        let: {
-                          key: "$templates.key",
-                        },
-                        pipeline: [
-                          {
-                            $match: {
-                              $expr: {
-                                $eq: ["$_id", "$$key"],
-                              },
-                            },
-                          },
-                        ],
-                        as: "key",
-                      },
-                    },
-                    {
-                      $set: {
-                        "templates.key": {
-                          $arrayElemAt: ["$key", 0],
-                        },
-                      },
-                    },
-                    {
-                      $group: {
-                        _id: "$_id",
-                        uuid: {
-                          $first: "$uuid",
-                        },
-                        name: {
-                          $first: "$name",
-                        },
-                        description: {
-                          $first: "$description",
-                        },
-                        enabled: {
-                          $first: "$enabled",
-                        },
-                        orgID: {
-                          $first: "$orgID",
-                        },
-                        templates: {
-                          $push: "$templates",
-                        },
-                      },
-                    },
-                  ],
-                  as: "framework",
-                },
-              },
-              {
-                $set: {
-                  framework: {
-                    $arrayElemAt: ["$framework", 0],
-                  },
-                },
-              },
-              {
-                $lookup: {
-                  from: "assettagkeys",
-                  localField: "key",
-                  foreignField: "_id",
-                  as: "key",
-                },
-              },
-              {
-                $set: {
-                  key: {
-                    $arrayElemAt: ["$key", 0],
-                  },
-                },
-              },
-            ],
-            as: "tags",
-          },
-        },
-        {
-          //filter asset tags where isDeleted = true
-          // TODO: Is this necessary? We already filter out deleted tags in the asset tag search
-          $set: {
-            tags: {
-              $filter: {
-                input: "$tags",
-                as: "tag",
-                cond: {
-                  $ne: ["$$tag.isDeleted", true],
-                },
+            {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1,
               },
             },
-          },
+          ],
+          as: "leads",
         },
-      ])
-    );
-
-    aggregations.push(
-      Homework.aggregate([
-        {
-          $match: {
-            $or: [
-              { title: queryRegex },
-              { kind: queryRegex },
-              { description: queryRegex },
-            ],
-          },
+      },
+      {
+        $project: {
+          _id: 0,
+          orgID: 1,
+          projectID: 1,
+          title: 1,
+          status: 1,
+          visibility: 1,
+          currentProgress: 1,
+          peerProgress: 1,
+          a11yProgress: 1,
+          classification: 1,
+          leads: 1,
+          author: 1,
+          updatedAt: 1,
         },
-        {
-          $project: {
-            _id: 0,
-            __v: 0,
-          },
-        },
-      ])
-        .skip(homeworkOffset)
-        .limit(homeworkLimit)
-    );
+      },
+    ]);
 
-    // Only search for users if origin is conductor
-    if (req.query.origin === "conductor") {
-      aggregations.push(
-        User.aggregate([
-          {
-            $match: {
-              $and: [
-                {
-                  $or: [{ firstName: queryRegex }, { lastName: queryRegex }],
-                },
-                { $expr: { $not: "$isSystem" } },
-              ],
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              firstName: 1,
-              lastName: 1,
-              avatar: 1,
-            },
-          },
-        ])
-          .skip(usersOffset)
-          .limit(usersLimit)
-      );
-    }
-
-    const aggregateResults = await Promise.all(aggregations);
-    const results = {
-      projects: aggregateResults[0],
-      books: aggregateResults[1],
-      files: aggregateResults[2],
-      filesFromTags: aggregateResults[3],
-      homework: aggregateResults[4],
-      users: aggregateResults[5] || [],
-    };
-
-    // Merge files from text search and files from tags
-    results.files = [...results.files, ...results.filesFromTags].filter(
-      (file) => {
-        // Remove files that don't have a projectID
-        return file.projectID && file.fileID;
-      }
-    );
-
-    // Remove duplicate files
-    const fileIDs = results.files.map((file: FileInterface) => file.fileID);
-    results.files = results.files.filter(
-      (file: FileInterface, index: number) => {
-        return !fileIDs.includes(file.fileID, index + 1);
-      }
-    );
-
-    const resultsCount =
-      results.projects.length +
-      results.books.length +
-      results.files.length +
-      results.homework.length +
-      results.users.length;
-
-    // 'Paginate' results since we can't use skip/limit since there are two aggregations
-    results.files = results.files.slice(
-      assetsOffset,
-      assetsOffset + assetsLimit
+    const totalCount = results.length;
+    const paginated = results.slice(
+      projectsOffset,
+      projectsOffset + projectsLimit
     );
 
     //Sort projects
-    results.projects.sort((a, b) => {
+    paginated.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (req.query.projSort === "title") {
+      if (req.query.sort === "title") {
         aData = _transformToCompare(a.title);
         bData = _transformToCompare(b.title);
-      } else if (req.query.projSort === "classification") {
+      } else if (req.query.sort === "classification") {
         aData = _transformToCompare(a.classification);
         bData = _transformToCompare(b.classification);
-      } else if (req.query.projSort === "visibility") {
+      } else if (req.query.sort === "visibility") {
         aData = _transformToCompare(a.visibility);
         bData = _transformToCompare(b.visibility);
       }
@@ -610,23 +131,77 @@ async function performSearch(
       return 0;
     });
 
-    // Sort books
-    results.books.sort((a, b) => {
+    return res.send({
+      err: false,
+      numResults: totalCount,
+      results: paginated,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function booksSearch(
+  req: z.infer<typeof bookSearchSchema>,
+  res: Response
+) {
+  try {
+    // Create regex for query
+    const query = req.query.searchQuery;
+    const queryRegex = query
+      ? {
+          $regex: query,
+          $options: "i",
+        }
+      : undefined;
+
+    const booksPage = parseInt(req.query.page?.toString()) || 1;
+    const booksLimit = parseInt(req.query.limit?.toString()) || 25;
+    const booksOffset = getPaginationOffset(booksPage, req.query.limit);
+
+    const results = await Book.aggregate([
+      {
+        $match: {
+          $or: [
+            { title: queryRegex },
+            { author: queryRegex },
+            { affiliation: queryRegex },
+            { library: queryRegex },
+            { subject: queryRegex },
+            { course: queryRegex },
+            { program: queryRegex },
+            { summary: queryRegex },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          __v: 0,
+        },
+      },
+    ]);
+
+    const totalCount = results.length;
+    const paginated = results.slice(booksOffset, booksOffset + booksLimit);
+
+    paginated.sort((a, b) => {
       let aData = null;
       let bData = null;
-      if (req.query.bookSort === "title") {
+      if (req.query.sort === "title") {
         aData = _transformToCompare(a.title);
         bData = _transformToCompare(b.title);
-      } else if (req.query.bookSort === "author") {
+      } else if (req.query.sort === "author") {
         aData = _transformToCompare(a.author);
         bData = _transformToCompare(b.author);
-      } else if (req.query.bookSort === "library") {
+      } else if (req.query.sort === "library") {
         aData = _transformToCompare(a.library);
         bData = _transformToCompare(b.library);
-      } else if (req.query.bookSort === "subject") {
+      } else if (req.query.sort === "subject") {
         aData = _transformToCompare(a.subject);
         bData = _transformToCompare(b.subject);
-      } else if (req.query.bookSort === "affiliation") {
+      } else if (req.query.sort === "affiliation") {
         aData = _transformToCompare(a.affiliation);
         bData = _transformToCompare(b.affiliation);
       }
@@ -637,61 +212,10 @@ async function performSearch(
       return 0;
     });
 
-    // Sort files
-    results.files.sort((a: FileInterface, b: FileInterface) => {
-      if (!a.name || !b.name) return 0;
-      if (a.name > b.name) return 1;
-      if (a.name < b.name) return -1;
-      return 0;
-    });
-
-    // Sort homework
-    results.homework.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.homeworkSort === "name") {
-        aData = _transformToCompare(a.title);
-        bData = _transformToCompare(b.title);
-      } else if (req.query.homeworkSort === "description") {
-        aData = _transformToCompare(a.description);
-        bData = _transformToCompare(b.description);
-      }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
-    });
-
-    // Sort users
-    results.users.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.userSort === "first") {
-        aData = _transformToCompare(a.firstName);
-        bData = _transformToCompare(b.firstName);
-      } else if (req.query.userSort === "last") {
-        aData = _transformToCompare(a.lastName);
-        bData = _transformToCompare(b.lastName);
-      }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
-    });
-
     return res.send({
       err: false,
-      numResults: resultsCount,
-      // don't send filesFromTags, its merged into files
-      results: {
-        projects: results.projects,
-        books: results.books,
-        files: results.files,
-        homework: results.homework,
-        users: results.users,
-      },
+      numResults: totalCount,
+      results: paginated,
     });
   } catch (err) {
     debugError(err);
@@ -705,14 +229,12 @@ function _generateProjectMatchObj({
   projVisibility,
   queryRegex,
   userUUID,
-  origin,
 }: {
   projLocation?: string;
   projStatus?: string;
   projVisibility?: "public" | "private";
   queryRegex?: object;
   userUUID?: string;
-  origin?: "commons" | "conductor";
 }) {
   const projectFilters = [];
   let projectFiltersOptions = {};
@@ -775,250 +297,48 @@ function _generateProjectMatchObj({
   return projectMatchOptions;
 }
 
-function _generateProjectFilesMatchObj({
-  queryRegex,
-}: {
-  queryRegex?: object;
-}) {
-  const andQuery: Record<string, any>[] = [
-    {
-      orgID: process.env.ORG_ID,
-    },
-    {
-      visibility: "public",
-    },
-  ];
-
-  // TODO: revisit this
-  // if (queryRegex) {
-  //   // If query regex is provided, search for projects that have matching associatedOrgs
-  //   andQuery.push({
-  //     $or: [{ associatedOrgs: queryRegex }],
-  //   });
-  // }
-
-  return {
-    $and: andQuery,
-  };
-}
-
-function _generateProjectFilesSubMatchObj({
-  queryRegex,
-  fileTypeFilter,
-  licenseFilter,
-  licenseVersionFilter,
-}: {
-  queryRegex?: object;
-  fileTypeFilter?: string;
-  licenseFilter?: string;
-  licenseVersionFilter?: string;
-}) {
-  const andQuery: Record<string, any>[] = [
-    {
-      "files.access": "public",
-    },
-  ];
-
-  if (fileTypeFilter) {
-    const parsed = fileTypeFilter.includes("*")
-      ? fileTypeFilter.split("/")[0]
-      : fileTypeFilter;
-
-    const fileTypeRegex = {
-      $regex: parsed,
-      $options: "i",
-    };
-
-    // Push to outer $and query, we want this to be 'strict'
-    andQuery.push(
-      {
-        "files.mimeType": fileTypeRegex,
-      },
-      {
-        "files.storageType": "file",
-      }
-    );
-  }
-
-  if (licenseFilter) {
-    const licenseRegex = {
-      $regex: licenseFilter,
-      $options: "i",
-    };
-
-    // Push to outer $and query, we want this to be 'strict'
-    andQuery.push({
-      "files.license.name": licenseRegex,
-    });
-  }
-
-  if (licenseVersionFilter) {
-    const licenseVersionRegex = {
-      $regex: licenseVersionFilter,
-      $options: "i",
-    };
-
-    // Push to outer $and query, we want this to be 'strict'
-    andQuery.push({
-      "files.license.version": licenseVersionRegex,
-    });
-  }
-
-  if (queryRegex) {
-    andQuery.push({
-      $or: [{ "files.name": queryRegex }, { "files.description": queryRegex }],
-    });
-  }
-
-  let subQuery = {};
-  if (andQuery.length > 1) {
-    subQuery = {
-      $and: andQuery,
-    };
-  } else {
-    subQuery = andQuery[0];
-  }
-
-  return subQuery;
-}
-
-function _generateAssetTagsMatchObj(query?: string) {
-  if (query) {
-    return {
-      $and: [
-        {
-          $text: {
-            $search: query,
-          },
-        },
-        { isDeleted: false },
-      ],
-    };
-  }
-  return {};
-}
-
-function _generateOffsetsAndLimits(req: z.infer<typeof conductorSearchSchema>) {
-  const queryObj = req.query;
-
-  const booksPage = parseInt(req.query.booksPage?.toString()) || 1;
-  const booksLimit = parseInt(req.query.booksLimit?.toString()) || 25;
-  const booksOffset = getPaginationOffset(booksPage, queryObj.booksLimit);
-
-  const assetsPage = parseInt(req.query.assetsPage?.toString()) || 1;
-  const assetsLimit = parseInt(req.query.assetsLimit?.toString()) || 25;
-  const assetsOffset = getPaginationOffset(assetsPage, queryObj.assetsLimit);
-
-  const projectsPage = parseInt(req.query.projectsPage?.toString()) || 1;
-  const projectsLimit = parseInt(req.query.projectsLimit?.toString()) || 25;
-  const projectsOffset = getPaginationOffset(
-    projectsPage,
-    queryObj.projectsLimit
-  );
-
-  const homeworkPage = parseInt(req.query.homeworkPage?.toString()) || 1;
-  const homeworkLimit = parseInt(req.query.homeworkLimit?.toString()) || 25;
-  const homeworkOffset = getPaginationOffset(
-    homeworkPage,
-    queryObj.homeworkLimit
-  );
-
-  const usersPage = parseInt(req.query.usersPage?.toString()) || 1;
-  const usersLimit = parseInt(req.query.usersLimit?.toString()) || 25;
-  const usersOffset = getPaginationOffset(usersPage, queryObj.usersLimit);
-
-  return {
-    booksLimit,
-    booksOffset,
-    assetsLimit,
-    assetsOffset,
-    projectsLimit,
-    projectsOffset,
-    homeworkLimit,
-    homeworkOffset,
-    usersLimit,
-    usersOffset,
-  };
-}
-
-function _transformToCompare(val: any) {
-  return String(val)
-    .toLowerCase()
-    .replace(/[^A-Za-z]+/g, "");
-}
-
-function _buildFilesFilter({
-  fileTypeFilter,
-  licenseFilter,
-  licenseVersionFilter,
-}: {
-  fileTypeFilter?: string;
-  licenseFilter?: string;
-  licenseVersionFilter?: string;
-}){
-  const andQuery: Record<string, any>[] = [
-    {
-      "files.access": "public",
-    },
-    {
-      "files.storageType": 'file',
-    },
-  ];
-
-  if(fileTypeFilter){
-    andQuery.push({
-      "files.mimeType": fileTypeFilter,
-    })
-  }
-
-  if(licenseFilter){
-    andQuery.push({
-      "files.license.name": licenseFilter,
-    })
-  }
-
-  if(licenseVersionFilter){
-    andQuery.push({
-      "files.license.version": licenseVersionFilter,
-    })
-  }
-
-  return {
-    $and: andQuery,
-  };
-}
-
 export async function assetsSearch(
-  req: ZodReqWithOptionalUser<z.infer<typeof conductorSearchSchema>>,
+  req: ZodReqWithOptionalUser<z.infer<typeof assetSearchSchema>>,
   res: Response
 ) {
   try {
-    req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
-    
+    //req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
+
     const mongoSearchQueryTerm = req.query.searchQuery;
-    if(!mongoSearchQueryTerm) {
-      throw new Error("No search query provided");
-    }
+    const assetsPage = parseInt(req.query.page?.toString()) || 1;
+    const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
+    const assetsOffset = getPaginationOffset(assetsPage, req.query.limit);
+
+    const searchQueryObj = mongoSearchQueryTerm
+      ? _buildAssetsSearchQuery({
+          query: mongoSearchQueryTerm,
+          fileTypeFilter: req.query.fileType || undefined,
+          licenseFilter: req.query.license || undefined,
+          licenseVersionFilter: req.query.licenseVersion || undefined,
+          strictMode: req.query.strictMode || false,
+        })
+      : undefined;
 
     const matchObj = _buildFilesFilter({
-      fileTypeFilter: req.query.assetFileType || undefined,
-      licenseFilter: req.query.assetLicense || undefined,
-      licenseVersionFilter: req.query.assetLicenseVersion || undefined,
+      query: mongoSearchQueryTerm || "",
+      fileTypeFilter: req.query.fileType || undefined,
+      licenseFilter: req.query.license || undefined,
+      licenseVersionFilter: req.query.licenseVersion || undefined,
+      strictMode: req.query.strictMode || false,
     });
 
-    const results = await Project.aggregate([
+    const pipeline = [];
+
+    if (searchQueryObj) {
+      pipeline.push({
+        $search: searchQueryObj,
+      });
+    }
+
+    pipeline.push(
       {
-        $search: {
-          embeddedDocument: {
-            path: "files",
-            operator: {
-              text: {
-                query: mongoSearchQueryTerm,
-                path: {'wildcard': 'files.*'}
-              }
-            },
-          },
-          scoreDetails: true,
+        $match: {
+          visibility: "public",
         },
       },
       {
@@ -1164,23 +484,513 @@ export async function assetsSearch(
           ],
           as: "tags",
         },
+      }
+    );
+    const fromProjectsPromise = Project.aggregate(pipeline);
+
+    const fromAssetTagsPromise = AssetTag.aggregate([
+      {
+        $search: {
+          text: {
+            query: mongoSearchQueryTerm,
+            path: "value",
+          },
+        },
       },
-    ]).limit(100);
+      {
+        $lookup: {
+          from: "fileassettags",
+          localField: "_id",
+          foreignField: "tags",
+          as: "matchingFileAssetTags",
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          as: "matchingProjectFiles",
+          let: {
+            fileIDs: "$matchingFileAssetTags.fileID",
+          },
+          pipeline: [
+            {
+              $match: {
+                visibility: "public",
+              },
+            },
+            {
+              $match: matchObj,
+            },
+            {
+              $unwind: {
+                path: "$files",
+              },
+            },
+            {
+              $replaceRoot: {
+                newRoot: {
+                  $mergeObjects: [
+                    {
+                      projectID: "$projectID",
+                    },
+                    "$files",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                $and: [
+                  {
+                    access: "public",
+                  },
+                  {
+                    $expr: {
+                      $in: ["$_id", "$$fileIDs"],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: "$matchingProjectFiles",
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$matchingProjectFiles",
+        },
+      },
+      {
+        $lookup: {
+          from: "fileassettags",
+          localField: "_id",
+          foreignField: "fileID",
+          as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "tags.tags",
+          foreignField: "_id",
+          pipeline: [
+            {
+              //filter asset tags where isDeleted = true
+              $match: {
+                $expr: {
+                  $ne: ["isDeleted", true],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "assettagframeworks",
+                localField: "framework",
+                foreignField: "_id",
+                pipeline: [
+                  // Go through each template in framework and lookup key
+                  {
+                    $unwind: {
+                      path: "$templates",
+                      preserveNullAndEmptyArrays: true,
+                    },
+                  },
+                  {
+                    $lookup: {
+                      from: "assettagkeys",
+                      let: {
+                        key: "$templates.key",
+                      },
+                      pipeline: [
+                        {
+                          $match: {
+                            $expr: {
+                              $eq: ["$_id", "$$key"],
+                            },
+                          },
+                        },
+                      ],
+                      as: "key",
+                    },
+                  },
+                  {
+                    $set: {
+                      "templates.key": {
+                        $arrayElemAt: ["$key", 0],
+                      },
+                    },
+                  },
+                  {
+                    $group: {
+                      _id: "$_id",
+                      uuid: {
+                        $first: "$uuid",
+                      },
+                      name: {
+                        $first: "$name",
+                      },
+                      description: {
+                        $first: "$description",
+                      },
+                      enabled: {
+                        $first: "$enabled",
+                      },
+                      orgID: {
+                        $first: "$orgID",
+                      },
+                      templates: {
+                        $push: "$templates",
+                      },
+                    },
+                  },
+                ],
+                as: "framework",
+              },
+            },
+            {
+              $set: {
+                framework: {
+                  $arrayElemAt: ["$framework", 0],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
+                },
+              },
+            },
+          ],
+          as: "tags",
+        },
+      },
+    ]);
+
+    const aggregations = [fromProjectsPromise];
+
+    if (mongoSearchQueryTerm) {
+      aggregations.push(fromAssetTagsPromise);
+    }
+
+    const aggregateResults = await Promise.all(aggregations);
+
+    // Merge files from text search and files from tags
+    const allResults = aggregateResults.flat().filter((file) => {
+      // Remove files that don't have a projectID
+      return file.projectID && file.fileID;
+    });
+
+    // Remove duplicate files
+    const fileIDs = allResults.map((file: FileInterface) => file.fileID);
+    const withoutDuplicates = allResults.filter(
+      (file: FileInterface, index: number) => {
+        return !fileIDs.includes(file.fileID, index + 1);
+      }
+    );
+
+    const totalCount = withoutDuplicates.length;
+
+    // 'Paginate' results since we can't use skip/limit since there are two aggregations
+    // results.files = results.files.slice(
+    //   assetsOffset,
+    //   assetsOffset + assetsLimit
+    // );
 
     res.send({
       err: false,
-      results: {
-        files: results,
-      },
-    })
-
+      numResults: totalCount,
+      results: withoutDuplicates,
+    });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
   }
 }
 
+function _buildFilesFilter({
+  query,
+  fileTypeFilter,
+  licenseFilter,
+  licenseVersionFilter,
+  strictMode,
+}: {
+  query: string;
+  fileTypeFilter?: string;
+  licenseFilter?: string;
+  licenseVersionFilter?: string;
+  strictMode?: boolean;
+}) {
+  const andQuery: Record<string, any>[] = [
+    {
+      "files.access": "public",
+    },
+    {
+      "files.storageType": "file",
+    },
+  ];
+
+  // If query is not provided, return like strict mode
+  if (strictMode || !query) {
+    if (fileTypeFilter) {
+      andQuery.push({
+        "files.mimeType": fileTypeFilter,
+      });
+    }
+
+    if (licenseFilter) {
+      andQuery.push({
+        "files.license.name": licenseFilter,
+      });
+    }
+
+    if (licenseVersionFilter) {
+      andQuery.push({
+        "files.license.version": licenseVersionFilter,
+      });
+    }
+  }
+
+  return {
+    $and: andQuery,
+  };
+}
+
+function _buildAssetsSearchQuery({
+  query,
+  fileTypeFilter,
+  licenseFilter,
+  licenseVersionFilter,
+  strictMode,
+}: {
+  query: string;
+  fileTypeFilter?: string;
+  licenseFilter?: string;
+  licenseVersionFilter?: string;
+  strictMode?: boolean;
+}) {
+  const baseQuery: Record<any, any> = {
+    embeddedDocument: {
+      path: "files",
+      operator: {
+        text: {
+          query,
+          path: { wildcard: "files.*" },
+        },
+      },
+    },
+    scoreDetails: true,
+  };
+
+  if (
+    strictMode ||
+    (!fileTypeFilter && !licenseFilter && !licenseVersionFilter)
+  ) {
+    return baseQuery;
+  }
+
+  const compoundQueries = [];
+  if (fileTypeFilter) {
+    compoundQueries.push({
+      text: {
+        path: "files.mimeType",
+        query: fileTypeFilter,
+      },
+    });
+  }
+
+  if (licenseFilter) {
+    compoundQueries.push({
+      text: {
+        path: "files.license.name",
+        query: licenseFilter,
+      },
+    });
+  }
+
+  if (licenseVersionFilter) {
+    compoundQueries.push({
+      text: {
+        path: "files.license.version",
+        query: licenseVersionFilter,
+      },
+    });
+  }
+
+  // Build compound query
+  baseQuery.embeddedDocument.operator = {
+    compound: {
+      should: [...compoundQueries],
+    },
+  };
+
+  return baseQuery;
+}
+
+async function homeworkSearch(
+  req: z.infer<typeof homeworkSearchSchema>,
+  res: Response
+) {
+  try {
+    // Create regex for query
+    const query = req.query.searchQuery;
+    const queryRegex = query
+      ? {
+          $regex: query,
+          $options: "i",
+        }
+      : undefined;
+
+    const homeworkPage = parseInt(req.query.page?.toString()) || 1;
+    const homeworkLimit = parseInt(req.query.limit?.toString()) || 25;
+    const homeworkOffset = getPaginationOffset(homeworkPage, req.query.limit);
+
+    const results = await Homework.aggregate([
+      {
+        $match: {
+          $or: [
+            { title: queryRegex },
+            { kind: queryRegex },
+            { description: queryRegex },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          __v: 0,
+        },
+      },
+    ]);
+
+    const totalCount = results.length;
+    const paginated = results.slice(
+      homeworkOffset,
+      homeworkOffset + homeworkLimit
+    );
+
+    paginated.sort((a, b) => {
+      let aData = null;
+      let bData = null;
+      if (req.query.sort === "name") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.sort === "description") {
+        aData = _transformToCompare(a.description);
+        bData = _transformToCompare(b.description);
+      }
+      if (aData !== null && bData !== null) {
+        if (aData < bData) return -1;
+        if (aData > bData) return 1;
+      }
+      return 0;
+    });
+
+    return res.send({
+      err: false,
+      numResults: totalCount,
+      results: paginated,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function usersSearch(
+  req: z.infer<typeof userSearchSchema>,
+  res: Response
+) {
+  try {
+    // Create regex for query
+    const query = req.query.searchQuery;
+    const queryRegex = query
+      ? {
+          $regex: query,
+          $options: "i",
+        }
+      : undefined;
+
+    const usersPage = parseInt(req.query.page?.toString()) || 1;
+    const usersLimit = parseInt(req.query.limit?.toString()) || 25;
+    const usersOffset = getPaginationOffset(usersPage, req.query.limit);
+
+    const results = await User.aggregate([
+      {
+        $match: {
+          $and: [
+            {
+              $or: [{ firstName: queryRegex }, { lastName: queryRegex }],
+            },
+            { $expr: { $not: "$isSystem" } },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          uuid: 1,
+          firstName: 1,
+          lastName: 1,
+          avatar: 1,
+        },
+      },
+    ]);
+
+    const totalCount = results.length;
+    const paginated = results.slice(usersOffset, usersOffset + usersLimit);
+
+    paginated.sort((a, b) => {
+      let aData = null;
+      let bData = null;
+      if (req.query.sort === "first") {
+        aData = _transformToCompare(a.firstName);
+        bData = _transformToCompare(b.firstName);
+      } else if (req.query.sort === "last") {
+        aData = _transformToCompare(a.lastName);
+        bData = _transformToCompare(b.lastName);
+      }
+      if (aData !== null && bData !== null) {
+        if (aData < bData) return -1;
+        if (aData > bData) return 1;
+      }
+      return 0;
+    });
+
+    return res.send({
+      err: false,
+      numResults: totalCount,
+      results: paginated,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+function _transformToCompare(val: any) {
+  return String(val)
+    .toLowerCase()
+    .replace(/[^A-Za-z]+/g, "");
+}
+
 export default {
-  performSearch,
   assetsSearch,
+  booksSearch,
+  homeworkSearch,
+  projectsSearch,
+  usersSearch,
 };

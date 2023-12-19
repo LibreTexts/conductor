@@ -1,4 +1,4 @@
-import { Button, Dropdown, Icon } from "semantic-ui-react";
+import { Button, Checkbox, Dropdown, Icon } from "semantic-ui-react";
 import {
   ForwardedRef,
   forwardRef,
@@ -17,11 +17,6 @@ import api from "../../../api";
 import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
 import COMMON_MIME_TYPES from "../../../utils/common-mime-types";
 
-type NameVersionObj = {
-  name: string;
-  version?: string;
-};
-
 type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
   version?: string;
 };
@@ -35,6 +30,8 @@ const CatalogAssetFilters = forwardRef(
   (
     props: {
       onFiltersChange: (filters: AssetFilters) => void;
+      strictMode?: boolean;
+      onStrictModeChange?: (strictMode: boolean) => void;
     },
     ref: ForwardedRef<CatalogAssetFiltersRef>
   ) => {
@@ -43,7 +40,7 @@ const CatalogAssetFilters = forwardRef(
     const { handleGlobalError } = useGlobalError();
 
     const [licenseOptions, setLicenseOptions] = useState<
-      GenericKeyTextValueObj<NameVersionObj>[]
+      GenericKeyTextValueObj<string>[]
     >([]);
     const [orgOptions, setOrgOptions] = useState<
       GenericKeyTextValueObj<string>[]
@@ -111,36 +108,39 @@ const CatalogAssetFilters = forwardRef(
           throw new Error(res.data.errMsg);
         }
         const newLicenseOptions: typeof licenseOptions = [
-          { key: "empty", text: "Clear...", value: { name: "" } },
+          { key: "empty", text: "Clear...", value: "" },
         ];
 
         if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
           throw new Error("Invalid response from server.");
         }
 
-        const reduced = res.data.licenses.reduce((acc: any, curr: any) => {
-          if (Array.isArray(curr.versions) && curr.versions.length > 0) {
-            acc.push(curr);
-            curr.versions.forEach((version: any) => {
-              const newObj = { ...curr, version };
-              delete newObj.versions;
-              acc.push(newObj);
-            });
-          } else {
-            acc.push(curr);
-          }
-          return acc;
-        }, []);
+        const noDuplicates = new Set<string>();
+        res.data.licenses.forEach((license) => {
+          noDuplicates.add(license.name);
+        });
 
-        reduced.forEach((license: ReducedLicense) => {
-          const text =
-            license.name + (license.version ? ` (${license.version})` : "");
+        noDuplicates.forEach((licenseName) => {
           newLicenseOptions.push({
-            key: text,
-            text,
-            value: { name: license.name, version: license.version },
+            key: crypto.randomUUID(),
+            text: licenseName,
+            value: licenseName,
           });
         });
+
+        // const reduced = res.data.licenses.reduce((acc: any, curr: any) => {
+        //   if (Array.isArray(curr.versions) && curr.versions.length > 0) {
+        //     acc.push(curr);
+        //     curr.versions.forEach((version: any) => {
+        //       const newObj = { ...curr, version };
+        //       delete newObj.versions;
+        //       acc.push(newObj);
+        //     });
+        //   } else {
+        //     acc.push(curr);
+        //   }
+        //   return acc;
+        // }, []);
 
         setLicenseOptions(newLicenseOptions);
       } catch (err) {
@@ -188,107 +188,109 @@ const CatalogAssetFilters = forwardRef(
     return (
       <div
         aria-busy={loading}
-        className="flex flex-row my-4 mx-2 flex-wrap h-10 items-center gap-y-2"
+        className="flex flex-row w-full justify-between items-center"
       >
-        <Dropdown
-          text="License"
-          icon="legal"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {licenseOptions.map((license) => (
-              <Dropdown.Item
-                key={license.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    assetLicense: license.value.name,
-                    assetLicenseVersion: license.value.version ?? undefined,
-                  })
-                }
-              >
-                {license.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Organization"
-          icon="university"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {orgOptions.map((org) => (
-              <Dropdown.Item
-                key={org.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    assetOrg: org.value,
-                  })
-                }
-              >
-                {org.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="File Type"
-          icon="file alternate outline"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {fileTypeOptions.map((ft) => (
-              <Dropdown.Item
-                key={ft.key}
-                onClick={() => {
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    assetFileType: ft.value,
-                  });
-                }}
-              >
-                {ft.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        {Object.entries(selectedFilters)
-          .filter((e) => (e[1] ? true : false))
-          .map(([key, val]) => (
-            <Button
-              key={key}
-              circular
-              className="!ml-2"
-              onClick={() => {
-                const newFilters = { ...selectedFilters };
-                delete newFilters[key as keyof AssetFilters];
-                setSelectedFilters(newFilters);
-              }}
-            >
-              <Icon name="x" />
-              {getFilterText(key)}: {val}
-            </Button>
-          ))}
+        <div className="flex flex-row my-4 mx-2 flex-wrap items-center gap-y-2">
+          <Dropdown
+            text={`License ${selectedFilters.license ? " - " : ""}${
+              selectedFilters.license ?? ""
+            }`}
+            icon="legal"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {licenseOptions.map((license) => (
+                <Dropdown.Item
+                  key={license.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      license: license.value,
+                    })
+                  }
+                >
+                  {license.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={`Organization ${selectedFilters.org ? " - " : ""}${
+              selectedFilters.org ?? ""
+            }`}
+            icon="university"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {orgOptions.map((org) => (
+                <Dropdown.Item
+                  key={org.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      org: org.value,
+                    })
+                  }
+                >
+                  {org.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.fileType
+                ? `File Type - ${selectedFilters.fileType}`
+                : "File Type"
+            }
+            icon="file alternate outline"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {fileTypeOptions.map((ft) => (
+                <Dropdown.Item
+                  key={ft.key}
+                  onClick={() => {
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      fileType: ft.value,
+                    });
+                  }}
+                >
+                  {ft.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Checkbox
+            label="Strict Search"
+            className="!font-semibold ml-2"
+            toggle
+            checked={props.strictMode}
+            onChange={() =>
+              props.onStrictModeChange &&
+              props.onStrictModeChange(!props.strictMode)
+            }
+          />
+        </div>
         {Object.keys(selectedFilters).length > 0 && (
           <p
-            className="underline cursor-pointer ml-2"
+            className="underline cursor-pointer mr-2"
             onClick={() => setSelectedFilters({})}
           >
             Clear All

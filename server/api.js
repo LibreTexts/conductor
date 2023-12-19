@@ -636,16 +636,32 @@ router.route('/commons/homework/sync/automated').put(
 
 
 /* Search */
-router.route('/search').get(
+router.route('/search/assets').get(
   authAPI.optionalVerifyRequest,
-  middleware.validateZod(SearchValidators.conductorSearchSchema),
-  searchAPI.performSearch,
-);
-router.route('/assets-search').get(
-  authAPI.optionalVerifyRequest,
-  middleware.validateZod(SearchValidators.conductorSearchSchema),
+  middleware.validateZod(SearchValidators.assetSearchSchema),
   searchAPI.assetsSearch,
 );
+router.route('/search/books').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.bookSearchSchema),
+  searchAPI.booksSearch,
+);
+router.route('/search/homework').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.homeworkSearchSchema),
+  searchAPI.homeworkSearch,
+);
+router.route('/search/projects').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.projectSearchSchema),
+  searchAPI.projectsSearch,
+);
+router.route('/search/users').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.userSearchSchema),
+  searchAPI.usersSearch,
+);
+
 
 
 /* Users */

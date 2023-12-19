@@ -1,4 +1,4 @@
-import { Button, Dropdown, Icon } from "semantic-ui-react";
+import { Button, Checkbox, Dropdown, Icon } from "semantic-ui-react";
 import {
   ForwardedRef,
   forwardRef,
@@ -26,6 +26,8 @@ const CatalogBookFilters = forwardRef(
   (
     props: {
       onFiltersChange: (filters: BookFilters) => void;
+      strictMode?: boolean;
+      onStrictModeChange?: (strictMode: boolean) => void;
     },
     ref: ForwardedRef<CatalogBookFiltersRef>
   ) => {
@@ -178,20 +180,40 @@ const CatalogBookFilters = forwardRef(
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        const newLicenseOptions = [
+        const newLicenseOptions: typeof licenseOptions = [
           { key: "empty", text: "Clear...", value: "" },
         ];
 
-        // TODO: Handle license versions
-        if (res.data.licenses && Array.isArray(res.data.licenses)) {
-          res.data.licenses.forEach((license: CentralIdentityLicense) => {
-            newLicenseOptions.push({
-              key: license.name,
-              text: license.name,
-              value: license.name,
-            });
-          });
+        if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
+          throw new Error("Invalid response from server.");
         }
+
+        const noDuplicates = new Set<string>();
+        res.data.licenses.forEach((license) => {
+          noDuplicates.add(license.name);
+        });
+
+        noDuplicates.forEach((licenseName) => {
+          newLicenseOptions.push({
+            key: crypto.randomUUID(),
+            text: licenseName,
+            value: licenseName,
+          });
+        });
+
+        // const reduced = res.data.licenses.reduce((acc: any, curr: any) => {
+        //   if (Array.isArray(curr.versions) && curr.versions.length > 0) {
+        //     acc.push(curr);
+        //     curr.versions.forEach((version: any) => {
+        //       const newObj = { ...curr, version };
+        //       delete newObj.versions;
+        //       acc.push(newObj);
+        //     });
+        //   } else {
+        //     acc.push(curr);
+        //   }
+        //   return acc;
+        // }, []);
 
         setLicenseOptions(newLicenseOptions);
       } catch (err) {
@@ -244,254 +266,302 @@ const CatalogBookFilters = forwardRef(
     return (
       <div
         aria-busy={loading}
-        className="flex flex-row my-4 mx-2 flex-wrap h-10 items-center gap-y-2"
+        className="flex flex-row w-full justify-between items-center"
       >
-        <Dropdown
-          text="Library"
-          icon="university"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {libraryOptions.map((library) => (
-              <Dropdown.Item
-                key={library.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookLibrary: library.value,
-                  })
-                }
-              >
-                {library.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Subject"
-          icon="filter"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {subjectOptions.map((subject) => (
-              <Dropdown.Item
-                key={subject.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookSubject: subject.value,
-                  })
-                }
-              >
-                {subject.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Location"
-          icon="globe"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {locationOptions.map((location) => (
-              <Dropdown.Item
-                key={location.key}
-                onClick={() =>
-                  setSelectedFilters({ bookLocation: location.value })
-                }
-              >
-                {location.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="License"
-          icon="legal"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {licenseOptions.map((license) => (
-              <Dropdown.Item
-                key={license.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookLicense: license.value,
-                  })
-                }
-              >
-                {license.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Author"
-          icon="user"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {authorOptions.map((author) => (
-              <Dropdown.Item
-                key={author.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookAuthor: author.value,
-                  })
-                }
-              >
-                {author.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Course"
-          icon="users"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {courseOptions.map((course) => (
-              <Dropdown.Item
-                key={course.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookCourse: course.value,
-                  })
-                }
-              >
-                {course.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Publisher"
-          icon="print"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {pubOptions.map((publisher) => (
-              <Dropdown.Item
-                key={publisher.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookPublisher: publisher.value,
-                  })
-                }
-              >
-                {publisher.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="Affiliation"
-          icon="filter"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {affOptions.map((affiliation) => (
-              <Dropdown.Item
-                key={affiliation.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookAffiliation: affiliation.value,
-                  })
-                }
-              >
-                {affiliation.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
-          text="C-ID"
-          icon="hashtag"
-          floating
-          labeled
-          button
-          className="icon"
-          loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {cidOptions.map((cid) => (
-              <Dropdown.Item
-                key={cid.key}
-                onClick={() =>
-                  setSelectedFilters({
-                    ...selectedFilters,
-                    bookCID: cid.value,
-                  })
-                }
-              >
-                {cid.text}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-        {Object.entries(selectedFilters).map(([key, val]) => (
-          <Button
-            key={key}
-            circular
-            className="!ml-2"
-            onClick={() => {
-              const newFilters = { ...selectedFilters };
-              delete newFilters[key as keyof BookFilters];
-              setSelectedFilters(newFilters);
-            }}
+        <div className="flex flex-row mt-2 mb-4 mx-2 flex-wrap items-center gap-y-2 ">
+          <Dropdown
+            text={
+              selectedFilters.bookLibrary
+                ? `Library - ${selectedFilters.bookLibrary}`
+                : "Library"
+            }
+            icon="university"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
           >
-            <Icon name="x" />
-            {getFilterText(key)}: {val}
-          </Button>
-        ))}
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {libraryOptions.map((library) => (
+                <Dropdown.Item
+                  key={library.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookLibrary: library.value,
+                    })
+                  }
+                >
+                  {library.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookSubject
+                ? `Subject - ${selectedFilters.bookSubject}`
+                : "Subject"
+            }
+            icon="filter"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {subjectOptions.map((subject) => (
+                <Dropdown.Item
+                  key={subject.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookSubject: subject.value,
+                    })
+                  }
+                >
+                  {subject.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookLocation
+                ? `Location - ${selectedFilters.bookLocation}`
+                : "Location"
+            }
+            icon="globe"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {locationOptions.map((location) => (
+                <Dropdown.Item
+                  key={location.key}
+                  onClick={() =>
+                    setSelectedFilters({ bookLocation: location.value })
+                  }
+                >
+                  {location.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookLicense
+                ? `License - ${selectedFilters.bookLicense}`
+                : "License"
+            }
+            icon="legal"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {licenseOptions.map((license) => (
+                <Dropdown.Item
+                  key={license.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookLicense: license.value,
+                    })
+                  }
+                >
+                  {license.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookAuthor
+                ? `Author - ${selectedFilters.bookAuthor}`
+                : "Author"
+            }
+            icon="user"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {authorOptions.map((author) => (
+                <Dropdown.Item
+                  key={author.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookAuthor: author.value,
+                    })
+                  }
+                >
+                  {author.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookCourse
+                ? `Course - ${selectedFilters.bookCourse}`
+                : "Course"
+            }
+            icon="users"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {courseOptions.map((course) => (
+                <Dropdown.Item
+                  key={course.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookCourse: course.value,
+                    })
+                  }
+                >
+                  {course.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookPublisher
+                ? `Publisher - ${selectedFilters.bookPublisher}`
+                : "Publisher"
+            }
+            icon="print"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {pubOptions.map((publisher) => (
+                <Dropdown.Item
+                  key={publisher.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookPublisher: publisher.value,
+                    })
+                  }
+                >
+                  {publisher.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookAffiliation
+                ? `Affiliation - ${selectedFilters.bookAffiliation}`
+                : "Affiliation"
+            }
+            icon="filter"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {affOptions.map((affiliation) => (
+                <Dropdown.Item
+                  key={affiliation.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookAffiliation: affiliation.value,
+                    })
+                  }
+                >
+                  {affiliation.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              selectedFilters.bookCID
+                ? `C-ID - ${selectedFilters.bookCID}`
+                : "C-ID"
+            }
+            icon="hashtag"
+            floating
+            labeled
+            button
+            className="icon"
+            loading={loading}
+            basic
+          >
+            <Dropdown.Menu className={MENU_CLASSES}>
+              {cidOptions.map((cid) => (
+                <Dropdown.Item
+                  key={cid.key}
+                  onClick={() =>
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookCID: cid.value,
+                    })
+                  }
+                >
+                  {cid.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          {/* {Object.entries(selectedFilters).map(([key, val]) => (
+            <Button
+              key={key}
+              circular
+              className="!ml-2"
+              onClick={() => {
+                const newFilters = { ...selectedFilters };
+                delete newFilters[key as keyof BookFilters];
+                setSelectedFilters(newFilters);
+              }}
+            >
+              <Icon name="x" />
+              {getFilterText(key)}: {val}
+            </Button>
+          ))} */}
+          <Checkbox
+            label="Strict Search"
+            className="!font-semibold ml-2"
+            toggle
+            checked={props.strictMode}
+            onChange={() =>
+              props.onStrictModeChange &&
+              props.onStrictModeChange(!props.strictMode)
+            }
+          />
+        </div>
         {Object.keys(selectedFilters).length > 0 && (
           <p
             className="underline cursor-pointer ml-2"
