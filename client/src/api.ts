@@ -1,18 +1,23 @@
 import axios from "axios";
 import {
   AssetFilters,
+  AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Book,
   BookFilters,
+  BookSearchParams,
   CentralIdentityLicense,
   CentralIdentityOrg,
   ConductorBaseResponse,
   ConductorSearchResponse,
   Homework,
+  HomeworkSearchParams,
   Project,
   ProjectFile,
+  ProjectSearchParams,
   User,
+  UserSearchParams,
 } from "./types";
 import {
   CIDDescriptor,
@@ -171,35 +176,55 @@ class API {
   }
 
   // Search
-  async conductorSearch<T extends 'commons' | 'conductor'>(
-    origin: T,
-    params?: {
-      searchQuery?: string;
-      projLocation?: string;
-      projStatus?: string;
-      projVisibility?: string;
-      projSort?: string;
-      bookSort?: string;
-      homeworkSort?: string;
-      userSort?: string;
-      booksPage?: number;
-      booksLimit?: number;
-      assetsPage?: number;
-      assetsLimit?: number;
-      projectsPage?: number;
-      projectsLimit?: number;
-      homeworkPage?: number;
-      homeworkLimit?: number;
-      usersPage?: number;
-      usersLimit?: number;
-    } & AssetFilters &
-      BookFilters
-  ) {
+  async assetsSearch(params: AssetSearchParams) {
     const res = await axios.get<
-      ConductorSearchResponse<T> & ConductorBaseResponse
-    >("/assets-search", {
+      ConductorSearchResponse<"assets"> & ConductorBaseResponse
+    >("/search/assets", {
       params: {
-        origin,
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async booksSearch(params: BookSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"books"> & ConductorBaseResponse
+    >("/search/books", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async homeworkSearch(params: HomeworkSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"homework"> & ConductorBaseResponse
+    >("/search/homework", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async projectsSearch(params: ProjectSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"projects"> & ConductorBaseResponse
+    >("/search/projects", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async usersSearch(params: UserSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"users"> & ConductorBaseResponse
+    >("/search/users", {
+      params: {
         ...params,
       },
     });
