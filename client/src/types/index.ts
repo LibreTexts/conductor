@@ -104,8 +104,11 @@ import {
   AssetFilters,
   BookFilters,
   ConductorSearchResponse,
-  ConductorSearchResultsObject,
-  CommonsSearchResultsObject,
+  AssetSearchParams,
+  BookSearchParams,
+  HomeworkSearchParams,
+  ProjectSearchParams,
+  UserSearchParams
 } from "./Search";
 
 export type {
@@ -129,8 +132,6 @@ export type {
   CentralIdentityLicense,
   ConductorBaseResponse,
   ConductorSearchResponse,
-  ConductorSearchResultsObject,
-  CommonsSearchResultsObject,
   Organization,
   CampusSettingsOpts,
   Collection,
@@ -189,6 +190,11 @@ export type {
   SupportTicketFeedEntry
   _MoveFile,
   _MoveFileWithChildren,
+  AssetSearchParams,
+  BookSearchParams,
+  HomeworkSearchParams,
+  ProjectSearchParams,
+  UserSearchParams
 };
 
 export {
