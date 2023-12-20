@@ -21,21 +21,23 @@ type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
   version?: string;
 };
 
-type CatalogAssetFiltersRef = {
-  getSelectedFilters: () => AssetFilters;
-  resetFilters: () => void;
-};
+interface CatalogAssetFiltersProps {
+  strictMode?: boolean;
+  onStrictModeChange?: (strictMode: boolean) => void;
+  selectedFilters: AssetFilters;
+  setSelectedFilters: (filters: AssetFilters) => void;
+}
+
+type CatalogAssetFiltersRef = {};
 
 const CatalogAssetFilters = forwardRef(
   (
-    props: {
-      onFiltersChange: (filters: AssetFilters) => void;
-      strictMode?: boolean;
-      onStrictModeChange?: (strictMode: boolean) => void;
-    },
+    props: CatalogAssetFiltersProps,
     ref: ForwardedRef<CatalogAssetFiltersRef>
   ) => {
     const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
+
+    const { selectedFilters, setSelectedFilters } = props;
 
     const { handleGlobalError } = useGlobalError();
 
@@ -49,26 +51,13 @@ const CatalogAssetFilters = forwardRef(
       GenericKeyTextValueObj<string>[]
     >(catalogAssetTypeOptions);
     const [loading, setLoading] = useState(false);
-    const [selectedFilters, setSelectedFilters] = useState<AssetFilters>({});
 
-    useImperativeHandle(ref, () => ({
-      getSelectedFilters: () => {
-        return selectedFilters;
-      },
-      resetFilters: () => {
-        setSelectedFilters({});
-      },
-    }));
 
     useEffect(() => {
       getOrgs();
       getLicenseOptions();
       getFileTypeOptions();
     }, []);
-
-    useEffect(() => {
-      props.onFiltersChange(selectedFilters);
-    }, [selectedFilters]);
 
     async function getOrgs(searchQuery?: string) {
       try {

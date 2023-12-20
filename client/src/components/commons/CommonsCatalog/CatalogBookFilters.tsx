@@ -1,4 +1,4 @@
-import { Button, Checkbox, Dropdown, Icon } from "semantic-ui-react";
+import { Checkbox, Dropdown } from "semantic-ui-react";
 import {
   ForwardedRef,
   forwardRef,
@@ -7,30 +7,25 @@ import {
   useState,
 } from "react";
 import axios from "axios";
-import {
-  BookFilters,
-  CentralIdentityLicense,
-  GenericKeyTextValueObj,
-} from "../../../types";
+import { BookFilters, GenericKeyTextValueObj } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import { catalogLocationOptions } from "../../util/CatalogOptions";
 import api from "../../../api";
 import { libraryOptions } from "../../util/LibraryOptions";
 
-type CatalogBookFiltersRef = {
-  getSelectedFilters: () => BookFilters;
-  resetFilters: () => void;
-};
+type CatalogBookFiltersRef = {};
 
 const CatalogBookFilters = forwardRef(
   (
     props: {
-      onFiltersChange: (filters: BookFilters) => void;
       strictMode?: boolean;
       onStrictModeChange?: (strictMode: boolean) => void;
+      selectedFilters: BookFilters;
+      setSelectedFilters: (filters: BookFilters) => void;
     },
     ref: ForwardedRef<CatalogBookFiltersRef>
   ) => {
+    const { selectedFilters, setSelectedFilters } = props;
     const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
     const { handleGlobalError } = useGlobalError();
 
@@ -59,25 +54,11 @@ const CatalogBookFilters = forwardRef(
       GenericKeyTextValueObj<string>[]
     >([]);
     const [loading, setLoading] = useState(false);
-    const [selectedFilters, setSelectedFilters] = useState<BookFilters>({});
-
-    useImperativeHandle(ref, () => ({
-      getSelectedFilters: () => {
-        return selectedFilters;
-      },
-      resetFilters: () => {
-        setSelectedFilters({});
-      },
-    }));
 
     useEffect(() => {
       getFilterOptions();
       getLicenseOptions();
     }, []);
-
-    useEffect(() => {
-      props.onFiltersChange(selectedFilters);
-    }, [selectedFilters]);
 
     /**
      * Retrieve the list(s) of dynamic
@@ -348,7 +329,10 @@ const CatalogBookFilters = forwardRef(
                 <Dropdown.Item
                   key={location.key}
                   onClick={() =>
-                    setSelectedFilters({ bookLocation: location.value })
+                    setSelectedFilters({
+                      ...selectedFilters,
+                      bookLocation: location.value,
+                    })
                   }
                 >
                   {location.text}
