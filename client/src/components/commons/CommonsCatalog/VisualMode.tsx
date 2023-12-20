@@ -14,7 +14,7 @@ const VisualMode = ({
     return (
       <div className="commons-content-card-grid">
         {items.map((item, index) => (
-          <CatalogCard item={item} key={index} />
+          <CatalogCard item={item} key={crypto.randomUUID()} />
         ))}
       </div>
     );
