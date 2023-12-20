@@ -78,7 +78,7 @@ const CatalogAssetTab = forwardRef(
       } else {
         handleSearch();
       }
-    }, [activePage, itemsPerPage, selectedFilters]);
+    }, [activePage, itemsPerPage, selectedFilters, strictMode]);
 
     async function loadPublicAssets() {
       try {
@@ -107,7 +107,6 @@ const CatalogAssetTab = forwardRef(
 
     async function handleSearch() {
       try {
-        console.log("assetsSearch");
         setLoading(true);
 
         const res = await api.assetsSearch({
