@@ -1010,16 +1010,18 @@ export async function generateZIPFile(
   items: { name: string; data: Uint8Array }[]
 ): Promise<string | null> {
   try {
+    console.log('[SYSTEM] Generating ZIP file')
     const zip = new AdmZip();
     for (let i = 0; i < items.length; i++) {
       const buffer = Buffer.from(items[i].data);
       zip.addFile(items[i].name, buffer);
     }
 
-    const dirName = `${process.cwd()}/temp`;
+    const dirName = `./temp`;
     await fs.ensureDir(dirName); // ensure temp directory exists
 
     const path = `${dirName}/${v4()}.zip`;
+    console.log('[SYSTEM] Writing ZIP file to: ' + path)
     await zip.writeZipPromise(path);
 
     return path;
@@ -1072,6 +1074,7 @@ export async function parseAndZipS3Objects(
   files: FileInterface[]
 ): Promise<string | null> {
   try {
+    console.log('[SYSTEM] Parsing S3 objects')
     const items = [];
     for (let i = 0; i < s3Res.length; i++) {
       const byteArray = await s3Res[i].Body?.transformToByteArray();
@@ -1094,6 +1097,7 @@ export async function parseAndZipS3Objects(
     }[];
   
     const zipPath = await generateZIPFile(noUndefined);
+    console.log('[SYSTEM] Generated ZIP file with path: ' + zipPath)
     return zipPath ?? null;  
   } catch (e) {
     debugError(e);
@@ -1130,18 +1134,22 @@ export async function createZIPAndNotify(
       );
     });
 
+    console.log('[SYSTEM] Downloading files from S3')
     const downloadRes = await Promise.all(
       downloadCommands.map((command) => storageClient.send(command))
     );
 
+    console.log('[SYSTEM] Zipping files')
     const zipPath = await parseAndZipS3Objects(downloadRes, allFiles);
     if (!zipPath) throw new Error("Zip path is undefined");
     // Read zip file from local fs and get buffer
     const zipFile = await fs.readFile(zipPath);
+    console.log('[SYSTEM] Getting buffer from zip file')
     const zipBuffer = Buffer.from(zipFile);
 
     const tempFileID = v4();
     const tempFileKey = `temp/${tempFileID}.zip`;
+    console.log('[SYSTEM] Uploading zip file to S3 with key: ' + tempFileKey)
     await storageClient.send(
       new PutObjectCommand({
         Bucket: process.env.AWS_PROJECTFILES_BUCKET,
@@ -1161,6 +1169,7 @@ export async function createZIPAndNotify(
 
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
+    console.log('[SYSTEM] decrypting private key')
     const privKey = base64.decode(
       // @ts-ignore
       process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
@@ -1173,10 +1182,14 @@ export async function createZIPAndNotify(
       dateLessThan: exprDate.toString(),
       privateKey: privKey,
     });
+    console.log('[SYSTEM] Signed URL: ' + signedURL)
+
 
     await fs.unlink(zipPath); // Delete zip file from local fs
+    console.log('[SYSTEM] Deleted zip file from local fs')
 
     await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
+    console.log('[SYSTEM] Sent email to: ' + emailToNotify)
     return true;
   } catch (err) {
     debugError(err);
