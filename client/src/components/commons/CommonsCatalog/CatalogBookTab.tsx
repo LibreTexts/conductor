@@ -77,7 +77,7 @@ const CatalogBookTab = forwardRef(
       } else {
         handleSearch();
       }
-    }, [activePage, itemsPerPage]);
+    }, [activePage, itemsPerPage, selectedFilters, strictMode]);
 
     async function loadCommonsCatalog() {
       try {
@@ -105,7 +105,6 @@ const CatalogBookTab = forwardRef(
 
     async function handleSearch() {
       try {
-        console.log("booksSearch");
         setLoading(true);
 
         const res = await api.booksSearch({

@@ -97,7 +97,6 @@ const CatalogProjectTab = forwardRef(
 
     async function handleSearch() {
       try {
-        console.log("projectsSearch");
         setLoading(true);
 
         const res = await api.projectsSearch({
