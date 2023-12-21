@@ -1169,7 +1169,7 @@ export async function createZIPAndNotify(
     const uploadRes = []
     for(let i = 0; i < uploadCommands.length; i++) {
       console.log('[SYSTEM] Uploading chunk: ' + (i + 1))
-      const s3Res = await storageClient.send(uploadCommands[i], { requestTimeout: 600000 });
+      const s3Res = await storageClient.send(uploadCommands[i], { requestTimeout: 240000 });
       uploadRes.push(s3Res);
     }
 
