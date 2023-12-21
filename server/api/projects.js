@@ -2991,7 +2991,6 @@ async function bulkDownloadProjectFiles(req, res) {
         fileKeys.push(fileKey);
       });
 
-      console.log('[SYSTEM] Creating ZIP and notifying user...')
       createZIPAndNotify(fileKeys, foundFiles, emailToNotify); // Don't await, just run in background and return success
       
       res.setHeader('content-type', 'application/json');

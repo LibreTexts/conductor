@@ -33,7 +33,6 @@ import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
 import { GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, ServiceOutputTypes } from "@aws-sdk/client-s3";
 import mailAPI from "../api/mail.js";
-import { Worker } from "worker_threads";
 
 export const projectClassifications = [
   "harvesting",
@@ -1008,23 +1007,21 @@ export async function checkIfBookLinkedToProject(
 
 export async function generateZIPFile(
   items: { name: string; data: Uint8Array }[]
-): Promise<string | null> {
+): Promise<Buffer | null> {
   try {
     console.log('[SYSTEM] Generating ZIP file')
     const zip = new AdmZip();
+    console.log('[SYSTEM] Adding files to ZIP')
     for (let i = 0; i < items.length; i++) {
       const buffer = Buffer.from(items[i].data);
       zip.addFile(items[i].name, buffer);
+      console.log('[SYSTEM] Added file to ZIP: ' + items[i].name)
     }
 
-    const dirName = `./temp`;
-    await fs.ensureDir(dirName); // ensure temp directory exists
-
-    const path = `${dirName}/${v4()}.zip`;
-    console.log('[SYSTEM] Writing ZIP file to: ' + path)
-    await zip.writeZipPromise(path);
-
-    return path;
+    console.log('[SYSTEM] Creating ZIP buffer')
+    const buffer = await zip.toBufferPromise();
+    console.log('[SYSTEM] Created ZIP buffer')
+    return buffer
   } catch (err) {
     debugError(err);
     return null;
@@ -1072,18 +1069,22 @@ export async function invalidateCloudfrontPath(projectID: string){
 export async function parseAndZipS3Objects(
   s3Res: GetObjectCommandOutput[],
   files: FileInterface[]
-): Promise<string | null> {
+): Promise<Buffer | null> {
   try {
     console.log('[SYSTEM] Parsing S3 objects')
     const items = [];
     for (let i = 0; i < s3Res.length; i++) {
+      console.log('[SYSTEM] Parsing S3 object: ' + i)
       const byteArray = await s3Res[i].Body?.transformToByteArray();
+
       if (files[i]) {
+        console.log('[SYSTEM] Adding item: ' + files[i].name)
         items.push({
           name: files[i].name,
           data: byteArray,
         });
       } else {
+        console.log('[SYSTEM] Adding item with random name')
         items.push({
           name: v4(), // Fallback to random name
           data: byteArray,
@@ -1091,14 +1092,16 @@ export async function parseAndZipS3Objects(
       }
     }
   
+    console.log('[SYSTEM] Filtering items')
     const noUndefined = items.filter((item) => item.name && item.data) as {
       name: string;
       data: Uint8Array;
     }[];
-  
-    const zipPath = await generateZIPFile(noUndefined);
-    console.log('[SYSTEM] Generated ZIP file with path: ' + zipPath)
-    return zipPath ?? null;  
+ 
+    console.log('[SYSTEM] Sending items to generateZIPFile')
+    const zipBuff = await generateZIPFile(noUndefined);
+    console.log('[SYSTEM] Generated ZIP buffer')
+    return zipBuff ?? null;  
   } catch (e) {
     debugError(e);
     return null;
@@ -1134,19 +1137,14 @@ export async function createZIPAndNotify(
       );
     });
 
-    console.log('[SYSTEM] Downloading files from S3')
     const downloadRes = await Promise.all(
       downloadCommands.map((command) => storageClient.send(command))
     );
 
-    console.log('[SYSTEM] Zipping files')
-    const zipPath = await parseAndZipS3Objects(downloadRes, allFiles);
-    if (!zipPath) throw new Error("Zip path is undefined");
-    // Read zip file from local fs and get buffer
-    const zipFile = await fs.readFile(zipPath);
-    console.log('[SYSTEM] Getting buffer from zip file')
-    const zipBuffer = Buffer.from(zipFile);
+    const zipBuff = await parseAndZipS3Objects(downloadRes, allFiles);
+    if (!zipBuff) throw new Error("Zip path is undefined");
 
+    console.log('[SYSTEM] Creating temp zip file name')
     const tempFileID = v4();
     const tempFileKey = `temp/${tempFileID}.zip`;
     console.log('[SYSTEM] Uploading zip file to S3 with key: ' + tempFileKey)
@@ -1154,7 +1152,7 @@ export async function createZIPAndNotify(
       new PutObjectCommand({
         Bucket: process.env.AWS_PROJECTFILES_BUCKET,
         Key: tempFileKey,
-        Body: zipBuffer,
+        Body: zipBuff,
         ContentDisposition: `inline; filename=${tempFileID}.zip`,
         ContentType: "application/zip",
       })
@@ -1183,10 +1181,6 @@ export async function createZIPAndNotify(
       privateKey: privKey,
     });
     console.log('[SYSTEM] Signed URL: ' + signedURL)
-
-
-    await fs.unlink(zipPath); // Delete zip file from local fs
-    console.log('[SYSTEM] Deleted zip file from local fs')
 
     await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
     console.log('[SYSTEM] Sent email to: ' + emailToNotify)

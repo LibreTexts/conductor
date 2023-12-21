@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+export const autocompleteSchema = z.object({
+  query: z.object({
+    query: z
+      .string()
+      .min(1)
+      .max(100)
+      .transform((v) =>
+        v.trim().length > 100 ? v.trim().slice(0, 100) : v.trim()
+      ), // If the query is longer than 50 characters, trim it to 100 characters
+    limit: z.coerce.number().min(1).max(25).default(10),
+  }),
+});
+
 const _commonItems = z.object({
   strictMode: z.coerce.boolean().default(false),
   searchQuery: z.string().optional(),
