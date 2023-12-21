@@ -1008,18 +1008,15 @@ export async function generateZIPFile(
   items: { name: string; data: Uint8Array }[]
 ): Promise<Buffer | null> {
   try {
-    console.log('[SYSTEM] Generating ZIP file')
     const zip = new AdmZip();
-    console.log('[SYSTEM] Adding files to ZIP')
+
     for (let i = 0; i < items.length; i++) {
       const buffer = Buffer.from(items[i].data);
       zip.addFile(items[i].name, buffer);
       console.log('[SYSTEM] Added file to ZIP: ' + items[i].name)
     }
 
-    console.log('[SYSTEM] Creating ZIP buffer')
     const buffer = await zip.toBufferPromise();
-    console.log('[SYSTEM] Created ZIP buffer')
     return buffer
   } catch (err) {
     debugError(err);
@@ -1070,20 +1067,16 @@ export async function parseAndZipS3Objects(
   files: FileInterface[]
 ): Promise<Buffer | null> {
   try {
-    console.log('[SYSTEM] Parsing S3 objects')
     const items = [];
     for (let i = 0; i < s3Res.length; i++) {
-      console.log('[SYSTEM] Parsing S3 object: ' + i)
       const byteArray = await s3Res[i].Body?.transformToByteArray();
 
       if (files[i]) {
-        console.log('[SYSTEM] Adding item: ' + files[i].name)
         items.push({
           name: files[i].name,
           data: byteArray,
         });
       } else {
-        console.log('[SYSTEM] Adding item with random name')
         items.push({
           name: v4(), // Fallback to random name
           data: byteArray,
@@ -1091,15 +1084,12 @@ export async function parseAndZipS3Objects(
       }
     }
   
-    console.log('[SYSTEM] Filtering items')
     const noUndefined = items.filter((item) => item.name && item.data) as {
       name: string;
       data: Uint8Array;
     }[];
  
-    console.log('[SYSTEM] Sending items to generateZIPFile')
     const zipBuff = await generateZIPFile(noUndefined);
-    console.log('[SYSTEM] Generated ZIP buffer')
     return zipBuff ?? null;  
   } catch (e) {
     debugError(e);
@@ -1146,7 +1136,6 @@ export async function createZIPAndNotify(
 
     const tempFileID = v4();
     const tempFileKey = `temp/${tempFileID}.zip`;
-    console.log('[SYSTEM] Uploading zip file to S3 with key: ' + tempFileKey)
     const multipartUpload = await storageClient.send(new CreateMultipartUploadCommand({
       Bucket: process.env.AWS_PROJECTFILES_BUCKET,
       Key: tempFileKey,
@@ -1177,10 +1166,12 @@ export async function createZIPAndNotify(
       }));
     }
 
-    console.log('[SYSTEM] Uploading chunks to S3')
-    const uploadRes = await Promise.all(
-      uploadCommands.map((command) => storageClient.send(command, { requestTimeout: 600000 }))
-    );
+    const uploadRes = []
+    for(let i = 0; i < uploadCommands.length; i++) {
+      console.log('[SYSTEM] Uploading chunk: ' + (i + 1))
+      const s3Res = await storageClient.send(uploadCommands[i], { requestTimeout: 600000 });
+      uploadRes.push(s3Res);
+    }
 
     if(uploadRes.length !== chunks.length) {
       throw new Error('Upload failed');
