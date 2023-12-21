@@ -1008,7 +1008,7 @@ async function getAutocompleteResults(
     const projectPromise = Project.aggregate([
       {
         $search: {
-          index: "dev-projects-search",
+          index: "project-title-search",
           autocomplete: {
             query: query,
             path: "title",
