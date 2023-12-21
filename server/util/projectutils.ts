@@ -18,7 +18,6 @@ import {
   FileInterfacePath,
   RawFileInterface,
 } from "../models/file.js";
-import fs from "fs-extra";
 import AdmZip from "adm-zip";
 import { v4 } from "uuid";
 import {
@@ -31,7 +30,7 @@ import { AssetTagFrameworkInterface } from "../models/assettagframework.js";
 import { isAssetTagFrameworkObject, isAssetTagKeyObject } from "./typeHelpers.js";
 import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
-import { GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, ServiceOutputTypes } from "@aws-sdk/client-s3";
+import { CompleteMultipartUploadCommand, CreateMultipartUploadCommand, GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, S3ClientConfig, ServiceOutputTypes, UploadPartCommand } from "@aws-sdk/client-s3";
 import mailAPI from "../api/mail.js";
 
 export const projectClassifications = [
@@ -83,10 +82,10 @@ Conductor also promotes collaboration and organization among everyone on your OE
 You can find in-depth guides on using the Commons and the Conductor to curate your resource in the [Construction Guide](https://chem.libretexts.org/Courses/Remixer_University/LibreTexts_Construction_Guide/10%3A_Commons_and_Conductor).
 `;
 
-export const PROJECT_FILES_S3_CLIENT_CONFIG = {
+export const PROJECT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
-    accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY,
+    accessKeyId: process.env.AWS_PROJECTFILES_ACCESS_KEY ?? "",
+    secretAccessKey: process.env.AWS_PROJECTFILES_SECRET_KEY ?? "",
   },
   region: process.env.AWS_PROJECTFILES_REGION,
 };
@@ -1144,19 +1143,82 @@ export async function createZIPAndNotify(
     const zipBuff = await parseAndZipS3Objects(downloadRes, allFiles);
     if (!zipBuff) throw new Error("Zip path is undefined");
 
-    console.log('[SYSTEM] Creating temp zip file name')
+
     const tempFileID = v4();
     const tempFileKey = `temp/${tempFileID}.zip`;
     console.log('[SYSTEM] Uploading zip file to S3 with key: ' + tempFileKey)
-    await storageClient.send(
-      new PutObjectCommand({
+    const multipartUpload = await storageClient.send(new CreateMultipartUploadCommand({
+      Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+      Key: tempFileKey,
+      ContentDisposition: `inline; filename=${tempFileID}.zip`,
+      ContentType: "application/zip",
+    }));
+
+    if(!multipartUpload.UploadId) {
+      throw new Error('Upload ID is undefined');
+    }
+
+    console.log('[SYSTEM] Created multipart upload with ID: ' + multipartUpload.UploadId)
+
+    // chunk zip buffer into 5MB chunks
+    const chunkSize = 5 * 1024 * 1024;
+    const chunks = [];
+    for(let i = 0; i < zipBuff.length; i += chunkSize) {
+      chunks.push(zipBuff.slice(i, i + chunkSize));
+    }
+    const uploadCommands: UploadPartCommand[] = [];
+    for(let i = 0; i < chunks.length; i++) {
+      uploadCommands.push(new UploadPartCommand({
         Bucket: process.env.AWS_PROJECTFILES_BUCKET,
         Key: tempFileKey,
-        Body: zipBuff,
-        ContentDisposition: `inline; filename=${tempFileID}.zip`,
-        ContentType: "application/zip",
-      })
+        UploadId: multipartUpload.UploadId,
+        PartNumber: i + 1,
+        Body: chunks[i]
+      }));
+    }
+
+    console.log('[SYSTEM] Uploading chunks to S3')
+    const uploadRes = await Promise.all(
+      uploadCommands.map((command) => storageClient.send(command, { requestTimeout: 600000 }))
     );
+
+    if(uploadRes.length !== chunks.length) {
+      throw new Error('Upload failed');
+    }
+
+    console.log('[SYSTEM] Completing multipart upload')
+    const completeUpload = await storageClient.send(new CompleteMultipartUploadCommand({
+      Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+      Key: tempFileKey,
+      UploadId: multipartUpload.UploadId,
+      MultipartUpload: {
+        Parts: uploadRes.map((res, index) => {
+          return {
+            ETag: res.ETag,
+            PartNumber: index + 1
+          }
+        })
+      }
+    }));
+
+    if(!completeUpload.$metadata.httpStatusCode || ![200, 201].includes(completeUpload.$metadata.httpStatusCode)) {
+      throw new Error('Upload failed');
+    }
+
+    console.log('[SYSTEM] Finished multipart upload')
+
+    // await storageClient.send(
+    //   new PutObjectCommand({
+    //     Bucket: process.env.AWS_PROJECTFILES_BUCKET,
+    //     Key: tempFileKey,
+    //     Body: zipBuff,
+    //     ContentDisposition: `inline; filename=${tempFileID}.zip`,
+    //     ContentType: "application/zip",
+    //   }), 
+    //   {
+    //     requestTimeout: 600000 // 1 minute timeout
+    //   }
+    // );
 
     const fileURL = assembleUrl([
       "https://",

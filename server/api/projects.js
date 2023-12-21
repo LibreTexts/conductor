@@ -2932,17 +2932,14 @@ async function bulkDownloadProjectFiles(req, res) {
         downloadCommands.map((command) => storageClient.send(command))
       );
 
-      const zipPath = await parseAndZipS3Objects(downloadRes, foundFiles);
-      if (!zipPath) {
+      const zipBuff = await parseAndZipS3Objects(downloadRes, foundFiles);
+      if (!zipBuff) {
         throw new Error("ziperror");
       }
 
       //TODO: update download count
-
-      const rawFile = await fse.readFile(zipPath);
-      const base64File = rawFile.toString("base64");
-      await fse.unlink(zipPath); // delete temp zip file
-
+      const base64File = zipBuff.toString("base64");
+      
       return res.send({
         err: false,
         msg: "Successfully requested download!",
