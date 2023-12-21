@@ -176,6 +176,18 @@ class API {
   }
 
   // Search
+  async getAutoCompleteSuggestions(query: string, limit?: number) {
+    const res = await axios.get<
+      { numResults: number; results: string[] } & ConductorBaseResponse
+    >("/search/autocomplete", {
+      params: {
+        query,
+        limit,
+      },
+    });
+    return res;
+  }
+
   async assetsSearch(params: AssetSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse
