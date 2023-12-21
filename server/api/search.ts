@@ -16,6 +16,7 @@ import AssetTag from "../models/assettag.js";
 import { getSchemaWithDefaults } from "../util/typeHelpers.js";
 import {
   assetSearchSchema,
+  autocompleteSchema,
   bookSearchSchema,
   homeworkSearchSchema,
   projectSearchSchema,
@@ -996,6 +997,136 @@ async function usersSearch(
   }
 }
 
+async function getAutocompleteResults(
+  req: z.infer<typeof autocompleteSchema>,
+  res: Response
+) {
+  try {
+    const query = req.query.query;
+    const limit = req.query.limit || 5;
+
+    const projectPromise = Project.aggregate([
+      {
+        $search: {
+          index: "dev-projects-search",
+          autocomplete: {
+            query: query,
+            path: "title",
+            fuzzy: {
+              maxEdits: 2,
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          visibility: "public",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          title: 1,
+        },
+      },
+      {
+        $sort: {
+          name: 1,
+        },
+      },
+    ]).limit(limit);
+
+    const projectFilePromise = Project.aggregate([
+      {
+        $search: {
+          index: "project-file-name-search",
+          embeddedDocument: {
+            path: "files",
+            operator: {
+              autocomplete: {
+                query: query,
+                path: "files.name",
+                fuzzy: {
+                  maxEdits: 2,
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          visibility: "public",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          files: 1,
+        },
+      },
+      {
+        $unwind: {
+          path: "$files",
+        },
+      },
+      {
+        $match: {
+          "files.access": "public",
+        },
+      },
+      {
+        $project: {
+          name: "$files.name",
+        },
+      },
+      {
+        $sort: {
+          name: 1,
+        },
+      },
+    ]).limit(limit);
+
+    const allResults = await Promise.all([projectPromise, projectFilePromise]);
+    const projectResults = allResults[0];
+    const projectFileResults = allResults[1];
+
+    const projectResultsReduced: string[] = projectResults.reduce(
+      (acc, curr) => {
+        acc.push(curr.title);
+        return acc;
+      },
+      []
+    );
+
+    const projectFileResultsReduced: string[] = projectFileResults.reduce(
+      (acc, curr) => {
+        acc.push(curr.name);
+        return acc;
+      },
+      []
+    );
+
+    const results = [...projectResultsReduced, ...projectFileResultsReduced];
+    results.sort((a, b) => {
+      const aData = _transformToCompare(a);
+      const bData = _transformToCompare(b);
+      if (aData < bData) return -1;
+      if (aData > bData) return 1;
+      return 0;
+    });
+
+    return res.send({
+      err: false,
+      numResults: results.length,
+      results: results.slice(0, limit),
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 function _transformToCompare(val: any) {
   return String(val)
     .toLowerCase()
@@ -1008,4 +1139,5 @@ export default {
   homeworkSearch,
   projectsSearch,
   usersSearch,
+  getAutocompleteResults,
 };

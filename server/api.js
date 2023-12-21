@@ -647,8 +647,11 @@ router.route('/commons/homework/sync/automated').put(
   homeworkAPI.runAutomatedHomeworkSync,
 );
 
-
 /* Search */
+router.route('/search/autocomplete').get(
+  middleware.validateZod(SearchValidators.autocompleteSchema),
+  searchAPI.getAutocompleteResults
+)
 router.route('/search/assets').get(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(SearchValidators.assetSearchSchema),
