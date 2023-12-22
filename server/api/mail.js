@@ -837,7 +837,7 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketTi
 
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
-        from: 'LibreTexts Support <conductor@noreply@libretexts.org>',
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
         subject: 'ZIP File Ready',
         html: `
