@@ -1168,7 +1168,6 @@ export async function createZIPAndNotify(
 
     const uploadRes = []
     for(let i = 0; i < uploadCommands.length; i++) {
-      console.log('[SYSTEM] Uploading chunk: ' + (i + 1))
       const s3Res = await storageClient.send(uploadCommands[i], { requestTimeout: 240000 });
       uploadRes.push(s3Res);
     }
@@ -1220,7 +1219,6 @@ export async function createZIPAndNotify(
 
     const exprDate = new Date();
     exprDate.setDate(exprDate.getDate() + 7); // 1-week expiration time
-    console.log('[SYSTEM] decrypting private key')
     const privKey = base64.decode(
       // @ts-ignore
       process.env.AWS_PROJECTFILES_CLOUDFRONT_PRIVKEY
@@ -1233,7 +1231,6 @@ export async function createZIPAndNotify(
       dateLessThan: exprDate.toString(),
       privateKey: privKey,
     });
-    console.log('[SYSTEM] Signed URL: ' + signedURL)
 
     await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
     console.log('[SYSTEM] Sent email to: ' + emailToNotify)
