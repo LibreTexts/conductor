@@ -9,3 +9,10 @@ export const NewUserWebhookValidator = z.object({
     avatar: z.string().url().optional(),
   }),
 });
+
+export const LibraryAccessWebhookValidator = z.object({
+  body: z.object({
+    central_identity_id: z.string().uuid(),
+    library: z.string(),
+  }),
+});

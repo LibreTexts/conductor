@@ -32,7 +32,7 @@ import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralId
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
-import { NewUserWebhookValidator } from "./validators/central-identity.js";
+import { LibraryAccessWebhookValidator, NewUserWebhookValidator } from "./validators/central-identity.js";
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -655,6 +655,23 @@ async function processNewUserWebhookEvent(
   }
 }
 
+async function processLibraryAccessWebhookEvent(
+  req: z.infer<typeof LibraryAccessWebhookValidator>,
+  res: Response
+) {
+  try {
+    const { central_identity_id, library } = req.body;
+    console.log(central_identity_id, library);
+    return res.send({
+      err: false,
+      msg: "User successfully created.",
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  */
@@ -744,5 +761,6 @@ export default {
   updateVerificationRequest,
   updateUser,
   processNewUserWebhookEvent,
+  processLibraryAccessWebhookEvent,
   validate,
 };
