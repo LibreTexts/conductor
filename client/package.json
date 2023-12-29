@@ -9,6 +9,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-multi-root": "^40.2.0",
     "@ckeditor/ckeditor5-react": "^6.2.0",
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@libretexts/insight-ckeditor5-build": "^1.0.0",

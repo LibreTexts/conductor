@@ -5,7 +5,6 @@ import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
 import { get, useForm } from "react-hook-form";
 import { KBPage } from "../../types";
-import KBQuillEditor from "./KBQuillEditor";
 import PreviewPageModal from "./PreviewPageModal";
 import PageLastEditor from "./PageLastEditor";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";

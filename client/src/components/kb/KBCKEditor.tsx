@@ -1,10 +1,8 @@
 import axios from "axios";
-import { useRef, useEffect, useState } from "react";
+import { useState } from "react";
 import LoadingSpinner from "../LoadingSpinner";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import InsightEditor from "@libretexts/insight-ckeditor5-build";
-import Editor from "@libretexts/insight-ckeditor5-build";
-import { Plugin } from "@ckeditor/ckeditor5-core";
 
 interface KBCKEditorProps extends React.HTMLAttributes<HTMLDivElement> {
   data: string | undefined;
@@ -64,7 +62,6 @@ const KBCKEditor: React.FC<KBCKEditorProps> = ({
     <div aria-busy={loading} {...rest}>
       {loading && <LoadingSpinner />}
       <CKEditor
-        //@ts-expect-error
         editor={InsightEditor}
         data={data}
         onReady={(editor) => {
