@@ -168,13 +168,10 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
-      console.log(url)
       request = fetch(url, finalOptions);
     }
 
     const result = await request;
-    const temp = result.clone();
-    console.log(await temp.json())
     if (!result.ok && !silentFail) {
       throw new Error(
         `Error fetching ${

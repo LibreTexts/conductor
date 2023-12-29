@@ -89,6 +89,7 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
+import { buildWorbenchURL } from '../../utils/projectHelpers';
 const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -2701,7 +2702,7 @@ const ProjectView = (props) => {
                 }
                 {
                   project.didCreateWorkbench && (
-                    <Label basic color='green' className='!mb-4'>Workbench created <Icon name='check'/></Label>
+                    <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildWorbenchURL(project.libreLibrary, project.libreCoverID))}>Workbench created <Icon name='check'/></Label>
                   )
                 }
                 <Form.Dropdown

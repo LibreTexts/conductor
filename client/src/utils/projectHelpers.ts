@@ -21,3 +21,7 @@ export async function pinProject(projectID: string) {
     return false;
   }
 }
+
+export function buildWorbenchURL(libreLibrary: string, libreCoverID: string) {
+  return `https://${libreLibrary}.libretexts.org/Workbench/${libreCoverID}`;
+}
