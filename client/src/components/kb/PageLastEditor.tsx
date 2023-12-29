@@ -25,7 +25,7 @@ const PageLastEditor: React.FC<PageLastEditorProps> = ({
           ? `${lastEditedBy.firstName} ${lastEditedBy.lastName}`
           : "Unknown"}
         {isKBPageEditor(lastEditedBy) && (
-          <Image src={`${lastEditedBy.avatar}`} avatar className="ml-1" />
+          <Image src={`${lastEditedBy.avatar}`} avatar className="ml-1 mb-1" />
         )}
       </p>
     </div>

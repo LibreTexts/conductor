@@ -18,7 +18,7 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
   const getInnerHTML = () => {
     if (!content) return "";
     return DOMPurify.sanitize(content, {
-      ADD_TAGS: ["iframe"],
+      ADD_TAGS: ["iframe", "li", "ul", "ol", "span", "pre", "code"],
       ADD_ATTR: [
         "allow",
         "allowfullscreen",
@@ -30,7 +30,7 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
   };
 
   return (
-    <div {...rest} dangerouslySetInnerHTML={{ __html: getInnerHTML() }}></div>
+    <div className="prose"  {...rest} dangerouslySetInnerHTML={{ __html: getInnerHTML() }}></div>
   );
 };
 

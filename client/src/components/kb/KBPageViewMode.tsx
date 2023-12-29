@@ -9,7 +9,13 @@ import KBFooter from "./KBFooter";
 import PageStatusLabel from "./PageStatusLabel";
 import { checkIsUUID } from "../../utils/kbHelpers";
 
-const KBPageViewMode = ({ slug, canEdit }: { slug?: string | null; canEdit?: boolean }) => {
+const KBPageViewMode = ({
+  slug,
+  canEdit,
+}: {
+  slug?: string | null;
+  canEdit?: boolean;
+}) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<KBPage | null>(null);
@@ -25,7 +31,9 @@ const KBPageViewMode = ({ slug, canEdit }: { slug?: string | null; canEdit?: boo
       const isUUID = checkIsUUID(slug);
 
       setLoading(true);
-      const res = await axios.get(`/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`);
+      const res = await axios.get(
+        `/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`
+      );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -44,23 +52,19 @@ const KBPageViewMode = ({ slug, canEdit }: { slug?: string | null; canEdit?: boo
     <div aria-busy={loading}>
       <div className="flex flex-row items-center">
         <p className="text-4xl font-semibold">{page?.title}</p>
-        {
-          canEdit && (
-            <PageStatusLabel status={page?.status} />
-          )
-        }
       </div>
-      <p>
+      <p className="max-w-6xl">
         <span className="font-medium">Description</span>:{" "}
         <span className="italic">{page?.description}</span>
       </p>
-      <div className="border-b">
-      <PageLastEditor
-        lastEditedBy={page?.lastEditedBy}
-        updatedAt={page?.updatedAt}
-      />
+      <div className="flex flex-row border-b pb-2">
+        <PageLastEditor
+          lastEditedBy={page?.lastEditedBy}
+          updatedAt={page?.updatedAt}
+        />
+        {canEdit && <PageStatusLabel status={page?.status} className="!mt-0.5"/>}
       </div>
-      
+
       <div className="mt-6 mb-9">
         <KBRenderer content={page?.body} />
       </div>

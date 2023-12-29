@@ -1,12 +1,20 @@
-import { Label } from "semantic-ui-react";
+import { Label, LabelProps } from "semantic-ui-react";
 
-const PageStatusLabel = ({ status }: { status?: "published" | "draft" }) => {
+type PageStatusLabelProps = LabelProps & {
+  status?: "published" | "draft";
+};
+
+const PageStatusLabel: React.FC<PageStatusLabelProps> = ({
+  status,
+  className,
+  ...rest
+}) => {
   return (
     <Label
       color={status === "published" ? "green" : "blue"}
-      className="!ml-3 !flex !items-center !h-6"
+      className={`!ml-3 !flex !items-center !h-6 ${className}`}
       size="small"
-      basic
+      {...rest}
     >
       {status === "published" ? "Published" : "Draft"}
     </Label>

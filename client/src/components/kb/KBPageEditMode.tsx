@@ -5,7 +5,6 @@ import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
 import { get, useForm } from "react-hook-form";
 import { KBPage } from "../../types";
-import KBQuillEditor from "./KBQuillEditor";
 import PreviewPageModal from "./PreviewPageModal";
 import PageLastEditor from "./PageLastEditor";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
@@ -13,6 +12,7 @@ import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
 import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
+import KBCKEditor from "./KBCKEditor";
 const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
 
 const KBPageEditMode = ({
@@ -56,7 +56,9 @@ const KBPageEditMode = ({
       const isUUID = checkIsUUID(slug);
 
       setLoading(true);
-      const res = await axios.get(`/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`);
+      const res = await axios.get(
+        `/kb/page/${isUUID ? `${slug}` : `slug/${slug}`}`
+      );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -73,7 +75,7 @@ const KBPageEditMode = ({
   }
 
   async function handleSave(status: "published" | "draft") {
-    if (!await trigger()) return;
+    if (!(await trigger())) return;
     if (mode === "edit") {
       handleUpdate(status);
     } else {
@@ -96,7 +98,7 @@ const KBPageEditMode = ({
       if (!res.data.page || !res.data.page.slug) {
         throw new Error("Error creating page");
       }
-      window.location.assign(`/kb/${res.data.page.slug}`); // Redirect to new page
+      window.location.assign(`/insight/${res.data.page.slug}`); // Redirect to new page
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -107,10 +109,10 @@ const KBPageEditMode = ({
   async function handleUpdate(status: "published" | "draft") {
     try {
       setLoading(true);
-      if (!getValues('uuid')) return;
+      if (!getValues("uuid")) return;
       _checkSlug();
 
-      const res = await axios.patch(`/kb/page/${getValues('uuid')}`, {
+      const res = await axios.patch(`/kb/page/${getValues("uuid")}`, {
         ...getValues(),
         status,
         lastEditedBy: user.uuid,
@@ -132,14 +134,19 @@ const KBPageEditMode = ({
   }
 
   function _checkSlug() {
-    if (getValues('slug') && ['new', 'edit', 'create', 'welcome'].includes(getValues('slug').trim())) {
-      throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");
+    if (
+      getValues("slug") &&
+      ["new", "edit", "create", "welcome"].includes(getValues("slug").trim())
+    ) {
+      throw new Error(
+        "Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')"
+      );
     }
   }
 
   const EditorOptions = ({ editMode }: { editMode: boolean }) => {
     return (
-      <div className="flex flex-row">
+      <div className="flex flex-row h-8">
         {editMode && (
           <>
             <Button
@@ -162,23 +169,26 @@ const KBPageEditMode = ({
             </Button>
           </>
         )}
+        {mode === "edit" && (
+          <Button
+            color="green"
+            loading={loading}
+            onClick={() => handleSave("published")}
+            size="mini"
+          >
+            <Icon name="save" />
+            Save & Publish
+          </Button>
+        )}
         <Button
-          color="blue"
-          loading={loading}
-          onClick={() => handleSave("published")}
-          size="mini"
-        >
-          <Icon name="save" />
-          {mode === "edit" ? "Save & Publish" : "Create & Publish"}
-        </Button>
-        <Button
-          color="green"
+          color={editMode ? "blue" : "green"}
+          basic={editMode}
           loading={loading}
           onClick={() => handleSave("draft")}
           size="mini"
         >
           <Icon name="save" />
-          {mode === "edit" ? "Save as Draft" : "Create as Draft"}
+          {editMode ? "Save as Draft" : "Create Draft"}
         </Button>
       </div>
     );
@@ -194,16 +204,17 @@ const KBPageEditMode = ({
       )}
       <div className="flex flex-row justify-between">
         <div className="flex flex-row items-center">
-          <p className="text-3xl font-semibold">
-            {mode === "edit" ? (
-              <span>
-                Editing Page: <em>{getValues("title")}</em>
-              </span>
-            ) : (
-              <span>Create New Page</span>
-            )}
-          </p>
-          <PageStatusLabel status={getValues("status")} />
+          <div className="flex flex-row max-w-3xl">
+            <p className="text-3xl font-semibold">
+              {mode === "edit" ? (
+                <span>
+                  Editing Page: <em>{getValues("title")}</em>
+                </span>
+              ) : (
+                <span>Create New Page</span>
+              )}
+            </p>
+          </div>
         </div>
         <EditorOptions editMode={mode === "edit"} />
       </div>
@@ -217,10 +228,13 @@ const KBPageEditMode = ({
         )}
       </p>
       {mode === "edit" && (
-        <PageLastEditor
-          lastEditedBy={getValues("lastEditedBy")}
-          updatedAt={getValues("updatedAt")}
-        />
+        <div className="flex flex-row">
+          <PageLastEditor
+            lastEditedBy={getValues("lastEditedBy")}
+            updatedAt={getValues("updatedAt")}
+          />
+          <PageStatusLabel status={getValues("status")} className="!mt-0.5" />
+        </div>
       )}
       <div className="flex flex-col my-8">
         <div className="mb-4">
@@ -255,23 +269,29 @@ const KBPageEditMode = ({
             placeholder="URL slug of the page. Leave blank to auto-generate."
             fluid
           />
-          <p className="text-xs text-gray-500 italic">
+          <p className="text-xs text-gray-500 italic ml-1">
             If you leave this blank, the URL slug will be auto-generated based
-            on the page title. If you provide a slug, it must be unique and
-            will be parsed and safely encoded by the system. Use caution when
+            on the page title. If you provide a slug, it must be unique and will
+            be parsed and safely encoded by the system. Use caution when
             changing an existing slug as it may break existing links.
           </p>
         </div>
 
         <div className="mt-8">
           <p className="form-field-label mb-1">Content</p>
-          <KBQuillEditor
-            data={watch("body")}
-            pageUUID={watch("uuid")}
-            onDataChange={(newData: string) => {
-              setValue("body", newData);
-            }}
-          />
+          {watch("uuid") ? (
+            <KBCKEditor
+              data={watch("body")}
+              pageUUID={watch("uuid")}
+              onDataChange={(newData: string) => {
+                setValue("body", newData);
+              }}
+            />
+          ) : (
+            <p className="text-sm text-gray-500">
+              Save this page first to start editing the content.
+            </p>
+          )}
         </div>
       </div>
       <div className="flex flex-row justify-end mt-6">
@@ -283,7 +303,7 @@ const KBPageEditMode = ({
         title={getValues("title")}
         content={getValues("body")}
       />
-      {getValues('uuid') && (
+      {getValues("uuid") && (
         <ConfirmDeletePageModal
           open={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
