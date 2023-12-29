@@ -423,6 +423,11 @@ async function searchKB(req: z.infer<typeof SearchKBValidator>, res: Response) {
       },
     ]).limit(10);
 
+    // Leave this here for debugging purposes
+    console.log('[SYSTEM] Search query: ', query)
+    console.log('[SYSTEM] Search results: ')
+    console.log(pages)
+
     return res.send({
       err: false,
       pages,

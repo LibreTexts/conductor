@@ -35,11 +35,15 @@ const KBQuillEditor: React.FC<KBQuillEditorProps> = ({
       [
         { color: [] },
         { background: [] },
+        "size",
         "bold",
         "italic",
         "underline",
         "strike",
+        "script",
         "blockquote",
+        "align",
+        "direction"
       ],
       [
         { list: "ordered" },
@@ -47,7 +51,7 @@ const KBQuillEditor: React.FC<KBQuillEditorProps> = ({
         { indent: "-1" },
         { indent: "+1" },
       ],
-      ["link", "image", 'video'],
+      ["link", "code", "image", 'video'],
       ["clean"],
     ],
   };
@@ -102,6 +106,7 @@ const KBQuillEditor: React.FC<KBQuillEditorProps> = ({
         onChange={(content, delta, source, editor) => {
           onDataChange(editor.getHTML());
         }}
+        readOnly={loading}
       />
     </div>
   );

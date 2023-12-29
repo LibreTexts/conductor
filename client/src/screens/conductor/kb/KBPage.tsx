@@ -41,7 +41,7 @@ const KBPage = () => {
     return (
       <>
         {canEdit && (
-          <div className="flex flex-row justify-end">
+          <div className="flex flex-row justify-end mb-2">
             {mode === "view" && parsedSlug && (
               <Button color="blue" onClick={switchToEditMode} size="small">
                 <Icon name="edit" />

@@ -78,7 +78,7 @@ const NavTree = forwardRef((props, ref) => {
   return (
     <div
       aria-busy={loading}
-      className="h-auto min-h-screen w-1/6 border-r-2 p-4"
+      className="h-auto min-h-screen border-r-2 p-4 min-w-[15rem] max-w-[20rem] overflow-y-auto"
     >
       <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
         <a className="text-xl font-semibold text-black" href="/insight/welcome">
@@ -107,7 +107,7 @@ const NavTree = forwardRef((props, ref) => {
             <div className="flex flex-row justify-between items-center">
               <div className="flex flex-row items-center overflow-x-clip">
                 <a
-                  className="text-lg font-semibold text-black"
+                  className="text-lg font-semibold text-black break-all"
                   href={getLink(node.slug)}
                 >
                   {truncateString(node.title, 50)}
@@ -142,7 +142,7 @@ const NavTree = forwardRef((props, ref) => {
                       className="p-2 flex flex-row items-center"
                     >
                       <a
-                        className="text-md font-semibold text-gray-600"
+                        className="text-md font-semibold text-gray-600 break-all"
                         href={getLink(child.slug)}
                       >
                         {truncateString(child.title, 50)}

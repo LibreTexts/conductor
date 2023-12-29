@@ -6,7 +6,7 @@ const KBCoverPage = () => {
     <DefaultLayoutWNavTree>
       <div className="flex flex-col text-center">
         <h1 className="text-4xl font-semibold">
-          Welcome to the LibreTexts Insight!
+          Welcome to LibreTexts Insight!
         </h1>
         <p className="mt-4">
           Insight is designed to help you find answers to your
