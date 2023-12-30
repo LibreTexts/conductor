@@ -30,7 +30,7 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
   };
 
   return (
-    <div className="prose"  {...rest} dangerouslySetInnerHTML={{ __html: getInnerHTML() }}></div>
+    <div className="prose !max-w-full"  {...rest} dangerouslySetInnerHTML={{ __html: getInnerHTML() }}></div>
   );
 };
 
