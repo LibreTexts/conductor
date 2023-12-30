@@ -19,6 +19,8 @@ type CXOneFetchGroupsParams = CXOneFetchBase & {
 
 type CXOneFetchUsersParams = CXOneFetchBase & {
   scope: "users";
+  path?: string | number;
+  api?: string;
 };
 
 export type CXOneFetchParams =

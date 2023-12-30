@@ -13,6 +13,7 @@ import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { libraryOptions } from "../util/LibraryOptions";
 import { required } from "../../utils/formRules";
 import { useEffect, useState } from "react";
+import { useTypedSelector } from "../../state/hooks";
 
 interface CreateWorkbenchModalProps extends ModalProps {
   show: boolean;
@@ -34,6 +35,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const user = useTypedSelector((state) => state.user);
   const { control, getValues, setValue, reset, trigger, formState } =
     useForm<CreateWorkbenchForm>({
       defaultValues: {
@@ -104,12 +106,17 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                 />
               )}
             />
-            <p
-              className="underline cursor-pointer"
-              onClick={() => setValue("library", "dev")}
-            >
-              Use Dev
-            </p>
+            {user.isSuperAdmin && (
+              <>
+                {/* Super Admins can use the dev library for debugging */}
+                <p
+                  className="underline cursor-pointer"
+                  onClick={() => setValue("library", "dev")}
+                >
+                  Use Dev
+                </p>
+              </>
+            )}
           </div>
           <div className="mt-4">
             <CtlTextInput

@@ -152,12 +152,26 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         finalOptions
       );
     } else if (scope === "users") {
-      request = fetch(
-        `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json${_parseQuery(
-          query
-        )}`,
-        finalOptions
-      );
+      const { path, api } = params;
+      if (path) {
+        const isNumber = !isNaN(Number(path));
+        const queryIsFirst = api?.includes("?") ? false : true;
+        const url = `https://${subdomain}.libretexts.org/@api/deki/users/${
+          isNumber ? "" : "="
+        }${encodeURIComponent(encodeURIComponent(path))}/${api ? api : ""}${_parseQuery(
+          query,
+          queryIsFirst
+        )}`;
+        console.log(url)
+        request = fetch(url, finalOptions);
+      } else {
+        request = fetch(
+          `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json${_parseQuery(
+            query
+          )}`,
+          finalOptions
+        );
+      }
     } else {
       const { path, api } = params;
       const isNumber = !isNaN(Number(path));
@@ -299,6 +313,26 @@ export async function getGroups(subdomain: string): Promise<CXOneGroup[]> {
   } catch (err) {
     debugError(err);
     return [];
+  }
+}
+
+export async function getLibreBotUserId(
+  subdomain: string
+): Promise<string | null> {
+  try {
+    const res = await CXOneFetch({
+      scope: "users",
+      subdomain,
+      path: "LibreBot",
+      query: {
+        "dream.out.format": "json"
+      }
+    });
+    const raw = await res.json();
+    return raw["@id"]?.toString() || null;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 

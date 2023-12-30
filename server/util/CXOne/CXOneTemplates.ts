@@ -7,19 +7,34 @@ const CXOneTemplates = {
     <p>{{template.ShowOrg()}}</p>
     <p class="template:tag-insert"><a href="#">article:topic-guide</a></p>
   `,
-  POST_OR_PUT_GrantContributorRole: (userIDs: string[]) =>
-    `<security>
+  POST_GrantContributorRole: (userID: string) => `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
     </permissions.page>
     <grants.added>
+      <grant>
+        <permissions><role>Contributor</role></permissions>
+        <user id="${userID}"></user>
+      </grant>
+    </grants.added>
+  </security>`,
+  PUT_TeamAsContributors: (userIDs: string[]) =>
+    `<security>
+    <permissions.page>
+      <restriction>Semi-Private</restriction>
+    </permissions.page>
+    <grants>
+    <grant>
+      <permissions><role>Manager</role></permissions>
+      <user id="15"></user>
+    </grant>
     ${userIDs.map((userID) => {
       return `<grant>
         <permissions><role>Contributor</role></permissions>
         <user id="${userID}"></user>
       </grant>`;
     })}
-    </grants.added>
+    </grants>
   </security>`,
   PROP_GuideTabs: `[{
     "templateKey": "Topic_heirarchy",
