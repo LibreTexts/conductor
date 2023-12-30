@@ -13,8 +13,12 @@ import {
   Dropdown,
   Popup,
 } from "semantic-ui-react";
-import { Project, User } from "../../types";
-import { isEmptyString, sortUsersByName } from "../util/HelperFunctions";
+import { CentralIdentityOrg, Project, User } from "../../types";
+import {
+  isEmptyString,
+  sortUsersByName,
+  truncateString,
+} from "../util/HelperFunctions";
 import { projectRoleOptions } from "../util/ProjectHelpers";
 import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
@@ -46,7 +50,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const [teamUserOptions, setTeamUserOptions] = useState<TeamUserOpt[]>([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
-  const [teamUserUUIDToAdd, setTeamUserUUIDToAdd] = useState<string | null>(null);
+  const [teamUserUUIDToAdd, setTeamUserUUIDToAdd] = useState<string | null>(
+    null
+  );
 
   /**
    * Resets state before calling the provided onClose function.
@@ -86,10 +92,14 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       }
 
       const newOptions: TeamUserOpt[] = [];
-      res.data.users.forEach((item: User) => {
+      res.data.users.forEach((item: User & { orgs?: CentralIdentityOrg[] }) => {
         newOptions.push({
           key: item.uuid,
-          text: `${item.firstName} ${item.lastName}`,
+          text: `${item.firstName} ${item.lastName} ${
+            item.orgs && item.orgs[0] && item.orgs[0].name
+              ? `(${truncateString(item.orgs[0].name, 50)})`
+              : ""
+          }`,
           value: item.uuid,
           image: {
             avatar: true,
@@ -98,21 +108,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         });
       });
       newOptions.sort((a, b) => {
-        var normalizedA = String(a.text)
-          .toLowerCase()
-          .replace(/[^a-zA-Z]/gm, "");
-        var normalizedB = String(b.text)
-          .toLowerCase()
-          .replace(/[^a-zA-Z]/gm, "");
-        if (normalizedA < normalizedB) {
-          return -1;
-        }
-        if (normalizedA > normalizedB) {
-          return 1;
-        }
-        return 0;
+        // use localeCompare to sort by name
+        return a.text.localeCompare(b.text);
       });
-      newOptions.unshift({ key: "empty", text: "Clear...", value: "" });
+
       setTeamUserOptions(newOptions);
     } catch (err) {
       handleGlobalError(err);
@@ -207,7 +206,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
    */
   const submitAddTeamMember = async () => {
     try {
-      if (!teamUserUUIDToAdd || isEmptyString(teamUserUUIDToAdd) || isEmptyString(project.projectID)) {
+      if (
+        !teamUserUUIDToAdd ||
+        isEmptyString(teamUserUUIDToAdd) ||
+        isEmptyString(project.projectID)
+      ) {
         throw new Error(
           "Invalid user or project UUID. This may be caused by an internal error."
         );
@@ -243,7 +246,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
     if (projData.liaisons && Array.isArray(projData.liaisons)) {
       projData.liaisons.forEach((item) => {
-        projTeam.push({ ...item, roleValue: "liaison", roleDisplay: "Liaison" });
+        projTeam.push({
+          ...item,
+          roleValue: "liaison",
+          roleDisplay: "Liaison",
+        });
       });
     }
     if (projData.members && Array.isArray(projData.members)) {

@@ -4,7 +4,7 @@
 //
 
 'use strict';
-import Promise from 'bluebird';
+import BluebirdPromise from 'bluebird';
 import express from 'express';
 import async from 'async';
 import { body, query, param } from 'express-validator';
@@ -57,6 +57,7 @@ import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
+import centralIdentity from './central-identity.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -1269,22 +1270,34 @@ async function getAddableMembers(req, res) {
 
     const users = await User.aggregate([
       {
-        $match: {...matchObj}
-      }, {
+        $match: { ...matchObj },
+      },
+      {
         $project: {
           _id: 0,
           uuid: 1,
+          centralID: 1,
           firstName: 1,
           lastName: 1,
           avatar: 1,
         },
-      }, {
+      },
+      {
         $sort: { firstName: -1 },
       },
-    ]);
+    ]).limit(10); // limit to 10 results
+
+    const filtered = users.filter((user) => user.centralID) // filter out users without a centralID
+    const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
+
+    for(let i = 0; i < settled.length; i++) {
+      if(settled[i].status === 'fulfilled') {
+        filtered[i].orgs = settled[i].value ?? []
+      }
+    }
 
     return res.send({
-      users,
+      users: filtered,
       err: false,
     });
   } catch (e) {
@@ -2362,7 +2375,7 @@ const autoGenerateProjects = (newBooks) => {
     let numCreated = 0;
     let newProjects = [];
     let newProjectsDbIds = [];
-    return Promise.try(() => {
+    return BluebirdPromise.try(() => {
         if (Array.isArray(newBooks) && newBooks.length > 0) {
             return Organization.findOne({ orgID: 'libretexts' }, {
                 _id: 0,

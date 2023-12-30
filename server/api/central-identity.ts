@@ -152,22 +152,29 @@ async function getUserApplications(
   }
 }
 
+async function _getUserOrgsRaw(id: string): Promise<CentralIdentityOrg[]> {
+  const orgsRes = await useCentralIdentityAxios(false).get(`/users/${id}/organizations`);
+
+  if (!orgsRes.data || !orgsRes.data.data) {
+    return [];
+  }
+
+  return orgsRes.data.data.organizations ?? [];
+}
+
 async function getUserOrgs(
   req: TypedReqParams<{ id: string }>,
   res: Response<{ err: boolean; orgs: CentralIdentityOrg[] }>
 ) {
   try {
-    const orgsRes = await useCentralIdentityAxios(false).get(
-      `/users/${req.params.id}/organizations`
-    );
+    if(!req.params.id) return conductor400Err(res);
 
-    if (!orgsRes.data || !orgsRes.data.data) {
-      return conductor500Err(res);
-    }
+    const orgsRes = await _getUserOrgsRaw(req.params.id);
+    if(!orgsRes) return conductor500Err(res);
 
     return res.send({
       err: false,
-      orgs: orgsRes.data.data.organizations,
+      orgs: orgsRes,
     });
   } catch (err) {
     debugError(err);
@@ -746,6 +753,7 @@ export default {
   getUsers,
   getUser,
   getUserApplications,
+  _getUserOrgsRaw,
   getUserOrgs,
   addUserApplications,
   deleteUserApplication,
