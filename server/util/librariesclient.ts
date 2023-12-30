@@ -365,6 +365,8 @@ export async function getLibUsers(subdomain: string): Promise<CXOneUser[]> {
       scope: "users",
       subdomain,
       query: {
+        verbose: "false",
+        seatfilter: "seated",
         limit: "all",
       },
     });
