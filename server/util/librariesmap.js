@@ -696,11 +696,14 @@ const libraryNameKeys = [
     'ukrayinska'
 ];
 
+const libraryNameKeysWDev = [...libraryNameKeys, 'dev'];
+
 // libraries not currently supported for syncing database with
 const unsupportedSyncLibraryNameKeys = ['ukrayinska'];
 
 export {
   libraries as default,
   libraryNameKeys,
+    libraryNameKeysWDev,
   unsupportedSyncLibraryNameKeys,
 }

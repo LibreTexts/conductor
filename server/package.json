@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.363.0",
+    "@aws-sdk/client-ssm": "^3.441.0",
     "@aws-sdk/cloudfront-signer": "^3.127.0",
     "@node-oauth/oauth2-server": "^4.2.0",
     "async": "^3.2.0",

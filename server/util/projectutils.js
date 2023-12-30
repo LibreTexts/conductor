@@ -16,6 +16,9 @@ import User from "../models/user.js";
 import base64 from "base-64";
 import projectsAPI from "../api/projects.js";
 import usersAPI from "../api/users.js";
+import projects from "../api/projects.js";
+import { CXOneFetch, getLibUsers, getLibreBotUserId } from "./librariesclient.js";
+import MindTouch from "./CXOne/index.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -649,5 +652,66 @@ export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
   } catch (err) {
     debugError(err);
     return true;
+  }
+}
+
+export async function updateTeamWorkbenchPermissions(projectID, subdomain, coverID) {
+  try {
+    if (!projectID) {
+      throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
+    }
+
+    const project = await Project.findOne({ projectID }).orFail();
+    const team = [
+      ...project.leads,
+      ...project.liaisons,
+      ...project.members,
+      ...project.auditors,
+    ];
+
+    const conductorUsers = await User.find({ uuid: { $in: team } });
+    const centralIDs = conductorUsers
+      .filter((user) => user.centralID)
+      .map((user) => user.centralID.toString());
+    
+    const libreBotID = await getLibreBotUserId(subdomain);
+    if(!libreBotID) {
+      throw new Error("Error getting LibreBot user ID");
+    }
+
+    const libUsers = await getLibUsers(subdomain);
+    const foundUsers = libUsers.filter((u) =>
+      centralIDs.includes(u.username.toString())
+    );
+
+    const body = MindTouch.Templates.PUT_TeamAsContributors(
+      foundUsers.map((u) => u.id),
+      libreBotID
+    );
+
+    const permsRes = await CXOneFetch({
+      scope: "page",
+      path: coverID,
+      api: MindTouch.API.Page.PUT_Security,
+      subdomain,
+      options: {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: body
+      },
+      query: {
+        cascade: "delta",
+      },
+    });
+
+    if (!permsRes.ok) {
+      throw new Error(
+        `Error updating permissions for Workbench book: "${title}"`
+      );
+    }
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
   }
 }

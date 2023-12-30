@@ -1,4 +1,4 @@
-//@ts-nocheck
+// @ts-nocheck
 import Promise from "bluebird";
 import { Request, Response } from "express";
 import fs from "fs-extra";
@@ -12,7 +12,7 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { isEmptyString, isValidDateObject } from "../util/helpers.js";
+import { isEmptyString, isValidDateObject, sleep } from "../util/helpers.js";
 import {
   checkBookIDFormat,
   extractLibFromID,
@@ -30,6 +30,7 @@ import {
 import {
   retrieveProjectFiles,
   downloadProjectFile,
+  updateTeamWorkbenchPermissions,
 } from "../util/projectutils.js";
 import { buildPeerReviewAggregation } from "../util/peerreviewutils.js";
 import {
@@ -42,6 +43,21 @@ import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
 import { z } from "zod";
+import {
+  addPageProperty,
+  CXOneFetch,
+  generateBookPathAndURL,
+  generateChapterOnePath,
+  getDeveloperGroup,
+  getLibUser,
+  getPageID,
+  getSubdomainFromLibrary,
+} from "../util/librariesclient.js";
+import MindTouch from "../util/CXOne/index.js";
+import { conductor500Err } from "../util/errorutils.js";
+import { ZodReqWithUser } from "../types/Express.js";
+import User from "../models/user.js";
+const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
 /**
  * Accepts a library shortname and returns the LibreTexts API URL for the current
@@ -1346,6 +1362,170 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
 }
 
 /**
+ * Creates a new book with default features in a library Workbench area.
+ *
+ * @param {express.Request} req - Incoming request.
+ * @param {express.Response} res - Outgoing response.
+ */
+async function createBook(
+  req: ZodReqWithUser<z.infer<typeof createBookSchema>>,
+  res: Response
+) {
+  try {
+    const { library, title, projectID } = req.body;
+    const { uuid: userID } = req.user.decoded;
+
+    const user = await User.findOne({ uuid: userID }).orFail();
+    const project = await Project.findOne({ projectID }).orFail();
+
+    const subdomain = getSubdomainFromLibrary(library);
+    if(!subdomain) {
+      throw new Error("badlibrary");
+    }
+
+    // Check project permissions
+    const canCreate = projectsAPI.checkProjectMemberPermission(project, user)
+    if(!canCreate) {
+      throw new Error(conductorErrors.err8);
+    }
+
+    // Create book coverpage
+    const [bookPath, bookURL] = generateBookPathAndURL(subdomain, title);
+    const createBookRes = await CXOneFetch({
+      scope: "page",
+      path: bookPath,
+      api: MindTouch.API.Page.POST_Contents_Title(title),
+      subdomain,
+      options: {
+        method: "POST",
+        body: MindTouch.Templates.POST_CreateBook,
+      },
+      query: { abort: 'exists'}
+    }).catch((e) => {
+      const err = new Error(conductorErrors.err86);
+      err.name = "CreateBookError";
+      throw err;
+    });
+
+    // createBookRes didn't throw, but didn't return a successful response
+    if (!createBookRes.ok) {
+      throw new Error(`Error creating Workbench book: "${title}"`);
+    }
+
+    await Promise.all([
+      addPageProperty(subdomain, bookPath, "WelcomeHidden", true),
+      addPageProperty(subdomain, bookPath, "SubPageListing", "simple"),
+    ]);
+
+    const imageRes = await fetch(`${defaultImagesURL}/default.png`);
+    const defaultBookImage = await imageRes.blob();
+    await CXOneFetch({
+      scope: "page",
+      path: bookPath,
+      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+      subdomain,
+      options: { method: "PUT", body: defaultBookImage },
+      //silentFail: true,
+    }).catch((e) => {
+      // Warn, but don't throw error
+      console.warn("[createBook] Error setting coverpage thumbnail:");
+      console.warn(e);
+    });
+
+    // Create first chapter
+    const chapterOnePath = generateChapterOnePath(bookPath);
+    await CXOneFetch({
+      scope: "page",
+      path: chapterOnePath,
+      api: MindTouch.API.Page.POST_Contents_Title("1: First Chapter"),
+      subdomain,
+      options: {
+        method: "POST",
+        body: MindTouch.Templates.POST_CreateBookChapter,
+      },
+    });
+
+    await Promise.all([
+      addPageProperty(subdomain, chapterOnePath, "WelcomeHidden", true),
+      addPageProperty(subdomain, chapterOnePath, "GuideDisplay", "single"),
+      addPageProperty(
+        subdomain,
+        chapterOnePath,
+        "GuideTabs",
+        MindTouch.Templates.PROP_GuideTabs
+      ),
+    ]);
+
+    await CXOneFetch({
+      scope: "page",
+      path: chapterOnePath,
+      api: MindTouch.API.Page.PUT_File_Default_Thumbnail,
+      subdomain,
+      options: { method: "PUT", body: defaultBookImage },
+      //silentFail: true,
+    }).catch((e) => {
+      // Warn, but don't throw error
+      console.warn("[createBook] Error setting Chapter 1 thumbnail:");
+      console.warn(e);
+    });
+
+    // Create Front & Back Matter
+    const matterRes = fetch(
+      `https://batch.libretexts.org/print/Libretext=${bookURL}?createMatterOnly=true`,
+      {
+        headers: { origin: "commons.libretexts.org" },
+      }
+    ); // Don't wait for response, no-op if fails
+
+    sleep(1500); // let CXone catch up with page creations
+
+    const newBookID = await getPageID(bookPath, subdomain);
+    if (!newBookID) {
+      throw new Error(`Error saving book ID for Workbench book: "${title}":`);
+    }
+
+    // Update Project with new book info
+    project.libreLibrary = subdomain;
+    project.libreCoverID = newBookID;
+    project.didCreateWorkbench = true;
+    await project.save();
+
+    const permsUpdated = await updateTeamWorkbenchPermissions(
+      projectID,
+      subdomain,
+      newBookID
+    );
+
+    if(!permsUpdated) {
+      console.log(`[createBook] Failed to update permissions for ${projectID}.`) // Silent fail
+    }
+
+
+    console.log(`[createBook] Created ${bookPath}.`);
+    return res.send({
+      err: false,
+      path: bookPath,
+      url: bookURL,
+    });
+  } catch (err: any) {
+    if(err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+    debugError(err);
+    if(err.name === "CreateBookError") {
+      return res.status(400).send({
+        err: true,
+        errMsg: err.message,
+      });
+    }
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Returns a Book object given a book ID.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookDetail'
@@ -2043,6 +2223,14 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
+const createBookSchema = z.object({
+  body: z.object({
+    library: z.string().min(1).max(255),
+    title: z.string().min(1).max(255),
+    projectID: z.string().length(10),
+  }),
+});
+
 const getCommonsCatalogSchema = z.object({
   query: z.object({
     sort: z
@@ -2118,6 +2306,7 @@ export default {
   runAutomatedSyncWithLibraries,
   getCommonsCatalog,
   getMasterCatalog,
+  createBook,
   getBookDetail,
   getBookPeerReviews,
   getCatalogFilterOptions,
@@ -2129,6 +2318,7 @@ export default {
   getBookTOC,
   getLicenseReport,
   retrieveKBExport,
+  createBookSchema,
   getCommonsCatalogSchema,
   getMasterCatalogSchema,
   getWithBookIDParamSchema,

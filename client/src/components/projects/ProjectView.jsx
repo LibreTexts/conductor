@@ -89,6 +89,8 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
+import { buildWorkbenchURL } from '../../utils/projectHelpers';
+const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
 const ProjectView = (props) => {
@@ -144,6 +146,9 @@ const ProjectView = (props) => {
   const [cidOptions, setCIDOptions] = useState([]);
   const [loadedTags, setLoadedTags] = useState(false);
   const [loadedCIDs, setLoadedCIDs] = useState(false);
+
+  // Create Workbench Modal
+  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] = useState(false);
 
   // Project Pin Modal
   const [showPinnedModal, setShowPinnedModal] = useState(false);
@@ -1763,6 +1768,12 @@ const ProjectView = (props) => {
     }
   };
 
+  const BookCreatedLabel = () => {
+    return (
+      <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildWorkbenchURL(project.libreLibrary, project.libreCoverID))}>Book created <Icon name='external' className='!ml-1'/></Label>
+    )
+  }
+
   const renderTeamList = (projData, showAll) => {
     const transformMembers = (role, roleDisplay) => (item) => ({
       ...item,
@@ -2112,6 +2123,11 @@ const ProjectView = (props) => {
                                 })}
                               </Label.Group>
                             </div>
+                          }
+                          {
+                            project.didCreateWorkbench && (
+                              <BookCreatedLabel />
+                            )
                           }
                           {project.hasCommonsBook && (
                             <div className="mt-1e">
@@ -2666,28 +2682,40 @@ const ProjectView = (props) => {
                     onChange={(_e, { value }) => setProjVisibility(value)}
                   />
                 </Form.Group>
-                <Form.Field>
-                  <label htmlFor='projectURL'>
-                    <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
-                    <Popup
-                      trigger={<Icon name='info circle' />}
-                      position='top center'
-                      content={(
-                        <span className='text-center'>
-                          If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
-                        </span>
-                      )}
-                    />
-                  </label>
-                  <Form.Input
-                    name='projectURL'
-                    type='url'
-                    placeholder='Enter project URL...'
-                    onChange={(e) => setProjURL(e.target.value)}
-                    value={projURL}
-                    id='projectURL'
-                  />
-                </Form.Field>
+                {
+                  !projURL && !project.didCreateWorkbench && (
+                    <>
+                      <Form.Field>
+                      <label htmlFor='projectURL'>
+                        <span className='mr-05p'>Project URL <span className='muted-text'>(if applicable)</span></span>
+                        <Popup
+                          trigger={<Icon name='info circle' />}
+                          position='top center'
+                          content={(
+                            <span className='text-center'>
+                              If a LibreText URL is entered, the Library, ID, and Bookshelf or Campus will be automatically retrieved.
+                            </span>
+                          )}
+                        />
+                      </label>
+                      <Form.Input
+                        name='projectURL'
+                        type='url'
+                        placeholder='Enter project URL...'
+                        onChange={(e) => setProjURL(e.target.value)}
+                        value={projURL}
+                        id='projectURL'
+                      />
+                      </Form.Field>
+                      <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>Create Book</Button>
+                      </>
+                  )
+                }
+                {
+                  project.didCreateWorkbench && (
+                    <BookCreatedLabel />
+                  )
+                }
                 <Form.Dropdown
                   label='Project Tags'
                   placeholder='Search tags...'
@@ -3167,11 +3195,19 @@ const ProjectView = (props) => {
           {/* Manage Reader Resources */}
           {
             project.projectID  && (
-              <ReaderResourcesManager
-                projectID={project.projectID}
-                show={showReaderResourcesModal}
-                onClose={handleCloseReaderResourcesModal}
-              />
+              <>
+                <ReaderResourcesManager
+                  projectID={project.projectID}
+                  show={showReaderResourcesModal}
+                  onClose={handleCloseReaderResourcesModal}
+                />
+                <CreateWorkbenchModal
+                  open={showCreateWorkbenchModal}
+                  projectID={project.projectID}
+                  onClose={() => setShowCreateWorkbenchModal(false)}
+                  onSuccess={() => window.location.reload()}
+                  />
+              </>
             )
           }
         </Grid.Column>

@@ -21,3 +21,7 @@ export async function pinProject(projectID: string) {
     return false;
   }
 }
+
+export function buildWorkbenchURL(libreLibrary: string, libreCoverID: string) {
+  return `https://${libreLibrary}.libretexts.org/@go/page/${libreCoverID}`;
+}
