@@ -163,6 +163,31 @@ function checkCentralIdentityConfig(
   });
 }
 
+/**
+ * Checks if a request passes a LibreOne API key check and is from a LibreTexts domain.
+ * 
+ * @param {express.Request} req 
+ * @param {express.Response} res 
+ * @param {express.NextFunction} next 
+ * @returns {express.NextFunction|express.Response}
+ */
+function authLibreOneRequest(req: Request, res: Response, next: NextFunction) {
+  const requestKey = req.get("Authorization")?.replace("Bearer ", "");
+  if (!requestKey) return res.status(401).send("Unauthorized");
+  const validKey =
+    process.env.LIBREONE_API_KEY && requestKey === process.env.LIBREONE_API_KEY;
+  if (!validKey) return res.status(401).send("Unauthorized");
+
+  // Must originate from a LibreTexts domain in production
+  if (
+    process.env.NODE_ENV !== "development" &&
+    (!req.get("origin") || !req.get("origin")?.endsWith("libretexts.org"))
+  ) {
+    return res.status(403).send("Forbidden");
+  }
+  next();
+}
+
 const validateZod = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -192,5 +217,6 @@ export default {
   requestSecurityHelper,
   middlewareFilter,
   checkCentralIdentityConfig,
+  authLibreOneRequest,
   validateZod,
 };

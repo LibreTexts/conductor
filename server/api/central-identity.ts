@@ -1,12 +1,13 @@
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { param, body } from "express-validator";
 import {
   CentralIdentityOrg,
   CentralIdentityService,
   CentralIdentitySystem,
   CentralIdentityUser,
+  TypedReqBody,
   TypedReqParams,
   TypedReqParamsAndBody,
   TypedReqQuery,
@@ -28,6 +29,10 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "../types";
 import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
+import User from "../models/user.js";
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+import { LibraryAccessWebhookValidator, NewUserWebhookValidator } from "./validators/central-identity.js";
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -597,7 +602,7 @@ async function updateVerificationRequest(
     }
 
     return res.send({
-      err: false
+      err: false,
     });
   } catch (err) {
     debugError(err);
@@ -607,6 +612,64 @@ async function updateVerificationRequest(
 
 function validateVerificationRequestStatus(raw: string): boolean {
   return isCentralIdentityVerificationRequestStatus(raw);
+}
+
+async function processNewUserWebhookEvent(
+  req: z.infer<typeof NewUserWebhookValidator>,
+  res: Response
+) {
+  try {
+    const { central_identity_id, first_name, last_name, email, avatar } =
+      req.body;
+
+    const existUser = await User.findOne({ $or: [{ email }, { centralID: central_identity_id }] });
+    if (existUser) {
+      return res.send({
+        err: false,
+        msg: "User already exists.",
+      });
+    }
+
+    // User doesn't exist locally, create them now
+    const newUser = new User({
+      centralID: central_identity_id,
+      uuid: uuidv4(),
+      firstName: first_name,
+      lastName: last_name,
+      email: email,
+      authType: "sso",
+      avatar: avatar || "https://cdn.libretexts.net/DefaultImages/avatar.png",
+      roles: [],
+      // Don't set user verification for now, if they just registered they won't be verified
+    });
+
+    await newUser.save();
+
+    return res.send({
+      err: false,
+      msg: "User successfully created.",
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function processLibraryAccessWebhookEvent(
+  req: z.infer<typeof LibraryAccessWebhookValidator>,
+  res: Response
+) {
+  try {
+    const { central_identity_id, library } = req.body;
+    console.log(central_identity_id, library);
+    return res.send({
+      err: false,
+      msg: "User successfully created.",
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
 }
 
 /**
@@ -697,5 +760,7 @@ export default {
   getVerificationRequest,
   updateVerificationRequest,
   updateUser,
+  processNewUserWebhookEvent,
+  processLibraryAccessWebhookEvent,
   validate,
 };
