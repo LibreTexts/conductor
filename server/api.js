@@ -36,7 +36,6 @@ import kbAPI from './api/kb.js';
 import supportAPI from './api/support.js';
 
 import * as centralIdentityValidators from './api/validators/central-identity.js';
-import * as centralIdentityValidators from './api/validators/central-identity.js';
 import * as kbValidators from './api/validators/kb.js';
 import * as supportValidators from './api/validators/support.js';
 
