@@ -1362,7 +1362,7 @@ async function getCatalogFilterOptions(_req: Request, res: Response) {
 }
 
 /**
- * Creates a new book with default features in a user's sandbox.
+ * Creates a new book with default features in a library Workbench area.
  *
  * @param {express.Request} req - Incoming request.
  * @param {express.Response} res - Outgoing response.
@@ -1380,7 +1380,13 @@ async function createBook(
 
     const subdomain = getSubdomainFromLibrary(library);
     if(!subdomain) {
-      throw new Error("Invalid library");
+      throw new Error("badlibrary");
+    }
+
+    // Check project permissions
+    const canCreate = projectsAPI.checkProjectMemberPermission(project, user)
+    if(!canCreate) {
+      throw new Error(conductorErrors.err8);
     }
 
     // Create book coverpage
@@ -1502,6 +1508,12 @@ async function createBook(
       url: bookURL,
     });
   } catch (err: any) {
+    if(err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
     debugError(err);
     if(err.name === "CreateBookError") {
       return res.status(400).send({

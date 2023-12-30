@@ -89,7 +89,7 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
-import { buildWorbenchURL } from '../../utils/projectHelpers';
+import { buildWorkbenchURL } from '../../utils/projectHelpers';
 const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -1768,6 +1768,12 @@ const ProjectView = (props) => {
     }
   };
 
+  const BookCreatedLabel = () => {
+    return (
+      <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildWorkbenchURL(project.libreLibrary, project.libreCoverID))}>Book created <Icon name='external' className='!ml-1'/></Label>
+    )
+  }
+
   const renderTeamList = (projData, showAll) => {
     const transformMembers = (role, roleDisplay) => (item) => ({
       ...item,
@@ -2117,6 +2123,11 @@ const ProjectView = (props) => {
                                 })}
                               </Label.Group>
                             </div>
+                          }
+                          {
+                            project.didCreateWorkbench && (
+                              <BookCreatedLabel />
+                            )
                           }
                           {project.hasCommonsBook && (
                             <div className="mt-1e">
@@ -2696,13 +2707,13 @@ const ProjectView = (props) => {
                         id='projectURL'
                       />
                       </Form.Field>
-                      <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>New Book</Button>
+                      <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>Create Book</Button>
                       </>
                   )
                 }
                 {
                   project.didCreateWorkbench && (
-                    <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildWorbenchURL(project.libreLibrary, project.libreCoverID))}>Workbench created <Icon name='external' className='!ml-1'/></Label>
+                    <BookCreatedLabel />
                   )
                 }
                 <Form.Dropdown

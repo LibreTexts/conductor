@@ -10,6 +10,7 @@ import {
 } from "../types";
 import { createHmac } from "crypto";
 import CXOne from "./CXOne/index.js";
+import { libraryNameKeys, libraryNameKeysWDev } from "./librariesmap.js";
 
 export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient | null> {
   try {
@@ -158,11 +159,9 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         const queryIsFirst = api?.includes("?") ? false : true;
         const url = `https://${subdomain}.libretexts.org/@api/deki/users/${
           isNumber ? "" : "="
-        }${encodeURIComponent(encodeURIComponent(path))}/${api ? api : ""}${_parseQuery(
-          query,
-          queryIsFirst
-        )}`;
-        console.log(url)
+        }${encodeURIComponent(encodeURIComponent(path))}/${
+          api ? api : ""
+        }${_parseQuery(query, queryIsFirst)}`;
         request = fetch(url, finalOptions);
       } else {
         request = fetch(
@@ -323,10 +322,10 @@ export async function getLibreBotUserId(
     const res = await CXOneFetch({
       scope: "users",
       subdomain,
-      path: "LibreBot",
+      path: process.env.CXONE_API_USERNAME || "LibreBot",
       query: {
-        "dream.out.format": "json"
-      }
+        "dream.out.format": "json",
+      },
     });
     const raw = await res.json();
     return raw["@id"]?.toString() || null;
@@ -365,6 +364,9 @@ export async function getLibUsers(subdomain: string): Promise<CXOneUser[]> {
     const res = await CXOneFetch({
       scope: "users",
       subdomain,
+      query: {
+        limit: "all",
+      },
     });
 
     const raw = await res.json();
@@ -460,13 +462,6 @@ export const generateChapterOnePath = (bookPath: string): string => {
 };
 
 export const getSubdomainFromLibrary = (library: string): string | null => {
-  // TODO: get full list
-  if (library === "chem") return "chem";
-  if (library === "phys") return "phys";
-  if (library === "bio") return "bio";
-  if (library === "eng") return "eng";
-  if (library === "math") return "math";
-  if (library === "stats") return "stats";
-  if (library === "dev") return "dev";
+  if (libraryNameKeysWDev.includes(library)) return library;
   return null;
 };

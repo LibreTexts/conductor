@@ -294,7 +294,7 @@ export function getPaginationOffset(page, offsetMultiplier = 25) {
  * @param {string} url
  * @returns {string[]}
  */
-export function parseURL(url) {
+export function parseLibreTextsURL(url) {
   if (url.includes('?')) //strips any query parameters
       url = url.split('?')[0];
   if (url && url.match(/https?:\/\/.*?\.libretexts\.org/)) {

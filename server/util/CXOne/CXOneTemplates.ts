@@ -18,7 +18,7 @@ const CXOneTemplates = {
       </grant>
     </grants.added>
   </security>`,
-  PUT_TeamAsContributors: (userIDs: string[]) =>
+  PUT_TeamAsContributors: (userIDs: string[], libreBotID: string) =>
     `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
@@ -26,7 +26,7 @@ const CXOneTemplates = {
     <grants>
     <grant>
       <permissions><role>Manager</role></permissions>
-      <user id="15"></user>
+      <user id="${libreBotID}"></user>
     </grant>
     ${userIDs.map((userID) => {
       return `<grant>

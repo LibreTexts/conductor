@@ -658,7 +658,7 @@ export async function checkIfBookLinkedToProject(libreLibrary, libreCoverID) {
 export async function updateTeamWorkbenchPermissions(projectID, subdomain, coverID) {
   try {
     if (!projectID) {
-      throw new Error("Invalid projectID passed to addTeamToWorkbench");
+      throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
     }
 
     const project = await Project.findOne({ projectID }).orFail();
@@ -685,10 +685,9 @@ export async function updateTeamWorkbenchPermissions(projectID, subdomain, cover
     );
 
     const body = MindTouch.Templates.PUT_TeamAsContributors(
-      foundUsers.map((u) => u.id)
+      foundUsers.map((u) => u.id),
+      libreBotID
     );
-
-    console.log(body)
 
     const permsRes = await CXOneFetch({
       scope: "page",
@@ -710,6 +709,7 @@ export async function updateTeamWorkbenchPermissions(projectID, subdomain, cover
         `Error updating permissions for Workbench book: "${title}"`
       );
     }
+    return true;
   } catch (err) {
     debugError(err);
     return false;

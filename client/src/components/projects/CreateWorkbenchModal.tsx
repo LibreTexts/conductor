@@ -71,7 +71,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   }
   return (
     <Modal size="fullscreen" {...rest}>
-      <Modal.Header>Create Workbench</Modal.Header>
+      <Modal.Header>Create Book</Modal.Header>
       <Modal.Content>
         <Form
           onSubmit={(e) => {
@@ -122,14 +122,14 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
             <CtlTextInput
               control={control}
               name="title"
-              label="Workbench Title"
-              placeholder="Enter Workbench Title"
+              label="Book Title"
+              placeholder="Enter Book Title"
               required
               rules={required}
             />
           </div>
           <p>
-            <strong>CAUTION:</strong> Library cannot be changed after Workbench
+            <strong>CAUTION:</strong> Library cannot be changed after Book
             is created. Please check your selection before submitting.
           </p>
         </Form>
