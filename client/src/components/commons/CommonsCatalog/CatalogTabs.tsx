@@ -9,13 +9,18 @@ import { Tab, TabProps, Menu, Label, Icon } from "semantic-ui-react";
 import CatalogBookTab from "./CatalogBookTab";
 import CatalogAssetTab from "./CatalogAssetTab";
 import CatalogProjectTab from "./CatalogProjectTab";
+import { AssetFilters, BookFilters } from "../../../types";
 
 interface CatalogTabsProps extends TabProps {
   searchString: string;
+  assetFilters: AssetFilters;
+  bookFilters: BookFilters;
+  strictMode: boolean;
 }
 
 type CatalogTabsRef = {
   getActiveTab: () => "books" | "assets" | "projects";
+  setActiveTab: (tab: "books" | "assets" | "projects") => void;
   loadInitialCatalogs: () => void;
   runSearch: () => void;
   resetSearch: () => void;
@@ -27,7 +32,7 @@ const CatalogTabs = forwardRef(
     const [booksCount, setBooksCount] = useState<number | null>(null);
     const [assetsCount, setAssetsCount] = useState<number | null>(null);
     const [projectsCount, setProjectsCount] = useState<number | null>(null);
-    const { searchString, paneProps, ...rest } = props;
+    const { searchString, paneProps, bookFilters, assetFilters, strictMode, ...rest } = props;
 
     const catalogBookTabRef =
       useRef<React.ElementRef<typeof CatalogBookTab>>(null);
@@ -39,6 +44,10 @@ const CatalogTabs = forwardRef(
     useImperativeHandle(ref, () => ({
       getActiveTab: () => {
         return computeActiveTabFromIDX(activeIndex);
+      },
+      setActiveTab: (tab: "books" | "assets" | "projects") => {
+        const idx = tab === "books" ? 0 : tab === "assets" ? 1 : 2;
+        setActiveIndex(idx);
       },
       loadInitialCatalogs: () => {
         catalogBookTabRef.current?.loadInitialCatalog();
@@ -76,7 +85,9 @@ const CatalogTabs = forwardRef(
             key={"books-tab"}
             searchString={searchString}
             countUpdate={setBooksCount}
+            bookFilters={bookFilters}
             ref={catalogBookTabRef}
+            strictMode={strictMode}
           />
         ),
       },
@@ -93,7 +104,9 @@ const CatalogTabs = forwardRef(
             key={"assets-tab"}
             searchString={searchString}
             countUpdate={setAssetsCount}
+            assetFilters={assetFilters}
             ref={catalogAssetTabRef}
+            strictMode={strictMode}
           />
         ),
       },

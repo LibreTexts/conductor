@@ -11,7 +11,7 @@ import { ZodReqWithOptionalUser } from "../types/Express.js";
 import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { FileInterface } from "../models/file.js";
-import { z } from "zod";
+import { string, z } from "zod";
 import AssetTag from "../models/assettag.js";
 import { getSchemaWithDefaults } from "../util/typeHelpers.js";
 import {
@@ -1005,13 +1005,13 @@ async function getAutocompleteResults(
     const query = req.query.query;
     const limit = req.query.limit || 5;
 
-    const projectPromise = Project.aggregate([
+    const tagsResults = await AssetTag.aggregate([
       {
         $search: {
-          index: "project-title-search",
+          index: "asset-tags-autocomplete",
           autocomplete: {
             query: query,
-            path: "title",
+            path: "value",
             fuzzy: {
               maxEdits: 2,
             },
@@ -1019,107 +1019,41 @@ async function getAutocompleteResults(
         },
       },
       {
-        $match: {
-          visibility: "public",
-        },
-      },
-      {
         $project: {
           _id: 0,
-          title: 1,
+          value: 1,
         },
       },
       {
         $sort: {
-          name: 1,
+          value: 1,
         },
       },
     ]).limit(limit);
 
-    const projectFilePromise = Project.aggregate([
-      {
-        $search: {
-          index: "project-file-name-search",
-          embeddedDocument: {
-            path: "files",
-            operator: {
-              autocomplete: {
-                query: query,
-                path: "files.name",
-                fuzzy: {
-                  maxEdits: 2,
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          visibility: "public",
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          files: 1,
-        },
-      },
-      {
-        $unwind: {
-          path: "$files",
-        },
-      },
-      {
-        $match: {
-          "files.access": "public",
-        },
-      },
-      {
-        $project: {
-          name: "$files.name",
-        },
-      },
-      {
-        $sort: {
-          name: 1,
-        },
-      },
-    ]).limit(limit);
+    const values = tagsResults.map((tag) => tag.value);
+    const reduced = values.reduce((acc, val) => {
+      if (val instanceof Array) {
+        val.forEach((v) => {
+          acc.push(v);
+        });
+      } else {
+        acc.push(val);
+      }
+      return acc;
+    }, [])
 
-    const allResults = await Promise.all([projectPromise, projectFilePromise]);
-    const projectResults = allResults[0];
-    const projectFileResults = allResults[1];
-
-    const projectResultsReduced: string[] = projectResults.reduce(
-      (acc, curr) => {
-        acc.push(curr.title);
-        return acc;
-      },
-      []
-    );
-
-    const projectFileResultsReduced: string[] = projectFileResults.reduce(
-      (acc, curr) => {
-        acc.push(curr.name);
-        return acc;
-      },
-      []
-    );
-
-    const results = [...projectResultsReduced, ...projectFileResultsReduced];
-    results.sort((a, b) => {
-      const aData = _transformToCompare(a);
-      const bData = _transformToCompare(b);
-      if (aData < bData) return -1;
-      if (aData > bData) return 1;
-      return 0;
-    });
+    const uniqueValues = [...new Set<string>(reduced)];
+    
+    // Filter out values that are less than 3 characters
+    const filtered = uniqueValues.filter((val) => {
+      return val.length > 3;
+    })
 
     return res.send({
       err: false,
-      numResults: results.length,
-      results: results.slice(0, limit),
+      numResults: tagsResults.length,
+      results: filtered,
     });
   } catch (err) {
     debugError(err);

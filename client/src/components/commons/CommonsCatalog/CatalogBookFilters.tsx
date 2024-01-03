@@ -249,7 +249,7 @@ const CatalogBookFilters = forwardRef(
         aria-busy={loading}
         className="flex flex-row w-full justify-between items-center"
       >
-        <div className="flex flex-row mt-2 mb-4 mx-2 flex-wrap items-center gap-y-2 ">
+        <div className="flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 ">
           <Dropdown
             text={
               selectedFilters.bookLibrary
@@ -520,40 +520,7 @@ const CatalogBookFilters = forwardRef(
               ))}
             </Dropdown.Menu>
           </Dropdown>
-          {/* {Object.entries(selectedFilters).map(([key, val]) => (
-            <Button
-              key={key}
-              circular
-              className="!ml-2"
-              onClick={() => {
-                const newFilters = { ...selectedFilters };
-                delete newFilters[key as keyof BookFilters];
-                setSelectedFilters(newFilters);
-              }}
-            >
-              <Icon name="x" />
-              {getFilterText(key)}: {val}
-            </Button>
-          ))} */}
-          <Checkbox
-            label="Strict Search"
-            className="!font-semibold ml-2"
-            toggle
-            checked={props.strictMode}
-            onChange={() =>
-              props.onStrictModeChange &&
-              props.onStrictModeChange(!props.strictMode)
-            }
-          />
         </div>
-        {Object.keys(selectedFilters).length > 0 && (
-          <p
-            className="underline cursor-pointer ml-2"
-            onClick={() => setSelectedFilters({})}
-          >
-            Clear All
-          </p>
-        )}
       </div>
     );
   }
