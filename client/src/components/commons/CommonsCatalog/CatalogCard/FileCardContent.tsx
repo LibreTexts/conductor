@@ -1,10 +1,10 @@
 import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
-import { ProjectFile } from "../../../../types";
+import { ProjectFile, ProjectFileWProjectIDAndTitle } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFile;
+  file: ProjectFileWProjectIDAndTitle;
 }
 
 const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
@@ -53,13 +53,18 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {file.author ? file.author.name : "Unknown Author"}
       </Card.Meta>
       <Card.Meta>
+        <Icon name="clipboard list" color="blue" />{" "}
+        {file.projectTitle ? truncateString(file.projectTitle, 30) : "Unknown Project"}
+      </Card.Meta>
+      <Card.Meta>
         <Icon name="legal" color="blue" />{" "}
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
         {file.license?.version ? `(${file.license.version})` : ""}
       </Card.Meta>
       {!file.isURL && file.storageType === "file" && (
         <Card.Meta>
-          <Icon name="file alternate outline" color="blue" /> {truncateString(file.mimeType ?? '', 30)}
+          <Icon name="file alternate outline" color="blue" />{" "}
+          {truncateString(file.mimeType ?? "", 30)}
         </Card.Meta>
       )}
       <Card.Description className="overflow-hidden">

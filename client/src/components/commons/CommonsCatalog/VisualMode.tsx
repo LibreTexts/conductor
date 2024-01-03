@@ -1,4 +1,4 @@
-import { Book, Project, ProjectFileWProjectID } from "../../../types";
+import { Book, Project, ProjectFileWProjectID, ProjectFileWProjectIDAndTitle } from "../../../types";
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
@@ -7,7 +7,7 @@ const VisualMode = ({
   items,
   loading,
 }: {
-  items: (Book | ProjectFileWProjectID | Project)[];
+  items: (Book | ProjectFileWProjectIDAndTitle | Project)[];
   loading?: boolean;
 }) => {
   if (items.length > 0) {

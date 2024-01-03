@@ -59,6 +59,7 @@ export type ProjectFile = {
 };
 
 export type ProjectFileWProjectID = ProjectFile & { projectID: string };
+export type ProjectFileWProjectIDAndTitle = ProjectFileWProjectID & { projectTitle: string };
 
 export enum ProjectStatus {
     AVAILABLE = 'available',
