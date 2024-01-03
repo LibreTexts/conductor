@@ -18,6 +18,8 @@ import useGlobalError from "../../error/ErrorHooks";
 interface CatalogBookTabProps extends TabPaneProps {
   searchString: string;
   countUpdate?: (newCount: number) => void;
+  bookFilters: BookFilters;
+  strictMode: boolean;
 }
 
 type CatalogBookTabRef = {
@@ -28,7 +30,8 @@ type CatalogBookTabRef = {
 
 const CatalogBookTab = forwardRef(
   (props: CatalogBookTabProps, ref: ForwardedRef<CatalogBookTabRef>) => {
-    const { countUpdate, searchString, ...rest } = props;
+    const { countUpdate, searchString, bookFilters, strictMode, ...rest } =
+      props;
     const { handleGlobalError } = useGlobalError();
     const catalogBookFiltersRef =
       useRef<React.ElementRef<typeof CatalogBookFilters>>(null);
@@ -37,9 +40,7 @@ const CatalogBookTab = forwardRef(
     const [activePage, setActivePage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12);
     const [booksTotal, setBooksTotal] = useState(0);
-    const [strictMode, setStrictMode] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [selectedFilters, setSelectedFilters] = useState<BookFilters>({});
 
     useImperativeHandle(ref, () => ({
       loadInitialCatalog: () => {
@@ -51,8 +52,7 @@ const CatalogBookTab = forwardRef(
       },
       resetSearch: () => {
         setActivePage(1); // reset page
-        setSelectedFilters({});
-        setStrictMode(false);
+        setBooks([]);
         loadCommonsCatalog();
       },
     }));
@@ -68,8 +68,8 @@ const CatalogBookTab = forwardRef(
     }, [booksTotal]);
 
     const isInitialSearch = useMemo(() => {
-      return searchString === "" && Object.keys(selectedFilters).length === 0;
-    }, [searchString, selectedFilters]);
+      return searchString === "" && Object.keys(bookFilters).length === 0;
+    }, [searchString, bookFilters]);
 
     useEffect(() => {
       if (isInitialSearch) {
@@ -77,7 +77,7 @@ const CatalogBookTab = forwardRef(
       } else {
         handleSearch();
       }
-    }, [activePage, itemsPerPage, selectedFilters, strictMode]);
+    }, [activePage]);
 
     async function loadCommonsCatalog() {
       try {
@@ -112,7 +112,7 @@ const CatalogBookTab = forwardRef(
           strictMode,
           page: activePage,
           limit: itemsPerPage,
-          ...selectedFilters,
+          ...bookFilters,
         });
 
         if (res.data.err) {
@@ -124,7 +124,7 @@ const CatalogBookTab = forwardRef(
         }
 
         if (Array.isArray(res.data.results)) {
-          setBooks(res.data.results);
+          setBooks([...books, ...res.data.results]);
         }
 
         if (typeof res.data.numResults === "number") {
@@ -144,13 +144,13 @@ const CatalogBookTab = forwardRef(
         className="!border-none !shadow-none !px-0 !pt-0 !rounded-md"
         {...rest}
       >
-        <CatalogBookFilters
+        {/* <CatalogBookFilters
           ref={catalogBookFiltersRef}
           selectedFilters={selectedFilters}
           setSelectedFilters={(filters) => setSelectedFilters(filters)}
           strictMode={strictMode}
           onStrictModeChange={(mode) => setStrictMode(mode)}
-        />
+        /> */}
         <InfiniteScroll
           dataLength={books.length}
           next={() => setActivePage(activePage + 1)}

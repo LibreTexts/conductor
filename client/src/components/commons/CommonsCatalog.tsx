@@ -1,11 +1,13 @@
 import "./Commons.css";
 import { Grid, Segment, Header, Form, Dropdown } from "semantic-ui-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, useMemo } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import api from "../../api";
 import useDebounce from "../../hooks/useDebounce";
 import { truncateString } from "../util/HelperFunctions";
+import AdvancedSearchModal from "./AdvancedSearchModal";
+import { AssetFilters, BookFilters } from "../../types";
 
 const CommonsCatalog = () => {
   // Global State and Location/History
@@ -17,8 +19,16 @@ const CommonsCatalog = () => {
   const [searchString, setSearchString] = useState<string>("");
   const [searchStringToSend, setSearchStringToSend] = useState<string>("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showAdvancedSearchModal, setShowAdvancedSearchModal] =
+    useState<boolean>(false);
   const [didAutocompleteSearch, setDidAutocompleteSearch] =
     useState<boolean>(false); // Prevents autocomplete from showing up after user has already searched
+  const [searchResourceType, setSearchResourceType] = useState<
+    "books" | "assets" | "projects"
+  >("books"); // 'books' or 'assets'
+  const [bookFilters, setBookFilters] = useState<BookFilters>({});
+  const [assetFilters, setAssetFilters] = useState<AssetFilters>({});
+  const [strictMode, setStrictMode] = useState(false);
 
   useEffect(() => {
     catalogTabsRef.current?.loadInitialCatalogs();
@@ -47,7 +57,7 @@ const CommonsCatalog = () => {
 
   const getAutoCompleteDebounced = debounce(
     (query: string) => getAutocompleteSuggestions(query),
-    100
+    75
   );
 
   async function getAutocompleteSuggestions(query: string) {
@@ -59,7 +69,7 @@ const CommonsCatalog = () => {
       if (!res.data.results || !Array.isArray(res.data.results)) {
         throw new Error("Invalid response from server");
       }
-      
+
       setSuggestions(res.data.results);
     } catch (err) {
       console.log(err);
@@ -79,13 +89,26 @@ const CommonsCatalog = () => {
     setSearchStringToSend("");
     setSuggestions([]);
     setDidAutocompleteSearch(false);
+    setBookFilters({});
+    setAssetFilters({});
     catalogTabsRef.current?.resetSearch();
   };
 
   const handleSubmitSearch = () => {
     setSearchStringToSend(searchString);
     catalogTabsRef.current?.runSearch();
+    if (searchResourceType) {
+      catalogTabsRef.current?.setActiveTab(searchResourceType);
+    }
   };
+
+  const isInitialSearch = useMemo(() => {
+    return (
+      searchString === "" &&
+      Object.keys(bookFilters).length === 0 &&
+      Object.keys(assetFilters).length === 0
+    );
+  }, [searchString, bookFilters, assetFilters]);
 
   return (
     <Grid className="commons-container">
@@ -138,6 +161,8 @@ const CommonsCatalog = () => {
                         color: "blue",
                         onClick: handleSubmitSearch,
                       }}
+                      onFocus={() => setDidAutocompleteSearch(false)}
+                      onBlur={() => setDidAutocompleteSearch(true)}
                     />
                     {!didAutocompleteSearch && suggestions.length > 0 && (
                       <div className="py-2 border rounded-md shadow-md">
@@ -146,6 +171,7 @@ const CommonsCatalog = () => {
                             <p
                               className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
                               onClick={() => handleSelectSuggestion(suggestion)}
+                              key={crypto.randomUUID()}
                             >
                               {truncateString(suggestion, 100)}
                             </p>
@@ -156,20 +182,46 @@ const CommonsCatalog = () => {
                   </div>
                 </Form>
                 <p
-                  className="underline cursor-pointer text-center mt-4"
-                  onClick={handleResetSearch}
+                  className="text-primary font-semibold cursor-pointer text-center mt-4 hover:underline"
+                  onClick={() => setShowAdvancedSearchModal(true)}
                 >
-                  Reset Search
+                  Advanced Search
                 </p>
+                {!isInitialSearch && (
+                  <p
+                    className="italic font-semibold cursor-pointer underline text-center mt-2"
+                    onClick={handleResetSearch}
+                  >
+                    Clear Filters
+                  </p>
+                )}
               </div>
               <CatalogTabs
                 ref={catalogTabsRef}
                 searchString={searchStringToSend}
+                assetFilters={assetFilters}
+                bookFilters={bookFilters}
+                strictMode={strictMode}
               />
             </Segment>
           </Segment.Group>
         </Grid.Column>
       </Grid.Row>
+      <AdvancedSearchModal
+        show={showAdvancedSearchModal}
+        onClose={() => setShowAdvancedSearchModal(false)}
+        searchString={searchString}
+        setSearchString={setSearchString}
+        resourceType={searchResourceType}
+        setResourceType={setSearchResourceType}
+        submitSearch={handleSubmitSearch}
+        bookFilters={bookFilters}
+        setBookFilters={setBookFilters}
+        assetFilters={assetFilters}
+        setAssetFilters={setAssetFilters}
+        strictMode={strictMode}
+        setStrictMode={setStrictMode}
+      />
     </Grid>
   );
 };

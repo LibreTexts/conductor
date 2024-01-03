@@ -18,6 +18,8 @@ import api from "../../../api";
 interface CatalogAssetTab extends TabPaneProps {
   searchString: string;
   countUpdate?: (newCount: number) => void;
+  assetFilters: AssetFilters;
+  strictMode: boolean;
 }
 
 type CatalogAssetTabRef = {
@@ -28,7 +30,8 @@ type CatalogAssetTabRef = {
 
 const CatalogAssetTab = forwardRef(
   (props: CatalogAssetTab, ref: ForwardedRef<CatalogAssetTabRef>) => {
-    const { countUpdate, searchString, ...rest } = props;
+    const { countUpdate, searchString, assetFilters, strictMode, ...rest } =
+      props;
 
     const { handleGlobalError } = useGlobalError();
     const catalogAssetFiltersRef =
@@ -38,9 +41,7 @@ const CatalogAssetTab = forwardRef(
     const [activePage, setActivePage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12);
     const [filesTotal, setFilesTotal] = useState(0);
-    const [strictMode, setStrictMode] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [selectedFilters, setSelectedFilters] = useState<AssetFilters>({});
 
     useImperativeHandle(ref, () => ({
       loadInitialCatalog: () => {
@@ -52,8 +53,7 @@ const CatalogAssetTab = forwardRef(
       },
       resetSearch: () => {
         setActivePage(1); // reset page
-        setSelectedFilters({});
-        setStrictMode(false);
+        setFiles([]);
         loadPublicAssets();
       },
     }));
@@ -69,8 +69,8 @@ const CatalogAssetTab = forwardRef(
     }, [filesTotal]);
 
     const isInitialSearch = useMemo(() => {
-      return searchString === "" && Object.keys(selectedFilters).length === 0;
-    }, [searchString, selectedFilters]);
+      return searchString === "" && Object.keys(assetFilters).length === 0;
+    }, [searchString, assetFilters]);
 
     useEffect(() => {
       if (isInitialSearch) {
@@ -78,7 +78,7 @@ const CatalogAssetTab = forwardRef(
       } else {
         handleSearch();
       }
-    }, [activePage, itemsPerPage, selectedFilters, strictMode]);
+    }, [activePage]);
 
     async function loadPublicAssets() {
       try {
@@ -114,7 +114,7 @@ const CatalogAssetTab = forwardRef(
           strictMode,
           page: activePage,
           limit: itemsPerPage,
-          ...selectedFilters,
+          ...assetFilters,
         });
 
         if (res.data.err) {
@@ -126,7 +126,7 @@ const CatalogAssetTab = forwardRef(
         }
 
         if (Array.isArray(res.data.results)) {
-          setFiles(res.data.results);
+          setFiles([...files, ...res.data.results]);
         }
         if (typeof res.data.numResults === "number") {
           setFilesTotal(res.data.numResults);
@@ -145,13 +145,13 @@ const CatalogAssetTab = forwardRef(
         className="!border-none !shadow-none !px-0 !pt-0 !rounded-md"
         {...rest}
       >
-        <CatalogAssetFilters
+        {/* <CatalogAssetFilters
           ref={catalogAssetFiltersRef}
           selectedFilters={selectedFilters}
           setSelectedFilters={(filters) => setSelectedFilters(filters)}
           strictMode={strictMode}
           onStrictModeChange={(mode) => setStrictMode(mode)}
-        />
+        /> */}
         <InfiniteScroll
           dataLength={files.length}
           next={() => setActivePage(activePage + 1)}

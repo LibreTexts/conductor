@@ -179,7 +179,7 @@ const CatalogAssetFilters = forwardRef(
         aria-busy={loading}
         className="flex flex-row w-full justify-between items-center"
       >
-        <div className="flex flex-row my-4 mx-2 flex-wrap items-center gap-y-2">
+        <div className="flex flex-row my-4 flex-wrap items-center gap-y-2">
           <Dropdown
             text={`License ${selectedFilters.license ? " - " : ""}${
               selectedFilters.license ?? ""
@@ -266,25 +266,7 @@ const CatalogAssetFilters = forwardRef(
               ))}
             </Dropdown.Menu>
           </Dropdown>
-          <Checkbox
-            label="Strict Search"
-            className="!font-semibold ml-2"
-            toggle
-            checked={props.strictMode}
-            onChange={() =>
-              props.onStrictModeChange &&
-              props.onStrictModeChange(!props.strictMode)
-            }
-          />
         </div>
-        {Object.keys(selectedFilters).length > 0 && (
-          <p
-            className="underline cursor-pointer mr-2"
-            onClick={() => setSelectedFilters({})}
-          >
-            Clear All
-          </p>
-        )}
       </div>
     );
   }
