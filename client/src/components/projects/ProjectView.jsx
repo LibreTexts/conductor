@@ -89,7 +89,7 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
-import { buildWorkbenchURL } from '../../utils/projectHelpers';
+import { buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
 const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -1713,6 +1713,14 @@ const ProjectView = (props) => {
     setShowReaderResourcesModal(false);
   }
 
+  function handleGoToRemixer() {
+    if(project.libreLibrary){
+      window.open(buildRemixerURL(project.libreLibrary));
+    } else {
+      window.open(buildRemixerURL('chem'));
+    }
+  }
+
   // Rendering Helper Booleans
   const hasResourceInfo = project.author || project.license || project.resourceURL;
   const hasNotes = project.notes && !isEmptyString(project.notes);
@@ -1981,6 +1989,7 @@ const ProjectView = (props) => {
                       <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                         <Dropdown.Menu>
                           {userProjectMember && (
+                            <>
                             <Dropdown.Item
                               icon={hasFlag ? (
                                 <Icon.Group className='icon'>
@@ -1996,6 +2005,12 @@ const ProjectView = (props) => {
                                 else openFlagModal('set')
                               }}
                             />
+                            <Dropdown.Item
+                              icon={<Icon name='sitemap' />}
+                              text='OER Remixer'
+                              onClick={handleGoToRemixer}
+                            />
+                            </>
                           )}
                           {!userProjectMember && (
                             <Dropdown.Item text={<span><em>No actions available.</em></span>} />

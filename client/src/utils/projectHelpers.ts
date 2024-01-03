@@ -25,3 +25,7 @@ export async function pinProject(projectID: string) {
 export function buildWorkbenchURL(libreLibrary: string, libreCoverID: string) {
   return `https://${libreLibrary}.libretexts.org/@go/page/${libreCoverID}`;
 }
+
+export function buildRemixerURL(libreLibrary: string) {
+  return `https://${libreLibrary}.libretexts.org/Under_Construction/Development_Details/OER_Remixer`;
+}
