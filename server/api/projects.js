@@ -1365,7 +1365,9 @@ async function getPublicProjects(req, res) {
 
     const projects = await Project.find({
       visibility: "public",
-    }).lean();
+    }).select({
+      notes: 0, leads: 0 , liaisons: 0, members: 0, auditors: 0, a11yReview: 0, flag: 0, flagDescrip: 0
+    }).lean().exec();
 
     const totalCount = projects.length;
     const paginatedProjects = projects.slice(offset, offset + limit);
