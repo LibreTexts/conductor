@@ -347,6 +347,7 @@ export async function assetsSearch(
         $project: {
           files: 1,
           projectID: 1,
+          title: 1,
           source: 1,
           score: { $meta: "searchScore" },
         },
@@ -366,6 +367,9 @@ export async function assetsSearch(
             $mergeObjects: [
               {
                 projectID: "$projectID",
+              },
+              {
+                projectTitle: "$title",
               },
               {
                 score: "$score",
@@ -534,6 +538,9 @@ export async function assetsSearch(
                   $mergeObjects: [
                     {
                       projectID: "$projectID",
+                    },
+                    {
+                      projectTitle: "$title",
                     },
                     "$files",
                   ],

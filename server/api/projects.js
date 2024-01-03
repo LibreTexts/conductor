@@ -3526,8 +3526,122 @@ async function getPublicProjectFiles(req, res) {
           },
         },
         {
+          $lookup: {
+            from: "fileassettags",
+            localField: "files._id",
+            foreignField: "fileID",
+            as: "tags",
+          },
+        },
+        {
+          $lookup: {
+            from: "assettags",
+            localField: "tags.tags",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $ne: ["isDeleted", true],
+                  },
+                },
+              },
+              {
+                $lookup: {
+                  from: "assettagframeworks",
+                  localField: "framework",
+                  foreignField: "_id",
+                  pipeline: [
+                    // Go through each template in framework and lookup key
+                    {
+                      $unwind: {
+                        path: "$templates",
+                        preserveNullAndEmptyArrays: true,
+                      },
+                    },
+                    {
+                      $lookup: {
+                        from: "assettagkeys",
+                        let: {
+                          key: "$templates.key",
+                        },
+                        pipeline: [
+                          {
+                            $match: {
+                              $expr: {
+                                $eq: ["$_id", "$$key"],
+                              },
+                            },
+                          },
+                        ],
+                        as: "key",
+                      },
+                    },
+                    {
+                      $set: {
+                        "templates.key": {
+                          $arrayElemAt: ["$key", 0],
+                        },
+                      },
+                    },
+                    {
+                      $group: {
+                        _id: "$_id",
+                        uuid: {
+                          $first: "$uuid",
+                        },
+                        name: {
+                          $first: "$name",
+                        },
+                        description: {
+                          $first: "$description",
+                        },
+                        enabled: {
+                          $first: "$enabled",
+                        },
+                        orgID: {
+                          $first: "$orgID",
+                        },
+                        templates: {
+                          $push: "$templates",
+                        },
+                      },
+                    },
+                  ],
+                  as: "framework",
+                },
+              },
+              {
+                $set: {
+                  framework: {
+                    $arrayElemAt: ["$framework", 0],
+                  },
+                },
+              },
+              {
+                $lookup: {
+                  from: "assettagkeys",
+                  localField: "key",
+                  foreignField: "_id",
+                  as: "key",
+                },
+              },
+              {
+                $set: {
+                  key: {
+                    $arrayElemAt: ["$key", 0],
+                  },
+                },
+              },
+            ],
+            as: "tags",
+          },
+        },
+        {
           $addFields: {
             "files.projectID": "$projectID",
+            "files.projectTitle": "$title",
+            "files.tags": "$tags",
           },
         },
         {

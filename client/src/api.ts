@@ -22,6 +22,7 @@ import {
 import {
   CIDDescriptor,
   ProjectFileWProjectID,
+  ProjectFileWProjectIDAndTitle,
   ProjectTag,
 } from "./types/Project";
 
@@ -356,7 +357,7 @@ class API {
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
-        files: ProjectFileWProjectID[];
+        files: ProjectFileWProjectIDAndTitle[];
         totalCount: number;
       } & ConductorBaseResponse
     >("/projects/files/public", {
