@@ -159,7 +159,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
 
   function handleResetDataItem(key: keyof CentralIdentityUser) {
     if (isCentralIdentityUserProperty(key) && userInitVal) {
-      reset({ [key]: userInitVal[key] });
+      setValue(key, userInitVal[key], { shouldDirty: false });
     }
   }
 
@@ -447,7 +447,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                             />
                             <Icon
                               name="close"
-                              onClick={() => {
+                              onClick={(e: any) => {
                                 setEditingVerifyStatus(false);
                                 handleResetDataItem("verify_status");
                               }}
