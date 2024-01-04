@@ -12,7 +12,6 @@ interface AssetTagBase {
   uuid: string;
   value?: AssetTagValue;
   framework?: string | AssetTagFramework;
-  isDeleted: boolean;
 }
 
 export interface AssetTag extends AssetTagBase {

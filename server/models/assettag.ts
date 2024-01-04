@@ -6,7 +6,6 @@ export interface AssetTagInterface extends Document {
   key: Types.ObjectId | AssetTagKeyInterface | string;
   value?: string | number | boolean | Date | string[];
   framework?: Types.ObjectId;
-  isDeleted: boolean;
 }
 
 const AssetTagSchema = new Schema<AssetTagInterface>({
@@ -26,12 +25,7 @@ const AssetTagSchema = new Schema<AssetTagInterface>({
     type: Schema.Types.ObjectId,
     ref: "AssetTagFramework",
     required: false,
-  },
-  isDeleted: {
-    type: Boolean,
-    required: true,
-    default: false,
-  },
+  }
 });
 
 const AssetTag = model<AssetTagInterface>("AssetTag", AssetTagSchema);

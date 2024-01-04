@@ -420,7 +420,6 @@ const EditFile: React.FC<EditFileProps> = ({
         key: key ?? "",
         value: value ?? "",
         framework: framework ?? undefined,
-        isDeleted: false,
       },
       { shouldFocus: false }
     );

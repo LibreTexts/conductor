@@ -394,13 +394,6 @@ export async function assetsSearch(
           foreignField: "_id",
           pipeline: [
             {
-              $match: {
-                $expr: {
-                  $ne: ["isDeleted", true],
-                },
-              },
-            },
-            {
               $lookup: {
                 from: "assettagframeworks",
                 localField: "framework",
@@ -588,14 +581,6 @@ export async function assetsSearch(
           localField: "tags.tags",
           foreignField: "_id",
           pipeline: [
-            {
-              //filter asset tags where isDeleted = true
-              $match: {
-                $expr: {
-                  $ne: ["isDeleted", true],
-                },
-              },
-            },
             {
               $lookup: {
                 from: "assettagframeworks",
