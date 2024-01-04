@@ -471,18 +471,19 @@ export async function retrieveAllProjectFiles(
           as: "files.tags",
         },
       },
-      {
-        //filter asset tags where isDeleted = true
-        $set: {
-          "files.tags": {
-            $filter: {
-              input: "$files.tags",
-              as: "tag",
-              cond: { $ne: ["$$tag.isDeleted", true] },
-            },
-          },
-        },
-      },
+      // {
+      //   //set files.tags 
+
+      //   // $set: {
+      //   //   "files.tags": {
+      //   //     $filter: {
+      //   //       input: "$files.tags",
+      //   //       as: "tag",
+      //   //       cond: { $ne: ["$$tag.isDeleted", true] },
+      //   //     },
+      //   //   },
+      //   // },
+      // },
       {
         $addFields: {
           "files.uploader": {
