@@ -193,8 +193,7 @@ export const isAssetTag = (value: any): value is AssetTag => {
   return (
     "uuid" in value &&
     "title" in value &&
-    "value" in value &&
-    "isDeleted" in value
+    "value" in value
   );
 };
 

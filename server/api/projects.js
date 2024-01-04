@@ -3578,13 +3578,6 @@ async function getPublicProjectFiles(req, res) {
             foreignField: "_id",
             pipeline: [
               {
-                $match: {
-                  $expr: {
-                    $ne: ["isDeleted", true],
-                  },
-                },
-              },
-              {
                 $lookup: {
                   from: "assettagframeworks",
                   localField: "framework",

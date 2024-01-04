@@ -38,11 +38,12 @@ async function upsertAssetTags(
     const currTags = await AssetTag.find({ _id: { $in: refDoc?.tags } });
     const newTags: AssetTagInterface[] = [];
 
-    //Find deleted tags where the tag is in the refDoc but not in the tags array (and has an _id) (presumed it was removed)
-    const deletedTags = currTags.filter((t) => t._id && !reqTags.includes(t));
+    //Find deleted tags where the tag is in the refDoc but not in the tags array (and has a uuid) (presumed it was removed)
+    const reqTagUUIDs = reqTags.map((t) => t.uuid).filter((u) => !!u);
+
+    const deletedTags = currTags.filter((t) => t.uuid && !reqTagUUIDs.includes(t.uuid));
     for (const tag of deletedTags) {
-      tag.isDeleted = true;
-      await tag.save();
+      await tag.deleteOne();
     }
 
     currTags.filter((t) => !deletedTags.includes(t)); //Remove deleted tags from currTags
@@ -53,7 +54,6 @@ async function upsertAssetTags(
       if (existingTag) {
         existingTag.value = tag.value;
         existingTag.framework = tag.framework;
-        existingTag.isDeleted = tag.isDeleted;
         existingTag.key = new Types.ObjectId(
           await getUpsertedAssetTagKey(
             existingKeys,
