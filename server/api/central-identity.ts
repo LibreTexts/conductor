@@ -33,6 +33,9 @@ import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { LibraryAccessWebhookValidator, NewUserWebhookValidator } from "./validators/central-identity.js";
+import Project, { ProjectInterface } from "../models/project.js";
+import { getSubdomainFromLibrary } from "../util/librariesclient.js";
+import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -668,10 +671,49 @@ async function processLibraryAccessWebhookEvent(
 ) {
   try {
     const { central_identity_id, library } = req.body;
-    console.log(central_identity_id, library);
+    const user = await User.findOne({ centralID: central_identity_id });
+    if (!user) return conductor404Err(res);
+
+    const projects = await Project.find({
+      $or: [
+        { leads: user.uuid },
+        { liaisons: user.uuid },
+        { members: user.uuid },
+        { auditors: user.uuid },
+      ],
+      didCreateWorkbench: true,
+      libreCoverID: { $exists: true, $ne: "" },
+      libreLibrary: library,
+    }).lean();
+
+    const withSubdomain = projects.map((project) => {
+      if (!project.libreLibrary) return null;
+      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      return {
+        projectID: project.projectID,
+        subdomain,
+        libreCoverID: project.libreCoverID,
+      };
+    });
+
+    const promises = withSubdomain.map((project) => {
+      if (!project) return null;
+      const { projectID, subdomain, libreCoverID } = project;
+      return updateTeamWorkbenchPermissions(projectID, subdomain, libreCoverID);
+    })
+
+    const settled = await Promise.allSettled(promises);
+
+    const failed = settled.filter((result) => result.status === "rejected")?.length;
+    const fulfilled = settled.filter((result) => result.status === "fulfilled")?.length;
+
     return res.send({
       err: false,
-      msg: "User successfully created.",
+      msg: "User permissions successfully updated.",
+      meta: {
+        failed,
+        fulfilled,
+      }
     });
   } catch (err) {
     debugError(err);
