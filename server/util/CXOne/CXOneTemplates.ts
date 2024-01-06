@@ -30,7 +30,7 @@ const CXOneTemplates = {
     </grant>
     ${userIDs.map((userID) => {
       return `<grant>
-        <permissions><role>Contributor</role></permissions>
+        <permissions><role>Manager</role></permissions>
         <user id="${userID}"></user>
       </grant>`;
     })}
