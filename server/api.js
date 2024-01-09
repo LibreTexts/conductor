@@ -158,7 +158,13 @@ router.route('/central-identity/users/:id/applications').get(
   centralIdentityAPI.addUserApplications
 )
 
-router.route('/central-identity/users/:id/applications/:applicationId').delete(
+router.route('/central-identity/users/:id/applications/:applicationId').get(
+  middleware.checkCentralIdentityConfig,
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(centralIdentityValidators.CheckUserApplicationAccessValidator),
+  centralIdentityAPI.checkUserApplicationAccess
+).delete(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

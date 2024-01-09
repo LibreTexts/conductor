@@ -3219,6 +3219,7 @@ const ProjectView = (props) => {
                 <CreateWorkbenchModal
                   open={showCreateWorkbenchModal}
                   projectID={project.projectID}
+                  projectTitle={project.title}
                   onClose={() => setShowCreateWorkbenchModal(false)}
                   onSuccess={() => window.location.reload()}
                   />

@@ -12,7 +12,7 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { isEmptyString, isValidDateObject, sleep } from "../util/helpers.js";
+import { getSubdomainFromUrl, isEmptyString, isValidDateObject, sleep } from "../util/helpers.js";
 import {
   checkBookIDFormat,
   extractLibFromID,
@@ -48,15 +48,13 @@ import {
   CXOneFetch,
   generateBookPathAndURL,
   generateChapterOnePath,
-  getDeveloperGroup,
-  getLibUser,
   getPageID,
-  getSubdomainFromLibrary,
 } from "../util/librariesclient.js";
 import MindTouch from "../util/CXOne/index.js";
 import { conductor500Err } from "../util/errorutils.js";
 import { ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
+import centralIdentity from "./central-identity.js";
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 
 /**
@@ -1378,7 +1376,12 @@ async function createBook(
     const user = await User.findOne({ uuid: userID }).orFail();
     const project = await Project.findOne({ projectID }).orFail();
 
-    const subdomain = getSubdomainFromLibrary(library);
+    const libraryApp = await centralIdentity.getApplicationById(library);
+    if(!libraryApp) {
+      throw new Error("badlibrary");
+    }
+
+    const subdomain = getSubdomainFromUrl(libraryApp.main_url);
     if(!subdomain) {
       throw new Error("badlibrary");
     }
@@ -1386,6 +1389,11 @@ async function createBook(
     // Check project permissions
     const canCreate = projectsAPI.checkProjectMemberPermission(project, user)
     if(!canCreate) {
+      throw new Error(conductorErrors.err8);
+    }
+
+    const hasLibAccess = await centralIdentity.checkUserApplicationAccessInternal(user.centralID, libraryApp.id);
+    if(!hasLibAccess) {
       throw new Error(conductorErrors.err8);
     }
 
@@ -1515,7 +1523,7 @@ async function createBook(
       });
     }
     debugError(err);
-    if(err.name === "CreateBookError") {
+    if(["CreateBookError", 'badlibrary'].includes(err.name)) {
       return res.status(400).send({
         err: true,
         errMsg: err.message,
@@ -2225,7 +2233,7 @@ const retrieveKBExport = (_req: Request, res: Response) => {
 
 const createBookSchema = z.object({
   body: z.object({
-    library: z.string().min(1).max(255),
+    library: z.coerce.number().positive().int(),
     title: z.string().min(1).max(255),
     projectID: z.string().length(10),
   }),

@@ -308,3 +308,12 @@ export function parseLibreTextsURL(url) {
 export async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export function getSubdomainFromUrl(url){
+  const hostname = new URL(url).hostname;
+  const parts = hostname.split('.');
+  if (parts.length > 2) {
+    return parts[0];
+  }
+  return null;
+}

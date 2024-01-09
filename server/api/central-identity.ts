@@ -32,7 +32,10 @@ import { CentralIdentityUpdateVerificationRequestBody } from "../types/CentralId
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
-import { LibraryAccessWebhookValidator, NewUserWebhookValidator } from "./validators/central-identity.js";
+import { LibraryAccessWebhookValidator, NewUserWebhookValidator, CheckUserApplicationAccessValidator } from "./validators/central-identity.js";
+import Project, { ProjectInterface } from "../models/project.js";
+import { getSubdomainFromLibrary } from "../util/librariesclient.js";
+import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -134,21 +137,77 @@ async function getUserApplications(
   res: Response<{ err: boolean; applications: CentralIdentityApp[] }>
 ) {
   try {
-    const appsRes = await useCentralIdentityAxios(false).get(
-      `/users/${req.params.id}/applications`
-    );
-
-    if (!appsRes.data || !appsRes.data.data) {
-      return conductor500Err(res);
-    }
+    if (!req.params.id) return conductor400Err(res);
+    const appsRes = await getUserApplicationsInternal(req.params.id);
+    if (!appsRes) return conductor500Err(res);
 
     return res.send({
       err: false,
-      applications: appsRes.data.data.applications,
+      applications: appsRes,
     });
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
+  }
+}
+
+async function getUserApplicationsInternal(userId: string): Promise<CentralIdentityApp[] | null> {
+  try {
+    const appsRes = await useCentralIdentityAxios(false).get(
+      `/users/${userId}/applications`
+    );
+
+    if (!appsRes.data || !appsRes.data.data) {
+      return null;
+    }
+
+    return appsRes.data.data.applications;
+  } catch (err) {
+    debugError(err);
+    return null;
+  }
+}
+
+async function checkUserApplicationAccess(
+  req: z.infer<typeof CheckUserApplicationAccessValidator>,
+  res: Response<{ err: boolean; hasAccess: boolean }>
+) {
+  try {
+    const { id, applicationId } = req.params;
+
+    const user = await User.findOne({ uuid: id });
+    if (!user) return conductor404Err(res);
+
+    const hasAccess = await checkUserApplicationAccessInternal(
+      user.centralID,
+      applicationId
+    );
+
+    if (hasAccess === null) return conductor500Err(res);
+
+    return res.send({
+      err: false,
+      hasAccess,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function checkUserApplicationAccessInternal(
+  userId: string,
+  appId: number | string
+): Promise<boolean | null> {
+  try {
+    const appsRes = await getUserApplicationsInternal(userId);
+    if(!appsRes) return null;
+
+    const hasAccess = appsRes.some((app: CentralIdentityApp) => app.id.toString() === appId.toString());
+    return hasAccess;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 
@@ -314,6 +373,29 @@ async function getApplicationsPriveledged(
     ) {
       page = req.query.activePage;
     }
+
+    const appsRes = await _getApplicationsPriveledgedInternal(page, limit);
+    if (!appsRes) return conductor500Err(res);
+
+    return res.send({
+      err: false,
+      applications: appsRes.applications,
+      totalCount: appsRes.totalCount,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function _getApplicationsPriveledgedInternal(
+  page: number,
+  limit: number
+): Promise<{
+  applications: CentralIdentityApp[];
+  totalCount: number;
+} | null> {
+  try {
     const offset = getPaginationOffset(page, limit);
 
     const appsRes = await useCentralIdentityAxios(false).get("/applications", {
@@ -324,17 +406,16 @@ async function getApplicationsPriveledged(
     });
 
     if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
-      return conductor500Err(res);
+      return null;
     }
 
-    return res.send({
-      err: false,
-      applications: appsRes.data.data,
+    return {
+      applications: appsRes.data.data as CentralIdentityApp[],
       totalCount: appsRes.data.meta.total,
-    });
+    };
   } catch (err) {
     debugError(err);
-    return conductor500Err(res);
+    return null;
   }
 }
 
@@ -376,6 +457,30 @@ async function getApplicationsPublic(
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
+  }
+}
+
+async function getApplicationById(id: number): Promise<CentralIdentityApp | null> {
+  try {
+    const appsRes = await _getApplicationsPriveledgedInternal(1, 1000);
+    if (!appsRes) return null;
+    const found = appsRes.applications.find((app) => app.id.toString() === id.toString());
+    return found ?? null;
+  } catch (err) {
+    debugError(err);
+    return null;
+  }
+}
+
+async function getLibraryFromSubdomain(subdomain: string): Promise<CentralIdentityApp | null> {
+  try {
+    const apps = await _getApplicationsPriveledgedInternal(1, 1000);
+    if (!apps) return null;
+    const found = apps.applications.find((app) => app.main_url.includes(subdomain));
+    return found ?? null;
+  } catch (err) {
+    debugError(err);
+    return null;
   }
 }
 
@@ -753,6 +858,8 @@ export default {
   getUsers,
   getUser,
   getUserApplications,
+  checkUserApplicationAccess,
+  checkUserApplicationAccessInternal,
   _getUserOrgsRaw,
   getUserOrgs,
   addUserApplications,
@@ -761,6 +868,8 @@ export default {
   deleteUserOrg,
   getApplicationsPriveledged,
   getApplicationsPublic,
+  getApplicationById,
+  getLibraryFromSubdomain,
   getOrgs,
   getSystems,
   getServices,
