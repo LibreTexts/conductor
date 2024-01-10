@@ -158,23 +158,27 @@ const ApproveVerificationRequestModal: React.FC<
   };
 
   function handleCheckApp(appId: number) {
+    const foundApp = allApps.find((app) => app.id === appId);
+    if (!foundApp) return;
+
     if (isChecked(appId)) {
-      setApprovedApps(
-        approvedApps.filter((app) => {
-          return app.id !== appId;
-        })
-      );
+      setApprovedApps([...approvedApps.filter((app) => app.id !== appId)]);
     } else {
-      const foundApp = allApps.find((app) => app.id === appId);
-      if (!foundApp) return;
       setApprovedApps([...approvedApps, foundApp]);
     }
   }
 
   function handleSelectAllLibs() {
     const defaultLibs = allApps.filter((app) => app.is_default_library);
-    for (let i = 0; i < defaultLibs.length; i++) {
-      handleCheckApp(defaultLibs[i].id);
+    const selectedNotDefaultLibs = approvedApps.filter(
+      (app) => !app.is_default_library
+    ); // Don't override selected libs that aren't default
+
+    const firstSelected = isChecked(defaultLibs[0].id);
+    if (!firstSelected) {
+      setApprovedApps([...defaultLibs, ...selectedNotDefaultLibs]);
+    } else {
+      setApprovedApps([...selectedNotDefaultLibs]);
     }
   }
 
@@ -205,7 +209,7 @@ const ApproveVerificationRequestModal: React.FC<
               access differenty than the user requested. The user will be
               notified by email of what applications they were approved for.
             </p>
-            <Form className="flex-col-div" noValidate>
+            <Form className="flex-col-div mt-4" noValidate>
               {allApps
                 .filter(
                   (app) =>
@@ -214,7 +218,7 @@ const ApproveVerificationRequestModal: React.FC<
                 )
                 .map((app) => (
                   <Checkbox
-                    key={app.id}
+                    key={crypto.randomUUID()}
                     label={app.name}
                     checked={isChecked(app.id)}
                     onChange={() => handleCheckApp(app.id)}
@@ -232,15 +236,17 @@ const ApproveVerificationRequestModal: React.FC<
                       <Icon name="dropdown" />
                       <strong>Change Default Libraries</strong>
                     </div>
-                    <p
-                      className="underline cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectAllLibs();
-                      }}
-                    >
-                      Select All
-                    </p>
+                    {showDefaultLibs && (
+                      <p
+                        className="underline cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectAllLibs();
+                        }}
+                      >
+                        Select All
+                      </p>
+                    )}
                   </div>
                 </Accordion.Title>
                 <Accordion.Content active={showDefaultLibs}>
@@ -249,7 +255,7 @@ const ApproveVerificationRequestModal: React.FC<
                       .filter((app) => app.is_default_library)
                       .map((app) => (
                         <Checkbox
-                          key={app.id}
+                          key={crypto.randomUUID()}
                           label={app.name}
                           checked={isChecked(app.id)}
                           onChange={() => handleCheckApp(app.id)}
