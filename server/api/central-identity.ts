@@ -645,13 +645,6 @@ async function getVerificationRequests(
       return conductor500Err(res);
     }
 
-    // TODO: This is a temporary fix until the backend is updated to return the user object
-    for (const rec of requestsRes.data.data) {
-      rec.user = (
-        await useCentralIdentityAxios(false).get(`/users/${rec.user_id}`)
-      ).data.data;
-    }
-
     return res.send({
       err: false,
       requests: requestsRes.data.data,

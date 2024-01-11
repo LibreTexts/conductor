@@ -94,7 +94,7 @@ export type CentralIdentityVerificationRequest = {
   decision_reason?: string;
   created_at: Date;
   updated_at: Date;
-  user: CentralIdentityUser;
+  user: Pick<CentralIdentityUser, "first_name" | "last_name" | "email" | "uuid">;
   access_request: CentralIdentityAccessRequest;
 };
 
