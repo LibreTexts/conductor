@@ -75,6 +75,7 @@ export type CentralIdentityVerificationRequest = {
   decision_reason?: string;
   created_at: Date;
   updated_at: Date;
+  user: Pick<CentralIdentityUser, "first_name" | "last_name" | "email" | "uuid">;
 };
 
 export type CentralIdentityVerificationRequestStatus =  'approved' | 'denied' | 'needs_change' | 'open';
