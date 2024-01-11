@@ -29,3 +29,7 @@ export function buildWorkbenchURL(libreLibrary: string, libreCoverID: string) {
 export function buildRemixerURL(libreLibrary: string) {
   return `https://${libreLibrary}.libretexts.org/Under_Construction/Development_Details/OER_Remixer`;
 }
+
+export function buildCommonsUrl(libreLibrary: string, libreCoverID: string) {
+  return `/book/${libreLibrary}-${libreCoverID}`;
+}
