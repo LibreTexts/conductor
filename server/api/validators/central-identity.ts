@@ -16,3 +16,10 @@ export const LibraryAccessWebhookValidator = z.object({
     library: z.string(),
   }),
 });
+
+export const CheckUserApplicationAccessValidator = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+    applicationId: z.coerce.number().positive().int(),
+  }),
+});
