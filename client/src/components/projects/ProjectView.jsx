@@ -89,7 +89,8 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
-import { buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
+import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
+import ProjectLinkButtons from './ProjectLinkButtons';
 const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -2110,13 +2111,6 @@ const ProjectView = (props) => {
                               <span>{project.libreCampus}</span>
                             </div>
                           }
-                          <div className='mb-1p'>
-                            <Header as='span' sub>Project Link: </Header>
-                            {(project.projectURL && !isEmptyString(project.projectURL))
-                              ? <a href={normalizeURL(project.projectURL)} target='_blank' rel='noopener noreferrer'>Open <Icon name='external' /></a>
-                              : <span><em>Unlinked</em></span>
-                            }
-                          </div>
                           {(Array.isArray(project.cidDescriptors) && project.cidDescriptors.length > 0) && (
                             <div className="mb-1p">
                               <Header as="span" sub>C-ID(s): </Header>
@@ -2139,22 +2133,7 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
-                          {
-                            project.didCreateWorkbench && (
-                              <BookCreatedLabel />
-                            )
-                          }
-                          {project.hasCommonsBook && (
-                            <div className="mt-1e">
-                              <Link
-                                to={`/book/${project.libreLibrary}-${project.libreCoverID}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                View on Commons <Icon name="external" />
-                              </Link>
-                            </div>
-                          )}
+                          <ProjectLinkButtons libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} didCreateWorkbench={project.didCreateWorkbench}/>
                           {(project.adaptCourseID && project.adaptCourseID !== '') && (
                             <div className="mt-1e">
                               <a
@@ -2167,11 +2146,14 @@ const ProjectView = (props) => {
                             </div>
                           )}
                           {(canViewDetails && project.hasCommonsBook) && (
-                            <div className="mt-1e">
+                            <div className="mt-8 flex flex-col">
+                              <Header as='span' sub>Reader Resources: </Header>
                               <Button
                                 color="blue"
+                                basic
                                 compact
                                 onClick={handleOpenReaderResourcesModal}
+                                className='!w-64'
                               >
                                   Manage Reader Resources
                               </Button>
