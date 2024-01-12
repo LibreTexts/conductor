@@ -2680,7 +2680,7 @@ const ProjectView = (props) => {
                   />
                 </Form.Group>
                 {
-                  !projURL && !project.didCreateWorkbench && (
+                  !project.didCreateWorkbench && (
                     <>
                       <Form.Field>
                       <label htmlFor='projectURL'>
@@ -2704,7 +2704,11 @@ const ProjectView = (props) => {
                         id='projectURL'
                       />
                       </Form.Field>
-                      <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>Create Book</Button>
+                      {
+                        !projURL && (
+                          <Button color='blue' onClick={() => setShowCreateWorkbenchModal(true)} className='!mb-4'><Icon name='plus'/>Create Book</Button>
+                        )
+                      }
                       </>
                   )
                 }
