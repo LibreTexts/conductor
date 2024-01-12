@@ -36,7 +36,6 @@ const ApproveVerificationRequestModal: React.FC<
   const [request, setRequest] = useState<CentralIdentityVerificationRequest>();
   const [allApps, setAllApps] = useState<CentralIdentityApp[]>([]);
   const [approvedApps, setApprovedApps] = useState<CentralIdentityApp[]>([]);
-  const [showDefaultLibs, setShowDefaultLibs] = useState<boolean>(false);
 
   // Effects
   useEffect(() => {
@@ -225,46 +224,35 @@ const ApproveVerificationRequestModal: React.FC<
                     className="mb-1r"
                   />
                 ))}
-              <Accordion className="mt-2p">
-                <Accordion.Title
-                  active={showDefaultLibs}
-                  index={0}
-                  onClick={() => setShowDefaultLibs(!showDefaultLibs)}
-                >
-                  <div className="flex flex-row justify-between">
-                    <div>
-                      <Icon name="dropdown" />
-                      <strong>Change Default Libraries</strong>
-                    </div>
-                    {showDefaultLibs && (
-                      <p
-                        className="underline cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectAllLibs();
-                        }}
-                      >
-                        Select All
-                      </p>
-                    )}
-                  </div>
-                </Accordion.Title>
-                <Accordion.Content active={showDefaultLibs}>
-                  <div className="flex-col-div">
-                    {allApps
-                      .filter((app) => app.is_default_library)
-                      .map((app) => (
-                        <Checkbox
-                          key={crypto.randomUUID()}
-                          label={app.name}
-                          checked={isChecked(app.id)}
-                          onChange={() => handleCheckApp(app.id)}
-                          className="mb-1r"
-                        />
-                      ))}
-                  </div>
-                </Accordion.Content>
-              </Accordion>
+              <div className="mt-2">
+                <div className="flex flex-row justify-between items-center">
+                  <p>
+                    <strong>Change Default Libraries</strong>
+                  </p>
+                  <p
+                    className="underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectAllLibs();
+                    }}
+                  >
+                    Select All
+                  </p>
+                </div>
+                <div className="flex-col-div mt-4">
+                  {allApps
+                    .filter((app) => app.is_default_library)
+                    .map((app) => (
+                      <Checkbox
+                        key={crypto.randomUUID()}
+                        label={app.name}
+                        checked={isChecked(app.id)}
+                        onChange={() => handleCheckApp(app.id)}
+                        className="mb-1r"
+                      />
+                    ))}
+                </div>
+              </div>
             </Form>
           </div>
         )}
