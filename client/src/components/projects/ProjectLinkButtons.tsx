@@ -7,6 +7,7 @@ interface ProjectLinkButtonsProps {
   libreCoverID?: string;
   projectLink?: string;
   didCreateWorkbench?: boolean;
+  hasCommonsBook?: boolean;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -14,6 +15,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   libreCoverID,
   projectLink,
   didCreateWorkbench,
+  hasCommonsBook = false,
 }) => {
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
   return (
@@ -56,14 +58,14 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
         />
         <Popup
           content={
-            libreCoverID && libreLibrary
+            hasCommonsBook && libreCoverID && libreLibrary
               ? "This link will take you to the book's page on the Commons."
               : "This project does not have a Commons page."
           }
           trigger={
             <Button
               onClick={
-                libreCoverID && libreLibrary
+                hasCommonsBook && libreCoverID && libreLibrary
                   ? () =>
                       window.open(
                         buildCommonsUrl(libreLibrary, libreCoverID),
@@ -72,9 +74,9 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   : () => {}
               }
               className={
-                libreCoverID && libreLibrary ? "" : "!cursor-default opacity-45"
+                hasCommonsBook && libreCoverID && libreLibrary ? "" : "!cursor-default opacity-45"
               }
-              color={libreCoverID && libreLibrary ? "blue" : "grey"}
+              color={hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"}
             >
               Commons Page
               <Icon name="external alternate" className="!ml-2" />
