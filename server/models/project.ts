@@ -33,6 +33,7 @@ export interface ProjectInterface extends Document {
   libreShelf: string;
   libreCampus: string;
   didCreateWorkbench?: boolean;
+  didMigrateWorkbench?: boolean; // migrated from sandbox
   author: string;
   authorEmail: string;
   license: string;
@@ -70,6 +71,8 @@ const ProjectSchema = new Schema<ProjectInterface>(
     projectID: {
       type: String,
       required: true,
+      unique: true,
+      index: true,
     },
     /**
      * Project's title.
@@ -159,6 +162,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Whether the Project has a corresponding Workbench.
      */
     didCreateWorkbench: {
+      type: Boolean,
+      default: false,
+    },
+    /**
+     * Whether the Project was migrated from a Sandbox.
+     */
+    didMigrateWorkbench: {
       type: Boolean,
       default: false,
     },
