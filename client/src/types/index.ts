@@ -1,3 +1,4 @@
+import { Author } from "./Author";
 import {
   Collection,
   CollectionResource,
@@ -121,6 +122,7 @@ export type {
   AssetTagTemplateValueType,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
+  Author,
   BookFilters,
   CentralIdentityUser,
   CentralIdentityOrg,
