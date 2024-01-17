@@ -91,6 +91,12 @@ const ControlPanel = () => {
             description: 'Manage templates for metadata tags that can be applied to assets in Conductor projects'
         },
         {
+            url: '/controlpanel/authorsmanager',
+            icon: 'address book outline',
+            title: 'Authors Manager',
+            description: 'Manage known authors and their contact information for use in Conductor projects'
+        },
+        {
             url: '/controlpanel/booksmanager',
             icon: 'book',
             title: 'Books Manager',

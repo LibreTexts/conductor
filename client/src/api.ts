@@ -4,6 +4,7 @@ import {
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
+  Author,
   Book,
   BookFilters,
   BookSearchParams,
@@ -104,6 +105,71 @@ class API {
     return res;
   }
 
+  // Authors
+  async getAuthors({
+    page,
+    limit,
+    sort,
+    query,
+  }: {
+    page?: number;
+    limit?: number;
+    sort?: string;
+    query?: string;
+  }) {
+    const res = await axios.get<
+      {
+        authors: Author[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/authors", {
+      params: {
+        page,
+        limit,
+        sort,
+        query,
+      },
+    });
+    return res;
+  }
+
+  async getAuthor(id: string) {
+    const res = await axios.get<
+      {
+        author: Author;
+      } & ConductorBaseResponse
+    >(`/authors/${id}`);
+    return res;
+  }
+
+  async createAuthor(author: Omit<Author, "_id">) {
+    const res = await axios.post<
+      {
+        author: Author;
+      } & ConductorBaseResponse
+    >("/authors", author);
+    return res;
+  }
+
+  async updateAuthor(id: string, data: Author) {
+    const res = await axios.patch<
+      {
+        author: Author;
+      } & ConductorBaseResponse
+    >(`/authors/${id}`, data);
+
+    return res;
+  }
+
+  async deleteAuthor(id: string) {
+    const res = await axios.delete<
+      {
+        deleted: boolean;
+      } & ConductorBaseResponse
+    >(`/authors/${id}`);
+    return res;
+  }
+
   // Central Identity
   async getCentralIdentityOrgs({
     activePage,
@@ -201,7 +267,7 @@ class API {
   }
 
   async booksSearch(params: BookSearchParams) {
-    console.log(params)
+    console.log(params);
     const res = await axios.get<
       ConductorSearchResponse<"books"> & ConductorBaseResponse
     >("/search/books", {

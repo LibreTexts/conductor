@@ -9,6 +9,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import middleware from './middleware.js'; // Route middleware
 import assetTagFrameworkAPI from './api/assettagframeworks.js';
+import authorsAPI from './api/authors.js';
 import authAPI from './api/auth.js';
 import centralIdentityAPI from './api/central-identity.js';
 import usersAPI from './api/users.js';
@@ -42,6 +43,7 @@ import * as supportValidators from './api/validators/support.js';
 import * as ProjectValidators from './api/validators/projects.js';
 import * as SearchValidators from './api/validators/search.js';
 import * as AssetTagFrameworkValidators from './api/validators/assettagframeworks.js';
+import * as AuthorsValidators from './api/validators/authors.js';
 
 const router = express.Router();
 
@@ -361,6 +363,36 @@ router.route('/assettagframeworks/:uuid').get(
   middleware.checkValidationErrors,
   assetTagFrameworkAPI.updateFramework,
 )
+
+/* Authors */
+router.route('/authors').get(
+  middleware.validateZod(AuthorsValidators.GetAllAuthorsValidator),
+  authorsAPI.getAuthors,
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(AuthorsValidators.CreateAuthorValidator),
+  authorsAPI.createAuthor,
+);
+
+router.route('/authors/:id').get(
+  middleware.validateZod(AuthorsValidators.GetAuthorValidator),
+  authorsAPI.getAuthor,
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(AuthorsValidators.UpdateAuthorValidator),
+  authorsAPI.updateAuthor,
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(AuthorsValidators.DeleteAuthorValidator),
+  authorsAPI.deleteAuthor,
+);
+
 
 /* Adoption Reports */
 // (submission route can be anonymous)
