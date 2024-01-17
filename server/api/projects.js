@@ -3636,6 +3636,7 @@ async function getPublicProjectFiles(req, res) {
           $addFields: {
             "files.projectID": "$projectID",
             "files.projectTitle": "$title",
+            "files.projectThumbnail": "$thumbnail",
             "files.tags": "$tags",
           },
         },

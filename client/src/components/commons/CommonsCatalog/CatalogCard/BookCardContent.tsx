@@ -9,31 +9,27 @@ interface BookCardContentProps extends CardContentProps {
 
 const BookCardContent: React.FC<BookCardContentProps> = ({ book, ...rest }) => {
   return (
-    <>
-      <div className="commons-content-card-img-wrapper">
-        <div
-          className="commons-content-card-img"
-          style={{ backgroundImage: `url(${book.thumbnail})` }}
-        />
-      </div>
-      <Card.Content className="commons-content-card-inner-content" {...rest}>
-        <Card.Header as="h3" className="commons-content-card-header">
-          {truncateString(book.title, 50)}
-        </Card.Header>
-        <Card.Meta>
-          <Image src={getLibGlyphURL(book.library)} className="library-glyph" />
-          {getLibraryName(book.library)}
-        </Card.Meta>
-        <Card.Description>
-          <p className="commons-content-card-author">
-            {truncateString(book.author, 50)}
-          </p>
-          <p className="commons-content-card-affiliation">
-            <em>{truncateString(book.affiliation, 30)}</em>
-          </p>
-        </Card.Description>
-      </Card.Content>
-    </>
+    <Card.Content className="commons-content-card-inner-content" {...rest}>
+      <div
+        className="commons-card-img-container"
+        style={{ backgroundImage: `url(${book.thumbnail})` }}
+      ></div>
+      <Card.Header as="h3" className="commons-content-card-header !mt-4">
+        {truncateString(book.title, 50)}
+      </Card.Header>
+      <Card.Meta>
+        <Image src={getLibGlyphURL(book.library)} className="library-glyph" />
+        {getLibraryName(book.library)}
+      </Card.Meta>
+      <Card.Description>
+        <p className="commons-content-card-author">
+          {truncateString(book.author, 50)}
+        </p>
+        <p className="commons-content-card-affiliation">
+          <em>{truncateString(book.affiliation, 30)}</em>
+        </p>
+      </Card.Description>
+    </Card.Content>
   );
 };
 
