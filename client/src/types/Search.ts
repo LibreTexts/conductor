@@ -1,6 +1,6 @@
 import { Book } from "./Book";
 import { Homework } from "./Homework";
-import { Project, ProjectFileWProjectID, ProjectFileWProjectIDAndTitle } from "./Project";
+import { Project, ProjectFileWProjectIDAndTitleAndThumbnail } from "./Project";
 import { User } from "./User";
 
 export type AssetFilters = {
@@ -72,7 +72,7 @@ export type ConductorSearchResponse<
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
   // if origin is 'conductor', then response is of type ConductorSearchResultsObject
   results: T extends "assets"
-    ? ProjectFileWProjectIDAndTitle[]
+    ? ProjectFileWProjectIDAndTitleAndThumbnail[]
     : T extends "books"
     ? Book[]
     : T extends "homework"
