@@ -349,6 +349,7 @@ export async function assetsSearch(
           projectID: 1,
           title: 1,
           source: 1,
+          thumbnail: 1,
           score: { $meta: "searchScore" },
         },
       },
@@ -373,6 +374,9 @@ export async function assetsSearch(
               },
               {
                 score: "$score",
+              },
+              {
+                projecThumbnail: "$thumbnail",
               },
               "$files",
             ],
@@ -534,6 +538,9 @@ export async function assetsSearch(
                     },
                     {
                       projectTitle: "$title",
+                    },
+                    {
+                      projectThumbnail: "$thumbnail",
                     },
                     "$files",
                   ],

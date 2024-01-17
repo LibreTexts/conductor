@@ -1,10 +1,13 @@
 import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
-import { ProjectFile, ProjectFileWProjectIDAndTitle } from "../../../../types";
+import {
+  ProjectFile,
+  ProjectFileWProjectIDAndTitleAndThumbnail,
+} from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWProjectIDAndTitle;
+  file: ProjectFileWProjectIDAndTitleAndThumbnail;
 }
 
 const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
@@ -42,9 +45,22 @@ const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
-      <div className="flex justify-center my-2">
-        <Icon name={getFileTypeIcon(file)} size="huge" color="black" />
-      </div>
+      {file.projectThumbnail ? (
+        <div
+          className="commons-card-img-container"
+          style={{
+            backgroundImage: `url(${file.projectThumbnail})`,
+          }}
+        >
+          <div className="app-item-icon-overlay">
+            <Icon name={getFileTypeIcon(file)} size="big" color="black" />
+          </div>
+        </div>
+      ) : (
+        <div className="commons-asset-card-img-wrapper flex justify-center items-center">
+          <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
+        </div>
+      )}
       <Card.Header as="h3" className="commons-content-card-header !mt-4">
         {truncateString(file.name, 50)}
       </Card.Header>
@@ -54,7 +70,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />{" "}
-        {file.projectTitle ? truncateString(file.projectTitle, 30) : "Unknown Project"}
+        {file.projectTitle
+          ? truncateString(file.projectTitle, 30)
+          : "Unknown Project"}
       </Card.Meta>
       <Card.Meta>
         <Icon name="legal" color="blue" />{" "}
@@ -70,7 +88,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       <Card.Description className="overflow-hidden">
         <p className="commons-content-card-author">
           {file.description
-            ? truncateString(file.description, 75)
+            ? truncateString(file.description, 50)
             : "No description provided"}
         </p>
         <div className="max-h-14 overflow-hidden">

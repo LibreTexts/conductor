@@ -17,12 +17,10 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {project.thumbnail ? (
-        <div className="commons-content-card-img-wrapper">
-          <div
-            className="commons-content-card-img"
-            style={{ backgroundImage: `url(${project.thumbnail})` }}
-          />
-        </div>
+        <div
+          className="commons-card-img-container"
+          style={{ backgroundImage: `url(${project.thumbnail})` }}
+        ></div>
       ) : (
         <div className="flex justify-center">
           <Icon name="clipboard list" size="massive" color="black" />

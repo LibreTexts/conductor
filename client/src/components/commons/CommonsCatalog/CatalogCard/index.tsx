@@ -1,6 +1,11 @@
 import { Link } from "react-router-dom";
 import { Card, CardProps } from "semantic-ui-react";
-import { Book, Project, ProjectFileWProjectID, ProjectFileWProjectIDAndTitle } from "../../../../types";
+import {
+  Book,
+  Project,
+  ProjectFileWProjectID,
+  ProjectFileWProjectIDAndTitleAndThumbnail,
+} from "../../../../types";
 import { isBook, isProject } from "../../../../utils/typeHelpers";
 import BookCardContent from "./BookCardContent";
 import FileCardContent from "./FileCardContent";
@@ -10,7 +15,7 @@ import "../../Commons.css";
 import ProjectCardContent from "./ProjectCardContent";
 
 interface CatalogCardProps extends CardProps {
-  item: Book | ProjectFileWProjectIDAndTitle | Project;
+  item: Book | ProjectFileWProjectIDAndTitleAndThumbnail | Project;
 }
 
 const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
@@ -57,7 +62,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
   return (
     <Card
       onClick={async () => await handleFileDownload(item)}
-      className="commons-content-card hover:shadow-lg"
+      className="commons-asset-card hover:shadow-lg"
       {...props}
     >
       <FileCardContent file={item} />

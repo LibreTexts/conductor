@@ -201,6 +201,52 @@
     text-overflow: ellipsis;
 }
 
+.commons-card-img-container {
+    position: relative;
+    display: flex;
+    height: 40%;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.app-item-icon-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 3rem;
+    height: 3rem;
+    background-color: #fff;
+    border-top-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    padding-top: 6px;
+    padding-left: 6px;
+}
+
+.commons-asset-card {
+    height: 400px;
+    width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
+}
+
+.commons-asset-card-img-wrapper {
+    margin: 10px 10px 0px 10px;
+    height: 40% !important
+}
+
+.commons-asset-card-img {
+    display: flex;
+    height: 100%;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
 .commons-content-card-inner-content {
     border-top: none !important;
     height: 175px;
