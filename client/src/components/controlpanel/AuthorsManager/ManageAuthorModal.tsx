@@ -34,6 +34,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
       firstName: "",
       lastName: "",
       email: "",
+      url: "",
       primaryInstitution: "",
     },
   });
@@ -197,7 +198,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
             control={control}
             name="firstName"
             label="First Name"
-            placeholder="First Name"
+            placeholder="John"
             rules={required}
             required
           />
@@ -205,7 +206,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
             control={control}
             name="lastName"
             label="Last Name"
-            placeholder="Last Name"
+            placeholder="Doe"
             rules={required}
             required
             className="mt-4"
@@ -213,8 +214,15 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
           <CtlTextInput
             control={control}
             name="email"
-            label="Email"
-            placeholder="Email"
+            label="johndoe@example.com"
+            placeholder=""
+            className="mt-4"
+          />
+          <CtlTextInput
+            control={control}
+            name="url"
+            label="URL"
+            placeholder="https://example.com"
             className="mt-4"
           />
           <Form.Field className="flex flex-col !mt-4">
@@ -249,10 +257,6 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
                       field.onChange(value.toString());
                     }
                   }}
-                  renderLabel={(tag) => ({
-                    color: "blue",
-                    content: tag.text,
-                  })}
                 />
               )}
               name="primaryInstitution"
