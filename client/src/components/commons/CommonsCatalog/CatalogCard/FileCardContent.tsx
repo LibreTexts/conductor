@@ -1,13 +1,13 @@
 import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
 import {
-  ProjectFile,
-  ProjectFileWProjectIDAndTitleAndThumbnail,
+  ProjectFile, ProjectFileWCustomData
 } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
+import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWProjectIDAndTitleAndThumbnail;
+  file: ProjectFileWCustomData<'projectTitle' | 'projectThumbnail', 'projectID'>;
 }
 
 const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
@@ -66,7 +66,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       </Card.Header>
       <Card.Meta>
         <Icon name="user" color="blue" />{" "}
-        {file.author ? file.author.name : "Unknown Author"}
+        {getPrettyAuthorsList(file.authors)}
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />{" "}

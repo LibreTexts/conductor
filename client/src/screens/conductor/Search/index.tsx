@@ -30,18 +30,18 @@ import {
 import { truncateString } from "../../../components/util/HelperFunctions.js";
 import { catalogItemsPerPageOptions } from "../../../components/util/PaginationOptions.js";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { Book, Homework, Project, ProjectFile, User } from "../../../types";
+import { Book, Homework, Project, ProjectFile, ProjectFileWProjectData, User } from "../../../types";
 import { format, parseISO, set } from "date-fns";
 import RenderAssetTags from "../../../components/FilesManager/RenderAssetTags";
 import api from "../../../api";
 import {
   downloadFile,
   fileSizePresentable,
+  getPrettyAuthorsList,
   getPrettyCreatedDate,
   getPrettyUploader,
 } from "../../../utils/assetHelpers";
 import FileIcon from "../../../components/FileIcon";
-import { ProjectFileWProjectID } from "../../../types/Project";
 const AlertModal = lazy(() => import("../../../components/alerts/AlertModal"));
 const PreviewHomework = lazy(
   () => import("../../../components/Search/PreviewHomework")
@@ -78,7 +78,7 @@ const Search = () => {
   const [booksSort, setBooksSort] = useState(bookSortDefault);
   const [booksTotal, setBooksTotal] = useState<number>(0);
 
-  const [assets, setAssets] = useState<ProjectFileWProjectID[]>([]);
+  const [assets, setAssets] = useState<ProjectFileWProjectData<'projectID'>[]>([]);
   const [assetsSort, setAssetsSort] = useState(bookSortDefault);
   const [assetsTotal, setAssetsTotal] = useState<number>(0);
 
@@ -392,7 +392,7 @@ const Search = () => {
     setShowAlertModal(false);
   };
 
-  async function handleDownloadFile(file: ProjectFileWProjectID) {
+  async function handleDownloadFile(file: ProjectFileWProjectData<'projectID'>) {
     const success = await downloadFile(file.projectID, file.fileID);
     if (!success) {
       handleGlobalError(
@@ -912,11 +912,7 @@ const Search = () => {
                               </a>
                             </Table.Cell>
                             <Table.Cell>
-                              {item.author?.name ? (
-                                <span>{item.author.name}</span>
-                              ) : (
-                                <span>Unknown</span>
-                              )}
+                              <span>{getPrettyAuthorsList(item.authors)}</span>
                             </Table.Cell>
                             <Table.Cell>
                               {item.license && (
