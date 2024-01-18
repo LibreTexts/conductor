@@ -67,7 +67,10 @@ const BookSchema = new Schema<BookInterface>(
     /**
      * The Book's location in LibreTexts (i.e. Central Bookshelves or Campus Bookshelves).
      */
-    location: String,
+    location: {
+      type: String,
+      index: true,
+    },
     /**
      * The course or campus the Book belongs to.
      */
