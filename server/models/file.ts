@@ -1,5 +1,6 @@
-import { model, Schema, Document } from "mongoose";
+import { model, Schema, Document, Types } from "mongoose";
 import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
+import { AuthorInterface } from "./author.js";
 
 // Not stored in schema, but used in API
 export type FileInterfacePath = {
@@ -23,11 +24,7 @@ export interface FileLicense {
   additionalTerms?: string;
 }
 
-export interface FileAuthor {
-  name?: string;
-  email?: string;
-  url?: string;
-}
+export type FileAuthor = Omit<AuthorInterface, "userUUID"> | Types.ObjectId;
 
 export interface FilePublisher {
   name?: string;
@@ -47,7 +44,7 @@ export interface RawFileInterface {
   createdBy?: string;
   downloadCount?: number;
   license?: FileLicense;
-  author?: FileAuthor;
+  authors?: FileAuthor[];
   publisher?: FilePublisher;
   mimeType?: string;
 }
@@ -130,10 +127,9 @@ const FileSchema = new Schema<FileInterface>({
   /**
    * Author information for the entry.
    */
-  author: {
-    name: String,
-    email: String,
-    url: String,
+  authors: {
+    type: [Schema.Types.Mixed],
+    required: false,
   },
   /**
    * Publisher information for the entry.

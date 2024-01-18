@@ -98,7 +98,8 @@ const AuthorsManager = () => {
     500
   );
 
-  function handleSelectAuthor(id: string) {
+  function handleSelectAuthor(id?: string) {
+    if(!id) return;
     setSelectedAuthorId(id);
     setShowManageModal(true);
   }

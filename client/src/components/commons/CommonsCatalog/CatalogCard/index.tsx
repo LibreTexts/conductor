@@ -3,8 +3,7 @@ import { Card, CardProps } from "semantic-ui-react";
 import {
   Book,
   Project,
-  ProjectFileWProjectID,
-  ProjectFileWProjectIDAndTitleAndThumbnail,
+  ProjectFileWCustomData,
 } from "../../../../types";
 import { isBook, isProject } from "../../../../utils/typeHelpers";
 import BookCardContent from "./BookCardContent";
@@ -15,13 +14,13 @@ import "../../Commons.css";
 import ProjectCardContent from "./ProjectCardContent";
 
 interface CatalogCardProps extends CardProps {
-  item: Book | ProjectFileWProjectIDAndTitleAndThumbnail | Project;
+  item: Book | ProjectFileWCustomData<'projectTitle' | 'projectThumbnail', 'projectID'> | Project;
 }
 
 const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
   //const { handleGlobalError } = useGlobalError();
 
-  async function handleFileDownload(file: ProjectFileWProjectID) {
+  async function handleFileDownload(file: ProjectFileWCustomData<'projectTitle' | 'projectThumbnail', 'projectID'>) {
     let success = false;
     try {
       success = await downloadFile(file.projectID, file.fileID);

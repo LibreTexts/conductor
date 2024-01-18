@@ -4,6 +4,7 @@ export interface AuthorInterface extends Document {
   firstName: string;
   lastName: string;
   email?: string;
+  url?: string;
   primaryInstitution?: string;
   userUUID?: string;
 }
@@ -21,6 +22,10 @@ const AuthorSchema = new Schema<AuthorInterface>({
     type: String,
     required: false,
     unique: true,
+  },
+  url: {
+    type: String,
+    required: false,
   },
   primaryInstitution: {
     type: String,
