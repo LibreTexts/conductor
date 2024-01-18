@@ -2,6 +2,7 @@ import { z } from "zod";
 import { debugError } from "../debug.js";
 import Author from "../models/author.js";
 import {
+  BulkCreateAuthorsValidator,
   CreateAuthorValidator,
   DeleteAuthorValidator,
   GetAllAuthorsValidator,
@@ -20,12 +21,12 @@ async function getAuthors(
     const limit = req.query.limit || 10;
     const offset = getPaginationOffset(req.query.page, limit);
 
-    const authors = await Author.find({
-      ...(req.query.search && {
+    const authorsPromise = Author.find({
+      ...(req.query.query && {
         $or: [
-          { firstName: { $regex: req.query.search, $options: "i" } },
-          { lastName: { $regex: req.query.search, $options: "i" } },
-          { email: { $regex: req.query.search, $options: "i" } },
+          { firstName: { $regex: req.query.query, $options: "i" } },
+          { lastName: { $regex: req.query.query, $options: "i" } },
+          { email: { $regex: req.query.query, $options: "i" } },
         ],
       }),
     })
@@ -34,12 +35,29 @@ async function getAuthors(
       .sort(req.query.sort || "lastName")
       .lean();
 
-    const total = await Author.countDocuments();
+    const totalPromise = Author.countDocuments({
+      ...(req.query.query && {
+        $or: [
+          { firstName: { $regex: req.query.query, $options: "i" } },
+          { lastName: { $regex: req.query.query, $options: "i" } },
+          { email: { $regex: req.query.query, $options: "i" } },
+        ],
+      }),
+    });
+
+    const [authors, total] = await Promise.allSettled([
+      authorsPromise,
+      totalPromise,
+    ]);
+
+    if (authors.status === "rejected" || total.status === "rejected") {
+      return conductor500Err(res);
+    }
 
     res.send({
       err: false,
-      authors,
-      totalCount: total,
+      authors: authors.value,
+      totalCount: total.value,
     });
   } catch (error) {
     debugError(error);
@@ -78,6 +96,38 @@ async function createAuthor(
     res.send({
       err: false,
       author,
+    });
+  } catch (err: any) {
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return res.status(409).send({
+        err: true,
+        message: "Author with that email already exists",
+      });
+    }
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function bulkCreateAuthors(
+  req: z.infer<typeof BulkCreateAuthorsValidator>,
+  res: Response
+) {
+  try {
+    const existingAuthorEmails = (await Author.find().lean()).map(
+      (author) => author.email
+    );
+
+    // Ignore duplicates (email)
+    const noDuplicates = req.body.authors.filter(
+      (author) => !existingAuthorEmails.includes(author.email)
+    );
+
+    const insertRes = await Author.insertMany(noDuplicates);
+
+    return res.send({
+      err: false,
+      authors: insertRes,
     });
   } catch (err: any) {
     if (err.name === "MongoServerError" && err.code === 11000) {
@@ -143,6 +193,7 @@ export default {
   getAuthors,
   getAuthor,
   createAuthor,
+  bulkCreateAuthors,
   updateAuthor,
   deleteAuthor,
 };

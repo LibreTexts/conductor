@@ -150,6 +150,15 @@ class API {
     return res;
   }
 
+  async bulkCreateAuthors(authors: Omit<Author, "_id">[]) {
+    const res = await axios.post<
+      {
+        authors: Author[];
+      } & ConductorBaseResponse
+    >("/authors/bulk", { authors });
+    return res;
+  }
+
   async updateAuthor(id: string, data: Author) {
     const res = await axios.patch<
       {

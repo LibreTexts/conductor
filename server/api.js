@@ -376,6 +376,14 @@ router.route('/authors').get(
   authorsAPI.createAuthor,
 );
 
+router.route('/authors/bulk').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(AuthorsValidators.BulkCreateAuthorsValidator),
+  authorsAPI.bulkCreateAuthors,
+);
+
 router.route('/authors/:id').get(
   middleware.validateZod(AuthorsValidators.GetAuthorValidator),
   authorsAPI.getAuthor,
