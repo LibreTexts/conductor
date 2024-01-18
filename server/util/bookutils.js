@@ -172,7 +172,7 @@ export const genPDFLink = (bookID) => {
  * @returns {String} The link to the Bookstore page, or an empty string if invalid arguments provided.
  */
 export const genBookstoreLink = (bookID) => {
-    if (checkBookIDFormat(bookID)) return `https://libretexts.org/bookstore/single.html?${bookID}`;
+    if (checkBookIDFormat(bookID)) return `https://libretexts.org/bookstore/order?${bookID}`;
     return '';
 };
 

@@ -61,7 +61,7 @@ const genPDFLink = (lib, pageID) => {
  */
 const genBookstoreLink = (lib, pageID) => {
     if (validateLinkGenArguments(lib, pageID)) {
-        return `https://libretexts.org/bookstore/single.html?${lib}-${pageID}`;
+        return `https://libretexts.org/bookstore/order?${lib}-${pageID}`;
     } else {
         return '';
     }
