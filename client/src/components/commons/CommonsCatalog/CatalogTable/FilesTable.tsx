@@ -2,6 +2,7 @@ import { Header, Table, TableProps } from "semantic-ui-react";
 import { ProjectFile } from "../../../../types";
 import { Link } from "react-router-dom";
 import { truncateString } from "../../../util/HelperFunctions";
+import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
 
 interface FilesTableProps extends TableProps {
   items: ProjectFile[];
@@ -47,7 +48,7 @@ const FilesTable: React.FC<FilesTableProps> = ({ items, ...rest }) => {
                   <p>{truncateString(item.description, 50)}</p>
                 </Table.Cell>
                 <Table.Cell>
-                  <p>{item.author ? item.author.name : "Unknown"}</p>
+                  <p>{getPrettyAuthorsList(item.authors)}</p>
                 </Table.Cell>
                 <Table.Cell>
                   <p>

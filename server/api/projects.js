@@ -70,6 +70,7 @@ import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
 import fse from 'fs-extra';
 import * as MiscValidators from './validators/misc.js';
 import { conductor404Err, conductor500Err } from '../util/errorutils.js';
+import { Types } from 'mongoose';
 
 const projectListingProjection = {
     _id: 0,
@@ -2765,7 +2766,9 @@ const autoGenerateProjects = (newBooks) => {
           storageType: 'file',
           parent,
           license: licenseObj,
-          mimeType: file.mimetype
+          mimeType: file.mimetype,
+          authors: req.body.authors,
+          publisher: req.body.publisher,
         });
       });
       await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
@@ -2783,7 +2786,9 @@ const autoGenerateProjects = (newBooks) => {
         access: accessSetting,
         license: licenseObj ? {...licenseObj, sourceURL: req.body.fileURL} : {
           sourceURL: req.body.fileURL, // Set Source url as url
-        }
+        },
+        authors: req.body.authors,
+        publisher: req.body.publisher,
       })
     } else {
       // Adding a folder
@@ -3071,7 +3076,7 @@ async function getProjectFile(req, res) {
       });
     }
 
-    const { name, description, license, author, publisher, tags, isURL, fileURL, overwriteName } = req.body;
+    const { name, description, license, authors, publisher, tags, isURL, fileURL, overwriteName } = req.body;
 
     let shouldOverwriteName = overwriteName === undefined ? true : overwriteName;
     if (typeof shouldOverwriteName === 'string') {
@@ -3133,8 +3138,23 @@ async function getProjectFile(req, res) {
         if (license) {
           updateObj.license = license;
         }
-        if(author) {
-          updateObj.author = author;
+        if(authors) {
+          const parseAuthors = (authorsData) => {
+            if(!Array.isArray(authorsData)) return [];
+            const reduced = authorsData.reduce((acc, curr) => {
+              if(curr._id){
+                acc.push(new Types.ObjectId(curr._id));
+              } else {
+                acc.push(curr)
+              }
+              return acc;
+            }, [])
+            return reduced;
+          }
+
+          const parsed = parseAuthors(authors);
+
+          updateObj.authors = parsed;
         }
         if(publisher) {
           updateObj.publisher = publisher;

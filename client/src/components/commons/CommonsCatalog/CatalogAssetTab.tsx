@@ -10,7 +10,7 @@ import {
 } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";
 import VisualMode from "./VisualMode";
-import { AssetFilters, ProjectFileWProjectID, ProjectFileWProjectIDAndTitle } from "../../../types";
+import { AssetFilters, ProjectFileWCustomData } from "../../../types";
 import CatalogAssetFilters from "./CatalogAssetFilters";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
@@ -37,7 +37,7 @@ const CatalogAssetTab = forwardRef(
     const catalogAssetFiltersRef =
       useRef<React.ElementRef<typeof CatalogAssetFilters>>(null);
 
-    const [files, setFiles] = useState<ProjectFileWProjectIDAndTitle[]>([]);
+    const [files, setFiles] = useState<ProjectFileWCustomData<'projectTitle' | 'projectThumbnail', 'projectID'>[]>([]);
     const [activePage, setActivePage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12);
     const [filesTotal, setFilesTotal] = useState(0);

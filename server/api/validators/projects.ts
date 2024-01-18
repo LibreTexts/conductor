@@ -1,15 +1,11 @@
 import { z } from "zod";
-import { PaginationSchema } from "./misc.js";
+import { PaginationSchema, isMongoIDValidator } from "./misc.js";
 
 export const assetTagSchema = z.object({
   key: z.string(),
-  value: z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.date(),
-    z.array(z.string()),
-  ]).optional(),
+  value: z
+    .union([z.string(), z.number(), z.boolean(), z.date(), z.array(z.string())])
+    .optional(),
 });
 
 export const projectFileSchema = z.object({
@@ -26,17 +22,21 @@ export const projectFileSchema = z.object({
       additionalTerms: z.string().trim().max(500).optional(),
     })
     .optional(),
-  author: z
-    .object({
-      name: z.string().trim().max(255).optional(),
-      email: z.string().email().optional(),
-      url: z.string().url().optional(),
-    })
-    .optional(),
+  authors: z.array(
+    z
+      .object({
+        firstName: z.string().trim().min(1).max(100),
+        lastName: z.string().trim().min(1).max(100),
+        email: z.string().trim().email().optional().or(z.literal("")),
+        url: z.string().url().optional().or(z.literal("")),
+        primaryInstitution: z.string().trim().optional(),
+      })
+      .or(z.string().refine((val: string) => isMongoIDValidator(val)))
+  ),
   publisher: z
     .object({
-      name: z.string().trim().max(255).optional(),
-      url: z.string().url().optional(),
+      name: z.string().trim().max(255).optional().or(z.literal("")),
+      url: z.string().url().optional().or(z.literal("")),
     })
     .optional(),
   isURL: z.boolean().optional(),

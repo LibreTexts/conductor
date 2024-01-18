@@ -362,6 +362,42 @@ export async function retrieveAllProjectFiles(
       },
       {
         $lookup: {
+          from: "authors",
+          localField: "files.authors",
+          foreignField: "_id",
+          as: "foundAuthors",
+        },
+      },
+      {
+        $addFields: {
+          "files.authors": {
+            $concatArrays: [
+              {
+                $filter: {
+                  input: "$files.authors",
+                  as: "author",
+                  cond: { $ne: [{$type: "$$author"}, "objectId"] },
+                }
+              },
+              {
+                $map: {
+                  input: "$foundAuthors",
+                  as: "author",
+                  in: {
+                    _id: "$$author._id",
+                    firstName: "$$author.firstName",
+                    lastName: "$$author.lastName",
+                    email: "$$author.email",
+                    userUUID: "$$author.userUUID",
+                  },
+                },
+              },
+            ],
+        }
+      }
+      },
+      {
+        $lookup: {
           from: "users",
           let: { createdBy: "$files.createdBy" },
           pipeline: [

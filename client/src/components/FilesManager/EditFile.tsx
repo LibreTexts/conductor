@@ -9,13 +9,18 @@ import {
   Table,
   Dropdown,
   Accordion,
+  Card,
+  Input,
+  Divider,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { Controller, get, useFieldArray, useForm } from "react-hook-form";
 import {
   AssetTag,
   AssetTagFramework,
+  Author,
   CentralIdentityLicense,
+  GenericKeyTextValueObj,
   ProjectFile,
 } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
@@ -39,6 +44,8 @@ import URLFileIFrame from "./URLFileIFrame";
 import URLFileHyperlink from "./URLFileHyperlink";
 import { useTypedSelector } from "../../state/hooks";
 import { sortXByOrderOfY } from "../../utils/misc";
+import LoadingSpinner from "../LoadingSpinner";
+import useDebounce from "../../hooks/useDebounce";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -62,6 +69,7 @@ const EditFile: React.FC<EditFileProps> = ({
 
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
   const {
     control,
@@ -84,11 +92,7 @@ const EditFile: React.FC<EditFileProps> = ({
         modifiedFromSource: false,
         additionalTerms: "",
       },
-      author: {
-        name: "",
-        email: "",
-        url: "",
-      },
+      authors: [],
       publisher: {
         name: "",
         url: "",
@@ -97,34 +101,75 @@ const EditFile: React.FC<EditFileProps> = ({
     mode: "onChange",
     reValidateMode: "onChange",
   });
-  const { fields, append, prepend, remove, swap, move, insert, update } =
-    useFieldArray({
-      control,
-      name: "tags",
-    });
+  const {
+    fields: tagFields,
+    append: tagAppend,
+    prepend: tagPrepend,
+    remove: tagRemove,
+    move: tagMove,
+    insert: tagInsert,
+    update: tagUpdate,
+  } = useFieldArray({
+    control,
+    name: "tags",
+  });
+
+  const {
+    fields: authorFields,
+    append: authorAppend,
+    prepend: authorPrepend,
+    remove: authorRemove,
+    move: authorMove,
+    insert: authorInsert,
+    update: authorUpdate,
+  } = useFieldArray({
+    control,
+    name: "authors",
+  });
 
   // Data & UI
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [filePreviewURL, setFilePreviewURL] = useState<string>("");
-  const [isFolder, setIsFolder] = useState(true); // No asset tags for folders
-  const [licenseOptions, setLicenseOptions] = useState<
-    CentralIdentityLicense[]
-  >([]);
+  const [isFolder, setIsFolder] = useState(false); // No asset tags for folders
   const [showUploader, setShowUploader] = useState(false);
   const [shouldShowPreview, setShouldShowPreview] = useState(false);
   const [showLicenseInfo, setShowLicenseInfo] = useState(true);
   const [showAuthorInfo, setShowAuthorInfo] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showSelectFramework, setShowSelectFramework] = useState(false);
+
+  // Frameworks
   const [selectedFramework, setSelectedFramework] =
     useState<AssetTagFramework | null>(null);
+
+  // Licenses
+  const [licenseOptions, setLicenseOptions] = useState<
+    CentralIdentityLicense[]
+  >([]);
+
+  // Authors
+  const [authorOptions, setAuthorOptions] = useState<Author[]>([]);
+  const [loadingAuthors, setLoadingAuthors] = useState(false);
+  const [selectingExistingAuthor, setSelectingExistingAuthor] = useState(true);
+  const [newAuthor, setNewAuthor] = useState<Author>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    url: "",
+    primaryInstitution: "",
+  });
+  const [orgOptions, setOrgOptions] = useState<
+    GenericKeyTextValueObj<string>[]
+  >([]);
+  const [loadingOrgs, setLoadingOrgs] = useState<boolean>(false);
 
   // Effects
   useEffect(() => {
     if (show) {
       loadLicenseOptions();
       loadFile();
+      loadAuthorOptions();
     }
   }, [show]);
 
@@ -133,6 +178,11 @@ const EditFile: React.FC<EditFileProps> = ({
       genTagsFromFramework();
     }
   }, [selectedFramework]);
+
+  // Load orgs if not selecting existing author
+  useEffect(() => {
+    if (!selectingExistingAuthor) getOrgs();
+  }, [selectingExistingAuthor]);
 
   // Update license URL and (version as appropriate) when license name changes
   useEffect(() => {
@@ -184,10 +234,13 @@ const EditFile: React.FC<EditFileProps> = ({
             key: isAssetTagKeyObject(t.key) ? t.key.title : t.key,
           };
         }) ?? [];
-      reset({
-        ...fileData,
-        tags: parsedExistingTags,
-      });
+      reset(
+        {
+          ...fileData,
+          tags: parsedExistingTags,
+        },
+        { keepDefaultValues: true }
+      );
       setIsFolder(fileData.storageType !== "file");
       _checkShouldShowPreview(fileData);
       if (fileData.storageType === "file") {
@@ -295,6 +348,70 @@ const EditFile: React.FC<EditFileProps> = ({
     }
   }
 
+  async function loadAuthorOptions(searchQuery?: string) {
+    try {
+      setLoadingAuthors(true);
+      const res = await api.getAuthors({ query: searchQuery });
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.authors) {
+        throw new Error("Failed to load author options");
+      }
+
+      setAuthorOptions(res.data.authors);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadingAuthors(false);
+    }
+  }
+
+  const getAuthorsDebounced = debounce(
+    (searchQuery?: string) => loadAuthorOptions(searchQuery),
+    200
+  );
+
+  async function getOrgs(searchQuery?: string) {
+    try {
+      setLoadingOrgs(true);
+      const res = await api.getCentralIdentityADAPTOrgs({
+        query: searchQuery ?? undefined,
+      });
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.orgs || !Array.isArray(res.data.orgs)) {
+        throw new Error("Invalid response from server.");
+      }
+
+      const orgs = res.data.orgs.map((org) => {
+        return {
+          value: org,
+          key: crypto.randomUUID(),
+          text: org,
+        };
+      });
+
+      const clearOption: GenericKeyTextValueObj<string> = {
+        key: crypto.randomUUID(),
+        text: "Clear selection",
+        value: "",
+      };
+
+      setOrgOptions([clearOption, ...orgs]);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadingOrgs(false);
+    }
+  }
+
+  const getOrgsDebounced = debounce(
+    (inputVal: string) => getOrgs(inputVal),
+    200
+  );
+
   /**
    * Submits the file edit request to the server (if form is valid) and
    * closes the modal on completion.
@@ -318,7 +435,7 @@ const EditFile: React.FC<EditFileProps> = ({
           name: vals.name,
           description: vals.description,
           license: vals.license,
-          author: vals.author,
+          authors: vals.authors,
           publisher: vals.publisher,
           tags: vals.tags,
         }
@@ -414,7 +531,7 @@ const EditFile: React.FC<EditFileProps> = ({
     framework?: AssetTagFramework;
   }) {
     if (isFolder) return; // No asset tags for folders
-    append(
+    tagAppend(
       {
         uuid: crypto.randomUUID(), // Random UUID for new tags, will be replaced with real UUID server-side on save
         key: key ?? "",
@@ -435,17 +552,49 @@ const EditFile: React.FC<EditFileProps> = ({
   function handleMoveUp(index: number) {
     if (index === 0) return; // Don't move if already at top
     // Check index - 1 exists
-    if (!fields[index - 1]) return;
-    move(index, index - 1);
+    if (!tagFields[index - 1]) return;
+    tagMove(index, index - 1);
   }
 
   function handleMoveDown(index: number) {
-    if (index === fields.length - 1) return; // Don't move if already at bottom
-    move(index, index + 1);
+    if (index === tagFields.length - 1) return; // Don't move if already at bottom
+    tagMove(index, index + 1);
   }
 
   function handleUploadFinished() {
     onFinishedEdit();
+  }
+
+  function handleAddAuthor(id?: string) {
+    if (id) {
+      const found = authorOptions.find((a) => a._id === id);
+      if (!found) return;
+      if (authorFields.find((a) => a._id === id)) return; // Don't add if already exists
+      authorAppend({
+        ...found,
+      });
+      return;
+    }
+
+    if (!newAuthor.firstName || !newAuthor.lastName) return; // First and last name are required
+    authorAppend({
+      firstName: newAuthor.firstName.trim(),
+      lastName: newAuthor.lastName.trim(),
+      email: newAuthor.email?.trim(),
+      url: newAuthor.url?.trim(),
+      primaryInstitution: newAuthor.primaryInstitution?.trim(),
+    });
+    clearNewAuthor();
+  }
+
+  function clearNewAuthor() {
+    setNewAuthor({
+      firstName: "",
+      lastName: "",
+      email: "",
+      url: "",
+      primaryInstitution: "",
+    });
   }
 
   return (
@@ -498,18 +647,22 @@ const EditFile: React.FC<EditFileProps> = ({
                 </div>
               )}
               <div className="mt-8">
+                <p className="font-semibold">File Preview</p>
                 {filePreviewURL && !getValues("isURL") && !getValues("url") && (
                   <>
-                    <p className="font-semibold">File Preview</p>
-                    <div className="mt-2">
-                      <FileRenderer
-                        url={filePreviewURL}
-                        projectID={projectID}
-                        fileID={fileID}
-                        validImgExt={shouldShowPreview}
-                        className="max-w-full max-h-full p-2"
-                      />
-                    </div>
+                    {previewLoading ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <div className="mt-2">
+                        <FileRenderer
+                          url={filePreviewURL}
+                          projectID={projectID}
+                          fileID={fileID}
+                          validImgExt={shouldShowPreview}
+                          className="max-w-full max-h-full p-2"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
                 {filePreviewURL && getValues("isURL") && getValues("url") && (
@@ -654,32 +807,228 @@ const EditFile: React.FC<EditFileProps> = ({
                       </span>
                     </Accordion.Title>
                     <Accordion.Content active={showAuthorInfo}>
-                      <CtlTextInput
-                        name="author.name"
-                        control={control}
-                        label="Author Name"
-                        placeholder="John Doe"
-                      />
-                      <CtlTextInput
-                        name="author.email"
-                        control={control}
-                        label="Author Email"
-                        placeholder="author@example.com"
-                        className="mt-2"
-                      />
-                      <CtlTextInput
-                        name="author.url"
-                        control={control}
-                        label="Author URL"
-                        placeholder="https://example.com"
-                        className="mt-2"
-                      />
+                      <Card fluid className="!p-4">
+                        {selectingExistingAuthor ? (
+                          <div>
+                            <Form.Field className="flex flex-col">
+                              <label htmlFor="existingAuthorSelect">
+                                Add Existing Author
+                              </label>
+                              <Dropdown
+                                id="existingAuthorSelect"
+                                placeholder="Search authors..."
+                                options={authorOptions.map((a) => ({
+                                  key: crypto.randomUUID(),
+                                  value: a._id ?? "",
+                                  text: `${a.firstName} ${a.lastName}`,
+                                }))}
+                                onChange={(e, { value }) => {
+                                  handleAddAuthor(value?.toString() ?? "");
+                                }}
+                                fluid
+                                selection
+                                search
+                                onSearchChange={(e, { searchQuery }) => {
+                                  getAuthorsDebounced(searchQuery);
+                                }}
+                                additionLabel="Add organization: "
+                                allowAdditions
+                                loading={loadingAuthors}
+                              />
+                            </Form.Field>
+                            <p
+                              className="text-right text-blue-500 cursor-pointer"
+                              onClick={() => setSelectingExistingAuthor(false)}
+                            >
+                              <Icon name="plus" />
+                              Manual Entry
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex flex-row justify-between">
+                              <Form.Field className="w-1/2">
+                                <label
+                                  className="form-field-label form-required"
+                                  htmlFor="newAuthorFirstName"
+                                >
+                                  First Name
+                                </label>
+                                <Form.Input
+                                  id="newAuthorFirstName"
+                                  placeholder="John"
+                                  value={newAuthor.firstName}
+                                  onChange={(e) =>
+                                    setNewAuthor({
+                                      ...newAuthor,
+                                      firstName: e.target.value,
+                                    })
+                                  }
+                                  required
+                                />
+                              </Form.Field>
+                              <Form.Field className="w-1/2 !ml-4">
+                                <label
+                                  className="form-field-label form-required"
+                                  htmlFor="newAuthorLastName"
+                                >
+                                  Last Name
+                                </label>
+                                <Form.Input
+                                  id="newAuthorLastName"
+                                  placeholder="Doe"
+                                  value={newAuthor.lastName}
+                                  onChange={(e) =>
+                                    setNewAuthor({
+                                      ...newAuthor,
+                                      lastName: e.target.value,
+                                    })
+                                  }
+                                  required
+                                />
+                              </Form.Field>
+                            </div>
+                            <div className="flex flex-row justify-between">
+                              <Form.Field className="w-1/2">
+                                <label
+                                  className="form-field-label"
+                                  htmlFor="newAuthorEmail"
+                                >
+                                  Email
+                                </label>
+                                <Form.Input
+                                  id="newAuthorEmail"
+                                  placeholder="johndoe@example.com"
+                                  value={newAuthor.email}
+                                  onChange={(e) =>
+                                    setNewAuthor({
+                                      ...newAuthor,
+                                      email: e.target.value,
+                                    })
+                                  }
+                                />
+                              </Form.Field>
+                              <Form.Field className="w-1/2 !ml-4">
+                                <label
+                                  className="form-field-label"
+                                  htmlFor="newAuthorUrl"
+                                >
+                                  URL
+                                </label>
+                                <Form.Input
+                                  id="newAuthorUrl"
+                                  placeholder="https://example.com"
+                                  value={newAuthor.url}
+                                  onChange={(e) =>
+                                    setNewAuthor({
+                                      ...newAuthor,
+                                      url: e.target.value,
+                                    })
+                                  }
+                                />
+                              </Form.Field>
+                            </div>
+                            <Form.Field className="flex flex-col !mt-2">
+                              <label htmlFor="newAuthorprimaryInstitution">
+                                Primary Institution
+                              </label>
+                              <Dropdown
+                                id="newAuthorPrimaryInstitution"
+                                placeholder="Search organizations..."
+                                options={orgOptions}
+                                onChange={(e, { value }) => {
+                                  setNewAuthor({
+                                    ...newAuthor,
+                                    primaryInstitution: value?.toString() ?? "",
+                                  });
+                                }}
+                                fluid
+                                selection
+                                search
+                                onSearchChange={(e, { searchQuery }) => {
+                                  getOrgsDebounced(searchQuery);
+                                }}
+                                additionLabel="Add organization: "
+                                allowAdditions
+                                deburr
+                                loading={loadingOrgs}
+                                onAddItem={(e, { value }) => {
+                                  if (value) {
+                                    orgOptions.push({
+                                      text: value.toString(),
+                                      value: value.toString(),
+                                      key: value.toString(),
+                                    });
+                                    setNewAuthor({
+                                      ...newAuthor,
+                                      primaryInstitution: value.toString(),
+                                    });
+                                  }
+                                }}
+                              />
+                            </Form.Field>
+                            <Button
+                              onClick={() => handleAddAuthor()}
+                              color="blue"
+                              disabled={
+                                !newAuthor.firstName.trim() ||
+                                !newAuthor.lastName.trim()
+                              }
+                            >
+                              <Icon name="plus" />
+                              Add Author
+                            </Button>
+                            <p
+                              className="text-right text-blue-500 cursor-pointer mt-2"
+                              onClick={() => {
+                                clearNewAuthor();
+                                setSelectingExistingAuthor(true);
+                              }}
+                            >
+                              <Icon name="search" />
+                              Search Existing
+                            </p>
+                          </>
+                        )}
+                      </Card>
+                      {authorFields.length > 0 && (
+                        <Card.Group className="!mt-2">
+                          {authorFields.map((author, index) => (
+                            <Card key={crypto.randomUUID()} className="!mt-0">
+                              <Card.Content>
+                                <Icon
+                                  name="x"
+                                  className="float-right cursor-pointer"
+                                  onClick={() => authorRemove(index)}
+                                />
+                                <Card.Header className="!text-sm">
+                                  {author.firstName} {author.lastName}
+                                </Card.Header>
+                                <Card.Meta className="!text-xs">
+                                  {author.email
+                                    ? author.email
+                                    : "Email Not Provided"}
+                                </Card.Meta>
+                                <Card.Meta className="!text-xs">
+                                  {author.url ? author.url : "URL Not Provided"}
+                                </Card.Meta>
+                                <Card.Meta className="!text-xs">
+                                  {author.primaryInstitution
+                                    ? author.primaryInstitution
+                                    : "Institution Not Provided"}
+                                </Card.Meta>
+                              </Card.Content>
+                            </Card>
+                          ))}
+                        </Card.Group>
+                      )}
+                      <Divider className="!mt-8 !mb-2" />
                       <CtlTextInput
                         name="publisher.name"
                         control={control}
                         label="Publisher Name"
                         placeholder="John Doe"
-                        className="mt-2"
+                        className=""
                       />
                       <CtlTextInput
                         name="publisher.url"
@@ -714,8 +1063,8 @@ const EditFile: React.FC<EditFileProps> = ({
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                          {fields && fields.length > 0 ? (
-                            fields.map((tag, index) => (
+                          {tagFields && tagFields.length > 0 ? (
+                            tagFields.map((tag, index) => (
                               <Table.Row key={tag.id}>
                                 <Table.Cell>
                                   {tag.framework ? (
@@ -755,7 +1104,7 @@ const EditFile: React.FC<EditFileProps> = ({
                                   <Button
                                     color="red"
                                     icon="trash"
-                                    onClick={() => remove(index)}
+                                    onClick={() => tagRemove(index)}
                                     className="!ml-1"
                                   ></Button>
                                 </Table.Cell>

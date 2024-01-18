@@ -1,4 +1,5 @@
 import { AssetTag } from "./AssetTagging";
+import { Author } from "./Author";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
 
@@ -6,7 +7,7 @@ export type ProjectTag = {
   orgID?: string;
   tagID?: string;
   title?: string;
-}
+};
 
 export type CIDDescriptor = {
   descriptor: string;
@@ -14,7 +15,7 @@ export type CIDDescriptor = {
   description?: string;
   approved?: Date;
   expires?: Date;
-}
+};
 
 export interface ProjectFileLicense {
   name?: string;
@@ -25,17 +26,12 @@ export interface ProjectFileLicense {
   additionalTerms?: string;
 }
 
-export interface ProjectFileAuthor {
-  name?: string;
-  email?: string;
-  url?: string;
-}
+export type ProjectFileAuthor = Omit<Author, "userUUID">;
 
 export interface ProjectFilePublisher {
   name?: string;
   url?: string;
 }
-
 
 export type ProjectFile = {
   fileID: string;
@@ -53,31 +49,45 @@ export type ProjectFile = {
   tags?: AssetTag[];
   createdDate?: Date;
   license?: ProjectFileLicense;
-  author?: ProjectFileAuthor;
+  authors?: ProjectFileAuthor[];
   publisher?: ProjectFilePublisher;
   mimeType?: string;
 };
 
-export type ProjectFileWProjectID = ProjectFile & { projectID: string };
-export type ProjectFileWProjectIDAndTitle = ProjectFileWProjectID & { projectTitle: string };
-export type ProjectFileWProjectIDAndTitleAndThumbnail = ProjectFileWProjectIDAndTitle & { projectThumbnail: string };
+/**
+ * A ProjectFile with the given Project data included, where K is the key of the Project data to include.
+ */
+export type ProjectFileWProjectData<K extends keyof Project> = ProjectFile & {
+  [P in K]: Project[P];
+};
+
+/**
+ * A ProjectFile with the given custom data included, where K is the key of the custom data to include,
+ * and T (optional) is the key of the Project data to include.
+ */
+export type ProjectFileWCustomData<
+  K extends string,
+  T extends keyof Project = never
+> = ProjectFile &
+  Record<K, string> &
+  (T extends never ? {} : ProjectFileWProjectData<T>);
 
 export enum ProjectStatus {
-    AVAILABLE = 'available',
-    OPEN='open',
-    COMPLETED='completed',
-    FLAGGED='flagged'
+  AVAILABLE = "available",
+  OPEN = "open",
+  COMPLETED = "completed",
+  FLAGGED = "flagged",
 }
 
 export enum ProjectClassification {
-    HARVESTING = 'harvesting',
-    CURATION = 'curation',
-    CONSTRUCTION = 'construction',
-    TECHNOLOGY = 'technology',
-    LIBREFEST = 'librefest',
-    COURSE_REPORT = 'coursereport',
-    ADOPTION_REQUEST = 'adoptionrequest',
-    MISCELLANEOUS = 'miscellaneous'
+  HARVESTING = "harvesting",
+  CURATION = "curation",
+  CONSTRUCTION = "construction",
+  TECHNOLOGY = "technology",
+  LIBREFEST = "librefest",
+  COURSE_REPORT = "coursereport",
+  ADOPTION_REQUEST = "adoptionrequest",
+  MISCELLANEOUS = "miscellaneous",
 }
 
 export type Project = {

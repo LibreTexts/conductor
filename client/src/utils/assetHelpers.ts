@@ -93,6 +93,11 @@ export function getPrettyUploader(uploader: User) {
   return "";
 }
 
+export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
+  if (!authors || !authors.length) return "Unknown";
+  return authors.filter((a) => !!a.name).map((a) => a.name).join(", ") || "Unknown";
+}
+
 /**
  * Requests a download link from the server for a File entry, then opens it in a new tab.
  * @param {string} projectID - Identifier of the Project containing the File.
