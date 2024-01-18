@@ -22,6 +22,12 @@ const ManageAuthorModal = lazy(
       "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal"
     )
 );
+const BulkAddAuthorsModal = lazy(
+  () =>
+    import(
+      "../../../../components/controlpanel/AuthorsManager/BulkAddAuthorsModal"
+    )
+);
 
 const AuthorsManager = () => {
   //Global State & Hooks
@@ -56,6 +62,7 @@ const AuthorsManager = () => {
     undefined
   );
   const [showManageModal, setShowManageModal] = useState<boolean>(false);
+  const [showBulkAddModal, setShowBulkAddModal] = useState<boolean>(false);
 
   //Effects
   useEffect(() => {
@@ -93,13 +100,13 @@ const AuthorsManager = () => {
     }
   }
 
-  const getAuthorsDebounced = debounce(
-    (searchVal: string) => getAuthors(searchVal),
-    500
-  );
+  const getAuthorsDebounced = debounce((searchVal: string) => {
+    setActivePage(1); // reset to first page when query changes
+    getAuthors(searchVal);
+  }, 500);
 
   function handleSelectAuthor(id?: string) {
-    if(!id) return;
+    if (!id) return;
     setSelectedAuthorId(id);
     setShowManageModal(true);
   }
@@ -108,6 +115,12 @@ const AuthorsManager = () => {
     setSelectedAuthorId(undefined);
     getAuthors(searchString);
     setShowManageModal(false);
+  }
+
+  function handleCloseBulkAddModal() {
+    setSelectedAuthorId(undefined);
+    setShowBulkAddModal(false);
+    getAuthors(searchString);
   }
 
   return (
@@ -135,9 +148,18 @@ const AuthorsManager = () => {
                 </Breadcrumb>
                 <div>
                   <Button
+                    color="blue"
+                    onClick={() => setShowBulkAddModal(true)}
+                    size="small"
+                  >
+                    <Icon name="file alternate outline" />
+                    Bulk Add
+                  </Button>
+                  <Button
                     color="green"
                     onClick={() => setShowManageModal(true)}
                     size="small"
+                    className="ml-2"
                   >
                     <Icon name="plus" />
                     Add Author
@@ -256,6 +278,10 @@ const AuthorsManager = () => {
             show={showManageModal}
             onClose={handleCloseManageModal}
             authorID={selectedAuthorId}
+          />
+          <BulkAddAuthorsModal
+            open={showBulkAddModal}
+            onClose={handleCloseBulkAddModal}
           />
         </Grid.Column>
       </Grid.Row>
