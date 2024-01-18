@@ -14,6 +14,7 @@ import { required } from "../../../utils/formRules";
 import { useEffect, useState } from "react";
 import api from "../../../api";
 import useDebounce from "../../../hooks/useDebounce";
+import ConfirmDeleteAuthorModal from "./ConfirmDeleteAuthorModal";
 
 interface ManageAuthorModalProps extends ModalProps {
   show: boolean;
@@ -45,6 +46,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
   >([]);
   const [loadedOrgs, setLoadedOrgs] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
   const resetForm = () => {
     reset({
@@ -187,6 +189,11 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
     }
   }
 
+  async function handleDeleted() {
+    setShowConfirmDelete(false);
+    onClose();
+  }
+
   return (
     <Modal open={show} onClose={onClose} {...rest}>
       <Modal.Header>
@@ -266,13 +273,32 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
         </Form>
       </Modal.Content>
       <Modal.Actions>
-        <Button onClick={onClose} loading={loading}>
-          Cancel
-        </Button>
-        <Button color="green" onClick={handeSubmit} loading={loading}>
-          <Icon name="save" /> {mode === "create" ? "Create" : "Save"}
-        </Button>
+        <div className="flex flex-row justify-between items-center">
+          {mode === "edit" && authorID && (
+            <Button
+              color="red"
+              icon="trash alternate outline"
+              onClick={() => setShowConfirmDelete(true)}
+            ></Button>
+          )}
+          <div>
+            <Button onClick={onClose} loading={loading}>
+              Cancel
+            </Button>
+            <Button color="green" onClick={handeSubmit} loading={loading}>
+              <Icon name="save" /> {mode === "create" ? "Create" : "Save"}
+            </Button>
+          </div>
+        </div>
       </Modal.Actions>
+      {authorID && (
+        <ConfirmDeleteAuthorModal
+          show={showConfirmDelete}
+          onCancel={() => setShowConfirmDelete(false)}
+          onDeleted={handleDeleted}
+          authorID={authorID}
+        />
+      )}
     </Modal>
   );
 };
