@@ -70,7 +70,7 @@ import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
 import fse from 'fs-extra';
 import * as MiscValidators from './validators/misc.js';
 import { conductor404Err, conductor500Err } from '../util/errorutils.js';
-import { Types } from 'mongoose';
+import { Types, isObjectIdOrHexString } from 'mongoose';
 
 const projectListingProjection = {
     _id: 0,
@@ -2739,6 +2739,27 @@ const autoGenerateProjects = (newBooks) => {
       }
     }
 
+    let parsedAuthors = [];
+    if(req.body.authors){
+      if(Array.isArray(req.body.authors)){
+        parsedAuthors = req.body.authors;
+      }
+      else{
+        parsedAuthors = [req.body.authors];
+      }
+
+      const _parsed = []
+      parsedAuthors.forEach((author) => {
+        if(typeof author === 'string' && isObjectIdOrHexString(author)){
+          _parsed.push(new Types.ObjectId(author));
+        } else {
+          _parsed.push(author);
+        }
+      })
+
+      parsedAuthors = _parsed;
+    }
+
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
     const fileEntries = [];
@@ -2767,7 +2788,7 @@ const autoGenerateProjects = (newBooks) => {
           parent,
           license: licenseObj,
           mimeType: file.mimetype,
-          authors: req.body.authors,
+          authors: parsedAuthors,
           publisher: req.body.publisher,
         });
       });
@@ -2787,7 +2808,7 @@ const autoGenerateProjects = (newBooks) => {
         license: licenseObj ? {...licenseObj, sourceURL: req.body.fileURL} : {
           sourceURL: req.body.fileURL, // Set Source url as url
         },
-        authors: req.body.authors,
+        authors: parsedAuthors,
         publisher: req.body.publisher,
       })
     } else {

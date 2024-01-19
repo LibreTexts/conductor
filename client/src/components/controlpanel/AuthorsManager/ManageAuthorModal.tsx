@@ -221,8 +221,8 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
           <CtlTextInput
             control={control}
             name="email"
-            label="johndoe@example.com"
-            placeholder=""
+            label="Email"
+            placeholder="johndoe@example.com"
             className="mt-4"
           />
           <CtlTextInput
