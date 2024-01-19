@@ -248,6 +248,21 @@ export function assembleUrl(parts) {
 }
 
 /**
+ * Validates that a string is a fully-qualified URL.
+ *
+ * @param {string} input - String to validate.
+ * @returns {boolean} True if string is a fully-qualified URL.
+ */
+export function isFullURL(input) {
+  try {
+    const url = new URL(input);
+    return !!url;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * @description Ensures a given string is a safe hex code for use in styling
  * @param {string} hexString - unsafe string to check
  * @returns {string} - sanitized hex code with '#' prepended, empty string if sanitizing failed

@@ -15,7 +15,7 @@ import User from "../models/user.js";
 import OAuth from "./oauth.js";
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
-import { assembleUrl, isEmptyString } from "../util/helpers.js";
+import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
@@ -321,7 +321,13 @@ async function completeLogin(req, res) {
           : `localhost:${process.env.CLIENT_PORT || 3000}`;
       redirectURL = `${oidcCallbackProto}://${domain}`;
     }
-    redirectURL = assembleUrl([redirectURL, state.redirectURI || "home"]);
+    if (state.redirectURI && isFullURL(state.redirectURI)) {
+      redirectURL = state.redirectURI;
+    } else {
+      // redirectURI is only a path or not provided
+      redirectURL = assembleUrl([redirectURL, state.redirectURI ?? "home"]);
+    }
+    
     if (!state.redirectURI && isNewMember) {
       redirectURL = `${redirectURL}?newmember=true`;
     }
