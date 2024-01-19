@@ -275,7 +275,6 @@ class API {
   }
 
   async booksSearch(params: BookSearchParams) {
-    console.log(params);
     const res = await axios.get<
       ConductorSearchResponse<"books"> & ConductorBaseResponse
     >("/search/books", {
