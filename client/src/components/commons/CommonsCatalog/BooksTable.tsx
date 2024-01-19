@@ -1,9 +1,9 @@
 import { Header, Image, Table, TableProps } from "semantic-ui-react";
-import { Book } from "../../../../types";
+import { Book } from "../../../types";
 import {
   getLibGlyphAltText,
   getLibGlyphURL,
-} from "../../../util/LibraryOptions";
+} from "../../util/LibraryOptions";
 import { Link } from "react-router-dom";
 
 interface BooksTableProps extends TableProps {
