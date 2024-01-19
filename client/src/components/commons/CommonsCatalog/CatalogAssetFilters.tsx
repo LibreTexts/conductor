@@ -159,21 +159,6 @@ const CatalogAssetFilters = forwardRef(
       setFileTypeOptions(sorted);
     };
 
-    const getFilterText = (key: string) => {
-      switch (key) {
-        case "assetLicense":
-          return "License";
-        case "assetLicenseVersion":
-          return "License Version";
-        case "assetOrg":
-          return "Organization";
-        case "assetFileType":
-          return "File Type";
-        default:
-          return "";
-      }
-    };
-
     return (
       <div
         aria-busy={loading}

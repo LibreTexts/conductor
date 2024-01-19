@@ -219,31 +219,6 @@ const CatalogBookFilters = forwardRef(
     //   });
     // };
 
-    const getFilterText = (filter: string) => {
-      switch (filter) {
-        case "bookLibrary":
-          return "Library";
-        case "bookSubject":
-          return "Subject";
-        case "bookLocation":
-          return "Location";
-        case "bookLicense":
-          return "License";
-        case "bookAuthor":
-          return "Author";
-        case "bookCourse":
-          return "Course";
-        case "bookPublisher":
-          return "Publisher";
-        case "bookAffiliation":
-          return "Affiliation";
-        case "bookCID":
-          return "C-ID";
-        default:
-          return "";
-      }
-    };
-
     return (
       <div
         aria-busy={loading}
