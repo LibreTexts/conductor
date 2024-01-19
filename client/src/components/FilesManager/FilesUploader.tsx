@@ -14,6 +14,8 @@ import useGlobalError from "../error/ErrorHooks";
 import FileUploader from "../FileUploader";
 import styles from "./FilesManager.module.css";
 import { z } from "zod";
+import api from "../../api";
+import { useTypedSelector } from "../../state/hooks";
 
 type _AddProps = {
   mode: "add";
@@ -49,8 +51,9 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   fileID,
   ...props
 }) => {
-  // Global Error Handling
+  // Global State &  Error Handling
   const { handleGlobalError } = useGlobalError();
+  const user = useTypedSelector((state) => state.user);
 
   // State
   const [loading, setLoading] = useState<boolean>(false);
@@ -105,6 +108,25 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
       setLoading(true);
       const formData = new FormData();
       formData.append("parentID", uploadPath);
+
+      // If uploader exists in authors collection, add them as an author to the file
+      if(mode === "add" && user){
+        const authorsRes = await api.getAuthors({query: user.email});
+        if(authorsRes.data.err){
+          console.error(authorsRes.data.errMsg);
+        }
+         if (!authorsRes.data.authors){
+          console.error("An error occurred while getting authors");
+         }
+
+         if(authorsRes.data.authors){
+          const foundAuthor = authorsRes.data.authors.find((author) => author.email === user.email);
+          if(foundAuthor && foundAuthor._id){
+            formData.append("authors", [foundAuthor._id].toString());
+          }
+         }
+      }
+
       mode === "replace" && formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
       Array.from(files).forEach((file) => {
         formData.append("files", file);
