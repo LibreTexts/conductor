@@ -21,10 +21,14 @@ import VisualMode from "./VisualMode";
 import AssetsTable from "./AssetsTable";
 import ProjectsTable from "./ProjectsTable";
 import TabLabel from "./CatalogTabLabel";
+import { getAssetFilterText, getBookFilterText } from "../../../utils/misc";
+import { act } from "react-dom/test-utils";
 
 interface CatalogTabsProps extends TabProps {
   assetFilters: AssetFilters;
+  setAssetFilters: (filters: AssetFilters) => void;
   bookFilters: BookFilters;
+  setBookFilters: (filters: BookFilters) => void;
   strictMode: boolean;
 }
 
@@ -38,7 +42,15 @@ type CatalogTabsRef = {
 
 const CatalogTabs = forwardRef(
   (props: CatalogTabsProps, ref: ForwardedRef<CatalogTabsRef>) => {
-    const { paneProps, bookFilters, assetFilters, strictMode, ...rest } = props;
+    const {
+      paneProps,
+      bookFilters,
+      assetFilters,
+      setBookFilters,
+      setAssetFilters,
+      strictMode,
+      ...rest
+    } = props;
 
     const ITEMS_PER_PAGE = 24;
     const { handleGlobalError } = useGlobalError();
@@ -104,9 +116,9 @@ const CatalogTabs = forwardRef(
         setActivePage(1);
 
         await Promise.all([
-          handleBooksSearch(query, true),
-          handleAssetsSearch(query, true),
-          handleProjectsSearch(query, true),
+          handleBooksSearch(query, true, true),
+          handleAssetsSearch(query, true, true),
+          handleProjectsSearch(query, true, true),
         ]);
       } catch (err) {
         handleGlobalError(err);
@@ -145,7 +157,7 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleBooksSearch(query?: string, clearIfNone = false) {
+    async function handleBooksSearch(query?: string, clearIfNone = false, clearAndUpdate = false) {
       try {
         const res = await api.booksSearch({
           searchQuery: query,
@@ -166,6 +178,7 @@ const CatalogTabs = forwardRef(
         if (Array.isArray(res.data.results)) {
           updateBooks(
             res.data.results,
+            clearAndUpdate,
             res.data.results.length === 0 && clearIfNone ? true : false
           );
         }
@@ -201,7 +214,11 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleAssetsSearch(query?: string, clearIfNone = false) {
+    async function handleAssetsSearch(
+      query?: string,
+      clearIfNone = false,
+      clearAndUpdate = false
+    ) {
       try {
         const res = await api.assetsSearch({
           searchQuery: query,
@@ -222,6 +239,7 @@ const CatalogTabs = forwardRef(
         if (Array.isArray(res.data.results)) {
           updateAssets(
             res.data.results,
+            clearAndUpdate,
             res.data.results.length === 0 && clearIfNone ? true : false
           );
         }
@@ -256,7 +274,7 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleProjectsSearch(query?: string, clearIfNone = false) {
+    async function handleProjectsSearch(query?: string, clearIfNone = false, clearAndUpdate = false) {
       try {
         const res = await api.projectsSearch({
           searchQuery: query,
@@ -276,6 +294,7 @@ const CatalogTabs = forwardRef(
         if (Array.isArray(res.data.results)) {
           updateProjects(
             res.data.results,
+            clearAndUpdate,
             res.data.results.length === 0 && clearIfNone ? true : false
           );
         }
@@ -331,26 +350,40 @@ const CatalogTabs = forwardRef(
         "projectTitle" | "projectThumbnail",
         "projectID"
       >[],
+      clearAndUpdate = false,
       clear = false
     ) {
       if (clear) {
         setAssets([]);
+      } else if (clearAndUpdate) {
+        setAssets([...newAssets]);
       } else {
         setAssets([...assets, ...newAssets]);
       }
     }
 
-    function updateBooks(newBooks: Book[], clear = false) {
+    function updateBooks(
+      newBooks: Book[],
+      clearAndUpdate = false,
+      clear = false
+    ) {
       if (clear) {
         setBooks([]);
-      } else {
+      } else if (clearAndUpdate) setBooks([...newBooks]);
+      else {
         setBooks([...books, ...newBooks]);
       }
     }
 
-    function updateProjects(newProjects: Project[], clear = false) {
+    function updateProjects(
+      newProjects: Project[],
+      clearAndUpdate = false,
+      clear = false
+    ) {
       if (clear) {
         setProjects([]);
+      } else if (clearAndUpdate) {
+        setProjects([...newProjects]);
       } else {
         setProjects([...projects, ...newProjects]);
       }
@@ -359,15 +392,27 @@ const CatalogTabs = forwardRef(
     function handleTabChange(index: number) {
       setActiveIndex(index);
       setActivePage(1);
-      if(index === 0) {
+      if (index === 0) {
         setBooks([]);
       }
-      if(index === 1) {
+      if (index === 1) {
         setAssets([]);
       }
-      if(index === 2) {
+      if (index === 2) {
         setProjects([]);
       }
+    }
+
+    function handleRemoveBookFilter(filter: keyof BookFilters) {
+      const newFilters = { ...bookFilters };
+      delete newFilters[filter];
+      setBookFilters(newFilters);
+    }
+
+    function handleRemoveAssetFilter(filter: keyof AssetFilters) {
+      const newFilters = { ...assetFilters };
+      delete newFilters[filter];
+      setAssetFilters(newFilters);
     }
 
     return (
@@ -415,6 +460,48 @@ const CatalogTabs = forwardRef(
           </div>
         </div>
         <div className="tab-content">
+          {activeIndex === 0 && (
+            <div className="flex flex-row">
+              {Object.entries(bookFilters).map(([key, value]) => {
+                return (
+                  <Label circular size="medium" key={crypto.randomUUID()}>
+                    <div
+                      className="flex flex-row items-center cursor-pointer"
+                      onClick={() =>
+                        handleRemoveBookFilter(key as keyof BookFilters)
+                      }
+                    >
+                      <p className="">
+                        {getBookFilterText(key)}: {value}
+                      </p>
+                      <Icon name="x" className="!ml-1" />
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          )}
+          {activeIndex === 1 && (
+            <div className="flex flex-row">
+              {Object.entries(assetFilters).map(([key, value]) => {
+                return (
+                  <Label circular size="medium" key={crypto.randomUUID()}>
+                    <div
+                      className="flex flex-row items-center cursor-pointer"
+                      onClick={() =>
+                        handleRemoveAssetFilter(key as keyof AssetFilters)
+                      }
+                    >
+                      <p className="">
+                        {getAssetFilterText(key)}: {value}
+                      </p>
+                      <Icon name="x" className="!ml-1" />
+                    </div>
+                  </Label>
+                );
+              })}
+            </div>
+          )}
           {activeIndex === 0 && (
             <CatalogTab
               key={"books-tab"}

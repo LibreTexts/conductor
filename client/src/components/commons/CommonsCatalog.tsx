@@ -205,7 +205,7 @@ const CommonsCatalog = () => {
                   />
                 </div>
               )}
-              {!false && (
+              {(searchString !== "" || Object.keys(bookFilters).length !== 0 || Object.keys(assetFilters).length !== 0) && (
                 <p
                   className="italic font-semibold cursor-pointer underline text-center mt-2"
                   onClick={handleResetSearch}
@@ -216,7 +216,9 @@ const CommonsCatalog = () => {
               <CatalogTabs
                 ref={catalogTabsRef}
                 assetFilters={assetFilters}
+                setAssetFilters={setAssetFilters}
                 bookFilters={bookFilters}
+                setBookFilters={setBookFilters}
                 strictMode={strictMode}
               />
             </Segment>

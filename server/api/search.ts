@@ -169,7 +169,7 @@ async function booksSearch(
             { title: queryRegex },
             { author: queryRegex },
             { affiliation: queryRegex },
-            { library: queryRegex },
+            { libreLibrary: queryRegex },
             { subject: queryRegex },
             { course: queryRegex },
             { program: queryRegex },
@@ -188,31 +188,31 @@ async function booksSearch(
     const totalCount = results.length;
     const paginated = results.slice(booksOffset, booksOffset + booksLimit);
 
-    paginated.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.sort === "title") {
-        aData = _transformToCompare(a.title);
-        bData = _transformToCompare(b.title);
-      } else if (req.query.sort === "author") {
-        aData = _transformToCompare(a.author);
-        bData = _transformToCompare(b.author);
-      } else if (req.query.sort === "library") {
-        aData = _transformToCompare(a.library);
-        bData = _transformToCompare(b.library);
-      } else if (req.query.sort === "subject") {
-        aData = _transformToCompare(a.subject);
-        bData = _transformToCompare(b.subject);
-      } else if (req.query.sort === "affiliation") {
-        aData = _transformToCompare(a.affiliation);
-        bData = _transformToCompare(b.affiliation);
-      }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
-    });
+    // paginated.sort((a, b) => {
+    //   let aData = null;
+    //   let bData = null;
+    //   if (req.query.sort === "title") {
+    //     aData = _transformToCompare(a.title);
+    //     bData = _transformToCompare(b.title);
+    //   } else if (req.query.sort === "author") {
+    //     aData = _transformToCompare(a.author);
+    //     bData = _transformToCompare(b.author);
+    //   } else if (req.query.sort === "library") {
+    //     aData = _transformToCompare(a.library);
+    //     bData = _transformToCompare(b.library);
+    //   } else if (req.query.sort === "subject") {
+    //     aData = _transformToCompare(a.subject);
+    //     bData = _transformToCompare(b.subject);
+    //   } else if (req.query.sort === "affiliation") {
+    //     aData = _transformToCompare(a.affiliation);
+    //     bData = _transformToCompare(b.affiliation);
+    //   }
+    //   if (aData !== null && bData !== null) {
+    //     if (aData < bData) return -1;
+    //     if (aData > bData) return 1;
+    //   }
+    //   return 0;
+    // });
 
     return res.send({
       err: false,

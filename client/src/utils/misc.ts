@@ -144,3 +144,43 @@ export function base64ToBlob(
 
   return new Blob(byteArrays, { type: contentType });
 }
+
+export function getBookFilterText(filter: string) {
+  switch (filter) {
+    case "bookLibrary":
+      return "Library";
+    case "bookSubject":
+      return "Subject";
+    case "bookLocation":
+      return "Location";
+    case "bookLicense":
+      return "License";
+    case "bookAuthor":
+      return "Author";
+    case "bookCourse":
+      return "Course";
+    case "bookPublisher":
+      return "Publisher";
+    case "bookAffiliation":
+      return "Affiliation";
+    case "bookCID":
+      return "C-ID";
+    default:
+      return "";
+  }
+}
+
+export function getAssetFilterText(key: string) {
+  switch (key) {
+    case "license":
+      return "License";
+    case "licenseVersion":
+      return "License Version";
+    case "org":
+      return "Organization";
+    case "fileType":
+      return "File Type";
+    default:
+      return "";
+  }
+}
