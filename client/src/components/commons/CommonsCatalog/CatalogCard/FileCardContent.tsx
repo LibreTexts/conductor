@@ -61,7 +61,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
         </div>
       )}
-      <Card.Header as="h3" className="commons-content-card-header !mt-4">
+      <Card.Header as="h3" className="commons-content-card-header !mt-2">
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
