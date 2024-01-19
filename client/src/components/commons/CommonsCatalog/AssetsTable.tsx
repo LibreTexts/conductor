@@ -1,14 +1,14 @@
 import { Header, Table, TableProps } from "semantic-ui-react";
-import { ProjectFile } from "../../../../types";
+import { ProjectFile } from "../../../types";
 import { Link } from "react-router-dom";
-import { truncateString } from "../../../util/HelperFunctions";
-import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
+import { truncateString } from "../../util/HelperFunctions";
+import { getPrettyAuthorsList } from "../../../utils/assetHelpers";
 
-interface FilesTableProps extends TableProps {
+interface AssetsTableProps extends TableProps {
   items: ProjectFile[];
 }
 
-const FilesTable: React.FC<FilesTableProps> = ({ items, ...rest }) => {
+const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
   return (
     <Table celled title="Search Results" {...rest}>
       <Table.Header>
@@ -83,4 +83,4 @@ const FilesTable: React.FC<FilesTableProps> = ({ items, ...rest }) => {
   );
 };
 
-export default FilesTable;
+export default AssetsTable;
