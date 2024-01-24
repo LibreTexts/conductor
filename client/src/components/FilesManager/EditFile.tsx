@@ -1040,59 +1040,59 @@ const EditFile: React.FC<EditFileProps> = ({
                     </Accordion.Content>
                   </Accordion>
                 </div>
-
-                <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
-                  <Accordion>
-                    <Accordion.Title
-                      active={showTags}
-                      index={0}
-                      onClick={() => setShowTags(!showTags)}
-                    >
-                      <Icon name="dropdown" />
-                      <span className="font-semibold">Tags</span>
-                    </Accordion.Title>
-                    <Accordion.Content active={showTags}>
-                      <Table celled>
-                        <Table.Header fullWidth>
-                          <Table.Row key="header">
-                            <Table.HeaderCell>Tag Title</Table.HeaderCell>
-                            <Table.HeaderCell>Value</Table.HeaderCell>
-                            <Table.HeaderCell width={1}>
-                              Actions
-                            </Table.HeaderCell>
-                          </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                          {tagFields && tagFields.length > 0 ? (
-                            tagFields.map((tag, index) => (
-                              <Table.Row key={tag.id}>
-                                <Table.Cell>
-                                  {tag.framework ? (
-                                    <div className="flex flex-col">
-                                      <p>
-                                        {isAssetTagKeyObject(tag.key)
-                                          ? tag.key.title
-                                          : tag.key}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <CtlTextInput
-                                      name={`tags.${index}.key`}
+                {org.FEAT_AssetTagsManager && (
+                  <div className="flex flex-col rounded-md shadow-lg border p-4 mt-4">
+                    <Accordion>
+                      <Accordion.Title
+                        active={showTags}
+                        index={0}
+                        onClick={() => setShowTags(!showTags)}
+                      >
+                        <Icon name="dropdown" />
+                        <span className="font-semibold">Tags</span>
+                      </Accordion.Title>
+                      <Accordion.Content active={showTags}>
+                        <Table celled>
+                          <Table.Header fullWidth>
+                            <Table.Row key="header">
+                              <Table.HeaderCell>Tag Title</Table.HeaderCell>
+                              <Table.HeaderCell>Value</Table.HeaderCell>
+                              <Table.HeaderCell width={1}>
+                                Actions
+                              </Table.HeaderCell>
+                            </Table.Row>
+                          </Table.Header>
+                          <Table.Body>
+                            {tagFields && tagFields.length > 0 ? (
+                              tagFields.map((tag, index) => (
+                                <Table.Row key={tag.id}>
+                                  <Table.Cell>
+                                    {tag.framework ? (
+                                      <div className="flex flex-col">
+                                        <p>
+                                          {isAssetTagKeyObject(tag.key)
+                                            ? tag.key.title
+                                            : tag.key}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <CtlTextInput
+                                        name={`tags.${index}.key`}
+                                        control={control}
+                                        fluid
+                                      />
+                                    )}
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                    <RenderTagInput
+                                      tag={tag}
+                                      index={index}
                                       control={control}
-                                      fluid
+                                      formState={formState}
                                     />
-                                  )}
-                                </Table.Cell>
-                                <Table.Cell>
-                                  <RenderTagInput
-                                    tag={tag}
-                                    index={index}
-                                    control={control}
-                                    formState={formState}
-                                  />
-                                </Table.Cell>
-                                <Table.Cell>
-                                  {/* <Button
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                    {/* <Button
                                       icon="arrow up"
                                       onClick={() => handleMoveUp(index)}
                                     />
@@ -1101,47 +1101,48 @@ const EditFile: React.FC<EditFileProps> = ({
                                       onClick={() => handleMoveDown(index)}
                                       className="!ml-1"
                                     /> */}
-                                  <Button
-                                    color="red"
-                                    icon="trash"
-                                    onClick={() => tagRemove(index)}
-                                    className="!ml-1"
-                                  ></Button>
+                                    <Button
+                                      color="red"
+                                      icon="trash"
+                                      onClick={() => tagRemove(index)}
+                                      className="!ml-1"
+                                    ></Button>
+                                  </Table.Cell>
+                                </Table.Row>
+                              ))
+                            ) : (
+                              <Table.Row>
+                                <Table.Cell colSpan={3} className="text-center">
+                                  No tags have been added to this file.
                                 </Table.Cell>
                               </Table.Row>
-                            ))
-                          ) : (
-                            <Table.Row>
-                              <Table.Cell colSpan={3} className="text-center">
-                                No tags have been added to this file.
-                              </Table.Cell>
-                            </Table.Row>
-                          )}
-                        </Table.Body>
-                      </Table>
-                      <div className="flex flex-row">
-                        <Button color="blue" onClick={() => addTag({})}>
-                          <Icon name="plus" />
-                          Add Tag
-                        </Button>
-                        <Button
-                          color="blue"
-                          onClick={() => setShowSelectFramework(true)}
-                        >
-                          <Icon name="plus" />
-                          Add From Framework
-                        </Button>
-                      </div>
-                      {formState.errors.tags && (
-                        <p className="text-red-500 text-center mt-4 italic">
-                          {formState.errors.tags
-                            ? "One or more tags are missing values. If you do not wish to provide a value for an input, delete the tag before saving."
-                            : ""}
-                        </p>
-                      )}
-                    </Accordion.Content>
-                  </Accordion>
-                </div>
+                            )}
+                          </Table.Body>
+                        </Table>
+                        <div className="flex flex-row">
+                          <Button color="blue" onClick={() => addTag({})}>
+                            <Icon name="plus" />
+                            Add Tag
+                          </Button>
+                          <Button
+                            color="blue"
+                            onClick={() => setShowSelectFramework(true)}
+                          >
+                            <Icon name="plus" />
+                            Add From Framework
+                          </Button>
+                        </div>
+                        {formState.errors.tags && (
+                          <p className="text-red-500 text-center mt-4 italic">
+                            {formState.errors.tags
+                              ? "One or more tags are missing values. If you do not wish to provide a value for an input, delete the tag before saving."
+                              : ""}
+                          </p>
+                        )}
+                      </Accordion.Content>
+                    </Accordion>
+                  </div>
+                )}
               </div>
             )}
           </div>
