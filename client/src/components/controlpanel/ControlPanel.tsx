@@ -28,7 +28,6 @@ const ControlPanel = () => {
     const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
     const org = useTypedSelector((state) => state.org);
 
-    
     /**
      * Set page title on initial load.
      */
@@ -85,12 +84,6 @@ const ControlPanel = () => {
 
     let campusAdminTools: ControlPanelListItem[] = [
         {
-            url: '/controlpanel/assettagsmanager',
-            icon: 'tags',
-            title: 'Asset Tags Manager',
-            description: 'Manage templates for metadata tags that can be applied to assets in Conductor projects'
-        },
-        {
             url: '/controlpanel/authorsmanager',
             icon: 'address book outline',
             title: 'Authors Manager',
@@ -127,6 +120,17 @@ const ControlPanel = () => {
             description: 'See which Conductor users have access to your instance and manage their permissions'
         }
     ];
+
+    if(org.FEAT_AssetTagsManager){
+        campusAdminTools.unshift(
+            {
+                url: '/controlpanel/assettagsmanager',
+                icon: 'tags',
+                title: 'Asset Tags Manager',
+                description: 'Manage templates for metadata tags that can be applied to assets in Conductor projects'
+            },
+        )
+    }
 
     const renderListItem = (type: 'libretexts' | 'campus', item: ControlPanelListItem, idx: number) => {
         return (

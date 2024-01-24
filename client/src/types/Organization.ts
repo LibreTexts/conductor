@@ -20,6 +20,7 @@ export type Organization = {
   addToLibreGridList: boolean;
   catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
+  FEAT_AssetTagsManager?: boolean;
 };
 
 export type CampusSettingsOpts = Pick<
