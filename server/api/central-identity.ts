@@ -869,6 +869,7 @@ async function processLibraryAccessWebhookEvent(
     const promises = withSubdomain.map((project) => {
       if (!project) return null;
       const { projectID, subdomain, libreCoverID } = project;
+      if(!projectID || !subdomain || !libreCoverID) return null;
       return updateTeamWorkbenchPermissions(projectID, subdomain, libreCoverID);
     })
 

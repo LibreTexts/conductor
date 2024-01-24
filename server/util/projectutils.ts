@@ -32,6 +32,8 @@ import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
 import { CompleteMultipartUploadCommand, CreateMultipartUploadCommand, GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, S3ClientConfig, ServiceOutputTypes, UploadPartCommand } from "@aws-sdk/client-s3";
 import mailAPI from "../api/mail.js";
+import { CXOneFetch, getLibUsers, getLibreBotUserId } from "./librariesclient.js";
+import MindTouch from "./CXOne/index.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -1271,6 +1273,67 @@ export async function createZIPAndNotify(
 
     await mailAPI.sendZIPFileReadyNotification(signedURL, emailToNotify);
     console.log('[SYSTEM] Sent email to: ' + emailToNotify)
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
+  }
+}
+
+export async function updateTeamWorkbenchPermissions(projectID: string, subdomain: string, coverID: string) {
+  try {
+    if (!projectID) {
+      throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
+    }
+
+    const project = await Project.findOne({ projectID }).orFail();
+    const team = [
+      ...project.leads ?? [],
+      ...project.liaisons ?? [],
+      ...project.members ?? [],
+      ...project.auditors ?? [],
+    ];
+
+    const conductorUsers = await User.find({ uuid: { $in: team } });
+    const centralIDs = conductorUsers
+      .filter((user) => user.centralID)
+      .map((user) => user.centralID.toString());
+    
+    const libreBotID = await getLibreBotUserId(subdomain);
+    if(!libreBotID) {
+      throw new Error("Error getting LibreBot user ID");
+    }
+
+    const libUsers = await getLibUsers(subdomain);
+    const foundUsers = libUsers.filter((u) =>
+      centralIDs.includes(u.username.toString())
+    );
+
+    const body = MindTouch.Templates.PUT_TeamAsContributors(
+      foundUsers.map((u) => u.id),
+      libreBotID
+    );
+
+    const permsRes = await CXOneFetch({
+      scope: "page",
+      path: coverID,
+      api: MindTouch.API.Page.PUT_Security,
+      subdomain,
+      options: {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+        body: body
+      },
+      query: {
+        cascade: "delta",
+      },
+    });
+
+    if (!permsRes.ok) {
+      throw new Error(
+        `Error updating permissions for Workbench project: "${projectID}"`
+      );
+    }
     return true;
   } catch (err) {
     debugError(err);

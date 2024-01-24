@@ -95,7 +95,7 @@ export function getPrettyUploader(uploader: User) {
 
 export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
   if (!authors || !authors.length) return "Unknown";
-  return authors.filter((a) => !!a.name).map((a) => a.name).join(", ") || "Unknown";
+  return authors.filter((a) => !!a.firstName && !!a.lastName).map((a) => `${a.firstName} ${a.lastName}`).join(", ") || "Unknown";
 }
 
 /**
