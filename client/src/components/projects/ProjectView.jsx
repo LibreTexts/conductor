@@ -2574,20 +2574,11 @@ const ProjectView = (props) => {
           {/* Manage Reader Resources */}
           {
             project.projectID  && (
-              <>
                 <ReaderResourcesManager
                   projectID={project.projectID}
                   show={showReaderResourcesModal}
                   onClose={handleCloseReaderResourcesModal}
                 />
-                <CreateWorkbenchModal
-                  open={showCreateWorkbenchModal}
-                  projectID={project.projectID}
-                  projectTitle={project.title}
-                  onClose={() => setShowCreateWorkbenchModal(false)}
-                  onSuccess={() => window.location.reload()}
-                  />
-              </>
             )
           }
         </Grid.Column>

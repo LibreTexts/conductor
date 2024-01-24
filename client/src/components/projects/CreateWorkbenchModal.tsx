@@ -54,13 +54,10 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   const [canAccessLibrary, setCanAccessLibrary] = useState(true);
 
   useEffect(() => {
-    loadLibraries();
-    setValue("title", projectTitle);
-  }, []);
-
-  useEffect(() => {
     if (show) {
       reset(); // reset form on open
+      loadLibraries();
+      setValue("title", projectTitle);
     }
   }, [show]);
 
@@ -109,7 +106,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
 
   async function createWorkbench() {
     try {
-      if(!canAccessLibrary) return;
+      if (!canAccessLibrary) return;
       setLoading(true);
       if (!(await trigger())) return;
       const res = await axios.post("/commons/book", {
@@ -128,7 +125,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
   }
 
   return (
-    <Modal size="fullscreen" {...rest}>
+    <Modal size="fullscreen" open={show} {...rest}>
       <Modal.Header>Create Book</Modal.Header>
       <Modal.Content>
         <Form
@@ -199,9 +196,9 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
           <Message warning>
             <Message.Header>Cannot Access Library</Message.Header>
             <p>
-              Oops, it looks like you do not have access to this library. If you need to request
-              access, please submit or update your instructor verification
-              request here:{" "}
+              Oops, it looks like you do not have access to this library. If you
+              need to request access, please submit or update your instructor
+              verification request here:{" "}
               <a href={getCentralAuthInstructorURL()} target="_blank">
                 {getCentralAuthInstructorURL()}
               </a>
