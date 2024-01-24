@@ -32,6 +32,7 @@ import api from "../../api";
 import axios from "axios";
 import useDebounce from "../../hooks/useDebounce";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
+const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
 interface ProjectPropertiesModalProps extends ModalProps {
@@ -81,6 +82,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       notes: "",
       associatedOrgs: [],
       thumbnail: "",
+      didCreateWorkbench: false,
       defaultFileLicense: {
         name: "",
         version: "",
@@ -109,6 +111,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     GenericKeyTextValueObj<string>[]
   >([]);
   const [loadedOrgs, setLoadedOrgs] = useState<boolean>(false);
+  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
+    useState<boolean>(false);
 
   useEffect(() => {
     if (show && projectID) {
@@ -499,32 +503,49 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               />
             </div>
           </div>
-          <Form.Field className="flex flex-col !mt-4">
-            <label htmlFor="projectURL">
-              <span className="mr-05p">
-                Project URL <span className="muted-text">(if applicable)</span>
-              </span>
-              <Popup
-                trigger={<Icon name="info circle" />}
-                position="top center"
-                content={
-                  <span className="text-center">
-                    If a LibreText URL is entered, the Library, ID, and
-                    Bookshelf or Campus will be automatically retrieved.
+          {!getValues("didCreateWorkbench") && (
+            <>
+              <Form.Field className="flex flex-col !mt-4">
+                <label htmlFor="projectURL">
+                  <span className="mr-05p">
+                    Project URL{" "}
+                    <span className="muted-text">(if applicable)</span>
                   </span>
-                }
-              />
-            </label>
-            <CtlTextInput
-              name="projectURL"
-              control={control}
-              placeholder="Enter project URL..."
-              type="url"
-              id="projectURL"
-            />
-          </Form.Field>
+                  <Popup
+                    trigger={<Icon name="info circle" />}
+                    position="top center"
+                    content={
+                      <span className="text-center">
+                        If a LibreText URL is entered, the Library, ID, and
+                        Bookshelf or Campus will be automatically retrieved.
+                      </span>
+                    }
+                  />
+                </label>
+                <CtlTextInput
+                  name="projectURL"
+                  control={control}
+                  placeholder="Enter project URL..."
+                  type="url"
+                  id="projectURL"
+                />
+              </Form.Field>
+              <div>
+                {!getValues("projectURL") && (
+                  <Button
+                    color="blue"
+                    onClick={() => setShowCreateWorkbenchModal(true)}
+                    className="!mb-4"
+                  >
+                    <Icon name="plus" />
+                    Create Book
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
 
-          <Form.Field className="flex flex-col">
+          <Form.Field className="flex flex-col !mt-4">
             <label htmlFor="projectTags">Project Tags</label>
             <Controller
               render={({ field }) => (
@@ -670,7 +691,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                     the project's card on the Commons page (if project is
                     publicly visible). Project thumbnails are stored publicly
                     (regardless of project visibility) and appear best with a
-                    16:9 aspect ratio. It may take a few minutes for a new thumbnail to propogate to all locations.
+                    16:9 aspect ratio. It may take a few minutes for a new
+                    thumbnail to propogate to all locations.
                   </span>
                 }
               />
@@ -793,7 +815,11 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 render={({ field }) => (
                   <Dropdown
                     id="license"
-                    options={licenseOptions}
+                    options={licenseOptions.map((l) => ({
+                      key: crypto.randomUUID(),
+                      value: l.name,
+                      text: l.name,
+                    }))}
                     {...field}
                     onChange={(e, data) => {
                       field.onChange(data.value?.toString() ?? "text");
@@ -951,6 +977,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               },
             },
           ]}
+        />
+        <CreateWorkbenchModal
+          show={showCreateWorkbenchModal}
+          projectID={watch("projectID")}
+          projectTitle={watch("title")}
+          onClose={() => setShowCreateWorkbenchModal(false)}
+          onSuccess={() => window.location.reload()}
         />
       </Modal.Content>
       <Modal.Actions>
