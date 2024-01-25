@@ -98,7 +98,9 @@ async function getOpenTickets(
     let page = 1;
     let limit = 25;
     if (req.query.page) page = req.query.page;
+    if (req.query.limit) limit = req.query.limit;
     const offset = getPaginationOffset(page, limit);
+
 
     const tickets = await SupportTicket.find({ status: "open" })
       .skip(offset)

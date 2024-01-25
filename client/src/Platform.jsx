@@ -12,6 +12,8 @@ import withOrgStateDependency from "./enhancers/withOrgStateDependency";
 import "./styles/global.css";
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorScreen from "./screens/ErrorScreen";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 /**
  * Exposes the applications and global configuration.
@@ -76,11 +78,16 @@ const Platform = () => {
   /* Require Organization info globally */
   const Application = withOrgStateDependency(ApplicationTree);
 
+  const queryClient = new QueryClient();
+
   return (
     <BrowserRouter>
-      <Provider store={store}>
-        <Application />
-      </Provider>
+      <QueryClientProvider client={queryClient}>
+        <Provider store={store}>
+          <Application />
+        </Provider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
     </BrowserRouter>
   );
 };

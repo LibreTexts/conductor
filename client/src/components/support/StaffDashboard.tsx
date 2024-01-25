@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy } from "react";
 import { Button, Icon, Table } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { SupportTicket } from "../../types";
@@ -7,29 +7,48 @@ import { format, parseISO, set } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { getRequesterText } from "../../utils/kbHelpers";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
+import { useTypedSelector } from "../../state/hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import LoadingSpinner from "../LoadingSpinner";
+const SupportCenterSettingsModal = lazy(
+  () => import("./SupportCenterSettingsModal")
+);
 
 const StaffDashboard = () => {
   const { handleGlobalError } = useGlobalError();
+  const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
-  const [openTickets, setOpenTickets] = useState<SupportTicket[]>([]);
-
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [metricOpen, setMetricOpen] = useState<number>(0);
   const [metricAvgMins, setMetricAvgMins] = useState<number>(0);
   const [metricWeek, setMetricWeek] = useState<number>(0);
 
+  const queryClient = useQueryClient();
+
+  const { data: openTickets, isFetching } = useQuery<SupportTicket[]>({
+    queryKey: ["openTickets", activePage, itemsPerPage],
+    queryFn: () => getOpenTickets(activePage, itemsPerPage),
+    keepPreviousData: true,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
   useEffect(() => {
-    getOpenTickets();
     getSupportMetrics();
   }, []);
 
-  async function getOpenTickets() {
+  async function getOpenTickets(page: number, items: number) {
     try {
       setLoading(true);
-      const res = await axios.get("/support/ticket/open");
+      const res = await axios.get("/support/ticket/open", {
+        params: {
+          page: page,
+          limit: items,
+        },
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -38,9 +57,9 @@ const StaffDashboard = () => {
         throw new Error("Invalid response from server");
       }
 
-      setOpenTickets(res.data.tickets);
       setTotalItems(res.data.total);
-      setTotalPages(Math.ceil(res.data.total / itemsPerPage));
+      setTotalPages(Math.ceil(res.data.total / items));
+      return res.data.tickets;
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -63,7 +82,6 @@ const StaffDashboard = () => {
       setMetricOpen(res.data.metrics.totalOpenTickets ?? 0);
       setMetricAvgMins(res.data.metrics.avgMinsToClose ?? 0);
       setMetricWeek(res.data.metrics.lastSevenTicketCount ?? 0);
-
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -90,11 +108,30 @@ const StaffDashboard = () => {
 
   return (
     <div className="flex flex-col p-8" aria-busy={loading}>
-      <p className="text-4xl font-semibold">Staff Dashboard</p>
+      <div className="flex flex-row justify-between items-center">
+        <p className="text-4xl font-semibold">Staff Dashboard</p>
+        {user.isSuperAdmin && (
+          <Button
+            color="blue"
+            size="tiny"
+            onClick={() => setShowSettingsModal(true)}
+            basic
+          >
+            <Icon name="settings" />
+            Support Center Settings
+          </Button>
+        )}
+      </div>
       <div className="flex flex-row justify-between w-full mt-6">
         <DashboardMetric metric={metricOpen.toString()} title="Open Tickets" />
-        <DashboardMetric metric={`${metricAvgMins.toString()} mins`} title="Average Time to Resolution" />
-        <DashboardMetric metric={metricWeek.toString()} title="Total Tickets This Week" />
+        <DashboardMetric
+          metric={`${metricAvgMins.toString()} mins`}
+          title="Average Time to Resolution"
+        />
+        <DashboardMetric
+          metric={metricWeek.toString()}
+          title="Total Tickets This Week"
+        />
       </div>
       <div className="mt-12">
         <p className="text-3xl font-semibold mb-2">Open Tickets</p>
@@ -119,34 +156,36 @@ const StaffDashboard = () => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {openTickets.map((ticket) => (
-              <Table.Row key={ticket.uuid}>
-                <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
-                <Table.Cell>
-                  {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-                </Table.Cell>
-                <Table.Cell>{ticket.title}</Table.Cell>
-                <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
-                <Table.Cell>
-                  {ticket.assignedTo
-                    ? ticket.assignedTo.firstName.toString()
-                    : "Unassigned"}
-                </Table.Cell>
-                <Table.Cell>
-                  <TicketStatusLabel status={ticket.status} />
-                </Table.Cell>
-                <Table.Cell>
-                  <Button
-                    color="blue"
-                    size="tiny"
-                    onClick={() => openTicket(ticket.uuid)}
-                  >
-                    <Icon name="eye" />
-                    View
-                  </Button>
-                </Table.Cell>
-              </Table.Row>
-            ))}
+            {!isFetching &&
+              openTickets?.map((ticket) => (
+                <Table.Row key={ticket.uuid}>
+                  <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
+                  <Table.Cell>
+                    {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
+                  </Table.Cell>
+                  <Table.Cell>{ticket.title}</Table.Cell>
+                  <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
+                  <Table.Cell>
+                    {ticket.assignedTo
+                      ? ticket.assignedTo.firstName.toString()
+                      : "Unassigned"}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <TicketStatusLabel status={ticket.status} />
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Button
+                      color="blue"
+                      size="tiny"
+                      onClick={() => openTicket(ticket.uuid)}
+                    >
+                      <Icon name="eye" />
+                      View
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            {isFetching && <LoadingSpinner />}
           </Table.Body>
         </Table>
         <PaginationWithItemsSelect
@@ -158,6 +197,10 @@ const StaffDashboard = () => {
           totalLength={totalItems}
         />
       </div>
+      <SupportCenterSettingsModal
+        open={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
     </div>
   );
 };

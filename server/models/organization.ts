@@ -20,6 +20,7 @@ export interface OrganizationInterface extends Document {
   defaultProjectLead?: string;
   addToLibreGridList?: boolean;
   catalogMatchingTags?: string[];
+  supportTicketNotifiers?: string[];
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -114,6 +115,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Tags on LibreTexts books used to associate them with the organization.
      */
     catalogMatchingTags: [String],
+    /**
+     * Emails to notify when a support ticket is created.
+     */
+    supportTicketNotifiers: [String],
   },
   {
     timestamps: true,
