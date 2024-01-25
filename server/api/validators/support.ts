@@ -54,8 +54,8 @@ export const SearchTicketsValidator = z.object({
 
 export const GetOpenTicketsValidator = z.object({
   query: z.object({
-    page: z.number().min(1).optional(),
-    limit: z.number().min(1).optional(),
+    page: z.coerce.number().min(1).optional(),
+    limit: z.coerce.number().min(1).optional(),
   }),
 });
 

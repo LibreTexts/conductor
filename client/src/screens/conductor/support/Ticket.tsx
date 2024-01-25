@@ -74,7 +74,7 @@ const SupportTicketView = () => {
         <Icon name="user plus" />
         Assign Ticket
       </Button>
-      <Button color="green" onClick={() => updateTicket('closed')}>
+      <Button color="green" onClick={() => updateTicket("closed")}>
         <Icon name="check" />
         Mark as Resolved
       </Button>
@@ -95,34 +95,36 @@ const SupportTicketView = () => {
               </div>
               {user && user.isSuperAdmin && <AdminOptions />}
             </div>
-            <div className="flex flex-col mt-4 border rounded-md p-4 shadow-md">
-              <p className="text-xl">
-                <span className="font-semibold">Requester:</span>{" "}
-                {ticket?.title}
-              </p>
-              <p className="text-xl">
-                <span className="font-semibold">Date Opened:</span>{" "}
-                {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-              </p>
-              {ticket.status === "closed" && (
+            <div className="flex flex-row mt-4 border rounded-md p-4 shadow-md">
+              <div className="flex flex-col basis-1/2">
                 <p className="text-xl">
-                  <span className="font-semibold">Date Closed:</span>{" "}
-                  {format(
-                    parseISO(ticket.timeClosed ?? ""),
-                    "MM/dd/yyyy hh:mm aa"
-                  )}
+                  <span className="font-semibold">Requester:</span>{" "}
+                  {ticket?.title}
                 </p>
-              )}
-            </div>
-
-            <div className="flex flex-col mt-4 border rounded-md p-4 shadow-md">
-              <p className="text-xl">
-                <span className="font-semibold">Subject:</span> {ticket?.title}
-              </p>
-              <p className="text-xl">
-                <span className="font-semibold">Description:</span>{" "}
-                {ticket?.description}
-              </p>
+                <p className="text-xl">
+                  <span className="font-semibold">Subject:</span>{" "}
+                  {ticket?.title}
+                </p>
+                <p className="text-xl">
+                  <span className="font-semibold">Date Opened:</span>{" "}
+                  {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
+                </p>
+              </div>
+              <div className="flex flex-col basis-1/2 border-l pl-4">
+                {ticket.status === "closed" && (
+                  <p className="text-xl">
+                    <span className="font-semibold">Date Closed:</span>{" "}
+                    {format(
+                      parseISO(ticket.timeClosed ?? ""),
+                      "MM/dd/yyyy hh:mm aa"
+                    )}
+                  </p>
+                )}
+                <p className="text-xl">
+                  <span className="font-semibold">Description:</span>{" "}
+                  {ticket?.description}
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col w-full mt-8">

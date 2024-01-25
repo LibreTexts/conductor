@@ -19,6 +19,7 @@ export type Organization = {
   defaultProjectLead: string;
   addToLibreGridList: boolean;
   catalogMatchingTags?: string[];
+  supportTicketNotifiers?: string[];
 };
 
 export type CampusSettingsOpts = Pick<

@@ -12,6 +12,7 @@ import { format, parseISO } from "date-fns";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface TicketMessagingProps {
   id: string;
@@ -19,6 +20,7 @@ interface TicketMessagingProps {
 
 const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   const { handleGlobalError } = useGlobalError();
+  const queryClient = useQueryClient();
   const { control, getValues, setValue, watch, trigger, reset } =
     useForm<SupportTicketMessage>({
       defaultValues: {
@@ -26,16 +28,16 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       },
     });
 
-  const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<SupportTicketMessage[]>([]);
-
-  useEffect(() => {
-    getMessages();
-  }, []);
+  const { data: messages, isFetching } = useQuery<SupportTicketMessage[]>({
+    queryKey: ["ticketMessages", id],
+    queryFn: () => getMessages(),
+    keepPreviousData: true,
+    staleTime: 1000 * 60, // 1 minutes
+    refetchOnWindowFocus: true,
+  });
 
   async function getMessages() {
     try {
-      setLoading(true);
       if (!id) throw new Error("Invalid ticket ID");
       const res = await axios.get(`/support/ticket/${id}/msg/staff`);
       if (res.data.err) {
@@ -44,16 +46,20 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       if (!res.data.messages || !Array.isArray(res.data.messages)) {
         throw new Error("Invalid response from server");
       }
-      setMessages(res.data.messages);
+
+      const msgs = res.data.messages as SupportTicketMessage[];
+      msgs.sort((a, b) => {
+        return new Date(a.timeSent).getTime() - new Date(b.timeSent).getTime();
+      });
+
+      return msgs;
     } catch (err) {
-    } finally {
-      setLoading(false);
+      handleGlobalError(err);
     }
   }
 
   async function sendMessage() {
     try {
-      setLoading(true);
       if (!id) throw new Error("Invalid ticket ID");
       if (!(await trigger())) return;
 
@@ -71,10 +77,15 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       getMessages();
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
   }
+
+  const sendMessageMutation = useMutation({
+    mutationFn: sendMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries(["ticketMessages", id]);
+    },
+  });
 
   const TicketComment = (msg: SupportTicketMessage) => {
     const senderIsSelf = true;
@@ -104,12 +115,12 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       <div className="flex flex-col border shadow-md rounded-md p-4">
         <p className="text-2xl font-semibold text-center">Ticket History</p>
         <div className="flex flex-col mt-8">
-          {messages.length === 0 && (
+          {messages?.length === 0 && (
             <p className="text-lg text-center text-gray-500 italic">
               No messages yet...
             </p>
           )}
-          {messages.map((msg) => (
+          {messages?.map((msg) => (
             <TicketComment key={msg.uuid} {...msg} />
           ))}
           <div className="mt-4">
@@ -126,8 +137,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
                   <Icon name="trash" />
                   Clear
                 </Button>
-
-                <Button color="blue" onClick={() => sendMessage()}>
+                <Button color="blue" onClick={() => sendMessageMutation.mutateAsync()}>
                   <Icon name="send" />
                   Send
                 </Button>
