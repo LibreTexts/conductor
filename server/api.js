@@ -1551,7 +1551,7 @@ router.route('/kb/featured/video/:uuid').delete(
 router.route('/support/metrics').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   supportAPI.getSupportMetrics
 )
 
@@ -1568,6 +1568,19 @@ router.route('/support/ticket/user').get(
   authAPI.getUserAttributes,
   middleware.validateZod(supportValidators.GetUserTicketsValidator),
   supportAPI.getUserTickets
+)
+
+router.route('/support/ticket/:uuid/assign').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  supportAPI.getAssignableUsers
+).patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  middleware.validateZod(supportValidators.AssignTicketValidator),
+  supportAPI.assignTicket
 )
 
 router.route('/support/ticket/:uuid/msg/staff').post(

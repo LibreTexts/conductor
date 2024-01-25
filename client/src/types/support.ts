@@ -17,7 +17,7 @@ export type SupportTicket = {
   status: "open" | "in_progress" | "closed";
   category: string;
   capturedURL?: string;
-  assignedTo?: User;
+  assignedUsers?: User[];
   user?: User;
   guest?: SupportTicketGuest;
   timeOpened: string;
