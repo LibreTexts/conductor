@@ -14,6 +14,7 @@ export const GetUserTicketsValidator = z.object({
     limit: z.number().min(1).optional(),
   }),
 });
+export const GetAssignableUsersValidator = TicketUUIDParams;
 
 export const CreateTicketValidator = z.object({
   body: z.object({
@@ -58,6 +59,14 @@ export const GetOpenTicketsValidator = z.object({
     limit: z.coerce.number().min(1).optional(),
   }),
 });
+
+export const AssignTicketValidator = z
+  .object({
+    body: z.object({
+      assigned: z.array(z.string().uuid()).min(1).max(25),
+    }),
+  })
+  .merge(TicketUUIDParams);
 
 export const StaffSendTicketMessageValidator = z
   .object({

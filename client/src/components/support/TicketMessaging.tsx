@@ -36,7 +36,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     refetchOnWindowFocus: true,
   });
 
-  async function getMessages() {
+  async function getMessages(): Promise<SupportTicketMessage[]> {
     try {
       if (!id) throw new Error("Invalid ticket ID");
       const res = await axios.get(`/support/ticket/${id}/msg/staff`);
@@ -52,9 +52,10 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
         return new Date(a.timeSent).getTime() - new Date(b.timeSent).getTime();
       });
 
-      return msgs;
+      return (msgs as SupportTicketMessage[]) ?? [];
     } catch (err) {
       handleGlobalError(err);
+      return [];
     }
   }
 
@@ -113,7 +114,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   return (
     <div className="flex flex-col w-full">
       <div className="flex flex-col border shadow-md rounded-md p-4">
-        <p className="text-2xl font-semibold text-center">Ticket History</p>
+        <p className="text-2xl font-semibold text-center">Ticket Chat</p>
         <div className="flex flex-col mt-8">
           {messages?.length === 0 && (
             <p className="text-lg text-center text-gray-500 italic">
@@ -137,7 +138,10 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
                   <Icon name="trash" />
                   Clear
                 </Button>
-                <Button color="blue" onClick={() => sendMessageMutation.mutateAsync()}>
+                <Button
+                  color="blue"
+                  onClick={() => sendMessageMutation.mutateAsync()}
+                >
                   <Icon name="send" />
                   Send
                 </Button>

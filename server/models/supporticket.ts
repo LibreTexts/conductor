@@ -19,7 +19,7 @@ export interface SupportTicketInterface extends Document {
   status: "open" | "in_progress" | "closed";
   category: string;
   capturedURL?: string;
-  assignedToUUID?: string; // User uuid
+  assignedUUIDs?: string[]; // User uuids
   userUUID?: string; // User uuid
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
@@ -64,8 +64,8 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   capturedURL: {
     type: String,
   },
-  assignedToUUID: {
-    type: String,
+  assignedUUIDs: {
+    type: [String],
   },
   userUUID: {
     type: String

@@ -59,9 +59,10 @@ const StaffDashboard = () => {
 
       setTotalItems(res.data.total);
       setTotalPages(Math.ceil(res.data.total / items));
-      return res.data.tickets;
+      return (res.data.tickets as SupportTicket[]) ?? [];
     } catch (err) {
       handleGlobalError(err);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -166,8 +167,8 @@ const StaffDashboard = () => {
                   <Table.Cell>{ticket.title}</Table.Cell>
                   <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
                   <Table.Cell>
-                    {ticket.assignedTo
-                      ? ticket.assignedTo.firstName.toString()
+                    {ticket.assignedUsers
+                      ? ticket.assignedUsers.map((u) => u.firstName).join(", ")
                       : "Unassigned"}
                   </Table.Cell>
                   <Table.Cell>

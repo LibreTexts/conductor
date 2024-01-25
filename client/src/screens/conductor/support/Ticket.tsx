@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy } from "react";
 import { useParams } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
@@ -8,7 +8,10 @@ import { format, parseISO } from "date-fns";
 import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
-import { Button, Icon } from "semantic-ui-react";
+import { Button, Icon, Label } from "semantic-ui-react";
+const AssignTicketModal = lazy(
+  () => import("../../../components/support/AssignTicketModal")
+);
 
 const SupportTicketView = () => {
   const { handleGlobalError } = useGlobalError();
@@ -17,6 +20,7 @@ const SupportTicketView = () => {
 
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   useEffect(() => {
     document.title = "LibreTexts | Support Ticket";
@@ -70,7 +74,7 @@ const SupportTicketView = () => {
 
   const AdminOptions = () => (
     <div className="flex flex-row">
-      <Button color="blue">
+      <Button color="blue" onClick={() => setShowAssignModal(true)}>
         <Icon name="user plus" />
         Assign Ticket
       </Button>
@@ -99,7 +103,17 @@ const SupportTicketView = () => {
               <div className="flex flex-col basis-1/2">
                 <p className="text-xl">
                   <span className="font-semibold">Requester:</span>{" "}
-                  {ticket?.title}
+                  {ticket.user && (
+                    <>
+                      <span>
+                        `${ticket.user.firstName} ${ticket.user.lastName} ($
+                        {ticket.user.email})`
+                      </span>
+                      <Label>Authenticated</Label>
+                    </>
+                  )}
+                  {ticket.guest &&
+                    `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
                 </p>
                 <p className="text-xl">
                   <span className="font-semibold">Subject:</span>{" "}
@@ -133,6 +147,11 @@ const SupportTicketView = () => {
           </>
         )}
       </div>
+      <AssignTicketModal
+        open={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        ticketId={id}
+      />
     </DefaultLayout>
   );
 };

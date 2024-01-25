@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
   AddTicketAttachementsValidator,
+  AssignTicketValidator,
   CreateTicketValidator,
+  GetAssignableUsersValidator,
   GetOpenTicketsValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
@@ -46,7 +48,7 @@ async function getTicket(
       ticket,
     });
   } catch (err: any) {
-    if(err.name === "DocumentNotFoundError") {
+    if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
     debugError(err);
@@ -101,7 +103,6 @@ async function getOpenTickets(
     if (req.query.limit) limit = req.query.limit;
     const offset = getPaginationOffset(page, limit);
 
-
     const tickets = await SupportTicket.find({ status: "open" })
       .skip(offset)
       .limit(limit)
@@ -153,6 +154,67 @@ async function getSupportMetrics(req: Request, res: Response) {
         avgMinsToClose,
         lastSevenTicketCount,
       },
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getAssignableUsers(
+  req: z.infer<typeof GetAssignableUsersValidator>,
+  res: Response
+) {
+  try {
+    const ticketID = req.params.uuid;
+
+    const ticket = await SupportTicket.findOne({ uuid: ticketID }).orFail();
+    const existingAssignees = ticket.assignedUUIDs ?? [];
+
+    const users = await User.find({
+      $and: [
+        {
+          roles: {
+            $elemMatch: {
+              org: "libretexts",
+              role: { $in: ["superadmin", "support"] },
+            },
+          },
+        },
+        { uuid: { $nin: existingAssignees } },
+      ],
+    })
+      .select("uuid firstName lastName email")
+      .sort({ firstName: 1 });
+
+    return res.send({
+      err: false,
+      users,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function assignTicket(
+  req: z.infer<typeof AssignTicketValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { assigned } = req.body;
+
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      { assignedUUIDs: assigned }
+    ).orFail();
+
+    // TODO: Send email to new assignees
+
+    return res.send({
+      err: false,
+      ticket,
     });
   } catch (err) {
     debugError(err);
@@ -226,7 +288,7 @@ async function createTicket(
       category,
       priority,
       attachments,
-      user: foundUser ? foundUser.uuid: undefined,
+      user: foundUser ? foundUser.uuid : undefined,
       guest,
       timeOpened: new Date().toISOString(),
     });
@@ -457,6 +519,8 @@ export default {
   getUserTickets,
   getOpenTickets,
   getSupportMetrics,
+  getAssignableUsers,
+  assignTicket,
   createTicket,
   addTicketAttachments,
   updateTicket,
