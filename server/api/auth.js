@@ -46,7 +46,7 @@ async function createSessionJWT(uuid) {
     .setIssuedAt()
     .setIssuer(JWT_COOKIE_DOMAIN)
     .setAudience(JWT_COOKIE_DOMAIN)
-    .setExpirationTime('24h')
+    .setExpirationTime('3d')
     .sign(JWT_SECRET);
 }
 
@@ -77,6 +77,7 @@ async function createAndAttachLocalSession(res, uuid) {
   const prodCookieConfig = {
     secure: true,
     domain: JWT_COOKIE_DOMAIN,
+    maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
   };
   res.cookie('conductor_access', access, {
     path: '/',
