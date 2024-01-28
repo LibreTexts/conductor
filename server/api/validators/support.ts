@@ -68,13 +68,11 @@ export const AssignTicketValidator = z
   })
   .merge(TicketUUIDParams);
 
-export const StaffSendTicketMessageValidator = z
+export const SendTicketMessageValidator = z
   .object({
     body: z.object({
-      message: z.string(),
+      message: z.string().min(1).max(1000),
       attachments: z.array(z.string()).optional(),
     }),
   })
   .merge(TicketUUIDParams);
-
-export const UserSendTicketMessageValidator = StaffSendTicketMessageValidator;

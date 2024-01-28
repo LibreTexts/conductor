@@ -835,6 +835,23 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketTi
     });
 };
 
+const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, ticketTitle, assignerName) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `Support Ticket Assigned (ID #${ticketID})`,
+        html: `
+            <p>Hi,</p>
+            <p>${assignerName} has assigned you to the following support ticket:</p>
+            <p><strong>Title:</strong> ${ticketTitle}</p>
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+}
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -865,5 +882,6 @@ export default {
     sendOrgEventRegistrationConfirmation,
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
-    sendNewTicketMessageNotification
+    sendNewTicketMessageNotification,
+    sendSupportTicketAssignedNotification
 }

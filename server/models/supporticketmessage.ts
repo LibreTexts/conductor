@@ -1,47 +1,68 @@
 import { Schema, model } from "mongoose";
 import { Document } from "mongoose";
+import { SanitizedUserSelectProjection } from "./user.js";
 
 export interface SupportTicketMessageInterface extends Document {
   uuid: string;
   ticket: string;
   message: string;
   attachments?: string[];
-  sender?: string;
+  senderUUID?: string; // User uuid (if user is logged in)
+  senderEmail?: string; // else, fallback to the sender's email
+  senderIsStaff: boolean;
   timeSent: string;
 }
 
-const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>(
-  {
-    uuid: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    ticket: {
-      type: String,
-      required: true,
-    },
-    message: {
-      type: String,
-      required: true,
-    },
-    attachments: {
-      type: [String],
-      required: true,
-    },
-    sender: {
-      type: String,
-      required: true,
-    },
-    timeSent: {
-      type: String,
-      required: true,
-    },
+const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>({
+  uuid: {
+    type: String,
+    required: true,
+    unique: true,
   },
-  {
-    timestamps: true,
+  ticket: {
+    type: String,
+    required: true,
+  },
+  message: {
+    type: String,
+    required: true,
+  },
+  attachments: {
+    type: [String],
+    required: true,
+  },
+  senderUUID: {
+    type: String,
+    required: true,
+  },
+  senderEmail: {
+    type: String,
+    required: false,
+  },
+  senderIsStaff: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
+  timeSent: {
+    type: String,
+    required: true,
+  },
+});
+
+SupportTicketMessageSchema.virtual("sender", {
+  ref: "User",
+  localField: "senderUUID",
+  foreignField: "uuid",
+  justOne: true,
+  options: {
+    projection: SanitizedUserSelectProjection,
   }
-);
+});
+
+SupportTicketMessageSchema.index({ uuid: 1 });
+SupportTicketMessageSchema.set("toObject", { virtuals: true });
+SupportTicketMessageSchema.set("toJSON", { virtuals: true });
 
 const SupportTicketMessage = model<SupportTicketMessageInterface>(
   "SupportTicketMessage",

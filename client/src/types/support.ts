@@ -22,6 +22,7 @@ export type SupportTicket = {
   guest?: SupportTicketGuest;
   timeOpened: string;
   timeClosed?: string;
+  feed: SupportTicketFeedEntry[];
 };
 
 export type SupportTicketMessage = {
@@ -29,6 +30,15 @@ export type SupportTicketMessage = {
   ticket: string;
   message: string;
   attachments?: string[];
-  sender: string;
+  senderUUID?: string; // User uuid (if user is logged in)
+  sender?: User;
+  senderEmail?: string; // else, fallback to the sender's email (ie guest)
+  senderIsStaff: boolean;
   timeSent: string;
 };
+
+export type SupportTicketFeedEntry = {
+  action: string;
+  blame: string;
+  date: string;
+}

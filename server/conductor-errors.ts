@@ -81,6 +81,7 @@ const conductorErrors = {
     "err84": "Unable to create new coverpage.",
     "err85": "Unable to create chapter.",
     "err86": "Unable to create book. Please check that your book title is unique to its library and try again.",
+    "err89": "Ticket is not in a valid status for this action.",
 };
 
 export default conductorErrors;
