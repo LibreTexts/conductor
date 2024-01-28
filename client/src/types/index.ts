@@ -191,7 +191,7 @@ export type {
   SupportTicketGuest,
   SupportTicket,
   SupportTicketMessage,
-  SupportTicketFeedEntry
+  SupportTicketFeedEntry,
   _MoveFile,
   _MoveFileWithChildren,
   AssetSearchParams,
