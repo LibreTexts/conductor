@@ -396,7 +396,7 @@ function validate(method: string) {
         body('footerColor', conductorErrors.err1).optional({ checkFalsy: true }).isLength({min: 7, max: 7}).isHexColor(),
         body('addToLibreGridList', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('catalogMatchingTags', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
-        body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail()
+        body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail(),
         body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID()
       ];
     case 'updateBrandingImageAsset':

@@ -62,6 +62,7 @@ const KBCKEditor: React.FC<KBCKEditorProps> = ({
     <div aria-busy={loading} {...rest}>
       {loading && <LoadingSpinner />}
       <CKEditor
+      // @ts-ignore
         editor={InsightEditor}
         data={data}
         onReady={(editor) => {
