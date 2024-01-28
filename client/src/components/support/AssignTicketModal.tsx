@@ -88,6 +88,9 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
       <Modal.Header>Assign Ticket to User(s)</Modal.Header>
       <Modal.Content>
         <Form onSubmit={(e) => e.preventDefault()}>
+          <p className="!mt-0">
+            Assigned users will be notified of new messages and updates on this ticket.
+          </p>
           <Dropdown
             id="selectUsers"
             options={users.map((u) => ({

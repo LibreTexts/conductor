@@ -10,6 +10,7 @@ import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { useTypedSelector } from "../../state/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
+const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
 );
@@ -26,6 +27,8 @@ const StaffDashboard = () => {
   const [metricOpen, setMetricOpen] = useState<number>(0);
   const [metricAvgMins, setMetricAvgMins] = useState<number>(0);
   const [metricWeek, setMetricWeek] = useState<number>(0);
+  const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<string>("");
 
   const queryClient = useQueryClient();
 
@@ -94,6 +97,17 @@ const StaffDashboard = () => {
     window.open(`/support/ticket/${uuid}`, "_blank");
   }
 
+  function openAssignModal(ticketId: string) {
+    setSelectedTicketId(ticketId);
+    setShowAssignModal(true);
+  }
+
+  function onCloseAssignModal() {
+    setShowAssignModal(false);
+    setSelectedTicketId("");
+    queryClient.invalidateQueries(["openTickets"]);
+  }
+
   const DashboardMetric = ({
     metric,
     title,
@@ -124,7 +138,10 @@ const StaffDashboard = () => {
         )}
       </div>
       <div className="flex flex-row justify-between w-full mt-6">
-        <DashboardMetric metric={metricOpen.toString()} title="Open Tickets" />
+        <DashboardMetric
+          metric={metricOpen.toString()}
+          title="Open/In Progress Tickets"
+        />
         <DashboardMetric
           metric={`${metricAvgMins.toString()} mins`}
           title="Average Time to Resolution"
@@ -135,7 +152,7 @@ const StaffDashboard = () => {
         />
       </div>
       <div className="mt-12">
-        <p className="text-3xl font-semibold mb-2">Open Tickets</p>
+        <p className="text-3xl font-semibold mb-2">Open/In Progress Tickets</p>
         <PaginationWithItemsSelect
           activePage={activePage}
           totalPages={totalPages}
@@ -183,6 +200,16 @@ const StaffDashboard = () => {
                       <Icon name="eye" />
                       View
                     </Button>
+                    {ticket.status === "open" && (
+                      <Button
+                        color="green"
+                        size="tiny"
+                        onClick={() => openAssignModal(ticket.uuid)}
+                      >
+                        <Icon name="user plus" />
+                        Assign
+                      </Button>
+                    )}
                   </Table.Cell>
                 </Table.Row>
               ))}
@@ -202,6 +229,13 @@ const StaffDashboard = () => {
         open={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+      {selectedTicketId && (
+        <AssignTicketModal
+          open={showAssignModal}
+          onClose={onCloseAssignModal}
+          ticketId={selectedTicketId}
+        />
+      )}
     </div>
   );
 };

@@ -1560,7 +1560,7 @@ router.route('/support/ticket/open').get(
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(supportValidators.GetOpenTicketsValidator),
-  supportAPI.getOpenTickets
+  supportAPI.getOpenInProgressTickets
 )
 
 router.route('/support/ticket/user').get(
@@ -1583,18 +1583,16 @@ router.route('/support/ticket/:uuid/assign').get(
   supportAPI.assignTicket
 )
 
-router.route('/support/ticket/:uuid/msg/staff').post(
+router.route('/support/ticket/:uuid/msg').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  middleware.validateZod(supportValidators.StaffSendTicketMessageValidator),
-  supportAPI.createStaffMessage
-).get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(supportValidators.GetTicketValidator),
   supportAPI.getTicketMessages
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(supportValidators.SendTicketMessageValidator),
+  supportAPI.createMessage
 )
 
 router.route('/support/ticket/:uuid/attachments').post(
@@ -1606,7 +1604,6 @@ router.route('/support/ticket/:uuid/attachments').post(
 router.route('/support/ticket/:uuid').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   middleware.validateZod(supportValidators.GetTicketValidator),
   supportAPI.getTicket
 ).patch(

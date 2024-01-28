@@ -1,5 +1,9 @@
 import { Document, model } from "mongoose";
-import { UserInterface } from "./user";
+import {
+  SanitizedUserSelectProjection,
+  SanitizedUserSelectQuery,
+  UserInterface,
+} from "./user.js";
 import { Schema } from "mongoose";
 
 export interface SupportTicketGuestInterface {
@@ -7,6 +11,12 @@ export interface SupportTicketGuestInterface {
   lastName: string;
   email: string;
   organization: string;
+}
+
+export interface SupportTicketFeedEntryInterface {
+  action: string;
+  blame: string;
+  date: string;
 }
 
 export interface SupportTicketInterface extends Document {
@@ -24,6 +34,7 @@ export interface SupportTicketInterface extends Document {
   guest?: SupportTicketGuestInterface;
   timeOpened: string;
   timeClosed?: string;
+  feed: SupportTicketFeedEntryInterface[];
 }
 
 const SupportTicketSchema = new Schema<SupportTicketInterface>({
@@ -68,7 +79,7 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: [String],
   },
   userUUID: {
-    type: String
+    type: String,
   },
   guest: {
     firstName: {
@@ -91,13 +102,33 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   timeClosed: {
     type: String,
   },
+  feed: {
+    type: [
+      {
+        action: {
+          type: String,
+          required: true,
+        },
+        blame: {
+          type: String,
+          required: true,
+        },
+        date: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
+  },
 });
 
-SupportTicketSchema.virtual("assignedTo", {
+SupportTicketSchema.virtual("assignedUsers", {
   ref: "User",
-  localField: "assignedToUUID",
+  localField: "assignedUUIDs",
   foreignField: "uuid",
-  justOne: true,
+  options: {
+    projection: SanitizedUserSelectProjection,
+  },
 });
 
 SupportTicketSchema.virtual("user", {
@@ -105,9 +136,14 @@ SupportTicketSchema.virtual("user", {
   localField: "userUUID",
   foreignField: "uuid",
   justOne: true,
+  options: {
+    projection: SanitizedUserSelectProjection,
+  },
 });
 
 SupportTicketSchema.index({ title: "text" });
+SupportTicketSchema.set("toObject", { virtuals: true });
+SupportTicketSchema.set("toJSON", { virtuals: true });
 
 const SupportTicket = model<SupportTicketInterface>(
   "SupportTicket",

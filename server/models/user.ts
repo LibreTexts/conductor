@@ -40,6 +40,14 @@ export type SanitizedUserInterface = Omit<
 export const SanitizedUserSelectQuery =
   "-password -customAvatar -authType -roles -isSystem";
 
+export const SanitizedUserSelectProjection = {
+  password: 0,
+  customAvatar: 0,
+  authType: 0,
+  roles: 0,
+  isSystem: 0,
+}
+
 const UserSchema = new Schema<UserInterface>(
   {
     centralID: {

@@ -79,6 +79,7 @@ import {
   SupportTicketGuest,
   SupportTicket,
   SupportTicketMessage,
+  SupportTicketFeedEntry
 } from "./support";
 
 export type {
@@ -141,6 +142,7 @@ export type {
   SupportTicketGuest,
   SupportTicket,
   SupportTicketMessage,
+  SupportTicketFeedEntry
 };
 
 export {

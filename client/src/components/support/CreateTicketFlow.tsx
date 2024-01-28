@@ -228,46 +228,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               </div>
             )}
             <p className="font-semibold">Request Info</p>
-            <CtlTextInput
-              control={control}
-              name="title"
-              label="Subject"
-              placeholder="Enter a subject/brief title for your ticket"
-              rules={required}
-              required
-              maxLength={200}
-            />
-            <div className="mt-2">
-              <label
-                className="form-field-label form-required"
-                htmlFor="selectApps"
-              >
-                Application(s)
-              </label>
-              <Controller
-                name="apps"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="selectApps"
-                    options={apps.map((app) => ({
-                      key: app.id,
-                      value: app.id,
-                      text: app.name,
-                    }))}
-                    {...field}
-                    onChange={(e, { value }) => {
-                      field.onChange(value);
-                    }}
-                    fluid
-                    selection
-                    multiple
-                    search
-                    placeholder="Select the application(s) related to your ticket"
-                  />
-                )}
-              />
-            </div>
             <div className="mt-2">
               <label
                 className="form-field-label form-required"
@@ -290,6 +250,49 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     selection
                     search
                     placeholder="Select the category of your ticket"
+                  />
+                )}
+              />
+            </div>
+            <div className="mt-2">
+            <CtlTextInput
+              control={control}
+              name="title"
+              label="Subject"
+              placeholder="Enter a subject/brief title for your ticket"
+              rules={required}
+              required
+              maxLength={200}
+              className=""
+            />
+            </div>
+            <div className="mt-2">
+              <label
+                className="form-field-label form-required"
+                htmlFor="selectApps"
+              >
+                Application/Library (select all that apply)
+              </label>
+              <Controller
+                name="apps"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="selectApps"
+                    options={apps.map((app) => ({
+                      key: app.id,
+                      value: app.id,
+                      text: app.name,
+                    }))}
+                    {...field}
+                    onChange={(e, { value }) => {
+                      field.onChange(value);
+                    }}
+                    fluid
+                    selection
+                    multiple
+                    search
+                    placeholder="Select the applications and/or libraries related to your ticket"
                   />
                 )}
               />
@@ -328,7 +331,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                   control={control}
                   name="capturedURL"
                   label="URL (if applicable)"
-                  placeholder="Enter the URL of the page you're having trouble with"
+                  placeholder="Enter the URL of the page this ticket is related to - this may help us resolve your issue faster"
                   type="url"
                 />
               </div>

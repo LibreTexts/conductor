@@ -60,7 +60,7 @@ const SupportCenter = () => {
           "
           icon="text telephone"
           link="/support/contact"
-          disabled
+          // disabled
         />
         <HomeItem
           title="Insight"

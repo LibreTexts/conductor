@@ -7,15 +7,16 @@ import {
   GetOpenTicketsValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
-  StaffSendTicketMessageValidator,
+  SendTicketMessageValidator,
   UpdateTicketValidator,
 } from "./validators/support";
 import { NextFunction, Request, Response } from "express";
 import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
-import User from "../models/user.js";
+import User, { SanitizedUserSelectProjection } from "../models/user.js";
 import { v4 } from "uuid";
 import SupportTicket, {
+  SupportTicketFeedEntryInterface,
   SupportTicketInterface,
 } from "../models/supporticket.js";
 import SupportTicketMessage from "../models/supporticketmessage.js";
@@ -74,13 +75,12 @@ async function getUserTickets(
     if (req.query.page) page = req.query.page;
     const offset = getPaginationOffset(page, limit);
 
-    const user = await User.findOne({ uuid }).orFail();
-    const tickets = await SupportTicket.find({ user: user._id })
+    const tickets = await SupportTicket.find({ userUUID: uuid })
       .skip(offset)
       .limit(limit)
       .populate("user");
 
-    const total = await SupportTicket.countDocuments({ user: user._id });
+    const total = await SupportTicket.countDocuments({ userUUID: uuid});
     return res.send({
       err: false,
       tickets,
@@ -92,7 +92,7 @@ async function getUserTickets(
   }
 }
 
-async function getOpenTickets(
+async function getOpenInProgressTickets(
   req: z.infer<typeof GetOpenTicketsValidator>,
   res: Response
 ) {
@@ -100,15 +100,20 @@ async function getOpenTickets(
     let page = 1;
     let limit = 25;
     if (req.query.page) page = req.query.page;
-    if (req.query.limit) limit = req.query.limit;
+    if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
-    const tickets = await SupportTicket.find({ status: "open" })
+    const tickets = await SupportTicket.find({
+      status: { $in: ["open", "in_progress"] },
+    })
       .skip(offset)
       .limit(limit)
-      .populate("user");
+      .populate("assignedUsers")
+      .exec();
 
-    const total = await SupportTicket.countDocuments({ status: "open" });
+    const total = await SupportTicket.countDocuments({
+      status: { $in: ["open", "in_progress"] },
+    });
 
     return res.send({
       err: false,
@@ -124,7 +129,7 @@ async function getOpenTickets(
 async function getSupportMetrics(req: Request, res: Response) {
   try {
     const totalOpenTickets = await SupportTicket.countDocuments({
-      status: "open",
+      status: { $in: ["open", "in_progress"] },
     });
 
     // Get average time between ticket open date and ticket close date
@@ -198,19 +203,53 @@ async function getAssignableUsers(
 }
 
 async function assignTicket(
-  req: z.infer<typeof AssignTicketValidator>,
+  req: ZodReqWithUser<z.infer<typeof AssignTicketValidator>>,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
     const { assigned } = req.body;
+    const assignerId = req.user.decoded.uuid;
 
-    const ticket = await SupportTicket.findOneAndUpdate(
+    const assigner = await User.findOne({ uuid: assignerId })
+      .select("firstName lastName")
+      .orFail();
+
+    const assignees = await User.find({ uuid: { $in: assigned } }).orFail();
+    const assigneeEmails = assignees.map((a) => a.email);
+
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+
+    // Check that ticket is open or in progress
+    if (!["open", "in_progress"].includes(ticket.status)) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err89,
+      });
+    }
+
+    const feedEntry = _createFeedEntry_Assigned(
+      `${assigner.firstName} ${assigner.lastName}`,
+      assignees.map((a) => `${a.firstName} ${a.lastName}`)
+    );
+
+    // Update the ticket with the new assigned users and set status to in_progress
+    await SupportTicket.updateOne(
       { uuid },
-      { assignedUUIDs: assigned }
+      {
+        assignedUUIDs: assigned,
+        status: "in_progress",
+        $push: { feed: feedEntry },
+      }
     ).orFail();
 
-    // TODO: Send email to new assignees
+    // Notify the assignees
+    await mailAPI.sendSupportTicketAssignedNotification(
+      assigneeEmails,
+      ticket.uuid,
+      ticket.title,
+      assigner.firstName
+    );
 
     return res.send({
       err: false,
@@ -280,6 +319,14 @@ async function createTicket(
       foundUser = await User.findOne({ uuid: userUUID }).orFail();
     }
 
+    console.log(foundUser);
+
+    const feedEntry = _createFeedEntry_Created(
+      foundUser
+        ? `${foundUser.firstName} ${foundUser.lastName}`
+        : `${guest?.firstName} ${guest?.lastName}`
+    );
+
     const ticket = await SupportTicket.create({
       uuid: v4(),
       title,
@@ -288,9 +335,10 @@ async function createTicket(
       category,
       priority,
       attachments,
-      user: foundUser ? foundUser.uuid : undefined,
+      userUUID: foundUser ? foundUser.uuid : undefined,
       guest,
       timeOpened: new Date().toISOString(),
+      feed: [feedEntry],
     });
 
     const emailToNotify = await _getTicketAuthorEmail(ticket);
@@ -401,7 +449,7 @@ async function getTicketMessages(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
     const ticketMessages = await SupportTicketMessage.find({
       ticket: ticket.uuid,
-    }).sort({ createdAt: -1 });
+    }).populate('sender').sort({ createdAt: -1 });
 
     return res.send({
       err: false,
@@ -413,35 +461,30 @@ async function getTicketMessages(
   }
 }
 
-async function createStaffMessage(
-  req: z.infer<typeof StaffSendTicketMessageValidator>,
+async function createMessage(
+  req: ZodReqWithOptionalUser<z.infer<typeof SendTicketMessageValidator>>,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
     const { message, attachments } = req.body;
+    const userUUID = req.user?.decoded.uuid;
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    let foundUser;
+    if(userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID })
+    }
 
     const ticketMessage = await SupportTicketMessage.create({
       uuid: v4(),
       ticket: ticket.uuid,
       message,
       attachments,
-      sender: "Staff User",
+      senderUUID: foundUser ? foundUser.uuid : undefined,
+      senderEmail: foundUser ? undefined : ticket.guest?.email, // fallback to guest email if no user
       timeSent: new Date().toISOString(),
     });
-
-    // Fail silently if no email to notify - we still want to save the message
-    const emailToNotify = await _getTicketAuthorEmail(ticket);
-    if (emailToNotify) {
-      await mailAPI.sendNewTicketMessageNotification(
-        [emailToNotify],
-        ticket.uuid,
-        ticket.title,
-        "requester"
-      );
-    }
 
     return res.send({
       err: false,
@@ -505,7 +548,7 @@ const _getTicketAuthorEmail = async (
 ): Promise<string | undefined> => {
   const hasUser = !!ticket.userUUID;
   if (hasUser) {
-    const foundUser = await User.findOne({ _id: ticket.userUUID });
+    const foundUser = await User.findOne({ uuid: ticket.userUUID });
     return foundUser?.email;
   }
   if (ticket.guest) {
@@ -514,17 +557,38 @@ const _getTicketAuthorEmail = async (
   return undefined;
 };
 
+const _createFeedEntry_Assigned = (
+  assigner: string,
+  assignees: string[]
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Ticket was assigned to ${assignees.join(", ")}`,
+    blame: assigner,
+    date: new Date().toISOString(),
+  };
+};
+
+const _createFeedEntry_Created = (
+  creator: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Ticket was created`,
+    blame: creator,
+    date: new Date().toISOString(),
+  };
+};
+
 export default {
   getTicket,
   getUserTickets,
-  getOpenTickets,
+  getOpenInProgressTickets,
   getSupportMetrics,
   getAssignableUsers,
   assignTicket,
   createTicket,
   addTicketAttachments,
   updateTicket,
-  createStaffMessage,
+  createMessage,
   getTicketMessages,
   ticketAttachmentUploadHandler,
 };

@@ -9,6 +9,8 @@ import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon, Label } from "semantic-ui-react";
+import TicketDetails from "../../../components/support/TicketDetails";
+import TicketFeed from "../../../components/support/TicketFeed";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -86,8 +88,8 @@ const SupportTicketView = () => {
   );
 
   return (
-    <DefaultLayout>
-      <div aria-busy={loading} className="p-8">
+    <DefaultLayout altBackground>
+      <div aria-busy={loading} className="px-8 pt-8">
         {ticket && (
           <>
             <div className="flex flex-row w-full justify-between">
@@ -99,59 +101,29 @@ const SupportTicketView = () => {
               </div>
               {user && user.isSuperAdmin && <AdminOptions />}
             </div>
-            <div className="flex flex-row mt-4 border rounded-md p-4 shadow-md">
-              <div className="flex flex-col basis-1/2">
-                <p className="text-xl">
-                  <span className="font-semibold">Requester:</span>{" "}
-                  {ticket.user && (
-                    <>
-                      <span>
-                        `${ticket.user.firstName} ${ticket.user.lastName} ($
-                        {ticket.user.email})`
-                      </span>
-                      <Label>Authenticated</Label>
-                    </>
-                  )}
-                  {ticket.guest &&
-                    `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
-                </p>
-                <p className="text-xl">
-                  <span className="font-semibold">Subject:</span>{" "}
-                  {ticket?.title}
-                </p>
-                <p className="text-xl">
-                  <span className="font-semibold">Date Opened:</span>{" "}
-                  {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-                </p>
-              </div>
-              <div className="flex flex-col basis-1/2 border-l pl-4">
-                {ticket.status === "closed" && (
-                  <p className="text-xl">
-                    <span className="font-semibold">Date Closed:</span>{" "}
-                    {format(
-                      parseISO(ticket.timeClosed ?? ""),
-                      "MM/dd/yyyy hh:mm aa"
-                    )}
-                  </p>
+            <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
+              <div className="flex flex-col xl:basis-2/5 xl:pl-4">
+                <TicketDetails ticket={ticket} />
+                {user && user.isSuperAdmin && (
+                  <div className="mt-4">
+                    <TicketFeed ticket={ticket} />
+                  </div>
                 )}
-                <p className="text-xl">
-                  <span className="font-semibold">Description:</span>{" "}
-                  {ticket?.description}
-                </p>
               </div>
-            </div>
-
-            <div className="flex flex-col w-full mt-8">
-              <TicketMessaging id={id} />
+              <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
+                <TicketMessaging id={id} />
+              </div>
             </div>
           </>
         )}
       </div>
-      <AssignTicketModal
-        open={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
-        ticketId={id}
-      />
+      {user && user.isSuperAdmin && (
+        <AssignTicketModal
+          open={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          ticketId={id}
+        />
+      )}
     </DefaultLayout>
   );
 };

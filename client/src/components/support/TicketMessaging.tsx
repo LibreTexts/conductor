@@ -11,14 +11,17 @@ import { SupportTicket, SupportTicketMessage } from "../../types";
 import { format, parseISO } from "date-fns";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import userEvent from "@testing-library/user-event";
+import { useTypedSelector } from "../../state/hooks";
 
 interface TicketMessagingProps {
   id: string;
 }
 
 const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
+  const user = useTypedSelector((state) => state.user);
   const { handleGlobalError } = useGlobalError();
   const queryClient = useQueryClient();
   const { control, getValues, setValue, watch, trigger, reset } =
@@ -33,13 +36,14 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     queryFn: () => getMessages(),
     keepPreviousData: true,
     staleTime: 1000 * 60, // 1 minutes
+    refetchInterval: 1000 * 60, // 1 minutes
     refetchOnWindowFocus: true,
   });
 
   async function getMessages(): Promise<SupportTicketMessage[]> {
     try {
       if (!id) throw new Error("Invalid ticket ID");
-      const res = await axios.get(`/support/ticket/${id}/msg/staff`);
+      const res = await axios.get(`/support/ticket/${id}/msg`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -62,11 +66,13 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   async function sendMessage() {
     try {
       if (!id) throw new Error("Invalid ticket ID");
-      if (!(await trigger())) return;
+      if (!getValues("message")) return;
+      console.log(getValues("message").length);
 
-      const res = await axios.post(`/support/ticket/${id}/msg/staff`, {
+      const res = await axios.post(`/support/ticket/${id}/msg`, {
         ...getValues(),
       });
+
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -75,7 +81,6 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       }
 
       reset(); // clear form
-      getMessages();
     } catch (err) {
       handleGlobalError(err);
     }
@@ -88,8 +93,13 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     },
   });
 
+  const getSenderIsSelf = (msg: SupportTicketMessage): boolean => {
+    if (msg.senderIsStaff && user && user.isSuperAdmin) return true;
+    return false;
+  };
+
   const TicketComment = (msg: SupportTicketMessage) => {
-    const senderIsSelf = true;
+    const senderIsSelf = getSenderIsSelf(msg);
     return (
       <div
         className={`flex flex-col text-white mb-4 ${
@@ -104,18 +114,20 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
             senderIsSelf ? "text-right mr-2" : "text-left ml-2"
           }`}
         >
-          {msg.sender} at{" "}
-          {format(parseISO(msg.timeSent), "MM/dd/yyyy hh:mm aa")}
+          {msg.sender
+            ? `${msg.sender.firstName} ${msg.sender.lastName}`
+            : msg.senderEmail}{" "}
+          at {format(parseISO(msg.timeSent), "MM/dd/yyyy hh:mm aa")}
         </p>
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full bg-white">
       <div className="flex flex-col border shadow-md rounded-md p-4">
-        <p className="text-2xl font-semibold text-center">Ticket Chat</p>
-        <div className="flex flex-col mt-8">
+        <p className="text-xl font-semibold text-center">Ticket Chat</p>
+        <div className="flex flex-col mt-1 bg-slate-100 border rounded-md p-2 min-h-44 max-h-screen xl:max-h-96 2xl:max-h-[42rem] overflow-y-auto">
           {messages?.length === 0 && (
             <p className="text-lg text-center text-gray-500 italic">
               No messages yet...
@@ -124,30 +136,53 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
           {messages?.map((msg) => (
             <TicketComment key={msg.uuid} {...msg} />
           ))}
-          <div className="mt-4">
-            <p className="font-semibold mb-1 ml-1 !mt-4">Send Message:</p>
-            <Form>
-              <TextArea
-                value={watch("message")}
-                onChange={(e) => setValue("message", e.target.value)}
-                placeholder="Enter your message here..."
-                maxLength={500}
-              />
-              <div className="flex flex-row w-full justify-end mt-2">
+        </div>
+        <div className="mt-2">
+          <p className="font-semibold mb-1 ml-1">Send Message:</p>
+          <Form>
+            <Controller
+              control={control}
+              name="message"
+              render={() => (
+                <TextArea
+                  value={watch("message")}
+                  onChange={(e) => setValue("message", e.target.value)}
+                  placeholder="Enter your message here..."
+                  maxLength={1000}
+                  onKeyDown={(e: any) => {
+                    if (e.key === "Enter" && e.ctrlKey) {
+                      if (!getValues("message")) return;
+                      sendMessageMutation.mutateAsync();
+                    }
+                  }}
+                />
+              )}
+            />
+            <div className="flex flex-row w-full justify-between mt-2">
+              <div>
+                <p className="text-xs text-gray-500 ml-1">
+                  {watch("message")?.length ?? 0}/1000. Enter for new line. Ctrl
+                  + Enter to send.
+                </p>
+              </div>
+              <div className="flex flex-row">
                 <Button onClick={() => setValue("message", "")}>
                   <Icon name="trash" />
                   Clear
                 </Button>
                 <Button
                   color="blue"
-                  onClick={() => sendMessageMutation.mutateAsync()}
+                  onClick={() => {
+                    if (!getValues("message")) return;
+                    sendMessageMutation.mutateAsync();
+                  }}
                 >
                   <Icon name="send" />
                   Send
                 </Button>
               </div>
-            </Form>
-          </div>
+            </div>
+          </Form>
         </div>
       </div>
     </div>
