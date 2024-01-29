@@ -6,7 +6,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 
-import { body } from "express-validator";
+import { body, query } from "express-validator";
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
@@ -730,6 +730,41 @@ const checkHasRoleMiddleware = (org, role) => {
   };
 };
 
+async function cloudflareSiteVerify(req, res){
+  try {
+    if(!req.query.token){
+      throw new Error('No token provided')
+    }
+
+    const formdata = new FormData();
+    formdata.append('secret', process.env.CLOUDFLARE_TURNSTILE_SECRET);
+    formdata.append('response', req.query.token);
+
+    const cloudflareRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', formdata, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    })
+
+    if(!cloudflareRes.data){
+      throw new Error('No response from Cloudflare')
+    }
+    
+    const success = cloudflareRes.data.success || false;
+
+    return res.send({
+      err: false,
+      success,
+    })
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Middleware(s) to verify requests contain
  * necessary fields.
@@ -740,6 +775,10 @@ const validate = (method) => {
       return [
         body('email', conductorErrors.err1).exists().isEmail(),
         body('password', conductorErrors.err1).exists().isLength({ min: 1 }),
+      ]
+    case 'turnstile': 
+      return [
+        query('token', conductorErrors.err1).exists().isLength({ min: 1, max: 1024 }),
       ]
   }
 };
@@ -757,5 +796,6 @@ export default {
   getUserAttributes,
   checkHasRole,
   checkHasRoleMiddleware,
+  cloudflareSiteVerify,
   validate,
 };

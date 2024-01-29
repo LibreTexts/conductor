@@ -157,7 +157,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
           >
             {messages?.length === 0 && (
               <p className="text-lg text-center text-gray-500 italic">
-                No messages yet...
+                No comments yet...
               </p>
             )}
             {messages?.map((msg) => (

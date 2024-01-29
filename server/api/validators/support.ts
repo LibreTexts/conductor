@@ -19,8 +19,8 @@ export const GetAssignableUsersValidator = TicketUUIDParams;
 
 export const CreateTicketValidator = z.object({
   body: z.object({
-    title: z.string().max(200),
-    description: z.string().max(1000),
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(1000),
     apps: z.array(z.number()).optional(),
     priority: z.enum(["low", "medium", "high"]),
     category: z.string(),
@@ -28,10 +28,10 @@ export const CreateTicketValidator = z.object({
     attachments: z.array(z.string()).optional(),
     guest: z
       .object({
-        firstName: z.string(),
-        lastName: z.string(),
-        email: z.string().email(),
-        organization: z.string(),
+        firstName: z.string().trim().min(1).max(255),
+        lastName: z.string().trim().min(1).max(255),
+        email: z.string().trim().email(),
+        organization: z.string().trim().min(1).max(255),
       })
       .optional(),
   }),
@@ -81,7 +81,7 @@ export const AssignTicketValidator = z
 export const SendTicketMessageValidator = z
   .object({
     body: z.object({
-      message: z.string().min(1).max(1000),
+      message: z.string().trim().min(1).max(1000),
       attachments: z.array(z.string()).optional(),
     }),
   })

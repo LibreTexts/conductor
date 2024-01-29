@@ -490,12 +490,15 @@ async function addTicketAttachments(
 }
 
 async function updateTicket(
-  req: z.infer<typeof UpdateTicketValidator>,
+  req: ZodReqWithUser<z.infer<typeof UpdateTicketValidator>>,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
     const { priority, status } = req.body;
+    const userUUID = req.user?.decoded.uuid;
+
+    const user = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticket = await SupportTicket.findOneAndUpdate(
       { uuid },
@@ -505,6 +508,14 @@ async function updateTicket(
         timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
       }
     ).orFail();
+
+    if (status === "closed") {
+      const feedEntry = _createFeedEntry_Closed(
+        `${user.firstName} ${user.lastName}`
+      );
+      ticket.feed.push(feedEntry);
+      await ticket.save();
+    }
 
     return res.send({
       err: false,
@@ -652,6 +663,16 @@ const _createFeedEntry_Created = (
   return {
     action: `Ticket was created`,
     blame: creator,
+    date: new Date().toISOString(),
+  };
+};
+
+const _createFeedEntry_Closed = (
+  closer: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Ticket was closed`,
+    blame: closer,
     date: new Date().toISOString(),
   };
 };
