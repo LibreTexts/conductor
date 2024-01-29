@@ -8,7 +8,7 @@ import {
   TextArea,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { CentralIdentityApp, SupportTicket } from "../../types";
 import { Controller, get, useForm } from "react-hook-form";
@@ -29,7 +29,6 @@ interface CreateTicketFlowProps {
 const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
-  console.log(user)
   const { control, getValues, setValue, watch, trigger } =
     useForm<SupportTicket>({
       defaultValues: {
@@ -53,6 +52,41 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [autoCapturedURL, setAutoCapturedURL] = useState<boolean>(false);
   const [success, setSuccess] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [challengePassed, setChallengePassed] = useState(false);
+
+  useEffect(() => {
+    // @ts-ignore
+    turnstile.render("#example-container", {
+      sitekey: "3x00000000000000000000FF",
+      theme: "light",
+      callback: function (token: string) {
+        verifyTurnstile(token);
+      },
+    });
+  }, []);
+
+  async function verifyTurnstile(token: string) {
+    try {
+      if (!token) throw new Error("Invalid token");
+      const res = await axios.get("/auth/turnstile", {
+        params: {
+          token: token,
+        },
+      });
+
+      if (!res || !res.data) {
+        throw new Error("Invalid response from server");
+      }
+
+      if (res.data.success) {
+        setChallengePassed(true);
+      } else {
+        setChallengePassed(false);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    }
+  }
 
   useEffect(() => {
     document.title = "LibreTexts | Create Support Ticket";
@@ -66,6 +100,29 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       setAutoCapturedURL(true);
     }
   }, []);
+
+  const submitDisabled = useMemo(() => {
+    if ((!user || !user.uuid) && !challengePassed) {
+      return true;
+    }
+
+    if (!user || !user.uuid) {
+      if (
+        !getValues("guest.firstName").trim() ||
+        !getValues("guest.lastName").trim() ||
+        !getValues("guest.email").trim() ||
+        !getValues("guest.organization").trim()
+      ) {
+        return true;
+      }
+    }
+
+    if(!getValues("title").trim() || !getValues("category") || !getValues("priority") || !getValues("description").trim()) {
+      return true;
+    }
+
+    return false;
+  }, [loading, user, challengePassed, watch()]);
 
   async function loadApps() {
     try {
@@ -371,8 +428,18 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             maxFiles={4}
             onUpload={saveFilesToState}
           />
+          {!isLoggedIn && (
+            <div className="flex flex-row items-center justify-center mt-8">
+              <div className="cf-turnstile" id="example-container"></div>
+            </div>
+          )}
           <div className="flex flex-row justify-end mt-4">
-            <Button color="blue" loading={loading} onClick={handleSubmit}>
+            <Button
+              color="blue"
+              loading={loading}
+              onClick={handleSubmit}
+              disabled={submitDisabled}
+            >
               <Icon name="send" />
               Submit
             </Button>

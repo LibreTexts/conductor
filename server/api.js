@@ -118,6 +118,12 @@ router.route('/auth/fallback-auth').post(
   authAPI.fallbackAuthLogin,
 );
 
+router.route('/auth/turnstile').get(
+  authAPI.validate('turnstile'),
+  middleware.checkValidationErrors,
+  authAPI.cloudflareSiteVerify,
+);
+
 /* LibreOne Auth */
 router.route('/central-identity/users').get(
   middleware.checkCentralIdentityConfig,

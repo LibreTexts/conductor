@@ -12,27 +12,41 @@ import { Button, Icon, Label } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
 import { isSupportStaff } from "../../../utils/supportHelpers";
+import { func } from "prop-types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
 
 const SupportTicketView = () => {
+  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const { id } = useParams<{ id: any }>();
   const user = useTypedSelector((state) => state.user);
 
-  const [loading, setLoading] = useState(false);
-  const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
+
+  const { data: ticket, isFetching } = useQuery<SupportTicket>({
+    queryKey: ["ticket", id],
+    queryFn: () => loadTicket(),
+    keepPreviousData: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const updateTicketMutation = useMutation({
+    mutationFn: (status: "open" | "in_progress" | "closed") =>
+      updateTicket(status),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["ticket", id]);
+    },
+  });
 
   useEffect(() => {
     document.title = "LibreTexts | Support Ticket";
-    loadTicket();
   }, []);
 
   async function loadTicket() {
     try {
-      setLoading(true);
       if (typeof id !== "string" || !id) {
         throw new Error("Invalid ticket ID");
       }
@@ -43,17 +57,14 @@ const SupportTicketView = () => {
       if (!res.data.ticket) {
         throw new Error("Invalid response from server");
       }
-      setTicket(res.data.ticket);
+      return res.data.ticket;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
   }
 
   async function updateTicket(status: "open" | "in_progress" | "closed") {
     try {
-      setLoading(true);
       if (typeof id !== "string" || !id) {
         throw new Error("Invalid ticket ID");
       }
@@ -66,13 +77,14 @@ const SupportTicketView = () => {
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-
-      loadTicket();
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
     }
+  }
+
+  function handleCloseAssignModal() {
+    setShowAssignModal(false);
+    queryClient.invalidateQueries(["ticket", id]);
   }
 
   const AdminOptions = () => (
@@ -81,7 +93,7 @@ const SupportTicketView = () => {
         <Icon name="user plus" />
         Assign Ticket
       </Button>
-      <Button color="green" onClick={() => updateTicket("closed")}>
+      <Button color="green" onClick={() => updateTicketMutation.mutateAsync('closed')}>
         <Icon name="check" />
         Mark as Resolved
       </Button>
@@ -90,7 +102,7 @@ const SupportTicketView = () => {
 
   return (
     <DefaultLayout altBackground>
-      <div aria-busy={loading} className="px-8 pt-8">
+      <div aria-busy={isFetching} className="px-8 pt-8">
         {ticket && (
           <>
             <div className="flex flex-row w-full justify-between">
@@ -121,7 +133,7 @@ const SupportTicketView = () => {
       {isSupportStaff(user) ? (
         <AssignTicketModal
           open={showAssignModal}
-          onClose={() => setShowAssignModal(false)}
+          onClose={handleCloseAssignModal}
           ticketId={id}
         />
       ) : (
