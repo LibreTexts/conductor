@@ -59,6 +59,7 @@ const SupportCenter = lazy(() => import('./screens/conductor/support'));
 const SupportCenterCreateTicket = lazy(() => import('./screens/conductor/support/SupportCreateTicket'));
 const SupportDashboard = lazy(() => import('./screens/conductor/support/Dashboard'));
 const SupportTicket = lazy(() => import('./screens/conductor/support/Ticket'));
+const SupportClosedTickets = lazy(() => import('./screens/conductor/support/closed'));
 
 /* 404 */
 import PageNotFound from './components/util/PageNotFound';
@@ -134,10 +135,11 @@ const Conductor = () => {
         <LibreTextsRoute exact path='/insight/welcome' key='insightwelcome' component={KBCoverPage} org={org}/>
         <LibreTextsRoute exact path='/insight/:slug' key='insightpageview' org={org} component={KBPage} />
         <LibreTextsRoute exact path='/support' key="support" component={SupportCenter} org={org}/>
-        {/* <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
-        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} /> */}
+        <LibreTextsRoute exact path='/support/contact' key="supportcontact" component={SupportCenterCreateTicket} org={org}/>
+        <LibreTextsRoute exact path='/support/ticket/:id' key='supportticket' org={org} component={SupportTicket} />
         {/*LibreTexts org private routes */}
-        {/* <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} /> */}
+        <LibreTextsPrivateRoute exact path='/support/dashboard' key='supportdashboard' org={org} component={SupportDashboard} />
+        <LibreTextsPrivateRoute exact path='/support/closed' key='supportclosedtickets' org={org} component={SupportClosedTickets} />
         {/* 404 */}
         <Route component={PageNotFound} />
         </Switch>

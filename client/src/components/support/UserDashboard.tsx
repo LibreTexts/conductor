@@ -12,6 +12,7 @@ const UserDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [activeSort, setActiveSort] = useState<string>("opened");
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [openTickets, setOpenTickets] = useState<SupportTicket[]>([]);
@@ -23,7 +24,13 @@ const UserDashboard = () => {
   async function getUserTickets() {
     try {
       setLoading(true);
-      const res = await axios.get("/support/ticket/user");
+      const res = await axios.get("/support/ticket/user", {
+        params: {
+          page: activePage,
+          limit: itemsPerPage,
+          sort: activeSort,
+        },
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -57,6 +64,10 @@ const UserDashboard = () => {
           setActivePageFn={setActivePage}
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
+          sort={true}
+          sortOptions={["opened", "priority", "status"]}
+          activeSort={activeSort}
+          setActiveSortFn={setActiveSort}
         />
         <Table celled className="mt-4">
           <Table.Header>
@@ -100,6 +111,10 @@ const UserDashboard = () => {
           setActivePageFn={setActivePage}
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
+          sort={true}
+          sortOptions={["opened", "priority", "status"]}
+          activeSort={activeSort}
+          setActiveSortFn={setActiveSort}
         />
       </div>
     </div>

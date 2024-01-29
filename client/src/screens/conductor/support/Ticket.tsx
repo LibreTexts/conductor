@@ -11,6 +11,7 @@ import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon, Label } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
+import { isSupportStaff } from "../../../utils/supportHelpers";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -99,12 +100,12 @@ const SupportTicketView = () => {
                 </p>
                 <TicketStatusLabel status={ticket.status} className="!ml-4" />
               </div>
-              {user && user.isSuperAdmin && <AdminOptions />}
+              {isSupportStaff(user) && <AdminOptions />}
             </div>
             <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
               <div className="flex flex-col xl:basis-2/5 xl:pl-4">
                 <TicketDetails ticket={ticket} />
-                {user && user.isSuperAdmin && (
+                {isSupportStaff(user) && (
                   <div className="mt-4">
                     <TicketFeed ticket={ticket} />
                   </div>
@@ -117,12 +118,14 @@ const SupportTicketView = () => {
           </>
         )}
       </div>
-      {user && user.isSuperAdmin && (
+      {isSupportStaff(user) ? (
         <AssignTicketModal
           open={showAssignModal}
           onClose={() => setShowAssignModal(false)}
           ticketId={id}
         />
+      ) : (
+        <> </>
       )}
     </DefaultLayout>
   );

@@ -5,10 +5,11 @@ import { Button, Form, Icon, Image } from "semantic-ui-react";
 import Launchpad from "../navigation/Launchpad.js";
 import { useTypedSelector } from "../../state/hooks.js";
 import { useMediaQuery } from "react-responsive";
+import { is } from "date-fns/locale";
+import { isSupportStaff } from "../../utils/supportHelpers.js";
 
 const SupportCenterNavbar: React.FC<{}> = () => {
   const user = useTypedSelector((state) => state.user);
-  const [isStaff, setIsStaff] = useState(false);
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(true);
 
@@ -16,12 +17,6 @@ const SupportCenterNavbar: React.FC<{}> = () => {
     { minWidth: 1280 }, // Tailwind XL breakpoint
     undefined
   );
-
-  useEffect(() => {
-    if (user && user.isSuperAdmin) {
-      setIsStaff(true);
-    }
-  }, [user]);
 
   useEffect(() => {
     // dont show search bar on /insight
@@ -79,31 +74,7 @@ const SupportCenterNavbar: React.FC<{}> = () => {
         </Form>
       </div>
       <div className="flex">
-        {/* {user && (
-          <Button
-            className="h-10 !w-48"
-            color="blue"
-            as={Link}
-            to="/home"
-            size="small"
-            basic
-          >
-            <Icon name="lightning" />
-            Go to Conductor
-          </Button>
-        )}
-        <Button
-          className="h-10 !w-48"
-          color="blue"
-          as={Link}
-          to="/"
-          size="small"
-          basic
-        >
-          <Icon name="book" />
-          Go to Commons
-        </Button> */}
-        {isStaff ? (
+        {isSupportStaff(user) ? (
           <Button
             className="h-10 !w-32"
             color="blue"
@@ -115,16 +86,19 @@ const SupportCenterNavbar: React.FC<{}> = () => {
           </Button>
         ) : (
           <>
-            <Button
-              className="h-10 !w-44"
-              color="blue"
-              as={Link}
-              to="/support/dashboard"
-              size="small"
-            >
-              <Icon name="ticket" />
-              My Tickets
-            </Button>
+            {user &&
+              user.uuid && (
+                <Button
+                  className="h-10 !w-44"
+                  color="blue"
+                  as={Link}
+                  to="/support/dashboard"
+                  size="small"
+                >
+                  <Icon name="ticket" />
+                  My Tickets
+                </Button>
+              )}
             <Button
               className="h-10 !w-44"
               color="blue"

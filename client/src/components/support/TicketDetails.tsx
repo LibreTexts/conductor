@@ -10,21 +10,22 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
   return (
     <div className="flex flex-col border rounded-md p-4 shadow-md bg-white">
       <p className="2xl:text-xl">
+        <span className="font-semibold">Subject:</span> {ticket?.title}
+      </p>
+      <p className="2xl:text-xl">
         <span className="font-semibold">Requester:</span>{" "}
         {ticket.user && (
           <>
             <span>
-              `${ticket.user.firstName} ${ticket.user.lastName} ($
-              {ticket.user.email})`
+              {`${ticket.user.firstName} ${ticket.user.lastName} (${ticket.user.email})`}
             </span>
-            <Label>Authenticated</Label>
+            <Label className="!ml-2" basic color="green" size="tiny">
+              Authenticated
+            </Label>
           </>
         )}
         {ticket.guest &&
           `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
-      </p>
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
       <p className="2xl:text-xl">
         <span className="font-semibold">Date Opened:</span>{" "}
