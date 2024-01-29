@@ -10,8 +10,9 @@ export const GetTicketValidator = TicketUUIDParams;
 export const DeleteTicketValidator = TicketUUIDParams;
 export const GetUserTicketsValidator = z.object({
   query: z.object({
-    page: z.number().min(1).optional(),
-    limit: z.number().min(1).optional(),
+    page: z.coerce.number().min(1).optional(),
+    limit: z.coerce.number().min(1).optional(),
+    sort: z.enum(["opened", "priority", "status"]).optional(),
   }),
 });
 export const GetAssignableUsersValidator = TicketUUIDParams;
@@ -20,7 +21,7 @@ export const CreateTicketValidator = z.object({
   body: z.object({
     title: z.string().max(200),
     description: z.string().max(1000),
-    apps: z.array(z.number()).min(1),
+    apps: z.array(z.number()).optional(),
     priority: z.enum(["low", "medium", "high"]),
     category: z.string(),
     capturedURL: z.string().url().optional(),
@@ -57,6 +58,15 @@ export const GetOpenTicketsValidator = z.object({
   query: z.object({
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
+    sort: z.enum(["opened", "priority", "status"]).optional(),
+  }),
+});
+
+export const GetClosedTicketsValidator = z.object({
+  query: z.object({
+    page: z.coerce.number().min(1).optional(),
+    limit: z.coerce.number().min(1).optional(),
+    sort: z.enum(["opened", "closed", "priority"]).optional(),
   }),
 });
 

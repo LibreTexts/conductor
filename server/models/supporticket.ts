@@ -23,7 +23,7 @@ export interface SupportTicketInterface extends Document {
   uuid: string;
   title: string;
   description: string;
-  apps: number[]; // Central Identity app IDs
+  apps?: number[]; // Central Identity app IDs
   attachments?: string[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
@@ -53,7 +53,6 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   apps: {
     type: [Number],
-    required: true,
   },
   attachments: {
     type: [String],

@@ -1,5 +1,6 @@
 import {
   Button,
+  Divider,
   Dropdown,
   Form,
   Icon,
@@ -28,6 +29,7 @@ interface CreateTicketFlowProps {
 const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
+  console.log(user)
   const { control, getValues, setValue, watch, trigger } =
     useForm<SupportTicket>({
       defaultValues: {
@@ -158,13 +160,13 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
   return (
     <div
-      className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-2/3 shadow-lg"
+      className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-2/3 shadow-lg bg-white"
       aria-busy={loading}
     >
       {!success && (
         <>
           <Form className="m-2" onSubmit={(e) => e.preventDefault()}>
-            {user && (
+            {user && user.uuid && (
               <Message color="green" icon size="tiny">
                 <Icon name="check" />
                 <Message.Content>
@@ -174,9 +176,9 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 </Message.Content>
               </Message>
             )}
-            {!user && (
-              <div className="mb-8">
-                <p className="font-semibold mb-1">Your Contact Info</p>
+            {(!user || !user.uuid) && (
+              <div className="mb-4">
+                <p className="font-bold mb-1">Your Contact Info</p>
                 <div className="flex flex-col lg:flex-row w-full">
                   <div className="w-full mr-8">
                     <CtlTextInput
@@ -225,10 +227,23 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     />
                   </div>
                 </div>
+                <Divider className="" />
               </div>
             )}
-            <p className="font-semibold">Request Info</p>
-            <div className="mt-2">
+            <p className="font-bold !mb-2">Request Info</p>
+            <div className="!mt-0">
+              <CtlTextInput
+                control={control}
+                name="title"
+                label="Subject"
+                placeholder="Enter a subject/brief title for your ticket"
+                rules={required}
+                required
+                maxLength={200}
+                className=""
+              />
+            </div>
+            <div className="mt-1">
               <label
                 className="form-field-label form-required"
                 htmlFor="selectCategory"
@@ -254,49 +269,40 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 )}
               />
             </div>
-            <div className="mt-2">
-            <CtlTextInput
-              control={control}
-              name="title"
-              label="Subject"
-              placeholder="Enter a subject/brief title for your ticket"
-              rules={required}
-              required
-              maxLength={200}
-              className=""
-            />
-            </div>
-            <div className="mt-2">
-              <label
-                className="form-field-label form-required"
-                htmlFor="selectApps"
-              >
-                Application/Library (select all that apply)
-              </label>
-              <Controller
-                name="apps"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="selectApps"
-                    options={apps.map((app) => ({
-                      key: app.id,
-                      value: app.id,
-                      text: app.name,
-                    }))}
-                    {...field}
-                    onChange={(e, { value }) => {
-                      field.onChange(value);
-                    }}
-                    fluid
-                    selection
-                    multiple
-                    search
-                    placeholder="Select the applications and/or libraries related to your ticket"
-                  />
-                )}
-              />
-            </div>
+            {["technical", "feature"].includes(watch("category")) && (
+              <div className="mt-2">
+                <label
+                  className="form-field-label form-required"
+                  htmlFor="selectApps"
+                >
+                  Application/Library (select all that apply)
+                </label>
+                <Controller
+                  name="apps"
+                  control={control}
+                  render={({ field }) => (
+                    <Dropdown
+                      id="selectApps"
+                      options={apps.map((app) => ({
+                        key: app.id,
+                        value: app.id,
+                        text: app.name,
+                      }))}
+                      {...field}
+                      onChange={(e, { value }) => {
+                        field.onChange(value);
+                      }}
+                      fluid
+                      selection
+                      multiple
+                      search
+                      required
+                      placeholder="Select the applications and/or libraries related to your ticket"
+                    />
+                  )}
+                />
+              </div>
+            )}
             <div className="mt-2">
               <label
                 className="form-field-label form-required"
@@ -353,7 +359,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               <p className="text-xs text-gray-500 italic">
                 Chars Remaining: {getRemainingChars(watch("description"))}.
                 Note: Please do not include any sensitive information (e.g.
-                passwords, etc.) in your description.
+                passwords) in your description.
               </p>
             </Form.Field>
           </Form>
@@ -366,11 +372,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             onUpload={saveFilesToState}
           />
           <div className="flex flex-row justify-end mt-4">
-            <Button
-              color="blue"
-              loading={loading}
-              onClick={handleSubmit}
-            >
+            <Button color="blue" loading={loading} onClick={handleSubmit}>
               <Icon name="send" />
               Submit
             </Button>
@@ -390,10 +392,22 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
           </Message>
 
           <div className="flex flex-col lg:flex-row items-center justify-center">
-            <Button color="blue" as={Link} to="/support">
-              <Icon name="text telephone" />
-              Back to Support
-            </Button>
+            {isLoggedIn ? (
+              <Button
+                className="!w-44"
+                color="blue"
+                as={Link}
+                to="/support/dashboard"
+              >
+                <Icon name="ticket" />
+                My Tickets
+              </Button>
+            ) : (
+              <Button color="blue" as={Link} to="/support">
+                <Icon name="text telephone" />
+                Back to Support
+              </Button>
+            )}
             <Button
               color="blue"
               as={Link}

@@ -10,6 +10,7 @@ import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
 import { useTypedSelector } from "../../state/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
+import { capitalizeFirstLetter } from "../util/HelperFunctions";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
@@ -20,6 +21,7 @@ const StaffDashboard = () => {
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
+  const [activeSort, setActiveSort] = useState<string>("opened");
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -33,8 +35,8 @@ const StaffDashboard = () => {
   const queryClient = useQueryClient();
 
   const { data: openTickets, isFetching } = useQuery<SupportTicket[]>({
-    queryKey: ["openTickets", activePage, itemsPerPage],
-    queryFn: () => getOpenTickets(activePage, itemsPerPage),
+    queryKey: ["openTickets", activePage, itemsPerPage, activeSort],
+    queryFn: () => getOpenTickets(activePage, itemsPerPage, activeSort),
     keepPreviousData: true,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
@@ -43,13 +45,14 @@ const StaffDashboard = () => {
     getSupportMetrics();
   }, []);
 
-  async function getOpenTickets(page: number, items: number) {
+  async function getOpenTickets(page: number, items: number, sort: string) {
     try {
       setLoading(true);
       const res = await axios.get("/support/ticket/open", {
         params: {
           page: page,
           limit: items,
+          sort: sort,
         },
       });
       if (res.data.err) {
@@ -125,6 +128,11 @@ const StaffDashboard = () => {
     <div className="flex flex-col p-8" aria-busy={loading}>
       <div className="flex flex-row justify-between items-center">
         <p className="text-4xl font-semibold">Staff Dashboard</p>
+        <div className="flex flex-row">
+          <Button color="blue" size="tiny" basic onClick={() => window.location.href = '/support/closed'}>
+            <Icon name="check circle outline" />
+            View Closed
+          </Button>
         {user.isSuperAdmin && (
           <Button
             color="blue"
@@ -136,6 +144,7 @@ const StaffDashboard = () => {
             Support Center Settings
           </Button>
         )}
+        </div>
       </div>
       <div className="flex flex-row justify-between w-full mt-6">
         <DashboardMetric
@@ -148,7 +157,7 @@ const StaffDashboard = () => {
         />
         <DashboardMetric
           metric={metricWeek.toString()}
-          title="Total Tickets This Week"
+          title="Total Tickets Past 7 Days"
         />
       </div>
       <div className="mt-12">
@@ -160,6 +169,10 @@ const StaffDashboard = () => {
           setActivePageFn={setActivePage}
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
+          sort={true}
+          sortOptions={["opened", "priority", "status"]}
+          activeSort={activeSort}
+          setActiveSortFn={setActiveSort}
         />
         <Table celled className="mt-4">
           <Table.Header>
@@ -169,6 +182,7 @@ const StaffDashboard = () => {
               <Table.HeaderCell>Subject</Table.HeaderCell>
               <Table.HeaderCell>Requester</Table.HeaderCell>
               <Table.HeaderCell>Assigned To</Table.HeaderCell>
+              <Table.HeaderCell>Priority</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
               <Table.HeaderCell>Actions</Table.HeaderCell>
             </Table.Row>
@@ -187,6 +201,9 @@ const StaffDashboard = () => {
                     {ticket.assignedUsers
                       ? ticket.assignedUsers.map((u) => u.firstName).join(", ")
                       : "Unassigned"}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {capitalizeFirstLetter(ticket.priority)}
                   </Table.Cell>
                   <Table.Cell>
                     <TicketStatusLabel status={ticket.status} />
@@ -223,6 +240,10 @@ const StaffDashboard = () => {
           setActivePageFn={setActivePage}
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
+          sort={true}
+          sortOptions={["opened", "priority", "status"]}
+          activeSort={activeSort}
+          setActiveSortFn={setActiveSort}
         />
       </div>
       <SupportCenterSettingsModal

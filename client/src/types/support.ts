@@ -11,7 +11,7 @@ export type SupportTicket = {
   uuid: string;
   title: string;
   description: string;
-  apps: number[]; // Central Identity app IDs
+  apps?: number[]; // Central Identity app IDs
   attachments?: string[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";

@@ -1701,27 +1701,35 @@ router.route('/support/metrics').get(
 router.route('/support/ticket/open').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.GetOpenTicketsValidator),
   supportAPI.getOpenInProgressTickets
+)
+
+router.route('/support/ticket/closed').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
+  middleware.validateZod(supportValidators.GetClosedTicketsValidator),
+  supportAPI.getClosedTickets
 )
 
 router.route('/support/ticket/user').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetUserTicketsValidator),
+  middleware.validateZod(supportValidators.GetUserTicketsValidator), //TODO: RBAC
   supportAPI.getUserTickets
 )
 
 router.route('/support/ticket/:uuid/assign').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   supportAPI.getAssignableUsers
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.AssignTicketValidator),
   supportAPI.assignTicket
 )
@@ -1729,17 +1737,17 @@ router.route('/support/ticket/:uuid/assign').get(
 router.route('/support/ticket/:uuid/msg').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetTicketValidator),
+  middleware.validateZod(supportValidators.GetTicketValidator), //TODO: RBAC
   supportAPI.getTicketMessages
 ).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.SendTicketMessageValidator),
+  middleware.validateZod(supportValidators.SendTicketMessageValidator), //TODO: RBAC
   supportAPI.createMessage
 )
 
 router.route('/support/ticket/:uuid/attachments').post(
-  middleware.validateZod(supportValidators.AddTicketAttachementsValidator),
+  middleware.validateZod(supportValidators.AddTicketAttachementsValidator), //TODO: RBAC
   supportAPI.ticketAttachmentUploadHandler,
   supportAPI.addTicketAttachments
 );
@@ -1747,12 +1755,12 @@ router.route('/support/ticket/:uuid/attachments').post(
 router.route('/support/ticket/:uuid').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetTicketValidator),
+  middleware.validateZod(supportValidators.GetTicketValidator), //TODO: RBAC
   supportAPI.getTicket
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.UpdateTicketValidator),
   supportAPI.updateTicket
 )

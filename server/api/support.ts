@@ -4,6 +4,7 @@ import {
   AssignTicketValidator,
   CreateTicketValidator,
   GetAssignableUsersValidator,
+  GetClosedTicketsValidator,
   GetOpenTicketsValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
@@ -43,7 +44,9 @@ async function getTicket(
 ) {
   try {
     const { uuid } = req.params;
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid })
+      .orFail()
+      .populate("user");
     return res.send({
       err: false,
       ticket,
@@ -75,12 +78,25 @@ async function getUserTickets(
     if (req.query.page) page = req.query.page;
     const offset = getPaginationOffset(page, limit);
 
+    const getSortObj = () => {
+      if (req.query.sort === "priority") {
+        return { priority: -1 };
+      }
+      if (req.query.sort === "status") {
+        return { status: -1 };
+      }
+      return { timeOpened: -1 };
+    };
+
+    const sortObj = getSortObj();
+
     const tickets = await SupportTicket.find({ userUUID: uuid })
       .skip(offset)
       .limit(limit)
+      .sort(sortObj as any)
       .populate("user");
 
-    const total = await SupportTicket.countDocuments({ userUUID: uuid});
+    const total = await SupportTicket.countDocuments({ userUUID: uuid });
     return res.send({
       err: false,
       tickets,
@@ -103,16 +119,78 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const getSortObj = () => {
+      if (req.query.sort === "priority") {
+        return { priority: -1 };
+      }
+      if (req.query.sort === "status") {
+        return { status: -1 };
+      }
+      return { timeOpened: -1 };
+    };
+
+    const sortObj = getSortObj();
+
     const tickets = await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
     })
       .skip(offset)
       .limit(limit)
+      .sort(sortObj as any)
       .populate("assignedUsers")
+      .populate("user")
       .exec();
 
     const total = await SupportTicket.countDocuments({
       status: { $in: ["open", "in_progress"] },
+    });
+
+    return res.send({
+      err: false,
+      tickets,
+      total,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getClosedTickets(
+  req: z.infer<typeof GetClosedTicketsValidator>,
+  res: Response
+) {
+  try {
+    let page = 1;
+    let limit = 25;
+    if (req.query.page) page = req.query.page;
+    if (req.query.limit) limit = parseInt(req.query.limit.toString());
+    const offset = getPaginationOffset(page, limit);
+
+    const getSortObj = () => {
+      if (req.query.sort === "priority") {
+        return { priority: -1 };
+      }
+      if (req.query.sort === "closed") {
+        return { timeClosed: -1 };
+      }
+      return { timeOpened: -1 };
+    };
+
+    const sortObj = getSortObj();
+
+    const tickets = await SupportTicket.find({
+      status: "closed",
+    })
+      .skip(offset)
+      .limit(limit)
+      .sort(sortObj as any)
+      .populate("assignedUsers")
+      .populate("user")
+      .exec();
+
+    const total = await SupportTicket.countDocuments({
+      status: "closed",
     });
 
     return res.send({
@@ -319,8 +397,6 @@ async function createTicket(
       foundUser = await User.findOne({ uuid: userUUID }).orFail();
     }
 
-    console.log(foundUser);
-
     const feedEntry = _createFeedEntry_Created(
       foundUser
         ? `${foundUser.firstName} ${foundUser.lastName}`
@@ -449,7 +525,9 @@ async function getTicketMessages(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
     const ticketMessages = await SupportTicketMessage.find({
       ticket: ticket.uuid,
-    }).populate('sender').sort({ createdAt: -1 });
+    })
+      .populate("sender")
+      .sort({ createdAt: -1 });
 
     return res.send({
       err: false,
@@ -472,8 +550,8 @@ async function createMessage(
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
     let foundUser;
-    if(userUUID) {
-      foundUser = await User.findOne({ uuid: userUUID })
+    if (userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID });
     }
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -582,6 +660,7 @@ export default {
   getTicket,
   getUserTickets,
   getOpenInProgressTickets,
+  getClosedTickets,
   getSupportMetrics,
   getAssignableUsers,
   assignTicket,

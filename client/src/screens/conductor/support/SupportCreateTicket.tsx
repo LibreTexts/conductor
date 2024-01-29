@@ -32,14 +32,14 @@ const SupportCreateTicket = () => {
   }
 
   return (
-    <DefaultLayout>
-      <div className="flex flex-col w-full min-h-screen items-center">
-        <div className="flex flex-col w-full my-8 items-center">
+    <DefaultLayout altBackground>
+      <div className="flex flex-col w-full min-h-[80vh] items-center justify-center">
+        <div className="flex flex-col w-full items-center mt-4">
           <h1 className="text-4xl font-semibold">Contact Support</h1>
           <p className="mt-2">Submit a support ticket to get help from our team.</p>
           <>
             {!isLoggedIn && !guestMode && (
-              <div className="flex flex-col w-full mt-12 items-center">
+              <div className="flex flex-col w-2/5 mt-12 items-center">
                 <button
                   onClick={() => redirectToLogin()}
                   className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"

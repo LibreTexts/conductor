@@ -1,6 +1,7 @@
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import { useEffect, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
+import { isSupportStaff } from "../../../utils/supportHelpers";
 const StaffDashboard = lazy(
   () => import("../../../components/support/StaffDashboard")
 );
@@ -17,7 +18,7 @@ const SupportDashboard = () => {
 
   return (
     <DefaultLayout>
-      {user.isSuperAdmin ? <StaffDashboard /> : <UserDashboard />}
+      {isSupportStaff(user) ? <StaffDashboard /> : <UserDashboard />}
     </DefaultLayout>
   );
 };
