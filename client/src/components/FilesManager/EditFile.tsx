@@ -831,8 +831,6 @@ const EditFile: React.FC<EditFileProps> = ({
                                 onSearchChange={(e, { searchQuery }) => {
                                   getAuthorsDebounced(searchQuery);
                                 }}
-                                additionLabel="Add organization: "
-                                allowAdditions
                                 loading={loadingAuthors}
                               />
                             </Form.Field>

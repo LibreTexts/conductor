@@ -42,7 +42,7 @@ export const bookSearchSchema = z.object({
       course: z.string().optional(),
       publisher: z.string().optional(),
       affiliation: z.string().optional(),
-      CID: z.string().optional(),
+      //CID: z.string().optional(),
       sort: z
         .enum(["title", "author", "library", "subject", "affiliation"])
         .default("title"),

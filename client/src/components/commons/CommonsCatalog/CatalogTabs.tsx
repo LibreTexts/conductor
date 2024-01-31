@@ -23,6 +23,7 @@ import ProjectsTable from "./ProjectsTable";
 import TabLabel from "./CatalogTabLabel";
 import { getAssetFilterText, getBookFilterText } from "../../../utils/misc";
 import { act } from "react-dom/test-utils";
+import { capitalizeFirstLetter } from "../../util/HelperFunctions";
 
 interface CatalogTabsProps extends TabProps {
   assetFilters: AssetFilters;
@@ -116,9 +117,9 @@ const CatalogTabs = forwardRef(
         setActivePage(1);
 
         await Promise.all([
-          handleBooksSearch(query, true, true),
-          handleAssetsSearch(query, true, true),
-          handleProjectsSearch(query, true, true),
+          handleBooksSearch(query, true),
+          handleAssetsSearch(query, true),
+          handleProjectsSearch(query, true),
         ]);
       } catch (err) {
         handleGlobalError(err);
@@ -157,7 +158,7 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleBooksSearch(query?: string, clearIfNone = false, clearAndUpdate = false) {
+    async function handleBooksSearch(query?: string, clearAndUpdate = false) {
       try {
         const res = await api.booksSearch({
           searchQuery: query,
@@ -176,11 +177,7 @@ const CatalogTabs = forwardRef(
         }
 
         if (Array.isArray(res.data.results)) {
-          updateBooks(
-            res.data.results,
-            clearAndUpdate,
-            res.data.results.length === 0 && clearIfNone ? true : false
-          );
+          updateBooks(res.data.results, clearAndUpdate);
         }
 
         if (typeof res.data.numResults === "number") {
@@ -214,11 +211,7 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleAssetsSearch(
-      query?: string,
-      clearIfNone = false,
-      clearAndUpdate = false
-    ) {
+    async function handleAssetsSearch(query?: string, clearAndUpdate = false) {
       try {
         const res = await api.assetsSearch({
           searchQuery: query,
@@ -237,11 +230,7 @@ const CatalogTabs = forwardRef(
         }
 
         if (Array.isArray(res.data.results)) {
-          updateAssets(
-            res.data.results,
-            clearAndUpdate,
-            res.data.results.length === 0 && clearIfNone ? true : false
-          );
+          updateAssets(res.data.results, clearAndUpdate);
         }
         if (typeof res.data.numResults === "number") {
           setAssetsCount(res.data.numResults);
@@ -274,7 +263,10 @@ const CatalogTabs = forwardRef(
       }
     }
 
-    async function handleProjectsSearch(query?: string, clearIfNone = false, clearAndUpdate = false) {
+    async function handleProjectsSearch(
+      query?: string,
+      clearAndUpdate = false
+    ) {
       try {
         const res = await api.projectsSearch({
           searchQuery: query,
@@ -292,11 +284,7 @@ const CatalogTabs = forwardRef(
         }
 
         if (Array.isArray(res.data.results)) {
-          updateProjects(
-            res.data.results,
-            clearAndUpdate,
-            res.data.results.length === 0 && clearIfNone ? true : false
-          );
+          updateProjects(res.data.results, clearAndUpdate);
         }
 
         if (typeof res.data.numResults === "number") {
@@ -350,39 +338,25 @@ const CatalogTabs = forwardRef(
         "projectTitle" | "projectThumbnail",
         "projectID"
       >[],
-      clearAndUpdate = false,
-      clear = false
+      clearAndUpdate = false
     ) {
-      if (clear) {
-        setAssets([]);
-      } else if (clearAndUpdate) {
+      if (clearAndUpdate) {
         setAssets([...newAssets]);
       } else {
         setAssets([...assets, ...newAssets]);
       }
     }
 
-    function updateBooks(
-      newBooks: Book[],
-      clearAndUpdate = false,
-      clear = false
-    ) {
-      if (clear) {
-        setBooks([]);
-      } else if (clearAndUpdate) setBooks([...newBooks]);
-      else {
+    function updateBooks(newBooks: Book[], clearAndUpdate = false) {
+      if (clearAndUpdate) {
+        setBooks([...newBooks]);
+      } else {
         setBooks([...books, ...newBooks]);
       }
     }
 
-    function updateProjects(
-      newProjects: Project[],
-      clearAndUpdate = false,
-      clear = false
-    ) {
-      if (clear) {
-        setProjects([]);
-      } else if (clearAndUpdate) {
+    function updateProjects(newProjects: Project[], clearAndUpdate = false) {
+      if (clearAndUpdate) {
         setProjects([...newProjects]);
       } else {
         setProjects([...projects, ...newProjects]);
@@ -472,7 +446,7 @@ const CatalogTabs = forwardRef(
                       }
                     >
                       <p className="">
-                        {getBookFilterText(key)}: {value}
+                        {getBookFilterText(key)}: {capitalizeFirstLetter(value)}
                       </p>
                       <Icon name="x" className="!ml-1" />
                     </div>

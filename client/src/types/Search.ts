@@ -11,16 +11,13 @@ export type AssetFilters = {
 };
 
 export type BookFilters = {
-  bookLibrary?: string;
-  bookSubject?: string;
-  bookLocation?: string;
-  bookLicense?: string;
-  bookLicenseVersion?: string;
-  bookAuthor?: string;
-  bookCourse?: string;
-  bookPublisher?: string;
-  bookAffiliation?: string;
-  bookCID?: string;
+  library?: string;
+  subject?: string;
+  location?: string;
+  license?: string;
+  author?: string;
+  course?: string;
+  affiliation?: string;
 };
 
 type _commonSearchParams = {
@@ -38,17 +35,8 @@ export type AssetSearchParams = {
 } & _commonSearchParams;
 
 export type BookSearchParams = {
-  library?: string;
-  subject?: string;
-  location?: "campus" | "central";
-  license?: string;
-  author?: string;
-  course?: string;
-  publisher?: string;
-  affiliation?: string;
-  CID?: string;
   sort?: "title" | "author" | "library" | "subject" | "affiliation";
-} & _commonSearchParams;
+} & _commonSearchParams & BookFilters;
 
 export type HomeworkSearchParams = {
   sort?: "name" | "description";

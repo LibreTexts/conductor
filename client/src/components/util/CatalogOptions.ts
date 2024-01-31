@@ -7,7 +7,7 @@ const catalogDisplayOptions: GenericKeyTextValueObj<string>[] = [
 const catalogLocationOptions = [
     { key: 'central', text: 'Central Bookshelves', value: 'central' },
     { key: 'campus', text: 'Campus Bookshelves', value: 'campus' },
-    { key: 'learning', text: 'Learning Objects', value: 'learning', disabled: true }
+    // { key: 'learning', text: 'Learning Objects', value: 'learning', disabled: true }
 ];
 
 const catalogAssetTypeOptions = [

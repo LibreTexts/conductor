@@ -227,8 +227,8 @@ const CatalogBookFilters = forwardRef(
         <div className="flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 ">
           <Dropdown
             text={
-              selectedFilters.bookLibrary
-                ? `Library - ${selectedFilters.bookLibrary}`
+              selectedFilters.library
+                ? `Library - ${selectedFilters.library}`
                 : "Library"
             }
             icon="university"
@@ -246,7 +246,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookLibrary: library.value,
+                      library: library.value,
                     })
                   }
                 >
@@ -257,8 +257,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookSubject
-                ? `Subject - ${selectedFilters.bookSubject}`
+              selectedFilters.subject
+                ? `Subject - ${selectedFilters.subject}`
                 : "Subject"
             }
             icon="filter"
@@ -276,7 +276,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookSubject: subject.value,
+                      subject: subject.value,
                     })
                   }
                 >
@@ -287,8 +287,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookLocation
-                ? `Location - ${selectedFilters.bookLocation}`
+              selectedFilters.location
+                ? `Location - ${selectedFilters.location}`
                 : "Location"
             }
             icon="globe"
@@ -306,7 +306,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookLocation: location.value,
+                      location: location.value,
                     })
                   }
                 >
@@ -317,8 +317,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookLicense
-                ? `License - ${selectedFilters.bookLicense}`
+              selectedFilters.license
+                ? `License - ${selectedFilters.license}`
                 : "License"
             }
             icon="legal"
@@ -336,7 +336,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookLicense: license.value,
+                      license: license.value,
                     })
                   }
                 >
@@ -347,8 +347,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookAuthor
-                ? `Author - ${selectedFilters.bookAuthor}`
+              selectedFilters.author
+                ? `Author - ${selectedFilters.author}`
                 : "Author"
             }
             icon="user"
@@ -366,7 +366,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookAuthor: author.value,
+                      author: author.value,
                     })
                   }
                 >
@@ -377,8 +377,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookCourse
-                ? `Course - ${selectedFilters.bookCourse}`
+              selectedFilters.course
+                ? `Course - ${selectedFilters.course}`
                 : "Course"
             }
             icon="users"
@@ -396,7 +396,7 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookCourse: course.value,
+                      course: course.value,
                     })
                   }
                 >
@@ -407,38 +407,8 @@ const CatalogBookFilters = forwardRef(
           </Dropdown>
           <Dropdown
             text={
-              selectedFilters.bookPublisher
-                ? `Publisher - ${selectedFilters.bookPublisher}`
-                : "Publisher"
-            }
-            icon="print"
-            floating
-            labeled
-            button
-            className="icon"
-            loading={loading}
-            basic
-          >
-            <Dropdown.Menu className={MENU_CLASSES}>
-              {pubOptions.map((publisher) => (
-                <Dropdown.Item
-                  key={publisher.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      bookPublisher: publisher.value,
-                    })
-                  }
-                >
-                  {publisher.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              selectedFilters.bookAffiliation
-                ? `Affiliation - ${selectedFilters.bookAffiliation}`
+              selectedFilters.affiliation
+                ? `Affiliation - ${selectedFilters.affiliation}`
                 : "Affiliation"
             }
             icon="filter"
@@ -456,41 +426,11 @@ const CatalogBookFilters = forwardRef(
                   onClick={() =>
                     setSelectedFilters({
                       ...selectedFilters,
-                      bookAffiliation: affiliation.value,
+                      affiliation: affiliation.value,
                     })
                   }
                 >
                   {affiliation.text}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-          <Dropdown
-            text={
-              selectedFilters.bookCID
-                ? `C-ID - ${selectedFilters.bookCID}`
-                : "C-ID"
-            }
-            icon="hashtag"
-            floating
-            labeled
-            button
-            className="icon"
-            loading={loading}
-            basic
-          >
-            <Dropdown.Menu className={MENU_CLASSES}>
-              {cidOptions.map((cid) => (
-                <Dropdown.Item
-                  key={cid.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      bookCID: cid.value,
-                    })
-                  }
-                >
-                  {cid.text}
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>
