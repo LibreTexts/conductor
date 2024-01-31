@@ -288,7 +288,7 @@ async function _upsertTemplates(
     // Sort dropdown/multiselect options
     upsertedTemplates.forEach((t) => {
       if (t.options) {
-        t.options.sort();
+        t.options.sort((a, b) => a.localeCompare(b, "en", { ignorePunctuation: true }));
       }
     });
 

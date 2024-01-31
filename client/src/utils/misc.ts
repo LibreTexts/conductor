@@ -147,24 +147,20 @@ export function base64ToBlob(
 
 export function getBookFilterText(filter: string) {
   switch (filter) {
-    case "bookLibrary":
+    case "library":
       return "Library";
-    case "bookSubject":
+    case "subject":
       return "Subject";
-    case "bookLocation":
+    case "location":
       return "Location";
-    case "bookLicense":
+    case "license":
       return "License";
-    case "bookAuthor":
+    case "author":
       return "Author";
-    case "bookCourse":
+    case "course":
       return "Course";
-    case "bookPublisher":
-      return "Publisher";
-    case "bookAffiliation":
+    case "affiliation":
       return "Affiliation";
-    case "bookCID":
-      return "C-ID";
     default:
       return "";
   }

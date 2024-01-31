@@ -162,20 +162,21 @@ async function booksSearch(
     const booksLimit = parseInt(req.query.limit?.toString()) || 25;
     const booksOffset = getPaginationOffset(booksPage, req.query.limit);
 
+    const matchObj = _generateBookMatchObj({
+      library: req.query.library || undefined,
+      subject: req.query.subject || undefined,
+      location: req.query.location || undefined,
+      license: req.query.license || undefined,
+      author: req.query.author || undefined,
+      course: req.query.course || undefined,
+      publisher: req.query.publisher || undefined,
+      affiliation: req.query.affiliation || undefined,
+      queryRegex: queryRegex,
+    });
+
     const results = await Book.aggregate([
       {
-        $match: {
-          $or: [
-            { title: queryRegex },
-            { author: queryRegex },
-            { affiliation: queryRegex },
-            { libreLibrary: queryRegex },
-            { subject: queryRegex },
-            { course: queryRegex },
-            { program: queryRegex },
-            { summary: queryRegex },
-          ],
-        },
+        $match: matchObj,
       },
       {
         $project: {
@@ -188,31 +189,32 @@ async function booksSearch(
     const totalCount = results.length;
     const paginated = results.slice(booksOffset, booksOffset + booksLimit);
 
-    // paginated.sort((a, b) => {
-    //   let aData = null;
-    //   let bData = null;
-    //   if (req.query.sort === "title") {
-    //     aData = _transformToCompare(a.title);
-    //     bData = _transformToCompare(b.title);
-    //   } else if (req.query.sort === "author") {
-    //     aData = _transformToCompare(a.author);
-    //     bData = _transformToCompare(b.author);
-    //   } else if (req.query.sort === "library") {
-    //     aData = _transformToCompare(a.library);
-    //     bData = _transformToCompare(b.library);
-    //   } else if (req.query.sort === "subject") {
-    //     aData = _transformToCompare(a.subject);
-    //     bData = _transformToCompare(b.subject);
-    //   } else if (req.query.sort === "affiliation") {
-    //     aData = _transformToCompare(a.affiliation);
-    //     bData = _transformToCompare(b.affiliation);
-    //   }
-    //   if (aData !== null && bData !== null) {
-    //     if (aData < bData) return -1;
-    //     if (aData > bData) return 1;
-    //   }
-    //   return 0;
-    // });
+    // Does this need to happen before paginating?
+    paginated.sort((a, b) => {
+      let aData = null;
+      let bData = null;
+      if (req.query.sort === "title") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.sort === "author") {
+        aData = _transformToCompare(a.author);
+        bData = _transformToCompare(b.author);
+      } else if (req.query.sort === "library") {
+        aData = _transformToCompare(a.library);
+        bData = _transformToCompare(b.library);
+      } else if (req.query.sort === "subject") {
+        aData = _transformToCompare(a.subject);
+        bData = _transformToCompare(b.subject);
+      } else if (req.query.sort === "affiliation") {
+        aData = _transformToCompare(a.affiliation);
+        bData = _transformToCompare(b.affiliation);
+      }
+      if (aData !== null && bData !== null) {
+        if (aData < bData) return -1;
+        if (aData > bData) return 1;
+      }
+      return 0;
+    });
 
     return res.send({
       err: false,
@@ -223,6 +225,92 @@ async function booksSearch(
     debugError(err);
     return conductor500Err(res);
   }
+}
+
+function _generateBookMatchObj({
+  library,
+  subject,
+  location,
+  license,
+  author,
+  course,
+  publisher,
+  affiliation,
+  queryRegex,
+}: {
+  library?: string;
+  subject?: string;
+  location?: "campus" | "central";
+  license?: string;
+  author?: string;
+  course?: string;
+  publisher?: string;
+  affiliation?: string;
+  queryRegex?: object;
+}) {
+  const bookFilters = [];
+  let bookFiltersOptions = {};
+
+  if (library) {
+    bookFilters.push({ libreLibrary: library });
+  }
+
+  if (subject) {
+    console.log("subject: ", subject);
+    bookFilters.push({ subject });
+  }
+
+  if (location) {
+    bookFilters.push({ location });
+  }
+
+  if (license) {
+    bookFilters.push({ license });
+  }
+
+  if (author) {
+    bookFilters.push({ author });
+  }
+
+  if (course) {
+    bookFilters.push({ course });
+  }
+
+  if (publisher) {
+    bookFilters.push({ program: publisher });
+  }
+
+  if (affiliation) {
+    bookFilters.push({ affiliation });
+  }
+
+  // If multiple filters, use $and, otherwise just use the filter
+  if (bookFilters.length > 1) {
+    bookFiltersOptions = { $and: bookFilters };
+  } else {
+    bookFiltersOptions = { ...bookFilters[0] };
+  }
+
+  // Combine all filters and return
+  const bookMatchOptions = {
+    $and: [
+      {
+        ...bookFiltersOptions,
+      },
+    ],
+  };
+
+  if (queryRegex) {
+    bookMatchOptions.$and.push({
+      $or: [
+        { title: queryRegex },
+        { author: queryRegex },
+        { course: queryRegex },
+      ],
+    });
+  }
+
+  return bookMatchOptions;
 }
 
 function _generateProjectMatchObj({
@@ -1040,14 +1128,14 @@ async function getAutocompleteResults(
         acc.push(val);
       }
       return acc;
-    }, [])
+    }, []);
 
     const uniqueValues = [...new Set<string>(reduced)];
-    
+
     // Filter out values that are less than 3 characters
     const filtered = uniqueValues.filter((val) => {
       return val.length > 3;
-    })
+    });
 
     return res.send({
       err: false,
