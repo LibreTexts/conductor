@@ -50,7 +50,6 @@ import {
     generateZIPFile,
     retrieveSingleProjectFile,
     validateDefaultFileLicense,
-    invalidateCloudfrontPath,
     parseAndZipS3Objects,
     createZIPAndNotify,
     PROJECT_THUMBNAILS_S3_CLIENT_CONFIG,
@@ -2826,6 +2825,7 @@ const autoGenerateProjects = (newBooks) => {
           mimeType: file.mimetype,
           authors: parsedAuthors,
           publisher: req.body.publisher,
+          version: 1, // initial version
         });
       });
       await async.eachLimit(uploadCommands, 2, async (command) => storageClient.send(command));
@@ -3216,8 +3216,14 @@ async function getProjectFile(req, res) {
         if(publisher) {
           updateObj.publisher = publisher;
         }
-        if(req.files && req.files[0] && req.files[0].mimetype){
-          updateObj.mimeType = req.files[0].mimetype;
+        if(req.files && req.files[0]){
+          updateObj.version = obj.version ? obj.version + 1 : 1; // increment version
+          if(req.files[0].mimeType){
+            updateObj.mimeType = req.files[0].mimeType; // update mime type
+          }
+          if(req.files[0].size){
+            updateObj.size = req.files[0].size; // update size
+          }
         }
         // allow updating of URL if file is a URL
         if (Boolean(isURL) && fileURL
@@ -3275,8 +3281,6 @@ async function getProjectFile(req, res) {
         ContentDisposition: `inline; filename=${file.originalname}`,
         ContentType: file.mimetype || 'application/octet-stream',
       }));
-
-      await invalidateCloudfrontPath(projectID)
     }
 
     // Delete the old file if it has been replaced with a URL
