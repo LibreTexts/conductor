@@ -24,13 +24,25 @@ const VisualMode = ({
     );
   }
 
-  return (
-    <div>
-      <p className="text-center italic">
-        No results found - Try adjusting your search or filters.
-      </p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="commons-content-card-grid">
+        {[...Array(10)].map((_, index) => (
+          <PlaceholderCard key={index} />
+        ))}
+      </div>
+    );
+  }
+
+  if (!loading) {
+    return (
+      <div>
+        <p className="text-center italic">
+          No results found - Try adjusting your search or filters.
+        </p>
+      </div>
+    );
+  }
 };
 
 export default VisualMode;
