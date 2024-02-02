@@ -435,7 +435,7 @@ const EditFile: React.FC<EditFileProps> = ({
           name: vals.name,
           description: vals.description,
           license: vals.license,
-          authors: vals.authors,
+          authors: vals.authors ?? undefined,
           publisher: vals.publisher,
           tags: vals.tags,
         }

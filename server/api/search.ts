@@ -785,11 +785,9 @@ export async function assetsSearch(
 
     // Remove duplicate files
     const fileIDs = allResults.map((file: FileInterface) => file.fileID);
-    const withoutDuplicates = allResults.filter(
-      (file: FileInterface, index: number) => {
-        return !fileIDs.includes(file.fileID, index + 1);
-      }
-    );
+    const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
+      return allResults.find((file: FileInterface) => file.fileID === fileID);
+    });
 
     const totalCount = withoutDuplicates.length;
 
