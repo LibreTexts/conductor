@@ -34,7 +34,6 @@ const VisualMode = ({
     );
   }
 
-  if (!loading) {
     return (
       <div>
         <p className="text-center italic">
@@ -42,7 +41,6 @@ const VisualMode = ({
         </p>
       </div>
     );
-  }
 };
 
 export default VisualMode;
