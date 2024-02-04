@@ -12,12 +12,13 @@ import User from "../models/user.js";
 import base64 from "base-64";
 import projectsAPI from "../api/projects.js";
 import usersAPI from "../api/users.js";
-import {
-  FileInterface,
-  FileInterfaceAccess,
-  FileInterfacePath,
-  RawFileInterface,
-} from "../models/file.js";
+import ProjectFile, {
+  ProjectFileInterface,
+  ProjectFileInterfaceAccess,
+  ProjectFileInterfacePath,
+  RawProjectFileInterface,
+  PROJECT_FILES_ACCESS_SETTINGS
+} from "../models/projectfile.js";
 import AdmZip from "adm-zip";
 import { v4 } from "uuid";
 import { AssetTagInterface } from "../models/assettag.js";
@@ -89,13 +90,6 @@ export const PROJECT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   region: process.env.AWS_PROJECTFILES_REGION,
 };
 
-export const PROJECT_FILES_ACCESS_SETTINGS = [
-  "public",
-  "users",
-  "instructors",
-  "team",
-  "mixed",
-];
 
 export const PROJECT_THUMBNAILS_S3_CLIENT_CONFIG = {
   credentials: {
@@ -105,9 +99,9 @@ export const PROJECT_THUMBNAILS_S3_CLIENT_CONFIG = {
   region: process.env.AWS_PROJECT_THUMBNAILS_REGION ?? "",
 };
 
-export const isFileInterfaceAccess = (
+export const isProjectFileInterfaceAccess = (
   access: string
-): access is FileInterfaceAccess => {
+): access is ProjectFileInterfaceAccess => {
   return PROJECT_FILES_ACCESS_SETTINGS.includes(access);
 };
 
@@ -287,7 +281,7 @@ export async function getLibreTextInformation(url: string) {
  */
 export async function filterFilesByAccess(
   projectID: string,
-  files: FileInterface[],
+  files: ProjectFileInterface[],
   publicOnly = false,
   userID = ""
 ) {
@@ -342,208 +336,151 @@ export async function retrieveAllProjectFiles(
   userID = ""
 ) {
   try {
-    const projectResults = await Project.aggregate<ProjectInterface>([
-      {
-        $match: { projectID },
-      },
-      {
-        $unwind: {
-          path: "$files",
-          preserveNullAndEmptyArrays: true,
+    const results = await ProjectFile.aggregate<ProjectFileInterface>(
+      [
+        {
+          $match: {
+            projectID,
+            ...(publicOnly ? { access: "public" } : {}),
+          }
         },
-      },
-      {
-        $addFields: {
-          files: {
-            createdDate: { $dateToString: { date: "$files._id" } },
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "authors",
-          localField: "files.authors",
-          foreignField: "_id",
-          as: "foundAuthors",
-        },
-      },
-      {
-        $addFields: {
-          "files.authors": {
-            $concatArrays: [
+        {
+          $lookup: {
+            from: "projects",
+            let: {
+              searchID: "$projectID",
+            },
+            pipeline: [
               {
-                $filter: {
-                  input: "$files.authors",
-                  as: "author",
-                  cond: { $ne: [{$type: "$$author"}, "objectId"] },
-                }
+                $match: {
+                  $expr: {
+                    $eq: ["$projectID", "$$searchID"],
+                  },
+                },
               },
               {
-                $map: {
-                  input: "$foundAuthors",
-                  as: "author",
-                  in: {
-                    _id: "$$author._id",
-                    firstName: "$$author.firstName",
-                    lastName: "$$author.lastName",
-                    email: "$$author.email",
-                    userUUID: "$$author.userUUID",
+                $project: {
+                  title: 1,
+                  thumbnail: 1,
+                },
+              },
+            ],
+            as: "projectInfo",
+          },
+        },
+        {
+          $set: {
+            projectInfo: {
+              $arrayElemAt: ["$projectInfo", 0],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "assettags",
+            localField: "tags",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "assettagframeworks",
+                  localField: "framework",
+                  foreignField: "_id",
+                  pipeline: [
+                    // Go through each template in framework and lookup key
+                    {
+                      $unwind: {
+                        path: "$templates",
+                        preserveNullAndEmptyArrays: true,
+                      },
+                    },
+                    {
+                      $lookup: {
+                        from: "assettagkeys",
+                        let: {
+                          key: "$templates.key",
+                        },
+                        pipeline: [
+                          {
+                            $match: {
+                              $expr: {
+                                $eq: ["$_id", "$$key"],
+                              },
+                            },
+                          },
+                        ],
+                        as: "key",
+                      },
+                    },
+                    {
+                      $set: {
+                        "templates.key": {
+                          $arrayElemAt: ["$key", 0],
+                        },
+                      },
+                    },
+                    {
+                      $group: {
+                        _id: "$_id",
+                        uuid: {
+                          $first: "$uuid",
+                        },
+                        name: {
+                          $first: "$name",
+                        },
+                        description: {
+                          $first: "$description",
+                        },
+                        enabled: {
+                          $first: "$enabled",
+                        },
+                        orgID: {
+                          $first: "$orgID",
+                        },
+                        templates: {
+                          $push: "$templates",
+                        },
+                      },
+                    },
+                  ],
+                  as: "framework",
+                },
+              },
+              {
+                $set: {
+                  framework: {
+                    $arrayElemAt: ["$framework", 0],
+                  },
+                },
+              },
+              {
+                $lookup: {
+                  from: "assettagkeys",
+                  localField: "key",
+                  foreignField: "_id",
+                  as: "key",
+                },
+              },
+              {
+                $set: {
+                  key: {
+                    $arrayElemAt: ["$key", 0],
                   },
                 },
               },
             ],
-        }
-      }
-      },
-      {
-        $lookup: {
-          from: "users",
-          let: { createdBy: "$files.createdBy" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$uuid", "$$createdBy"] },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                uuid: 1,
-                firstName: 1,
-                lastName: 1,
-              },
-            },
-          ],
-          as: "files.uploader",
-        },
-      },
-      {
-        $lookup: {
-          from: "fileassettags",
-          localField: "files._id",
-          foreignField: "fileID",
-          as: "files.tags",
-        },
-      },
-      {
-        $lookup: {
-          from: "assettags",
-          localField: "files.tags.tags",
-          foreignField: "_id",
-          pipeline: [
-            {
-              $lookup: {
-                from: "assettagframeworks",
-                localField: "framework",
-                foreignField: "_id",
-                pipeline: [
-                  // Go through each template in framework and lookup key
-                  {
-                    $unwind: {
-                      path: "$templates",
-                      preserveNullAndEmptyArrays: true,
-                    },
-                  },
-                  {
-                    $lookup: {
-                      from: "assettagkeys",
-                      let: { key: "$templates.key" },
-                      pipeline: [
-                        {
-                          $match: {
-                            $expr: { $eq: ["$_id", "$$key"] },
-                          },
-                        },
-                      ],
-                      as: "key",
-                    },
-                  },
-                  {
-                    $set: {
-                      "templates.key": {
-                        $arrayElemAt: ["$key", 0],
-                      },
-                    },
-                  },
-                  {
-                    $group: {
-                      _id: "$_id",
-                      uuid: { $first: "$uuid" },
-                      name: { $first: "$name" },
-                      description: { $first: "$description" },
-                      enabled: { $first: "$enabled" },
-                      orgID: { $first: "$orgID" },
-                      templates: { $push: "$templates" },
-                    },
-                  },
-                ],
-                as: "framework",
-              },
-            },
-            {
-              $set: {
-                framework: {
-                  $arrayElemAt: ["$framework", 0],
-                },
-              },
-            },
-            {
-              $lookup: {
-                from: "assettagkeys",
-                localField: "key",
-                foreignField: "_id",
-                as: "key",
-              },
-            },
-            {
-              $set: {
-                key: {
-                  $arrayElemAt: ["$key", 0],
-                },
-              },
-            },
-          ],
-          as: "files.tags",
-        },
-      },
-      // {
-      //   //set files.tags 
-
-      //   // $set: {
-      //   //   "files.tags": {
-      //   //     $filter: {
-      //   //       input: "$files.tags",
-      //   //       as: "tag",
-      //   //       cond: { $ne: ["$$tag.isDeleted", true] },
-      //   //     },
-      //   //   },
-      //   // },
-      // },
-      {
-        $addFields: {
-          "files.uploader": {
-            $arrayElemAt: ["$files.uploader", 0],
+            as: "tags",
           },
-        },
-      },
-      {
-        $group: {
-          _id: "$_id",
-          files: { $push: "$files" },
-        },
-      },
-    ]);
-    if (projectResults.length < 1) {
-      throw new Error("Project not found.");
-    }
-    const project = projectResults[0];
+        }
+      ]
+    );
 
-    if (!Array.isArray(project.files)) {
+    if (!Array.isArray(results)) {
       return [];
     }
 
     const sorted = (
-      await filterFilesByAccess(projectID, project.files, publicOnly, userID)
+      await filterFilesByAccess(projectID, results, publicOnly, userID)
     ).sort((a, b) => {
       if ((a.name ?? "") < (b.name ?? "")) {
         return -1;
@@ -589,7 +526,7 @@ export async function retrieveProjectFiles(
   details = false
 ) {
   try {
-    const path: FileInterfacePath[] = [
+    const path: ProjectFileInterfacePath[] = [
       {
         fileID: "",
         name: "",
@@ -724,7 +661,7 @@ export async function retrieveSingleProjectFile(
   publicOnly = false,
   userID = "",
   details = false
-): Promise<[RawFileInterface, FileInterfacePath[]] | [null, null]> {
+): Promise<[RawProjectFileInterface, ProjectFileInterfacePath[]] | [null, null]> {
   try {
     const allFiles = await retrieveAllProjectFiles(
       projectID,
@@ -766,8 +703,8 @@ export async function retrieveSingleProjectFile(
   }
 }
 
-const _buildParentPath = (obj: FileInterface, allFiles: FileInterface[]) => {
-  let pathNodes: FileInterfacePath[] = [];
+const _buildParentPath = (obj: ProjectFileInterface, allFiles: ProjectFileInterface[]) => {
+  let pathNodes: ProjectFileInterfacePath[] = [];
   pathNodes.push({
     fileID: obj.fileID,
     name: obj.name ?? "",
@@ -782,11 +719,11 @@ const _buildParentPath = (obj: FileInterface, allFiles: FileInterface[]) => {
 };
 
 const _buildChildList = (
-  obj: FileInterface,
-  allFiles: FileInterface[],
+  obj: ProjectFileInterface,
+  allFiles: ProjectFileInterface[],
   details = false
 ) => {
-  let children: RawFileInterface[] = [];
+  let children: RawProjectFileInterface[] = [];
   if (!details) {
     delete obj["createdBy"];
     delete obj["downloadCount"];
@@ -925,11 +862,11 @@ export async function downloadProjectFiles(
  * @param {object[]} files - The full array of Files, with any access updates applied.
  * @returns {object[]} The array of Files with folder access settings fully computed.
  */
-export function computeStructureAccessSettings(files: FileInterface[]) {
-  const toUpdate: RawFileInterface[] = [];
+export function computeStructureAccessSettings(files: ProjectFileInterface[]) {
+  const toUpdate: RawProjectFileInterface[] = [];
 
-  const computeFolderAccess = (folder: FileInterface): FileInterfaceAccess => {
-    const uniqueSettings = new Set<FileInterfaceAccess>();
+  const computeFolderAccess = (folder: ProjectFileInterface): ProjectFileInterfaceAccess => {
+    const uniqueSettings = new Set<ProjectFileInterfaceAccess>();
     if (!folder.access) return "team"; // default to team if no access set
     uniqueSettings.add(folder.access);
     const children = files.filter((obj) => obj.parent === folder.fileID);
@@ -952,7 +889,7 @@ export function computeStructureAccessSettings(files: FileInterface[]) {
     }
     if (
       newSetting &&
-      isFileInterfaceAccess(newSetting) &&
+      isProjectFileInterfaceAccess(newSetting) &&
       newSetting !== folder.access
     ) {
       toUpdate.push({
@@ -987,10 +924,25 @@ export function computeStructureAccessSettings(files: FileInterface[]) {
  */
 export async function updateProjectFiles(
   projectID: string,
-  files: (RawFileInterface | FileInterface)[]
+  files: (RawProjectFileInterface | ProjectFileInterface)[]
 ): Promise<boolean> {
   try {
-    await Project.updateOne({ projectID }, { files });
+    // TODO: Update files individually, not with bulkWrite
+    await ProjectFile.bulkWrite(
+      files.map((file) => {
+        return {
+          updateOne: {
+            filter: {
+              projectID,
+              fileID: file.fileID,
+            },
+            update: {
+              ...file,
+            },
+          },
+        };
+      })
+    );
     return true;
   } catch (e) {
     debugError(e);
@@ -1002,9 +954,9 @@ export async function updateProjectFiles(
  * Sorts an array of Project Files based on the name of each entry, in natural alphanumeric order.
  *
  * @param {object[]} arr - Array of Files entries.
- * @returns {RawFileInterface[] | FileInterface[]} The sorted array.
+ * @returns {RawProjectFileInterface[] | ProjectFileInterface[]} The sorted array.
  */
-export function sortProjectFiles(arr: (RawFileInterface | FileInterface)[]) {
+export function sortProjectFiles(arr: (RawProjectFileInterface | ProjectFileInterface)[]) {
   if (!Array.isArray(arr)) {
     return arr;
   }
@@ -1066,7 +1018,7 @@ export async function generateZIPFile(
 
 export async function parseAndZipS3Objects(
   s3Res: GetObjectCommandOutput[],
-  files: FileInterface[]
+  files: ProjectFileInterface[]
 ): Promise<Buffer | null> {
   try {
     const items = [];
@@ -1111,7 +1063,7 @@ export async function parseAndZipS3Objects(
  */
 export async function createZIPAndNotify(
   fileKeys: string[],
-  allFiles: FileInterface[],
+  allFiles: ProjectFileInterface[],
   emailToNotify: string
 ): Promise<boolean> {
   try {

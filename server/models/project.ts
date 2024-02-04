@@ -1,7 +1,7 @@
 import { model, Schema, Document } from "mongoose";
 import { projectClassifications } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
-import FileSchema, { FileInterface, FileLicense } from "./file.js";
+import { ProjectFileLicense } from "./projectfile.js";
 
 export interface ProjectInterface extends Document {
   orgID: string;
@@ -51,8 +51,7 @@ export interface ProjectInterface extends Document {
   preferredPRRubric?: string;
   cidDescriptors?: string[];
   associatedOrgs?: string[];
-  files?: FileInterface[];
-  defaultFileLicense?: FileLicense;
+  defaultFileLicense?: ProjectFileLicense;
   thumbnail?: string;
 }
 
@@ -265,10 +264,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     associatedOrgs: [String],
     /**
-     * Project Files associated with the Book.
-     */
-    files: [FileSchema],
-    /**
      * Default license for Project Files.
      */
     defaultFileLicense: {
@@ -290,7 +285,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
 );
 
 ProjectSchema.index({ title: "text" });
-ProjectSchema.index({ "files.name": "text" });
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 

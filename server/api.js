@@ -25,6 +25,7 @@ import searchAPI from './api/search.js';
 import announcementAPI from './api/announcements.js';
 import peerReviewAPI from './api/peerreview.js';
 import projectsAPI from './api/projects.js';
+import projectfilesAPI from './api/projectfiles.js';
 import tasksAPI from './api/tasks.js';
 import msgAPI from './api/messaging.js';
 import transFeedbackAPI from './api/translationfeedback.js';
@@ -41,6 +42,7 @@ import * as centralIdentityValidators from './api/validators/central-identity.js
 import * as kbValidators from './api/validators/kb.js';
 import * as supportValidators from './api/validators/support.js';
 import * as ProjectValidators from './api/validators/projects.js';
+import * as ProjectFileValidators from './api/validators/projectfiles.js';
 import * as SearchValidators from './api/validators/search.js';
 import * as AssetTagFrameworkValidators from './api/validators/assettagframeworks.js';
 import * as AuthorsValidators from './api/validators/authors.js';
@@ -1111,8 +1113,8 @@ router.route('/projects/tags/org').get(
 );
 
 router.route('/projects/files/public').get(
-  middleware.validateZod(ProjectValidators.getPublicProjectFilesSchema),
-  projectsAPI.getPublicProjectFiles,
+  middleware.validateZod(ProjectFileValidators.getPublicProjectFilesSchema),
+  projectfilesAPI.getPublicProjectFiles,
 )
 
 router.route('/project/flag').put(
@@ -1404,69 +1406,61 @@ router.route('/project/:projectID?')
 router.route('/project/:projectID/files/bulk').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('bulkDownloadProjectFiles'),
-  middleware.checkValidationErrors,
-  projectsAPI.bulkDownloadProjectFiles,
+  middleware.validateZod(ProjectFileValidators.bulkDownloadProjectFilesSchema),
+  projectfilesAPI.bulkDownloadProjectFiles,
 )
 
 router.route('/project/:projectID/files/:fileID/access').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('updateProjectFileAccess'),
-  middleware.checkValidationErrors,
-  projectsAPI.updateProjectFileAccess,
+  middleware.validateZod(ProjectFileValidators.updateProjectFileAccessSchema),
+  projectfilesAPI.updateProjectFileAccess,
 );
 
 router.route('/project/:projectID/files/:fileID/download').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('getProjectFileDownloadUrl'),
-  middleware.checkValidationErrors,
-  projectsAPI.getProjectFileDownloadURL,
+  middleware.validateZod(ProjectFileValidators.getProjectFileDownloadURLSchema),
+  projectfilesAPI.getProjectFileDownloadURL
 );
 
 router.route('/project/:projectID/files/:fileID/move').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('moveProjectFile'),
-  middleware.checkValidationErrors,
-  projectsAPI.moveProjectFile,
+  middleware.validateZod(ProjectFileValidators.moveProjectFileSchema),
+  projectfilesAPI.moveProjectFile,
 );
 
 router.route('/project/:projectID/files/content/:folderID?').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('getProjectFolderContents'),
-  middleware.checkValidationErrors,
-  projectsAPI.getProjectFolderContents,
+  middleware.validateZod(ProjectFileValidators.getProjectFolderContentsSchema),
+  projectfilesAPI.getProjectFolderContents,
 )
 
 router.route('/project/:projectID/files/:fileID?')
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('addProjectFile'),
-    middleware.checkValidationErrors,
-    projectsAPI.fileUploadHandler,
-    projectsAPI.addProjectFile,
+    middleware.validateZod(ProjectFileValidators.addProjectFileSchema),
+    projectfilesAPI.fileUploadHandler,
+    projectfilesAPI.addProjectFile
   ).get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('getProjectFile'),
-    middleware.checkValidationErrors,
-    projectsAPI.getProjectFile,
+    middleware.validateZod(ProjectFileValidators.getProjectFileSchema),
+    projectfilesAPI.getProjectFile,
   ).put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectValidators.updateProjectFileSchema),
-    projectsAPI.fileUploadHandler,
-    projectsAPI.updateProjectFile,
+    projectfilesAPI.fileUploadHandler,
+    projectfilesAPI.updateProjectFile,
   ).delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('removeProjectFile'),
-    middleware.checkValidationErrors,
-    projectsAPI.removeProjectFile,
+    middleware.validateZod(ProjectFileValidators.removeProjectFileSchema),
+    projectfilesAPI.removeProjectFile,
   );
 
 router.route('/project/:projectID/book/readerresources')

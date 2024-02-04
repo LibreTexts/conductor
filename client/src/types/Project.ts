@@ -35,6 +35,7 @@ export interface ProjectFilePublisher {
 
 export type ProjectFile = {
   fileID: string;
+  projectID: string;
   name: string;
   access: "public" | "users" | "instructors" | "team" | "mixed";
   storageType: "file" | "folder";
@@ -58,7 +59,9 @@ export type ProjectFile = {
  * A ProjectFile with the given Project data included, where K is the key of the Project data to include.
  */
 export type ProjectFileWProjectData<K extends keyof Project> = ProjectFile & {
-  [P in K]: Project[P];
+  projectInfo: {
+    [P in K]: Project[P];
+  }
 };
 
 /**
@@ -68,9 +71,10 @@ export type ProjectFileWProjectData<K extends keyof Project> = ProjectFile & {
 export type ProjectFileWCustomData<
   K extends string,
   T extends keyof Project = never
-> = ProjectFile &
-  Record<K, string> &
-  (T extends never ? {} : ProjectFileWProjectData<T>);
+> = ProjectFile & {
+  projectInfo: Record<K, string> &
+    (T extends never ? {} : ProjectFileWProjectData<T>);
+};
 
 export enum ProjectStatus {
   AVAILABLE = "available",
@@ -128,7 +132,6 @@ export type Project = {
   preferredPRRubric: String;
   cidDescriptors: CIDDescriptor[];
   associatedOrgs: string[];
-  files: ProjectFile[];
   defaultFileLicense?: ProjectFileLicense;
   didCreateWorkbench?: boolean;
   thumbnail?: string;

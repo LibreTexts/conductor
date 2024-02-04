@@ -6,6 +6,7 @@ import {
   BookFilters,
   Project,
   ProjectFileWCustomData,
+  ProjectFileWProjectData,
 } from "../../../types";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
@@ -24,10 +25,7 @@ interface CatalogTabsProps extends TabProps {
   books: Book[];
   booksCount: number;
   booksLoading: boolean;
-  assets: ProjectFileWCustomData<
-    "projectTitle" | "projectThumbnail",
-    "projectID"
-  >[];
+  assets: ProjectFileWProjectData<'title' | 'thumbnail'>[];
   assetsCount: number;
   assetsLoading: boolean;
   projects: Project[];

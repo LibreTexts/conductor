@@ -1,13 +1,13 @@
 import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
 import {
-  ProjectFile, ProjectFileWCustomData
+  ProjectFile, ProjectFileWCustomData, ProjectFileWProjectData
 } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWCustomData<'projectTitle' | 'projectThumbnail', 'projectID'>;
+  file: ProjectFileWProjectData<'title' | 'thumbnail'>;
 }
 
 const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
@@ -45,11 +45,11 @@ const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
-      {file.projectThumbnail ? (
+      {file.projectInfo.thumbnail ? (
         <div
           className="commons-card-img-container"
           style={{
-            backgroundImage: `url(${file.projectThumbnail})`,
+            backgroundImage: `url(${file.projectInfo.thumbnail})`,
           }}
         >
           <div className="app-item-icon-overlay">
@@ -70,8 +70,8 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />{" "}
-        {file.projectTitle
-          ? truncateString(file.projectTitle, 30)
+        {file.projectInfo.title
+          ? truncateString(file.projectInfo.title, 30)
           : "Unknown Project"}
       </Card.Meta>
       <Card.Meta>

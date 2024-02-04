@@ -1,6 +1,6 @@
 import AssetTag, { AssetTagInterface } from "../models/assettag.js";
 import { v4 } from "uuid";
-import { FileInterface } from "../models/file.js";
+import { ProjectFileInterface } from "../models/projectfile.js";
 import FileAssetTags from "../models/fileassettags.js";
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
@@ -11,7 +11,7 @@ import {
 } from "../util/typeHelpers.js";
 
 async function upsertAssetTags(
-  file: FileInterface,
+  file: ProjectFileInterface,
   tags: AssetTagInterface[]
 ): Promise<void> {
   try {

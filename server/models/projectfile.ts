@@ -1,21 +1,28 @@
 import { model, Schema, Document, Types } from "mongoose";
-import { PROJECT_FILES_ACCESS_SETTINGS } from "../util/projectutils.js";
 import { AuthorInterface } from "./author.js";
 
+export const PROJECT_FILES_ACCESS_SETTINGS = [
+  "public",
+  "users",
+  "instructors",
+  "team",
+  "mixed",
+];
+
 // Not stored in schema, but used in API
-export type FileInterfacePath = {
+export type ProjectFileInterfacePath = {
   fileID: string;
   name: string;
 };
 
-export type FileInterfaceAccess =
+export type ProjectFileInterfaceAccess =
   | "public"
   | "users"
   | "instructors"
   | "team"
   | "mixed";
 
-export interface FileLicense {
+export interface ProjectFileLicense {
   name?: string;
   url?: string;
   version?: string;
@@ -24,17 +31,18 @@ export interface FileLicense {
   additionalTerms?: string;
 }
 
-export type FileAuthor = Omit<AuthorInterface, "userUUID"> | Types.ObjectId;
+export type ProjectFileAuthor = Omit<AuthorInterface, "userUUID"> | Types.ObjectId;
 
-export interface FilePublisher {
+export interface ProjectFilePublisher {
   name?: string;
   url?: string;
 }
 
-export interface RawFileInterface {
+export interface RawProjectFileInterface {
   fileID: string;
+  projectID: string;
   name?: string;
-  access?: FileInterfaceAccess;
+  access?: ProjectFileInterfaceAccess;
   storageType: "file" | "folder";
   size: number;
   isURL?: boolean;
@@ -43,22 +51,32 @@ export interface RawFileInterface {
   parent?: string;
   createdBy?: string;
   downloadCount?: number;
-  license?: FileLicense;
-  authors?: FileAuthor[];
-  publisher?: FilePublisher;
+  license?: ProjectFileLicense;
+  authors?: ProjectFileAuthor[];
+  publisher?: ProjectFilePublisher;
   mimeType?: string;
   version?: number;
+  tags?: (Schema.Types.ObjectId)[];
 }
 
-export interface FileInterface extends RawFileInterface, Document {}
+export interface ProjectFileInterface extends RawProjectFileInterface, Document {}
 
-const FileSchema = new Schema<FileInterface>({
+const ProjectFileSchema = new Schema<ProjectFileInterface>({
   /**
    * Unique identifier of the file entry.
    */
   fileID: {
     type: String,
     required: true,
+    index: true,
+  },
+  /**
+   * Unique identifier of the project the file entry belongs to.
+   */
+  projectID: {
+    type: String,
+    required: true,
+    index: true,
   },
   /**
    * UI-name of the file entry.
@@ -147,7 +165,15 @@ const FileSchema = new Schema<FileInterface>({
    * Version of the entry.
    */
   version: Number,
+  /**
+   * List of tags associated with the entry.
+   */
+  tags: {
+    type: [Schema.Types.ObjectId],
+    required: false,
+  },
 });
 
-// We don't need export Mongoose model()  here because we only need the schema, not a seperate collection.
-export default FileSchema;
+const ProjectFile = model<ProjectFileInterface>("ProjectFile", ProjectFileSchema);
+
+export default ProjectFile;

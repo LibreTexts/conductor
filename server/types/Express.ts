@@ -15,6 +15,7 @@ export interface TypedReqUser {
 
 export type ZodReqWithUser<T> = T &  { user: TypedReqUser };
 export type ZodReqWithOptionalUser<T> = T & { user?: TypedReqUser };
+export type ZodReqWithFiles<T> = T & { files: Express.Multer.File[] };
 
 /**
  * Basic req with extracted User;
