@@ -10,7 +10,7 @@ import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
 import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
-import { FileInterface } from "../models/file.js";
+import { ProjectFileInterface } from "../models/projectfile.js";
 import { string, z } from "zod";
 import AssetTag from "../models/assettag.js";
 import { getSchemaWithDefaults } from "../util/typeHelpers.js";
@@ -426,63 +426,34 @@ export async function assetsSearch(
     }
 
     pipeline.push(
+      // {
+      //   $project: {
+      //     files: 1,
+      //     projectID: 1,
+      //     title: 1,
+      //     source: 1,
+      //     thumbnail: 1,
+      //     score: {
+      //       $meta: "searchScore",
+      //     },
+      //   },
+      // }
       {
         $match: {
-          visibility: "public",
-        },
-      },
-      {
-        $project: {
-          files: 1,
-          projectID: 1,
-          title: 1,
-          source: 1,
-          thumbnail: 1,
-          score: { $meta: "searchScore" },
-        },
-      },
-      {
-        $unwind: {
-          path: "$files",
-          preserveNullAndEmptyArrays: false,
-        },
-      },
-      {
-        $match: matchObj,
-      },
-      {
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              {
-                projectID: "$projectID",
-              },
-              {
-                projectTitle: "$title",
-              },
-              {
-                score: "$score",
-              },
-              {
-                projecThumbnail: "$thumbnail",
-              },
-              "$files",
-            ],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: "fileassettags",
-          localField: "_id",
-          foreignField: "fileID",
-          as: "tags",
+          $and: [
+            {
+              access: "public",
+            },
+            {
+              storageType: "file",
+            },
+          ],
         },
       },
       {
         $lookup: {
           from: "assettags",
-          localField: "tags.tags",
+          localField: "tags",
           foreignField: "_id",
           pipeline: [
             {
@@ -784,9 +755,11 @@ export async function assetsSearch(
     });
 
     // Remove duplicate files
-    const fileIDs = allResults.map((file: FileInterface) => file.fileID);
+    const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
     const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
-      return allResults.find((file: FileInterface) => file.fileID === fileID);
+      return allResults.find(
+        (file: ProjectFileInterface) => file.fileID === fileID
+      );
     });
 
     const totalCount = withoutDuplicates.length;

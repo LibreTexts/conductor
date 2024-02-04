@@ -10,6 +10,7 @@ import {
   BookFilters,
   Project,
   ProjectFileWCustomData,
+  ProjectFileWProjectData,
 } from "../../types";
 import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
@@ -38,7 +39,7 @@ const CommonsCatalog = () => {
   const [booksCount, setBooksCount] = useState<number>(0);
 
   const [assets, setAssets] = useState<
-    ProjectFileWCustomData<"projectTitle" | "projectThumbnail", "projectID">[]
+    ProjectFileWProjectData<"title" | "thumbnail">[]
   >([]);
   const [assetsCount, setAssetsCount] = useState<number>(0);
 
@@ -323,10 +324,7 @@ const CommonsCatalog = () => {
    * and the case where we are just loading more results, and don't want to clear the existing state.
    */
   function updateAssets(
-    newAssets: ProjectFileWCustomData<
-      "projectTitle" | "projectThumbnail",
-      "projectID"
-    >[],
+    newAssets: ProjectFileWProjectData<'title' | 'thumbnail'>[],
     clearAndUpdate = false
   ) {
     if (clearAndUpdate) {

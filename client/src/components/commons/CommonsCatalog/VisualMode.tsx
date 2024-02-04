@@ -1,4 +1,4 @@
-import { Book, Project, ProjectFileWCustomData } from "../../../types";
+import { Book, Project, ProjectFileWProjectData } from "../../../types";
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
@@ -7,11 +7,7 @@ const VisualMode = ({
   items,
   loading,
 }: {
-  items: (
-    | Book
-    | ProjectFileWCustomData<"projectTitle" | "projectThumbnail", "projectID">
-    | Project
-  )[];
+  items: (Book | ProjectFileWProjectData<"title" | "thumbnail"> | Project)[];
   loading?: boolean;
 }) => {
   if (items.length > 0) {
@@ -34,13 +30,13 @@ const VisualMode = ({
     );
   }
 
-    return (
-      <div>
-        <p className="text-center italic">
-          No results found - Try adjusting your search or filters.
-        </p>
-      </div>
-    );
+  return (
+    <div>
+      <p className="text-center italic">
+        No results found - Try adjusting your search or filters.
+      </p>
+    </div>
+  );
 };
 
 export default VisualMode;

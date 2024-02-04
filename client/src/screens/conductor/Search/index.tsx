@@ -78,7 +78,7 @@ const Search = () => {
   const [booksSort, setBooksSort] = useState(bookSortDefault);
   const [booksTotal, setBooksTotal] = useState<number>(0);
 
-  const [assets, setAssets] = useState<ProjectFileWProjectData<'projectID'>[]>([]);
+  const [assets, setAssets] = useState<ProjectFileWProjectData<'title' | 'thumbnail'>[]>([]);
   const [assetsSort, setAssetsSort] = useState(bookSortDefault);
   const [assetsTotal, setAssetsTotal] = useState<number>(0);
 
@@ -392,7 +392,7 @@ const Search = () => {
     setShowAlertModal(false);
   };
 
-  async function handleDownloadFile(file: ProjectFileWProjectData<'projectID'>) {
+  async function handleDownloadFile(file: ProjectFile) {
     const success = await downloadFile(file.projectID, file.fileID);
     if (!success) {
       handleGlobalError(
