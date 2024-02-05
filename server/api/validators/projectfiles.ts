@@ -105,7 +105,7 @@ export const bulkDownloadProjectFilesSchema = z.object({
 export const getProjectFileDownloadURLSchema = z.object({
   params: _projectFileParams,
   query: z.object({
-    shouldIncrement: z.boolean().optional(),
+    shouldIncrement: z.coerce.boolean().optional(),
   }),
 });
 

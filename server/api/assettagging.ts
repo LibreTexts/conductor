@@ -1,7 +1,6 @@
 import AssetTag, { AssetTagInterface } from "../models/assettag.js";
 import { v4 } from "uuid";
-import { ProjectFileInterface } from "../models/projectfile.js";
-import FileAssetTags from "../models/fileassettags.js";
+import ProjectFile, { ProjectFileInterface } from "../models/projectfile.js";
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
 import { Types, isObjectIdOrHexString } from "mongoose";
@@ -12,46 +11,42 @@ import {
 
 async function upsertAssetTags(
   file: ProjectFileInterface,
-  tags: AssetTagInterface[]
+  reqTags: AssetTagInterface[]
 ): Promise<void> {
   try {
-    const reqTags = tags;
-    let refDoc = await FileAssetTags.findOne({ fileID: file._id });
-    let createdRefDoc = false;
-
-    if (!refDoc) {
-      createdRefDoc = true;
-      refDoc = new FileAssetTags({
-        fileID: new Types.ObjectId(file._id),
-        tags: [],
-      });
-    }
+    const existingTagIds = file.tags ?? [];
+    const existingTags = await AssetTag.find({ _id: { $in: existingTagIds } });
 
     // Map keys to array and then search DB so we only have to do one query
-    const keysInTags = reqTags.map((t) => t.key);
     const existingKeys = await AssetTagKey.find({
       orgID: process.env.ORG_ID,
-      title: { $in: keysInTags },
       isDeleted: { $ne: true },
     });
 
-    const currTags = await AssetTag.find({ _id: { $in: refDoc?.tags } });
     const newTags: AssetTagInterface[] = [];
 
-    //Find deleted tags where the tag is in the refDoc but not in the tags array (and has a uuid) (presumed it was removed)
+    //Find deleted tags where the tag is in the existing tags but not in the tags array (and has a uuid) (presumed it was removed)
     const reqTagUUIDs = reqTags.map((t) => t.uuid).filter((u) => !!u);
-
-    const deletedTags = currTags.filter((t) => t.uuid && !reqTagUUIDs.includes(t.uuid));
-    for (const tag of deletedTags) {
-      await tag.deleteOne();
+    const deletedTags = existingTags.filter(
+      (t) => t.uuid && !reqTagUUIDs.includes(t.uuid)
+    );
+    if (deletedTags.length > 0) {
+      await AssetTag.deleteMany({
+        _id: { $in: deletedTags.map((t) => t._id) },
+      });
     }
 
-    currTags.filter((t) => !deletedTags.includes(t)); //Remove deleted tags from currTags
+    // Filter out the deleted tags from the existing tags
+    const existingWithoutDeleted = existingTags.filter(
+      (t) => !deletedTags.includes(t)
+    );
     for (const tag of reqTags) {
-      const existingTag = currTags.find((t) => t._id.equals(tag._id));
+      const existingTag = existingWithoutDeleted.find((t) =>
+        t._id.equals(tag._id)
+      );
 
-      // If the tag already exists, update it
       if (existingTag) {
+        // If the tag already exists, update it
         existingTag.value = tag.value;
         existingTag.framework = tag.framework;
         existingTag.key = new Types.ObjectId(
@@ -62,9 +57,8 @@ async function upsertAssetTags(
           ) // Pass the key from the request in case it was updated and is no longer a valid mongoID/object
         );
         await existingTag.save();
-      }
-      // If the tag is new, create it
-      else {
+      } else {
+        // If the tag is new, create it
         tag.key = new Types.ObjectId(
           await getUpsertedAssetTagKey(existingKeys, tag)
         );
@@ -77,16 +71,16 @@ async function upsertAssetTags(
       }
     }
 
-    const finalTags = [...currTags, ...newTags];
+    const finalTags = [...existingWithoutDeleted, ...newTags];
 
-    // If there are no tags, and we created a refDoc, don't save it
-    if (finalTags.length === 0 && createdRefDoc) {
-      return;
-    }
-
-    // Update refDoc
-    refDoc.tags = finalTags.map((t) => t._id);
-    await refDoc.save();
+    await ProjectFile.updateOne(
+      {
+        fileID: file.fileID,
+      },
+      {
+        tags: finalTags.map((t) => t._id),
+      }
+    );
   } catch (err) {
     throw err;
   }

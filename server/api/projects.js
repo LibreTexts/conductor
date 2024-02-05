@@ -9,12 +9,7 @@ import express from 'express';
 import { body, query, param } from 'express-validator';
 import {
   S3Client,
-  CopyObjectCommand,
-  DeleteObjectsCommand,
-  GetObjectCommand,
   PutObjectCommand,
-  DeleteObjectCommand,
-  GetObjectAttributesCommand,
 } from '@aws-sdk/client-s3';
 import b62 from 'base62-random';
 import multer from 'multer';
@@ -37,20 +32,9 @@ import {
     getLibreTextInformation,
     progressThreadDefaultMessage,
     projectWelcomeMessage,
-    retrieveAllProjectFiles,
-    retrieveProjectFiles,
-    PROJECT_FILES_S3_CLIENT_CONFIG,
-    updateProjectFiles,
-    downloadProjectFiles,
-    computeStructureAccessSettings,
     checkIfBookLinkedToProject,
     updateTeamWorkbenchPermissions,
-    isProjectFileInterfaceAccess,
-    generateZIPFile,
-    retrieveSingleProjectFile,
     validateDefaultFileLicense,
-    parseAndZipS3Objects,
-    createZIPAndNotify,
     PROJECT_THUMBNAILS_S3_CLIENT_CONFIG,
 } from '../util/projectutils.js';
 import {
@@ -67,12 +51,6 @@ import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
 import centralIdentity from './central-identity.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
-import { upsertAssetTags, validateAssetTagArray } from './assettagging.js';
-import fse from 'fs-extra';
-import * as MiscValidators from './validators/misc.js';
-import { conductor404Err, conductor500Err } from '../util/errorutils.js';
-import { Types, isObjectIdOrHexString } from 'mongoose';
-import ProjectFile from '../models/projectfile.js';
 
 const projectListingProjection = {
     _id: 0,
