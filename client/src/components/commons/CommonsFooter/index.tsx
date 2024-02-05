@@ -14,10 +14,10 @@ const CommonsFooter = () => {
 
   const contactLinks = [
     {
-      key: "email",
-      href: "mailto:info@libretexts.org",
+      key: "contactus",
+      href: "/support",
       text: "Contact Us",
-      title: "Contact Us (opens new email)",
+      title: "Contact Us",
       icon: false,
     },
     {

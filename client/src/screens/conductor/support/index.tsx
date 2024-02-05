@@ -57,7 +57,7 @@ const SupportCenter = () => {
           text="Contact the LibreTexts Support Team for help"
           icon="text telephone"
           link="/support/contact"
-          // disabled
+          disabled
         />
         <HomeItem
           title="Insight"
