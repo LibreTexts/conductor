@@ -391,7 +391,7 @@ async function createTicket(
   res: Response
 ) {
   try {
-    const { title, description, apps, category, priority, attachments, guest } =
+    const { title, description, apps, category, priority, attachments, guest, capturedURL } =
       req.body;
     const userUUID = req.user?.decoded.uuid;
 
@@ -422,6 +422,7 @@ async function createTicket(
       apps,
       category,
       priority,
+      capturedURL,
       attachments,
       userUUID: foundUser?.uuid ? foundUser.uuid : undefined,
       guest,

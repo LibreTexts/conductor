@@ -19,7 +19,7 @@ import {
   SupportTicketPriorityOptions,
 } from "../../utils/supportHelpers";
 import { useTypedSelector } from "../../state/hooks";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import FileUploader from "../FileUploader";
 
 interface CreateTicketFlowProps {
@@ -29,6 +29,7 @@ interface CreateTicketFlowProps {
 const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
+  const location = useLocation();
   const { control, getValues, setValue, watch, trigger } =
     useForm<SupportTicket>({
       defaultValues: {
@@ -53,6 +54,15 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [success, setSuccess] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [challengePassed, setChallengePassed] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has("fromURL")) {
+      const captured = new URL(searchParams.get("fromURL") || "");
+      setValue("capturedURL", captured.toString());
+      setAutoCapturedURL(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn) return;
@@ -118,7 +128,12 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       }
     }
 
-    if(!getValues("title").trim() || !getValues("category") || !getValues("priority") || !getValues("description").trim()) {
+    if (
+      !getValues("title").trim() ||
+      !getValues("category") ||
+      !getValues("priority") ||
+      !getValues("description").trim()
+    ) {
       return true;
     }
 
