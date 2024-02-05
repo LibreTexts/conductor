@@ -30,7 +30,14 @@ import {
 import { truncateString } from "../../../components/util/HelperFunctions.js";
 import { catalogItemsPerPageOptions } from "../../../components/util/PaginationOptions.js";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { Book, Homework, Project, ProjectFile, ProjectFileWProjectData, User } from "../../../types";
+import {
+  Book,
+  Homework,
+  Project,
+  ProjectFile,
+  ProjectFileWProjectData,
+  User,
+} from "../../../types";
 import { format, parseISO, set } from "date-fns";
 import RenderAssetTags from "../../../components/FilesManager/RenderAssetTags";
 import api from "../../../api";
@@ -78,7 +85,9 @@ const Search = () => {
   const [booksSort, setBooksSort] = useState(bookSortDefault);
   const [booksTotal, setBooksTotal] = useState<number>(0);
 
-  const [assets, setAssets] = useState<ProjectFileWProjectData<'title' | 'thumbnail'>[]>([]);
+  const [assets, setAssets] = useState<
+    ProjectFileWProjectData<"title" | "thumbnail">[]
+  >([]);
   const [assetsSort, setAssetsSort] = useState(bookSortDefault);
   const [assetsTotal, setAssetsTotal] = useState<number>(0);
 
@@ -190,14 +199,17 @@ const Search = () => {
     }
   }, [location.search]);
 
-  async function handleAssetsSearch(query: string = searchQuery) {
+  async function handleAssetsSearch(
+    query: string = searchQuery,
+    page: number = activeAssetPage
+  ) {
     try {
       setAssetsLoading(true);
 
       const res = await api.assetsSearch({
         searchQuery: query,
         strictMode: false,
-        page: activeAssetPage,
+        page,
         limit: assetsLimit,
       });
 
@@ -223,14 +235,17 @@ const Search = () => {
     }
   }
 
-  async function handleBooksSearch(query: string = searchQuery) {
+  async function handleBooksSearch(
+    query: string = searchQuery,
+    page: number = activeBookPage
+  ) {
     try {
       setBooksLoading(true);
 
       const res = await api.booksSearch({
         searchQuery: query,
         strictMode: false,
-        page: activeBookPage,
+        page,
         limit: booksLimit,
       });
 
@@ -257,14 +272,17 @@ const Search = () => {
     }
   }
 
-  async function handleProjectSearch(query: string = searchQuery) {
+  async function handleProjectSearch(
+    query: string = searchQuery,
+    page: number = activeProjectPage
+  ) {
     try {
       setProjectsLoading(true);
 
       const res = await api.projectsSearch({
         searchQuery: query,
         strictMode: false,
-        page: activeProjectPage,
+        page,
         limit: projectsLimit,
       });
 
@@ -291,14 +309,17 @@ const Search = () => {
     }
   }
 
-  async function handleHomeworkSearch(query: string = searchQuery) {
+  async function handleHomeworkSearch(
+    query: string = searchQuery,
+    page: number = activeHWPage
+  ) {
     try {
       setHwLoading(true);
 
       const res = await api.homeworkSearch({
         searchQuery: query,
         strictMode: false,
-        page: activeHWPage,
+        page,
         limit: hwLimit,
       });
 
@@ -325,14 +346,17 @@ const Search = () => {
     }
   }
 
-  async function handleUserSearch(query: string = searchQuery) {
+  async function handleUserSearch(
+    query: string = searchQuery,
+    page: number = activeUserPage
+  ) {
     try {
       setUsersLoading(true);
 
       const res = await api.usersSearch({
         searchQuery: query,
         strictMode: false,
-        page: activeUserPage,
+        page,
         limit: usersLimit,
       });
 
@@ -524,15 +548,16 @@ const Search = () => {
                       <ConductorPagination
                         activePage={activeProjectPage}
                         totalPages={
-                          projectsTotal / projectsLimit
-                            ? projectsTotal / projectsLimit
-                            : 1
+                          Math.ceil(projectsTotal / projectsLimit) || 1
                         }
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={(e, data) =>
-                          setActiveProjectPage((data.activePage as number) ?? 1)
-                        }
+                        onPageChange={(e, data) => {
+                          const newPage =
+                            parseInt(data.activePage?.toString() || "") ?? 1;
+                          setActiveProjectPage(newPage);
+                          handleProjectSearch(searchQuery, newPage);
+                        }}
                       />
                     </div>
                     <div className="right-flex">
@@ -708,14 +733,15 @@ const Search = () => {
                     <div className="center-flex">
                       <ConductorPagination
                         activePage={activeBookPage}
-                        totalPages={
-                          booksTotal / booksLimit ? booksTotal / booksLimit : 1
-                        }
+                        totalPages={Math.ceil(booksTotal / booksLimit) || 1}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={(e, data) =>
-                          setActiveBookPage((data.activePage as number) ?? 1)
-                        }
+                        onPageChange={(e, data) => {
+                          const newPage =
+                            parseInt(data.activePage?.toString() || "") ?? 1;
+                          setActiveBookPage(newPage);
+                          handleBooksSearch(searchQuery, newPage);
+                        }}
                       />
                     </div>
                     <div className="right-flex">
@@ -838,16 +864,15 @@ const Search = () => {
                     <div className="center-flex">
                       <ConductorPagination
                         activePage={activeAssetPage}
-                        totalPages={
-                          assetsTotal / assetsLimit
-                            ? assetsTotal / assetsLimit
-                            : 1
-                        }
+                        totalPages={Math.ceil(assetsTotal / assetsLimit) || 1}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={(e, data) =>
-                          setActiveAssetPage((data.activePage as number) ?? 1)
-                        }
+                        onPageChange={(e, data) => {
+                          const newPage =
+                            parseInt(data.activePage?.toString() || "") ?? 1;
+                          setActiveAssetPage((data.activePage as number) ?? 1);
+                          handleAssetsSearch(searchQuery, newPage);
+                        }}
                       />
                     </div>
                     <div className="right-flex">
@@ -985,14 +1010,15 @@ const Search = () => {
                     <div className="center-flex">
                       <ConductorPagination
                         activePage={activeHWPage}
-                        totalPages={
-                          homeworkTotal / hwLimit ? homeworkTotal / hwLimit : 1
-                        }
+                        totalPages={Math.ceil(homeworkTotal / hwLimit) || 1}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={(e, data) =>
-                          setActiveHWPage((data.activePage as number) ?? 1)
-                        }
+                        onPageChange={(e, data) => {
+                          const newPage =
+                            parseInt(data.activePage?.toString() || "") ?? 1;
+                          setActiveHWPage(newPage);
+                          handleHomeworkSearch(searchQuery, newPage);
+                        }}
                       />
                     </div>
                     <div className="right-flex">
@@ -1081,14 +1107,15 @@ const Search = () => {
                     <div className="center-flex">
                       <ConductorPagination
                         activePage={activeUserPage}
-                        totalPages={
-                          usersTotal / usersLimit ? usersTotal / usersLimit : 1
-                        }
+                        totalPages={Math.ceil(usersTotal / usersLimit) || 1}
                         firstItem={null}
                         lastItem={null}
-                        onPageChange={(e, data) =>
-                          setActiveUserPage((data.activePage as number) ?? 1)
-                        }
+                        onPageChange={(e, data) => {
+                          const newPage =
+                            parseInt(data.activePage?.toString() ?? "") ?? 1;
+                          setActiveUserPage(newPage);
+                          handleUserSearch(searchQuery, newPage);
+                        }}
                       />
                     </div>
                     <div className="right-flex">
