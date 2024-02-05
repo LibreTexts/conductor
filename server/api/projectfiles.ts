@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import conductorErrors from "../conductor-errors.js";
-import ProjectFile, { ProjectFileInterface } from "../models/projectfile.js";
+import ProjectFile, {
+  ProjectFileInterface,
+  RawProjectFileInterface,
+} from "../models/projectfile.js";
 import multer from "multer";
 import Project from "../models/project.js";
 import {
@@ -532,13 +535,6 @@ async function updateProjectFile(
 ) {
   try {
     const { projectID, fileID } = req.params;
-    const project = await Project.findOne({ projectID }).lean();
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err11,
-      });
-    }
 
     const {
       name,
@@ -555,18 +551,14 @@ async function updateProjectFile(
     const shouldOverwriteName =
       overwriteName === undefined ? true : overwriteName;
 
-    const files = await retrieveAllProjectFiles(
+    const [file] = await retrieveSingleProjectFile(
       projectID,
+      fileID,
       false,
       req.user.decoded.uuid
     );
-    if (!files) {
-      // error encountered
-      throw new Error("retrieveerror");
-    }
 
-    const foundObj = files.find((obj) => obj.fileID === fileID);
-    if (!foundObj) {
+    if (!file) {
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err63,
@@ -589,7 +581,7 @@ async function updateProjectFile(
     if (processedName) {
       // Ensure file extension remains in new name
       if (!processedName.includes(".")) {
-        const splitCurrName = foundObj.name?.split(".") ?? [];
+        const splitCurrName = file.name?.split(".") ?? [];
         if (splitCurrName.length > 1) {
           const currExtension = splitCurrName[splitCurrName.length - 1];
           processedName = `${processedName}.${currExtension}`;
@@ -600,79 +592,73 @@ async function updateProjectFile(
     // update tags
     if (tags) {
       //@ts-ignore
-      await upsertAssetTags(foundObj, tags);
+      await upsertAssetTags(file, tags);
     }
 
-    const updated = files.map((obj) => {
-      if (obj.fileID === foundObj.fileID) {
-        const updateObj = { ...obj };
-        if (processedName) {
-          updateObj.name = processedName;
-        }
-        if (typeof description === "string") {
-          // account for unsetting
-          updateObj.description = description;
-        }
-        if (license) {
-          updateObj.license = license;
-        }
-        if (authors) {
-          const parseAuthors = (authorsData: any[]) => {
-            if (!Array.isArray(authorsData)) return [];
-            const reduced = authorsData.reduce((acc, curr) => {
-              if (curr._id) {
-                acc.push(new Types.ObjectId(curr._id));
-              } else {
-                acc.push(curr);
-              }
-              return acc;
-            }, []);
-            return reduced;
-          };
-
-          const parsed = parseAuthors(authors);
-
-          updateObj.authors = parsed;
-        }
-        if (publisher) {
-          updateObj.publisher = publisher;
-        }
-        if (req.files && req.files[0]) {
-          updateObj.version = obj.version ? obj.version + 1 : 1; // increment version
-          if (req.files[0].mimetype) {
-            updateObj.mimeType = req.files[0].mimetype; // update mime type
+    const updateObj = {} as RawProjectFileInterface;
+    if (processedName) {
+      updateObj.name = processedName;
+    }
+    if (typeof description === "string") {
+      // account for unsetting
+      updateObj.description = description;
+    }
+    if (license) {
+      updateObj.license = license;
+    }
+    if (authors) {
+      const parseAuthors = (authorsData: any[]) => {
+        if (!Array.isArray(authorsData)) return [];
+        const reduced = authorsData.reduce((acc, curr) => {
+          if (curr._id) {
+            acc.push(new Types.ObjectId(curr._id));
+          } else {
+            acc.push(curr);
           }
-          if (req.files[0].size) {
-            updateObj.size = req.files[0].size; // update size
-          }
-        }
-        // allow updating of URL if file is a URL
-        if (
-          Boolean(isURL) &&
-          fileURL
-          //&& obj.isURL && obj.url !== fileURL
-        ) {
-          updateObj.isURL = true;
-          updateObj.url = fileURL;
-          updateObj.storageType = "file";
-          updateObj.size = 0;
-          updateObj.downloadCount = undefined;
-          updateObj.mimeType = undefined;
-          updateObj.license = {
-            ...obj.license,
-            sourceURL: fileURL,
-          };
-        }
-        return updateObj;
+          return acc;
+        }, []);
+        return reduced;
+      };
+
+      const parsed = parseAuthors(authors);
+
+      updateObj.authors = parsed;
+    }
+    if (publisher) {
+      updateObj.publisher = publisher;
+    }
+    if (req.files && req.files[0]) {
+      updateObj.version = file.version ? file.version + 1 : 1; // increment version
+      if (req.files[0].mimetype) {
+        updateObj.mimeType = req.files[0].mimetype; // update mime type
       }
-      return obj;
-    });
+      if (req.files[0].size) {
+        updateObj.size = req.files[0].size; // update size
+      }
+    }
+    // allow updating of URL if file is a URL
+    if (
+      Boolean(isURL) &&
+      fileURL
+      //&& obj.isURL && obj.url !== fileURL
+    ) {
+      updateObj.isURL = true;
+      updateObj.url = fileURL;
+      updateObj.storageType = "file";
+      updateObj.size = 0;
+      updateObj.downloadCount = undefined;
+      updateObj.mimeType = undefined;
+      updateObj.license = {
+        ...file.license,
+        sourceURL: fileURL,
+      };
+    }
 
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
 
     const isPhysicalFile =
-      foundObj.storageType === "file" && !foundObj.isURL && !foundObj.url;
-    if (isPhysicalFile && processedName && processedName !== foundObj.name) {
+      file.storageType === "file" && !file.isURL && !file.url;
+    if (isPhysicalFile && processedName && processedName !== file.name) {
       // rename file
       const fileKey = `${projectID}/${fileID}`;
       const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
@@ -717,7 +703,7 @@ async function updateProjectFile(
     }
 
     // Delete the old file if it has been replaced with a URL
-    if (foundObj.storageType === "file" && isURL && fileURL) {
+    if (file.storageType === "file" && isURL && fileURL) {
       await storageClient.send(
         new DeleteObjectCommand({
           Bucket: process.env.AWS_PROJECTFILES_BUCKET,
@@ -726,10 +712,13 @@ async function updateProjectFile(
       );
     }
 
-    const projectUpdate = await updateProjectFilesUtil(projectID, updated);
-    if (!projectUpdate) {
-      throw new Error("updatefail");
-    }
+    await ProjectFile.findOneAndUpdate(
+      {
+        projectID,
+        fileID,
+      },
+      updateObj
+    );
 
     return res.send({
       err: false,
@@ -956,12 +945,12 @@ async function removeProjectFile(
     }).lean();
 
     objsToDelete.push(found);
-    if(children.length > 0) {
-        objsToDelete.push(...children);
+    if (children.length > 0) {
+      objsToDelete.push(...children);
     }
 
     const objectIDs = objsToDelete.map((obj) => obj.fileID);
-    
+
     const filesToDelete = objsToDelete
       .map((obj) => {
         if (obj.storageType === "file") {

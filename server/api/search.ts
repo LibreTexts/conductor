@@ -22,6 +22,7 @@ import {
   projectSearchSchema,
   userSearchSchema,
 } from "./validators/search.js";
+import ProjectFile from "../models/projectfile.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -256,7 +257,6 @@ function _generateBookMatchObj({
   }
 
   if (subject) {
-    console.log("subject: ", subject);
     bookFilters.push({ subject });
   }
 
@@ -399,15 +399,13 @@ export async function assetsSearch(
     const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
     const assetsOffset = getPaginationOffset(assetsPage, req.query.limit);
 
-    const searchQueryObj = mongoSearchQueryTerm
-      ? _buildAssetsSearchQuery({
-          query: mongoSearchQueryTerm,
-          fileTypeFilter: req.query.fileType || undefined,
-          licenseFilter: req.query.license || undefined,
-          licenseVersionFilter: req.query.licenseVersion || undefined,
-          strictMode: req.query.strictMode || false,
-        })
-      : undefined;
+    const searchQueryObj = _buildAssetsSearchQuery({
+      query: mongoSearchQueryTerm,
+      fileTypeFilter: req.query.fileType || undefined,
+      licenseFilter: req.query.license || undefined,
+      licenseVersionFilter: req.query.licenseVersion || undefined,
+      strictMode: req.query.strictMode || false,
+    });
 
     const matchObj = _buildFilesFilter({
       query: mongoSearchQueryTerm || "",
@@ -417,27 +415,15 @@ export async function assetsSearch(
       strictMode: req.query.strictMode || false,
     });
 
-    const pipeline = [];
-
-    if (searchQueryObj) {
-      pipeline.push({
+    const fromProjectFilesPromise = ProjectFile.aggregate([
+      {
         $search: searchQueryObj,
-      });
-    }
-
-    pipeline.push(
-      // {
-      //   $project: {
-      //     files: 1,
-      //     projectID: 1,
-      //     title: 1,
-      //     source: 1,
-      //     thumbnail: 1,
-      //     score: {
-      //       $meta: "searchScore",
-      //     },
-      //   },
-      // }
+      },
+      {
+        $addFields: {
+          score: { $meta: "searchScore" },
+        },
+      },
       {
         $match: {
           $and: [
@@ -546,9 +532,44 @@ export async function assetsSearch(
           ],
           as: "tags",
         },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: {
+            searchID: "$projectID",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$projectID", "$$searchID"],
+                },
+              },
+            },
+            {
+              $project: {
+                title: 1,
+                thumbnail: 1,
+              },
+            },
+          ],
+          as: "projectInfo",
+        },
+      },
+      {
+        $set: {
+          projectInfo: {
+            $arrayElemAt: ["$projectInfo", 0],
+          },
+        },
+      },
+      {
+        $sort: {
+          _id: 1,
+        }
       }
-    );
-    const fromProjectsPromise = Project.aggregate(pipeline);
+    ]);
 
     const fromAssetTagsPromise = AssetTag.aggregate([
       {
@@ -561,90 +582,86 @@ export async function assetsSearch(
       },
       {
         $lookup: {
-          from: "fileassettags",
+          from: "projectfiles",
           localField: "_id",
           foreignField: "tags",
-          as: "matchingFileAssetTags",
-        },
-      },
-      {
-        $lookup: {
-          from: "projects",
           as: "matchingProjectFiles",
-          let: {
-            fileIDs: "$matchingFileAssetTags.fileID",
-          },
-          pipeline: [
-            {
-              $match: {
-                visibility: "public",
-              },
-            },
-            {
-              $match: matchObj,
-            },
-            {
-              $unwind: {
-                path: "$files",
-              },
-            },
-            {
-              $replaceRoot: {
-                newRoot: {
-                  $mergeObjects: [
-                    {
-                      projectID: "$projectID",
-                    },
-                    {
-                      projectTitle: "$title",
-                    },
-                    {
-                      projectThumbnail: "$thumbnail",
-                    },
-                    "$files",
-                  ],
-                },
-              },
-            },
-            {
-              $match: {
-                $and: [
-                  {
-                    access: "public",
-                  },
-                  {
-                    $expr: {
-                      $in: ["$_id", "$$fileIDs"],
-                    },
-                  },
-                ],
-              },
-            },
-          ],
         },
       },
       {
         $unwind: {
           path: "$matchingProjectFiles",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          localField: "matchingProjectFiles.projectID",
+          foreignField: "projectID",
+          as: "projectInfo",
         },
       },
       {
         $replaceRoot: {
-          newRoot: "$matchingProjectFiles",
+          newRoot: {
+            $mergeObjects: [
+              {
+                projectInfo: {
+                  $arrayElemAt: ["$projectInfo", 0],
+                },
+              },
+              "$matchingProjectFiles",
+            ],
+          },
         },
       },
       {
-        $lookup: {
-          from: "fileassettags",
-          localField: "_id",
-          foreignField: "fileID",
-          as: "tags",
+        $match: {
+          "projectInfo.visibility": "public",
         },
+      },
+      {
+        $project:
+          {
+            projectInfo: {
+              _id: 0,
+              projectID: 0,
+              orgID: 0,
+              status: 0,
+              visibility: 0,
+              currentProgress: 0,
+              peerProgress: 0,
+              a11yProgress: 0,
+              leads: 0,
+              liaisons: 0,
+              members: 0,
+              auditors: 0,
+              tags: 0,
+              allowAnonPR: 0,
+              cidDescriptors: 0,
+              associatedOrgs: 0,
+              a11yReview: 0,
+              createdAt: 0,
+              updatedAt: 0,
+              __v: 0,
+              adaptCourseID: 0,
+              adaptURL: 0,
+              classification: 0,
+              defaultFileLicense: 0,
+              libreCampus: 0,
+              libreLibrary: 0,
+              libreShelf: 0,
+              projectURL: 0,
+              didCreateWorkbench: 0,
+              didMigrateWorkbench: 0,
+            },
+          },
       },
       {
         $lookup: {
           from: "assettags",
-          localField: "tags.tags",
+          localField: "tags",
           foreignField: "_id",
           pipeline: [
             {
@@ -738,9 +755,17 @@ export async function assetsSearch(
           as: "tags",
         },
       },
+      {
+        $match: matchObj,
+      },
+      {
+        $sort: {
+          _id: 1,
+        }
+      }
     ]);
 
-    const aggregations = [fromProjectsPromise];
+    const aggregations = [fromProjectFilesPromise];
 
     if (mongoSearchQueryTerm) {
       aggregations.push(fromAssetTagsPromise);
@@ -764,16 +789,16 @@ export async function assetsSearch(
 
     const totalCount = withoutDuplicates.length;
 
-    // 'Paginate' results since we can't use skip/limit since there are two aggregations
-    // results.files = results.files.slice(
-    //   assetsOffset,
-    //   assetsOffset + assetsLimit
-    // );
+    //'Paginate' results since we can't use skip/limit since there are two aggregations
+    const paginated = withoutDuplicates.slice(
+      assetsOffset,
+      assetsOffset + assetsLimit
+    );
 
     res.send({
       err: false,
       numResults: totalCount,
-      results: withoutDuplicates,
+      results: paginated,
     });
   } catch (err) {
     debugError(err);
@@ -788,7 +813,7 @@ function _buildFilesFilter({
   licenseVersionFilter,
   strictMode,
 }: {
-  query: string;
+  query?: string;
   fileTypeFilter?: string;
   licenseFilter?: string;
   licenseVersionFilter?: string;
@@ -810,9 +835,10 @@ function _buildFilesFilter({
       const parsedFileFilter = isWildCard
         ? fileTypeFilter.split("/")[0]
         : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
+
       const wildCardRegex = isWildCard
         ? {
-            $regex: query,
+            $regex: parsedFileFilter,
             $options: "i",
           }
         : undefined;
@@ -846,29 +872,26 @@ function _buildAssetsSearchQuery({
   licenseVersionFilter,
   strictMode,
 }: {
-  query: string;
+  query?: string;
   fileTypeFilter?: string;
   licenseFilter?: string;
   licenseVersionFilter?: string;
   strictMode?: boolean;
 }) {
   const baseQuery: Record<any, any> = {
-    embeddedDocument: {
-      path: "files",
-      operator: {
-        text: {
-          query,
-          path: { wildcard: "files.*" },
-        },
+    text: {
+      query: query || "",
+      path: {
+        wildcard: "*",
+      },
+      fuzzy: {
+        maxEdits: 2,
+        maxExpansions: 50,
       },
     },
-    scoreDetails: true,
   };
 
-  if (
-    strictMode ||
-    (!fileTypeFilter && !licenseFilter && !licenseVersionFilter)
-  ) {
+  if (!fileTypeFilter && !licenseFilter && !licenseVersionFilter) {
     return baseQuery;
   }
 
@@ -904,14 +927,16 @@ function _buildAssetsSearchQuery({
     });
   }
 
+  const compoundQueryObj = strictMode
+    ? { must: [...compoundQueries] }
+    : { should: [...compoundQueries] };
+
   // Build compound query
-  baseQuery.embeddedDocument.operator = {
-    compound: {
-      should: [...compoundQueries],
-    },
+  const filteredQuery = {
+    compound: compoundQueryObj,
   };
 
-  return baseQuery;
+  return filteredQuery;
 }
 
 async function homeworkSearch(
