@@ -29,6 +29,17 @@ body {
     height: 100vh;
 }
 
+.support-widget {
+    position: fixed;
+    z-index: 9999;
+    display: inline-flex;
+    bottom: 0px;
+    /* margins will be automatically added */
+    right: 0px;
+    margin-right: 10px;
+    /* margins will be automatically added */
+}
+
 .component-container {
     margin: calc(60px + 2%) 2% 0 2% !important;
     width: calc(100% - 4%) !important;
@@ -208,7 +219,7 @@ body {
     height: 20px !important;
     width: 20px !important;
     margin: 0 !important;
-  }
+}
 
 .nav-menu-link {
     font-size: 1.05em;
@@ -226,7 +237,7 @@ body {
 }
 
 .nav-search-input input::placeholder {
-    color: rgba(0,0,0,.85) !important;
+    color: rgba(0, 0, 0, .85) !important;
 }
 
 .form-required::after {
@@ -258,7 +269,7 @@ body {
     color: #e7bdbc;
 }
 
-.text-area-small > textarea {
+.text-area-small>textarea {
     height: 3em
 }
 
@@ -1084,7 +1095,7 @@ body {
 
 .ma-1e {
     margin: 1em !important;
-}   
+}
 
 .ma-1p {
     margin: 1% !important;

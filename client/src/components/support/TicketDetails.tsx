@@ -28,6 +28,9 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
           `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
       </p>
       <p className="2xl:text-xl">
+        <span className="font-semibold">Subject:</span> {ticket?.title}
+      </p>
+      <p className="2xl:text-xl">
         <span className="font-semibold">Date Opened:</span>{" "}
         {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
       </p>

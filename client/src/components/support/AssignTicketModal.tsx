@@ -8,8 +8,9 @@ import {
   Icon,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { User } from "../../types";
+import { SupportTicket, User } from "../../types";
 import axios from "axios";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface AssignTicketModalProps extends ModalProps {
   open: boolean;
@@ -23,12 +24,26 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
   ticketId,
   ...rest
 }) => {
+  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<
     Pick<User, "uuid" | "firstName" | "lastName" | "email">[]
   >([]);
   const [usersToAssign, setUsersToAssign] = useState<string[]>([]);
+
+  const { data: ticket, isFetching } = useQuery<SupportTicket>({
+    queryKey: ["ticket", ticketId],
+    queryFn: async () => {
+      const res = await axios.get(`/support/ticket/${ticketId}`);
+      return res.data.ticket;
+    },
+    enabled: !!ticketId,
+    onSuccess: (ticket) => {
+      //const toSet = ticket.assignedUsers ?? [];
+      //setUsersToAssign([...ticket.assignedUsers?.map((u) => u.uuid) ?? []]);
+    },
+  });
 
   useEffect(() => {
     if (open) {
@@ -50,6 +65,8 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
       if (!res.data.users) {
         throw new Error("Invalid response from server");
       }
+
+      const noDups = Array.from(new Set<Pick<User, 'uuid' | 'firstName' | 'lastName' | 'email'>>([...usersToAssign, ...res.data.users]));
 
       setUsers(res.data.users);
     } catch (err) {
@@ -89,7 +106,8 @@ const AssignTicketModal: React.FC<AssignTicketModalProps> = ({
       <Modal.Content>
         <Form onSubmit={(e) => e.preventDefault()}>
           <p className="!mt-0">
-            Assigned users will be notified of new messages and updates on this ticket.
+            Assigned users will be notified of new messages and updates on this
+            ticket.
           </p>
           <Dropdown
             id="selectUsers"

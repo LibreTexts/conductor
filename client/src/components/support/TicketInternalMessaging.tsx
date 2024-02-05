@@ -1,4 +1,3 @@
-import { format, parseISO } from "date-fns";
 import { useEffect, useRef } from "react";
 import { Button, Form, Icon, TextArea } from "semantic-ui-react";
 import { SupportTicketMessage } from "../../types";
@@ -6,16 +5,15 @@ import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTypedSelector } from "../../state/hooks";
-import { isSupportStaff } from "../../utils/supportHelpers";
 import TicketCommentsContainer from "./TicketCommentsContainer";
 
-interface TicketMessagingProps {
+interface TicketInternalMessagingProps {
   id: string;
 }
 
-const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
-  const user = useTypedSelector((state) => state.user);
+const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
+  id,
+}) => {
   const containerRef =
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
   const { handleGlobalError } = useGlobalError();
@@ -28,7 +26,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     });
 
   const { data: messages, isFetching } = useQuery<SupportTicketMessage[]>({
-    queryKey: ["ticketMessages", id],
+    queryKey: ["ticketInternalMessages", id],
     queryFn: () => getMessages(),
     keepPreviousData: true,
     staleTime: 1000 * 60, // 1 minutes
@@ -45,7 +43,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   async function getMessages(): Promise<SupportTicketMessage[]> {
     try {
       if (!id) throw new Error("Invalid ticket ID");
-      const res = await axios.get(`/support/ticket/${id}/msg`);
+      const res = await axios.get(`/support/ticket/${id}/internal-msg`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -70,7 +68,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       if (!id) throw new Error("Invalid ticket ID");
       if (!getValues("message")) return;
 
-      const res = await axios.post(`/support/ticket/${id}/msg`, {
+      const res = await axios.post(`/support/ticket/${id}/internal-msg`, {
         ...getValues(),
       });
 
@@ -90,7 +88,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   const sendMessageMutation = useMutation({
     mutationFn: sendMessage,
     onSuccess: () => {
-      queryClient.invalidateQueries(["ticketMessages", id]);
+      queryClient.invalidateQueries(["ticketInternalMessages", id]);
     },
   });
 
@@ -98,15 +96,13 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     <div>
       <div className="flex flex-col w-full bg-white">
         <div className="flex flex-col border shadow-md rounded-md p-4">
-          <p className="text-xl font-semibold text-center">Ticket Comments</p>
-          {!isSupportStaff(user) && (
-            <div className="px-4 mt-2 mb-4">
-              <p className="text-center italic">
-                Feel free to leave this page at any time. We'll send you an
-                email when new comments are added.
-              </p>
-            </div>
-          )}
+          <p className="text-xl font-semibold text-center">Internal Comments</p>
+          <div className="px-4 mt-1 mb-1">
+            <p className="text-center italic">
+              Leave internal comments for other support staff to see. These
+              comments are not visible to the ticket submitter.
+            </p>
+          </div>
           <TicketCommentsContainer ref={containerRef} messages={messages} />
           <div className="mt-2">
             <p className="font-semibold mb-1 ml-1">Send Message:</p>
@@ -135,11 +131,6 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
                     {watch("message")?.length ?? 0}/1000. Enter for new line.
                     Ctrl + Enter to send.
                   </p>
-                  <p className="text-sm text-gray-500 text-center italic mt-1 ml-0.5">
-                    Your ticket comments may be used to improve our support
-                    services. Any sensitive information will always remain
-                    confidential.
-                  </p>
                 </div>
                 <div className="flex flex-row">
                   <Button onClick={() => setValue("message", "")}>
@@ -165,4 +156,4 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
     </div>
   );
 };
-export default TicketMessaging;
+export default TicketInternalMessaging;

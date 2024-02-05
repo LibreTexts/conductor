@@ -11,6 +11,7 @@ export interface SupportTicketMessageInterface extends Document {
   senderEmail?: string; // else, fallback to the sender's email
   senderIsStaff: boolean;
   timeSent: string;
+  type: 'internal' | 'general'; // internal = staff only, general = user & staff
 }
 
 const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>({
@@ -47,6 +48,11 @@ const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>({
   timeSent: {
     type: String,
     required: true,
+  },
+  type: {
+    type: String,
+    required: true,
+    enum: ["internal", "general"],
   },
 });
 

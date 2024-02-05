@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import { Provider } from "react-redux";
 import axios from "axios";
@@ -59,6 +59,16 @@ const Platform = () => {
     "/translationfeedbackexport",
     "/oauthconsent",
   ];
+
+  useEffect(() => {
+    if (window && document) {
+      const script = document.createElement('script')
+      const body = document.getElementsByTagName('body')[0]
+      script.src = 'https://cdn.libretexts.net/libretexts-support-widget.min.js'
+      body.appendChild(script);
+    }
+  }, [])
+
   const ApplicationTree = () => {
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
@@ -87,7 +97,8 @@ const Platform = () => {
         <Provider store={store}>
           <Application />
         </Provider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* <ReactQueryDevtools initialIsOpen={false} />*/}
+        <div id="support-widget-container" className="support-widget" />
       </QueryClientProvider>
     </BrowserRouter>
   );

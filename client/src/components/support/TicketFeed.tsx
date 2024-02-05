@@ -3,16 +3,6 @@ import {
   Button,
   Comment,
   Feed,
-  FeedContent,
-  FeedDate,
-  FeedEvent,
-  FeedLabel,
-  FeedLike,
-  FeedMeta,
-  FeedSummary,
-  FeedUser,
-  Form,
-  Header,
   Icon,
   TextArea,
 } from "semantic-ui-react";
@@ -57,8 +47,8 @@ const TicketFeed: React.FC<TicketFeedProps> = ({ ticket }) => {
   return (
     <div className="flex flex-col w-full bg-white">
       <div className="flex flex-col border shadow-md rounded-md p-4">
-        <p className="text-2xl font-semibold text-center">Ticket Feed</p>
-        <div className="flex flex-col mt-8">
+        <p className="text-2xl font-semibold text-center mb-0">Activity Feed</p>
+        <div className="flex flex-col mt-2">
           {ticket.feed?.length === 0 && (
             <p className="text-lg text-center text-gray-500 italic">
               No history yet...
@@ -66,7 +56,7 @@ const TicketFeed: React.FC<TicketFeedProps> = ({ ticket }) => {
           )}
           <Feed>
             {ticket.feed?.map((f) => (
-              <TicketFeedEntry entry={f} />
+              <TicketFeedEntry entry={f} key={crypto.randomUUID()} />
             ))}
           </Feed>
         </div>

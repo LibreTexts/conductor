@@ -17,6 +17,7 @@ export type SupportTicket = {
   status: "open" | "in_progress" | "closed";
   category: string;
   capturedURL?: string;
+  assignedUUIDs?: string[]; // User uuids
   assignedUsers?: User[];
   user?: User;
   guest?: SupportTicketGuest;
@@ -35,6 +36,7 @@ export type SupportTicketMessage = {
   senderEmail?: string; // else, fallback to the sender's email (ie guest)
   senderIsStaff: boolean;
   timeSent: string;
+  type: 'internal' | 'general'; // internal = staff only, general = user & staff
 };
 
 export type SupportTicketFeedEntry = {
