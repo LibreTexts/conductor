@@ -42,16 +42,15 @@ const CatalogAssetFilters = forwardRef(
     const { handleGlobalError } = useGlobalError();
 
     const [licenseOptions, setLicenseOptions] = useState<
-      GenericKeyTextValueObj<string>[]
+      GenericKeyTextValueObj<string | undefined>[]
     >([]);
     const [orgOptions, setOrgOptions] = useState<
-      GenericKeyTextValueObj<string>[]
+      GenericKeyTextValueObj<string | undefined>[]
     >([]);
     const [fileTypeOptions, setFileTypeOptions] = useState<
-      GenericKeyTextValueObj<string>[]
+      GenericKeyTextValueObj<string | undefined>[]
     >(catalogAssetTypeOptions);
     const [loading, setLoading] = useState(false);
-
 
     useEffect(() => {
       getOrgs();
@@ -97,7 +96,7 @@ const CatalogAssetFilters = forwardRef(
           throw new Error(res.data.errMsg);
         }
         const newLicenseOptions: typeof licenseOptions = [
-          { key: "empty", text: "Clear...", value: "" },
+          { key: "empty", text: "Clear...", value: undefined },
         ];
 
         if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
@@ -159,6 +158,21 @@ const CatalogAssetFilters = forwardRef(
       setFileTypeOptions(sorted);
     };
 
+    const updateFilters = (key: string, value?: string) => {
+      if (value) {
+        setSelectedFilters({
+          ...selectedFilters,
+          [key]: value,
+        });
+      } else {
+        const entries = Object.entries(selectedFilters);
+        const filtered = entries.filter(([k, v]) => k !== key);
+        setSelectedFilters({
+          ...Object.fromEntries(filtered),
+        });
+      }
+    };
+
     return (
       <div
         aria-busy={loading}
@@ -181,12 +195,7 @@ const CatalogAssetFilters = forwardRef(
               {licenseOptions.map((license) => (
                 <Dropdown.Item
                   key={license.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      license: license.value,
-                    })
-                  }
+                  onClick={() => updateFilters("license", license.value)}
                 >
                   {license.text}
                 </Dropdown.Item>
@@ -209,12 +218,7 @@ const CatalogAssetFilters = forwardRef(
               {orgOptions.map((org) => (
                 <Dropdown.Item
                   key={org.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      org: org.value,
-                    })
-                  }
+                  onClick={() => updateFilters("org", org.value)}
                 >
                   {org.text}
                 </Dropdown.Item>
@@ -239,12 +243,7 @@ const CatalogAssetFilters = forwardRef(
               {fileTypeOptions.map((ft) => (
                 <Dropdown.Item
                   key={ft.key}
-                  onClick={() => {
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      fileType: ft.value,
-                    });
-                  }}
+                  onClick={() => updateFilters("fileType", ft.value)}
                 >
                   {ft.text}
                 </Dropdown.Item>

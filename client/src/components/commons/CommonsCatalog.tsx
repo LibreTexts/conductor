@@ -15,15 +15,18 @@ import {
 import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
+import { useLocation } from "react-router-dom";
 
 const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
+  const location = useLocation();
   const { handleGlobalError } = useGlobalError();
 
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
   const ITEMS_PER_PAGE = 24;
+
   const [searchString, setSearchString] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [searchResourceType, setSearchResourceType] = useState<
@@ -53,7 +56,13 @@ const CommonsCatalog = () => {
   const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
-    loadInitialData();
+    const search = new URLSearchParams(location.search).get("search");
+    if (search) {
+      setSearchString(search);
+      runSearch(search);
+    } else {
+      loadInitialData();
+    }
   }, []);
 
   /**
@@ -68,7 +77,33 @@ const CommonsCatalog = () => {
     }
   }, [org]);
 
+  const updateSearchParam = () => {
+    const search = searchString.trim();
+    const url = new URL(window.location.href);
+
+    if (search === "") {
+      clearSearchParam();
+      if(assetFiltersApplied() || bookFiltersApplied()) {
+        runSearch(search); // handle no search query but filters
+      } else {
+        loadInitialData(true);
+      }
+      return;
+    } else {
+      url.searchParams.set("search", search);
+      window.history.pushState({}, "", url.toString());
+      runSearch(search);
+    }
+  };
+
+  const clearSearchParam = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("search");
+    window.history.pushState({}, "", url.toString());
+  };
+
   const handleResetSearch = () => {
+    clearSearchParam();
     setSearchString("");
     setBookFilters({});
     setAssetFilters({});
@@ -76,31 +111,31 @@ const CommonsCatalog = () => {
     setBooks([]);
     setAssets([]);
     setProjects([]);
-    loadInitialData();
+    loadInitialData(true);
   };
 
-  async function runSearch() {
+  async function runSearch(query?: string) {
     try {
-      if(loadingDisabled) return;
+      if (loadingDisabled) return;
       setActivePage(1);
 
       await Promise.all([
-        handleBooksSearch(searchString, true),
-        handleAssetsSearch(1, searchString, true),
-        handleProjectsSearch(searchString, true),
+        handleBooksSearch(query ?? searchString, true),
+        handleAssetsSearch(1, query ?? searchString, true),
+        handleProjectsSearch(query ?? searchString, true),
       ]);
     } catch (err) {
       handleGlobalError(err);
     }
   }
 
-  async function loadInitialData() {
+  async function loadInitialData(clear = false) {
     try {
-      if(loadingDisabled) return;
+      if (loadingDisabled) return;
       await Promise.all([
-        loadCommonsCatalog(),
-        loadPublicAssets(),
-        loadPublicProjects(),
+        loadCommonsCatalog(clear),
+        loadPublicAssets(clear),
+        loadPublicProjects(clear),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -108,7 +143,7 @@ const CommonsCatalog = () => {
   }
 
   // Books
-  async function loadCommonsCatalog() {
+  async function loadCommonsCatalog(clear = false) {
     try {
       setBooksLoading(true);
       const res = await api.getCommonsCatalog({
@@ -120,7 +155,11 @@ const CommonsCatalog = () => {
       }
 
       if (Array.isArray(res.data.books)) {
-        setBooks([...books, ...res.data.books]);
+        if (clear) {
+          setBooks([...res.data.books]);
+        } else {
+          setBooks([...books, ...res.data.books]);
+        }
       }
       if (typeof res.data.numTotal === "number") {
         setBooksCount(res.data.numTotal);
@@ -136,7 +175,7 @@ const CommonsCatalog = () => {
     try {
       setBooksLoading(true);
       const res = await api.booksSearch({
-        searchQuery: query,
+        ...(query && { searchQuery: query }),
         strictMode,
         page: activePage,
         limit: ITEMS_PER_PAGE,
@@ -166,11 +205,11 @@ const CommonsCatalog = () => {
   }
 
   // Assets
-  async function loadPublicAssets(page = 1) {
+  async function loadPublicAssets(clear = false) {
     try {
       setAssetsLoading(true);
       const res = await api.getPublicProjectFiles({
-        page,
+        page: activePage,
         limit: ITEMS_PER_PAGE,
       });
 
@@ -179,7 +218,11 @@ const CommonsCatalog = () => {
       }
 
       if (Array.isArray(res.data.files)) {
-        updateAssets(res.data.files, false);
+        if (clear) {
+          setAssets(res.data.files);
+        } else {
+          updateAssets(res.data.files, false);
+        }
       }
       if (typeof res.data.totalCount === "number") {
         setAssetsCount(res.data.totalCount);
@@ -199,7 +242,7 @@ const CommonsCatalog = () => {
     try {
       setAssetsLoading(true);
       const res = await api.assetsSearch({
-        searchQuery: query,
+        ...(query && { searchQuery: query }),
         strictMode,
         page,
         limit: ITEMS_PER_PAGE,
@@ -228,7 +271,7 @@ const CommonsCatalog = () => {
   }
 
   // Projects
-  async function loadPublicProjects() {
+  async function loadPublicProjects(clear = false) {
     try {
       setProjectsLoading(true);
       const res = await api.getPublicProjects({
@@ -241,7 +284,11 @@ const CommonsCatalog = () => {
       }
 
       if (Array.isArray(res.data.projects)) {
-        setProjects([...projects, ...res.data.projects]);
+        if (clear) {
+          setProjects(res.data.projects);
+        } else {
+          setProjects([...projects, ...res.data.projects]);
+        }
       }
       if (typeof res.data.totalCount === "number") {
         setProjectsCount(res.data.totalCount);
@@ -294,7 +341,7 @@ const CommonsCatalog = () => {
   };
 
   function handleLoadMoreBooks() {
-    if(loadingDisabled) return;
+    if (loadingDisabled) return;
     setActivePage(activePage + 1);
     if (searchString || bookFiltersApplied()) {
       return handleBooksSearch(searchString);
@@ -304,18 +351,18 @@ const CommonsCatalog = () => {
   }
 
   function handleLoadMoreAssets() {
-    if(loadingDisabled) return;
+    if (loadingDisabled) return;
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || assetFiltersApplied()) {
       return handleAssetsSearch(nextPage, searchString);
     } else {
-      return loadPublicAssets(nextPage);
+      return loadPublicAssets();
     }
   }
 
   function handleLoadMoreProjects() {
-    if(loadingDisabled) return;
+    if (loadingDisabled) return;
     setActivePage(activePage + 1);
     if (searchString) {
       return handleProjectsSearch(searchString);
@@ -331,7 +378,7 @@ const CommonsCatalog = () => {
    * and the case where we are just loading more results, and don't want to clear the existing state.
    */
   function updateAssets(
-    newAssets: ProjectFileWProjectData<'title' | 'thumbnail'>[],
+    newAssets: ProjectFileWProjectData<"title" | "thumbnail">[],
     clearAndUpdate = false
   ) {
     if (clearAndUpdate) {
@@ -420,7 +467,7 @@ const CommonsCatalog = () => {
                       action={{
                         content: "Search Catalog",
                         color: "blue",
-                        onClick: runSearch,
+                        onClick: () => updateSearchParam(),
                       }}
                     />
                   </div>
@@ -447,7 +494,7 @@ const CommonsCatalog = () => {
                     setSearchString={setSearchString}
                     resourceType={searchResourceType}
                     setResourceType={setSearchResourceType}
-                    submitSearch={runSearch}
+                    submitSearch={updateSearchParam}
                     bookFilters={bookFilters}
                     setBookFilters={setBookFilters}
                     assetFilters={assetFilters}

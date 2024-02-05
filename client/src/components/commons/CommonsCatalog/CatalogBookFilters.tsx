@@ -219,6 +219,21 @@ const CatalogBookFilters = forwardRef(
     //   });
     // };
 
+    const updateFilters = (key: string, value?: string) => {
+      if (value) {
+        setSelectedFilters({
+          ...selectedFilters,
+          [key]: value,
+        });
+      } else {
+        const entries = Object.entries(selectedFilters);
+        const filtered = entries.filter(([k, v]) => k !== key);
+        setSelectedFilters({
+          ...Object.fromEntries(filtered),
+        });
+      }
+    };
+
     return (
       <div
         aria-busy={loading}
@@ -243,12 +258,7 @@ const CatalogBookFilters = forwardRef(
               {libraryOptions.map((library) => (
                 <Dropdown.Item
                   key={library.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      library: library.value,
-                    })
-                  }
+                  onClick={() => updateFilters("library", library.value)}
                 >
                   {library.text}
                 </Dropdown.Item>
@@ -273,12 +283,7 @@ const CatalogBookFilters = forwardRef(
               {subjectOptions.map((subject) => (
                 <Dropdown.Item
                   key={subject.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      subject: subject.value,
-                    })
-                  }
+                  onClick={() => updateFilters("subject", subject.value)}
                 >
                   {subject.text}
                 </Dropdown.Item>
@@ -303,12 +308,7 @@ const CatalogBookFilters = forwardRef(
               {locationOptions.map((location) => (
                 <Dropdown.Item
                   key={location.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      location: location.value,
-                    })
-                  }
+                  onClick={() => updateFilters("location", location.value)}
                 >
                   {location.text}
                 </Dropdown.Item>
@@ -333,12 +333,7 @@ const CatalogBookFilters = forwardRef(
               {licenseOptions.map((license) => (
                 <Dropdown.Item
                   key={license.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      license: license.value,
-                    })
-                  }
+                  onClick={() => updateFilters("license", license.value)}
                 >
                   {license.text}
                 </Dropdown.Item>
@@ -363,12 +358,7 @@ const CatalogBookFilters = forwardRef(
               {authorOptions.map((author) => (
                 <Dropdown.Item
                   key={author.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      author: author.value,
-                    })
-                  }
+                  onClick={() => updateFilters("author", author.value)}
                 >
                   {author.text}
                 </Dropdown.Item>
@@ -393,12 +383,7 @@ const CatalogBookFilters = forwardRef(
               {courseOptions.map((course) => (
                 <Dropdown.Item
                   key={course.key}
-                  onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      course: course.value,
-                    })
-                  }
+                  onClick={() => updateFilters("course", course.value)}
                 >
                   {course.text}
                 </Dropdown.Item>
@@ -424,10 +409,7 @@ const CatalogBookFilters = forwardRef(
                 <Dropdown.Item
                   key={affiliation.key}
                   onClick={() =>
-                    setSelectedFilters({
-                      ...selectedFilters,
-                      affiliation: affiliation.value,
-                    })
+                    updateFilters("affiliation", affiliation.value)
                   }
                 >
                   {affiliation.text}
