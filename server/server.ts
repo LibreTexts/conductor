@@ -60,6 +60,8 @@ app.use(
       scriptSrc: [
         "'self'",
         "https://*.libretexts.org",
+        "https://*.cloudflare.com", // Cloudflare (Turnstile)
+        "https://*.libretexts.net", // LibreTexts CDN
         "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
         "*.googletagmanager.com", // gtag.js,
         "*.ssa.gov", // ANDI,
