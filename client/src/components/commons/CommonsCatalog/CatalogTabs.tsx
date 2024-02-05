@@ -25,7 +25,7 @@ interface CatalogTabsProps extends TabProps {
   books: Book[];
   booksCount: number;
   booksLoading: boolean;
-  assets: ProjectFileWProjectData<'title' | 'thumbnail'>[];
+  assets: ProjectFileWProjectData<"title" | "thumbnail">[];
   assetsCount: number;
   assetsLoading: boolean;
   projects: Project[];
@@ -36,6 +36,7 @@ interface CatalogTabsProps extends TabProps {
   onLoadMoreProjects: () => void;
   onRemoveBookFilter: (key: keyof BookFilters) => void;
   onRemoveAssetFilter: (key: keyof AssetFilters) => void;
+  onTriggerStopLoading: () => void;
 }
 
 const CatalogTabs: React.FC<CatalogTabsProps> = ({
@@ -57,9 +58,17 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   onLoadMoreProjects,
   onRemoveBookFilter,
   onRemoveAssetFilter,
+  onTriggerStopLoading,
   ...rest
 }) => {
   const [itemizedMode, setItemizedMode] = useState(false);
+  const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
+
+  const jumpToBottom = () => {
+    onTriggerStopLoading();
+    setJumpToBottomClicked(true);
+    window.scrollTo(0, document.body.scrollHeight);
+  };
 
   return (
     <div className="custom-tabs">
@@ -146,6 +155,18 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             })}
           </div>
         )}
+        <div className="flex flex-row justify-center">
+          <button
+            onClick={() => {
+              jumpToBottomClicked ? window.location.reload() : jumpToBottom();
+            }}
+            className="bg-none text-blue-500"
+          >
+            {jumpToBottomClicked
+              ? "Refresh Page to Continue Browsing"
+              : "Jump to bottom"}
+          </button>
+        </div>
         {activeIndex === 0 && (
           <CatalogTab
             key={"books-tab"}

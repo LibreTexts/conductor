@@ -21,6 +21,8 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
   const { handleGlobalError } = useGlobalError();
 
+  const [loadingDisabled, setLoadingDisabled] = useState(false);
+
   const ITEMS_PER_PAGE = 24;
   const [searchString, setSearchString] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -79,6 +81,7 @@ const CommonsCatalog = () => {
 
   async function runSearch() {
     try {
+      if(loadingDisabled) return;
       setActivePage(1);
 
       await Promise.all([
@@ -93,6 +96,7 @@ const CommonsCatalog = () => {
 
   async function loadInitialData() {
     try {
+      if(loadingDisabled) return;
       await Promise.all([
         loadCommonsCatalog(),
         loadPublicAssets(),
@@ -290,6 +294,7 @@ const CommonsCatalog = () => {
   };
 
   function handleLoadMoreBooks() {
+    if(loadingDisabled) return;
     setActivePage(activePage + 1);
     if (searchString || bookFiltersApplied()) {
       return handleBooksSearch(searchString);
@@ -299,6 +304,7 @@ const CommonsCatalog = () => {
   }
 
   function handleLoadMoreAssets() {
+    if(loadingDisabled) return;
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || assetFiltersApplied()) {
@@ -309,6 +315,7 @@ const CommonsCatalog = () => {
   }
 
   function handleLoadMoreProjects() {
+    if(loadingDisabled) return;
     setActivePage(activePage + 1);
     if (searchString) {
       return handleProjectsSearch(searchString);
@@ -479,6 +486,7 @@ const CommonsCatalog = () => {
                 onLoadMoreProjects={handleLoadMoreProjects}
                 onRemoveAssetFilter={handleRemoveAssetFilter}
                 onRemoveBookFilter={handleRemoveBookFilter}
+                onTriggerStopLoading={() => setLoadingDisabled(true)}
               />
             </Segment>
           </Segment.Group>

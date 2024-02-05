@@ -97,7 +97,7 @@ const Platform = () => {
         <Provider store={store}>
           <Application />
         </Provider>
-        {/* <ReactQueryDevtools initialIsOpen={false} />*/}
+        <ReactQueryDevtools initialIsOpen={false} />
         <div id="support-widget-container" className="support-widget" />
       </QueryClientProvider>
     </BrowserRouter>
