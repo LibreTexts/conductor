@@ -918,19 +918,8 @@ function _buildAssetsSearchQuery({
     });
   }
 
-  if (licenseVersionFilter) {
-    compoundQueries.push({
-      text: {
-        path: "files.license.version",
-        query: licenseVersionFilter,
-      },
-    });
-  }
-
-  const compoundQueryObj = strictMode
-    ? { must: [...compoundQueries] }
-    : { should: [...compoundQueries] };
-
+  const compoundQueryObj = strictMode === true ? { must: [...compoundQueries] } : { should: [...compoundQueries] };
+  
   // Build compound query
   const filteredQuery = {
     compound: compoundQueryObj,
