@@ -28,6 +28,8 @@ export interface SupportTicketInterface extends Document {
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
   category: string;
+  guestAccessKey: string;
+  guestAccessKeyExpiration: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
   userUUID?: string; // User uuid
@@ -68,6 +70,14 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     default: "open",
   },
   category: {
+    type: String,
+    required: true,
+  },
+  guestAccessKey: {
+    type: String,
+    required: true,
+  },
+  guestAccessKeyExpiration: {
     type: String,
     required: true,
   },

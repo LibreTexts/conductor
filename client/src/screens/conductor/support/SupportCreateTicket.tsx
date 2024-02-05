@@ -44,13 +44,13 @@ const SupportCreateTicket = () => {
                   onClick={() => redirectToLogin()}
                   className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
                 >
-                  Login
+                  Log In with LibreOne (Recommended)
                 </button>
                 <button
                   onClick={() => setGuestMode(true)}
                   className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
                 >
-                  I'm Having Trouble Logging In
+                  Continue as Guest
                 </button>
               </div>
             )}

@@ -28,7 +28,8 @@ import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { getPaginationOffset } from "../util/helpers.js";
-import { differenceInMinutes, subDays } from "date-fns";
+import { addMonths, differenceInMinutes, subDays } from "date-fns";
+import { randomBytes } from "crypto";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -44,9 +45,16 @@ async function getTicket(
 ) {
   try {
     const { uuid } = req.params;
-    const ticket = await SupportTicket.findOne({ uuid })
-      .orFail()
-      .populate("user");
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      {
+        guestAccessKeyExpiration: _getGuestAccessKeyExpiration(), // update the expiration when ticket is accessed
+      }
+    )
+      .populate("user")
+      .populate("assignedUsers")
+      .orFail();
+
     return res.send({
       err: false,
       ticket,
@@ -222,7 +230,9 @@ async function getSupportMetrics(req: Request, res: Response) {
 
         totalClosedTicketMins += differenceInMinutes(timeClosed, timeOpened);
       });
-    const avgMinsToClose = totalClosedTicketMins / totalClosedTickets;
+    const avgMinsToClose = Math.ceil(
+      totalClosedTicketMins / totalClosedTickets
+    );
 
     const sevenDaysAgo = subDays(new Date(), 7);
 
@@ -398,10 +408,12 @@ async function createTicket(
     }
 
     const feedEntry = _createFeedEntry_Created(
-      foundUser
+      foundUser?.firstName
         ? `${foundUser.firstName} ${foundUser.lastName}`
         : `${guest?.firstName} ${guest?.lastName}`
     );
+
+    const guestAccessKey = _createGuestAccessKey();
 
     const ticket = await SupportTicket.create({
       uuid: v4(),
@@ -411,10 +423,12 @@ async function createTicket(
       category,
       priority,
       attachments,
-      userUUID: foundUser ? foundUser.uuid : undefined,
+      userUUID: foundUser?.uuid ? foundUser.uuid : undefined,
       guest,
       timeOpened: new Date().toISOString(),
       feed: [feedEntry],
+      guestAccessKey,
+      guestAccessKeyExpiration: _getGuestAccessKeyExpiration(),
     });
 
     const emailToNotify = await _getTicketAuthorEmail(ticket);
@@ -427,10 +441,16 @@ async function createTicket(
       : "Unknown";
     const authorString = `${ticketAuthor} (${emailToNotify})`;
 
+    const params = new URLSearchParams();
+    params.append("accessKey", guestAccessKey);
+    const addParams = !foundUser?.uuid ? true : false; // if guest, append access key to ticket path
+
     const submitterPromise = mailAPI.sendSupportTicketCreateConfirmation(
       emailToNotify,
-      ticket.uuid
+      ticket.uuid,
+      addParams ? params.toString() : undefined
     );
+
     const teamPromise = mailAPI.sendSupportTicketCreateInternalNotification(
       _getSupportTeamEmails(),
       ticket.uuid,
@@ -527,7 +547,7 @@ async function updateTicket(
   }
 }
 
-async function getTicketMessages(
+async function getGeneralMessages(
   req: z.infer<typeof GetTicketValidator>,
   res: Response
 ) {
@@ -536,6 +556,7 @@ async function getTicketMessages(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
     const ticketMessages = await SupportTicketMessage.find({
       ticket: ticket.uuid,
+      type: "general",
     })
       .populate("sender")
       .sort({ createdAt: -1 });
@@ -550,7 +571,7 @@ async function getTicketMessages(
   }
 }
 
-async function createMessage(
+async function createGeneralMessage(
   req: ZodReqWithOptionalUser<z.infer<typeof SendTicketMessageValidator>>,
   res: Response
 ) {
@@ -573,6 +594,63 @@ async function createMessage(
       senderUUID: foundUser ? foundUser.uuid : undefined,
       senderEmail: foundUser ? undefined : ticket.guest?.email, // fallback to guest email if no user
       timeSent: new Date().toISOString(),
+      type: "general",
+    });
+
+    return res.send({
+      err: false,
+      message: ticketMessage,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getInternalMessages(
+  req: z.infer<typeof GetTicketValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticketMessages = await SupportTicketMessage.find({
+      ticket: ticket.uuid,
+      type: "internal",
+    })
+      .populate("sender")
+      .sort({ createdAt: -1 });
+
+    return res.send({
+      err: false,
+      messages: ticketMessages,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createInternalMessage(
+  req: ZodReqWithUser<z.infer<typeof SendTicketMessageValidator>>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    const { message, attachments } = req.body;
+    const userUUID = req.user?.decoded.uuid;
+
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const foundUser = await User.findOne({ uuid: userUUID }).orFail();
+
+    const ticketMessage = await SupportTicketMessage.create({
+      uuid: v4(),
+      ticket: ticket.uuid,
+      message,
+      attachments,
+      senderUUID: foundUser.uuid,
+      timeSent: new Date().toISOString(),
+      type: "internal",
     });
 
     return res.send({
@@ -646,6 +724,16 @@ const _getTicketAuthorEmail = async (
   return undefined;
 };
 
+const _createGuestAccessKey = (): string => {
+  return randomBytes(32).toString("hex");
+};
+
+const _getGuestAccessKeyExpiration = (): string => {
+  const current = new Date();
+  const expiration = addMonths(current, 1);
+  return expiration.toISOString();
+};
+
 const _createFeedEntry_Assigned = (
   assigner: string,
   assignees: string[]
@@ -688,7 +776,9 @@ export default {
   createTicket,
   addTicketAttachments,
   updateTicket,
-  createMessage,
-  getTicketMessages,
+  createGeneralMessage,
+  getGeneralMessages,
+  createInternalMessage,
+  getInternalMessages,
   ticketAttachmentUploadHandler,
 };

@@ -55,6 +55,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [challengePassed, setChallengePassed] = useState(false);
 
   useEffect(() => {
+    if (isLoggedIn) return;
     // @ts-ignore
     turnstile.render("#example-container", {
       sitekey: "3x00000000000000000000FF",
@@ -63,7 +64,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         verifyTurnstile(token);
       },
     });
-  }, []);
+  }, [isLoggedIn]);
 
   async function verifyTurnstile(token: string) {
     try {
@@ -386,6 +387,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               />
               <p className="text-xs text-gray-500 italic">
                 Note: A higher priority does not guarantee a faster response.
+                Support tickets created by users from LibreNet member campuses
+                are reviewed first.
               </p>
             </div>
             {!autoCapturedURL && (

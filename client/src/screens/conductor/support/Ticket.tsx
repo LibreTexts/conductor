@@ -14,6 +14,8 @@ import TicketFeed from "../../../components/support/TicketFeed";
 import { isSupportStaff } from "../../../utils/supportHelpers";
 import { func } from "prop-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import TicketInternalMessaging from "../../../components/support/TicketInternalMessaging";
+import TicketAttachments from "../../../components/support/TicketAttachments";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -22,6 +24,8 @@ const SupportTicketView = () => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const { id } = useParams<{ id: any }>();
+  const searchParams = new URLSearchParams(window.location.search);
+  console.log(searchParams.get('accessKey'));
   const user = useTypedSelector((state) => state.user);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -91,9 +95,15 @@ const SupportTicketView = () => {
     <div className="flex flex-row">
       <Button color="blue" onClick={() => setShowAssignModal(true)}>
         <Icon name="user plus" />
-        Assign Ticket
+        {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
+          ? "Re-Assign"
+          : "Assign"}{" "}
+        Ticket
       </Button>
-      <Button color="green" onClick={() => updateTicketMutation.mutateAsync('closed')}>
+      <Button
+        color="green"
+        onClick={() => updateTicketMutation.mutateAsync("closed")}
+      >
         <Icon name="check" />
         Mark as Resolved
       </Button>
@@ -118,26 +128,34 @@ const SupportTicketView = () => {
               <div className="flex flex-col xl:basis-2/5 xl:pl-4">
                 <TicketDetails ticket={ticket} />
                 {isSupportStaff(user) && (
-                  <div className="mt-4">
-                    <TicketFeed ticket={ticket} />
-                  </div>
+                  <>
+                    <div className="mt-4">
+                      <TicketFeed ticket={ticket} />
+                    </div>
+                    <div className="my-4">
+                      <TicketInternalMessaging id={id} />
+                    </div>
+                  </>
                 )}
               </div>
               <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
                 <TicketMessaging id={id} />
+                {ticket.attachments && ticket.attachments.length > 0 && (
+                  <div className="mt-4">
+                    <TicketAttachments ticket={ticket} />
+                  </div>
+                )}
               </div>
             </div>
           </>
         )}
       </div>
-      {isSupportStaff(user) ? (
+      {user && user.isSuperAdmin && (
         <AssignTicketModal
           open={showAssignModal}
           onClose={handleCloseAssignModal}
           ticketId={id}
         />
-      ) : (
-        <> </>
       )}
     </DefaultLayout>
   );

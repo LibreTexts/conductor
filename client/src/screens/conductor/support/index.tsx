@@ -54,10 +54,7 @@ const SupportCenter = () => {
       >
         <HomeItem
           title="Contact Support"
-          text="
-          Contact the LibreTexts Support Team for help
-          (Coming Soon!). Please email support@libretexts.org in the meantime.
-          "
+          text="Contact the LibreTexts Support Team for help"
           icon="text telephone"
           link="/support/contact"
           // disabled

@@ -1743,13 +1743,27 @@ router.route('/support/ticket/:uuid/assign').get(
 router.route('/support/ticket/:uuid/msg').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetTicketValidator), //TODO: RBAC
-  supportAPI.getTicketMessages
+  middleware.validateZod(supportValidators.GetTicketValidator), // TODO: RBAC
+  supportAPI.getGeneralMessages
 ).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(supportValidators.SendTicketMessageValidator), //TODO: RBAC
-  supportAPI.createMessage
+  supportAPI.getGeneralMessages
+)
+
+router.route('/support/ticket/:uuid/internal-msg').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
+  middleware.validateZod(supportValidators.GetTicketValidator),
+  supportAPI.getInternalMessages
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
+  middleware.validateZod(supportValidators.SendTicketMessageValidator),
+  supportAPI.createInternalMessage
 )
 
 router.route('/support/ticket/:uuid/attachments').post(

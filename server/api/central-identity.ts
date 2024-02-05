@@ -36,7 +36,11 @@ import { LibraryAccessWebhookValidator, NewUserWebhookValidator, CheckUserApplic
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
+<<<<<<< Updated upstream
 import fse from 'fs-extra';
+=======
+import fse from "fs-extra";
+>>>>>>> Stashed changes
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -439,21 +443,28 @@ async function getApplicationsPublic(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const appsRes = await useCentralIdentityAxios().get("/applications", {
-      params: {
-        offset,
-        limit,
-      }
-    });
+    // TODO: This is a temporary fix until the backend is fixed
+    const { readJSON } = fse;
+    const jsonData = await readJSON("./util/LibreOneApplications.json");
+    const appsRes = jsonData.applications;
+    const totalCount = jsonData.applications.length;
 
-    if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
-      return conductor500Err(res);
-    }
+    // const appsRes = await useCentralIdentityAxios().get("/applications", {
+    //   params: {
+    //     offset,
+    //     limit,
+    //   }
+    // });
+
+    // if (!appsRes.data || !appsRes.data.data || !appsRes.data.meta) {
+    //   console.log(appsRes.data)
+    //   return conductor500Err(res);
+    // }
 
     return res.send({
       err: false,
-      applications: appsRes.data.data,
-      totalCount: appsRes.data.meta.total,
+      applications: appsRes,
+      totalCount: totalCount,
     });
   } catch (err) {
     debugError(err);

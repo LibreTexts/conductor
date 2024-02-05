@@ -763,14 +763,14 @@ const sendOrgEventRegistrationConfirmation = (addresses, orgEvent, participantNa
  * @param {string} recipientAddress - the user's email address
  * @param {string} ticketID - the ticket's uuid
  */
-const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID) => {
+const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID, params) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
         subject: 'Support Ticket Created',
         html: `
             <p>Hi,</p>
-            <p>We're just writing to let you know that your support ticket has been created. You can view your ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>We're just writing to let you know that your support ticket has been created. You can view your ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}
