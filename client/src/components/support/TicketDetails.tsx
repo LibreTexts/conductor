@@ -31,6 +31,9 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
       <p className="2xl:text-xl">
+        <span className="font-semibold">Captured URL:</span>{ticket?.capturedURL ? <a href={ticket.capturedURL} target="_blank" rel="noreferrer" className="ml-2">{ticket.capturedURL}</a> : "N/A"}
+      </p>
+      <p className="2xl:text-xl">
         <span className="font-semibold">Date Opened:</span>{" "}
         {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
       </p>
