@@ -36,11 +36,7 @@ import { LibraryAccessWebhookValidator, NewUserWebhookValidator, CheckUserApplic
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
-<<<<<<< Updated upstream
 import fse from 'fs-extra';
-=======
-import fse from "fs-extra";
->>>>>>> Stashed changes
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
