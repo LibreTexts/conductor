@@ -11,10 +11,13 @@ import PeerReview from "../models/peerreview.js";
 import Tag from "../models/tag.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
-import { getSubdomainFromUrl,
+import {
+  getSubdomainFromUrl,
   getPaginationOffset,
   isEmptyString,
-  isValidDateObject, sleep,
+  isValidDateObject,
+  sleep,
+  getRandomOffset,
 } from "../util/helpers.js";
 import {
   checkBookIDFormat,
@@ -745,45 +748,161 @@ async function getCommonsCatalog(
 ) {
   try {
     const orgID = process.env.ORG_ID;
-    const activePage = req.query.activePage ? parseInt(req.query.activePage) : 1;
-    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-    const offset = getPaginationOffset(activePage, limit);
+    const activePage = req.query.activePage
+      ? parseInt(req.query.activePage.toString())
+      : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit.toString()) : 10;
 
     let sortObj = {};
-    if(req.query.sort && req.query.sort === 'author'){
+    if (req.query.sort && req.query.sort === "author") {
       sortObj = {
-        author: 1
+        author: 1,
       };
-    } 
-    if(req.query.sort && req.query.sort === 'title'){
+    }
+    if (req.query.sort && req.query.sort === "title") {
       sortObj = {
-        title: 1
+        title: 1,
       };
     }
 
-    const pipeline: PipelineStage[] = [
-      { $match: {} },
-      { $project: BOOK_PROJECTION },
-    ]
+    const searchQueries = [];
 
-    if(Object.keys(sortObj).length > 0){
+    // Find books associated with projects
+    const projectWithAssociatedBookQuery = {
+      $expr: {
+        $and: [
+          { $eq: ["$orgID", orgID] },
+          { $ne: [{ $type: "$libreLibrary" }, "missing"] },
+          { $gt: [{ $strLenBytes: "$libreLibrary" }, 0] },
+          { $ne: [{ $type: "$libreCoverID" }, "missing"] },
+          { $gt: [{ $strLenBytes: "$libreCoverID" }, 0] },
+        ],
+      },
+    };
+    const projectWithAssociatedBookProjection = {
+      _id: 0,
+      libreLibrary: 1,
+      libreCoverID: 1,
+    };
+
+    const projResults = await Project.aggregate([
+      {
+        $match: projectWithAssociatedBookQuery,
+      },
+      {
+        $project: projectWithAssociatedBookProjection,
+      },
+    ]);
+
+    if (!Array.isArray(projResults) || projResults.length === 0) {
+      return res.send({
+        err: false,
+        numFound: 0,
+        numTotal: 0,
+        books: [],
+      });
+    }
+
+    const projBookIDs = projResults.map(
+      (proj) => `${proj.libreLibrary}-${proj.libreCoverID}`
+    );
+    const idMatchObj = { bookID: { $in: projBookIDs } };
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: idMatchObj,
+      },
+      { $project: BOOK_PROJECTION },
+    ];
+
+    if (Object.keys(sortObj).length > 0) {
       pipeline.push({ $sort: sortObj });
     }
 
-    const aggResults = await Book.aggregate(pipeline).skip(offset).limit(limit);
+    searchQueries.push(Book.aggregate(pipeline));
+
+    // Find books in org's custom catalog
+    if (orgID !== "libretexts") {
+      const orgData = await Organization.findOne(
+        { orgID },
+        {
+          _id: 0,
+          orgID: 1,
+          name: 1,
+          shortName: 1,
+          abbreviation: 1,
+          aliases: 1,
+          catalogMatchingTags: 1,
+        }
+      ).lean();
+
+      const customCatalog = await CustomCatalog.findOne(
+        { orgID },
+        {
+          _id: 0,
+          orgID: 1,
+          resources: 1,
+        }
+      ).lean();
+
+      if (orgData) {
+        const hasCustomEntries =
+          customCatalog &&
+          Array.isArray(customCatalog.resources) &&
+          customCatalog.resources.length > 0;
+        const hasCatalogMatchingTags =
+          Array.isArray(orgData?.catalogMatchingTags) &&
+          orgData?.catalogMatchingTags.length > 0;
+
+        if (hasCustomEntries || hasCatalogMatchingTags) {
+          let searchAreaObj = {};
+          const idMatchObj = { bookID: { $in: customCatalog?.resources } };
+          const tagMatchObj = {
+            libraryTags: { $in: orgData.catalogMatchingTags },
+          };
+          if (hasCustomEntries && hasCatalogMatchingTags) {
+            searchAreaObj = { $or: [idMatchObj, tagMatchObj] };
+          } else if (hasCustomEntries) {
+            searchAreaObj = idMatchObj;
+          } else {
+            searchAreaObj = tagMatchObj;
+          }
+
+          searchQueries.push(
+            Book.aggregate([
+              { $match: searchAreaObj },
+              { $project: BOOK_PROJECTION },
+            ])
+          );
+        }
+      }
+    }
+
+    const results = await Promise.all(searchQueries);
     const totalNumBooks = await Book.estimatedDocumentCount();
+
+    const aggResults = results.reduce((acc, curr) => {
+      if (Array.isArray(curr)) {
+        return acc.concat(curr);
+      }
+      return acc;
+    }, []);
 
     // Ensure no duplicates
     const resultBookIDs = [...new Set(aggResults.map((book) => book.bookID))];
     const resultBooks = [
       ...aggResults.filter((book) => resultBookIDs.includes(book.bookID)),
-    ];
+    ]
+
+    const offset = getRandomOffset(resultBooks.length)
+
+    const randomized = resultBooks.slice(offset, offset + limit)
 
     return res.send({
       err: false,
       numFound: resultBooks.length,
       numTotal: totalNumBooks,
-      books: resultBooks,
+      books: randomized,
     });
   } catch (e) {
     debugError(e);
@@ -1117,23 +1236,27 @@ async function createBook(
     const project = await Project.findOne({ projectID }).orFail();
 
     const libraryApp = await centralIdentity.getApplicationById(library);
-    if(!libraryApp) {
+    if (!libraryApp) {
       throw new Error("badlibrary");
     }
 
     const subdomain = getSubdomainFromUrl(libraryApp.main_url);
-    if(!subdomain) {
+    if (!subdomain) {
       throw new Error("badlibrary");
     }
 
     // Check project permissions
-    const canCreate = projectsAPI.checkProjectMemberPermission(project, user)
-    if(!canCreate) {
+    const canCreate = projectsAPI.checkProjectMemberPermission(project, user);
+    if (!canCreate) {
       throw new Error(conductorErrors.err8);
     }
 
-    const hasLibAccess = await centralIdentity.checkUserApplicationAccessInternal(user.centralID, libraryApp.id);
-    if(!hasLibAccess) {
+    const hasLibAccess =
+      await centralIdentity.checkUserApplicationAccessInternal(
+        user.centralID,
+        libraryApp.id
+      );
+    if (!hasLibAccess) {
       throw new Error(conductorErrors.err8);
     }
 
@@ -1148,7 +1271,7 @@ async function createBook(
         method: "POST",
         body: MindTouch.Templates.POST_CreateBook,
       },
-      query: { abort: 'exists'}
+      query: { abort: "exists" },
     }).catch((e) => {
       const err = new Error(conductorErrors.err86);
       err.name = "CreateBookError";
@@ -1244,10 +1367,11 @@ async function createBook(
       newBookID
     );
 
-    if(!permsUpdated) {
-      console.log(`[createBook] Failed to update permissions for ${projectID}.`) // Silent fail
+    if (!permsUpdated) {
+      console.log(
+        `[createBook] Failed to update permissions for ${projectID}.`
+      ); // Silent fail
     }
-
 
     console.log(`[createBook] Created ${bookPath}.`);
     return res.send({
@@ -1256,14 +1380,14 @@ async function createBook(
       url: bookURL,
     });
   } catch (err: any) {
-    if(err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
+    if (err.name === "DocumentNotFoundError" || err.name === "badlibrary") {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
     debugError(err);
-    if(["CreateBookError", 'badlibrary'].includes(err.name)) {
+    if (["CreateBookError", "badlibrary"].includes(err.name)) {
       return res.status(400).send({
         err: true,
         errMsg: err.message,

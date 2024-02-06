@@ -19,7 +19,7 @@ import {
 } from "../util/projectutils.js";
 import { isObjectIdOrHexString } from "mongoose";
 import async from "async";
-import { assembleUrl, getPaginationOffset } from "../util/helpers.js";
+import { assembleUrl, getPaginationOffset, getRandomOffset } from "../util/helpers.js";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -1017,7 +1017,6 @@ async function getPublicProjectFiles(
   try {
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 24;
-    const offset = getPaginationOffset(page, limit);
 
     const aggRes = await ProjectFile.aggregate([
       {
@@ -1038,6 +1037,7 @@ async function getPublicProjectFiles(
                   $eq: ["$projectID", "$$searchID"],
                 },
                 visibility: "public",
+                orgID: process.env.ORG_ID,
               },
             },
             {
@@ -1168,21 +1168,16 @@ async function getPublicProjectFiles(
           _id: -1,
         },
       },
-      {
-        $skip: offset,
-      },
-      {
-        $limit: limit,
-      },
     ]);
 
-    const totalCount = await ProjectFile.countDocuments({
-      access: "public",
-    });
+    const totalCount = aggRes.length;
+    const offset = getRandomOffset(totalCount);
+
+    const paginatedRes = aggRes.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      files: aggRes || [],
+      files: paginatedRes || [],
       totalCount: totalCount || 0,
     });
   } catch (e) {

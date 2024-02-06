@@ -305,6 +305,15 @@ export function getPaginationOffset(page, offsetMultiplier = 25) {
 }
 
 /**
+ * Generates a random number between 0 and max
+ * @param {Number} max - The maximum number to generate a random offset for 
+ * @returns {Number} - A random number between 0 and max
+ */
+export function getRandomOffset(max){
+  return Math.floor(Math.random() * max);
+}
+
+/**
  * Breaks up a url into the subdomain and path
  * @param {string} url
  * @returns {string[]}
