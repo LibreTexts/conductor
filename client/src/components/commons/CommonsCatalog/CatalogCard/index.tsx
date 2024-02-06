@@ -47,7 +47,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
     return (
       <Card
         as={Link}
-        to={`/project/${item.projectID}`}
+        to={`/projects/${item.projectID}`}
         className="commons-content-card"
         {...props}
       >
