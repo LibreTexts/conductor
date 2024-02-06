@@ -1037,6 +1037,7 @@ async function getPublicProjectFiles(
                 $expr: {
                   $eq: ["$projectID", "$$searchID"],
                 },
+                visibility: "public",
               },
             },
             {
