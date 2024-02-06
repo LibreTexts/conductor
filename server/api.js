@@ -1723,7 +1723,7 @@ router.route('/support/ticket/closed').get(
 router.route('/support/ticket/user').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetUserTicketsValidator), //TODO: RBAC
+  middleware.validateZod(supportValidators.GetUserTicketsValidator), // TODO: RBAC
   supportAPI.getUserTickets
 )
 
@@ -1741,15 +1741,15 @@ router.route('/support/ticket/:uuid/assign').get(
 )
 
 router.route('/support/ticket/:uuid/msg').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetTicketValidator), // TODO: RBAC
+  authAPI.optionalVerifyRequest,
+  middleware.canAccessSupportTicket,
+  middleware.validateZod(supportValidators.GetTicketValidator),
   supportAPI.getGeneralMessages
 ).post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.SendTicketMessageValidator), //TODO: RBAC
-  supportAPI.getGeneralMessages
+  authAPI.optionalVerifyRequest,
+  middleware.canAccessSupportTicket,
+  middleware.validateZod(supportValidators.SendTicketMessageValidator),
+  supportAPI.createGeneralMessage
 )
 
 router.route('/support/ticket/:uuid/internal-msg').get(
@@ -1767,15 +1767,17 @@ router.route('/support/ticket/:uuid/internal-msg').get(
 )
 
 router.route('/support/ticket/:uuid/attachments').post(
-  middleware.validateZod(supportValidators.AddTicketAttachementsValidator), //TODO: RBAC
+  authAPI.optionalVerifyRequest,
+  middleware.canAccessSupportTicket,
+  middleware.validateZod(supportValidators.AddTicketAttachementsValidator),
   supportAPI.ticketAttachmentUploadHandler,
   supportAPI.addTicketAttachments
 );
 
 router.route('/support/ticket/:uuid').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  middleware.validateZod(supportValidators.GetTicketValidator), //TODO: RBAC
+  authAPI.optionalVerifyRequest,
+  middleware.canAccessSupportTicket,
+  middleware.validateZod(supportValidators.GetTicketValidator),
   supportAPI.getTicket
 ).patch(
   authAPI.verifyRequest,

@@ -391,8 +391,16 @@ async function createTicket(
   res: Response
 ) {
   try {
-    const { title, description, apps, category, priority, attachments, guest, capturedURL } =
-      req.body;
+    const {
+      title,
+      description,
+      apps,
+      category,
+      priority,
+      attachments,
+      guest,
+      capturedURL,
+    } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
     // If no guest or user, fail
@@ -597,6 +605,25 @@ async function createGeneralMessage(
       timeSent: new Date().toISOString(),
       type: "general",
     });
+
+    // If user was found and user is not the ticket author, send a notification to the ticket author
+    if (foundUser && foundUser.uuid !== ticket.userUUID) {
+      const emailToNotify = await _getTicketAuthorEmail(ticket);
+      if (!emailToNotify) return conductor500Err(res);
+      const params = new URLSearchParams();
+      params.append("accessKey", ticket.guestAccessKey);
+      const addParams = !foundUser?.uuid ? true : false; // if guest, append access key to ticket path
+
+      const senderName = `${foundUser.firstName} ${foundUser.lastName}`;
+
+      await mailAPI.sendNewTicketMessageNotification(
+        [emailToNotify],
+        ticket.uuid,
+        message,
+        senderName,
+        addParams ? params.toString() : ''
+      );
+    }
 
     return res.send({
       err: false,

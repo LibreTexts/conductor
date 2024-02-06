@@ -815,19 +815,21 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
  * Sends a notification to the specified email addresses that a new message has been posted to a support ticket.
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} ticketID - the ticket's uuid
- * @param {string} ticketTitle - the ticket's title/subject
- * @param {'requester' | 'team'} recipientType - the type of recipient ('requester' or 'team') 
+ * @param {string} message - the message's body
+ * @param {string} messageSender - the message's author
+ * @param {string} params - any URL parameters to append to the ticket URL
  */
-const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketTitle, recipientType) => {
+const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message, messageSender, params) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
         subject: `New Message on Support Ticket (ID #${ticketID})`,
         html: `
             <p>Hi,</p>
-            <p>A new message has been posted to ${recipientType === 'requester' ? 'your' : 'a'} support ticket.</p>
-            <p><strong>Title:</strong> ${ticketTitle}</p>
-            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>A new message has been posted to your support ticket.</p>
+            <p><strong>${messageSender}</strong> said:</p>
+            <p>${message}</p>
+            <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}

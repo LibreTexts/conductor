@@ -31,7 +31,19 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
       <p className="2xl:text-xl">
-        <span className="font-semibold">Captured URL:</span>{ticket?.capturedURL ? <a href={ticket.capturedURL} target="_blank" rel="noreferrer" className="ml-2">{ticket.capturedURL}</a> : "N/A"}
+        <span className="font-semibold">Captured URL:</span>
+        {ticket?.capturedURL ? (
+          <a
+            href={ticket.capturedURL}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-2"
+          >
+            {ticket.capturedURL}
+          </a>
+        ) : (
+          <span className="ml-2">N/A</span>
+        )}
       </p>
       <p className="2xl:text-xl">
         <span className="font-semibold">Date Opened:</span>{" "}

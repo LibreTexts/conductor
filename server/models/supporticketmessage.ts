@@ -34,7 +34,7 @@ const SupportTicketMessageSchema = new Schema<SupportTicketMessageInterface>({
   },
   senderUUID: {
     type: String,
-    required: true,
+    required: false,
   },
   senderEmail: {
     type: String,

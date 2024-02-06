@@ -10,6 +10,17 @@ import conductorErrors from "./conductor-errors.js";
 import { centralIdentityConfigured } from "./util/centralIdentity.js";
 import { AnyZodObject } from "zod";
 import { debugError } from "./debug.js";
+import authAPI from "./api/auth.js";
+import {
+  TypedReqBodyWithUser,
+  TypedReqParamsAndBodyWithUser,
+  TypedReqParamsAndQueryWithUser,
+  TypedReqQueryWithUser,
+  TypedReqUser,
+  TypedReqWithUser,
+} from "./types/Express.js";
+import SupportTicket from "./models/supporticket.js";
+import User from "./models/user.js";
 
 /**
  * Checks the results of the validation stage for an API route.
@@ -165,10 +176,10 @@ function checkCentralIdentityConfig(
 
 /**
  * Checks if a request passes a LibreOne API key check and is from a LibreTexts domain.
- * 
- * @param {express.Request} req 
- * @param {express.Response} res 
- * @param {express.NextFunction} next 
+ *
+ * @param {express.Request} req
+ * @param {express.Response} res
+ * @param {express.NextFunction} next
  * @returns {express.NextFunction|express.Response}
  */
 function authLibreOneRequest(req: Request, res: Response, next: NextFunction) {
@@ -187,6 +198,91 @@ function authLibreOneRequest(req: Request, res: Response, next: NextFunction) {
   }
   next();
 }
+/**
+ * Checks if a request is authorized to access a support ticket. The user can be authorized and have sufficient roles (or be the 'owner' of the ticket), or
+ * the request can be authorized with a valid guestAccessKey.
+ * @param {express.Request} req - The Express.js request object.
+ * @param {express.Response} res - The Express.js response object.
+ * @param {express.NextFunction} next - The next function in the middleware chain.
+ * @returns {express.NextFunction|express.Response} An invocation of the next middleware, or an error response.
+ */
+const canAccessSupportTicket = async (
+  req: TypedReqParamsAndQueryWithUser<{ uuid: string }, { accessKey?: string }>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (req.user && req.user.decoded.uuid) {
+      const user = await User.findOne({ uuid: req.user.decoded.uuid });
+      if (!user || !user.uuid) {
+        throw new Error("unauthorized");
+      }
+
+      // if the user object is present, check if the user has the support role (or is superadmin)
+      const hasSupportRole = authAPI.checkHasRole(
+        user,
+        "libretexts",
+        "support",
+        true
+      );
+
+      // if the user has the support role, allow access
+      if (hasSupportRole) {
+        return next();
+      }
+
+      // if the user does not have the support role, check if the user is the owner of the ticket
+      if (req.params && req.params.uuid) {
+        const ticket = await SupportTicket.findOne({
+          uuid: req.params.uuid,
+          userUUID: user.uuid,
+        });
+
+        // if the ticket is found and the user is the owner, allow access
+        if (ticket && ticket.uuid) {
+          return next();
+        }
+
+        throw new Error("unauthorized");
+      }
+    } else {
+      // if the user object is not present, check if the guestAccessKey is present and valid
+      if (req.query && req.query.accessKey && req.params.uuid) {
+        const ticket = await SupportTicket.findOne({
+          uuid: req.params.uuid,
+        });
+
+        if (!ticket || !ticket.uuid) {
+          return res.status(404).send({
+            err: true,
+            errMsg: conductorErrors.err3,
+          });
+        }
+
+        if (ticket.guestAccessKey === req.query.accessKey) {
+          return next();
+        }
+      }
+    }
+
+    // if neither the user object nor the guestAccessKey is present, return unauthorized error
+    throw new Error("unauthorized");
+  } catch (err: any) {
+    if (process.env.NODE_ENV === "development") {
+      debugError(err);
+    }
+    if (err.message === "unauthorized") {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+    return res.status(400).send({
+      err: true,
+      errMsg: conductorErrors.err2,
+    });
+  }
+};
 
 const validateZod = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -198,7 +294,7 @@ const validateZod = (schema: AnyZodObject) => {
       });
       next();
     } catch (err) {
-      if(process.env.NODE_ENV === "development"){
+      if (process.env.NODE_ENV === "development") {
         debugError(err);
       }
       return res.status(400).send({
@@ -218,5 +314,6 @@ export default {
   middlewareFilter,
   checkCentralIdentityConfig,
   authLibreOneRequest,
+  canAccessSupportTicket,
   validateZod,
 };
