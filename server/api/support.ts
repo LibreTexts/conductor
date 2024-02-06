@@ -35,6 +35,7 @@ import { randomBytes } from "crypto";
 import { ZodReqWithFiles } from "../types/Express";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import base64 from "base-64";
+import Organization from "../models/organization.js";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -458,14 +459,17 @@ async function createTicket(
     params.append("accessKey", guestAccessKey);
     const addParams = !foundUser?.uuid ? true : false; // if guest, append access key to ticket path
 
+    const emailPromises = [];
     const submitterPromise = mailAPI.sendSupportTicketCreateConfirmation(
       emailToNotify,
       ticket.uuid,
-      addParams ? params.toString() : undefined
+      addParams ? params.toString() : ""
     );
+    emailPromises.push(submitterPromise);
 
+    const teamToNotify = await _getSupportTeamEmails();
     const teamPromise = mailAPI.sendSupportTicketCreateInternalNotification(
-      _getSupportTeamEmails(),
+      teamToNotify,
       ticket.uuid,
       ticket.title,
       ticket.description,
@@ -474,7 +478,9 @@ async function createTicket(
       ticket.priority
     );
 
-    await Promise.all([submitterPromise, teamPromise]);
+    if(teamToNotify.length > 0) emailPromises.push(teamPromise);
+
+    await Promise.allSettled(emailPromises);
 
     return res.send({
       err: false,
@@ -819,8 +825,13 @@ async function _uploadTicketAttachments(
   }
 }
 
-const _getSupportTeamEmails = () => {
-  return process.env.SUPPORT_TEAM_EMAILS?.split(";") || [];
+const _getSupportTeamEmails = async (): Promise<string[]> => {
+  try {
+    const org = await Organization.findOne({ orgID: process.env.ORG_ID}).orFail();
+    return org.supportTicketNotifiers ?? [];
+  } catch (err) {
+    throw err;
+  }
 };
 
 const _getTicketAuthorEmail = async (
