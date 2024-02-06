@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react";
 import PropTypes from "prop-types";
-import { Button, Icon } from "semantic-ui-react";
+import { Button, Icon, Label } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import styles from "./FileUploader.module.css";
+import { truncateString } from "../util/HelperFunctions";
 
 interface FileUploaderProps
   extends React.DetailedHTMLProps<
@@ -13,6 +14,7 @@ interface FileUploaderProps
   maxFiles?: number;
   disabled?: boolean;
   onUpload: (files: FileList) => void;
+  showUploads?: boolean;
 }
 
 /**
@@ -24,6 +26,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   maxFiles = 1,
   disabled = false,
   onUpload,
+  showUploads = false,
   ...props
 }) => {
   // Global Error Handling
@@ -54,7 +57,10 @@ const FileUploader: React.FC<FileUploaderProps> = ({
    * @param {React.FormEvent} e - The event that triggered the handler, containing a FileList.
    * @param {string} src - The source of the file upload, either 'select' or 'drag'.
    */
-  function processFileTransfer(e: React.DragEvent | React.ChangeEvent, src = "select") {
+  function processFileTransfer(
+    e: React.DragEvent | React.ChangeEvent,
+    src = "select"
+  ) {
     let files;
     if (src === "drag") {
       if ((e as React.DragEvent).dataTransfer?.files) {
@@ -152,6 +158,15 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           onDragOver={handleFileDrag}
           onDrop={handleFileDrop}
         />
+      )}
+      {showUploads && multiple && inputReference.current?.files && (
+        <div className="flex flex-row justify-start mt-2">
+          {Array.from(inputReference.current.files).map((file) => (
+            <Label color="blue" size="tiny" key={crypto.randomUUID()} className="mr-2">
+              {truncateString(file.name, 40)}
+            </Label>
+          ))}
+        </div>
       )}
     </form>
   );

@@ -444,6 +444,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             multiple={true}
             maxFiles={4}
             onUpload={saveFilesToState}
+            showUploads={true}
           />
           {!isLoggedIn && (
             <div className="flex flex-row items-center justify-center mt-8">
