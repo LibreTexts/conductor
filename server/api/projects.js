@@ -1343,6 +1343,7 @@ async function getPublicProjects(req, res) {
     const offset = getPaginationOffset(page, limit);
 
     const projects = await Project.find({
+      orgID: process.env.ORG_ID,
       visibility: "public",
     }).select({
       notes: 0, leads: 0 , liaisons: 0, members: 0, auditors: 0, a11yReview: 0, flag: 0, flagDescrip: 0
