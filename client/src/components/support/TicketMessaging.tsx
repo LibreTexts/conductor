@@ -12,9 +12,13 @@ import TicketCommentsContainer from "./TicketCommentsContainer";
 
 interface TicketMessagingProps {
   id: string;
+  guestAccessKey?: string;
 }
 
-const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
+const TicketMessaging: React.FC<TicketMessagingProps> = ({
+  id,
+  guestAccessKey,
+}) => {
   const user = useTypedSelector((state) => state.user);
   const containerRef =
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
@@ -45,7 +49,11 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
   async function getMessages(): Promise<SupportTicketMessage[]> {
     try {
       if (!id) throw new Error("Invalid ticket ID");
-      const res = await axios.get(`/support/ticket/${id}/msg`);
+      const res = await axios.get(`/support/ticket/${id}/msg`, {
+        params: {
+          ...(guestAccessKey ? { accessKey: guestAccessKey } : {}),
+        },
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -70,9 +78,17 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
       if (!id) throw new Error("Invalid ticket ID");
       if (!getValues("message")) return;
 
-      const res = await axios.post(`/support/ticket/${id}/msg`, {
-        ...getValues(),
-      });
+      const res = await axios.post(
+        `/support/ticket/${id}/msg`,
+        {
+          ...getValues(),
+        },
+        {
+          params: {
+            ...(guestAccessKey ? { accessKey: guestAccessKey } : {}),
+          },
+        }
+      );
 
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -135,9 +151,9 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({ id }) => {
                     {watch("message")?.length ?? 0}/1000. Enter for new line.
                     Ctrl + Enter to send.
                   </p>
-                  <p className="text-sm text-gray-500 text-center italic mt-1 ml-0.5">
+                  <p className="text-sm text-gray-500 italic mt-1 ml-0.5">
                     Your ticket comments may be used to improve our support
-                    services. Any sensitive information will always remain
+                    services. Any sensitive information will remain
                     confidential.
                   </p>
                 </div>

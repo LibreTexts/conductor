@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import { SupportTicket } from "../../../types";
@@ -20,21 +20,39 @@ const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
 
+const getIdFromURL = (url: string) => {
+  if (!url) return "";
+  if (url.includes("?")) url = url.split("?")[0];
+  const id = url.split("/").pop();
+  return id ? id : "";
+};
+
 const SupportTicketView = () => {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const { handleGlobalError } = useGlobalError();
-  const { id } = useParams<{ id: any }>();
-  const searchParams = new URLSearchParams(window.location.search);
-  console.log(searchParams.get('accessKey'));
   const user = useTypedSelector((state) => state.user);
 
+  const [id, setId] = useState<string>("");
+  const [accessKey, setAccessKey] = useState("");
   const [showAssignModal, setShowAssignModal] = useState(false);
+
+  useEffect(() => {
+    const id = getIdFromURL(location.pathname);
+    setId(id);
+    const searchParams = new URLSearchParams(location.search);
+    const accessKey = searchParams.get("accessKey");
+    if (accessKey) {
+      setAccessKey(accessKey);
+    }
+  }, [location.search, location.pathname]);
 
   const { data: ticket, isFetching } = useQuery<SupportTicket>({
     queryKey: ["ticket", id],
     queryFn: () => loadTicket(),
     keepPreviousData: true,
     refetchOnWindowFocus: true,
+    enabled: !!id,
   });
 
   const updateTicketMutation = useMutation({
@@ -54,7 +72,11 @@ const SupportTicketView = () => {
       if (typeof id !== "string" || !id) {
         throw new Error("Invalid ticket ID");
       }
-      const res = await axios.get(`/support/ticket/${id}`);
+      const res = await axios.get(`/support/ticket/${id}`, {
+        params: {
+          ...(accessKey && { accessKey }),
+        },
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -127,19 +149,17 @@ const SupportTicketView = () => {
             <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
               <div className="flex flex-col xl:basis-2/5 xl:pl-4">
                 <TicketDetails ticket={ticket} />
+                <div className="mt-4">
+                  <TicketFeed ticket={ticket} />
+                </div>
                 {isSupportStaff(user) && (
-                  <>
-                    <div className="mt-4">
-                      <TicketFeed ticket={ticket} />
-                    </div>
-                    <div className="my-4">
-                      <TicketInternalMessaging id={id} />
-                    </div>
-                  </>
+                  <div className="my-4">
+                    <TicketInternalMessaging id={id} />
+                  </div>
                 )}
               </div>
               <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
-                <TicketMessaging id={id} />
+                <TicketMessaging id={id} guestAccessKey={accessKey} />
                 {ticket.attachments && ticket.attachments.length > 0 && (
                   <div className="mt-4">
                     <TicketAttachments ticket={ticket} />
