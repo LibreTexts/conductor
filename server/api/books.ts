@@ -879,7 +879,6 @@ async function getCommonsCatalog(
     }
 
     const results = await Promise.all(searchQueries);
-    const totalNumBooks = await Book.estimatedDocumentCount();
 
     const aggResults = results.reduce((acc, curr) => {
       if (Array.isArray(curr)) {
@@ -894,7 +893,8 @@ async function getCommonsCatalog(
       ...aggResults.filter((book) => resultBookIDs.includes(book.bookID)),
     ]
 
-    const offset = getRandomOffset(resultBooks.length)
+    const totalNumBooks = resultBooks.length;
+    const offset = getRandomOffset(totalNumBooks)
 
     const randomized = resultBooks.slice(offset, offset + limit)
 
