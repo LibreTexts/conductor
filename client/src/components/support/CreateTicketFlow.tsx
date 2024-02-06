@@ -220,7 +220,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   }
 
   async function saveFilesToState(files: FileList) {
-    console.log("files", files);
     setLoading(true);
     setFiles(Array.from(files));
     setLoading(false);

@@ -19,12 +19,19 @@ export interface SupportTicketFeedEntryInterface {
   date: string;
 }
 
+export interface SupportTicketAttachmentInterface {
+  name: string;
+  uuid: string;
+  uploadedBy: string;
+  uploadedDate: string;
+}
+
 export interface SupportTicketInterface extends Document {
   uuid: string;
   title: string;
   description: string;
   apps?: number[]; // Central Identity app IDs
-  attachments?: string[];
+  attachments?: SupportTicketAttachmentInterface[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
   category: string;
@@ -57,7 +64,24 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
     type: [Number],
   },
   attachments: {
-    type: [String],
+    type: [{
+      name: {
+        type: String,
+        required: true,
+      },
+      uuid: {
+        type: String,
+        required: true,
+      },
+      uploadedBy: {
+        type: String,
+        required: true,
+      },
+      uploadedDate: {
+        type: String,
+        required: true,
+      },
+    }],
   },
   priority: {
     type: String,

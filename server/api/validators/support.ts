@@ -86,3 +86,10 @@ export const SendTicketMessageValidator = z
     }),
   })
   .merge(TicketUUIDParams);
+
+export const GetTicketAttachmentValidator = z.object({
+  params: z.object({
+    uuid: z.string().uuid(),
+    attachmentUUID: z.string().uuid(),
+  }),
+});
