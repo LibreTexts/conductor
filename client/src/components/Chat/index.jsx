@@ -330,7 +330,7 @@ const Chat = ({
                       <div><span>{item.date} at {item.time}</span></div>
                     </Comment.Metadata>
                     <Comment.Text
-                      className="conductor-chat-msg-body !prose prose-code:before:hidden prose-code:after:hidden"
+                      className="conductor-chat-msg-body !prose prose-code:before:hidden prose-code:after:hidden !max-w-none"
                       dangerouslySetInnerHTML={readyMsgBody}
                     />
                     {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
