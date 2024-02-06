@@ -12,7 +12,7 @@ export type SupportTicket = {
   title: string;
   description: string;
   apps?: number[]; // Central Identity app IDs
-  attachments?: string[];
+  attachments?: SupportTicketAttachment[];
   priority: "low" | "medium" | "high";
   status: "open" | "in_progress" | "closed";
   category: string;
@@ -43,4 +43,11 @@ export type SupportTicketFeedEntry = {
   action: string;
   blame: string;
   date: string;
+}
+
+export type SupportTicketAttachment = {
+  name: string;
+  uuid: string;
+  uploadedBy: string;
+  uploadedDate: string;
 }

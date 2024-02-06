@@ -6,6 +6,7 @@ import {
   GetAssignableUsersValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
+  GetTicketAttachmentValidator,
   GetTicketValidator,
   GetUserTicketsValidator,
   SendTicketMessageValidator,
@@ -17,6 +18,7 @@ import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import User, { SanitizedUserSelectProjection } from "../models/user.js";
 import { v4 } from "uuid";
 import SupportTicket, {
+  SupportTicketAttachmentInterface,
   SupportTicketFeedEntryInterface,
   SupportTicketInterface,
 } from "../models/supporticket.js";
@@ -27,9 +29,12 @@ import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
-import { getPaginationOffset } from "../util/helpers.js";
+import { assembleUrl, getPaginationOffset } from "../util/helpers.js";
 import { addMonths, differenceInMinutes, subDays } from "date-fns";
 import { randomBytes } from "crypto";
+import { ZodReqWithFiles } from "../types/Express";
+import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
+import base64 from "base-64";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -366,9 +371,8 @@ async function ticketAttachmentUploadHandler(
       }
       return cb(null, true);
     },
-  }).array("attachments", 4);
+  }).array("files", 4);
   return config(req, res, (err) => {
-    console.log(err);
     if (err) {
       let errMsg = conductorErrors.err53;
       if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
@@ -483,13 +487,19 @@ async function createTicket(
 }
 
 async function addTicketAttachments(
-  req: z.infer<typeof AddTicketAttachementsValidator> & {
-    files?: Express.Multer.File[];
-  },
+  req: ZodReqWithFiles<
+    ZodReqWithOptionalUser<z.infer<typeof AddTicketAttachementsValidator>>
+  >,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
+    const userUUID = req.user?.decoded.uuid;
+
+    let foundUser;
+    if (userUUID) {
+      foundUser = await User.findOne({ uuid: userUUID });
+    }
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
@@ -501,11 +511,22 @@ async function addTicketAttachments(
       });
     }
 
+    const uploader = foundUser?.uuid
+      ? `${foundUser.firstName} ${foundUser.lastName}`
+      : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+
     const uploadedFiles = await _uploadTicketAttachments(
       ticket.uuid,
-      req.files
+      req.files,
+      uploader
     );
     ticket.attachments = [...(ticket.attachments ?? []), ...uploadedFiles];
+
+    for (const f of uploadedFiles) {
+      const feedEntry = _createFeedEntry_AttachmentUploaded(uploader, f.name);
+      ticket.feed.push(feedEntry);
+    }
+
     await ticket.save();
 
     return res.send({
@@ -514,6 +535,64 @@ async function addTicketAttachments(
     });
   } catch (err) {
     debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Generates a pre-signed download URL for a ticket attachment
+ */
+async function getTicketAttachmentURL(
+  req: z.infer<typeof GetTicketAttachmentValidator>,
+  res: Response
+) {
+  try {
+
+    const { uuid, attachmentUUID } = req.params;
+
+    if (
+      !process.env.AWS_SUPPORTFILES_DOMAIN ||
+      !process.env.AWS_SUPPORTFILES_KEYPAIR_ID ||
+      !process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY
+    ) {
+      throw new Error("Missing ENV variables");
+    }
+
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const f = ticket.attachments?.find((a) => a.uuid === attachmentUUID);
+    if (!f) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const exprDate = new Date();
+    exprDate.setDate(exprDate.getDate() + 3); // 3 day expiration time
+    const privKey = base64.decode(
+      process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY
+    );
+
+    const fileURL = assembleUrl([
+      "https://",
+      process.env.AWS_SUPPORTFILES_DOMAIN,
+      ticket.uuid,
+      f.uuid,
+    ]);
+
+    const signedURL = getSignedUrl({
+      url: fileURL,
+      keyPairId: process.env.AWS_SUPPORTFILES_KEYPAIR_ID,
+      dateLessThan: exprDate.toString(),
+      privateKey: privKey,
+    });
+
+    return res.send({
+      err: false,
+      url: signedURL,
+    });
+  } catch (e) {
+    debugError(e);
     return conductor500Err(res);
   }
 }
@@ -621,7 +700,7 @@ async function createGeneralMessage(
         ticket.uuid,
         message,
         senderName,
-        addParams ? params.toString() : ''
+        addParams ? params.toString() : ""
       );
     }
 
@@ -693,8 +772,9 @@ async function createInternalMessage(
 
 async function _uploadTicketAttachments(
   ticketID: string,
-  files: Express.Multer.File[]
-): Promise<string[]> {
+  files: Express.Multer.File[],
+  uploader: string
+): Promise<SupportTicketAttachmentInterface[]> {
   try {
     if (
       !SUPPORT_FILES_S3_CLIENT_CONFIG ||
@@ -706,7 +786,7 @@ async function _uploadTicketAttachments(
 
     const storageClient = new S3Client(SUPPORT_FILES_S3_CLIENT_CONFIG);
     const uploadCommands: PutObjectCommand[] = [];
-    const savedFiles: string[] = [];
+    const savedFiles: SupportTicketAttachmentInterface[] = [];
 
     files.forEach((file) => {
       const fileUUID = v4();
@@ -717,11 +797,16 @@ async function _uploadTicketAttachments(
           Bucket: process.env.AWS_SUPPORTFILES_BUCKET,
           Key: fileKey,
           Body: file.buffer,
-          ContentDisposition: `attachment; filename="${fileUUID}"`,
+          ContentDisposition: `inline; filename="${fileUUID}"`,
           ContentType: contentType,
         })
       );
-      savedFiles.push(fileUUID);
+      savedFiles.push({
+        name: file.originalname,
+        uuid: fileUUID,
+        uploadedBy: uploader,
+        uploadedDate: new Date().toISOString(),
+      });
     });
 
     await async.eachLimit(uploadCommands, 2, async (command) =>
@@ -793,6 +878,17 @@ const _createFeedEntry_Closed = (
   };
 };
 
+const _createFeedEntry_AttachmentUploaded = (
+  uploader: string,
+  fileName: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Attachment uploaded: ${fileName}`,
+    blame: uploader,
+    date: new Date().toISOString(),
+  };
+};
+
 export default {
   getTicket,
   getUserTickets,
@@ -803,6 +899,7 @@ export default {
   assignTicket,
   createTicket,
   addTicketAttachments,
+  getTicketAttachmentURL,
   updateTicket,
   createGeneralMessage,
   getGeneralMessages,

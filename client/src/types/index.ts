@@ -89,7 +89,8 @@ import {
   SupportTicketGuest,
   SupportTicket,
   SupportTicketMessage,
-  SupportTicketFeedEntry
+  SupportTicketFeedEntry,
+  SupportTicketAttachment
 } from "./support";
 import {
   AssetTag,
@@ -192,6 +193,7 @@ export type {
   SupportTicket,
   SupportTicketMessage,
   SupportTicketFeedEntry,
+  SupportTicketAttachment,
   _MoveFile,
   _MoveFileWithChildren,
   AssetSearchParams,

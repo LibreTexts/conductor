@@ -1774,6 +1774,13 @@ router.route('/support/ticket/:uuid/attachments').post(
   supportAPI.addTicketAttachments
 );
 
+router.route('/support/ticket/:uuid/attachments/:attachmentUUID').get(
+  authAPI.optionalVerifyRequest,
+  middleware.canAccessSupportTicket,
+  middleware.validateZod(supportValidators.GetTicketAttachmentValidator),
+  supportAPI.getTicketAttachmentURL
+)
+
 router.route('/support/ticket/:uuid').get(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
@@ -1790,7 +1797,6 @@ router.route('/support/ticket/:uuid').get(
 router.route('/support/ticket').post(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(supportValidators.CreateTicketValidator),
-  supportAPI.ticketAttachmentUploadHandler,
   supportAPI.createTicket
 )
 

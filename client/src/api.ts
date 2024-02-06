@@ -431,12 +431,22 @@ class API {
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
-        files: ProjectFileWProjectData<'title' | 'thumbnail'>[];
+        files: ProjectFileWProjectData<"title" | "thumbnail">[];
         totalCount: number;
       } & ConductorBaseResponse
     >("/projects/files/public", {
       params,
     });
+    return res;
+  }
+
+  // Support
+  async getTicketAttachmentURL(ticketID: string, attachmentID: string) {
+    const res = await axios.get<
+      {
+        url: string;
+      } & ConductorBaseResponse
+    >(`/support/ticket/${ticketID}/attachments/${attachmentID}`);
     return res;
   }
 }
