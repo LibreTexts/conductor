@@ -1155,6 +1155,15 @@ async function getPublicProjectFiles(
         },
       },
       {
+        $match: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set
+          projectInfo: {
+            $exists: true,
+            $ne: [null, {}],
+          },
+        },
+      },
+      {
         $sort: {
           _id: -1,
         },
