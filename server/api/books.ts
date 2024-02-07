@@ -792,16 +792,7 @@ async function getCommonsCatalog(
       {
         $project: projectWithAssociatedBookProjection,
       },
-    ]);
-
-    if (!Array.isArray(projResults) || projResults.length === 0) {
-      return res.send({
-        err: false,
-        numFound: 0,
-        numTotal: 0,
-        books: [],
-      });
-    }
+    ]) ?? [];
 
     const projBookIDs = projResults.map(
       (proj) => `${proj.libreLibrary}-${proj.libreCoverID}`

@@ -478,7 +478,7 @@ async function createTicket(
       ticket.priority
     );
 
-    if(teamToNotify.length > 0) emailPromises.push(teamPromise);
+    if (teamToNotify.length > 0) emailPromises.push(teamPromise);
 
     await Promise.allSettled(emailPromises);
 
@@ -553,15 +553,16 @@ async function getTicketAttachmentURL(
   res: Response
 ) {
   try {
-
     const { uuid, attachmentUUID } = req.params;
 
-    if (
-      !process.env.AWS_SUPPORTFILES_DOMAIN ||
-      !process.env.AWS_SUPPORTFILES_KEYPAIR_ID ||
-      !process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY
-    ) {
-      throw new Error("Missing ENV variables");
+    if (!process.env.AWS_SUPPORTFILES_DOMAIN) {
+      throw new Error("Missing SUPPORT_FILES_DOMAIN ENV variable");
+    }
+    if (!process.env.AWS_SUPPORTFILES_KEYPAIR_ID) {
+      throw new Error("Missing SUPPORT_FILES_KEYPAIR_ID ENV variable");
+    }
+    if (!process.env.AWS_SUPPORTFILES_CLOUDFRONT_PRIVKEY) {
+      throw new Error("Missing SUPPORT_FILES_CLOUDFRONT_PRIVKEY ENV variable");
     }
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
@@ -827,7 +828,9 @@ async function _uploadTicketAttachments(
 
 const _getSupportTeamEmails = async (): Promise<string[]> => {
   try {
-    const org = await Organization.findOne({ orgID: process.env.ORG_ID}).orFail();
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    }).orFail();
     return org.supportTicketNotifiers ?? [];
   } catch (err) {
     throw err;
