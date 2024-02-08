@@ -10,6 +10,7 @@ import {
   Loader,
   Card,
   Popup,
+  SegmentProps,
 } from "semantic-ui-react";
 import { useEffect, useState, useCallback, lazy } from "react";
 import { useTypedSelector } from "../../../state/hooks";
@@ -24,6 +25,7 @@ import useGlobalError from "../../../components/error/ErrorHooks";
 import { pinProject } from "../../../utils/projectHelpers";
 import Annnouncement from "../../../components/Home/Announcement";
 import UserMenu from "../../../components/Home/UserMenu";
+import { useMediaQuery } from "react-responsive";
 const NewMemberModal = lazy(
   () => import("../../../components/Home/NewMemberModal")
 );
@@ -35,6 +37,9 @@ const ViewAnnouncementModal = lazy(
 );
 const NewAnnouncementModal = lazy(
   () => import("../../../components/Home/NewAnnouncementModal")
+);
+const CreateProjectModal = lazy(
+  () => import("../../../components/projects/CreateProject")
 );
 
 const Home = () => {
@@ -74,6 +79,15 @@ const Home = () => {
 
   // Edit Pinned Projects Modal
   const [showPinnedModal, setShowPinnedModal] = useState<boolean>(false);
+
+  // Create Project Modal
+  const [showCreateProjectModal, setShowCreateProjectModal] =
+    useState<boolean>(false);
+
+  const isTailwindXl = useMediaQuery(
+    { minWidth: 1280 }, // Tailwind XL breakpoint
+    undefined
+  );
 
   /**
    * Check for query string values and update UI if necessary.
@@ -228,6 +242,32 @@ const Home = () => {
     setLoadedAllPinned(false);
   }
 
+  const CreateProjectSegment = () => {
+    return (
+      <Segment padded className="!py-4">
+        <div className="flex flex-row justify-between items-center">
+          <p className="text-xl font-semibold">Create a Project</p>
+          <div className="right-flex">
+            <Popup
+              content="New Project"
+              trigger={
+                <Button
+                  color="green"
+                  onClick={() => setShowCreateProjectModal(true)}
+                  icon
+                  circular
+                >
+                  <Icon name="add" />
+                </Button>
+              }
+              position="top center"
+            />
+          </div>
+        </div>
+      </Segment>
+    );
+  };
+
   return (
     <Grid className="component-container" divided="vertically" stackable>
       <div className="flex flex-col my-4 w-full">
@@ -246,9 +286,10 @@ const Home = () => {
         </div>
       )}
       <div className="flex flex-col xl:flex-row">
-        <div className="flex flex-col mb-8 xl:w-1/6 xl:mr-12 xl:mb-0">
+        <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
           <UserMenu />
         </div>
+        {!isTailwindXl && <CreateProjectSegment />}
         <div className="flex flex-col mb-8 xl:w-1/2 xl:mr-12 xl:mb-0">
           <Segment
             padded={pinnedProjects.length > 0}
@@ -331,11 +372,14 @@ const Home = () => {
           </Segment>
         </div>
         <div className="flex flex-col mb-8 xl:w-1/3 xl:mb-0">
+          {isTailwindXl && (
+            <div className="!mb-2">
+              <CreateProjectSegment />
+            </div>
+          )}
           <Segment padded>
             <div className="dividing-header-custom">
-              <h3>
-                Announcements
-              </h3>
+              <h3>Announcements</h3>
               {(user.isCampusAdmin === true || user.isSuperAdmin === true) && (
                 <div className="right-flex">
                   <Popup
@@ -409,6 +453,11 @@ const Home = () => {
         pinnedProjects={pinnedProjects}
         onDataChange={() => getPinnedProjects()}
         onClose={() => setShowPinnedModal(false)}
+      />
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        show={showCreateProjectModal}
+        onClose={() => setShowCreateProjectModal(false)}
       />
     </Grid>
   );
