@@ -20,11 +20,13 @@ const CollectionSchema = new Schema<CollectionInterface>(
       // the organization's internal identifier string
       type: String,
       required: true,
+      index: true,
     },
     collID: {
       // base62 8-digit identifier
       type: String,
       required: true,
+      index: true,
     },
     title: {
       // the collection title/name
