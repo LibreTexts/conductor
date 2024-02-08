@@ -331,7 +331,7 @@ function _generateProjectMatchObj({
   }
 
   // If project classification is not 'any', add it to the filters
-  if (projClassification !== "any") {
+  if (projClassification && projClassification !== "any") {
     projectFilters.push({ classification: projClassification });
   }
 
@@ -342,23 +342,28 @@ function _generateProjectMatchObj({
 
   // Generate visibility query
   let visibilityQuery = {};
-  if (!isSuperAdmin && userUUID) {
-    const teamMemberQuery =
-      projectAPI.constructProjectTeamMemberQuery(userUUID);
+  if (!isSuperAdmin) {
+    // If user is not a super admin, add visibility query
+    if (userUUID) {
+      const teamMemberQuery =
+        projectAPI.constructProjectTeamMemberQuery(userUUID);
 
-    const privateProjectQuery = {
-      $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
-    };
+      // If userUUID is provided, add query for private projects that the user is a member of
+      const privateProjectQuery = {
+        $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
+      };
 
-    visibilityQuery = {
-      ...privateProjectQuery,
-    };
-  } else {
-    visibilityQuery = { visibility: "public" };
-  }
+      visibilityQuery = {
+        $or: [privateProjectQuery, { visibility: "public" }],
+      };
+    } else {
+      // If userUUID is not provided, only show public projects
+      visibilityQuery = { visibility: "public" };
+    }
 
-  if (Object.keys(visibilityQuery).length > 0) {
-    projectFilters.push(visibilityQuery);
+    if (Object.keys(visibilityQuery).length > 0) {
+      projectFilters.push(visibilityQuery);
+    }
   }
 
   // If multiple filters, use $and, otherwise just use the filter
