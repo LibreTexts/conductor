@@ -1,27 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import axios from 'axios';
-import { Modal, Form, Button, Icon } from 'semantic-ui-react';
-import useGlobalError from '../error/ErrorHooks';
+import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import axios from "axios";
+import { Modal, Form, Button, Icon } from "semantic-ui-react";
+import useGlobalError from "../error/ErrorHooks";
+import api from "../../api";
 
 /**
  * Modal tool to add a new folder to an Project Files list.
  */
-const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd }) => {
-
+const AddFolder = ({
+  show,
+  onClose,
+  projectID,
+  parentDirectory,
+  onFinishedAdd,
+}) => {
   // Global Error Handling
   const { handleGlobalError } = useGlobalError();
 
   // Form State
   const [loading, setLoading] = useState(false);
-  const [folderName, setFolderName] = useState('');
+  const [folderName, setFolderName] = useState("");
   const [nameError, setNameError] = useState(false);
 
   /**
    * Reset the folder name input on open/close.
    */
   useEffect(() => {
-    setFolderName('');
+    setFolderName("");
   }, [show, setFolderName]);
 
   /**
@@ -36,7 +42,7 @@ const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd })
   /**
    * Prevents default actions if the modal form is submitted.
    *
-   * @param {React.FormEvent} e - Event that activated the handler. 
+   * @param {React.FormEvent} e - Event that activated the handler.
    */
   function handleSubmit(e) {
     e.preventDefault();
@@ -72,15 +78,16 @@ const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd })
     if (validateForm()) {
       setLoading(true);
       try {
-        const createRes = await axios.post(`/project/${projectID}/files`, {
-          parentID: parentDirectory,
+        const createRes = await api.addProjectFileFolder(
+          projectID,
           folderName,
-        });
+          parentDirectory
+        );
         if (!createRes.data.err) {
           setLoading(false);
           onFinishedAdd();
         } else {
-          throw (new Error(createRes.data.errMsg));
+          throw new Error(createRes.data.errMsg);
         }
       } catch (e) {
         setLoading(false);
@@ -114,7 +121,7 @@ const AddFolder = ({ show, onClose, projectID, parentDirectory, onFinishedAdd })
         </Button>
       </Modal.Actions>
     </Modal>
-  )
+  );
 };
 
 AddFolder.propTypes = {
@@ -141,9 +148,9 @@ AddFolder.propTypes = {
 };
 
 AddFolder.defaultProps = {
-  onClose: () => { },
-  parentDirectory: '',
-  onFinishedAdd: () => { },
+  onClose: () => {},
+  parentDirectory: "",
+  onFinishedAdd: () => {},
 };
 
 export default AddFolder;

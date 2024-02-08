@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import conductorErrors from "../conductor-errors.js";
 import ProjectFile, {
   ProjectFileInterface,
+  ProjectFileInterfaceAccess,
   RawProjectFileInterface,
 } from "../models/projectfile.js";
 import multer from "multer";
@@ -19,7 +20,11 @@ import {
 } from "../util/projectutils.js";
 import { isObjectIdOrHexString } from "mongoose";
 import async from "async";
-import { assembleUrl, getPaginationOffset, getRandomOffset } from "../util/helpers.js";
+import {
+  assembleUrl,
+  getPaginationOffset,
+  getRandomOffset,
+} from "../util/helpers.js";
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -47,6 +52,7 @@ import {
   removeProjectFileSchema,
   updateProjectFileAccessSchema,
   updateProjectFileSchema,
+  addProjectFileFolderSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -129,7 +135,7 @@ export async function addProjectFile(
     }
 
     let parent = "";
-    let accessSetting = "public"; // default
+    let accessSetting = "public" as ProjectFileInterfaceAccess; // default
     if (req.body.parentID && req.body.parentID !== "") {
       const foundParent = files.find((obj) => obj.fileID === req.body.parentID);
       if (!foundParent || foundParent.storageType === "file") {
@@ -144,6 +150,7 @@ export async function addProjectFile(
       }
     }
 
+    // Add a file
     let parsedAuthors: any[] = [];
     if (req.body.authors) {
       if (Array.isArray(req.body.authors)) {
@@ -166,10 +173,10 @@ export async function addProjectFile(
 
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
-    const fileEntries = [];
+    const filesToCreate: RawProjectFileInterface[] = [];
 
+    // Adding a file
     if (providedFiles) {
-      // Adding a file
       const uploadCommands: any[] = [];
       req.files.forEach((file) => {
         const newID = v4();
@@ -184,7 +191,9 @@ export async function addProjectFile(
             ContentType: contentType,
           })
         );
-        fileEntries.push({
+
+        filesToCreate.push({
+          projectID,
           fileID: newID,
           name: file.originalname,
           access: accessSetting,
@@ -203,9 +212,12 @@ export async function addProjectFile(
       await async.eachLimit(uploadCommands, 2, async (command) =>
         storageClient.send(command)
       );
+
+      await ProjectFile.insertMany(filesToCreate);
     } else if (req.body.isURL && req.body.fileURL) {
       // Adding a file from URL
-      fileEntries.push({
+      await ProjectFile.create({
+        projectID,
         fileID: v4(),
         name: "URL: " + req.body.fileURL.toString(),
         isURL: true,
@@ -224,30 +236,78 @@ export async function addProjectFile(
         publisher: req.body.publisher,
       });
     } else {
-      // Adding a folder
-      if (!req.body.folderName) {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err65,
-        });
-      }
-      fileEntries.push({
-        fileID: v4(),
-        name: req.body.folderName,
-        size: 0,
-        createdBy: req.user.decoded.uuid,
-        storageType: "folder",
-        parent,
-        access: accessSetting,
+      // If not file, and not URL, then it's an invalid request
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err65,
       });
     }
 
-    const updated = [...files, ...fileEntries];
-    // @ts-ignore
-    const fileUpdate = await updateProjectFilesUtil(projectID, updated);
-    if (!fileUpdate) {
-      throw new Error("updatefail");
+    return res.send({
+      err: false,
+      msg: "Succesfully uploaded files!",
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+/**
+ * Creates a folder in a Project's file system.
+ */
+export async function addProjectFileFolder(
+  req: ZodReqWithUser<z.infer<typeof addProjectFileFolderSchema>>,
+  res: Response
+) {
+  try {
+    const projectID = req.params.projectID;
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
     }
+
+    const files = await retrieveAllProjectFiles(
+      projectID,
+      false,
+      req.user.decoded.uuid
+    );
+    if (!files) {
+      throw new Error("retrieveerror");
+    }
+
+    let parent = "";
+    let accessSetting = "public" as ProjectFileInterfaceAccess; // default
+    if (req.body.parentID && req.body.parentID !== "") {
+      const foundParent = files.find((obj) => obj.fileID === req.body.parentID);
+      if (!foundParent) {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err64,
+        });
+      }
+      parent = req.body.parentID;
+      if (foundParent.access !== "mixed") {
+        accessSetting = foundParent.access ?? "team"; // assume same setting as parent, else default to team
+      }
+    }
+
+    await ProjectFile.create({
+      projectID,
+      fileID: v4(),
+      name: req.body.name,
+      size: 0,
+      createdBy: req.user.decoded.uuid,
+      storageType: "folder",
+      parent,
+      access: accessSetting,
+    });
 
     return res.send({
       err: false,
@@ -548,8 +608,7 @@ async function updateProjectFile(
       overwriteName,
     } = req.body;
 
-    const shouldOverwriteName =
-      overwriteName === undefined ? true : overwriteName;
+    const shouldOverwriteName = overwriteName === true; // TODO: Check this
 
     const [file] = await retrieveSingleProjectFile(
       projectID,
@@ -1189,6 +1248,7 @@ async function getPublicProjectFiles(
 export default {
   fileUploadHandler,
   addProjectFile,
+  addProjectFileFolder,
   getProjectFileDownloadURL,
   bulkDownloadProjectFiles,
   getProjectFolderContents,

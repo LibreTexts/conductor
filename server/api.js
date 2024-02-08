@@ -1444,6 +1444,13 @@ router.route('/project/:projectID/files/content/:folderID?').get(
   projectfilesAPI.getProjectFolderContents,
 )
 
+router.route('/project/:projectID/files/folder').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ProjectFileValidators.addProjectFileFolderSchema),
+  projectfilesAPI.addProjectFileFolder,
+)
+
 router.route('/project/:projectID/files/:fileID?')
   .post(
     authAPI.verifyRequest,
