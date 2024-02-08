@@ -23,6 +23,7 @@ import {
   userSearchSchema,
 } from "./validators/search.js";
 import ProjectFile from "../models/projectfile.js";
+import authAPI from "./auth.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -48,12 +49,27 @@ async function projectsSearch(
     const projectsLimit = parseInt(req.query.limit?.toString()) || 25;
     const projectsOffset = getPaginationOffset(projectsPage, req.query.limit);
 
+    let isSuperAdmin = false;
+
+    if (req.user?.decoded?.uuid) {
+      const user = await User.findOne({ uuid: req.user?.decoded?.uuid });
+      if (user) {
+        isSuperAdmin = authAPI.checkHasRole(
+          user,
+          "libretexts",
+          "superadmin",
+          true
+        );
+      }
+    }
+
     const projectMatchObj = _generateProjectMatchObj({
-      projLocation: req.query.location || undefined,
-      projStatus: req.query.status || undefined,
-      projVisibility: req.query.visibility || undefined,
+      projLocation: req.query.location,
+      projStatus: req.query.status,
+      projClassification: req.query.classification,
       queryRegex,
-      userUUID: req.user?.decoded.uuid || undefined,
+      userUUID: req.user?.decoded.uuid,
+      isSuperAdmin: isSuperAdmin,
     });
 
     const results = await Project.aggregate([
@@ -161,17 +177,17 @@ async function booksSearch(
 
     const booksPage = parseInt(req.query.page?.toString()) || 1;
     const booksLimit = parseInt(req.query.limit?.toString()) || 25;
-    const booksOffset = getPaginationOffset(booksPage, req.query.limit);
+    const booksOffset = getPaginationOffset(booksPage, booksLimit);
 
     const matchObj = _generateBookMatchObj({
-      library: req.query.library || undefined,
-      subject: req.query.subject || undefined,
-      location: req.query.location || undefined,
-      license: req.query.license || undefined,
-      author: req.query.author || undefined,
-      course: req.query.course || undefined,
-      publisher: req.query.publisher || undefined,
-      affiliation: req.query.affiliation || undefined,
+      library: req.query.library,
+      subject: req.query.subject,
+      location: req.query.location,
+      license: req.query.license,
+      author: req.query.author,
+      course: req.query.course,
+      publisher: req.query.publisher,
+      affiliation: req.query.affiliation,
       queryRegex: queryRegex,
     });
 
@@ -185,37 +201,15 @@ async function booksSearch(
           __v: 0,
         },
       },
+      {
+        $sort: {
+          [req.query.sort]: 1,
+        },
+      },
     ]);
 
     const totalCount = results.length;
     const paginated = results.slice(booksOffset, booksOffset + booksLimit);
-
-    // Does this need to happen before paginating?
-    paginated.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.sort === "title") {
-        aData = _transformToCompare(a.title);
-        bData = _transformToCompare(b.title);
-      } else if (req.query.sort === "author") {
-        aData = _transformToCompare(a.author);
-        bData = _transformToCompare(b.author);
-      } else if (req.query.sort === "library") {
-        aData = _transformToCompare(a.library);
-        bData = _transformToCompare(b.library);
-      } else if (req.query.sort === "subject") {
-        aData = _transformToCompare(a.subject);
-        bData = _transformToCompare(b.subject);
-      } else if (req.query.sort === "affiliation") {
-        aData = _transformToCompare(a.affiliation);
-        bData = _transformToCompare(b.affiliation);
-      }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
-    });
 
     return res.send({
       err: false,
@@ -253,7 +247,7 @@ function _generateBookMatchObj({
   let bookFiltersOptions = {};
 
   if (library) {
-    bookFilters.push({ libreLibrary: library });
+    bookFilters.push({ library });
   }
 
   if (subject) {
@@ -316,22 +310,29 @@ function _generateBookMatchObj({
 function _generateProjectMatchObj({
   projLocation,
   projStatus,
-  projVisibility,
+  projClassification,
   queryRegex,
   userUUID,
+  isSuperAdmin,
 }: {
   projLocation?: string;
   projStatus?: string;
-  projVisibility?: "public" | "private";
+  projClassification?: string;
   queryRegex?: object;
   userUUID?: string;
+  isSuperAdmin?: boolean;
 }) {
   const projectFilters = [];
   let projectFiltersOptions = {};
 
-  // If project location is not 'any', add it to the filters
+  // If project location is not 'global', add it to the filters
   if (projLocation === "local") {
     projectFilters.push({ orgID: process.env.ORG_ID });
+  }
+
+  // If project classification is not 'any', add it to the filters
+  if (projClassification !== "any") {
+    projectFilters.push({ classification: projClassification });
   }
 
   // If project status is not 'any', add it to the filters
@@ -341,22 +342,24 @@ function _generateProjectMatchObj({
 
   // Generate visibility query
   let visibilityQuery = {};
-  // if (origin === "conductor" && userUUID && projVisibility === "private") {
-  //   const teamMemberQuery =
-  //     projectAPI.constructProjectTeamMemberQuery(userUUID);
+  if (!isSuperAdmin && userUUID) {
+    const teamMemberQuery =
+      projectAPI.constructProjectTeamMemberQuery(userUUID);
 
-  //   const privateProjectQuery = {
-  //     $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
-  //   };
+    const privateProjectQuery = {
+      $and: [{ visibility: "private" }, { $or: teamMemberQuery }],
+    };
 
-  //   visibilityQuery = {
-  //     ...privateProjectQuery,
-  //   };
-  // } else {
-  //   visibilityQuery = { visibility: "public" };
-  // }
-  // projectFilters.push(visibilityQuery);
-  projectFilters.push({ visibility: "public" }); // TODO: handle showing private projects when logged in
+    visibilityQuery = {
+      ...privateProjectQuery,
+    };
+  } else {
+    visibilityQuery = { visibility: "public" };
+  }
+
+  if (Object.keys(visibilityQuery).length > 0) {
+    projectFilters.push(visibilityQuery);
+  }
 
   // If multiple filters, use $and, otherwise just use the filter
   if (projectFilters.length > 1) {
@@ -394,36 +397,38 @@ export async function assetsSearch(
   try {
     //req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
 
-    const mongoSearchQueryTerm = req.query.searchQuery;
+    const mongoSearchQueryTerm = req.query.searchQuery ?? "";
     const assetsPage = parseInt(req.query.page?.toString()) || 1;
     const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
-    const assetsOffset = getPaginationOffset(assetsPage, req.query.limit);
+    const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
 
     const searchQueryObj = _buildAssetsSearchQuery({
       query: mongoSearchQueryTerm,
-      fileTypeFilter: req.query.fileType || undefined,
-      licenseFilter: req.query.license || undefined,
-      licenseVersionFilter: req.query.licenseVersion || undefined,
-      strictMode: req.query.strictMode || false,
+      fileTypeFilter: req.query.fileType,
+      licenseFilter: req.query.license,
+      licenseVersionFilter: req.query.licenseVersion,
+      strictMode: req.query.strictMode,
     });
 
     const matchObj = _buildFilesFilter({
-      query: mongoSearchQueryTerm || "",
-      fileTypeFilter: req.query.fileType || undefined,
-      licenseFilter: req.query.license || undefined,
-      licenseVersionFilter: req.query.licenseVersion || undefined,
-      strictMode: req.query.strictMode || false,
+      query: mongoSearchQueryTerm,
+      fileTypeFilter: req.query.fileType,
+      licenseFilter: req.query.license,
+      licenseVersionFilter: req.query.licenseVersion,
+      strictMode: req.query.strictMode,
     });
 
     const fromProjectFilesPromise = ProjectFile.aggregate([
-      {
-        $search: searchQueryObj,
-      },
-      {
-        $addFields: {
-          score: { $meta: "searchScore" },
-        },
-      },
+      ...(Object.keys(searchQueryObj).length > 0
+        ? [
+            { $search: searchQueryObj },
+            {
+              $addFields: {
+                score: { $meta: "searchScore" },
+              },
+            },
+          ]
+        : []),
       {
         $match: {
           $and: [
@@ -448,7 +453,6 @@ export async function assetsSearch(
                 localField: "framework",
                 foreignField: "_id",
                 pipeline: [
-                  // Go through each template in framework and lookup key
                   {
                     $unwind: {
                       path: "$templates",
@@ -545,6 +549,8 @@ export async function assetsSearch(
                 $expr: {
                   $eq: ["$projectID", "$$searchID"],
                 },
+                visibility: "public",
+                orgID: process.env.ORG_ID,
               },
             },
             {
@@ -565,10 +571,19 @@ export async function assetsSearch(
         },
       },
       {
+        $match: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set
+          projectInfo: {
+            $exists: true,
+            $ne: [null, {}],
+          },
+        },
+      },
+      {
         $sort: {
           _id: 1,
-        }
-      }
+        },
+      },
     ]);
 
     const fromAssetTagsPromise = AssetTag.aggregate([
@@ -622,41 +637,40 @@ export async function assetsSearch(
         },
       },
       {
-        $project:
-          {
-            projectInfo: {
-              _id: 0,
-              projectID: 0,
-              orgID: 0,
-              status: 0,
-              visibility: 0,
-              currentProgress: 0,
-              peerProgress: 0,
-              a11yProgress: 0,
-              leads: 0,
-              liaisons: 0,
-              members: 0,
-              auditors: 0,
-              tags: 0,
-              allowAnonPR: 0,
-              cidDescriptors: 0,
-              associatedOrgs: 0,
-              a11yReview: 0,
-              createdAt: 0,
-              updatedAt: 0,
-              __v: 0,
-              adaptCourseID: 0,
-              adaptURL: 0,
-              classification: 0,
-              defaultFileLicense: 0,
-              libreCampus: 0,
-              libreLibrary: 0,
-              libreShelf: 0,
-              projectURL: 0,
-              didCreateWorkbench: 0,
-              didMigrateWorkbench: 0,
-            },
+        $project: {
+          projectInfo: {
+            _id: 0,
+            projectID: 0,
+            orgID: 0,
+            status: 0,
+            visibility: 0,
+            currentProgress: 0,
+            peerProgress: 0,
+            a11yProgress: 0,
+            leads: 0,
+            liaisons: 0,
+            members: 0,
+            auditors: 0,
+            tags: 0,
+            allowAnonPR: 0,
+            cidDescriptors: 0,
+            associatedOrgs: 0,
+            a11yReview: 0,
+            createdAt: 0,
+            updatedAt: 0,
+            __v: 0,
+            adaptCourseID: 0,
+            adaptURL: 0,
+            classification: 0,
+            defaultFileLicense: 0,
+            libreCampus: 0,
+            libreLibrary: 0,
+            libreShelf: 0,
+            projectURL: 0,
+            didCreateWorkbench: 0,
+            didMigrateWorkbench: 0,
           },
+        },
       },
       {
         $lookup: {
@@ -761,8 +775,8 @@ export async function assetsSearch(
       {
         $sort: {
           _id: 1,
-        }
-      }
+        },
+      },
     ]);
 
     const aggregations = [fromProjectFilesPromise];
@@ -789,7 +803,6 @@ export async function assetsSearch(
 
     const totalCount = withoutDuplicates.length;
 
-    //'Paginate' results since we can't use skip/limit since there are two aggregations
     const paginated = withoutDuplicates.slice(
       assetsOffset,
       assetsOffset + assetsLimit
@@ -879,23 +892,30 @@ function _buildAssetsSearchQuery({
   strictMode?: boolean;
 }) {
   const baseQuery: Record<any, any> = {
-    text: {
-      query: query || "",
-      path: {
-        wildcard: "*",
+    ...(query && {
+      text: {
+        query,
+        path: {
+          wildcard: "*",
+        },
+        fuzzy: {
+          maxEdits: 2,
+          maxExpansions: 50,
+        },
       },
-      fuzzy: {
-        maxEdits: 2,
-        maxExpansions: 50,
-      },
-    },
+    }),
   };
 
-  if (!fileTypeFilter && !licenseFilter && !licenseVersionFilter) {
+  if (!fileTypeFilter && !licenseFilter) {
     return baseQuery;
   }
 
   const compoundQueries = [];
+
+  if (Object.keys(baseQuery).length > 0) {
+    compoundQueries.push(baseQuery);
+  }
+
   if (fileTypeFilter) {
     const isWildCard = fileTypeFilter.includes("*");
     const parsedFileFilter = isWildCard
@@ -903,7 +923,7 @@ function _buildAssetsSearchQuery({
       : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
     compoundQueries.push({
       text: {
-        path: "files.mimeType",
+        path: "mimeType",
         query: parsedFileFilter,
       },
     });
@@ -912,20 +932,21 @@ function _buildAssetsSearchQuery({
   if (licenseFilter) {
     compoundQueries.push({
       text: {
-        path: "files.license.name",
+        path: "license.name",
         query: licenseFilter,
       },
     });
   }
 
-  const compoundQueryObj = strictMode === true ? { must: [...compoundQueries] } : { should: [...compoundQueries] };
-  
+  const compoundQueryObj =
+    strictMode === true
+      ? { must: [...compoundQueries] }
+      : { should: [...compoundQueries] };
+
   // Build compound query
-  const filteredQuery = {
+  return {
     compound: compoundQueryObj,
   };
-
-  return filteredQuery;
 }
 
 async function homeworkSearch(
