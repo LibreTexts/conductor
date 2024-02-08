@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PaginationSchema, isMongoIDValidator } from "./misc.js";
+import { zfd } from "zod-form-data";
 
 export const assetTagSchema = z.object({
   key: z.string(),
@@ -17,7 +18,7 @@ const _projectFileParams = z.object({
 });
 
 export const projectFileSchema = z.object({
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().max(500).optional(),
   tags: z.array(assetTagSchema).optional(),
   license: z
@@ -26,7 +27,7 @@ export const projectFileSchema = z.object({
       url: z.string().trim().url().optional().or(z.literal("")),
       version: z.string().trim().max(255).optional().or(z.literal("")),
       sourceURL: z.string().url().optional(),
-      modifiedFromSource: z.boolean().optional(),
+      modifiedFromSource: z.coerce.boolean().optional(),
       additionalTerms: z.string().trim().max(500).optional(),
     })
     .optional(),
@@ -49,29 +50,40 @@ export const projectFileSchema = z.object({
       url: z.string().url().optional().or(z.literal("")),
     })
     .optional(),
-  isURL: z.boolean().optional(),
+  isURL: z.coerce.boolean().optional(),
   fileURL: z.string().url().optional(),
-  overwriteName: z.coerce.boolean().optional(),
+  parentID: z.string().uuid().optional().or(z.literal("")),
 });
 
 export const addProjectFileSchema = z.object({
   params: z.object({
     projectID: _projectIDSchema,
   }),
-  body: projectFileSchema.merge(
-    z.object({
-      storageType: z.enum(["file", "folder"]),
-      parentID: z.string().uuid().optional(),
-      folderName: z.string().trim().max(100).optional(),
-    })
-  ),
+  body: zfd.formData(projectFileSchema),
+});
+
+export const addProjectFileFolderSchema = z.object({
+  params: z.object({
+    projectID: _projectIDSchema,
+  }),
+  body: z.object({
+    name: z.string().trim().min(1).max(100),
+    parentID: z.string().uuid().optional().or(z.literal("")),
+  }),
 });
 
 export const updateProjectFileSchema = z.object({
   params: _projectFileParams,
-  body: projectFileSchema
-    .partial()
-    .merge(z.object({ tags: z.array(assetTagSchema).optional() })),
+  body: zfd.formData(
+    projectFileSchema
+      .partial()
+      .merge(
+        z.object({
+          tags: z.array(assetTagSchema).optional(),
+          overwriteName: z.coerce.boolean().optional(),
+        })
+      )
+  ),
 });
 
 export const updateProjectFileAccessSchema = z.object({

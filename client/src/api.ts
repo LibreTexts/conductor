@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import {
   AssetFilters,
   AssetSearchParams,
@@ -102,6 +102,43 @@ class API {
     const res = await axios.put<ConductorBaseResponse>(`/org/${orgID}`, {
       defaultAssetTagFrameworkUUID: frameworkID,
     });
+    return res;
+  }
+
+  // ASSETS
+  async addProjectFile(projectID: string, file: FormData, opts?: AxiosRequestConfig) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/project/${projectID}/files`,
+      file,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        ...opts,
+      }
+    );
+    return res;
+  }
+
+  async addProjectFileFolder(projectID: string, name: string, parentID?: string) {
+    const res = await axios.post<ConductorBaseResponse>(`/project/${projectID}/files/folder`, {
+      name,
+      parentID
+    });
+    return res;
+  }
+
+  async replaceProjectFile_FormData(projectID: string, fileID: string, file: FormData, opts?: AxiosRequestConfig) {
+    const res = await axios.put<ConductorBaseResponse>(
+      `/project/${projectID}/files/${fileID}`,
+      file,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        ...opts,
+      }
+    );
     return res;
   }
 
