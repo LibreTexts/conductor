@@ -1342,22 +1342,59 @@ async function getPublicProjects(req, res) {
     const limit = parseInt(req.query.limit) || 10;
     const offset = getPaginationOffset(page, limit);
 
-    const projects = await Project.find({
-      orgID: process.env.ORG_ID,
-      visibility: "public",
-    }).select({
-      notes: 0, leads: 0 , liaisons: 0, members: 0, auditors: 0, a11yReview: 0, flag: 0, flagDescrip: 0
-    }).skip(offset).limit(limit).lean().exec();
-
-    const totalCount = await Project.estimatedDocumentCount({
-      orgID: process.env.ORG_ID,
-      visibility: "public",
-    });
+    const aggRes = await Project.aggregate([{
+       $facet: {
+        projects: [
+          {
+            $match: {
+              orgID: process.env.ORG_ID,
+              visibility: "public",
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              orgID: 1,
+              projectID: 1,
+              title: 1,
+              status: 1,
+              visibility: 1,
+              currentProgress: 1,
+              peerProgress: 1,
+              a11yProgress: 1,
+              tags: 1,
+              classification: 1,
+              libreLibrary: 1,
+              libreCoverID: 1,
+              thumbnail: 1,
+              libreLibrary: 1,
+            },
+          },
+          {
+            $skip: offset,
+          },
+          {
+            $limit: limit,
+          },
+        ],
+        totalCount: [
+          {
+            $match: {
+              orgID: process.env.ORG_ID,
+              visibility: "public",
+            },
+          },
+          {
+            $count: "count",
+          },
+        ],
+      }
+    }]);
 
     return res.send({
       err: false,
-      projects: projects || [],
-      totalCount: totalCount || 0,
+      projects: aggRes[0].projects || [],
+      totalCount: aggRes[0].totalCount[0].count || 0,
     });
   } catch (e) {
     debugError(e);
