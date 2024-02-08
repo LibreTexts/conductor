@@ -1393,8 +1393,8 @@ async function getPublicProjects(req, res) {
 
     return res.send({
       err: false,
-      projects: aggRes[0].projects || [],
-      totalCount: aggRes[0].totalCount[0].count || 0,
+      projects: aggRes[0]?.projects ?? [],
+      totalCount: aggRes[0]?.totalCount[0]?.count ?? 0,
     });
   } catch (e) {
     debugError(e);
