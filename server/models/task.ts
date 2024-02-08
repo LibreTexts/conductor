@@ -26,11 +26,13 @@ const TaskSchema = new Schema<TaskInterface>(
       // the projectID the task belongs to
       type: String,
       required: true,
+      index: true,
     },
     taskID: {
       // base62 16-digit identifier
       type: String,
       required: true,
+      index: true,
     },
     title: {
       // task title
