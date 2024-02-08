@@ -615,22 +615,33 @@ async function updateTicket(
 
     const user = await User.findOne({ uuid: userUUID }).orFail();
 
-    const ticket = await SupportTicket.findOneAndUpdate(
-      { uuid },
-      {
-        priority,
-        status,
-        timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
-      }
-    ).orFail();
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
+    // If status/priority is the same, just return the ticket
+    if (ticket.status === status && ticket.priority === priority) {
+      return res.send({
+        err: false,
+        ticket,
+      });
+    }
+
+    let updatedFeed = ticket.feed;
     if (status === "closed") {
       const feedEntry = _createFeedEntry_Closed(
         `${user.firstName} ${user.lastName}`
       );
-      ticket.feed.push(feedEntry);
-      await ticket.save();
+      updatedFeed.push(feedEntry);
     }
+
+    await SupportTicket.updateOne(
+      { uuid },
+      {
+        priority,
+        status,
+        feed: updatedFeed,
+        timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
+      }
+    ).orFail();
 
     return res.send({
       err: false,

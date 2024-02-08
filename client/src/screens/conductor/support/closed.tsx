@@ -37,7 +37,7 @@ const SupportDashboard = () => {
 
   useEffect(() => {
     getClosedTickets();
-  }, [activePage, itemsPerPage, activeSort])
+  }, [activePage, itemsPerPage, activeSort]);
 
   async function getClosedTickets() {
     try {
@@ -58,8 +58,8 @@ const SupportDashboard = () => {
       }
 
       setTotalItems(res.data.total);
-      setTotalPages(Math.ceil(res.data.total / totalItems));
-      return (res.data.tickets as SupportTicket[]) ?? [];
+      setTotalPages(Math.ceil(res.data.total / itemsPerPage));
+      setClosedTickets(res.data.tickets);
     } catch (err) {
       handleGlobalError(err);
       return [];
