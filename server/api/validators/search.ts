@@ -63,7 +63,7 @@ export const projectSearchSchema = z.object({
     .object({
       location: z.enum(["local", "global"]).default("global"),
       status: z.string().default("any"),
-      visibility: z.enum(["public", "private"]).default("public"),
+      classification: z.string().default("any"),
       sort: z
         .enum([
           "title",

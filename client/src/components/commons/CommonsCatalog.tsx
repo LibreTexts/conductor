@@ -29,9 +29,6 @@ const CommonsCatalog = () => {
 
   const [searchString, setSearchString] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-  const [searchResourceType, setSearchResourceType] = useState<
-    "books" | "assets" | "projects"
-  >("books");
 
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
@@ -492,8 +489,8 @@ const CommonsCatalog = () => {
                   <AdvancedSearchDrawer
                     searchString={searchString}
                     setSearchString={setSearchString}
-                    resourceType={searchResourceType}
-                    setResourceType={setSearchResourceType}
+                    activeIndex={activeIndex}
+                    setActiveIndex={setActiveIndex}
                     submitSearch={updateSearchParam}
                     bookFilters={bookFilters}
                     setBookFilters={setBookFilters}

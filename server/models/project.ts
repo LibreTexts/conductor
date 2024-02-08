@@ -95,6 +95,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
       type: String,
       default: "private",
       enum: ["public", "private"],
+      index: true,
     },
     /**
      * Estimated Project progress (%).

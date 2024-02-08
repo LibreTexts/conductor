@@ -785,14 +785,15 @@ async function getCommonsCatalog(
       libreCoverID: 1,
     };
 
-    const projResults = await Project.aggregate([
-      {
-        $match: projectWithAssociatedBookQuery,
-      },
-      {
-        $project: projectWithAssociatedBookProjection,
-      },
-    ]) ?? [];
+    const projResults =
+      (await Project.aggregate([
+        {
+          $match: projectWithAssociatedBookQuery,
+        },
+        {
+          $project: projectWithAssociatedBookProjection,
+        },
+      ])) ?? [];
 
     const projBookIDs = projResults.map(
       (proj) => `${proj.libreLibrary}-${proj.libreCoverID}`
@@ -879,19 +880,22 @@ async function getCommonsCatalog(
     }, []);
 
     // Ensure no duplicates
-    const resultBookIDs = [...new Set(aggResults.map((book) => book.bookID))];
-    const resultBooks = [
-      ...aggResults.filter((book) => resultBookIDs.includes(book.bookID)),
-    ]
-
+    const resultBookIDs = new Set();
+    const resultBooks = aggResults.filter((book) => {
+      if (!resultBookIDs.has(book.bookID)) {
+        resultBookIDs.add(book.bookID);
+        return true;
+      }
+      return false;
+    });
+    
     const totalNumBooks = resultBooks.length;
-    const offset = getRandomOffset(totalNumBooks)
+    const offset = getRandomOffset(totalNumBooks);
 
-    const randomized = resultBooks.slice(offset, offset + limit)
+    const randomized = resultBooks.slice(offset, offset + limit);
 
     return res.send({
       err: false,
-      numFound: resultBooks.length,
       numTotal: totalNumBooks,
       books: randomized,
     });

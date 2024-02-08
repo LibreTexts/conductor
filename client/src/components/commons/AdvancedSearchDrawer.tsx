@@ -16,10 +16,10 @@ import CatalogBookFilters from "./CommonsCatalog/CatalogBookFilters";
 
 interface AdvancedSearchDrawerProps
   extends React.HTMLAttributes<HTMLDivElement> {
+  activeIndex: number;
+  setActiveIndex: (index: number) => void;
   searchString: string;
   setSearchString: (searchString: string) => void;
-  resourceType: "books" | "assets" | "projects";
-  setResourceType: (resourceType: "books" | "assets" | "projects") => void;
   submitSearch: () => void;
   assetFilters: AssetFilters;
   setAssetFilters: (filters: AssetFilters) => void;
@@ -30,10 +30,10 @@ interface AdvancedSearchDrawerProps
 }
 
 const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
+  activeIndex,
+  setActiveIndex,
   searchString,
   setSearchString,
-  resourceType,
-  setResourceType,
   submitSearch,
   assetFilters,
   setAssetFilters,
@@ -54,8 +54,8 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
     setStrictMode(false);
   }
 
-  function handleChangeResourceType(type: "books" | "assets" | "projects") {
-    setResourceType(type);
+  function handleChangeResourceType(idx: number) {
+    setActiveIndex(idx);
     setBookFilters({});
     setAssetFilters({});
     setStrictMode(false);
@@ -63,11 +63,8 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
 
   return (
     <div className="flex flex-row justify-center" {...rest}>
-      <div className="border-2 rounded-md shadow-md p-4 w-1/2">
+      <div className="border-2 rounded-md shadow-md p-4 w-2/3">
         <Form onSubmit={(e) => e.preventDefault()}>
-          <p className="text-center text-lg font-bold !-mt-1 !-mb-1">
-            Advanced Search Options
-          </p>
           <div className="flex flex-row mt-2">
             <label className="font-bold">Resource Type:</label>
             <div className="flex flex-row">
@@ -76,8 +73,8 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
                 name="resource-type"
                 id="books"
                 className="!ml-4"
-                checked={resourceType === "books"}
-                onChange={() => handleChangeResourceType("books")}
+                checked={activeIndex === 0}
+                onChange={() => handleChangeResourceType(0)}
               />
               <label htmlFor="books" className="ml-1">
                 Books
@@ -89,8 +86,8 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
                 name="resource-type"
                 id="assets"
                 className="!ml-4"
-                checked={resourceType === "assets"}
-                onChange={() => handleChangeResourceType("assets")}
+                checked={activeIndex === 1}
+                onChange={() => handleChangeResourceType(1)}
               />
               <label htmlFor="assets" className="ml-1">
                 Assets
@@ -102,8 +99,8 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
                 name="resource-type"
                 id="projects"
                 className="!ml-4"
-                checked={resourceType === "projects"}
-                onChange={() => handleChangeResourceType("projects")}
+                checked={activeIndex === 2}
+                onChange={() => handleChangeResourceType(2)}
               />
               <label htmlFor="projects" className="ml-1">
                 Projects
@@ -115,12 +112,12 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
             <label htmlFor="" className="font-bold">
               Additional Filters
             </label>
-            {resourceType === "books" ? (
+            {activeIndex === 0 ? (
               <CatalogBookFilters
                 selectedFilters={bookFilters}
                 setSelectedFilters={(filters) => setBookFilters(filters)}
               />
-            ) : resourceType === "assets" ? (
+            ) : activeIndex === 1 ? (
               <CatalogAssetFilters
                 selectedFilters={assetFilters}
                 setSelectedFilters={(filters) => setAssetFilters(filters)}
@@ -151,10 +148,6 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
                 }
               />
             </div>
-            <Button color="blue" onClick={submitSearch}>
-              <Icon name="search" />
-              Search
-            </Button>
           </div>
         </Form>
       </div>
