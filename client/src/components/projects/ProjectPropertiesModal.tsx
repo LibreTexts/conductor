@@ -530,18 +530,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   id="projectURL"
                 />
               </Form.Field>
-              <div>
-                {!getValues("projectURL") && (
-                  <Button
-                    color="blue"
-                    onClick={() => setShowCreateWorkbenchModal(true)}
-                    className="!mb-4"
-                  >
-                    <Icon name="plus" />
-                    Create Book
-                  </Button>
-                )}
-              </div>
             </>
           )}
 
@@ -977,13 +965,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               },
             },
           ]}
-        />
-        <CreateWorkbenchModal
-          show={showCreateWorkbenchModal}
-          projectID={watch("projectID")}
-          projectTitle={watch("title")}
-          onClose={() => setShowCreateWorkbenchModal(false)}
-          onSuccess={() => window.location.reload()}
         />
       </Modal.Content>
       <Modal.Actions>

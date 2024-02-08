@@ -1,6 +1,8 @@
 import { Button, Header, Icon, Popup } from "semantic-ui-react";
 import { normalizeURL } from "../util/HelperFunctions";
 import { buildCommonsUrl, buildWorkbenchURL } from "../../utils/projectHelpers";
+import { lazy, useState } from "react";
+const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
 interface ProjectLinkButtonsProps {
   libreLibrary?: string;
@@ -8,6 +10,8 @@ interface ProjectLinkButtonsProps {
   projectLink?: string;
   didCreateWorkbench?: boolean;
   hasCommonsBook?: boolean;
+  projectID?: string;
+  projectTitle?: string;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -16,14 +20,28 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   projectLink,
   didCreateWorkbench,
   hasCommonsBook = false,
+  projectID,
+  projectTitle,
 }) => {
+  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
+    useState(false);
   const validWorkbench = didCreateWorkbench && libreCoverID && libreLibrary;
+
   return (
     <div>
       <Header as="span" sub>
         Important Links:{" "}
       </Header>
       <div className="flex flex-row mt-2">
+        {!projectLink && !didCreateWorkbench && (
+          <Button
+            color="blue"
+            onClick={() => setShowCreateWorkbenchModal(true)}
+          >
+            <Icon name="plus" />
+            Create Book
+          </Button>
+        )}
         <Popup
           content={
             validWorkbench
@@ -74,15 +92,28 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   : () => {}
               }
               className={
-                hasCommonsBook && libreCoverID && libreLibrary ? "" : "!cursor-default opacity-45"
+                hasCommonsBook && libreCoverID && libreLibrary
+                  ? ""
+                  : "!cursor-default opacity-45"
               }
-              color={hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"}
+              color={
+                hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"
+              }
             >
               Commons Page
               <Icon name="external alternate" className="!ml-2" />
             </Button>
           }
         />
+        {projectID && projectTitle && (
+          <CreateWorkbenchModal
+            show={showCreateWorkbenchModal}
+            projectID={projectID}
+            projectTitle={projectTitle}
+            onClose={() => setShowCreateWorkbenchModal(false)}
+            onSuccess={() => window.location.reload()}
+          />
+        )}
       </div>
     </div>
   );
