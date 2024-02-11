@@ -1431,11 +1431,14 @@ const ProjectView = (props) => {
   }
 
   function handleGoToRemixer() {
-    if(project.libreLibrary){
-      window.open(buildRemixerURL(project.libreLibrary));
-    } else {
-      window.open(buildRemixerURL('chem'));
-    }
+    window.open(
+      buildRemixerURL(
+        project.libreLibrary ?? 'chem',
+        project.didCreateWorkbench && project.libreLibrary && project.libreCoverID
+          ? buildWorkbenchURL(project.libreLibrary, project.libreCoverID)
+          : undefined
+      )
+    );
   }
 
   // Rendering Helper Booleans

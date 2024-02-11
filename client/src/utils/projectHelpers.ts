@@ -26,8 +26,14 @@ export function buildWorkbenchURL(libreLibrary: string, libreCoverID: string) {
   return `https://${libreLibrary}.libretexts.org/@go/page/${libreCoverID}`;
 }
 
-export function buildRemixerURL(libreLibrary: string) {
-  return `https://${libreLibrary}.libretexts.org/Under_Construction/Development_Details/OER_Remixer`;
+export function buildRemixerURL(libreLibrary: string, workbenchURL: string) {
+  const queryParams = new URLSearchParams();
+  if (workbenchURL) {
+    queryParams.set('remixURL', workbenchURL);
+    queryParams.set('autoLoad', 'true');
+  }
+  const queryString = queryParams.toString();
+  return `https://${libreLibrary}.libretexts.org/Under_Construction/Development_Details/OER_Remixer${queryString ? `?${queryString}` : ''}`;
 }
 
 export function buildCommonsUrl(libreLibrary: string, libreCoverID: string) {
