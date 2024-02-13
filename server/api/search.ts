@@ -123,14 +123,8 @@ async function projectsSearch(
       },
     ]);
 
-    const totalCount = results.length;
-    const paginated = results.slice(
-      projectsOffset,
-      projectsOffset + projectsLimit
-    );
-
     //Sort projects
-    paginated.sort((a, b) => {
+    results.sort((a, b) => {
       let aData = null;
       let bData = null;
       if (req.query.sort === "title") {
@@ -149,6 +143,12 @@ async function projectsSearch(
       }
       return 0;
     });
+
+    const totalCount = results.length;
+    const paginated = results.slice(
+      projectsOffset,
+      projectsOffset + projectsLimit
+    );
 
     return res.send({
       err: false,
