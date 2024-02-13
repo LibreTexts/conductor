@@ -401,38 +401,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             required
           />
           <div className="flex flex-row justify-between mt-4">
-            <CtlTextInput
-              name="currentProgress"
-              control={control}
-              label="Current Progress"
-              placeholder="Enter current estimated progress..."
-              type="number"
-              min="0"
-              max="100"
-              className="w-full mr-6"
-            />
-            <CtlTextInput
-              name="peerProgress"
-              control={control}
-              label="Peer Review Progress"
-              placeholder="Enter current estimated progress..."
-              type="number"
-              min="0"
-              max="100"
-              className="w-full mr-6"
-            />
-            <CtlTextInput
-              name="a11yProgress"
-              control={control}
-              label="Accessibility Progress"
-              placeholder="Enter current estimated progress..."
-              type="number"
-              min="0"
-              max="100"
-              className="w-full"
-            />
-          </div>
-          <div className="flex flex-row justify-between mt-4">
             <div className="w-full mr-6">
               <label htmlFor="projectStatus" className="form-field-label">
                 Status

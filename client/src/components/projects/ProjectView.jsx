@@ -1758,39 +1758,12 @@ const ProjectView = (props) => {
                     </Grid.Column>
                   </Grid.Row>
                 }
-                <Grid.Row className='mb-2p'>
+                <Grid.Row className='mb-2p mt-2'>
                   <Grid.Column>
-                    <Header as='h2' dividing>Project Information</Header>
                     <Grid>
-                      <Grid.Row centered>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Project</strong></p>
-                          <ProjectProgressBar
-                            progress={project.currentProgress || 0}
-                            type="progress"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Peer Review</strong></p>
-                          <ProjectProgressBar
-                            progress={project.peerProgress || 0}
-                            type="peer"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                        <Grid.Column width={4} className='project-progress-column'>
-                          <p className='text-center'><strong>Accessibility</strong></p>
-                          <ProjectProgressBar
-                            progress={project.a11yProgress || 0}
-                            type="a11y"
-                            showPercent={true}
-                          />
-                        </Grid.Column>
-                      </Grid.Row>
                       <Grid.Row columns='equal'>
                         <Grid.Column>
-                          <Header as='h3' dividing>Project Properties</Header>
+                          <Header as='h2' dividing>Project Properties</Header>
                           <div className='mb-1p'>
                             <Header as='span' sub>Status: </Header>
                             <span>{project.status ? capitalizeFirstLetter(project.status) : 'Loading...'}</span>
@@ -1880,7 +1853,7 @@ const ProjectView = (props) => {
                         </Grid.Column>
                         {hasResourceInfo &&
                           <Grid.Column>
-                            <Header as='h3' dividing>Source Properties</Header>
+                            <Header as='h2' dividing>Source Properties</Header>
                             {(project.author && !isEmptyString(project.author)) &&
                               <div className='mb-1p'>
                                 <Header as='span' sub>Author: </Header>

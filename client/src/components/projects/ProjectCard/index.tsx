@@ -1,11 +1,7 @@
-import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-import PropTypes from "prop-types";
 import { Card, Popup, Icon, Button } from "semantic-ui-react";
 import { format, parseISO } from "date-fns";
 import { truncateString } from "../../util/HelperFunctions";
-import ProjectProgressBar from "../ProjectProgressBar";
-import "./ProjectCard.css";
 import { Project } from "../../../types";
 
 type ProjectCardProps = {
@@ -42,20 +38,20 @@ const ProjectCard = ({
 
   return (
     <Card raised {...props}>
-      <div className="flex-col-div project-card-content">
-        <div className="flex-row-div">
-          <div className="flex-col-div project-card-title-column">
+      <div className="flex flex-col flex-grow p-4">
+        <div className="flex">
+          <div className="flex flex-col flex-1">
             <Link
-              className="project-card-title"
+              className="text-lg font-semibold opacity-85 text-black"
               to={`/projects/${project.projectID}`}
             >
               {truncateString(project.title, 100)}
             </Link>
-            <span className="muted-text project-card-lastupdate">
+            <span className="muted-text text-sm my-1">
               Last updated {updateDate} at {updateTime}
             </span>
           </div>
-          <div className="flex-col-div">
+          <div className="flex flex-col">
             {showPinButton && (
               <Popup
                 content={<span>Add to your Pinned Projects</span>}
@@ -73,29 +69,6 @@ const ProjectCard = ({
                 position="top center"
               />
             )}
-          </div>
-        </div>
-        <div className="flex-row-div">
-          <div className="project-card-progress-container">
-            <ProjectProgressBar
-              progress={project.currentProgress || 0}
-              type="progress"
-              showPercent={false}
-            />
-          </div>
-          <div className="project-card-progress-container">
-            <ProjectProgressBar
-              progress={project.peerProgress || 0}
-              type="peer"
-              showPercent={false}
-            />
-          </div>
-          <div className="project-card-progress-container">
-            <ProjectProgressBar
-              progress={project.a11yProgress || 0}
-              type="a11y"
-              showPercent={false}
-            />
           </div>
         </div>
       </div>
