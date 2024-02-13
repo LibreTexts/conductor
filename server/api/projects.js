@@ -3181,7 +3181,7 @@ const validate = (method) => {
           body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
-          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(isValidLicense),
+          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
           body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
