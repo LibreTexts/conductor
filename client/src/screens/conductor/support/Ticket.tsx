@@ -4,7 +4,6 @@ import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
 import { SupportTicket } from "../../../types";
 import axios from "axios";
-import { format, parseISO } from "date-fns";
 import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
@@ -12,7 +11,6 @@ import { Button, Icon, Label } from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
 import { isSupportStaff } from "../../../utils/supportHelpers";
-import { func } from "prop-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TicketInternalMessaging from "../../../components/support/TicketInternalMessaging";
 import TicketAttachments from "../../../components/support/TicketAttachments";
@@ -36,6 +34,7 @@ const SupportTicketView = () => {
   const [id, setId] = useState<string>("");
   const [accessKey, setAccessKey] = useState("");
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const id = getIdFromURL(location.pathname);
@@ -95,6 +94,7 @@ const SupportTicketView = () => {
         throw new Error("Invalid ticket ID");
       }
 
+      setLoading(true);
       const res = await axios.patch(`/support/ticket/${id}`, {
         ...ticket,
         status,
@@ -105,6 +105,8 @@ const SupportTicketView = () => {
       }
     } catch (err) {
       handleGlobalError(err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -115,20 +117,39 @@ const SupportTicketView = () => {
 
   const AdminOptions = () => (
     <div className="flex flex-row">
-      <Button color="blue" onClick={() => setShowAssignModal(true)}>
-        <Icon name="user plus" />
-        {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
-          ? "Re-Assign"
-          : "Assign"}{" "}
-        Ticket
-      </Button>
-      <Button
-        color="green"
-        onClick={() => updateTicketMutation.mutateAsync("closed")}
-      >
-        <Icon name="check" />
-        Mark as Resolved
-      </Button>
+      {["open", "in_progress"].includes(ticket?.status ?? "") && (
+        <>
+          <Button
+            color="blue"
+            onClick={() => setShowAssignModal(true)}
+            loading={loading || isFetching}
+          >
+            <Icon name="user plus" />
+            {ticket?.assignedUUIDs && ticket?.assignedUUIDs?.length > 0
+              ? "Re-Assign"
+              : "Assign"}{" "}
+            Ticket
+          </Button>
+          <Button
+            color="green"
+            onClick={() => updateTicketMutation.mutateAsync("closed")}
+            loading={loading || isFetching}
+          >
+            <Icon name="check" />
+            Mark as Resolved
+          </Button>
+        </>
+      )}
+      {ticket?.status === "closed" && (
+        <Button
+          color="orange"
+          onClick={() => updateTicketMutation.mutateAsync("in_progress")}
+          loading={loading || isFetching}
+        >
+          <Icon name="undo" />
+          Re-Open Ticket
+        </Button>
+      )}
     </div>
   );
 

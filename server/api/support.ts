@@ -626,11 +626,32 @@ async function updateTicket(
     }
 
     let updatedFeed = ticket.feed;
-    if (status === "closed") {
+
+    // Check if status is changing to closed, if so, add a feed entry
+    if (
+      ["open", "in_progress"].includes(ticket.status) &&
+      status === "closed"
+    ) {
       const feedEntry = _createFeedEntry_Closed(
         `${user.firstName} ${user.lastName}`
       );
       updatedFeed.push(feedEntry);
+    }
+
+    // Check if ticket is being reopened, if so, add a feed entry
+    if (ticket.status === "closed" && status === "in_progress") {
+      const feedEntry = _createFeedEntry_Reopened(
+        `${user.firstName} ${user.lastName}`
+      );
+      updatedFeed.push(feedEntry);
+    }
+
+    // Else, if attempting to reset to open, fail
+    if (ticket.status === "closed" && status === "open") {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err89,
+      });
     }
 
     await SupportTicket.updateOne(
@@ -899,6 +920,16 @@ const _createFeedEntry_Closed = (
   return {
     action: `Ticket was closed`,
     blame: closer,
+    date: new Date().toISOString(),
+  };
+};
+
+const _createFeedEntry_Reopened = (
+  reopener: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Ticket was reopened`,
+    blame: reopener,
     date: new Date().toISOString(),
   };
 };
