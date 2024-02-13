@@ -55,10 +55,6 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
           {format(parseISO(ticket.timeClosed ?? ""), "MM/dd/yyyy hh:mm aa")}
         </p>
       )}
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Description:</span>{" "}
-        {ticket?.description}
-      </p>
     </div>
   );
 };

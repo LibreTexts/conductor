@@ -159,7 +159,11 @@ const SupportTicketView = () => {
                 )}
               </div>
               <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
-                <TicketMessaging id={id} guestAccessKey={accessKey} />
+                <TicketMessaging
+                  id={id}
+                  guestAccessKey={accessKey}
+                  ticket={ticket}
+                />
                 {ticket.attachments && ticket.attachments.length > 0 && (
                   <div className="mt-4">
                     <TicketAttachments ticket={ticket} />

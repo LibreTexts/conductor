@@ -1,7 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { useEffect, useRef } from "react";
 import { Button, Form, Icon, TextArea } from "semantic-ui-react";
-import { SupportTicketMessage } from "../../types";
+import { SupportTicket, SupportTicketMessage } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { Controller, useForm } from "react-hook-form";
@@ -13,11 +13,13 @@ import TicketCommentsContainer from "./TicketCommentsContainer";
 interface TicketMessagingProps {
   id: string;
   guestAccessKey?: string;
+  ticket: SupportTicket;
 }
 
 const TicketMessaging: React.FC<TicketMessagingProps> = ({
   id,
   guestAccessKey,
+  ticket
 }) => {
   const user = useTypedSelector((state) => state.user);
   const containerRef =
@@ -112,7 +114,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
 
   return (
     <div>
-      <div className="flex flex-col w-full bg-white">
+      <div className="flex flex-col w-full bg-white rounded-md">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Ticket Comments</p>
           {!isSupportStaff(user) && (
@@ -123,7 +125,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               </p>
             </div>
           )}
-          <TicketCommentsContainer ref={containerRef} messages={messages} />
+          <TicketCommentsContainer ref={containerRef} scope="general" messages={messages} ticket={ticket}/>
           <div className="mt-2">
             <p className="font-semibold mb-1 ml-1">Send Message:</p>
             <Form>
