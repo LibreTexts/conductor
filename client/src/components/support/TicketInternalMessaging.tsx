@@ -94,7 +94,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
 
   return (
     <div>
-      <div className="flex flex-col w-full bg-white">
+      <div className="flex flex-col w-full bg-white rounded-md">
         <div className="flex flex-col border shadow-md rounded-md p-4">
           <p className="text-xl font-semibold text-center">Internal Comments</p>
           <div className="px-4 mt-1 mb-1">
@@ -103,7 +103,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
               comments are not visible to the ticket submitter.
             </p>
           </div>
-          <TicketCommentsContainer ref={containerRef} messages={messages} />
+          <TicketCommentsContainer ref={containerRef} messages={messages} scope="internal" />
           <div className="mt-2">
             <p className="font-semibold mb-1 ml-1">Send Message:</p>
             <Form>
