@@ -36,6 +36,7 @@ import {
   Project,
   ProjectFile,
   ProjectFileWProjectData,
+  ProjectSearchParams,
   User,
 } from "../../../types";
 import { format, parseISO, set } from "date-fns";
@@ -78,7 +79,8 @@ const Search = () => {
   );
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsSort, setProjectsSort] = useState(projSortDefault);
+  const [projectsSort, setProjectsSort] =
+    useState<ProjectSearchParams["sort"]>(projSortDefault);
   const [projectsTotal, setProjectsTotal] = useState<number>(0);
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -274,7 +276,9 @@ const Search = () => {
 
   async function handleProjectSearch(
     query: string = searchQuery,
-    page: number = activeProjectPage
+    page: number = activeProjectPage,
+    limit: number = projectsLimit,
+    sort: ProjectSearchParams["sort"] = projectsSort
   ) {
     try {
       setProjectsLoading(true);
@@ -283,7 +287,8 @@ const Search = () => {
         searchQuery: query,
         strictMode: false,
         page,
-        limit: projectsLimit,
+        limit,
+        sort,
       });
 
       if (res.data.err) {
@@ -536,9 +541,15 @@ const Search = () => {
                         className="search-itemsperpage-dropdown"
                         selection
                         options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) =>
-                          setProjectsLimit((value as number) ?? 12)
-                        }
+                        onChange={(_e, { value }) => {
+                          const newLimit = (value as number) ?? 12;
+                          setProjectsLimit(newLimit);
+                          handleProjectSearch(
+                            searchQuery,
+                            activeProjectPage,
+                            newLimit
+                          );
+                        }}
                         value={projectsLimit}
                         aria-label="Number of results to display per page"
                       />
@@ -567,9 +578,17 @@ const Search = () => {
                         selection
                         button
                         options={projSortOptions}
-                        onChange={(_e, { value }) =>
-                          setProjectsSort((value as string) ?? "title")
-                        }
+                        onChange={(_e, { value }) => {
+                          const newSort =
+                            (value as ProjectSearchParams["sort"]) ?? "title";
+                          setProjectsSort(newSort);
+                          handleProjectSearch(
+                            searchQuery,
+                            activeProjectPage,
+                            projectsLimit,
+                            newSort
+                          );
+                        }}
                         value={projectsSort}
                         aria-label="Sort Project Results by"
                       />
