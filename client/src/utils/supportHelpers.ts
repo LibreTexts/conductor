@@ -51,6 +51,13 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
   },
 ];
 
+export const getPrettySupportTicketCategory = (category: string): string => {
+  const foundCategory = SupportTicketCategoryOptions.find(
+    (c) => c.value === category
+  );
+  return foundCategory ? foundCategory.text : "Unknown";
+}
+
 export const isSupportStaff = (user?: User): boolean => {
   if (!user || !user.uuid) return false;
   if (user.isSuperAdmin) return true;

@@ -1,6 +1,7 @@
 import { Label } from "semantic-ui-react";
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
+import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 
 interface TicketDetailsProps {
   ticket: SupportTicket;
@@ -28,7 +29,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
           `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
       </p>
       <p className="2xl:text-xl">
-        <span className="font-semibold">Subject:</span> {ticket?.title}
+        <span className="font-semibold">Category:</span> {getPrettySupportTicketCategory(ticket?.category)}
       </p>
       <p className="2xl:text-xl">
         <span className="font-semibold">Captured URL:</span>
