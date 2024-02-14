@@ -185,11 +185,9 @@ const SupportTicketView = () => {
                   guestAccessKey={accessKey}
                   ticket={ticket}
                 />
-                {ticket.attachments && ticket.attachments.length > 0 && (
-                  <div className="mt-4">
-                    <TicketAttachments ticket={ticket} />
-                  </div>
-                )}
+                <div className="mt-4">
+                  <TicketAttachments ticket={ticket} />
+                </div>
               </div>
             </div>
           </>
