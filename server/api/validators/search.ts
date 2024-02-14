@@ -8,7 +8,7 @@ export const autocompleteSchema = z.object({
       .max(100)
       .transform((v) =>
         v.trim().length > 100 ? v.trim().slice(0, 100) : v.trim()
-      ), // If the query is longer than 50 characters, trim it to 100 characters
+      ), // If the query is longer than 50 characters, trim it to 100 characters, then trim any whitespace
     limit: z.coerce.number().min(1).max(25).default(10),
   }),
 });
