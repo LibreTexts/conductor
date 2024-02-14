@@ -454,77 +454,6 @@ export async function assetsSearch(
           pipeline: [
             {
               $lookup: {
-                from: "assettagframeworks",
-                localField: "framework",
-                foreignField: "_id",
-                pipeline: [
-                  {
-                    $unwind: {
-                      path: "$templates",
-                      preserveNullAndEmptyArrays: true,
-                    },
-                  },
-                  {
-                    $lookup: {
-                      from: "assettagkeys",
-                      let: {
-                        key: "$templates.key",
-                      },
-                      pipeline: [
-                        {
-                          $match: {
-                            $expr: {
-                              $eq: ["$_id", "$$key"],
-                            },
-                          },
-                        },
-                      ],
-                      as: "key",
-                    },
-                  },
-                  {
-                    $set: {
-                      "templates.key": {
-                        $arrayElemAt: ["$key", 0],
-                      },
-                    },
-                  },
-                  {
-                    $group: {
-                      _id: "$_id",
-                      uuid: {
-                        $first: "$uuid",
-                      },
-                      name: {
-                        $first: "$name",
-                      },
-                      description: {
-                        $first: "$description",
-                      },
-                      enabled: {
-                        $first: "$enabled",
-                      },
-                      orgID: {
-                        $first: "$orgID",
-                      },
-                      templates: {
-                        $push: "$templates",
-                      },
-                    },
-                  },
-                ],
-                as: "framework",
-              },
-            },
-            {
-              $set: {
-                framework: {
-                  $arrayElemAt: ["$framework", 0],
-                },
-              },
-            },
-            {
-              $lookup: {
                 from: "assettagkeys",
                 localField: "key",
                 foreignField: "_id",
@@ -585,10 +514,19 @@ export async function assetsSearch(
         },
       },
       {
-        $sort: {
-          _id: 1,
-        },
+        $match: matchObj,
       },
+      ...(Object.keys(searchQueryObj).length > 0
+        ? [
+            {
+              $match: {
+                score: {
+                  $gte: 1,
+                },
+              },
+            },
+          ]
+        : []),
     ]);
 
     const fromAssetTagsPromise = AssetTag.aggregate([
@@ -685,78 +623,6 @@ export async function assetsSearch(
           pipeline: [
             {
               $lookup: {
-                from: "assettagframeworks",
-                localField: "framework",
-                foreignField: "_id",
-                pipeline: [
-                  // Go through each template in framework and lookup key
-                  {
-                    $unwind: {
-                      path: "$templates",
-                      preserveNullAndEmptyArrays: true,
-                    },
-                  },
-                  {
-                    $lookup: {
-                      from: "assettagkeys",
-                      let: {
-                        key: "$templates.key",
-                      },
-                      pipeline: [
-                        {
-                          $match: {
-                            $expr: {
-                              $eq: ["$_id", "$$key"],
-                            },
-                          },
-                        },
-                      ],
-                      as: "key",
-                    },
-                  },
-                  {
-                    $set: {
-                      "templates.key": {
-                        $arrayElemAt: ["$key", 0],
-                      },
-                    },
-                  },
-                  {
-                    $group: {
-                      _id: "$_id",
-                      uuid: {
-                        $first: "$uuid",
-                      },
-                      name: {
-                        $first: "$name",
-                      },
-                      description: {
-                        $first: "$description",
-                      },
-                      enabled: {
-                        $first: "$enabled",
-                      },
-                      orgID: {
-                        $first: "$orgID",
-                      },
-                      templates: {
-                        $push: "$templates",
-                      },
-                    },
-                  },
-                ],
-                as: "framework",
-              },
-            },
-            {
-              $set: {
-                framework: {
-                  $arrayElemAt: ["$framework", 0],
-                },
-              },
-            },
-            {
-              $lookup: {
                 from: "assettagkeys",
                 localField: "key",
                 foreignField: "_id",
@@ -776,11 +642,6 @@ export async function assetsSearch(
       },
       {
         $match: matchObj,
-      },
-      {
-        $sort: {
-          _id: 1,
-        },
       },
     ]);
 
@@ -839,10 +700,10 @@ function _buildFilesFilter({
 }) {
   const andQuery: Record<string, any>[] = [
     {
-      "files.access": "public",
+      access: "public",
     },
     {
-      "files.storageType": "file",
+      storageType: "file",
     },
   ];
 
@@ -854,26 +715,24 @@ function _buildFilesFilter({
         ? fileTypeFilter.split("/")[0]
         : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
 
-      const wildCardRegex = isWildCard
-        ? {
-            $regex: parsedFileFilter,
-            $options: "i",
-          }
-        : undefined;
+      const wildCardRegex = {
+        $regex: parsedFileFilter,
+        $options: "i",
+      };
       andQuery.push({
-        "files.mimeType": isWildCard ? wildCardRegex : parsedFileFilter,
+        mimeType: isWildCard ? wildCardRegex : parsedFileFilter,
       });
     }
 
     if (licenseFilter) {
       andQuery.push({
-        "files.license.name": licenseFilter,
+        "license.name": licenseFilter,
       });
     }
 
     if (licenseVersionFilter) {
       andQuery.push({
-        "files.license.version": licenseVersionFilter,
+        "license.version": licenseVersionFilter,
       });
     }
   }
@@ -900,58 +759,59 @@ function _buildAssetsSearchQuery({
     ...(query && {
       text: {
         query,
-        path: {
-          wildcard: "*",
-        },
+        path: ["name", "description"],
         fuzzy: {
           maxEdits: 2,
           maxExpansions: 50,
         },
+        score: { boost: { value: 2 } },
       },
     }),
   };
 
-  if (!fileTypeFilter && !licenseFilter) {
-    return baseQuery;
-  }
+  return baseQuery;
 
-  const compoundQueries = [];
+  // if (!fileTypeFilter && !licenseFilter) {
+  //   return baseQuery;
+  // }
 
-  if (Object.keys(baseQuery).length > 0) {
-    compoundQueries.push(baseQuery);
-  }
+  // const compoundQueries = [];
 
-  if (fileTypeFilter) {
-    const isWildCard = fileTypeFilter.includes("*");
-    const parsedFileFilter = isWildCard
-      ? fileTypeFilter.split("/")[0]
-      : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
-    compoundQueries.push({
-      text: {
-        path: "mimeType",
-        query: parsedFileFilter,
-      },
-    });
-  }
+  // if (Object.keys(baseQuery).length > 0) {
+  //   compoundQueries.push(baseQuery);
+  // }
 
-  if (licenseFilter) {
-    compoundQueries.push({
-      text: {
-        path: "license.name",
-        query: licenseFilter,
-      },
-    });
-  }
+  // if (fileTypeFilter) {
+  //   const isWildCard = fileTypeFilter.includes("*");
+  //   const parsedFileFilter = isWildCard
+  //     ? fileTypeFilter.split("/")[0]
+  //     : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
+  //   compoundQueries.push({
+  //     text: {
+  //       path: "mimeType",
+  //       query: parsedFileFilter,
+  //     },
+  //   });
+  // }
 
-  const compoundQueryObj =
-    strictMode === true
-      ? { must: [...compoundQueries] }
-      : { should: [...compoundQueries] };
+  // if (licenseFilter) {
+  //   compoundQueries.push({
+  //     text: {
+  //       path: "license.name",
+  //       query: licenseFilter,
+  //     },
+  //   });
+  // }
 
-  // Build compound query
-  return {
-    compound: compoundQueryObj,
-  };
+  // const compoundQueryObj =
+  //   strictMode === true
+  //     ? { must: [...compoundQueries] }
+  //     : { should: [...compoundQueries] };
+
+  // // Build compound query
+  // return {
+  //   compound: compoundQueryObj,
+  // };
 }
 
 async function homeworkSearch(
