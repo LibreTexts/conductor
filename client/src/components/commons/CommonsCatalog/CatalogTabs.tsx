@@ -99,9 +99,19 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             onClick={() => onActiveTabChange(2)}
           />
         </div>
-        <div className="flex flex-row items-center mr-1">
+        <div className="flex flex-row items-center mr-1 mb-1">
+          <button
+            onClick={() => {
+              jumpToBottomClicked ? window.location.reload() : jumpToBottom();
+            }}
+            className="bg-slate-100 text-black mr-4 border border-slate-300 rounded-md px-2 py-1 shadow-sm hover:shadow-md"
+          >
+            {jumpToBottomClicked
+              ? "Refresh Page to Continue Browsing"
+              : "Jump to Bottom"}
+          </button>
           <label
-            className="mt-0.5 font-semibold mr-2"
+            className="font-semibold mr-2"
             htmlFor="itemizedModeCheckbox"
           >
             Itemized Mode
@@ -155,18 +165,6 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             })}
           </div>
         )}
-        <div className="flex flex-row justify-center">
-          <button
-            onClick={() => {
-              jumpToBottomClicked ? window.location.reload() : jumpToBottom();
-            }}
-            className="bg-none text-blue-500"
-          >
-            {jumpToBottomClicked
-              ? "Refresh Page to Continue Browsing"
-              : "Jump to bottom"}
-          </button>
-        </div>
         {activeIndex === 0 && (
           <CatalogTab
             key={"books-tab"}
