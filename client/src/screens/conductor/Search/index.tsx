@@ -203,7 +203,8 @@ const Search = () => {
 
   async function handleAssetsSearch(
     query: string = searchQuery,
-    page: number = activeAssetPage
+    page: number = activeAssetPage,
+    limit: number = assetsLimit
   ) {
     try {
       setAssetsLoading(true);
@@ -212,7 +213,7 @@ const Search = () => {
         searchQuery: query,
         strictMode: false,
         page,
-        limit: assetsLimit,
+        limit,
       });
 
       if (res.data.err) {
@@ -872,9 +873,15 @@ const Search = () => {
                         className="search-itemsperpage-dropdown"
                         selection
                         options={catalogItemsPerPageOptions}
-                        onChange={(_e, { value }) =>
-                          setAssetsLimit((value as number) ?? 12)
-                        }
+                        onChange={(_e, { value }) => {
+                          const newLimit = (value as number) ?? 12;
+                          setAssetsLimit(newLimit);
+                          handleAssetsSearch(
+                            searchQuery,
+                            activeAssetPage,
+                            newLimit
+                          );
+                        }}
                         value={assetsLimit}
                         aria-label="Number of results to display per page"
                       />
