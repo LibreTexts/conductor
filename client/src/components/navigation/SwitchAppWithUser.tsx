@@ -4,6 +4,7 @@ import { User } from "../../types";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import UserDropdown from "./UserDropdown";
+import { isSupportStaff } from "../../utils/supportHelpers";
 
 interface SwitchAppWithUserProps {
   parent: "commons" | "conductor";
@@ -20,6 +21,17 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
   if (user.isAuthenticated) {
     return (
       <>
+        {isSupportStaff(user) && parent === "conductor" && (
+          <Menu.Item
+            as={Link}
+            to="/support/dashboard"
+            className="commons-nav-link"
+            aria-label="Support Center"
+          >
+            <Icon name="text telephone" className="float-right" />
+            Support Center
+          </Menu.Item>
+        )}
         <Menu.Item
           as={Link}
           to={parent === "commons" ? "/home" : "/"}
@@ -44,10 +56,10 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
               />
             </Menu.Item>
             {userOpen && <UserDropdown dropdown={false} />}
-        </>
+          </>
         )}
         {!isMobile && <UserDropdown />}
-        </>
+      </>
     );
   }
   return (
