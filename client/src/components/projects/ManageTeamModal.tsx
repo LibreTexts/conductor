@@ -81,8 +81,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         `/project/${project.projectID}/team/addable?search=${searchString}`
       );
       if (res.data.err) {
-        handleGlobalError(res.data.errMsg);
-        return;
+        throw new Error(res.data.errMsg);
       }
 
       if (!res.data.users || !Array.isArray(res.data.users)) {
@@ -107,10 +106,6 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
           },
         });
       });
-      newOptions.sort((a, b) => {
-        // use localeCompare to sort by name
-        return a.text.localeCompare(b.text);
-      });
 
       setTeamUserOptions(newOptions);
     } catch (err) {
@@ -122,7 +117,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
   const getTeamUserOptionsDebounced = debounce(
     (inputVal: string) => getTeamUserOptions(inputVal),
-    250
+    200
   );
 
   /**
