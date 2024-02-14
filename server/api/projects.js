@@ -435,7 +435,7 @@ async function getProject(req, res) {
  */
 function thumbnailUploadHandler(req, res, next) {
   const thumbnailUploadConfig = multer({
-    storage: filesStorage,
+    storage: multer.memoryStorage(),
     limits: {
       files: 1,
       fileSize: 10000000, // 10MB
@@ -509,10 +509,20 @@ async function uploadProjectThumbnail(req, res) {
       throw new Error("Failed to upload thumbnail image");
     }
 
+    // Check if the current thumbnail URL (if any) has a version number
+    let version = 1;
+    if(project.thumbnail && project.thumbnail.includes('?')){
+      const params = new URLSearchParams(project.thumbnail.split('?')[1]);
+      if(params.has('v')){
+        version = parseInt(params.get('v'));
+        version = version ? version + 1 : 1; // increment version
+      }
+    }
+
     const url = assembleUrl([
       'https://',
       process.env.AWS_PROJECT_THUMBNAILS_DOMAIN,
-      thumbnailKey,
+      thumbnailKey + '?v=' + version,
     ]);
 
     const updateRes = await Project.updateOne(
