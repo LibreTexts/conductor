@@ -74,6 +74,15 @@ const SupportCenterNavbar: React.FC<{}> = () => {
         </Form>
       </div>
       <div className="flex">
+        {/* Redirect to Conductor if logged in, else to Commons */}
+        <Button
+          className="h-10 !w-48 !mr-4"
+          as={Link}
+          to={user && user.uuid ? "/home" : "/"}
+          size="small"
+        >
+          Back to {user && user.uuid ? "Conductor" : "Commons"}
+        </Button>
         {isSupportStaff(user) ? (
           <Button
             className="h-10 !w-32"
@@ -86,19 +95,18 @@ const SupportCenterNavbar: React.FC<{}> = () => {
           </Button>
         ) : (
           <>
-            {user &&
-              user.uuid && (
-                <Button
-                  className="h-10 !w-44"
-                  color="blue"
-                  as={Link}
-                  to="/support/dashboard"
-                  size="small"
-                >
-                  <Icon name="ticket" />
-                  My Tickets
-                </Button>
-              )}
+            {user && user.uuid && (
+              <Button
+                className="h-10 !w-44"
+                color="blue"
+                as={Link}
+                to="/support/dashboard"
+                size="small"
+              >
+                <Icon name="ticket" />
+                My Tickets
+              </Button>
+            )}
             <Button
               className="h-10 !w-44"
               color="blue"
