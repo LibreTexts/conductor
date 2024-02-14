@@ -21,6 +21,7 @@ import {
 } from "./types/Express.js";
 import SupportTicket from "./models/supporticket.js";
 import User from "./models/user.js";
+import { extractZodErrorMessages } from "./api/validators/misc.js";
 
 /**
  * Checks the results of the validation stage for an API route.
@@ -286,20 +287,27 @@ const canAccessSupportTicket = async (
 
 const validateZod = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
+    let validationErrors: string[] = [];
     try {
-      await schema.parseAsync({
+      const validationRes = await schema.safeParseAsync({
         body: req.body,
         query: req.query,
         params: req.params,
       });
+
+      if(!validationRes.success) {
+        validationErrors = extractZodErrorMessages(validationRes.error);
+        throw new Error("Validation failed");
+      }
+
       next();
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        debugError(err);
+        debugError(err + ": " + validationErrors.join(", "));
       }
       return res.status(400).send({
         err: true,
-        errMsg: conductorErrors.err2,
+        errMsg: conductorErrors.err2 + ": " + validationErrors.join(", "),
       });
     }
   };

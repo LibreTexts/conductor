@@ -1,6 +1,16 @@
 import { isObjectIdOrHexString } from "mongoose";
 import { z } from "zod";
 
+export function extractZodErrorMessages(
+  validationResult: z.ZodError
+): string[] {
+  const errors: string[] = [];
+  for (const error of validationResult.issues) {
+    errors.push(error.message);
+  }
+  return errors;
+}
+
 export const isUUID = (value: string) =>
   z.string().uuid().safeParse(value).success;
 
