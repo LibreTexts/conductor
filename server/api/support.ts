@@ -134,11 +134,11 @@ async function getOpenInProgressTickets(
     const offset = getPaginationOffset(page, limit);
 
     const getSortObj = () => {
-      if (req.query.sort === "priority") {
-        return { priority: -1 };
-      }
       if (req.query.sort === "status") {
         return { status: -1 };
+      }
+      if (req.query.sort === "category") {
+        return { category: 1 };
       }
       return { timeOpened: -1 };
     };
@@ -148,8 +148,6 @@ async function getOpenInProgressTickets(
     const tickets = await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
     })
-      .skip(offset)
-      .limit(limit)
       .sort(sortObj as any)
       .populate("assignedUsers")
       .populate("user")
@@ -159,9 +157,22 @@ async function getOpenInProgressTickets(
       status: { $in: ["open", "in_progress"] },
     });
 
+    // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
+    if (req.query.sort === "priority") {
+      tickets.sort((a, b) => {
+        if (a.priority === "high" && b.priority !== "high") return -1;
+        if (a.priority !== "high" && b.priority === "high") return 1;
+        if (a.priority === "medium" && b.priority === "low") return -1;
+        if (a.priority === "low" && b.priority === "medium") return 1;
+        return 0;
+      });
+    }
+
+    const paginated = tickets.slice(offset, offset + limit);
+
     return res.send({
       err: false,
-      tickets,
+      tickets: paginated,
       total,
     });
   } catch (err) {

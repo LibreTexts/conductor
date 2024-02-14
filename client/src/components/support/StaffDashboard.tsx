@@ -11,6 +11,7 @@ import { useTypedSelector } from "../../state/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
+import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
@@ -27,7 +28,7 @@ const StaffDashboard = () => {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [metricOpen, setMetricOpen] = useState<number>(0);
-  const [metricAvgMins, setMetricAvgMins] = useState<number>(0);
+  const [metricAvgDays, setMetricAvgDays] = useState<string>("");
   const [metricWeek, setMetricWeek] = useState<number>(0);
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string>("");
@@ -87,8 +88,12 @@ const StaffDashboard = () => {
       }
 
       setMetricOpen(res.data.metrics.totalOpenTickets ?? 0);
-      setMetricAvgMins(res.data.metrics.avgMinsToClose ?? 0);
       setMetricWeek(res.data.metrics.lastSevenTicketCount ?? 0);
+
+      // Convert avgMins to days
+      const avgMins = res.data.metrics.avgMinsToClose ?? 0;
+      const avgDays = avgMins / (60 * 24);
+      setMetricAvgDays(avgDays.toPrecision(1) ?? "0");
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -129,21 +134,26 @@ const StaffDashboard = () => {
       <div className="flex flex-row justify-between items-center">
         <p className="text-4xl font-semibold">Staff Dashboard</p>
         <div className="flex flex-row">
-          <Button color="blue" size="tiny" basic onClick={() => window.location.href = '/support/closed'}>
-            <Icon name="check circle outline" />
-            View Closed
-          </Button>
-        {user.isSuperAdmin && (
           <Button
             color="blue"
             size="tiny"
-            onClick={() => setShowSettingsModal(true)}
             basic
+            onClick={() => (window.location.href = "/support/closed")}
           >
-            <Icon name="settings" />
-            Support Center Settings
+            <Icon name="check circle outline" />
+            View Closed
           </Button>
-        )}
+          {user.isSuperAdmin && (
+            <Button
+              color="blue"
+              size="tiny"
+              onClick={() => setShowSettingsModal(true)}
+              basic
+            >
+              <Icon name="settings" />
+              Support Center Settings
+            </Button>
+          )}
         </div>
       </div>
       <div className="flex flex-row justify-between w-full mt-6">
@@ -152,7 +162,7 @@ const StaffDashboard = () => {
           title="Open/In Progress Tickets"
         />
         <DashboardMetric
-          metric={`${metricAvgMins.toString()} mins`}
+          metric={metricAvgDays.toString() + " days"}
           title="Average Time to Resolution"
         />
         <DashboardMetric
@@ -170,7 +180,7 @@ const StaffDashboard = () => {
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
           sort={true}
-          sortOptions={["opened", "priority", "status"]}
+          sortOptions={["opened", "priority", "status", "category"]}
           activeSort={activeSort}
           setActiveSortFn={setActiveSort}
         />
@@ -180,6 +190,7 @@ const StaffDashboard = () => {
               <Table.HeaderCell>ID</Table.HeaderCell>
               <Table.HeaderCell>Date Opened</Table.HeaderCell>
               <Table.HeaderCell>Subject</Table.HeaderCell>
+              <Table.HeaderCell>Category</Table.HeaderCell>
               <Table.HeaderCell>Requester</Table.HeaderCell>
               <Table.HeaderCell>Assigned To</Table.HeaderCell>
               <Table.HeaderCell>Priority</Table.HeaderCell>
@@ -196,6 +207,9 @@ const StaffDashboard = () => {
                     {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
                   </Table.Cell>
                   <Table.Cell>{ticket.title}</Table.Cell>
+                  <Table.Cell>
+                    {getPrettySupportTicketCategory(ticket.category)}
+                  </Table.Cell>
                   <Table.Cell>{getRequesterText(ticket)}</Table.Cell>
                   <Table.Cell>
                     {ticket.assignedUsers
@@ -241,7 +255,7 @@ const StaffDashboard = () => {
           setItemsPerPageFn={setItemsPerPage}
           totalLength={totalItems}
           sort={true}
-          sortOptions={["opened", "priority", "status"]}
+          sortOptions={["opened", "priority", "status", "category"]}
           activeSort={activeSort}
           setActiveSortFn={setActiveSort}
         />

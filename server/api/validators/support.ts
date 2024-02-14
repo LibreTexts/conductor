@@ -58,7 +58,7 @@ export const GetOpenTicketsValidator = z.object({
   query: z.object({
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).optional(),
-    sort: z.enum(["opened", "priority", "status"]).optional(),
+    sort: z.enum(["opened", "priority", "status", 'category']).optional(),
   }),
 });
 
