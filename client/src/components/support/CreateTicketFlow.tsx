@@ -67,8 +67,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   useEffect(() => {
     if (isLoggedIn) return;
     // @ts-ignore
-    turnstile.render("#example-container", {
-      sitekey: "3x00000000000000000000FF",
+    turnstile.render("#turnstile-container", {
+      sitekey: "0x4AAAAAAAQ3wOi31ZpBiURp",
       theme: "light",
       callback: function (token: string) {
         verifyTurnstile(token);
@@ -448,7 +448,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
           />
           {!isLoggedIn && (
             <div className="flex flex-row items-center justify-center mt-8">
-              <div className="cf-turnstile" id="example-container"></div>
+              <div className="cf-turnstile" id="turnstile-container"></div>
             </div>
           )}
           <div className="flex flex-row justify-end mt-4">
