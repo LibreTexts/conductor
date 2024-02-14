@@ -670,9 +670,11 @@ async function updateProjectFile(
         if (!Array.isArray(authorsData)) return [];
         const reduced = authorsData.reduce((acc, curr) => {
           if (curr._id) {
-            acc.push(new Types.ObjectId(curr._id));
+            acc.push(new Types.ObjectId(curr._id)); //If object already has an _id, ensure it's an ObjectId and push
+          } else if (typeof curr === "string" && isObjectIdOrHexString(curr)) {
+            acc.push(new Types.ObjectId(curr)); // If it's a string and a valid ObjectId format, convert to ObjectId and push
           } else {
-            acc.push(curr);
+            acc.push(curr); // Otherwise, just push the original value (which should be object with basic author info like name, etc.)
           }
           return acc;
         }, []);

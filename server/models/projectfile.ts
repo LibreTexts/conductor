@@ -31,7 +31,7 @@ export interface ProjectFileLicense {
   additionalTerms?: string;
 }
 
-export type ProjectFileAuthor = Omit<AuthorInterface, "userUUID"> | Types.ObjectId;
+export type ProjectFileAuthor = Omit<AuthorInterface, "userUUID"> | Schema.Types.ObjectId;
 
 export interface ProjectFilePublisher {
   name?: string;

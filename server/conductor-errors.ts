@@ -6,7 +6,7 @@
 /* The collection of system-wide errors */
 const conductorErrors = {
     'err1': "Required field is missing or malformed.",
-    'err2': "Invalid fields supplied.",
+    'err2': "Invalid fields supplied",
     'err3': "An error occured saving information to the database.",
     'err4': "This tool is not available to this organization.",
     'err5': "Invalid authorization token. Try signing out and in again.",

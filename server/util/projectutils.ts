@@ -471,7 +471,53 @@ export async function retrieveAllProjectFiles(
             ],
             as: "tags",
           },
-        }
+        },
+        {
+          $unwind: "$authors",
+        },
+        {
+          $lookup: {
+            from: "authors",
+            localField: "authors",
+            foreignField: "_id",
+            as: "foundAuthors",
+          },
+        },
+        {
+          $addFields: {
+            authors: {
+              $cond: {
+                if: {
+                  $eq: [{ $size: "$foundAuthors" }, 0],
+                },
+                then: "$authors",
+                else: {
+                  $arrayElemAt: ["$foundAuthors", 0],
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$_id",
+            projectFile: { $first: "$$ROOT" },
+            authors: { $push: "$authors" },
+          },
+        },
+        {
+          $addFields: {
+            "projectFile.authors": "$authors",
+          },
+        },
+        {
+          $unset: "projectFile.foundAuthors",
+        },
+        {
+          $replaceRoot: {
+            newRoot: "$projectFile",
+          },
+        },
       ]
     );
 
