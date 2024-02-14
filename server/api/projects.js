@@ -1433,32 +1433,32 @@ async function getAddableMembers(req, res) {
 
     const existing = constructProjectTeam(project); // don't include existing team members
 
-    let matchObj = {};
+    let searchObj = {};
     if (search) {
-      const parsedSearch = search.toString().toLowerCase();
-      matchObj = {
-        $and: [
-          {
-            $text: {
-              $search: parsedSearch,
+      searchObj = {
+        $search: {
+          text: {
+            query: search,
+            path: ["firstName", "lastName", "email"],
+            fuzzy: {
+              maxEdits: 2,
+              maxExpansions: 50,
             },
           },
-          { uuid: { $nin: existing } },
-          { $expr: { $not: "$isSystem" } },
-        ],
-      };
-    } else {
-      matchObj = {
-        $and: [
-          { uuid: { $nin: existing } },
-          { $expr: { $not: '$isSystem' } },
-        ],
+        },
       };
     }
 
+    const sortObj = { $sort: { firstName: -1 } }; // sort by first name if no search
     const users = await User.aggregate([
+      ...(search && [searchObj]),
       {
-        $match: { ...matchObj },
+        $match: {
+          $and: [
+            { uuid: { $nin: existing } },
+            { $expr: { $not: '$isSystem' } },
+          ],
+        },
       },
       {
         $project: {
@@ -1470,10 +1470,8 @@ async function getAddableMembers(req, res) {
           avatar: 1,
         },
       },
-      {
-        $sort: { firstName: -1 },
-      },
-    ]).limit(10); // limit to 10 results
+      ...(search ? [] : [sortObj]),
+    ]).limit(25); // limit to 25 results
 
     const filtered = users.filter((user) => user.centralID) // filter out users without a centralID
     const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
