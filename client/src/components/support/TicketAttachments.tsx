@@ -1,29 +1,35 @@
-import { Icon, Label } from "semantic-ui-react";
+import { Button, Divider, Icon, Label } from "semantic-ui-react";
 import { SupportTicket, SupportTicketAttachment } from "../../types";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, set } from "date-fns";
 import useGlobalError from "../error/ErrorHooks";
 import { useState } from "react";
 import LoadingSpinner from "../LoadingSpinner";
 import api from "../../api";
+import FileUploader from "../FileUploader";
+import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface TicketAttachmentsProps {
   ticket: SupportTicket;
 }
 
 const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
+  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState<boolean>(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [showUpload, setShowUpload] = useState<boolean>(false);
 
   async function getDownloadURL(id: string) {
     try {
       setLoading(true);
       const res = await api.getTicketAttachmentURL(ticket.uuid, id);
 
-      if(res.data.err){
+      if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
 
-      if(!res.data.url){
+      if (!res.data.url) {
         throw new Error("Unable to get download URL. Please try again later.");
       }
 
@@ -33,6 +39,50 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAttachmentsUpload(ticketID: string, files: File[]) {
+    setLoading(true);
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const uploadRes = await axios.post(
+        `/support/ticket/${ticketID}/attachments`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (uploadRes.data.err) {
+        throw new Error(uploadRes.data.errMsg);
+      }
+      queryClient.invalidateQueries(["ticket", ticketID]);
+    } catch (e: any) {
+      if (e.message === "canceled") return; // Noop if canceled
+      handleGlobalError(e);
+    } finally {
+      setLoading(false);
+      setShowUpload(false);
+      setFiles([]);
+    }
+  }
+
+  async function saveFilesToState(files: FileList) {
+    setLoading(true);
+    setFiles(Array.from(files));
+    setLoading(false);
+  }
+
+  function handleShowUpload() {
+    setShowUpload(!showUpload);
+  }
+
+  function handleCloseUpload() {
+    setShowUpload(false);
+    setFiles([]); // Clear out the files if the user closes the upload section
   }
 
   const AttachmentEntry = ({
@@ -64,9 +114,45 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
   return (
     <div className="flex flex-col w-full bg-white">
       <div className="flex flex-col border shadow-md rounded-md p-4">
-        <p className="text-1xl font-semibold text-center mb-0">
-          Ticket Attachments
-        </p>
+        <div className="flex flex-row items-center">
+          <div className="flex basis-5/6 justify-center">
+            <p className="text-1xl font-semibold text-center mb-0 ml-56">
+              Ticket Attachments
+            </p>
+          </div>
+          <div className="flex basis-1/6 justify-end">
+            <Button
+              icon={showUpload ? "x" : "plus"}
+              color="blue"
+              onClick={() => {
+                showUpload ? handleCloseUpload() : handleShowUpload();
+              }}
+            ></Button>
+          </div>
+        </div>
+        {showUpload && (
+          <div className="my-2">
+            <FileUploader
+              multiple={true}
+              maxFiles={4}
+              onUpload={saveFilesToState}
+              showUploads={true}
+            />
+            {files.length > 0 && (
+              <div className="flex flex-row justify-end mt-4">
+                <Button
+                  color="blue"
+                  onClick={() => handleAttachmentsUpload(ticket.uuid, files)}
+                  loading={loading}
+                >
+                  <Icon name="upload" />
+                  Upload
+                </Button>
+              </div>
+            )}
+            <Divider />
+          </div>
+        )}
         <div className="flex flex-col mt-2">
           {ticket.attachments?.length === 0 && (
             <p className="text-lg text-center text-gray-500 italic">
