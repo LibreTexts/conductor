@@ -229,11 +229,11 @@
     width: 250px;
     margin: 0 !important;
     text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 .commons-asset-card-img-wrapper {
-    margin: 10px 10px 0px 10px;
-    height: 40% !important
+    height: 35% !important
 }
 
 .commons-asset-card-img {
@@ -257,6 +257,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: break-spaces;
+    word-break: break-word;
 }
 
 .commons-content-card-affiliation {

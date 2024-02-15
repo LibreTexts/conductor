@@ -1,4 +1,4 @@
-import { Label } from "semantic-ui-react";
+import { Label, Popup } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
@@ -8,7 +8,16 @@ const RenderAssetTags: React.FC<{
   max?: number;
   showNoTagsMessage?: boolean;
   size?: "small" | "large";
-}> = ({ file, max = 5, showNoTagsMessage = true, size = "large" }) => {
+  basic?: boolean;
+  popupDisabled?: boolean;
+}> = ({
+  file,
+  max = 5,
+  showNoTagsMessage = true,
+  size = "large",
+  basic = false,
+  popupDisabled = false,
+}) => {
   const sortedTags = file.tags?.sort((a, b) => {
     if (isAssetTagKeyObject(a.key) && isAssetTagKeyObject(b.key)) {
       return a.key.title.localeCompare(b.key.title);
@@ -16,16 +25,30 @@ const RenderAssetTags: React.FC<{
     return 0;
   });
 
-  function getLabelValue(tag: AssetTag) {
-    const title = isAssetTagKeyObject(tag.key) ? tag.key.title : tag.key;
+  function getLabelText(tag: AssetTag) {
     const text = tag.value
-      ? title + ": " + tag.value.toString()
-      : title + ": " + "Unknown";
-    const truncated = truncateString(text, 20);
-    return truncated;
+      ? Array.isArray(tag.value)
+        ? tag.value.join(", ")
+        : tag.value
+      : "Unknown";
+    return text.toString();
   }
 
-  function getLabelColor(tag: AssetTag) {
+  function getLabelTitle(tag: AssetTag) {
+    if (isAssetTagKeyObject(tag.key)) {
+      return tag.key.title;
+    }
+    return "Unknown";
+  }
+
+  function getLabelValue(tag: AssetTag, showTitle = true, truncate = true) {
+    const text = getLabelText(tag);
+    const truncated = truncate ? truncateString(text, 40) : text;
+    return showTitle ? `${getLabelTitle(tag)}: ${truncated}` : truncated;
+  }
+
+  function getLabelColor(tag: AssetTag, basic = false) {
+    if (basic) return "";
     if (tag.key && isAssetTagKeyObject(tag.key)) {
       return tag.key.hex;
     }
@@ -33,32 +56,62 @@ const RenderAssetTags: React.FC<{
   }
 
   return (
-    <div className="asset-tag-container">
-      {!sortedTags ||
-        (sortedTags.length === 0 && showNoTagsMessage && (
-          <span className="muted-text italic">No associated tags</span>
-        ))}
-      {sortedTags?.slice(0, max).map((tag) => (
-        <Label
-          style={{
-            backgroundColor: getLabelColor(tag).toString(),
-            borderColor: getLabelColor(tag).toString(),
-            color: "white",
-          }}
-          size={size === "small" ? "mini" : "tiny"}
-          key={tag.uuid}
-        >
-          {getLabelValue(tag)}
-        </Label>
-      ))}
-      {sortedTags && sortedTags?.length > max ? (
-        <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
-          +{sortedTags?.length - max} more
-        </Label>
-      ) : (
-        <></>
-      )}
-    </div>
+    <Popup
+      disabled={popupDisabled}
+      trigger={
+        <div className="asset-tags-container">
+          {!sortedTags ||
+            (sortedTags.length === 0 && showNoTagsMessage && (
+              <span className="muted-text italic">No associated tags</span>
+            ))}
+          {sortedTags?.slice(0, max).map((tag) => {
+            const val = getLabelValue(tag, !basic);
+            if (!val || val === "Unknown") return <></>;
+            const color = getLabelColor(tag, basic).toString();
+            return (
+              <Label
+                style={{
+                  backgroundColor: color,
+                  borderColor: color,
+                  color: basic ? "black" : "white",
+                }}
+                size={size === "small" ? "mini" : "tiny"}
+                key={tag.uuid}
+              >
+                {val}
+              </Label>
+            );
+          })}
+          {sortedTags && sortedTags?.length > max ? (
+            <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
+              +{sortedTags?.length - max} more
+            </Label>
+          ) : (
+            <></>
+          )}
+        </div>
+      }
+      content={sortedTags?.map((tag) => {
+        const title = getLabelTitle(tag);
+        const text = getLabelText(tag);
+        const color = getLabelColor(tag).toString();
+        return (
+          <div key={tag.uuid} className="">
+            <span className="font-semibold">{title}</span>:{" "}
+            <Label
+              style={{
+                backgroundColor: color,
+                borderColor: color,
+                color: "white",
+              }}
+              size="mini"
+            >
+              {text}
+            </Label>
+          </div>
+        );
+      })}
+    />
   );
 };
 

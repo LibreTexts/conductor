@@ -61,7 +61,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
         </div>
       )}
-      <Card.Header as="h3" className="commons-content-card-header !mt-2">
+      <Card.Header as="h3" className="commons-content-card-header !mt-1 !mb-1">
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
@@ -69,9 +69,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {getPrettyAuthorsList(file.authors)}
       </Card.Meta>
       <Card.Meta>
-        <Icon name="clipboard list" color="blue" />{" "}
+        <Icon name="clipboard list" color="blue" />
         {file.projectInfo.title
-          ? truncateString(file.projectInfo.title, 30)
+          ? <a href={`projects/${file.projectID}`} target="_blank" className="underline">{truncateString(file.projectInfo.title, 30)}</a>
           : "Unknown Project"}
       </Card.Meta>
       <Card.Meta>
@@ -85,18 +85,19 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           {truncateString(file.mimeType ?? "", 30)}
         </Card.Meta>
       )}
-      <Card.Description className="overflow-hidden">
-        <p className="commons-content-card-author">
+      <Card.Description className="overflow-hidden !mt-1">
+        <p className="commons-content-card-author !mb-0">
           {file.description
             ? truncateString(file.description, 50)
             : "No description provided"}
         </p>
-        <div className="max-h-14 overflow-hidden">
+        <div className="max-h-14 overflow-hidden mt-1">
           <RenderAssetTags
             file={file}
             max={3}
             showNoTagsMessage={false}
             size="small"
+            basic={true}
           />
         </div>
       </Card.Description>
