@@ -54,7 +54,7 @@ app.use(
         "https://fonts.gstatic.com",
         "data:",
       ],
-      frameSrc: ["'self'", "https://*.libretexts.org", "*.cloudfront.net"],
+      frameSrc: ["'self'", "https://*.libretexts.org", "https://*.cloudflare.com"],
       imgSrc: ["'self'", "https:", "data:"],
       objectSrc: ["none"],
       scriptSrc: [
