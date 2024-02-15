@@ -26,6 +26,7 @@ const CatalogBookFilters = forwardRef(
     ref: ForwardedRef<CatalogBookFiltersRef>
   ) => {
     const { selectedFilters, setSelectedFilters } = props;
+    const DROPDOWN_CLASSES = "icon !min-w-56 !text-center";
     const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
     const { handleGlobalError } = useGlobalError();
 
@@ -72,18 +73,24 @@ const CatalogBookFilters = forwardRef(
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        const newAuthorOptions = [
-          { key: "empty", text: "Clear...", value: "" },
+        const newAuthorOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" },
         ];
-        const newSubjectOptions = [
-          { key: "empty", text: "Clear...", value: "" },
+        const newSubjectOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" },
         ];
-        const newAffOptions = [{ key: "empty", text: "Clear...", value: "" }];
-        const newCourseOptions = [
-          { key: "empty", text: "Clear...", value: "" },
+        const newAffOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" }
         ];
-        const newPubOptions = [{ key: "empty", text: "Clear...", value: "" }];
-        const newCIDOptions = [{ key: "empty", text: "Clear...", value: "" }];
+        const newCourseOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" },
+        ];
+        const newPubOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" }
+        ];
+        const newCIDOptions: GenericKeyTextValueObj<string>[] = [
+          // { key: "empty", text: "Clear...", value: "" }
+        ];
 
         if (res.data.authors && Array.isArray(res.data.authors)) {
           res.data.authors.forEach((author: string) => {
@@ -162,7 +169,7 @@ const CatalogBookFilters = forwardRef(
           throw new Error(res.data.errMsg);
         }
         const newLicenseOptions: typeof licenseOptions = [
-          { key: "empty", text: "Clear...", value: "" },
+          // { key: "empty", text: "Clear...", value: "" },
         ];
 
         if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
@@ -250,12 +257,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {libraryOptions.map((library) => (
+              {libraryOptions.length > 0 && libraryOptions.map((library) => (
                 <Dropdown.Item
                   key={library.key}
                   onClick={() => updateFilters("library", library.value)}
@@ -263,6 +270,13 @@ const CatalogBookFilters = forwardRef(
                   {library.text}
                 </Dropdown.Item>
               ))}
+              {
+                libraryOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No libraries available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -275,12 +289,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {subjectOptions.map((subject) => (
+              {subjectOptions.length > 0 && subjectOptions.map((subject) => (
                 <Dropdown.Item
                   key={subject.key}
                   onClick={() => updateFilters("subject", subject.value)}
@@ -288,6 +302,13 @@ const CatalogBookFilters = forwardRef(
                   {subject.text}
                 </Dropdown.Item>
               ))}
+              {
+                subjectOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No subjects available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -300,12 +321,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {locationOptions.map((location) => (
+              {locationOptions.length > 0 &&locationOptions.map((location) => (
                 <Dropdown.Item
                   key={location.key}
                   onClick={() => updateFilters("location", location.value)}
@@ -313,6 +334,13 @@ const CatalogBookFilters = forwardRef(
                   {location.text}
                 </Dropdown.Item>
               ))}
+              {
+                locationOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No locations available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -325,12 +353,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {licenseOptions.map((license) => (
+              {licenseOptions.length > 0 && licenseOptions.map((license) => (
                 <Dropdown.Item
                   key={license.key}
                   onClick={() => updateFilters("license", license.value)}
@@ -338,6 +366,13 @@ const CatalogBookFilters = forwardRef(
                   {license.text}
                 </Dropdown.Item>
               ))}
+              {
+                licenseOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No licenses available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -350,12 +385,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {authorOptions.map((author) => (
+              {authorOptions.length > 0 && authorOptions.map((author) => (
                 <Dropdown.Item
                   key={author.key}
                   onClick={() => updateFilters("author", author.value)}
@@ -363,6 +398,13 @@ const CatalogBookFilters = forwardRef(
                   {author.text}
                 </Dropdown.Item>
               ))}
+              {
+                authorOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No authors available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -375,12 +417,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {courseOptions.map((course) => (
+              {courseOptions.length > 0 && courseOptions.map((course) => (
                 <Dropdown.Item
                   key={course.key}
                   onClick={() => updateFilters("course", course.value)}
@@ -388,6 +430,13 @@ const CatalogBookFilters = forwardRef(
                   {course.text}
                 </Dropdown.Item>
               ))}
+              {
+                courseOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No courses available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -400,12 +449,12 @@ const CatalogBookFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {affOptions.map((affiliation) => (
+              {affOptions.length > 0 && affOptions.map((affiliation) => (
                 <Dropdown.Item
                   key={affiliation.key}
                   onClick={() =>
@@ -415,6 +464,13 @@ const CatalogBookFilters = forwardRef(
                   {affiliation.text}
                 </Dropdown.Item>
               ))}
+              {
+                affOptions.length === 0 && (
+                  <Dropdown.Item>
+                    No affiliations available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
         </div>
