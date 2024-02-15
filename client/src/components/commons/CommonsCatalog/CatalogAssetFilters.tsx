@@ -35,6 +35,7 @@ const CatalogAssetFilters = forwardRef(
     props: CatalogAssetFiltersProps,
     ref: ForwardedRef<CatalogAssetFiltersRef>
   ) => {
+    const DROPDOWN_CLASSES = "icon !min-w-56 !text-center";
     const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
 
     const { selectedFilters, setSelectedFilters } = props;
@@ -96,7 +97,7 @@ const CatalogAssetFilters = forwardRef(
           throw new Error(res.data.errMsg);
         }
         const newLicenseOptions: typeof licenseOptions = [
-          { key: "empty", text: "Clear...", value: undefined },
+          // { key: "empty", text: "Clear...", value: undefined },
         ];
 
         if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
@@ -178,7 +179,7 @@ const CatalogAssetFilters = forwardRef(
         aria-busy={loading}
         className="flex flex-row w-full justify-between items-center"
       >
-        <div className="flex flex-row my-4 flex-wrap items-center gap-y-2">
+        <div className="flex flex-row my-4 flex-wrap items-center gap-2">
           <Dropdown
             text={`License ${selectedFilters.license ? " - " : ""}${
               selectedFilters.license ?? ""
@@ -187,12 +188,12 @@ const CatalogAssetFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {licenseOptions.map((license) => (
+              {licenseOptions.length > 0 && licenseOptions.map((license) => (
                 <Dropdown.Item
                   key={license.key}
                   onClick={() => updateFilters("license", license.value)}
@@ -200,6 +201,13 @@ const CatalogAssetFilters = forwardRef(
                   {license.text}
                 </Dropdown.Item>
               ))}
+              {
+                licenseOptions.length === 0 && (
+                  <Dropdown.Item disabled>
+                    No licenses available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -210,12 +218,12 @@ const CatalogAssetFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {orgOptions.map((org) => (
+              {orgOptions.length > 0 && orgOptions.map((org) => (
                 <Dropdown.Item
                   key={org.key}
                   onClick={() => updateFilters("org", org.value)}
@@ -223,6 +231,13 @@ const CatalogAssetFilters = forwardRef(
                   {org.text}
                 </Dropdown.Item>
               ))}
+              {
+                orgOptions.length === 0 && (
+                  <Dropdown.Item disabled>
+                    No organizations available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -235,12 +250,12 @@ const CatalogAssetFilters = forwardRef(
             floating
             labeled
             button
-            className="icon"
+            className={DROPDOWN_CLASSES}
             loading={loading}
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {fileTypeOptions.map((ft) => (
+              {fileTypeOptions.length > 0 && fileTypeOptions.map((ft) => (
                 <Dropdown.Item
                   key={ft.key}
                   onClick={() => updateFilters("fileType", ft.value)}
@@ -248,6 +263,13 @@ const CatalogAssetFilters = forwardRef(
                   {ft.text}
                 </Dropdown.Item>
               ))}
+              {
+                fileTypeOptions.length === 0 && (
+                  <Dropdown.Item disabled>
+                    No file types available
+                  </Dropdown.Item>
+                )
+              }
             </Dropdown.Menu>
           </Dropdown>
         </div>

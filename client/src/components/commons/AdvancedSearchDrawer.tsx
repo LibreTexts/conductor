@@ -108,7 +108,7 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
             </div>
           </div>
           <Divider />
-          <div className="mb-8">
+          <div className="mb-4">
             <label htmlFor="" className="font-bold">
               Additional Filters
             </label>
@@ -130,7 +130,7 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
               </div>
             )}
           </div>
-          <Divider />
+          {/* <Divider />
           <div className="flex flex-row items-center justify-between">
             <div className="flex flex-row items-center">
               <label className="font-bold">Strictly Match Criteria:</label>
@@ -148,7 +148,7 @@ const AdvancedSearchDrawer: React.FC<AdvancedSearchDrawerProps> = ({
                 }
               />
             </div>
-          </div>
+          </div> */}
         </Form>
       </div>
     </div>
