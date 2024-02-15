@@ -1474,13 +1474,13 @@ async function getAddableMembers(req, res) {
     ]).limit(25); // limit to 25 results
 
     const filtered = users.filter((user) => user.centralID) // filter out users without a centralID
-    const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
+    // const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
 
-    for(let i = 0; i < settled.length; i++) {
-      if(settled[i].status === 'fulfilled') {
-        filtered[i].orgs = settled[i].value ?? []
-      }
-    }
+    // for(let i = 0; i < settled.length; i++) {
+    //   if(settled[i].status === 'fulfilled') {
+    //     filtered[i].orgs = settled[i].value ?? []
+    //   }
+    // }
 
     return res.send({
       users: filtered,

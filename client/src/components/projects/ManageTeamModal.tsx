@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import {
   Modal,
@@ -24,12 +24,7 @@ import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
-type TeamUserOpt = {
-  key: string;
-  text: string;
-  value: string;
-  image?: { avatar?: boolean; src?: string };
-};
+type AddableUser = Pick<User, "uuid" | "firstName" | "lastName" | "avatar">;
 
 interface ManageTeamModalProps extends ModalProps {
   show: boolean;
@@ -47,12 +42,18 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const [loading, setLoading] = useState<boolean>(false);
-  const [teamUserOptions, setTeamUserOptions] = useState<TeamUserOpt[]>([]);
+  const [teamUserOptions, setTeamUserOptions] = useState<AddableUser[]>([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
   const [teamUserUUIDToAdd, setTeamUserUUIDToAdd] = useState<string | null>(
     null
   );
+
+  useEffect(() => {
+    if (show) {
+      getTeamUserOptions("");
+    }
+  }, [show]);
 
   /**
    * Resets state before calling the provided onClose function.
@@ -72,7 +73,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
    * Retrieves a list of users that can be added as team members to the
    * project, then processes and sets them in state.
    */
-  const getTeamUserOptions = async (searchString: string) => {
+  async function getTeamUserOptions(searchString: string) {
     try {
       if (!project.projectID) return;
 
@@ -90,30 +91,13 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         );
       }
 
-      const newOptions: TeamUserOpt[] = [];
-      res.data.users.forEach((item: User & { orgs?: CentralIdentityOrg[] }) => {
-        newOptions.push({
-          key: item.uuid,
-          text: `${item.firstName} ${item.lastName} ${
-            item.orgs && item.orgs[0] && item.orgs[0].name
-              ? `(${truncateString(item.orgs[0].name, 50)})`
-              : ""
-          }`,
-          value: item.uuid,
-          image: {
-            avatar: true,
-            src: item.avatar,
-          },
-        });
-      });
-
-      setTeamUserOptions(newOptions);
+      setTeamUserOptions(res.data.users);
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setTeamUserOptsLoading(false);
     }
-  };
+  }
 
   const getTeamUserOptionsDebounced = debounce(
     (inputVal: string) => getTeamUserOptions(inputVal),
@@ -318,25 +302,33 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     <Modal open={show} onClose={handleClose} size="large" closeIcon>
       <Modal.Header>Manage Project Team</Modal.Header>
       <Modal.Content scrolling id="project-manage-team-content">
-        <Form noValidate>
-          <Form.Select
-            search
-            label="Add Team Member"
-            placeholder="Start typing to search by name..."
-            options={teamUserOptions}
-            onChange={(_e, { value }) => {
-              if (typeof value === "string") {
-                setTeamUserUUIDToAdd(value);
-              }
-            }}
-            onSearchChange={(_e, { searchQuery }) => {
-              if (searchQuery) {
+        <Form onSubmit={(e) => e.preventDefault()}>
+          <Form.Field className="flex flex-col">
+            <label htmlFor="addTeamMemberSelect">Add Team Member</label>
+            <Dropdown
+              id="addTeamMemberSelect"
+              placeholder="Start typing to search by name..."
+              options={teamUserOptions.map((item) => ({
+                key: crypto.randomUUID(),
+                text: `${item.firstName} ${item.lastName}`,
+                value: item.uuid ?? "",
+                image: {
+                  avatar: true,
+                  src: item.avatar,
+                },
+              }))}
+              onChange={(e, { value }) => {
+                setTeamUserUUIDToAdd(value?.toString() || "");
+              }}
+              fluid
+              selection
+              search
+              onSearchChange={(e, { searchQuery }) => {
                 getTeamUserOptionsDebounced(searchQuery);
-              }
-            }}
-            loading={teamUserOptsLoading}
-            disabled={teamUserOptsLoading}
-          />
+              }}
+              loading={teamUserOptsLoading}
+            />
+          </Form.Field>
           <Button
             fluid
             color="green"
