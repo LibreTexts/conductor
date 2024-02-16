@@ -135,7 +135,7 @@ export async function addProjectFile(
     }
 
     let parent = "";
-    let accessSetting = "public" as ProjectFileInterfaceAccess; // default
+    let accessSetting: ProjectFileInterfaceAccess = "team"; // default to team (private)
     if (req.body.parentID && req.body.parentID !== "") {
       const foundParent = files.find((obj) => obj.fileID === req.body.parentID);
       if (!foundParent || foundParent.storageType === "file") {
