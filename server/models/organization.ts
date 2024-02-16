@@ -22,6 +22,7 @@ export interface OrganizationInterface extends Document {
   catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
   defaultAssetTagFrameworkUUID?: string;
+  customOrgList?: string[];
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -124,6 +125,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * The default Asset Tag Framework for the Organization.
      */
     defaultAssetTagFrameworkUUID: String,
+    /**
+     * A custom list of Orgs/Campuses to select from in certain contexts.
+     */
+    customOrgList: [String],
   },
   {
     timestamps: true,

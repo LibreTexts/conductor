@@ -32,6 +32,7 @@ import api from "../../api";
 import axios from "axios";
 import useDebounce from "../../hooks/useDebounce";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
+import { useTypedSelector } from "../../state/hooks";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -54,6 +55,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
+  const org = useTypedSelector((state) => state.org);
   const {
     control,
     getValues,
@@ -120,9 +122,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       getTags();
       getCIDDescriptors();
       getLicenseOptions();
-      getOrgs();
     }
   }, [show, projectID]);
+
+  useEffect(() => {
+    getOrgs();
+  }, [watch("associatedOrgs")]);
 
   // Update license URL and (version as appropriate) when license name changes
   useEffect(() => {
@@ -279,9 +284,35 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     }
   }
 
+  function getExistingOrgs() {
+    // We also want to include any existing orgs that are already associated with this project and not lost them in dropdown options if removed
+    const existingOrgs = getValues("associatedOrgs").map((name) => {
+      return {
+        key: crypto.randomUUID(),
+        text: name,
+        value: name,
+      };
+    });
+    return existingOrgs;
+  }
+
   async function getOrgs(searchQuery?: string) {
     try {
       setLoadedOrgs(false);
+
+      const existing = getExistingOrgs();
+      if (org.customOrgList && org.customOrgList.length > 0) {
+        const orgs = org.customOrgList.map((org) => {
+          return {
+            value: org,
+            key: crypto.randomUUID(),
+            text: org,
+          };
+        });
+        setOrgOptions([...orgs, ...existing]);
+        return;
+      }
+
       const res = await api.getCentralIdentityADAPTOrgs({
         query: searchQuery ?? undefined,
       });
@@ -300,16 +331,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         };
       });
 
-      // We also want to include any existing orgs that are already associated with this project
-      const existingOrgs = watch("associatedOrgs").map((name) => {
-        return {
-          key: crypto.randomUUID(),
-          text: name,
-          value: name,
-        };
-      });
-
-      setOrgOptions([...orgs, ...existingOrgs]);
+      setOrgOptions([...orgs, ...existing]);
     } catch (err) {
       handleGlobalError(err);
     } finally {

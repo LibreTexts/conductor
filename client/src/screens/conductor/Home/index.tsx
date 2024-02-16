@@ -252,7 +252,7 @@ const Home = () => {
           </Message>
         </div>
       )}
-      <div className="flex flex-col xl:flex-row">
+      <div className="flex flex-col xl:flex-row w-full">
         <div className="flex flex-col mb-4 xl:w-1/6 xl:mr-12 xl:mb-0">
           <UserMenu />
         </div>
