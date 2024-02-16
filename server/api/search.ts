@@ -491,6 +491,7 @@ export async function assetsSearch(
               $project: {
                 title: 1,
                 thumbnail: 1,
+                associatedOrgs: 1
               },
             },
           ],
@@ -597,7 +598,6 @@ export async function assetsSearch(
             tags: 0,
             allowAnonPR: 0,
             cidDescriptors: 0,
-            associatedOrgs: 0,
             a11yReview: 0,
             createdAt: 0,
             updatedAt: 0,
@@ -653,11 +653,19 @@ export async function assetsSearch(
 
     const aggregateResults = await Promise.all(aggregations);
 
+    let allResults: any[] = [];
     // Merge files from text search and files from tags
-    const allResults = aggregateResults.flat().filter((file) => {
+    allResults = aggregateResults.flat().filter((file) => {
       // Remove files that don't have a projectID
       return file.projectID && file.fileID;
     });
+
+    // Filter by org if provided
+    if(req.query.org){
+      allResults = allResults.filter((file) => {
+        return file.projectInfo.associatedOrgs?.includes(req.query.org)
+      })
+    }
 
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);

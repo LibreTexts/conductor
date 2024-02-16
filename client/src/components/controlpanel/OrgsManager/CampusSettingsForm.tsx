@@ -5,6 +5,7 @@ import {
   useCallback,
   forwardRef,
   useImperativeHandle,
+  lazy,
 } from "react";
 import {
   Form,
@@ -26,6 +27,7 @@ import isHexColor from "validator/es/lib/isHexColor";
 import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
+const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
   orgID: string;
@@ -74,6 +76,7 @@ const CampusSettingsForm = forwardRef(
         footerColor: "",
         addToLibreGridList: false,
         catalogMatchingTags: [],
+        customOrgList: [],
       },
     });
 
@@ -83,6 +86,7 @@ const CampusSettingsForm = forwardRef(
     const [matchingTags, setMatchingTags] = useState<
       { key: string; value: string }[]
     >([]);
+    const [showCustomOrgListModal, setShowCustomOrgListModal] = useState(false);
     const watchedPrimaryColor = watch("primaryColor");
     const watchedFooterColor = watch("footerColor");
 
@@ -883,7 +887,31 @@ const CampusSettingsForm = forwardRef(
               />
             </div>
           </Form.Field>
+          <Divider />
+          <h3 className="font-semibold">Custom Org/Campus List (optional)</h3>
+          <p className="mb-4">
+            Customize the list of organization/campus options availble in
+            certain contexts (i.e. associating organizations with a project).
+            This is useful for university systems or groups that have a specific
+            set of organizations they want users to be able to select from. If
+            no custom list is set, the default list from LibreTexts will be
+            shown.
+          </p>
+          <Button onClick={() => setShowCustomOrgListModal(true)} color="blue">
+            <Icon name="edit" />
+            Customize
+          </Button>
         </Form>
+        <CustomOrgListModal
+          show={showCustomOrgListModal}
+          orgID={props.orgID}
+          onClose={() => setShowCustomOrgListModal(false)}
+          initCustomOrgList={watch('customOrgList')}
+          onSave={(newList: string[]) => {
+            setFormValue("customOrgList", newList, { shouldDirty: false });
+            setShowCustomOrgListModal(false);
+          }}
+        />
       </>
     );
   }

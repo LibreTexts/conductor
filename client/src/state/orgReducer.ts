@@ -20,7 +20,8 @@ const orgInitialState = <Organization>{
     commonsMessage: '',
     collectionsDisplayLabel: 'Collections',
     primaryColor: '',
-    footerColor: ''
+    footerColor: '',
+    customOrgList: [] as string[],
 };
 
 export default function orgReducer(

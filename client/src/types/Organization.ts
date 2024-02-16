@@ -21,6 +21,7 @@ export type Organization = {
   catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
   FEAT_AssetTagsManager?: boolean;
+  customOrgList?: string[];
 };
 
 export type CampusSettingsOpts = Pick<
@@ -38,4 +39,5 @@ export type CampusSettingsOpts = Pick<
   | "footerColor"
   | "addToLibreGridList"
   | "catalogMatchingTags"
+  | "customOrgList"
 >;

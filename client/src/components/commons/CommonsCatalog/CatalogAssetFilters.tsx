@@ -16,6 +16,7 @@ import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
 import COMMON_MIME_TYPES from "../../../utils/common-mime-types";
+import { useTypedSelector } from "../../../state/hooks";
 
 type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
   version?: string;
@@ -41,6 +42,7 @@ const CatalogAssetFilters = forwardRef(
     const { selectedFilters, setSelectedFilters } = props;
 
     const { handleGlobalError } = useGlobalError();
+    const org = useTypedSelector((state) => state.org);
 
     const [licenseOptions, setLicenseOptions] = useState<
       GenericKeyTextValueObj<string | undefined>[]
@@ -62,8 +64,23 @@ const CatalogAssetFilters = forwardRef(
     async function getOrgs(searchQuery?: string) {
       try {
         setLoading(true);
+
+        // If the org has a custom list, use that instead of fetching from the server
+        if (org.customOrgList && org.customOrgList.length > 0) {
+          const orgs = org.customOrgList.map((org) => {
+            return {
+              value: org,
+              key: org,
+              text: org,
+            };
+          });
+          setOrgOptions(orgs);
+          return;
+        }
+
         const res = await api.getCentralIdentityOrgs({
           query: searchQuery ?? undefined,
+          limit: 500,
         });
         if (res.data.err) {
           throw new Error(res.data.errMsg);
@@ -193,21 +210,18 @@ const CatalogAssetFilters = forwardRef(
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {licenseOptions.length > 0 && licenseOptions.map((license) => (
-                <Dropdown.Item
-                  key={license.key}
-                  onClick={() => updateFilters("license", license.value)}
-                >
-                  {license.text}
-                </Dropdown.Item>
-              ))}
-              {
-                licenseOptions.length === 0 && (
-                  <Dropdown.Item disabled>
-                    No licenses available
+              {licenseOptions.length > 0 &&
+                licenseOptions.map((license) => (
+                  <Dropdown.Item
+                    key={license.key}
+                    onClick={() => updateFilters("license", license.value)}
+                  >
+                    {license.text}
                   </Dropdown.Item>
-                )
-              }
+                ))}
+              {licenseOptions.length === 0 && (
+                <Dropdown.Item disabled>No licenses available</Dropdown.Item>
+              )}
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown
@@ -221,25 +235,17 @@ const CatalogAssetFilters = forwardRef(
             className={DROPDOWN_CLASSES}
             loading={loading}
             basic
-          >
-            <Dropdown.Menu className={MENU_CLASSES}>
-              {orgOptions.length > 0 && orgOptions.map((org) => (
-                <Dropdown.Item
-                  key={org.key}
-                  onClick={() => updateFilters("org", org.value)}
-                >
-                  {org.text}
-                </Dropdown.Item>
-              ))}
-              {
-                orgOptions.length === 0 && (
-                  <Dropdown.Item disabled>
-                    No organizations available
-                  </Dropdown.Item>
-                )
-              }
-            </Dropdown.Menu>
-          </Dropdown>
+            search
+            selection
+            options={orgOptions.map((o) => ({
+              key: o.key,
+              text: o.text,
+              value: o.value,
+            }))}
+            onChange={(_, data) => {
+              updateFilters("org", data.value as string);
+            }}
+          />
           <Dropdown
             text={
               selectedFilters.fileType
@@ -255,21 +261,18 @@ const CatalogAssetFilters = forwardRef(
             basic
           >
             <Dropdown.Menu className={MENU_CLASSES}>
-              {fileTypeOptions.length > 0 && fileTypeOptions.map((ft) => (
-                <Dropdown.Item
-                  key={ft.key}
-                  onClick={() => updateFilters("fileType", ft.value)}
-                >
-                  {ft.text}
-                </Dropdown.Item>
-              ))}
-              {
-                fileTypeOptions.length === 0 && (
-                  <Dropdown.Item disabled>
-                    No file types available
+              {fileTypeOptions.length > 0 &&
+                fileTypeOptions.map((ft) => (
+                  <Dropdown.Item
+                    key={ft.key}
+                    onClick={() => updateFilters("fileType", ft.value)}
+                  >
+                    {ft.text}
                   </Dropdown.Item>
-                )
-              }
+                ))}
+              {fileTypeOptions.length === 0 && (
+                <Dropdown.Item disabled>No file types available</Dropdown.Item>
+              )}
             </Dropdown.Menu>
           </Dropdown>
         </div>
