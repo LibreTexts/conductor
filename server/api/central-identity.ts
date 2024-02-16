@@ -832,6 +832,8 @@ async function processNewUserWebhookEvent(
 
     await newUser.save();
 
+    console.log('New user created from webhook: ', newUser.centralID)
+
     return res.send({
       err: false,
       msg: "User successfully created.",

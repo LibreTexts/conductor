@@ -3,8 +3,8 @@ import { z } from "zod";
 export const NewUserWebhookValidator = z.object({
   body: z.object({
     central_identity_id: z.string().uuid(),
-    first_name: z.string(),
-    last_name: z.string(),
+    first_name: z.string().min(1).max(255),
+    last_name: z.string().min(1).max(255),
     email: z.string().email(),
     avatar: z.string().url().optional(),
   }),
