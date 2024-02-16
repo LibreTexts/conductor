@@ -523,7 +523,7 @@ export async function assetsSearch(
             {
               $match: {
                 score: {
-                  $gte: 1,
+                  $gte: 2,
                 },
               },
             },
@@ -582,6 +582,7 @@ export async function assetsSearch(
                 },
               },
               "$matchingProjectFiles",
+              ...(Object.keys(searchQueryObj).length > 0 ? [{score: "$score"}] : [])
             ],
           },
         },
@@ -654,6 +655,17 @@ export async function assetsSearch(
       {
         $match: matchObj,
       },
+      ...(Object.keys(searchQueryObj).length > 0
+      ? [
+          {
+            $match: {
+              score: {
+                $gte:2,
+              },
+            },
+          },
+        ]
+      : []),
     ]);
 
     const fromAuthorsPromise = Author.aggregate(
@@ -709,6 +721,7 @@ export async function assetsSearch(
                   },
                 },
                 "$matchingProjectFiles",
+                ...(Object.keys(searchQueryObj).length > 0 ? [{score: "$score"}] : [])
               ],
             },
           },
@@ -781,6 +794,17 @@ export async function assetsSearch(
         {
           $match: matchObj,
         },
+        ...(Object.keys(searchQueryObj).length > 0
+        ? [
+            {
+              $match: {
+                score: {
+                  $gte: 2,
+                },
+              },
+            },
+          ]
+        : []),
       ]
     )
 
@@ -805,6 +829,7 @@ export async function assetsSearch(
         return file.projectInfo.associatedOrgs?.includes(req.query.org)
       })
     }
+      console.log(allResults)
 
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
