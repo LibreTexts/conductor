@@ -492,7 +492,7 @@ export async function assetsSearch(
               $project: {
                 title: 1,
                 thumbnail: 1,
-                associatedOrgs: 1
+                associatedOrgs: 1,
               },
             },
           ],
@@ -541,7 +541,6 @@ export async function assetsSearch(
               maxEdits: 2,
               maxExpansions: 50,
             },
-            score: { boost: { value: 1.5 } },
           },
         },
       },
@@ -582,7 +581,7 @@ export async function assetsSearch(
                 },
               },
               "$matchingProjectFiles",
-              ...(Object.keys(searchQueryObj).length > 0 ? [{score: "$score"}] : [])
+              { score: "$score" },
             ],
           },
         },
@@ -655,158 +654,147 @@ export async function assetsSearch(
       {
         $match: matchObj,
       },
-      ...(Object.keys(searchQueryObj).length > 0
-      ? [
-          {
-            $match: {
-              score: {
-                $gte:2,
-              },
-            },
+      {
+        $match: {
+          score: {
+            $gte: 1,
           },
-        ]
-      : []),
+        },
+      },
     ]);
 
-    const fromAuthorsPromise = Author.aggregate(
-      [
-        {
-          $search: {
-            text: {
-              query: mongoSearchQueryTerm,
-              path: ["firstName", "lastName", "email"],
-              fuzzy: {
-                maxEdits: 2,
-                maxExpansions: 50,
-              },
-              score: { boost: { value: 1.5 } },
+    const fromAuthorsPromise = Author.aggregate([
+      {
+        $search: {
+          text: {
+            query: mongoSearchQueryTerm,
+            path: ["firstName", "lastName", "email"],
+            fuzzy: {
+              maxEdits: 2,
+              maxExpansions: 50,
             },
+            score: { boost: { value: 1.5 } },
           },
         },
-        {
-          $addFields: {
-            score: { $meta: "searchScore" },
-          },
+      },
+      {
+        $addFields: {
+          score: { $meta: "searchScore" },
         },
-        {
-          $lookup: {
-            from: "projectfiles",
-            localField: "_id",
-            foreignField: "authors",
-            as: "matchingProjectFiles",
-          },
+      },
+      {
+        $lookup: {
+          from: "projectfiles",
+          localField: "_id",
+          foreignField: "authors",
+          as: "matchingProjectFiles",
         },
-        {
-          $unwind: {
-            path: "$matchingProjectFiles",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$matchingProjectFiles",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $lookup: {
-            from: "projects",
-            localField:
-              "matchingProjectFiles.projectID",
-            foreignField: "projectID",
-            as: "projectInfo",
-          },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          localField: "matchingProjectFiles.projectID",
+          foreignField: "projectID",
+          as: "projectInfo",
         },
-        {
-          $replaceRoot: {
-            newRoot: {
-              $mergeObjects: [
-                {
-                  projectInfo: {
-                    $arrayElemAt: ["$projectInfo", 0],
-                  },
-                },
-                "$matchingProjectFiles",
-                ...(Object.keys(searchQueryObj).length > 0 ? [{score: "$score"}] : [])
-              ],
-            },
-          },
-        },
-        {
-          $match: {
-            "projectInfo.visibility": "public",
-          },
-        },
-        {
-          $project: {
-            projectInfo: {
-              _id: 0,
-              projectID: 0,
-              orgID: 0,
-              status: 0,
-              visibility: 0,
-              currentProgress: 0,
-              peerProgress: 0,
-              a11yProgress: 0,
-              leads: 0,
-              liaisons: 0,
-              members: 0,
-              auditors: 0,
-              tags: 0,
-              allowAnonPR: 0,
-              cidDescriptors: 0,
-              a11yReview: 0,
-              createdAt: 0,
-              updatedAt: 0,
-              __v: 0,
-              adaptCourseID: 0,
-              adaptURL: 0,
-              classification: 0,
-              defaultFileLicense: 0,
-              libreCampus: 0,
-              libreLibrary: 0,
-              libreShelf: 0,
-              projectURL: 0,
-              didCreateWorkbench: 0,
-              didMigrateWorkbench: 0,
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: "assettags",
-            localField: "tags",
-            foreignField: "_id",
-            pipeline: [
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
               {
-                $lookup: {
-                  from: "assettagkeys",
-                  localField: "key",
-                  foreignField: "_id",
-                  as: "key",
+                projectInfo: {
+                  $arrayElemAt: ["$projectInfo", 0],
                 },
               },
-              {
-                $set: {
-                  key: {
-                    $arrayElemAt: ["$key", 0],
-                  },
-                },
-              },
+              "$matchingProjectFiles",
+              { score: "$score" },
             ],
-            as: "tags",
           },
         },
-        {
-          $match: matchObj,
+      },
+      {
+        $match: {
+          "projectInfo.visibility": "public",
         },
-        ...(Object.keys(searchQueryObj).length > 0
-        ? [
+      },
+      {
+        $project: {
+          projectInfo: {
+            _id: 0,
+            projectID: 0,
+            orgID: 0,
+            status: 0,
+            visibility: 0,
+            currentProgress: 0,
+            peerProgress: 0,
+            a11yProgress: 0,
+            leads: 0,
+            liaisons: 0,
+            members: 0,
+            auditors: 0,
+            tags: 0,
+            allowAnonPR: 0,
+            cidDescriptors: 0,
+            a11yReview: 0,
+            createdAt: 0,
+            updatedAt: 0,
+            __v: 0,
+            adaptCourseID: 0,
+            adaptURL: 0,
+            classification: 0,
+            defaultFileLicense: 0,
+            libreCampus: 0,
+            libreLibrary: 0,
+            libreShelf: 0,
+            projectURL: 0,
+            didCreateWorkbench: 0,
+            didMigrateWorkbench: 0,
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "tags",
+          foreignField: "_id",
+          pipeline: [
             {
-              $match: {
-                score: {
-                  $gte: 2,
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
                 },
               },
             },
-          ]
-        : []),
-      ]
-    )
+          ],
+          as: "tags",
+        },
+      },
+      {
+        $match: matchObj,
+      },
+      {
+        $match: {
+          score: {
+            $gte: 0.5,
+          },
+        },
+      },
+    ]);
 
     const aggregations = [fromProjectFilesPromise];
     if (mongoSearchQueryTerm) {
@@ -824,13 +812,12 @@ export async function assetsSearch(
     });
 
     // Filter by org if provided
-    if(req.query.org){
+    if (req.query.org) {
       allResults = allResults.filter((file) => {
-        return file.projectInfo.associatedOrgs?.includes(req.query.org)
-      })
+        return file.projectInfo.associatedOrgs?.includes(req.query.org);
+      });
     }
-      console.log(allResults)
-
+    
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
     const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
