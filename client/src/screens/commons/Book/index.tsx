@@ -108,7 +108,7 @@ const CommonsBook = () => {
   const [loadedTOC, setLoadedTOC] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
   const [loadingFiles, setLoadingFiles] = useState<boolean>(false);
-  const [showFiles, setShowFiles] = useState<boolean>(false);
+  const [showFiles, setShowFiles] = useState<boolean>(true); // show files by default
   const [showTOC, setShowTOC] = useState<boolean>(false);
   const [showLicensing, setShowLicensing] = useState<boolean>(false);
 
@@ -1138,13 +1138,14 @@ const CommonsBook = () => {
                                             {file.name}
                                           </span>
                                         ) : (
-                                          <span
+                                          <a
+                                            onClick={() => handleDownloadFile(file.fileID)}
                                             className={
-                                              styles.project_file_title
+                                              styles.project_file_title + " cursor-pointer"
                                             }
                                           >
                                             {file.name}
-                                          </span>
+                                          </a>
                                         )}
                                       </div>
                                       <div>

@@ -35,7 +35,7 @@ import {
 } from "../util/bookutils.js";
 import {
   retrieveProjectFiles,
-  downloadProjectFile,
+  downloadProjectFiles,
   updateTeamWorkbenchPermissions,
 } from "../util/projectutils.js";
 import { buildPeerReviewAggregation } from "../util/peerreviewutils.js";
@@ -1848,12 +1848,13 @@ async function downloadBookFile(
     const downloadURLs = await downloadProjectFiles(
       project.projectID,
       [fileID],
-      false,
       true,
-      req
-    );
+      "",
+      true
+    )
+
     if (
-      downloadURL === null ||
+      !downloadURLs ||
       !Array.isArray(downloadURLs) ||
       downloadURLs.length < 1
     ) {
@@ -1869,6 +1870,7 @@ async function downloadBookFile(
       url: downloadURLs[0], // only first index because only one file requested
     });
   } catch (e) {
+    debugError(e);
     return res.status(500).send({
       err: true,
       errMsg: conductorErrors.err6,
