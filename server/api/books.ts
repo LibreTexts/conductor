@@ -837,7 +837,14 @@ async function getCommonsCatalog(
         }
       ).lean();
 
-      if (orgData) {
+      if (orgData && Object.keys(orgData).length > 0) {
+        const institutionOptions = [];
+        const campusNames = buildOrganizationNamesList(orgData);
+        if (campusNames.length > 0) {
+          institutionOptions.push({ publisher: { $in: campusNames } });
+          institutionOptions.push({ course: { $in: campusNames } });
+        }
+
         const hasCustomEntries =
           customCatalog &&
           Array.isArray(customCatalog.resources) &&
@@ -852,9 +859,22 @@ async function getCommonsCatalog(
           const tagMatchObj = {
             libraryTags: { $in: orgData.catalogMatchingTags },
           };
-          if (hasCustomEntries && hasCatalogMatchingTags) {
-            searchAreaObj = { $or: [idMatchObj, tagMatchObj] };
-          } else if (hasCustomEntries) {
+
+          if (hasCustomEntries && hasCatalogMatchingTags && campusNames.length > 0) {
+            searchAreaObj = { $or: [idMatchObj, tagMatchObj, ...institutionOptions] };
+          } else if (hasCustomEntries && !hasCatalogMatchingTags && campusNames.length > 0) {
+            searchAreaObj = {
+              $or: [idMatchObj, ...institutionOptions],
+            };
+          } else if(!hasCustomEntries && hasCatalogMatchingTags && campusNames.length > 0) {
+            searchAreaObj = {
+              $or: [tagMatchObj, ...institutionOptions],
+            };
+          } else if (hasCustomEntries && hasCatalogMatchingTags && campusNames.length === 0) {
+            searchAreaObj = {
+              $or: [idMatchObj, tagMatchObj],
+            };
+          } else if (hasCustomEntries && !hasCatalogMatchingTags && campusNames.length === 0) {
             searchAreaObj = idMatchObj;
           } else {
             searchAreaObj = tagMatchObj;
