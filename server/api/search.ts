@@ -24,6 +24,7 @@ import {
 } from "./validators/search.js";
 import ProjectFile from "../models/projectfile.js";
 import authAPI from "./auth.js";
+import Author from "../models/author.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -536,7 +537,17 @@ export async function assetsSearch(
           text: {
             query: mongoSearchQueryTerm,
             path: "value",
+            fuzzy: {
+              maxEdits: 2,
+              maxExpansions: 50,
+            },
+            score: { boost: { value: 1.5 } },
           },
+        },
+      },
+      {
+        $addFields: {
+          score: { $meta: "searchScore" },
         },
       },
       {
@@ -645,10 +656,138 @@ export async function assetsSearch(
       },
     ]);
 
-    const aggregations = [fromProjectFilesPromise];
+    const fromAuthorsPromise = Author.aggregate(
+      [
+        {
+          $search: {
+            text: {
+              query: mongoSearchQueryTerm,
+              path: ["firstName", "lastName", "email"],
+              fuzzy: {
+                maxEdits: 2,
+                maxExpansions: 50,
+              },
+              score: { boost: { value: 1.5 } },
+            },
+          },
+        },
+        {
+          $addFields: {
+            score: { $meta: "searchScore" },
+          },
+        },
+        {
+          $lookup: {
+            from: "projectfiles",
+            localField: "_id",
+            foreignField: "authors",
+            as: "matchingProjectFiles",
+          },
+        },
+        {
+          $unwind: {
+            path: "$matchingProjectFiles",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "projects",
+            localField:
+              "matchingProjectFiles.projectID",
+            foreignField: "projectID",
+            as: "projectInfo",
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [
+                {
+                  projectInfo: {
+                    $arrayElemAt: ["$projectInfo", 0],
+                  },
+                },
+                "$matchingProjectFiles",
+              ],
+            },
+          },
+        },
+        {
+          $match: {
+            "projectInfo.visibility": "public",
+          },
+        },
+        {
+          $project: {
+            projectInfo: {
+              _id: 0,
+              projectID: 0,
+              orgID: 0,
+              status: 0,
+              visibility: 0,
+              currentProgress: 0,
+              peerProgress: 0,
+              a11yProgress: 0,
+              leads: 0,
+              liaisons: 0,
+              members: 0,
+              auditors: 0,
+              tags: 0,
+              allowAnonPR: 0,
+              cidDescriptors: 0,
+              a11yReview: 0,
+              createdAt: 0,
+              updatedAt: 0,
+              __v: 0,
+              adaptCourseID: 0,
+              adaptURL: 0,
+              classification: 0,
+              defaultFileLicense: 0,
+              libreCampus: 0,
+              libreLibrary: 0,
+              libreShelf: 0,
+              projectURL: 0,
+              didCreateWorkbench: 0,
+              didMigrateWorkbench: 0,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "assettags",
+            localField: "tags",
+            foreignField: "_id",
+            pipeline: [
+              {
+                $lookup: {
+                  from: "assettagkeys",
+                  localField: "key",
+                  foreignField: "_id",
+                  as: "key",
+                },
+              },
+              {
+                $set: {
+                  key: {
+                    $arrayElemAt: ["$key", 0],
+                  },
+                },
+              },
+            ],
+            as: "tags",
+          },
+        },
+        {
+          $match: matchObj,
+        },
+      ]
+    )
 
+    const aggregations = [fromProjectFilesPromise];
     if (mongoSearchQueryTerm) {
       aggregations.push(fromAssetTagsPromise);
+      aggregations.push(fromAuthorsPromise);
     }
 
     const aggregateResults = await Promise.all(aggregations);
