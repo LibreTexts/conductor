@@ -639,7 +639,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         )}
                       </Table.Cell>
                       <Table.Cell>
-                        <RenderAssetTags file={item} />
+                        <RenderAssetTags file={item} popupDisabled />
                       </Table.Cell>
                       <Table.Cell className="flex flex-row justify-end">
                         {canViewDetails && (

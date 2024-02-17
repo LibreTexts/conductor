@@ -657,7 +657,7 @@ export async function assetsSearch(
       {
         $match: {
           score: {
-            $gte: 1,
+            $gte: 1.5,
           },
         },
       },
