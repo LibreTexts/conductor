@@ -98,16 +98,20 @@ const RenderAssetTags: React.FC<{
         return (
           <div key={tag.uuid} className="">
             <span className="font-semibold">{title}</span>:{" "}
-            <Label
-              style={{
-                backgroundColor: color,
-                borderColor: color,
-                color: "white",
-              }}
-              size="mini"
-            >
-              {text}
-            </Label>
+            {text ? (
+              <Label
+                style={{
+                  backgroundColor: color,
+                  borderColor: color,
+                  color: "white",
+                }}
+                size="mini"
+              >
+                {text}
+              </Label>
+            ) : (
+              "No value provided"
+            )}
           </div>
         );
       })}

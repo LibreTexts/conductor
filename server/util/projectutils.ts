@@ -345,6 +345,40 @@ export async function retrieveAllProjectFiles(
           }
         },
         {
+          $addFields: {
+              createdDate: { $dateToString: { date: "$_id" } },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            let: { createdBy: "$createdBy" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$uuid", "$$createdBy"] },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  uuid: 1,
+                  firstName: 1,
+                  lastName: 1,
+                },
+              },
+            ],
+            as: "uploader",
+          },
+        },
+        {
+          $addFields: {
+            "uploader": {
+              $arrayElemAt: ["$uploader", 0],
+            },
+          },
+        },
+        {
           $lookup: {
             from: "projects",
             let: {
@@ -473,9 +507,6 @@ export async function retrieveAllProjectFiles(
           },
         },
         {
-          $unwind: "$authors",
-        },
-        {
           $lookup: {
             from: "authors",
             localField: "authors",
@@ -484,40 +515,36 @@ export async function retrieveAllProjectFiles(
           },
         },
         {
-          $addFields: {
-            authors: {
-              $cond: {
-                if: {
-                  $eq: [{ $size: "$foundAuthors" }, 0],
+          $set: {
+            "authors": {
+              "$cond": {
+                "if": {
+                  "$and": [
+                    { "$isArray": "$authors" },
+                    { "$ne": [{ "$size": "$authors" }, 0] }
+                  ]
                 },
-                then: "$authors",
-                else: {
-                  $arrayElemAt: ["$foundAuthors", 0],
+                "then": {
+                  "$map": {
+                    "input": "$authors",
+                    "as": "author",
+                    "in": {
+                      "$cond": [
+                        { "$in": ["$$author", "$foundAuthors._id"] },
+                        { "$arrayElemAt": ["$foundAuthors", { "$indexOfArray": ["$foundAuthors._id", "$$author._id"] }] },
+                        "$$author"
+                      ]
+                    }
+                  }
                 },
-              },
-            },
-          },
+                "else": []
+              }
+            }
+          }
         },
         {
-          $group: {
-            _id: "$_id",
-            projectFile: { $first: "$$ROOT" },
-            authors: { $push: "$authors" },
-          },
-        },
-        {
-          $addFields: {
-            "projectFile.authors": "$authors",
-          },
-        },
-        {
-          $unset: "projectFile.foundAuthors",
-        },
-        {
-          $replaceRoot: {
-            newRoot: "$projectFile",
-          },
-        },
+          $unset: "foundAuthors"
+        }
       ]
     );
 
