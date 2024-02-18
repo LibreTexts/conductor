@@ -27,7 +27,6 @@ export function parseAndSortElements({
   onError: (err: any) => void;
 }): CustomFormElement[] {
   try {
-    let allElem: CustomFormElement[] = [];
     if (
       !Array.isArray(getValueFn("headings")) ||
       !Array.isArray(getValueFn("prompts")) ||
@@ -59,19 +58,7 @@ export function parseAndSortElements({
       }
     );
 
-    allElem = [...headings, ...prompts, ...textBlocks];
-
-    allElem.sort((a, b) => {
-      let aOrder = a.order;
-      let bOrder = b.order;
-      if (typeof aOrder !== "number") aOrder = 1;
-      if (typeof bOrder !== "number") bOrder = 1;
-      if (aOrder < bOrder) return -1;
-      if (aOrder > bOrder) return 1;
-      return 0;
-    });
-
-    return allElem;
+    return [...headings, ...prompts, ...textBlocks].sort((a, b) => a.order - b.order);;
   } catch (err) {
     onError(err);
     return [];

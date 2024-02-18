@@ -64,7 +64,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
 }) => {
   // UI
   const [tableColumns, setTableColumns] = useState<
-    { key: string; text: string }[]
+    { key: number; text: string }[]
   >([]);
   const [showUnregisterModal, setShowUnregisterModal] = useState(false);
   const [showSyncProjectModal, setShowSyncProjectModal] = useState(false);
@@ -81,7 +81,7 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     setTableColumns([
       ...orgEvent.prompts.map((p) => {
         return {
-          key: p.promptText,
+          key: p.order,
           text: p.promptText,
         };
       }),
@@ -129,28 +129,41 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
     );
   }
 
-  function getResponseValText(prompt: OrgEventParticipantFormResponse): string {
+  function getResponseValText(promptOrder: number, responses: OrgEventParticipantFormResponse[]): string {
     const foundPrompt = orgEvent?.prompts.find(
-      (p) => p.order === prompt.promptNum
+      (p) => p.order === promptOrder
     );
     if (!foundPrompt) return "";
+    const foundResponse = responses.find((r) => r.promptNum === foundPrompt.order);
+    if (!foundResponse) return "";
 
     if (["3-likert", "5-likert", "7-likert"].includes(foundPrompt.promptType)) {
       return getLikertResponseText(
         foundPrompt.promptType,
-        parseInt(prompt.responseVal ?? "")
+        parseInt(foundResponse.responseVal ?? "")
       );
     }
 
-    if (
-      foundPrompt.promptType === "text" &&
-      prompt.responseVal !== undefined &&
-      isEmptyString(prompt.responseVal)
-    ) {
+    if (foundPrompt.promptType === "text" && foundResponse.responseVal) {
+      return foundResponse.responseVal;
+    } else if (foundPrompt.promptType === "text") {
       return "(No Response)";
     }
 
-    return prompt.responseVal ?? "UNKNOWN VALUE";
+    if (foundPrompt.promptType === "dropdown" && foundResponse.responseVal) {
+      const foundPromptOption = foundPrompt.promptOptions?.find((o) => o.value === foundResponse.responseVal);
+      if (foundPromptOption) {
+        return foundPromptOption.text;
+      }
+    } else if (foundPrompt.promptType === "dropdown") {
+      return "(No Response)";
+    }
+
+    if (foundPrompt.promptType === "checkbox") {
+      return foundResponse.responseVal === "true" ? 'Yes' : 'No';
+    }
+
+    return "UNKNOWN VALUE";
   }
 
   function handleOpenUnregisterModal() {
@@ -238,9 +251,9 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
         </Table.Cell>
         <Table.Cell>
           <span>
-            {participant.registeredBy.uuid === participant.user?.uuid
+            {participant.registeredBy?.uuid === participant.user?.uuid
               ? "Self"
-              : `${participant.registeredBy.firstName} ${participant.registeredBy.lastName} (${participant.registeredBy.email})`}
+              : `${participant.registeredBy?.firstName} ${participant.registeredBy?.lastName} (${participant.registeredBy?.email})`}
           </span>
         </Table.Cell>
         {orgEvent.collectShipping && (
@@ -257,9 +270,11 @@ const ParticipantsSegment: React.FC<ParticipantsSegmentProps> = ({
             </span>
           </Table.Cell>
         )}
-        {participant.formResponses.map((r) => {
+        {tableColumns.map((item) => {
           return (
-            <Table.Cell key={r.promptNum}>{getResponseValText(r)}</Table.Cell>
+            <Table.Cell key={item.key}>
+              <span>{getResponseValText(item.key, participant.formResponses)}</span>
+            </Table.Cell>
           );
         })}
       </Table.Row>

@@ -205,16 +205,16 @@ const EventRegistration = () => {
     item: CustomFormPrompt,
     newVal: string | number | boolean
   ) {
-    let foundElement = allElements.find((el) => el.order === item.order);
-    let foundIdx = allElements.findIndex((el) => el.order === item.order);
+    const foundIdx = allElements.findIndex((el) => el.order === item.order);
+    const foundElement = allElements[foundIdx];
     if (foundIdx === -1 || !foundElement) return;
 
     if (!isCustomFormPromptBlock(foundElement)) {
       return;
     }
 
-    let newObj = { ...foundElement, value: newVal };
-    let newArr = [...allElements];
+    const newObj = { ...foundElement, value: newVal };
+    const newArr = [...allElements];
     newArr.splice(foundIdx, 1, newObj);
     setAllElements(newArr);
   }

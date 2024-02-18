@@ -167,6 +167,7 @@ async function getOrgEventParticipants(
         model: "User",
         select: SanitizedUserSelectQuery,
       })
+      .sort({ _id: 1 })
       .skip(offset)
       .limit(limit)
       .lean();
@@ -180,9 +181,17 @@ async function getOrgEventParticipants(
       eventID: req.params.eventID,
     });
 
+    const participantsWithSortedResponses = (foundParticipants || []).map((participant) => {
+      const sortedFormResponses = participant.formResponses.sort((a, b) => a.promptNum - b.promptNum);
+      return {
+        ...participant,
+        formResponses: sortedFormResponses,
+      };
+    })
+
     return res.send({
       err: false,
-      participants: foundParticipants || [],
+      participants: participantsWithSortedResponses,
       totalCount: totalCount ?? 0,
     });
   } catch (err) {
