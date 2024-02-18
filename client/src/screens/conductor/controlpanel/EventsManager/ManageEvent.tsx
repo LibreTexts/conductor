@@ -51,6 +51,7 @@ import {
 import { OrgEventFeeWaiver } from "../../../../types/OrgEvent";
 import CollectShippingMessage from "../../../../components/controlpanel/EventsManager/CollectShippingMessage";
 import FeeWaiverInputMessage from "../../../../components/controlpanel/EventsManager/FeeWaiverInputMessage";
+import api from "../../../../api";
 
 const ManageEvent = () => {
   // Global State
@@ -89,6 +90,7 @@ const ManageEvent = () => {
 
   // Data
   const [allElements, setAllElements] = useState<CustomFormElement[]>([]);
+  const [projectSyncTitle, setProjectSyncTitle] = useState('');
 
   // Fee Waivers Segment
   const [loadedFeeWaivers, setLoadedFeeWaivers] = useState<boolean>(false);
@@ -258,6 +260,21 @@ const ManageEvent = () => {
     setLoadedOrgEvent,
     handleGlobalError,
   ]);
+
+  const getSyncedProject = useCallback(async () => {
+    const projectID = getValues('projectSyncID');
+    if (projectID) {
+      const res = await api.getProject(projectID);
+      if (res.data.err) {
+        console.error(res.data.errMsg); // log silently
+      }
+      setProjectSyncTitle(res.data?.project?.title ?? '');
+    } 
+  }, [watchValue('projectSyncID'), setProjectSyncTitle]);
+
+  useEffect(() => {
+    getSyncedProject();
+  }, [getSyncedProject]);
 
   /**
    * Loads current rubric configuration and initializes editing mode, if applicable.
@@ -918,6 +935,8 @@ const ManageEvent = () => {
                         org={org}
                         manageMode={manageMode}
                         loading={!loadedOrgEvent}
+                        projectSyncID={getValues('projectSyncID')}
+                        projectSyncTitle={projectSyncTitle}
                       />
                     </Segment.Group>
                   </Grid.Column>

@@ -122,9 +122,14 @@ const AutoSyncToProjectModal: React.FC<AutoSyncToProjectModalProps> = ({
           {currentProject && (
             <p className="mb-2p">
               <strong>Current Auto-Sync Project: </strong>
-              {currentProject
-                ? `${currentProject.title} (${currentProject.projectID})`
-                : ""}
+              {currentProject && (
+                <a
+                  href={`/projects/${currentProject.projectID}`}
+                  target="_blank"
+                >
+                  {currentProject.title}
+                </a>
+              )}
             </p>
           )}
           <Form.Group widths="equal">

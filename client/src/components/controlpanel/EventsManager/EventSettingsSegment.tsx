@@ -9,6 +9,8 @@ interface EventSettingsSegmentProps {
   manageMode: "create" | "edit";
   org: Organization;
   loading: boolean;
+  projectSyncID?: string;
+  projectSyncTitle?: string
 }
 
 const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
@@ -16,6 +18,8 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
   manageMode,
   org,
   loading,
+  projectSyncID,
+  projectSyncTitle,
   ...rest
 }) => {
   const DATE_FORMAT_STRING = "MM/dd/yyyy hh:mm aa";
@@ -79,6 +83,20 @@ const EventSettingsSegment: React.FC<EventSettingsSegmentProps> = ({
                     );
                   }}
                 />
+              </p>
+            )}
+            {(projectSyncID && projectSyncTitle) && (
+              <p>
+                <Header sub as="span">
+                  Synced Project:
+                </Header>
+                <a
+                  href={`/projects/${projectSyncID}`}
+                  target="_blank"
+                >
+                  {" "}
+                  {projectSyncTitle}
+                </a>
               </p>
             )}
           </Grid.Column>
