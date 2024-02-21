@@ -1,6 +1,10 @@
 import { Book } from "./Book";
 import { Homework } from "./Homework";
-import { Project, ProjectFileWCustomData, ProjectFileWProjectData } from "./Project";
+import {
+  Project,
+  ProjectFileWCustomData,
+  ProjectFileWProjectData,
+} from "./Project";
 import { User } from "./User";
 
 export type AssetFilters = {
@@ -21,7 +25,6 @@ export type BookFilters = {
 };
 
 type _commonSearchParams = {
-  strictMode: boolean;
   searchQuery?: string;
   page?: number;
   limit?: number;
@@ -36,7 +39,8 @@ export type AssetSearchParams = {
 
 export type BookSearchParams = {
   sort?: "title" | "author" | "library" | "subject" | "affiliation";
-} & _commonSearchParams & BookFilters;
+} & _commonSearchParams &
+  BookFilters;
 
 export type HomeworkSearchParams = {
   sort?: "name" | "description";
@@ -60,7 +64,7 @@ export type ConductorSearchResponse<
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
   // if origin is 'conductor', then response is of type ConductorSearchResultsObject
   results: T extends "assets"
-    ? ProjectFileWProjectData<'title' | 'thumbnail'>[]
+    ? ProjectFileWProjectData<"title" | "thumbnail">[]
     : T extends "books"
     ? Book[]
     : T extends "homework"
@@ -71,3 +75,21 @@ export type ConductorSearchResponse<
     ? User[]
     : never;
 };
+
+export type AssetFiltersAction =
+  | {
+      type: keyof AssetFilters;
+      payload: string;
+    }
+  | {
+      type: "reset";
+    };
+
+export type BookFiltersAction =
+  | {
+      type: keyof BookFilters;
+      payload: string;
+    }
+  | {
+      type: "reset";
+    };

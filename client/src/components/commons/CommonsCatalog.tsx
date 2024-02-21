@@ -9,7 +9,6 @@ import {
   Book,
   BookFilters,
   Project,
-  ProjectFileWCustomData,
   ProjectFileWProjectData,
 } from "../../types";
 import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
@@ -28,11 +27,8 @@ const CommonsCatalog = () => {
   const ITEMS_PER_PAGE = 24;
 
   const [searchString, setSearchString] = useState<string>("");
-  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
-  const [strictMode, setStrictMode] = useState(false);
 
   const [bookFilters, setBookFilters] = useState<BookFilters>({});
   const [assetFilters, setAssetFilters] = useState<AssetFilters>({});
@@ -56,7 +52,9 @@ const CommonsCatalog = () => {
     const search = new URLSearchParams(location.search).get("search");
     if (search) {
       setSearchString(search);
-      runSearch(search);
+      runSearch({
+        query: search,
+      });
     } else {
       loadInitialData();
     }
@@ -80,8 +78,8 @@ const CommonsCatalog = () => {
 
     if (search === "") {
       clearSearchParam();
-      if(assetFiltersApplied() || bookFiltersApplied()) {
-        runSearch(search); // handle no search query but filters
+      if (assetFiltersApplied() || bookFiltersApplied()) {
+        runSearch({ query: search }); // handle no search query but filters
       } else {
         loadInitialData(true);
       }
@@ -89,7 +87,9 @@ const CommonsCatalog = () => {
     } else {
       url.searchParams.set("search", search);
       window.history.pushState({}, "", url.toString());
-      runSearch(search);
+      runSearch({
+        query: search,
+      });
     }
   };
 
@@ -102,8 +102,6 @@ const CommonsCatalog = () => {
   const handleResetSearch = () => {
     clearSearchParam();
     setSearchString("");
-    setBookFilters({});
-    setAssetFilters({});
     setActivePage(1);
     setBooks([]);
     setAssets([]);
@@ -111,14 +109,30 @@ const CommonsCatalog = () => {
     loadInitialData(true);
   };
 
-  async function runSearch(query?: string) {
+  async function runSearch({
+    query,
+    assetFilters,
+    bookFilters,
+  }: {
+    query?: string;
+    assetFilters?: AssetFilters;
+    bookFilters?: BookFilters;
+  }) {
     try {
       if (loadingDisabled) return;
       setActivePage(1);
 
+      if (
+        !query &&
+        (!assetFilters || !Object.keys(assetFilters).length) &&
+        (!bookFilters || !Object.keys(bookFilters).length)
+      ) {
+        return;
+      }
+
       await Promise.all([
-        handleBooksSearch(query ?? searchString, true),
-        handleAssetsSearch(1, query ?? searchString, true),
+        handleBooksSearch(query ?? searchString, bookFilters, true),
+        handleAssetsSearch(query ?? searchString, assetFilters, true),
         handleProjectsSearch(query ?? searchString, true),
       ]);
     } catch (err) {
@@ -168,12 +182,15 @@ const CommonsCatalog = () => {
     }
   }
 
-  async function handleBooksSearch(query?: string, clearAndUpdate = false) {
+  async function handleBooksSearch(
+    query?: string,
+    bookFilters?: BookFilters,
+    clearAndUpdate = false
+  ) {
     try {
       setBooksLoading(true);
       const res = await api.booksSearch({
         ...(query && { searchQuery: query }),
-        strictMode,
         page: activePage,
         limit: ITEMS_PER_PAGE,
         ...bookFilters,
@@ -232,16 +249,15 @@ const CommonsCatalog = () => {
   }
 
   async function handleAssetsSearch(
-    page = 1,
     query?: string,
+    assetFilters?: AssetFilters,
     clearAndUpdate = false
   ) {
     try {
       setAssetsLoading(true);
       const res = await api.assetsSearch({
         ...(query && { searchQuery: query }),
-        strictMode,
-        page,
+        page: activePage,
         limit: ITEMS_PER_PAGE,
         ...assetFilters,
       });
@@ -302,7 +318,6 @@ const CommonsCatalog = () => {
       setProjectsLoading(true);
       const res = await api.projectsSearch({
         searchQuery: query,
-        strictMode: false,
         page: activePage,
         limit: ITEMS_PER_PAGE,
       });
@@ -311,13 +326,11 @@ const CommonsCatalog = () => {
         throw new Error(res.data.errMsg);
       }
 
-      if (!res.data.results) {
+      if (!res.data.results || !Array.isArray(res.data.results)) {
         throw new Error("No results found.");
       }
 
-      if (Array.isArray(res.data.results)) {
-        updateProjects(res.data.results, clearAndUpdate);
-      }
+      updateProjects(res.data.results, clearAndUpdate);
 
       if (typeof res.data.numResults === "number") {
         setProjectsCount(res.data.numResults);
@@ -352,7 +365,7 @@ const CommonsCatalog = () => {
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || assetFiltersApplied()) {
-      return handleAssetsSearch(nextPage, searchString);
+      return handleAssetsSearch(searchString);
     } else {
       return loadPublicAssets();
     }
@@ -469,48 +482,31 @@ const CommonsCatalog = () => {
                     />
                   </div>
                 </Form>
-                <div
-                  className="flex flex-row items-center justify-center text-primary font-semibold cursor-pointer text-center mt-4"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                >
-                  <Icon
-                    name={showAdvanced ? "caret down" : "caret right"}
-                    className="mr-1 !mb-2"
-                  />
-                  <p className="">Advanced Search</p>
-                  <Icon
-                    name={showAdvanced ? "caret down" : "caret left"}
-                    className="ml-1 !mb-2"
-                  />
-                </div>
               </div>
-              {showAdvanced && (
-                <div className="mb-8">
-                  <AdvancedSearchDrawer
-                    searchString={searchString}
-                    setSearchString={setSearchString}
-                    activeIndex={activeIndex}
-                    setActiveIndex={setActiveIndex}
-                    submitSearch={updateSearchParam}
-                    bookFilters={bookFilters}
-                    setBookFilters={setBookFilters}
-                    assetFilters={assetFilters}
-                    setAssetFilters={setAssetFilters}
-                    strictMode={strictMode}
-                    setStrictMode={setStrictMode}
-                  />
-                </div>
-              )}
-              {(searchString !== "" ||
-                Object.keys(bookFilters).length !== 0 ||
-                Object.keys(assetFilters).length !== 0) && (
-                <p
-                  className="italic font-semibold cursor-pointer underline text-center mt-2"
-                  onClick={handleResetSearch}
-                >
-                  Reset Search
-                </p>
-              )}
+              <div className="mb-8">
+                <AdvancedSearchDrawer
+                  activeIndex={activeIndex}
+                  setActiveIndex={setActiveIndex}
+                  searchString={searchString}
+                  onReset={handleResetSearch}
+                  onAssetFiltersChange={(newFilters) => {
+                    setAssetFilters(newFilters);
+                    runSearch(
+                      searchString
+                        ? { query: searchString, assetFilters: newFilters }
+                        : { assetFilters: newFilters }
+                    );
+                  }}
+                  onBookFiltersChange={(newFilters) => {
+                    setBookFilters(newFilters);
+                    runSearch(
+                      searchString
+                        ? { query: searchString, bookFilters: newFilters }
+                        : { bookFilters: newFilters }
+                    );
+                  }}
+                />
+              </div>
               <CatalogTabs
                 assetFilters={assetFilters}
                 bookFilters={bookFilters}
