@@ -725,6 +725,9 @@ router.route('/search/users').get(
   middleware.validateZod(SearchValidators.userSearchSchema),
   searchAPI.usersSearch,
 );
+router.route('/search/asset-filters').get(
+  searchAPI.getAssetFilterOptions,
+)
 
 
 

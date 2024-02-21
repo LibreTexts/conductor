@@ -22,6 +22,10 @@ const COMMON_MIME_TYPES: {
         name: "GIF",
         value: "image/gif",
       },
+      {
+        name: "TIFF",
+        value: "image/tiff",
+      }
     ],
   },
   {
@@ -103,6 +107,10 @@ const COMMON_MIME_TYPES: {
         name: "XML",
         value: "application/xml",
       },
+      {
+        name: "CSV",
+        value: "text/csv",
+      }
     ],
   },
   {
@@ -132,5 +140,19 @@ const COMMON_MIME_TYPES: {
     ],
   },
 ];
+
+export function getPrettyNameFromMimeType(mimeType: string): string {
+  const found = COMMON_MIME_TYPES.find((cmt) => {
+    const foundMT = cmt.mimeTypes.find((mt) => mt.value === mimeType);
+    return foundMT !== undefined;
+  });
+  if (found) {
+    const foundMT = found.mimeTypes.find((mt) => mt.value === mimeType);
+    if (foundMT) {
+      return foundMT.name;
+    }
+  }
+  return mimeType;
+}
 
 export default COMMON_MIME_TYPES;

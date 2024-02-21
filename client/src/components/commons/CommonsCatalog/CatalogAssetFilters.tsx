@@ -9,7 +9,7 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
-import COMMON_MIME_TYPES from "../../../utils/common-mime-types";
+import COMMON_MIME_TYPES, { getPrettyNameFromMimeType } from "../../../utils/common-mime-types";
 import { useTypedSelector } from "../../../state/hooks";
 
 type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
@@ -42,10 +42,56 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getOrgs();
-    getLicenseOptions();
-    getFileTypeOptions();
+    getFilterOptions();
+    // getOrgs();
+    // getLicenseOptions();
+    // getFileTypeOptions();
   }, []);
+
+  async function getFilterOptions() {
+    try {
+      const res = await api.getAssetFilterOptions();
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data) {
+        throw new Error("Invalid response from server.");
+      }
+
+      if (res.data.orgs) {
+        const orgs = res.data.orgs.map((org: string) => {
+          return {
+            value: org,
+            key: crypto.randomUUID(),
+            text: org,
+          };
+        });
+        setOrgOptions(orgs);
+      }
+
+      if (res.data.licenses) {
+        setLicenseOptions(res.data.licenses.map((l: string) => {
+          return {
+            key: crypto.randomUUID(),
+            text: l,
+            value: l,
+          };
+        }))
+      }
+
+      if(res.data.fileTypes) {
+        setFileTypeOptions(res.data.fileTypes.map((ft: string) => {
+          return {
+            key: crypto.randomUUID(),
+            text: getPrettyNameFromMimeType(ft),
+            value: ft,
+          };
+        }))
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    }
+  }
 
   async function getOrgs(searchQuery?: string) {
     try {

@@ -8,7 +8,7 @@ import { debugError } from "../debug.js";
 import { getPaginationOffset, isValidDateObject } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { ProjectFileInterface } from "../models/projectfile.js";
 import { string, z } from "zod";
@@ -817,7 +817,7 @@ export async function assetsSearch(
         return file.projectInfo.associatedOrgs?.includes(req.query.org);
       });
     }
-    
+
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
     const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
@@ -1178,6 +1178,102 @@ async function getAutocompleteResults(
   }
 }
 
+async function getAssetFilterOptions(req: Request, res: Response) {
+  try {
+    const aggregations = [];
+
+    const licensePromise = ProjectFile.aggregate([
+      {
+        $match: {
+          "license.name": {
+            $ne: "",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          uniqueLicenseNames: {
+            $addToSet: "$license.name",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          uniqueLicenseNames: 1,
+        },
+      },
+    ]);
+
+    aggregations.push(licensePromise);
+
+    const fileTypePromise = ProjectFile.aggregate([
+      { $match: { mimeType: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$mimeType" } },
+    ]);
+    aggregations.push(fileTypePromise);
+
+    const orgsPromise = Project.aggregate([
+      {
+        $group: {
+          _id: null,
+          associatedOrgs: {
+            $addToSet: "$associatedOrgs",
+          },
+        },
+      },
+      {
+        $unwind: "$associatedOrgs",
+      },
+      {
+        $unwind: "$associatedOrgs",
+      },
+      {
+        $group: {
+          _id: null,
+          associatedOrgs: {
+            $addToSet: "$associatedOrgs",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+        },
+      },
+    ]);
+    aggregations.push(orgsPromise);
+
+    const results = await Promise.all(aggregations);
+    const licenseNames = results[0][0]?.uniqueLicenseNames ?? [];
+    const rawfileTypes = results[1] ?? [];
+    const fileTypes = rawfileTypes.map((type: any) => type._id);
+    const orgs = results[2][0]?.associatedOrgs ?? [];
+
+    // Sort results
+    licenseNames.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    fileTypes.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    orgs.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+
+    return res.send({
+      err: false,
+      licenses: licenseNames,
+      fileTypes: fileTypes,
+      orgs: orgs,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 function _transformToCompare(val: any) {
   return String(val)
     .toLowerCase()
@@ -1191,4 +1287,5 @@ export default {
   projectsSearch,
   usersSearch,
   getAutocompleteResults,
+  getAssetFilterOptions,
 };
