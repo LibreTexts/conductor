@@ -1,13 +1,15 @@
 import "./Commons.css";
 import { Grid, Segment, Header, Form, Icon } from "semantic-ui-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useReducer } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import useDebounce from "../../hooks/useDebounce";
 import {
   AssetFilters,
+  AssetFiltersAction,
   Book,
   BookFilters,
+  BookFiltersAction,
   Project,
   ProjectFileWProjectData,
 } from "../../types";
@@ -16,13 +18,61 @@ import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useLocation } from "react-router-dom";
 
+function assetsReducer(
+  state: AssetFilters,
+  action: AssetFiltersAction
+): AssetFilters {
+  switch (action.type) {
+    case "license":
+      return { ...state, license: action.payload };
+    case "org":
+      return { ...state, org: action.payload };
+    case "fileType":
+      return { ...state, fileType: action.payload };
+    case "reset":
+      return {};
+    case "reset_one": {
+      const newState = { ...state };
+      delete newState[action.payload as keyof AssetFilters];
+      return newState;
+    }
+    default:
+      return state;
+  }
+}
+
+function booksReducer(
+  state: BookFilters,
+  action: BookFiltersAction
+): BookFilters {
+  switch (action.type) {
+    case "author":
+      return { ...state, author: action.payload };
+    case "library":
+      return { ...state, library: action.payload };
+    case "subject":
+      return { ...state, subject: action.payload };
+    case "affiliation":
+      return { ...state, affiliation: action.payload };
+    case "reset":
+      return {};
+    case "reset_one":
+      const newState = { ...state };
+      delete newState[action.payload as keyof BookFilters];
+      return newState;
+    default:
+      return state;
+  }
+}
+
 const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
-  const advancedSearchRef =
-    useRef<React.ElementRef<typeof AdvancedSearchDrawer>>(null);
+
+  const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
+  const [booksState, booksDispatch] = useReducer(booksReducer, {});
 
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
@@ -31,11 +81,6 @@ const CommonsCatalog = () => {
   const [searchString, setSearchString] = useState<string>("");
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
-
-  const [displayBookFilters, setDisplayBookFilters] = useState<BookFilters>({});
-  const [displayAssetFilters, setDisplayAssetFilters] = useState<AssetFilters>(
-    {}
-  );
 
   const [books, setBooks] = useState<Book[]>([]);
   const [booksCount, setBooksCount] = useState<number>(0);
@@ -53,28 +98,26 @@ const CommonsCatalog = () => {
   const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
-    const search = new URLSearchParams(location.search).get("search");
-    if (search) {
-      setSearchString(search);
-      runSearch({
-        query: search,
-      });
-    } else {
-      loadInitialData();
-    }
-  }, []);
-
-  /**
-   * Update the page title based on
-   * Organization information.
-   */
-  useEffect(() => {
+    // Set page title based on the organization
     if (org.orgID !== "libretexts") {
       document.title = `${org.shortName} Commons | Catalog`;
     } else {
       document.title = "LibreCommons | Catalog";
     }
-  }, [org]);
+  }, []);
+
+  useEffect(() => {
+    // If there is a search query in the URL, run the search
+    const search = new URLSearchParams(location.search).get("search");
+    if (search) {
+      setSearchString(search);
+    }
+    runSearch({
+      query: search ?? "",
+      assetFilters: assetsState,
+      bookFilters: booksState,
+    });
+  }, [assetsState, booksState]);
 
   const updateSearchParam = () => {
     const search = searchString.trim();
@@ -90,7 +133,9 @@ const CommonsCatalog = () => {
       return;
     } else {
       // Reset the advanced search filters when a new search is run
-      advancedSearchRef.current?.reset();
+      assetsDispatch({ type: "reset" });
+      booksDispatch({ type: "reset" });
+
       url.searchParams.set("search", search);
       window.history.pushState({}, "", url.toString());
       setSearchString(search);
@@ -350,11 +395,11 @@ const CommonsCatalog = () => {
   }
 
   const bookFiltersApplied = (): boolean => {
-    return advancedSearchRef.current?.bookFiltersApplied ?? false;
+    return Object.keys(booksState).length > 0;
   };
 
   const assetFiltersApplied = (): boolean => {
-    return advancedSearchRef.current?.assetFiltersApplied ?? false;
+    return Object.keys(assetsState).length > 0;
   };
 
   function handleLoadMoreBooks() {
@@ -426,14 +471,6 @@ const CommonsCatalog = () => {
     setActivePage(1);
   }
 
-  function handleRemoveBookFilter(filter: keyof BookFilters) {
-    advancedSearchRef.current?.removeBookFilter(filter);
-  }
-
-  function handleRemoveAssetFilter(filter: keyof AssetFilters) {
-    advancedSearchRef.current?.removeAssetFilter(filter);
-  }
-
   return (
     <Grid className="commons-container">
       <Grid.Row>
@@ -488,32 +525,27 @@ const CommonsCatalog = () => {
               </div>
               <div className="mb-8">
                 <AdvancedSearchDrawer
-                  ref={advancedSearchRef}
                   activeIndex={activeIndex}
                   setActiveIndex={setActiveIndex}
-                  searchString={searchString}
-                  onReset={handleResetSearch}
-                  onAssetFiltersChange={(newFilters) => {
-                    setDisplayAssetFilters(newFilters);
-                    runSearch(
-                      searchString
-                        ? { query: searchString, assetFilters: newFilters }
-                        : { assetFilters: newFilters }
-                    );
-                  }}
-                  onBookFiltersChange={(newFilters) => {
-                    setDisplayBookFilters(newFilters);
-                    runSearch(
-                      searchString
-                        ? { query: searchString, bookFilters: newFilters }
-                        : { bookFilters: newFilters }
-                    );
-                  }}
+                  assetFilters={assetsState}
+                  assetFiltersDispatch={assetsDispatch}
+                  bookFilters={booksState}
+                  bookFiltersDispatch={booksDispatch}
                 />
+                {(searchString !== "" ||
+                  Object.keys(assetsState).length !== 0 ||
+                  Object.keys(booksState).length !== 0) && (
+                  <p
+                    className="italic font-semibold cursor-pointer underline text-center mt-2"
+                    onClick={handleResetSearch}
+                  >
+                    Reset Search
+                  </p>
+                )}
               </div>
               <CatalogTabs
-                assetFilters={displayAssetFilters}
-                bookFilters={displayBookFilters}
+                assetFilters={assetsState}
+                bookFilters={booksState}
                 activeIndex={activeIndex}
                 onActiveTabChange={handleTabChange}
                 books={books}
@@ -528,8 +560,12 @@ const CommonsCatalog = () => {
                 onLoadMoreBooks={handleLoadMoreBooks}
                 onLoadMoreAssets={handleLoadMoreAssets}
                 onLoadMoreProjects={handleLoadMoreProjects}
-                onRemoveAssetFilter={handleRemoveAssetFilter}
-                onRemoveBookFilter={handleRemoveBookFilter}
+                onRemoveAssetFilter={(key) =>
+                  assetsDispatch({ type: "reset_one", payload: key })
+                }
+                onRemoveBookFilter={(key) =>
+                  booksDispatch({ type: "reset_one", payload: key })
+                }
                 onTriggerStopLoading={() => setLoadingDisabled(true)}
               />
             </Segment>
