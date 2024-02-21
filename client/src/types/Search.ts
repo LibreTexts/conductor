@@ -78,7 +78,7 @@ export type ConductorSearchResponse<
 
 export type AssetFiltersAction =
   | {
-      type: keyof AssetFilters;
+      type: keyof AssetFilters | "reset_one";
       payload: string;
     }
   | {
@@ -87,7 +87,7 @@ export type AssetFiltersAction =
 
 export type BookFiltersAction =
   | {
-      type: keyof BookFilters;
+      type: keyof BookFilters | "reset_one";
       payload: string;
     }
   | {

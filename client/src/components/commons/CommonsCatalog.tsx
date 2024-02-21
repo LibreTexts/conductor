@@ -21,6 +21,8 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
+  const advancedSearchRef =
+    useRef<React.ElementRef<typeof AdvancedSearchDrawer>>(null);
 
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
@@ -30,8 +32,10 @@ const CommonsCatalog = () => {
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
 
-  const [bookFilters, setBookFilters] = useState<BookFilters>({});
-  const [assetFilters, setAssetFilters] = useState<AssetFilters>({});
+  const [displayBookFilters, setDisplayBookFilters] = useState<BookFilters>({});
+  const [displayAssetFilters, setDisplayAssetFilters] = useState<AssetFilters>(
+    {}
+  );
 
   const [books, setBooks] = useState<Book[]>([]);
   const [booksCount, setBooksCount] = useState<number>(0);
@@ -85,8 +89,11 @@ const CommonsCatalog = () => {
       }
       return;
     } else {
+      // Reset the advanced search filters when a new search is run
+      advancedSearchRef.current?.reset();
       url.searchParams.set("search", search);
       window.history.pushState({}, "", url.toString());
+      setSearchString(search);
       runSearch({
         query: search,
       });
@@ -127,7 +134,7 @@ const CommonsCatalog = () => {
         (!assetFilters || !Object.keys(assetFilters).length) &&
         (!bookFilters || !Object.keys(bookFilters).length)
       ) {
-        return;
+        return loadInitialData(true);
       }
 
       await Promise.all([
@@ -343,11 +350,11 @@ const CommonsCatalog = () => {
   }
 
   const bookFiltersApplied = (): boolean => {
-    return Object.keys(bookFilters).length !== 0;
+    return advancedSearchRef.current?.bookFiltersApplied ?? false;
   };
 
   const assetFiltersApplied = (): boolean => {
-    return Object.keys(assetFilters).length !== 0;
+    return advancedSearchRef.current?.assetFiltersApplied ?? false;
   };
 
   function handleLoadMoreBooks() {
@@ -420,15 +427,11 @@ const CommonsCatalog = () => {
   }
 
   function handleRemoveBookFilter(filter: keyof BookFilters) {
-    const newFilters = { ...bookFilters };
-    delete newFilters[filter];
-    setBookFilters(newFilters);
+    advancedSearchRef.current?.removeBookFilter(filter);
   }
 
   function handleRemoveAssetFilter(filter: keyof AssetFilters) {
-    const newFilters = { ...assetFilters };
-    delete newFilters[filter];
-    setAssetFilters(newFilters);
+    advancedSearchRef.current?.removeAssetFilter(filter);
   }
 
   return (
@@ -485,12 +488,13 @@ const CommonsCatalog = () => {
               </div>
               <div className="mb-8">
                 <AdvancedSearchDrawer
+                  ref={advancedSearchRef}
                   activeIndex={activeIndex}
                   setActiveIndex={setActiveIndex}
                   searchString={searchString}
                   onReset={handleResetSearch}
                   onAssetFiltersChange={(newFilters) => {
-                    setAssetFilters(newFilters);
+                    setDisplayAssetFilters(newFilters);
                     runSearch(
                       searchString
                         ? { query: searchString, assetFilters: newFilters }
@@ -498,7 +502,7 @@ const CommonsCatalog = () => {
                     );
                   }}
                   onBookFiltersChange={(newFilters) => {
-                    setBookFilters(newFilters);
+                    setDisplayBookFilters(newFilters);
                     runSearch(
                       searchString
                         ? { query: searchString, bookFilters: newFilters }
@@ -508,8 +512,8 @@ const CommonsCatalog = () => {
                 />
               </div>
               <CatalogTabs
-                assetFilters={assetFilters}
-                bookFilters={bookFilters}
+                assetFilters={displayAssetFilters}
+                bookFilters={displayBookFilters}
                 activeIndex={activeIndex}
                 onActiveTabChange={handleTabChange}
                 books={books}
