@@ -1071,9 +1071,6 @@ async function getAutocompleteResults(
           autocomplete: {
             query: query,
             path: "value",
-            fuzzy: {
-              maxEdits: 2,
-            },
           },
         },
       },
@@ -1081,17 +1078,73 @@ async function getAutocompleteResults(
         $project: {
           _id: 0,
           value: 1,
+          score: { $meta: "searchScore" },
         },
       },
       {
         $sort: {
-          value: 1,
+          score: -1,
         },
       },
     ]).limit(limit);
 
-    const values = tagsResults.map((tag) => tag.value);
-    const reduced = values.reduce((acc, val) => {
+    const authorsResults = await Author.aggregate([
+      {
+        $search: {
+          index: "authors-autocomplete",
+          compound: {
+            must: [
+              {
+                autocomplete: {
+                  query: query,
+                  path: "firstName",
+                },
+              },
+              {
+                autocomplete: {
+                  query: query,
+                  path: "lastName",
+                },
+              },
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          firstName: 1,
+          lastName: 1,
+          score: { $meta: "searchScore" },
+        },
+      },
+      {
+        $sort: {
+          score: -1,
+        },
+      },
+    ]).limit(limit);
+
+    // Sort results by score
+    tagsResults.sort((a, b) => {
+      if (a.score < b.score) return 1;
+      if (a.score > b.score) return -1;
+      return 0;
+    });
+
+    authorsResults.sort((a, b) => {
+      if (a.score < b.score) return 1;
+      if (a.score > b.score) return -1;
+      return 0;
+    });
+
+    const tagValues = tagsResults.map((tag) => tag.value);
+    const authorValues = authorsResults.map(
+      (author) => `${author.firstName} ${author.lastName}`
+    );
+
+    // Handle nested arrays
+    const reduced = tagValues.reduce((acc, val) => {
       if (val instanceof Array) {
         val.forEach((v) => {
           acc.push(v);
@@ -1102,7 +1155,8 @@ async function getAutocompleteResults(
       return acc;
     }, []);
 
-    const uniqueValues = [...new Set<string>(reduced)];
+    // Combine and remove duplicates
+    const uniqueValues = [...new Set<string>([...reduced, ...authorValues])];
 
     // Filter out values that are less than 3 characters
     const filtered = uniqueValues.filter((val) => {

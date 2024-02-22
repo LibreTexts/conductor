@@ -17,6 +17,7 @@ import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useLocation } from "react-router-dom";
+import { truncateString } from "../util/HelperFunctions";
 
 function assetsReducer(
   state: AssetFilters,
@@ -70,15 +71,16 @@ const CommonsCatalog = () => {
   const org = useTypedSelector((state) => state.org);
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
+  const ITEMS_PER_PAGE = 24;
 
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
 
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
-  const ITEMS_PER_PAGE = 24;
-
   const [searchString, setSearchString] = useState<string>("");
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
 
@@ -118,6 +120,11 @@ const CommonsCatalog = () => {
       bookFilters: booksState,
     });
   }, [assetsState, booksState]);
+
+  const getSuggestionsDebounced = debounce(
+    (searchVal: string) => getSearchSuggestions(searchVal),
+    500
+  );
 
   const updateSearchParam = () => {
     const search = searchString.trim();
@@ -394,6 +401,21 @@ const CommonsCatalog = () => {
     }
   }
 
+  async function getSearchSuggestions(searchVal: string) {
+    try {
+      if (!searchVal || searchVal.length < 2) return;
+      const res = await api.getAutoCompleteSuggestions(searchVal);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (Array.isArray(res.data.results)) {
+        setSearchSuggestions(res.data.results);
+      }
+    } catch (err) {
+      console.error(err); // Fail silently
+    }
+  }
+
   const bookFiltersApplied = (): boolean => {
     return Object.keys(booksState).length > 0;
   };
@@ -510,7 +532,10 @@ const CommonsCatalog = () => {
                       className="color-libreblue !mb-0"
                       id="commons-search-input"
                       iconPosition="left"
-                      onChange={(e) => setSearchString(e.target.value)}
+                      onChange={(e) => {
+                        setSearchString(e.target.value);
+                        getSuggestionsDebounced(e.target.value);
+                      }}
                       fluid
                       value={searchString}
                       aria-label="Search query"
@@ -520,6 +545,21 @@ const CommonsCatalog = () => {
                         onClick: () => updateSearchParam(),
                       }}
                     />
+                    {searchSuggestions.length > 0 && (
+                      <div className="py-2 border rounded-md shadow-md">
+                        {searchSuggestions.map((suggestion) => {
+                          return (
+                            <p
+                              className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
+                              onClick={() => console.log("clicked")}
+                              key={crypto.randomUUID()}
+                            >
+                              {truncateString(suggestion, 100)}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </Form>
               </div>
