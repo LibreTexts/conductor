@@ -6,6 +6,7 @@ import CommonsList from "./CommonsList";
 import { useState } from "react";
 import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
 import DonateLink from "./DonateLink";
+import Launchpad from "../../navigation/Launchpad";
 
 interface CommonsNavbarMobileProps {
   org: Organization;
@@ -24,6 +25,9 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
   return (
     <Menu className="flex w-full pt-2 flex-col" secondary>
       <div className="flex flex-row px-4 justify-between w-full items-center">
+        <div className="mr-05p">
+          <Launchpad />
+        </div>
         <h1 className="sr-only">{commonsTitle}</h1>
         <Image src={org.mediumLogo} className="nav-logo" alt="" />
         <div>
@@ -36,7 +40,10 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
         </div>
       </div>
       {menuOpen && (
-        <div className="bg-white w-full px-6 shadow-xl pb-2" style={{maxHeight: '50vh'}}>
+        <div
+          className="bg-white w-full px-6 shadow-xl pb-2"
+          style={{ maxHeight: "50vh" }}
+        >
           <Menu vertical fluid secondary>
             <AboutOrgLink org={org} isMobile={true} />
             {org.orgID === "libretexts" && (
