@@ -25,6 +25,10 @@ import {
 import ProjectFile from "../models/projectfile.js";
 import authAPI from "./auth.js";
 import Author from "../models/author.js";
+import { levenshteinDistance } from "../util/searchutils.js";
+import Fuse from "fuse.js";
+import fse from "fs-extra";
+import Organization from "../models/organization.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -1080,7 +1084,7 @@ async function getAutocompleteResults(
         $search: {
           index: "authors-autocomplete",
           compound: {
-            must: [
+            should: [
               {
                 autocomplete: {
                   query: query,
@@ -1142,18 +1146,42 @@ async function getAutocompleteResults(
       return acc;
     }, []);
 
-    // Combine and remove duplicates
-    const uniqueValues = [...new Set<string>([...reduced, ...authorValues])];
+    // Load custom org list
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    });
+    const customOrgs = org?.customOrgList || [];
 
-    // Filter out values that are less than 3 characters
+    // Combine and remove duplicates
+    const uniqueValues = [
+      ...new Set<string>([...reduced, ...authorValues, ...customOrgs]),
+    ];
+
+    // Filter out values that are less than 3 characters (not useful enough to determine relevance)
     const filtered = uniqueValues.filter((val) => {
       return val.length > 3;
     });
 
+    const fuse = new Fuse(filtered, {
+      threshold: 0.3,
+    });
+    const searchResults = fuse.search(query).map((result) => result.item) ?? [];
+
+    // Prevent duplicates where items differ only in case
+    const caseInsensitiveSet = new Set<string>();
+    const caseInsensitiveFiltered = searchResults.filter((val) => {
+      const lowerCaseVal = val.toLowerCase();
+      if (caseInsensitiveSet.has(lowerCaseVal)) {
+        return false;
+      }
+      caseInsensitiveSet.add(lowerCaseVal);
+      return true;
+    });
+
     return res.send({
       err: false,
-      numResults: tagsResults.length,
-      results: filtered,
+      numResults: caseInsensitiveFiltered.length,
+      results: caseInsensitiveFiltered,
     });
   } catch (err) {
     debugError(err);

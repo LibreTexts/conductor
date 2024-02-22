@@ -77,6 +77,8 @@ const CommonsCatalog = () => {
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
 
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
   const [searchString, setSearchString] = useState<string>("");
@@ -127,11 +129,12 @@ const CommonsCatalog = () => {
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
-    500
+    150
   );
 
-  const updateSearchParam = () => {
+  const updateSearchParam = (searchString: string) => {
     const search = searchString.trim();
+    setSearchString(search);
     const url = new URL(window.location.href);
 
     if (search === "") {
@@ -536,6 +539,11 @@ const CommonsCatalog = () => {
                       onChange={(e) => {
                         setSearchString(e.target.value);
                         getSuggestionsDebounced(e.target.value);
+                        if (e.target.value.length === 0) {
+                          setShowSuggestions(false);
+                        } else {
+                          setShowSuggestions(true);
+                        }
                       }}
                       fluid
                       value={searchString}
@@ -543,16 +551,20 @@ const CommonsCatalog = () => {
                       action={{
                         content: "Search Catalog",
                         color: "blue",
-                        onClick: () => updateSearchParam(),
+                        onClick: () => updateSearchParam(searchString),
                       }}
+                      onBlur={() => setShowSuggestions(false)}
                     />
-                    {searchSuggestions.length > 0 && (
+                    {showSuggestions && searchSuggestions.length > 0 && (
                       <div className="py-2 border rounded-md shadow-md">
                         {searchSuggestions.map((suggestion) => {
                           return (
                             <p
                               className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
-                              onClick={() => console.log("clicked")}
+                              onClick={() => {
+                                updateSearchParam(suggestion);
+                                setShowSuggestions(false);
+                              }}
                               key={crypto.randomUUID()}
                             >
                               {truncateString(suggestion, 100)}
