@@ -22,7 +22,6 @@ const AuthorSchema = new Schema<AuthorInterface>({
   email: {
     type: String,
     required: false,
-    unique: true,
   },
   url: {
     type: String,
@@ -41,6 +40,12 @@ const AuthorSchema = new Schema<AuthorInterface>({
     required: false,
   },
 });
+
+// Email is unique, but not required
+AuthorSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $exists: true } } }
+);
 
 const Author = model<AuthorInterface>("Author", AuthorSchema);
 

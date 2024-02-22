@@ -96,8 +96,13 @@ async function createAuthor(
   res: Response
 ) {
   try {
+    const { firstName, lastName, email, primaryInstitution, url } = req.body;
     const author = await Author.create({
-      ...req.body,
+      firstName,
+      lastName,
+      primaryInstitution,
+      ...(email && { email }),
+      ...(url && { url }),
       isAdminEntry: true,
     });
 
@@ -159,7 +164,17 @@ async function updateAuthor(
   res: Response
 ) {
   try {
-    await Author.updateOne({ _id: req.params.id }, req.body).orFail();
+    const { firstName, lastName, email, primaryInstitution, url } = req.body;
+    await Author.updateOne(
+      { _id: req.params.id },
+      {
+        firstName,
+        lastName,
+        primaryInstitution,
+        ...(email && { email }),
+        ...(url && { url }),
+      }
+    ).orFail();
 
     const updated = await Author.findById(req.params.id).orFail().lean();
 
@@ -168,6 +183,12 @@ async function updateAuthor(
       author: updated,
     });
   } catch (err: any) {
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return res.status(409).send({
+        err: true,
+        message: "Author with that email already exists",
+      });
+    }
     if (err.name === "DocumentNotFoundError") {
       return res.status(404).send({
         err: true,
