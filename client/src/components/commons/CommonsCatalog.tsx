@@ -114,8 +114,12 @@ const CommonsCatalog = () => {
     if (search) {
       setSearchString(search);
     }
+    runSearch({ query: search ?? "" });
+  }, []);
+
+  useEffect(() => {
     runSearch({
-      query: search ?? "",
+      query: searchString,
       assetFilters: assetsState,
       bookFilters: booksState,
     });
@@ -146,9 +150,6 @@ const CommonsCatalog = () => {
       url.searchParams.set("search", search);
       window.history.pushState({}, "", url.toString());
       setSearchString(search);
-      runSearch({
-        query: search,
-      });
     }
   };
 
