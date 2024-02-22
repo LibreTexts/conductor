@@ -40,6 +40,11 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
     value: "account",
   },
   {
+    key: "bookstore",
+    text: "Bookstore",
+    value: "bookstore",
+  },
+  {
     key: "integrate",
     text: "Integrating LibreTexts Content/Platform",
     value: "integrate",
