@@ -3,8 +3,12 @@ import DefaultLayout from "../../../components/kb/DefaultLayout";
 import SupportCenterJumbotron from "../../../components/support/Jumbotron";
 import { Icon, SemanticICONS } from "semantic-ui-react";
 import CommonsFooter from "../../../components/commons/CommonsFooter";
+import { useTypedSelector } from "../../../state/hooks";
+import { isSupportStaff } from "../../../utils/supportHelpers";
 
 const SupportCenter = () => {
+  const user = useTypedSelector((state) => state.user);
+
   useEffect(() => {
     document.title = "LibreTexts | Support Center";
   }, []);
@@ -72,6 +76,14 @@ const SupportCenter = () => {
           icon="dashboard"
           link="https://status.libretexts.org"
         />
+        {user?.uuid && (
+          <HomeItem
+            title={isSupportStaff(user) ? "Staff Dashboard" : "My Tickets"}
+            text="View and manage support tickets."
+            icon={isSupportStaff(user) ? "user doctor" : "ticket"}
+            link="/support/dashboard"
+          />
+        )}
       </div>
       <CommonsFooter />
     </DefaultLayout>
