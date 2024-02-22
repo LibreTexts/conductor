@@ -27,7 +27,6 @@ import authAPI from "./auth.js";
 import Author from "../models/author.js";
 import { levenshteinDistance } from "../util/searchutils.js";
 import Fuse from "fuse.js";
-import fse from "fs-extra";
 import Organization from "../models/organization.js";
 
 /**
