@@ -511,40 +511,9 @@ export async function retrieveAllProjectFiles(
             from: "authors",
             localField: "authors",
             foreignField: "_id",
-            as: "foundAuthors",
+            as: "authors",
           },
         },
-        {
-          $set: {
-            "authors": {
-              "$cond": {
-                "if": {
-                  "$and": [
-                    { "$isArray": "$authors" },
-                    { "$ne": [{ "$size": "$authors" }, 0] }
-                  ]
-                },
-                "then": {
-                  "$map": {
-                    "input": "$authors",
-                    "as": "author",
-                    "in": {
-                      "$cond": [
-                        { "$in": ["$$author", "$foundAuthors._id"] },
-                        { "$arrayElemAt": ["$foundAuthors", { "$indexOfArray": ["$foundAuthors._id", "$$author._id"] }] },
-                        "$$author"
-                      ]
-                    }
-                  }
-                },
-                "else": []
-              }
-            }
-          }
-        },
-        {
-          $unset: "foundAuthors"
-        }
       ]
     );
 

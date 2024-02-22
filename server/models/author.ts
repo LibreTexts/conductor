@@ -7,6 +7,7 @@ export interface AuthorInterface extends Document {
   url?: string;
   primaryInstitution?: string;
   userUUID?: string;
+  isAdminEntry?: boolean;
 }
 
 const AuthorSchema = new Schema<AuthorInterface>({
@@ -33,6 +34,10 @@ const AuthorSchema = new Schema<AuthorInterface>({
   },
   userUUID: {
     type: String,
+    required: false,
+  },
+  isAdminEntry: {
+    type: Boolean,
     required: false,
   },
 });

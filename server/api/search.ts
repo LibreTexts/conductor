@@ -639,29 +639,8 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "projectfiles",
-          let: {
-            authorEmail: "$email",
-            authorId: "$_id",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $or: [
-                    {
-                      $in: ["$$authorId", "$authors._id"],
-                    },
-                    {
-                      $eq: [
-                        { $toLower: "$$authorEmail" },
-                        { $toLower: "$email" },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          ],
+          localField: "_id",
+          foreignField: "authors",
           as: "matchingProjectFiles",
         },
       },
@@ -757,6 +736,14 @@ export async function assetsSearch(
             },
           ],
           as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
         },
       },
       {

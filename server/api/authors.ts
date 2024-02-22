@@ -21,29 +21,27 @@ async function getAuthors(
     const limit = req.query.limit || 10;
     const offset = getPaginationOffset(req.query.page, limit);
 
-    const authorsPromise = Author.find({
-      ...(req.query.query && {
+    const queryObj: Record<any, any> = {
+      $and: [{ isAdminEntry: true }],
+    };
+
+    if (req.query.query) {
+      queryObj.$and.push({
         $or: [
           { firstName: { $regex: req.query.query, $options: "i" } },
           { lastName: { $regex: req.query.query, $options: "i" } },
           { email: { $regex: req.query.query, $options: "i" } },
         ],
-      }),
-    })
+      });
+    }
+
+    const authorsPromise = Author.find(queryObj)
       .skip(offset)
       .limit(limit)
       .sort(req.query.sort || "lastName")
       .lean();
 
-    const totalPromise = Author.countDocuments({
-      ...(req.query.query && {
-        $or: [
-          { firstName: { $regex: req.query.query, $options: "i" } },
-          { lastName: { $regex: req.query.query, $options: "i" } },
-          { email: { $regex: req.query.query, $options: "i" } },
-        ],
-      }),
-    });
+    const totalPromise = Author.countDocuments(queryObj);
 
     const [authors, total] = await Promise.allSettled([
       authorsPromise,
@@ -70,7 +68,13 @@ async function getAuthor(
   res: Response
 ) {
   try {
-    const author = await Author.findById(req.params.id).orFail().lean();
+    const author = await Author.findOne({
+      _id: req.params.id,
+      isAdminEntry: true,
+    })
+      .orFail()
+      .lean();
+
     res.send({
       err: false,
       author,
@@ -92,7 +96,11 @@ async function createAuthor(
   res: Response
 ) {
   try {
-    const author = await Author.create(req.body);
+    const author = await Author.create({
+      ...req.body,
+      isAdminEntry: true,
+    });
+
     res.send({
       err: false,
       author,
@@ -123,7 +131,12 @@ async function bulkCreateAuthors(
       (author) => !existingAuthorEmails.includes(author.email)
     );
 
-    const insertRes = await Author.insertMany(noDuplicates);
+    const withAdminFlag = noDuplicates.map((author) => ({
+      ...author,
+      isAdminEntry: true,
+    }));
+
+    const insertRes = await Author.insertMany(withAdminFlag);
 
     return res.send({
       err: false,

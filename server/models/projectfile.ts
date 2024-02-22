@@ -1,5 +1,4 @@
-import { model, Schema, Document, Types } from "mongoose";
-import { AuthorInterface } from "./author.js";
+import { model, Schema, Document } from "mongoose";
 
 export const PROJECT_FILES_ACCESS_SETTINGS = [
   "public",
@@ -31,8 +30,6 @@ export interface ProjectFileLicense {
   additionalTerms?: string;
 }
 
-export type ProjectFileAuthor = Omit<AuthorInterface, "userUUID"> | Schema.Types.ObjectId;
-
 export interface ProjectFilePublisher {
   name?: string;
   url?: string;
@@ -52,7 +49,7 @@ export interface RawProjectFileInterface {
   createdBy?: string;
   downloadCount?: number;
   license?: ProjectFileLicense;
-  authors?: ProjectFileAuthor[];
+  authors?: (Schema.Types.ObjectId)[];
   publisher?: ProjectFilePublisher;
   mimeType?: string;
   version?: number;
@@ -147,7 +144,7 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
    * Author information for the entry.
    */
   authors: {
-    type: [Schema.Types.Mixed],
+    type: [Schema.Types.ObjectId],
     required: false,
   },
   /**
