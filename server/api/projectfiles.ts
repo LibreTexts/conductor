@@ -635,7 +635,6 @@ async function updateProjectFile(
 
     // update tags
     if (tags) {
-      //@ts-ignore
       await upsertAssetTags(file, tags);
     }
 

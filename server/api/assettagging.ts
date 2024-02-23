@@ -1,23 +1,31 @@
 import AssetTag, { AssetTagInterface } from "../models/assettag.js";
 import { v4 } from "uuid";
-import ProjectFile, { ProjectFileInterface } from "../models/projectfile.js";
+import ProjectFile, { RawProjectFileInterface } from "../models/projectfile.js";
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
 import { Types, isObjectIdOrHexString } from "mongoose";
 import {
   compareMongoIDs,
   isAssetTagFrameworkObject,
+  isAssetTagKeyObject,
 } from "../util/typeHelpers.js";
 
+type AssetTagFromRequest = Pick<
+  AssetTagInterface,
+  "key" | "value" | "framework"
+> & { uuid?: string; _id?: string };
+
 async function upsertAssetTags(
-  file: ProjectFileInterface,
-  reqTags: AssetTagInterface[]
+  file: RawProjectFileInterface,
+  reqTags: AssetTagFromRequest[]
 ): Promise<void> {
   try {
     const existingTagIds = file.tags ?? [];
-    const existingTags = await AssetTag.find({ _id: { $in: existingTagIds } });
+    const existingTags =
+      existingTagIds.length > 0
+        ? await AssetTag.find({ _id: { $in: existingTagIds } })
+        : [];
 
-    // Map keys to array and then search DB so we only have to do one query
     const existingKeys = await AssetTagKey.find({
       orgID: process.env.ORG_ID,
       isDeleted: { $ne: true },
@@ -40,10 +48,12 @@ async function upsertAssetTags(
     const existingWithoutDeleted = existingTags.filter(
       (t) => !deletedTags.includes(t)
     );
+
+    const tagsToWrite = [];
     for (const tag of reqTags) {
-      const existingTag = existingWithoutDeleted.find((t) =>
-        t._id.equals(tag._id)
-      );
+      const existingTag = tag._id
+        ? existingWithoutDeleted.find((t) => t._id.equals(tag._id))
+        : null;
 
       if (existingTag) {
         // If the tag already exists, update it
@@ -56,7 +66,19 @@ async function upsertAssetTags(
             tag.key.toString()
           ) // Pass the key from the request in case it was updated and is no longer a valid mongoID/object
         );
-        await existingTag.save();
+
+        tagsToWrite.push({
+          updateOne: {
+            filter: { _id: existingTag._id },
+            update: {
+              $set: {
+                value: existingTag.value,
+                key: existingTag.key,
+                framework: existingTag.framework,
+              },
+            },
+          },
+        });
       } else {
         // If the tag is new, create it
         tag.key = new Types.ObjectId(
@@ -66,9 +88,19 @@ async function upsertAssetTags(
           ...tag,
           uuid: v4(),
         });
-        await newTag.save();
+
+        tagsToWrite.push({
+          insertOne: {
+            document: newTag,
+          },
+        });
+
         newTags.push(newTag);
       }
+    }
+
+    if (tagsToWrite.length > 0) {
+      await AssetTag.bulkWrite(tagsToWrite);
     }
 
     const finalTags = [...existingWithoutDeleted, ...newTags];
@@ -88,27 +120,43 @@ async function upsertAssetTags(
 
 async function getUpsertedAssetTagKey(
   existingKeys: AssetTagKeyInterface[],
-  tag: AssetTagInterface,
+  tag: AssetTagFromRequest,
   updatedKey?: string
 ): Promise<string> {
+  const _compareFrameworks = (tagFramework: any, keyFramework: any) => {
+    if (!tagFramework && !keyFramework) return true;
+    if (!tagFramework || !keyFramework) return false;
+    const isMatch = compareMongoIDs(
+      isAssetTagFrameworkObject(keyFramework) ? keyFramework._id : keyFramework,
+      isAssetTagFrameworkObject(tagFramework) ? tagFramework._id : tagFramework
+    );
+    return isMatch;
+  };
+
   /**
    * If key is ObjectId, find where tag.key === key._id (likely an existing tag)
-   * If key is string, find where tag.key === key.title (likely a new tag)
+   * If key is AssetTagKey, find where tag.key._id === key._id (likely an existing tag)
+   * If key is string, find where tag.key === key.title (likely a new tag, manually entered by user)
    * If key is string and tag.framework is set, find where tag.key === key.title && tag.framework === key.framework
    */
-  const key = existingKeys.find((k) =>
-    isObjectIdOrHexString(tag.key)
-      ? k._id.equals(tag.key)
-      : k.title === tag.key.toString() &&
-        (k.framework
-          ? compareMongoIDs(
-              k.framework,
-              isAssetTagFrameworkObject(tag.framework)
-                ? tag.framework._id
-                : tag.framework
-            )
-          : true)
-  );
+  let key = null;
+  if (isObjectIdOrHexString(tag.key)) {
+    key = existingKeys.find((k) =>
+      k._id.equals(new Types.ObjectId(tag.key.toString()))
+    );
+  } else if (isAssetTagKeyObject(tag.key)) {
+    key = existingKeys.find((k) =>
+      k._id.equals(
+        new Types.ObjectId((tag.key as AssetTagKeyInterface)._id.toString())
+      )
+    );
+  } else {
+    key = existingKeys.find(
+      (k) =>
+        k.title === tag.key.toString() &&
+        _compareFrameworks(tag.framework, k.framework)
+    );
+  }
 
   // If the key already exists, return it's ObjectId
   if (key) {

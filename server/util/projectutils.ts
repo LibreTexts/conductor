@@ -650,6 +650,11 @@ function _sortTagsLikeTheirFrameworks(paramTags: AssetTagWithFrameworkAndKey[]) 
   );
 
   const _sortTagsByFrameworkTemplates = (x: AssetTagWithFrameworkAndKey[], y: AssetTagTemplateWithKey[]): AssetTagWithFramework[] => {
+
+    //Filter out tags that don't have a key (all tags should have a key, but just in case)
+    x = x.filter((tag) => tag.key);
+    y = y.filter((template) => template.key);
+
     // Create a map of elements in array Y to their indices
     const mapY = new Map<string, number>();
     y.forEach((element, index) => {
