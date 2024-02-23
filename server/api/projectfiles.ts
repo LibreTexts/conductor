@@ -86,6 +86,9 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
         // @ts-ignore
         return cb(new Error("filenameslash"), false);
       }
+      if (file.originalname.endsWith(".tex")) {
+        file.mimetype = "text/x-tex";
+      }
       return cb(null, true);
     },
   }).array("files", req.method === "POST" ? 10 : 1);
