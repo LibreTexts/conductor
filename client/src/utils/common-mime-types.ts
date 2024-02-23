@@ -25,6 +25,10 @@ const COMMON_MIME_TYPES: {
       {
         name: "TIFF",
         value: "image/tiff",
+      },
+      {
+        name: 'SVG',
+        value: 'image/svg+xml',
       }
     ],
   },
@@ -110,6 +114,10 @@ const COMMON_MIME_TYPES: {
       {
         name: "CSV",
         value: "text/csv",
+      },
+      {
+        name: "Other/Unknown",
+        value: "application/octet-stream",
       }
     ],
   },
@@ -137,6 +145,10 @@ const COMMON_MIME_TYPES: {
         name: "TypeScript",
         value: "text/typescript",
       },
+      {
+        name: "LaTeX",
+        value: "text/x-tex",
+      }
     ],
   },
 ];

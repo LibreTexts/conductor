@@ -9,7 +9,9 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
-import COMMON_MIME_TYPES, { getPrettyNameFromMimeType } from "../../../utils/common-mime-types";
+import COMMON_MIME_TYPES, {
+  getPrettyNameFromMimeType,
+} from "../../../utils/common-mime-types";
 import { useTypedSelector } from "../../../state/hooks";
 
 type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
@@ -18,7 +20,7 @@ type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
 
 interface CatalogAssetFiltersProps {
   filters: AssetFilters;
-  onFilterChange: (type: AssetFiltersAction['type'], payload: string) => void;
+  onFilterChange: (type: AssetFiltersAction["type"], payload: string) => void;
 }
 
 const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
@@ -70,23 +72,27 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
       }
 
       if (res.data.licenses) {
-        setLicenseOptions(res.data.licenses.map((l: string) => {
-          return {
-            key: crypto.randomUUID(),
-            text: l,
-            value: l,
-          };
-        }))
+        setLicenseOptions(
+          res.data.licenses.map((l: string) => {
+            return {
+              key: crypto.randomUUID(),
+              text: l,
+              value: l,
+            };
+          })
+        );
       }
 
-      if(res.data.fileTypes) {
-        setFileTypeOptions(res.data.fileTypes.map((ft: string) => {
-          return {
-            key: crypto.randomUUID(),
-            text: getPrettyNameFromMimeType(ft),
-            value: ft,
-          };
-        }))
+      if (res.data.fileTypes) {
+        setFileTypeOptions(
+          res.data.fileTypes.map((ft: string) => {
+            return {
+              key: crypto.randomUUID(),
+              text: getPrettyNameFromMimeType(ft),
+              value: ft,
+            };
+          })
+        );
       }
     } catch (err) {
       handleGlobalError(err);
@@ -275,16 +281,18 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
         >
           <Dropdown.Menu className={MENU_CLASSES}>
             {fileTypeOptions.length > 0 &&
-              fileTypeOptions.map((ft) => (
-                <Dropdown.Item
-                  key={ft.key}
-                  onClick={() =>
-                    onFilterChange("fileType", ft.value?.toString() ?? "")
-                  }
-                >
-                  {ft.text}
-                </Dropdown.Item>
-              ))}
+              fileTypeOptions
+                .sort((a, b) => a.text.localeCompare(b.text))
+                .map((ft) => (
+                  <Dropdown.Item
+                    key={ft.key}
+                    onClick={() =>
+                      onFilterChange("fileType", ft.value?.toString() ?? "")
+                    }
+                  >
+                    {ft.text}
+                  </Dropdown.Item>
+                ))}
             {fileTypeOptions.length === 0 && (
               <Dropdown.Item disabled>No file types available</Dropdown.Item>
             )}
