@@ -16,6 +16,7 @@ import OAuth from "./oauth.js";
 import conductorErrors from "../conductor-errors.js";
 import { debugError } from "../debug.js";
 import { assembleUrl, isEmptyString, isFullURL } from "../util/helpers.js";
+import FormData from "form-data";
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = new TextEncoder().encode(process.env.SECRETKEY);
