@@ -757,18 +757,27 @@ export async function assetsSearch(
     const aggregations = [fromProjectFilesPromise];
     // Only add these if there is a search query
     if (mongoSearchQueryTerm) {
-      aggregations.push(fromAssetTagsPromise);
+      aggregations.push(fromAssetTagsPromise)
       aggregations.push(fromAuthorsPromise);
     }
 
     const aggregateResults = await Promise.all(aggregations);
 
-    let allResults: any[] = [];
-    // Merge files from text search and files from tags
-    allResults = aggregateResults.flat().filter((file) => {
+    // Merge all results
+    let allResults = aggregateResults.flat().filter((file) => {
       // Remove files that don't have a projectID
       return file.projectID && file.fileID;
     });
+
+    if (mongoSearchQueryTerm) {
+      allResults = allResults.map((file: any) =>
+        _boostExactMatches(file, mongoSearchQueryTerm)
+      );
+      const minScore = _calculateLowerOutlierThreshold(
+        allResults.map((file: any) => file.score)
+      );
+      allResults = allResults.filter((file: any) => file.score >= minScore);
+    }
 
     // Filter by org if provided
     if (req.query.org) {
@@ -1288,6 +1297,82 @@ function _transformToCompare(val: any) {
   return String(val)
     .toLowerCase()
     .replace(/[^A-Za-z]+/g, "");
+}
+
+function _boostExactMatches(file: any, query: string) {
+  const searchQuery = query.toLowerCase().split(" ");
+  const name = file.name.toLowerCase() ?? "";
+  const description = file.description.toLowerCase() ?? "";
+  const authorFirsts =
+    file.authors?.map((a: any) => {
+      if (!a || typeof a !== "object") return null;
+      if (!a.firstName) return null;
+      if (typeof a.firstName === "string") return a.firstName.toLowerCase();
+      return null;
+    }) ?? [];
+  const authorLasts =
+    file.authors?.map((a: any) => {
+      if (!a || typeof a !== "object") return null;
+      if (!a.lastName) return null;
+      if (typeof a.lastName === "string") return a.lastName.toLowerCase();
+      return null;
+    }) ?? [];
+  const tags =
+    (file.tags?.map((t: any) => {
+      if (!t || typeof t !== "object") return null;
+      if (!("value" in t)) return null;
+      if (typeof t.value === "string") return t.value.toLowerCase();
+      // if values is an array, map to lowercase and flatten
+      if (Array.isArray(t.value))
+        return t.value.map((v: string) => v.toLowerCase()).flat();
+    }) as string[]) ?? [];
+
+  if (searchQuery.some((substring) => (name as string).includes(substring))) {
+    file.score = file.score * 2;
+  }
+  if (
+    searchQuery.some((substring) => (description as string).includes(substring))
+  ) {
+    file.score = file.score * 2;
+  }
+  if (
+    authorFirsts.some((firstName: string) => searchQuery.includes(firstName))
+  ) {
+    file.score = file.score * 2;
+  }
+  if (authorLasts.some((lastName: string) => searchQuery.includes(lastName))) {
+    file.score = file.score * 2;
+  }
+
+  if (tags.length > 0) {
+    const flattened = tags.flat();
+    // split each tag into words and flatten
+    const split = flattened.map((t) => t.toString().split(" "));
+    const final = split.flat();
+    if (final.some((t) => searchQuery.includes(t))) {
+      // does this need to match all? (every)
+      file.score = file.score * 2;
+    }
+  }
+  return file;
+}
+
+function _calculateLowerOutlierThreshold(numbers: number[], k = 1.5) {
+  // Step 1: Compute the mean
+  const mean = numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+
+  // Step 2: Calculate the standard deviation
+  const squaredDifferences = numbers.map((num) => Math.pow(num - mean, 2));
+  const variance =
+    squaredDifferences.reduce((sum, squaredDiff) => sum + squaredDiff, 0) /
+    numbers.length;
+  const standardDeviation = Math.sqrt(variance);
+
+  // Step 3: Determine the threshold for outliers
+  const threshold = mean - k * standardDeviation;
+
+  // Step 4: Return the threshold as absolute value
+  return Math.abs(threshold);
 }
 
 export default {
