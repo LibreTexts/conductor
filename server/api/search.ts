@@ -630,7 +630,7 @@ export async function assetsSearch(
               maxEdits: 1,
               maxExpansions: 50,
             },
-            score: { boost: { value: 2 } },
+            score: { boost: { value: 3 } },
           },
         },
       },
