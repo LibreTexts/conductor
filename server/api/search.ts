@@ -377,8 +377,12 @@ function _generateProjectMatchObj({
     projectFiltersOptions = { ...projectFilters[0] };
   }
 
+  if (!queryRegex) {
+    // if no query, no need to use $and, just return filters
+    return projectFiltersOptions;
+  }
   // Combine all filters and return
-  const projectMatchOptions = {
+  return {
     $and: [
       {
         $or: [
@@ -391,12 +395,9 @@ function _generateProjectMatchObj({
           { associatedOrgs: queryRegex },
         ],
       },
-      {
-        ...projectFiltersOptions,
-      },
+      projectFiltersOptions,
     ],
   };
-  return projectMatchOptions;
 }
 
 export async function assetsSearch(
@@ -757,7 +758,7 @@ export async function assetsSearch(
     const aggregations = [fromProjectFilesPromise];
     // Only add these if there is a search query
     if (mongoSearchQueryTerm) {
-      aggregations.push(fromAssetTagsPromise)
+      aggregations.push(fromAssetTagsPromise);
       aggregations.push(fromAuthorsPromise);
     }
 
