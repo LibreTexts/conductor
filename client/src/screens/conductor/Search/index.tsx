@@ -211,7 +211,6 @@ const Search = () => {
 
       const res = await api.assetsSearch({
         searchQuery: query,
-        strictMode: false,
         page,
         limit,
       });
@@ -247,7 +246,6 @@ const Search = () => {
 
       const res = await api.booksSearch({
         searchQuery: query,
-        strictMode: false,
         page,
         limit: booksLimit,
       });
@@ -286,7 +284,6 @@ const Search = () => {
 
       const res = await api.projectsSearch({
         searchQuery: query,
-        strictMode: false,
         page,
         limit,
         sort,
@@ -324,7 +321,6 @@ const Search = () => {
 
       const res = await api.homeworkSearch({
         searchQuery: query,
-        strictMode: false,
         page,
         limit: hwLimit,
       });
@@ -361,7 +357,6 @@ const Search = () => {
 
       const res = await api.usersSearch({
         searchQuery: query,
-        strictMode: false,
         page,
         limit: usersLimit,
       });
