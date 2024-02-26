@@ -35,6 +35,19 @@ export const truncateString = (str, len) => {
     }
 };
 
+/**
+ * Accepts a string and returns the same string with the first letter capitalized.
+ * @param {String} str - The string to modify.
+ * @returns {String} The modified string.
+ */
+export const capitalizeFirstLetter = (str) => {
+  if (typeof(str) !== 'string' || str.length === 0) {
+    return '';
+  }
+  if(str.length === 1) return str[0].toUpperCase();
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 
 /**
  * Constructs a basic array with OrgIDs given

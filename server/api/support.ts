@@ -15,7 +15,10 @@ import {
 import { NextFunction, Request, Response } from "express";
 import { debugError } from "../debug.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
-import User, { SanitizedUserSelectProjection } from "../models/user.js";
+import User, {
+  SanitizedUserSelectProjection,
+  UserInterface,
+} from "../models/user.js";
 import { v4 } from "uuid";
 import SupportTicket, {
   SupportTicketAttachmentInterface,
@@ -29,7 +32,7 @@ import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
-import { assembleUrl, getPaginationOffset } from "../util/helpers.js";
+import { assembleUrl, capitalizeFirstLetter, getPaginationOffset } from "../util/helpers.js";
 import { addMonths, differenceInMinutes, subDays } from "date-fns";
 import { randomBytes } from "crypto";
 import { ZodReqWithFiles } from "../types/Express";
@@ -333,9 +336,22 @@ async function assignTicket(
       });
     }
 
+    // Create a feed entry for the assignment
     const feedEntry = _createFeedEntry_Assigned(
       `${assigner.firstName} ${assigner.lastName}`,
       assignees.map((a) => `${a.firstName} ${a.lastName}`)
+    );
+
+    // Get metadata for notification emails
+    let ticketUser;
+    if (ticket.userUUID) {
+      ticketUser = await User.findOne({ uuid: ticket.userUUID });
+    }
+    const authorEmail = await _getTicketAuthorEmail(ticket);
+    const authorString = _getTicketAuthorString(
+      authorEmail ?? "Unknown",
+      ticketUser ?? undefined,
+      ticket.guest ?? undefined
     );
 
     // Update the ticket with the new assigned users and set status to in_progress
@@ -353,7 +369,11 @@ async function assignTicket(
       assigneeEmails,
       ticket.uuid,
       ticket.title,
-      assigner.firstName
+      assigner.firstName,
+      authorString,
+      capitalizeFirstLetter(ticket.category),
+      capitalizeFirstLetter(ticket.priority),
+      ticket.description
     );
 
     return res.send({
@@ -459,12 +479,11 @@ async function createTicket(
     const emailToNotify = await _getTicketAuthorEmail(ticket);
     if (!emailToNotify) return conductor500Err(res);
 
-    const ticketAuthor = foundUser
-      ? `${foundUser.firstName} ${foundUser.lastName}`
-      : guest
-      ? `${guest.firstName} ${guest.lastName}`
-      : "Unknown";
-    const authorString = `${ticketAuthor} (${emailToNotify})`;
+    const authorString = _getTicketAuthorString(
+      emailToNotify,
+      foundUser,
+      guest
+    );
 
     const params = new URLSearchParams();
     params.append("accessKey", guestAccessKey);
@@ -485,8 +504,8 @@ async function createTicket(
       ticket.title,
       ticket.description,
       authorString,
-      ticket.category,
-      ticket.priority
+      capitalizeFirstLetter(ticket.category),
+      capitalizeFirstLetter(ticket.priority),
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -892,6 +911,20 @@ const _getTicketAuthorEmail = async (
     return ticket.guest.email;
   }
   return undefined;
+};
+
+const _getTicketAuthorString = (
+  emailToNotify: string,
+  foundUser?: UserInterface,
+  guest?: { firstName: string; lastName: string }
+) => {
+  const ticketAuthor = foundUser
+    ? `${foundUser.firstName} ${foundUser.lastName}`
+    : guest
+    ? `${guest.firstName} ${guest.lastName}`
+    : "Unknown";
+  const authorString = `${ticketAuthor} (${emailToNotify})`;
+  return authorString;
 };
 
 const _createGuestAccessKey = (): string => {
