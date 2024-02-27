@@ -3,6 +3,7 @@ import {
   AddTicketAttachementsValidator,
   AssignTicketValidator,
   CreateTicketValidator,
+  DeleteTicketValidator,
   GetAssignableUsersValidator,
   GetClosedTicketsValidator,
   GetOpenTicketsValidator,
@@ -32,7 +33,11 @@ import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
-import { assembleUrl, capitalizeFirstLetter, getPaginationOffset } from "../util/helpers.js";
+import {
+  assembleUrl,
+  capitalizeFirstLetter,
+  getPaginationOffset,
+} from "../util/helpers.js";
 import { addMonths, differenceInMinutes, subDays } from "date-fns";
 import { randomBytes } from "crypto";
 import { ZodReqWithFiles } from "../types/Express";
@@ -505,7 +510,7 @@ async function createTicket(
       ticket.description,
       authorString,
       capitalizeFirstLetter(ticket.category),
-      capitalizeFirstLetter(ticket.priority),
+      capitalizeFirstLetter(ticket.priority)
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -839,6 +844,28 @@ async function createInternalMessage(
   }
 }
 
+async function deleteTicket(
+  req: ZodReqWithUser<z.infer<typeof DeleteTicketValidator>>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+
+    console.log('DELETE: ', uuid)
+
+    await SupportTicket.deleteOne({ uuid })
+
+    console.log('DELETED')
+
+    return res.send({
+      err: false,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function _uploadTicketAttachments(
   ticketID: string,
   files: Express.Multer.File[],
@@ -1005,5 +1032,6 @@ export default {
   getGeneralMessages,
   createInternalMessage,
   getInternalMessages,
+  deleteTicket,
   ticketAttachmentUploadHandler,
 };

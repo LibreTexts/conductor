@@ -14,6 +14,8 @@ import { isSupportStaff } from "../../../utils/supportHelpers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import TicketInternalMessaging from "../../../components/support/TicketInternalMessaging";
 import TicketAttachments from "../../../components/support/TicketAttachments";
+import ConfirmDeleteTicketModal from "../../../components/support/ConfirmDeleteTicketModal";
+import api from "../../../api";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -34,7 +36,12 @@ const SupportTicketView = () => {
   const [id, setId] = useState<string>("");
   const [accessKey, setAccessKey] = useState("");
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    document.title = "LibreTexts | Support Ticket";
+  }, []);
 
   useEffect(() => {
     const id = getIdFromURL(location.pathname);
@@ -62,9 +69,13 @@ const SupportTicketView = () => {
     },
   });
 
-  useEffect(() => {
-    document.title = "LibreTexts | Support Ticket";
-  }, []);
+  const deleteTicketMutation = useMutation({
+    mutationFn: () => deleteTicket(),
+    onSuccess: () => {
+      window.location.href = "/support/dashboard";
+      queryClient.invalidateQueries(["ticket"]);
+    },
+  });
 
   async function loadTicket() {
     try {
@@ -110,13 +121,44 @@ const SupportTicketView = () => {
     }
   }
 
+  async function deleteTicket() {
+    try {
+      setLoading(true);
+      if (!id) return;
+
+      const res = await api.deleteTicket(id);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleCloseAssignModal() {
     setShowAssignModal(false);
     queryClient.invalidateQueries(["ticket", id]);
   }
 
+  function handleOnDeleteTicket() {
+    setShowDeleteModal(false);
+    deleteTicketMutation.mutateAsync();
+  }
+
   const AdminOptions = () => (
     <div className="flex flex-row">
+      {ticket?.status === "open" && (
+        <Button
+          color="red"
+          onClick={() => setShowDeleteModal(true)}
+          loading={loading || isFetching}
+        >
+          <Icon name="trash" />
+          Delete Ticket
+        </Button>
+      )}
       {["open", "in_progress"].includes(ticket?.status ?? "") && (
         <>
           <Button
@@ -193,12 +235,20 @@ const SupportTicketView = () => {
           </>
         )}
       </div>
-      {user && user.isSuperAdmin && (
-        <AssignTicketModal
-          open={showAssignModal}
-          onClose={handleCloseAssignModal}
-          ticketId={id}
-        />
+      {user && user.uuid && isSupportStaff(user) && (
+        <>
+          <AssignTicketModal
+            open={showAssignModal}
+            onClose={handleCloseAssignModal}
+            ticketId={id}
+          />
+          <ConfirmDeleteTicketModal
+            open={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            uuid={id}
+            onConfirmDelete={handleOnDeleteTicket}
+          />
+        </>
       )}
     </DefaultLayout>
   );
