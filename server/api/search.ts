@@ -420,6 +420,11 @@ export async function assetsSearch(
       type: "assettags",
     });
 
+    const projectsQuery = _buildAssetsSearchQuery({
+      query: mongoSearchQueryTerm,
+      type: "projects",
+    });
+
     const matchObj = _buildFilesFilter({
       fileTypeFilter: req.query.fileType,
       licenseFilter: req.query.license,
@@ -755,11 +760,90 @@ export async function assetsSearch(
       },
     ]);
 
+    const fromProjectsPromise = Project.aggregate([
+      ...(projectsQuery.length > 0 ? projectsQuery : []),
+      {
+        $match: {
+          visibility: "public",
+        },
+      },
+      {
+        $lookup: {
+          from: "projectfiles",
+          localField: "projectID",
+          foreignField: "projectID",
+          as: "matchingProjectFiles",
+        },
+      },
+      {
+        $unwind: {
+          path: "$matchingProjectFiles",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              {
+                projectInfo: {
+                  title: "$title",
+                  associatedOrgs: "$associatedOrgs",
+                  thumbnail: "$thumbnail",
+                },
+              },
+              "$matchingProjectFiles",
+              {
+                score: "$score",
+              },
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "tags",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
+                },
+              },
+            },
+          ],
+          as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
+      },
+      {
+        $match: matchObj,
+      },
+    ]);
+
     const aggregations = [fromProjectFilesPromise];
     // Only add these if there is a search query
     if (mongoSearchQueryTerm) {
       aggregations.push(fromAssetTagsPromise);
       aggregations.push(fromAuthorsPromise);
+      aggregations.push(fromProjectsPromise);
     }
 
     const aggregateResults = await Promise.all(aggregations);
@@ -867,10 +951,14 @@ function _buildAssetsSearchQuery({
   type,
 }: {
   query?: string;
-  type: "projectfiles" | "assettags";
+  type: "projectfiles" | "assettags" | "projects";
 }) {
   const SEARCH_FIELDS =
-    type === "projectfiles" ? ["name", "description"] : ["value"];
+    type === "projectfiles"
+      ? ["name", "description"]
+      : type === "assettags"
+      ? ["value"]
+      : ["title", "associatedOrgs"];
   let isExactMatchSearch = false;
   let strippedQuery = "";
   if (!query) {
@@ -1171,6 +1259,9 @@ async function getAutocompleteResults(
       return val.length > 3;
     });
 
+    // We use Fuse here, because if any element in an array (ie when asset tag value is an array) matches, MongoDB will return the entire array
+    // This is not useful for autocomplete, so we use Fuse to 'verify' and return only the truly matching elements (in terms of the query string).
+    // Fuse allows us to still do lightweight fuzzy matching and return the matching (or near matching) results
     const fuse = new Fuse(filtered, {
       threshold: 0.3,
     });
