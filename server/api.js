@@ -1427,8 +1427,7 @@ router.route('/project/:projectID/files/:fileID/access').put(
 );
 
 router.route('/project/:projectID/files/:fileID/download').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
   middleware.validateZod(ProjectFileValidators.getProjectFileDownloadURLSchema),
   projectfilesAPI.getProjectFileDownloadURL
 );

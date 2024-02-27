@@ -335,7 +335,7 @@ async function getProjectFileDownloadURL(
       projectID,
       [fileID],
       undefined,
-      req.user?.decoded.uuid,
+      req.user?.decoded?.uuid,
       shouldIncrement
     );
     if (
