@@ -850,13 +850,7 @@ async function deleteTicket(
 ) {
   try {
     const { uuid } = req.params;
-
-    console.log('DELETE: ', uuid)
-
     await SupportTicket.deleteOne({ uuid })
-
-    console.log('DELETED')
-
     return res.send({
       err: false,
     });
