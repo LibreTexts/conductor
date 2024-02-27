@@ -1314,8 +1314,8 @@ function _transformToCompare(val: any) {
 
 function _boostExactMatches(file: any, query: string) {
   const searchQuery = query.toLowerCase().split(" ");
-  const name = file.name.toLowerCase() ?? "";
-  const description = file.description.toLowerCase() ?? "";
+  const name = file.name?.toLowerCase() ?? "";
+  const description = file.description?.toLowerCase() ?? "";
   const authorFirsts =
     file.authors?.map((a: any) => {
       if (!a || typeof a !== "object") return null;

@@ -553,7 +553,11 @@ const CommonsCatalog = () => {
                         color: "blue",
                         onClick: () => updateSearchParam(searchString),
                       }}
-                      onBlur={() => setShowSuggestions(false)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setShowSuggestions(false); // Delay to allow suggestion click event to fully run
+                        }, 200);
+                      }}
                     />
                     {showSuggestions && searchSuggestions.length > 0 && (
                       <div className="py-2 border rounded-md shadow-md">
@@ -561,7 +565,8 @@ const CommonsCatalog = () => {
                           return (
                             <p
                               className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.preventDefault();
                                 updateSearchParam(suggestion);
                                 setShowSuggestions(false);
                               }}
