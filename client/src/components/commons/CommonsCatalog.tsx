@@ -16,7 +16,7 @@ import {
 import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
-import { useLocation } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import { truncateString } from "../util/HelperFunctions";
 
 function assetsReducer(
@@ -69,6 +69,7 @@ function booksReducer(
 const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
+  const history = useHistory();
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
@@ -113,19 +114,13 @@ const CommonsCatalog = () => {
   useEffect(() => {
     // If there is a search query in the URL, run the search
     const search = new URLSearchParams(location.search).get("search");
-    if (search) {
-      setSearchString(search);
-    }
-    runSearch({ query: search ?? "" });
-  }, []);
-
-  useEffect(() => {
+    setSearchString(search ?? "");
     runSearch({
-      query: searchString,
+      query: search ?? "",
       assetFilters: assetsState,
       bookFilters: booksState,
     });
-  }, [assetsState, booksState]);
+  }, [assetsState, booksState, location.search]);
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
@@ -134,7 +129,6 @@ const CommonsCatalog = () => {
 
   const updateSearchParam = (searchString: string) => {
     const search = searchString.trim();
-    setSearchString(search);
     const url = new URL(window.location.href);
 
     if (search === "") {
@@ -146,20 +140,28 @@ const CommonsCatalog = () => {
       }
       return;
     } else {
+      url.searchParams.set("search", search);
+
+      // only need the relative path with query string
+      history.push({
+        pathname: location.pathname,
+        search: url.search,
+      });
+
       // Reset the advanced search filters when a new search is run
       assetsDispatch({ type: "reset" });
       booksDispatch({ type: "reset" });
-
-      url.searchParams.set("search", search);
-      window.history.pushState({}, "", url.toString());
-      setSearchString(search);
     }
   };
 
   const clearSearchParam = () => {
     const url = new URL(window.location.href);
-    url.searchParams.delete("search");
-    window.history.pushState({}, "", url.toString());
+    if (url.searchParams.has("search")) {
+      url.searchParams.delete("search");
+    }
+    history.push({
+      pathname: location.pathname,
+    });
   };
 
   const handleResetSearch = () => {
