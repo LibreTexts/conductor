@@ -301,6 +301,17 @@ class API {
     return res;
   }
 
+  async getAssetFilterOptions() {
+    const res = await axios.get<
+      {
+        licenses: string[];
+        orgs: string[];
+        fileTypes: string[];
+      } & ConductorBaseResponse
+    >("/search/asset-filters");
+    return res;
+  }
+
   async assetsSearch(params: AssetSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse

@@ -1,13 +1,15 @@
 import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
 import {
-  ProjectFile, ProjectFileWCustomData, ProjectFileWProjectData
+  ProjectFile,
+  ProjectFileWCustomData,
+  ProjectFileWProjectData,
 } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWProjectData<'title' | 'thumbnail'>;
+  file: ProjectFileWProjectData<"title" | "thumbnail">;
 }
 
 const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
@@ -42,6 +44,10 @@ const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
   return "file alternate outline";
 };
 
+function handleOpenProject(projectID: string) {
+  window.open(`/projects/${projectID}`, "_blank");
+}
+
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
@@ -65,14 +71,20 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
-        <Icon name="user" color="blue" />{" "}
-        {getPrettyAuthorsList(file.authors)}
+        <Icon name="user" color="blue" /> {getPrettyAuthorsList(file.authors)}
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />
-        {file.projectInfo.title
-          ? <a href={`projects/${file.projectID}`} target="_blank" className="underline">{truncateString(file.projectInfo.title, 30)}</a>
-          : "Unknown Project"}
+        {file.projectInfo.title ? (
+          <span
+            onClick={() => handleOpenProject(file.projectID)}
+            className="underline"
+          >
+            {truncateString(file.projectInfo.title, 30)}
+          </span>
+        ) : (
+          "Unknown Project"
+        )}
       </Card.Meta>
       <Card.Meta>
         <Icon name="legal" color="blue" />{" "}

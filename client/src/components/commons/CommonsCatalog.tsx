@@ -1,41 +1,90 @@
 import "./Commons.css";
 import { Grid, Segment, Header, Form, Icon } from "semantic-ui-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useReducer } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import useDebounce from "../../hooks/useDebounce";
 import {
   AssetFilters,
+  AssetFiltersAction,
   Book,
   BookFilters,
+  BookFiltersAction,
   Project,
-  ProjectFileWCustomData,
   ProjectFileWProjectData,
 } from "../../types";
 import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useLocation } from "react-router-dom";
+import { truncateString } from "../util/HelperFunctions";
+
+function assetsReducer(
+  state: AssetFilters,
+  action: AssetFiltersAction
+): AssetFilters {
+  switch (action.type) {
+    case "license":
+      return { ...state, license: action.payload };
+    case "org":
+      return { ...state, org: action.payload };
+    case "fileType":
+      return { ...state, fileType: action.payload };
+    case "reset":
+      return {};
+    case "reset_one": {
+      const newState = { ...state };
+      delete newState[action.payload as keyof AssetFilters];
+      return newState;
+    }
+    default:
+      return state;
+  }
+}
+
+function booksReducer(
+  state: BookFilters,
+  action: BookFiltersAction
+): BookFilters {
+  switch (action.type) {
+    case "author":
+      return { ...state, author: action.payload };
+    case "library":
+      return { ...state, library: action.payload };
+    case "subject":
+      return { ...state, subject: action.payload };
+    case "affiliation":
+      return { ...state, affiliation: action.payload };
+    case "reset":
+      return {};
+    case "reset_one":
+      const newState = { ...state };
+      delete newState[action.payload as keyof BookFilters];
+      return newState;
+    default:
+      return state;
+  }
+}
 
 const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
+  const ITEMS_PER_PAGE = 24;
+
+  const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
+  const [booksState, booksDispatch] = useReducer(booksReducer, {});
+
+  const [showSuggestions, setShowSuggestions] = useState(true);
 
   const [loadingDisabled, setLoadingDisabled] = useState(false);
 
-  const ITEMS_PER_PAGE = 24;
-
   const [searchString, setSearchString] = useState<string>("");
-  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [activePage, setActivePage] = useState(1);
-  const [strictMode, setStrictMode] = useState(false);
-
-  const [bookFilters, setBookFilters] = useState<BookFilters>({});
-  const [assetFilters, setAssetFilters] = useState<AssetFilters>({});
 
   const [books, setBooks] = useState<Book[]>([]);
   const [booksCount, setBooksCount] = useState<number>(0);
@@ -53,43 +102,57 @@ const CommonsCatalog = () => {
   const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
-    const search = new URLSearchParams(location.search).get("search");
-    if (search) {
-      setSearchString(search);
-      runSearch(search);
-    } else {
-      loadInitialData();
-    }
-  }, []);
-
-  /**
-   * Update the page title based on
-   * Organization information.
-   */
-  useEffect(() => {
+    // Set page title based on the organization
     if (org.orgID !== "libretexts") {
       document.title = `${org.shortName} Commons | Catalog`;
     } else {
       document.title = "LibreCommons | Catalog";
     }
-  }, [org]);
+  }, []);
 
-  const updateSearchParam = () => {
+  useEffect(() => {
+    // If there is a search query in the URL, run the search
+    const search = new URLSearchParams(location.search).get("search");
+    if (search) {
+      setSearchString(search);
+    }
+    runSearch({ query: search ?? "" });
+  }, []);
+
+  useEffect(() => {
+    runSearch({
+      query: searchString,
+      assetFilters: assetsState,
+      bookFilters: booksState,
+    });
+  }, [assetsState, booksState]);
+
+  const getSuggestionsDebounced = debounce(
+    (searchVal: string) => getSearchSuggestions(searchVal),
+    150
+  );
+
+  const updateSearchParam = (searchString: string) => {
     const search = searchString.trim();
+    setSearchString(search);
     const url = new URL(window.location.href);
 
     if (search === "") {
       clearSearchParam();
-      if(assetFiltersApplied() || bookFiltersApplied()) {
-        runSearch(search); // handle no search query but filters
+      if (assetFiltersApplied() || bookFiltersApplied()) {
+        runSearch({ query: search }); // handle no search query but filters
       } else {
         loadInitialData(true);
       }
       return;
     } else {
+      // Reset the advanced search filters when a new search is run
+      assetsDispatch({ type: "reset" });
+      booksDispatch({ type: "reset" });
+
       url.searchParams.set("search", search);
       window.history.pushState({}, "", url.toString());
-      runSearch(search);
+      setSearchString(search);
     }
   };
 
@@ -102,8 +165,6 @@ const CommonsCatalog = () => {
   const handleResetSearch = () => {
     clearSearchParam();
     setSearchString("");
-    setBookFilters({});
-    setAssetFilters({});
     setActivePage(1);
     setBooks([]);
     setAssets([]);
@@ -111,14 +172,30 @@ const CommonsCatalog = () => {
     loadInitialData(true);
   };
 
-  async function runSearch(query?: string) {
+  async function runSearch({
+    query,
+    assetFilters,
+    bookFilters,
+  }: {
+    query?: string;
+    assetFilters?: AssetFilters;
+    bookFilters?: BookFilters;
+  }) {
     try {
       if (loadingDisabled) return;
       setActivePage(1);
 
+      if (
+        !query &&
+        (!assetFilters || !Object.keys(assetFilters).length) &&
+        (!bookFilters || !Object.keys(bookFilters).length)
+      ) {
+        return loadInitialData(true);
+      }
+
       await Promise.all([
-        handleBooksSearch(query ?? searchString, true),
-        handleAssetsSearch(1, query ?? searchString, true),
+        handleBooksSearch(query ?? searchString, bookFilters, true),
+        handleAssetsSearch(query ?? searchString, assetFilters, true),
         handleProjectsSearch(query ?? searchString, true),
       ]);
     } catch (err) {
@@ -168,12 +245,15 @@ const CommonsCatalog = () => {
     }
   }
 
-  async function handleBooksSearch(query?: string, clearAndUpdate = false) {
+  async function handleBooksSearch(
+    query?: string,
+    bookFilters?: BookFilters,
+    clearAndUpdate = false
+  ) {
     try {
       setBooksLoading(true);
       const res = await api.booksSearch({
         ...(query && { searchQuery: query }),
-        strictMode,
         page: activePage,
         limit: ITEMS_PER_PAGE,
         ...bookFilters,
@@ -232,16 +312,15 @@ const CommonsCatalog = () => {
   }
 
   async function handleAssetsSearch(
-    page = 1,
     query?: string,
+    assetFilters?: AssetFilters,
     clearAndUpdate = false
   ) {
     try {
       setAssetsLoading(true);
       const res = await api.assetsSearch({
         ...(query && { searchQuery: query }),
-        strictMode,
-        page,
+        page: activePage,
         limit: ITEMS_PER_PAGE,
         ...assetFilters,
       });
@@ -302,7 +381,6 @@ const CommonsCatalog = () => {
       setProjectsLoading(true);
       const res = await api.projectsSearch({
         searchQuery: query,
-        strictMode: false,
         page: activePage,
         limit: ITEMS_PER_PAGE,
       });
@@ -311,13 +389,11 @@ const CommonsCatalog = () => {
         throw new Error(res.data.errMsg);
       }
 
-      if (!res.data.results) {
+      if (!res.data.results || !Array.isArray(res.data.results)) {
         throw new Error("No results found.");
       }
 
-      if (Array.isArray(res.data.results)) {
-        updateProjects(res.data.results, clearAndUpdate);
-      }
+      updateProjects(res.data.results, clearAndUpdate);
 
       if (typeof res.data.numResults === "number") {
         setProjectsCount(res.data.numResults);
@@ -329,12 +405,27 @@ const CommonsCatalog = () => {
     }
   }
 
+  async function getSearchSuggestions(searchVal: string) {
+    try {
+      if (!searchVal || searchVal.length < 2) return;
+      const res = await api.getAutoCompleteSuggestions(searchVal);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (Array.isArray(res.data.results)) {
+        setSearchSuggestions(res.data.results);
+      }
+    } catch (err) {
+      console.error(err); // Fail silently
+    }
+  }
+
   const bookFiltersApplied = (): boolean => {
-    return Object.keys(bookFilters).length !== 0;
+    return Object.keys(booksState).length > 0;
   };
 
   const assetFiltersApplied = (): boolean => {
-    return Object.keys(assetFilters).length !== 0;
+    return Object.keys(assetsState).length > 0;
   };
 
   function handleLoadMoreBooks() {
@@ -352,7 +443,7 @@ const CommonsCatalog = () => {
     const nextPage = activePage + 1;
     setActivePage(nextPage);
     if (searchString || assetFiltersApplied()) {
-      return handleAssetsSearch(nextPage, searchString);
+      return handleAssetsSearch(searchString);
     } else {
       return loadPublicAssets();
     }
@@ -406,18 +497,6 @@ const CommonsCatalog = () => {
     setActivePage(1);
   }
 
-  function handleRemoveBookFilter(filter: keyof BookFilters) {
-    const newFilters = { ...bookFilters };
-    delete newFilters[filter];
-    setBookFilters(newFilters);
-  }
-
-  function handleRemoveAssetFilter(filter: keyof AssetFilters) {
-    const newFilters = { ...assetFilters };
-    delete newFilters[filter];
-    setAssetFilters(newFilters);
-  }
-
   return (
     <Grid className="commons-container">
       <Grid.Row>
@@ -457,63 +536,69 @@ const CommonsCatalog = () => {
                       className="color-libreblue !mb-0"
                       id="commons-search-input"
                       iconPosition="left"
-                      onChange={(e) => setSearchString(e.target.value)}
+                      onChange={(e) => {
+                        setSearchString(e.target.value);
+                        getSuggestionsDebounced(e.target.value);
+                        if (e.target.value.length === 0) {
+                          setShowSuggestions(false);
+                        } else {
+                          setShowSuggestions(true);
+                        }
+                      }}
                       fluid
                       value={searchString}
                       aria-label="Search query"
                       action={{
                         content: "Search Catalog",
                         color: "blue",
-                        onClick: () => updateSearchParam(),
+                        onClick: () => updateSearchParam(searchString),
                       }}
+                      onBlur={() => setShowSuggestions(false)}
                     />
+                    {showSuggestions && searchSuggestions.length > 0 && (
+                      <div className="py-2 border rounded-md shadow-md">
+                        {searchSuggestions.map((suggestion) => {
+                          return (
+                            <p
+                              className="px-2 hover:bg-slate-50 rounded-md cursor-pointer font-semibold"
+                              onClick={() => {
+                                updateSearchParam(suggestion);
+                                setShowSuggestions(false);
+                              }}
+                              key={crypto.randomUUID()}
+                            >
+                              {truncateString(suggestion, 100)}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </Form>
-                <div
-                  className="flex flex-row items-center justify-center text-primary font-semibold cursor-pointer text-center mt-4"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                >
-                  <Icon
-                    name={showAdvanced ? "caret down" : "caret right"}
-                    className="mr-1 !mb-2"
-                  />
-                  <p className="">Advanced Search</p>
-                  <Icon
-                    name={showAdvanced ? "caret down" : "caret left"}
-                    className="ml-1 !mb-2"
-                  />
-                </div>
               </div>
-              {showAdvanced && (
-                <div className="mb-8">
-                  <AdvancedSearchDrawer
-                    searchString={searchString}
-                    setSearchString={setSearchString}
-                    activeIndex={activeIndex}
-                    setActiveIndex={setActiveIndex}
-                    submitSearch={updateSearchParam}
-                    bookFilters={bookFilters}
-                    setBookFilters={setBookFilters}
-                    assetFilters={assetFilters}
-                    setAssetFilters={setAssetFilters}
-                    strictMode={strictMode}
-                    setStrictMode={setStrictMode}
-                  />
-                </div>
-              )}
-              {(searchString !== "" ||
-                Object.keys(bookFilters).length !== 0 ||
-                Object.keys(assetFilters).length !== 0) && (
-                <p
-                  className="italic font-semibold cursor-pointer underline text-center mt-2"
-                  onClick={handleResetSearch}
-                >
-                  Reset Search
-                </p>
-              )}
+              <div className="mb-8">
+                <AdvancedSearchDrawer
+                  activeIndex={activeIndex}
+                  setActiveIndex={setActiveIndex}
+                  assetFilters={assetsState}
+                  assetFiltersDispatch={assetsDispatch}
+                  bookFilters={booksState}
+                  bookFiltersDispatch={booksDispatch}
+                />
+                {(searchString !== "" ||
+                  Object.keys(assetsState).length !== 0 ||
+                  Object.keys(booksState).length !== 0) && (
+                  <p
+                    className="italic font-semibold cursor-pointer underline text-center mt-2"
+                    onClick={handleResetSearch}
+                  >
+                    Reset Search
+                  </p>
+                )}
+              </div>
               <CatalogTabs
-                assetFilters={assetFilters}
-                bookFilters={bookFilters}
+                assetFilters={assetsState}
+                bookFilters={booksState}
                 activeIndex={activeIndex}
                 onActiveTabChange={handleTabChange}
                 books={books}
@@ -528,8 +613,12 @@ const CommonsCatalog = () => {
                 onLoadMoreBooks={handleLoadMoreBooks}
                 onLoadMoreAssets={handleLoadMoreAssets}
                 onLoadMoreProjects={handleLoadMoreProjects}
-                onRemoveAssetFilter={handleRemoveAssetFilter}
-                onRemoveBookFilter={handleRemoveBookFilter}
+                onRemoveAssetFilter={(key) =>
+                  assetsDispatch({ type: "reset_one", payload: key })
+                }
+                onRemoveBookFilter={(key) =>
+                  booksDispatch({ type: "reset_one", payload: key })
+                }
                 onTriggerStopLoading={() => setLoadingDisabled(true)}
               />
             </Segment>

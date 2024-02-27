@@ -105,7 +105,9 @@ import {
 
 import {
   AssetFilters,
+  AssetFiltersAction,
   BookFilters,
+  BookFiltersAction,
   ConductorSearchResponse,
   AssetSearchParams,
   BookSearchParams,
@@ -117,6 +119,7 @@ import {
 export type {
   AtlasSearchHighlight,
   AssetFilters,
+  AssetFiltersAction,
   AssetTag,
   AssetTagWithKey,
   AssetTagKey,
@@ -126,6 +129,7 @@ export type {
   AssetTagFrameworkWithCampusDefault,
   Author,
   BookFilters,
+  BookFiltersAction,
   CentralIdentityUser,
   CentralIdentityOrg,
   CentralIdentityService,

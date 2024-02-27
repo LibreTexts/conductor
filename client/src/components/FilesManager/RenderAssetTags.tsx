@@ -82,12 +82,13 @@ const RenderAssetTags: React.FC<{
               </Label>
             );
           })}
-          {sortedTags && sortedTags?.length > max ? (
-            <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
+          {sortedTags && sortedTags?.length > max && (
+            <Label
+              color="grey"
+              size={size === "small" ? "mini" : "tiny"}
+            >
               +{sortedTags?.length - max} more
             </Label>
-          ) : (
-            <></>
           )}
         </div>
       }

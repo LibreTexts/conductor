@@ -21,29 +21,27 @@ async function getAuthors(
     const limit = req.query.limit || 10;
     const offset = getPaginationOffset(req.query.page, limit);
 
-    const authorsPromise = Author.find({
-      ...(req.query.query && {
+    const queryObj: Record<any, any> = {
+      $and: [{ isAdminEntry: true }],
+    };
+
+    if (req.query.query) {
+      queryObj.$and.push({
         $or: [
           { firstName: { $regex: req.query.query, $options: "i" } },
           { lastName: { $regex: req.query.query, $options: "i" } },
           { email: { $regex: req.query.query, $options: "i" } },
         ],
-      }),
-    })
+      });
+    }
+
+    const authorsPromise = Author.find(queryObj)
       .skip(offset)
       .limit(limit)
       .sort(req.query.sort || "lastName")
       .lean();
 
-    const totalPromise = Author.countDocuments({
-      ...(req.query.query && {
-        $or: [
-          { firstName: { $regex: req.query.query, $options: "i" } },
-          { lastName: { $regex: req.query.query, $options: "i" } },
-          { email: { $regex: req.query.query, $options: "i" } },
-        ],
-      }),
-    });
+    const totalPromise = Author.countDocuments(queryObj);
 
     const [authors, total] = await Promise.allSettled([
       authorsPromise,
@@ -70,7 +68,13 @@ async function getAuthor(
   res: Response
 ) {
   try {
-    const author = await Author.findById(req.params.id).orFail().lean();
+    const author = await Author.findOne({
+      _id: req.params.id,
+      isAdminEntry: true,
+    })
+      .orFail()
+      .lean();
+
     res.send({
       err: false,
       author,
@@ -92,7 +96,16 @@ async function createAuthor(
   res: Response
 ) {
   try {
-    const author = await Author.create(req.body);
+    const { firstName, lastName, email, primaryInstitution, url } = req.body;
+    const author = await Author.create({
+      firstName,
+      lastName,
+      primaryInstitution,
+      ...(email && { email }),
+      ...(url && { url }),
+      isAdminEntry: true,
+    });
+
     res.send({
       err: false,
       author,
@@ -123,7 +136,12 @@ async function bulkCreateAuthors(
       (author) => !existingAuthorEmails.includes(author.email)
     );
 
-    const insertRes = await Author.insertMany(noDuplicates);
+    const withAdminFlag = noDuplicates.map((author) => ({
+      ...author,
+      isAdminEntry: true,
+    }));
+
+    const insertRes = await Author.insertMany(withAdminFlag);
 
     return res.send({
       err: false,
@@ -146,7 +164,17 @@ async function updateAuthor(
   res: Response
 ) {
   try {
-    await Author.updateOne({ _id: req.params.id }, req.body).orFail();
+    const { firstName, lastName, email, primaryInstitution, url } = req.body;
+    await Author.updateOne(
+      { _id: req.params.id },
+      {
+        firstName,
+        lastName,
+        primaryInstitution,
+        ...(email && { email }),
+        ...(url && { url }),
+      }
+    ).orFail();
 
     const updated = await Author.findById(req.params.id).orFail().lean();
 
@@ -155,6 +183,12 @@ async function updateAuthor(
       author: updated,
     });
   } catch (err: any) {
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return res.status(409).send({
+        err: true,
+        message: "Author with that email already exists",
+      });
+    }
     if (err.name === "DocumentNotFoundError") {
       return res.status(404).send({
         err: true,

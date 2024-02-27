@@ -168,7 +168,7 @@ const EditFile: React.FC<EditFileProps> = ({
   useEffect(() => {
     if (show) {
       loadLicenseOptions();
-      loadFile();
+      loadFile().then(() => loadProjectLicenseSettings()); // Load file first, then project license settings
       loadAuthorOptions();
     }
   }, [show]);
@@ -246,6 +246,32 @@ const EditFile: React.FC<EditFileProps> = ({
       if (fileData.storageType === "file") {
         checkCampusDefault(); // We want to make sure the file is loaded before checking for campus default and updating tags (if applicable)
         loadFileURL(); // Don't await this, we don't want to block the rest of the load
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadProjectLicenseSettings() {
+    try {
+      if (getValues("license.name")) return; // Don't load project license settings if file license is already set
+      setLoading(true);
+
+      const res = await api.getProject(projectID);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.project) {
+        throw new Error("Failed to load project");
+      }
+
+      if (
+        res.data.project.defaultFileLicense &&
+        typeof res.data.project.defaultFileLicense === "object"
+      ) {
+        setValue("license", res.data.project.defaultFileLicense);
       }
     } catch (err) {
       handleGlobalError(err);

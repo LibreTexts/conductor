@@ -56,6 +56,9 @@ import {
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
+import Author from "../models/author.js";
+import { isAuthorObject } from "../util/typeHelpers.js";
+import { Schema } from "mongoose";
 
 const filesStorage = multer.memoryStorage();
 
@@ -82,6 +85,9 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       if (file.originalname.includes("/")) {
         // @ts-ignore
         return cb(new Error("filenameslash"), false);
+      }
+      if (file.originalname.endsWith(".tex")) {
+        file.mimetype = "text/x-tex";
       }
       return cb(null, true);
     },
@@ -151,25 +157,7 @@ export async function addProjectFile(
     }
 
     // Add a file
-    let parsedAuthors: any[] = [];
-    if (req.body.authors) {
-      if (Array.isArray(req.body.authors)) {
-        parsedAuthors = req.body.authors;
-      } else {
-        parsedAuthors = [req.body.authors];
-      }
-
-      const _parsed: any[] = [];
-      parsedAuthors.forEach((author) => {
-        if (typeof author === "string" && isObjectIdOrHexString(author)) {
-          _parsed.push(new Types.ObjectId(author));
-        } else {
-          _parsed.push(author);
-        }
-      });
-
-      parsedAuthors = _parsed;
-    }
+    const parsedAuthors = await _parseAndSaveAuthors(req.body.authors);
 
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
@@ -650,7 +638,6 @@ async function updateProjectFile(
 
     // update tags
     if (tags) {
-      //@ts-ignore
       await upsertAssetTags(file, tags);
     }
 
@@ -666,24 +653,8 @@ async function updateProjectFile(
       updateObj.license = license;
     }
     if (authors) {
-      const parseAuthors = (authorsData: any[]) => {
-        if (!Array.isArray(authorsData)) return [];
-        const reduced = authorsData.reduce((acc, curr) => {
-          if (curr._id) {
-            acc.push(new Types.ObjectId(curr._id)); //If object already has an _id, ensure it's an ObjectId and push
-          } else if (typeof curr === "string" && isObjectIdOrHexString(curr)) {
-            acc.push(new Types.ObjectId(curr)); // If it's a string and a valid ObjectId format, convert to ObjectId and push
-          } else {
-            acc.push(curr); // Otherwise, just push the original value (which should be object with basic author info like name, etc.)
-          }
-          return acc;
-        }, []);
-        return reduced;
-      };
-
-      const parsed = parseAuthors(authors);
-
-      updateObj.authors = parsed;
+      const parsedAuthors = await _parseAndSaveAuthors(authors);
+      updateObj.authors = parsedAuthors;
     }
     if (publisher) {
       updateObj.publisher = publisher;
@@ -1144,6 +1115,14 @@ async function getPublicProjectFiles(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
+      },
+      {
         $match: {
           // Filter where project was not public or does not exist, so projectInfo wasn't set
           projectInfo: {
@@ -1172,6 +1151,63 @@ async function getPublicProjectFiles(
   } catch (e) {
     debugError(e);
     return conductor500Err(res);
+  }
+}
+
+async function _parseAndSaveAuthors(
+  authors: z.infer<typeof addProjectFileSchema>["body"]["authors"]
+): Promise<Schema.Types.ObjectId[]> {
+  try {
+    if (!authors) return [];
+
+    if (!Array.isArray(authors)) {
+      authors = [authors];
+    }
+
+    const _parsed: any[] = [];
+
+    for (const author of authors) {
+      if (typeof author === "string" && isObjectIdOrHexString(author)) {
+        _parsed.push(new Types.ObjectId(author));
+        continue;
+      }
+
+      if (!isAuthorObject(author)) {
+        continue; // If not valid string or author object, skip
+      }
+
+      const found = await Author.findOne({
+        firstName: {
+          $regex: author.firstName,
+          $options: "i",
+        },
+        lastName: {
+          $regex: author.lastName,
+          $options: "i",
+        },
+        ...(author.email && {
+          email: {
+            $regex: author.email,
+            $options: "i",
+          },
+        }),
+      });
+
+      if (found) {
+        _parsed.push(new Types.ObjectId(found._id));
+        continue;
+      }
+
+      const newAuthor = await Author.create({
+        ...author,
+      });
+      _parsed.push(new Types.ObjectId(newAuthor._id));
+    }
+
+    return _parsed;
+  } catch (err) {
+    debugError(err);
+    throw new Error("authorparseerror");
   }
 }
 

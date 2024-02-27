@@ -8,7 +8,7 @@ import { debugError } from "../debug.js";
 import { getPaginationOffset, isValidDateObject } from "../util/helpers.js";
 import projectAPI from "./projects.js";
 import { ZodReqWithOptionalUser } from "../types/Express.js";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { ProjectFileInterface } from "../models/projectfile.js";
 import { string, z } from "zod";
@@ -25,6 +25,9 @@ import {
 import ProjectFile from "../models/projectfile.js";
 import authAPI from "./auth.js";
 import Author from "../models/author.js";
+import { levenshteinDistance } from "../util/searchutils.js";
+import Fuse from "fuse.js";
+import Organization from "../models/organization.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -374,8 +377,12 @@ function _generateProjectMatchObj({
     projectFiltersOptions = { ...projectFilters[0] };
   }
 
+  if (!queryRegex) {
+    // if no query, no need to use $and, just return filters
+    return projectFiltersOptions;
+  }
   // Combine all filters and return
-  const projectMatchOptions = {
+  return {
     $and: [
       {
         $or: [
@@ -388,12 +395,9 @@ function _generateProjectMatchObj({
           { associatedOrgs: queryRegex },
         ],
       },
-      {
-        ...projectFiltersOptions,
-      },
+      projectFiltersOptions,
     ],
   };
-  return projectMatchOptions;
 }
 
 export async function assetsSearch(
@@ -401,40 +405,28 @@ export async function assetsSearch(
   res: Response
 ) {
   try {
-    //req.query = getSchemaWithDefaults(req.query, conductorSearchQuerySchema);
-
     const mongoSearchQueryTerm = req.query.searchQuery ?? "";
     const assetsPage = parseInt(req.query.page?.toString()) || 1;
     const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
     const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
 
-    const searchQueryObj = _buildAssetsSearchQuery({
+    const projectFilesQuery = _buildAssetsSearchQuery({
       query: mongoSearchQueryTerm,
-      fileTypeFilter: req.query.fileType,
-      licenseFilter: req.query.license,
-      licenseVersionFilter: req.query.licenseVersion,
-      strictMode: req.query.strictMode,
+      type: "projectfiles",
+    });
+
+    const assetTagsQuery = _buildAssetsSearchQuery({
+      query: mongoSearchQueryTerm,
+      type: "assettags",
     });
 
     const matchObj = _buildFilesFilter({
-      query: mongoSearchQueryTerm,
       fileTypeFilter: req.query.fileType,
       licenseFilter: req.query.license,
-      licenseVersionFilter: req.query.licenseVersion,
-      strictMode: req.query.strictMode,
     });
 
     const fromProjectFilesPromise = ProjectFile.aggregate([
-      ...(Object.keys(searchQueryObj).length > 0
-        ? [
-            { $search: searchQueryObj },
-            {
-              $addFields: {
-                score: { $meta: "searchScore" },
-              },
-            },
-          ]
-        : []),
+      ...(projectFilesQuery.length > 0 ? projectFilesQuery : []),
       {
         $match: {
           $and: [
@@ -518,37 +510,10 @@ export async function assetsSearch(
       {
         $match: matchObj,
       },
-      ...(Object.keys(searchQueryObj).length > 0
-        ? [
-            {
-              $match: {
-                score: {
-                  $gte: 2,
-                },
-              },
-            },
-          ]
-        : []),
     ]);
 
     const fromAssetTagsPromise = AssetTag.aggregate([
-      {
-        $search: {
-          text: {
-            query: mongoSearchQueryTerm,
-            path: "value",
-            fuzzy: {
-              maxEdits: 2,
-              maxExpansions: 50,
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          score: { $meta: "searchScore" },
-        },
-      },
+      ...(assetTagsQuery.length > 0 ? assetTagsQuery : []),
       {
         $lookup: {
           from: "projectfiles",
@@ -654,13 +619,6 @@ export async function assetsSearch(
       {
         $match: matchObj,
       },
-      {
-        $match: {
-          score: {
-            $gte: 1.5,
-          },
-        },
-      },
     ]);
 
     const fromAuthorsPromise = Author.aggregate([
@@ -670,10 +628,10 @@ export async function assetsSearch(
             query: mongoSearchQueryTerm,
             path: ["firstName", "lastName", "email"],
             fuzzy: {
-              maxEdits: 2,
+              maxEdits: 1,
               maxExpansions: 50,
             },
-            score: { boost: { value: 1.5 } },
+            score: { boost: { value: 3 } },
           },
         },
       },
@@ -785,18 +743,20 @@ export async function assetsSearch(
         },
       },
       {
-        $match: matchObj,
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
       },
       {
-        $match: {
-          score: {
-            $gte: 0.5,
-          },
-        },
+        $match: matchObj,
       },
     ]);
 
     const aggregations = [fromProjectFilesPromise];
+    // Only add these if there is a search query
     if (mongoSearchQueryTerm) {
       aggregations.push(fromAssetTagsPromise);
       aggregations.push(fromAuthorsPromise);
@@ -804,12 +764,21 @@ export async function assetsSearch(
 
     const aggregateResults = await Promise.all(aggregations);
 
-    let allResults: any[] = [];
-    // Merge files from text search and files from tags
-    allResults = aggregateResults.flat().filter((file) => {
+    // Merge all results
+    let allResults = aggregateResults.flat().filter((file) => {
       // Remove files that don't have a projectID
       return file.projectID && file.fileID;
     });
+
+    if (mongoSearchQueryTerm) {
+      allResults = allResults.map((file: any) =>
+        _boostExactMatches(file, mongoSearchQueryTerm)
+      );
+      const minScore = _calculateLowerOutlierThreshold(
+        allResults.map((file: any) => file.score)
+      );
+      allResults = allResults.filter((file: any) => file.score >= minScore);
+    }
 
     // Filter by org if provided
     if (req.query.org) {
@@ -817,13 +786,20 @@ export async function assetsSearch(
         return file.projectInfo.associatedOrgs?.includes(req.query.org);
       });
     }
-    
+
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
     const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
       return allResults.find(
         (file: ProjectFileInterface) => file.fileID === fileID
       );
+    });
+
+    // Sort results by score
+    withoutDuplicates.sort((a, b) => {
+      if (a.score < b.score) return 1;
+      if (a.score > b.score) return -1;
+      return 0;
     });
 
     const totalCount = withoutDuplicates.length;
@@ -845,17 +821,11 @@ export async function assetsSearch(
 }
 
 function _buildFilesFilter({
-  query,
   fileTypeFilter,
   licenseFilter,
-  licenseVersionFilter,
-  strictMode,
 }: {
-  query?: string;
   fileTypeFilter?: string;
   licenseFilter?: string;
-  licenseVersionFilter?: string;
-  strictMode?: boolean;
 }) {
   const andQuery: Record<string, any>[] = [
     {
@@ -866,34 +836,25 @@ function _buildFilesFilter({
     },
   ];
 
-  // If query is not provided, return like strict mode
-  if (strictMode || !query) {
-    if (fileTypeFilter) {
-      const isWildCard = fileTypeFilter.includes("*");
-      const parsedFileFilter = isWildCard
-        ? fileTypeFilter.split("/")[0]
-        : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
+  if (fileTypeFilter) {
+    const isWildCard = fileTypeFilter.includes("*");
+    const parsedFileFilter = isWildCard
+      ? fileTypeFilter.split("/")[0]
+      : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
 
-      const wildCardRegex = {
-        $regex: parsedFileFilter,
-        $options: "i",
-      };
-      andQuery.push({
-        mimeType: isWildCard ? wildCardRegex : parsedFileFilter,
-      });
-    }
+    const wildCardRegex = {
+      $regex: parsedFileFilter,
+      $options: "i",
+    };
+    andQuery.push({
+      mimeType: isWildCard ? wildCardRegex : parsedFileFilter,
+    });
+  }
 
-    if (licenseFilter) {
-      andQuery.push({
-        "license.name": licenseFilter,
-      });
-    }
-
-    if (licenseVersionFilter) {
-      andQuery.push({
-        "license.version": licenseVersionFilter,
-      });
-    }
+  if (licenseFilter) {
+    andQuery.push({
+      "license.name": licenseFilter,
+    });
   }
 
   return {
@@ -903,74 +864,55 @@ function _buildFilesFilter({
 
 function _buildAssetsSearchQuery({
   query,
-  fileTypeFilter,
-  licenseFilter,
-  licenseVersionFilter,
-  strictMode,
+  type,
 }: {
   query?: string;
-  fileTypeFilter?: string;
-  licenseFilter?: string;
-  licenseVersionFilter?: string;
-  strictMode?: boolean;
+  type: "projectfiles" | "assettags";
 }) {
-  const baseQuery: Record<any, any> = {
-    ...(query && {
-      text: {
-        query,
-        path: ["name", "description"],
-        fuzzy: {
-          maxEdits: 2,
-          maxExpansions: 50,
+  const SEARCH_FIELDS =
+    type === "projectfiles" ? ["name", "description"] : ["value"];
+  let isExactMatchSearch = false;
+  let strippedQuery = "";
+  if (!query) {
+    return [];
+  }
+
+  if (query.length > 2) {
+    if (query.charAt(0) === '"' && query.charAt(query.length - 1) === '"') {
+      isExactMatchSearch = true;
+      strippedQuery = query.substring(1, query.length - 1);
+    }
+  }
+
+  const innerQuery = isExactMatchSearch
+    ? {
+        phrase: {
+          query: strippedQuery,
+          path: SEARCH_FIELDS,
+          score: { boost: { value: 3 } },
         },
-        score: { boost: { value: 2 } },
+      }
+    : {
+        text: {
+          query,
+          path: SEARCH_FIELDS,
+          fuzzy: {
+            maxEdits: 2,
+            maxExpansions: 50,
+          },
+        },
+      };
+
+  return [
+    {
+      $search: innerQuery,
+    },
+    {
+      $addFields: {
+        score: { $meta: "searchScore" },
       },
-    }),
-  };
-
-  return baseQuery;
-
-  // if (!fileTypeFilter && !licenseFilter) {
-  //   return baseQuery;
-  // }
-
-  // const compoundQueries = [];
-
-  // if (Object.keys(baseQuery).length > 0) {
-  //   compoundQueries.push(baseQuery);
-  // }
-
-  // if (fileTypeFilter) {
-  //   const isWildCard = fileTypeFilter.includes("*");
-  //   const parsedFileFilter = isWildCard
-  //     ? fileTypeFilter.split("/")[0]
-  //     : fileTypeFilter; // if mime type is wildcard, only use the first part of the mime type
-  //   compoundQueries.push({
-  //     text: {
-  //       path: "mimeType",
-  //       query: parsedFileFilter,
-  //     },
-  //   });
-  // }
-
-  // if (licenseFilter) {
-  //   compoundQueries.push({
-  //     text: {
-  //       path: "license.name",
-  //       query: licenseFilter,
-  //     },
-  //   });
-  // }
-
-  // const compoundQueryObj =
-  //   strictMode === true
-  //     ? { must: [...compoundQueries] }
-  //     : { should: [...compoundQueries] };
-
-  // // Build compound query
-  // return {
-  //   compound: compoundQueryObj,
-  // };
+    },
+  ];
 }
 
 async function homeworkSearch(
@@ -1129,9 +1071,6 @@ async function getAutocompleteResults(
           autocomplete: {
             query: query,
             path: "value",
-            fuzzy: {
-              maxEdits: 2,
-            },
           },
         },
       },
@@ -1139,17 +1078,73 @@ async function getAutocompleteResults(
         $project: {
           _id: 0,
           value: 1,
+          score: { $meta: "searchScore" },
         },
       },
       {
         $sort: {
-          value: 1,
+          score: -1,
         },
       },
     ]).limit(limit);
 
-    const values = tagsResults.map((tag) => tag.value);
-    const reduced = values.reduce((acc, val) => {
+    const authorsResults = await Author.aggregate([
+      {
+        $search: {
+          index: "authors-autocomplete",
+          compound: {
+            should: [
+              {
+                autocomplete: {
+                  query: query,
+                  path: "firstName",
+                },
+              },
+              {
+                autocomplete: {
+                  query: query,
+                  path: "lastName",
+                },
+              },
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          firstName: 1,
+          lastName: 1,
+          score: { $meta: "searchScore" },
+        },
+      },
+      {
+        $sort: {
+          score: -1,
+        },
+      },
+    ]).limit(limit);
+
+    // Sort results by score
+    tagsResults.sort((a, b) => {
+      if (a.score < b.score) return 1;
+      if (a.score > b.score) return -1;
+      return 0;
+    });
+
+    authorsResults.sort((a, b) => {
+      if (a.score < b.score) return 1;
+      if (a.score > b.score) return -1;
+      return 0;
+    });
+
+    const tagValues = tagsResults.map((tag) => tag.value);
+    const authorValues = authorsResults.map(
+      (author) => `${author.firstName} ${author.lastName}`
+    );
+
+    // Handle nested arrays
+    const reduced = tagValues.reduce((acc, val) => {
       if (val instanceof Array) {
         val.forEach((v) => {
           acc.push(v);
@@ -1160,17 +1155,138 @@ async function getAutocompleteResults(
       return acc;
     }, []);
 
-    const uniqueValues = [...new Set<string>(reduced)];
+    // Load custom org list
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    });
+    const customOrgs = org?.customOrgList || [];
 
-    // Filter out values that are less than 3 characters
+    // Combine and remove duplicates
+    const uniqueValues = [
+      ...new Set<string>([...reduced, ...authorValues, ...customOrgs]),
+    ];
+
+    // Filter out values that are less than 3 characters (not useful enough to determine relevance)
     const filtered = uniqueValues.filter((val) => {
       return val.length > 3;
     });
 
+    const fuse = new Fuse(filtered, {
+      threshold: 0.3,
+    });
+    const searchResults = fuse.search(query).map((result) => result.item) ?? [];
+
+    // Prevent duplicates where items differ only in case
+    const caseInsensitiveSet = new Set<string>();
+    const caseInsensitiveFiltered = searchResults.filter((val) => {
+      const lowerCaseVal = val.toLowerCase();
+      if (caseInsensitiveSet.has(lowerCaseVal)) {
+        return false;
+      }
+      caseInsensitiveSet.add(lowerCaseVal);
+      return true;
+    });
+
     return res.send({
       err: false,
-      numResults: tagsResults.length,
-      results: filtered,
+      numResults: caseInsensitiveFiltered.length,
+      results: caseInsensitiveFiltered,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getAssetFilterOptions(req: Request, res: Response) {
+  try {
+    const aggregations = [];
+
+    const licensePromise = ProjectFile.aggregate([
+      {
+        $match: {
+          "license.name": {
+            $ne: "",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          uniqueLicenseNames: {
+            $addToSet: "$license.name",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          uniqueLicenseNames: 1,
+        },
+      },
+    ]);
+
+    aggregations.push(licensePromise);
+
+    const fileTypePromise = ProjectFile.aggregate([
+      { $match: { mimeType: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$mimeType" } },
+    ]);
+    aggregations.push(fileTypePromise);
+
+    const orgsPromise = Project.aggregate([
+      {
+        $group: {
+          _id: null,
+          associatedOrgs: {
+            $addToSet: "$associatedOrgs",
+          },
+        },
+      },
+      {
+        $unwind: "$associatedOrgs",
+      },
+      {
+        $unwind: "$associatedOrgs",
+      },
+      {
+        $group: {
+          _id: null,
+          associatedOrgs: {
+            $addToSet: "$associatedOrgs",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+        },
+      },
+    ]);
+    aggregations.push(orgsPromise);
+
+    const results = await Promise.all(aggregations);
+    const licenseNames = results[0][0]?.uniqueLicenseNames ?? [];
+    const rawfileTypes = results[1] ?? [];
+    const fileTypes = rawfileTypes.map((type: any) => type._id);
+    const orgs = results[2][0]?.associatedOrgs ?? [];
+
+    // Sort results
+    licenseNames.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    fileTypes.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    orgs.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+
+    return res.send({
+      err: false,
+      licenses: licenseNames,
+      fileTypes: fileTypes,
+      orgs: orgs,
     });
   } catch (err) {
     debugError(err);
@@ -1184,6 +1300,82 @@ function _transformToCompare(val: any) {
     .replace(/[^A-Za-z]+/g, "");
 }
 
+function _boostExactMatches(file: any, query: string) {
+  const searchQuery = query.toLowerCase().split(" ");
+  const name = file.name.toLowerCase() ?? "";
+  const description = file.description.toLowerCase() ?? "";
+  const authorFirsts =
+    file.authors?.map((a: any) => {
+      if (!a || typeof a !== "object") return null;
+      if (!a.firstName) return null;
+      if (typeof a.firstName === "string") return a.firstName.toLowerCase();
+      return null;
+    }) ?? [];
+  const authorLasts =
+    file.authors?.map((a: any) => {
+      if (!a || typeof a !== "object") return null;
+      if (!a.lastName) return null;
+      if (typeof a.lastName === "string") return a.lastName.toLowerCase();
+      return null;
+    }) ?? [];
+  const tags =
+    (file.tags?.map((t: any) => {
+      if (!t || typeof t !== "object") return null;
+      if (!("value" in t)) return null;
+      if (typeof t.value === "string") return t.value.toLowerCase();
+      // if values is an array, map to lowercase and flatten
+      if (Array.isArray(t.value))
+        return t.value.map((v: string) => v.toLowerCase()).flat();
+    }) as string[]) ?? [];
+
+  if (searchQuery.some((substring) => (name as string).includes(substring))) {
+    file.score = file.score * 2;
+  }
+  if (
+    searchQuery.some((substring) => (description as string).includes(substring))
+  ) {
+    file.score = file.score * 2;
+  }
+  if (
+    authorFirsts.some((firstName: string) => searchQuery.includes(firstName))
+  ) {
+    file.score = file.score * 2;
+  }
+  if (authorLasts.some((lastName: string) => searchQuery.includes(lastName))) {
+    file.score = file.score * 2;
+  }
+
+  if (tags.length > 0) {
+    const flattened = tags.flat();
+    // split each tag into words and flatten
+    const split = flattened.map((t) => t.toString().split(" "));
+    const final = split.flat();
+    if (final.some((t) => searchQuery.includes(t))) {
+      // does this need to match all? (every)
+      file.score = file.score * 2;
+    }
+  }
+  return file;
+}
+
+function _calculateLowerOutlierThreshold(numbers: number[], k = 1.5) {
+  // Step 1: Compute the mean
+  const mean = numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+
+  // Step 2: Calculate the standard deviation
+  const squaredDifferences = numbers.map((num) => Math.pow(num - mean, 2));
+  const variance =
+    squaredDifferences.reduce((sum, squaredDiff) => sum + squaredDiff, 0) /
+    numbers.length;
+  const standardDeviation = Math.sqrt(variance);
+
+  // Step 3: Determine the threshold for outliers
+  const threshold = mean - k * standardDeviation;
+
+  // Step 4: Return the threshold as absolute value
+  return Math.abs(threshold);
+}
+
 export default {
   assetsSearch,
   booksSearch,
@@ -1191,4 +1383,5 @@ export default {
   projectsSearch,
   usersSearch,
   getAutocompleteResults,
+  getAssetFilterOptions,
 };

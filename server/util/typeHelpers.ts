@@ -3,6 +3,7 @@ import { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { AssetTagFrameworkInterface } from "../models/assettagframework";
 import { Types } from "mongoose";
 import { z } from "zod";
+import { AuthorInterface } from "../models/author";
 
 export const isBookSortOption = (text: string): text is BookSortOption => {
   return text === "title" || text === "author" || text === "random";
@@ -59,4 +60,10 @@ export function getSchemaWithDefaults<Schema extends z.AnyZodObject>(
 ) {
   const defaults = _getDefaultsFromSchema(schema);
   return Object.assign(defaults, actual);
+}
+
+export function isAuthorObject(value: any): value is AuthorInterface {
+  if (!value) return false;
+  if (typeof value !== "object") return false;
+  return "firstName" in value && "lastName" in value;
 }
