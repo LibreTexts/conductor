@@ -853,15 +853,33 @@ const sendZIPFileReadyNotification = (url, recipientAddress) => {
     });
 }
 
-const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, ticketTitle, assignerName) => {
+/**
+ * Sends a notification to the specified email addresses that a support ticket has been assigned to them.
+ * @param {string[]} recipientAddresses 
+ * @param {string} ticketID 
+ * @param {string} ticketTitle 
+ * @param {string} assignerName 
+ * @param {string} ticketAuthor 
+ * @param {string} ticketCategory 
+ * @param {string} ticketPriority 
+ * @param {string} ticketBody 
+ * @returns 
+ */
+const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, ticketTitle, assignerName, ticketAuthor, ticketCategory, ticketPriority, ticketBody) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned (ID #${ticketID})`,
+        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID})`,
         html: `
             <p>Hi,</p>
             <p>${assignerName} has assigned you to the following support ticket:</p>
+            <br />
             <p><strong>Title:</strong> ${ticketTitle}</p>
+            <p><strong>Author:</strong> ${ticketAuthor}</p>
+            <p><strong>Category:</strong> ${ticketCategory}</p>
+            <p><strong>Priority:</strong> ${ticketPriority}</p>
+            <p><strong>Body:</strong> ${ticketBody}</p>
+            <br />
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>

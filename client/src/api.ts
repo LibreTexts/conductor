@@ -489,6 +489,13 @@ class API {
   }
 
   // Support
+  async deleteTicket(ticketID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/support/ticket/${ticketID}`
+    );
+    return res;
+  }
+  
   async getTicketAttachmentURL(ticketID: string, attachmentID: string) {
     const res = await axios.get<
       {

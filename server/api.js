@@ -1802,6 +1802,12 @@ router.route('/support/ticket/:uuid').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.UpdateTicketValidator),
   supportAPI.updateTicket
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'support'),
+  middleware.validateZod(supportValidators.DeleteTicketValidator),
+  supportAPI.deleteTicket
 )
 
 router.route('/support/ticket').post(
