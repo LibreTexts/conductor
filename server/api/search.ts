@@ -1202,6 +1202,10 @@ async function getAssetFilterOptions(req: Request, res: Response) {
   try {
     const aggregations = [];
 
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    }).orFail();
+
     const licensePromise = ProjectFile.aggregate([
       {
         $match: {
@@ -1263,13 +1267,21 @@ async function getAssetFilterOptions(req: Request, res: Response) {
         },
       },
     ]);
-    aggregations.push(orgsPromise);
+
+    const hasCustomOrgList = org.customOrgList && org.customOrgList.length > 0;
+
+    // If org has no custom org list, add to aggregations
+    if (!hasCustomOrgList) {
+      aggregations.push(orgsPromise);
+    }
 
     const results = await Promise.all(aggregations);
     const licenseNames = results[0][0]?.uniqueLicenseNames ?? [];
     const rawfileTypes = results[1] ?? [];
     const fileTypes = rawfileTypes.map((type: any) => type._id);
-    const orgs = results[2][0]?.associatedOrgs ?? [];
+    const orgs = hasCustomOrgList
+      ? org.customOrgList
+      : results[2][0]?.associatedOrgs ?? [];
 
     // Sort results
     licenseNames.sort((a: string, b: string) =>
