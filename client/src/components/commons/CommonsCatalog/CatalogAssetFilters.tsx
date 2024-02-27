@@ -12,11 +12,6 @@ import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
 import COMMON_MIME_TYPES, {
   getPrettyNameFromMimeType,
 } from "../../../utils/common-mime-types";
-import { useTypedSelector } from "../../../state/hooks";
-
-type ReducedLicense = Omit<CentralIdentityLicense, "versions"> & {
-  version?: string;
-};
 
 interface CatalogAssetFiltersProps {
   filters: AssetFilters;
@@ -30,7 +25,6 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   const DROPDOWN_CLASSES = "icon !min-w-56 !text-center";
   const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
   const { handleGlobalError } = useGlobalError();
-  const org = useTypedSelector((state) => state.org);
 
   const [licenseOptions, setLicenseOptions] = useState<
     GenericKeyTextValueObj<string | undefined>[]
@@ -45,9 +39,6 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
 
   useEffect(() => {
     getFilterOptions();
-    // getOrgs();
-    // getLicenseOptions();
-    // getFileTypeOptions();
   }, []);
 
   async function getFilterOptions() {
@@ -98,121 +89,6 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
       handleGlobalError(err);
     }
   }
-
-  async function getOrgs(searchQuery?: string) {
-    try {
-      setLoading(true);
-
-      // If the org has a custom list, use that instead of fetching from the server
-      if (org.customOrgList && org.customOrgList.length > 0) {
-        const orgs = org.customOrgList.map((org) => {
-          return {
-            value: org,
-            key: org,
-            text: org,
-          };
-        });
-        setOrgOptions(orgs);
-        return;
-      }
-
-      const res = await api.getCentralIdentityOrgs({
-        query: searchQuery ?? undefined,
-        limit: 500,
-      });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.orgs || !Array.isArray(res.data.orgs)) {
-        throw new Error("Invalid response from server.");
-      }
-
-      const orgs = res.data.orgs.map((org) => {
-        return {
-          value: org.name,
-          key: org.id.toString(),
-          text: org.name,
-        };
-      });
-
-      setOrgOptions(orgs);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function getLicenseOptions() {
-    try {
-      setLoading(true);
-
-      const res = await api.getCentralIdentityLicenses();
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      const newLicenseOptions: typeof licenseOptions = [
-        // { key: "empty", text: "Clear...", value: undefined },
-      ];
-
-      if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
-        throw new Error("Invalid response from server.");
-      }
-
-      const noDuplicates = new Set<string>();
-      res.data.licenses.forEach((license) => {
-        noDuplicates.add(license.name);
-      });
-
-      noDuplicates.forEach((licenseName) => {
-        newLicenseOptions.push({
-          key: crypto.randomUUID(),
-          text: licenseName,
-          value: licenseName,
-        });
-      });
-
-      // const reduced = res.data.licenses.reduce((acc: any, curr: any) => {
-      //   if (Array.isArray(curr.versions) && curr.versions.length > 0) {
-      //     acc.push(curr);
-      //     curr.versions.forEach((version: any) => {
-      //       const newObj = { ...curr, version };
-      //       delete newObj.versions;
-      //       acc.push(newObj);
-      //     });
-      //   } else {
-      //     acc.push(curr);
-      //   }
-      //   return acc;
-      // }, []);
-
-      setLicenseOptions(newLicenseOptions);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const getFileTypeOptions = () => {
-    const opts = COMMON_MIME_TYPES.reduce((acc, curr) => {
-      acc.push({
-        key: crypto.randomUUID(),
-        text: curr.title + " (Any)",
-        value: curr.anySubType,
-      });
-      curr.mimeTypes.forEach((mt) => {
-        acc.push({
-          key: crypto.randomUUID(),
-          text: mt.name,
-          value: mt.value,
-        });
-      });
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-    const sorted = opts.sort((a, b) => a.text.localeCompare(b.text));
-    setFileTypeOptions(sorted);
-  };
 
   return (
     <div
