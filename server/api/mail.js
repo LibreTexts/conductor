@@ -837,6 +837,35 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message,
     });
 };
 
+/**
+ * Sends a notification to the specified email addresses (of assigned staff) that a new message has been posted to a support ticket.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} message - the message's body
+ * @param {string} messageSender - the message's author
+ * @param {string} priority - the ticket's priority
+ * @param {string} subject - the ticket's subject
+ */
+const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticketID, message, messageSender, priority, subject) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `New Message on Support Ticket (P: ${priority}) (ID #${ticketID})`,
+        html: `
+            <p>Hi,</p>
+            <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
+            <br />
+            <p><strong>${messageSender}</strong> said:</p>
+            <p>${message}</p>
+            <br />
+            <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
@@ -919,6 +948,7 @@ export default {
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
     sendNewTicketMessageNotification,
+    sendNewTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
     sendZIPFileReadyNotification
 }

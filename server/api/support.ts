@@ -778,6 +778,23 @@ async function createGeneralMessage(
       );
     }
 
+    // If user was found and user is the ticket author, send a notification to assigned staff
+    if ((foundUser && foundUser.uuid === ticket.userUUID) || !foundUser) {
+      const teamToNotify = await _getAssignedStaffEmails(ticket.assignedUUIDs);
+      if (teamToNotify.length > 0) {
+        await mailAPI.sendNewTicketMessageAssignedStaffNotification(
+          teamToNotify,
+          ticket.uuid,
+          message,
+          foundUser
+            ? `${foundUser.firstName} ${foundUser.lastName}`
+            : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`,
+          capitalizeFirstLetter(ticket.priority),
+          ticket.title
+        );
+      }
+    }
+
     return res.send({
       err: false,
       message: ticketMessage,
@@ -850,7 +867,7 @@ async function deleteTicket(
 ) {
   try {
     const { uuid } = req.params;
-    await SupportTicket.deleteOne({ uuid })
+    await SupportTicket.deleteOne({ uuid });
     return res.send({
       err: false,
     });
@@ -946,6 +963,16 @@ const _getTicketAuthorString = (
     : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
+};
+
+const _getAssignedStaffEmails = async (staffUUIDs?: string[]) => {
+  try {
+    if (!staffUUIDs || staffUUIDs.length === 0) return [];
+    const staff = await User.find({ uuid: { $in: staffUUIDs } });
+    return staff.map((s) => s.email);
+  } catch (err) {
+    throw err;
+  }
 };
 
 const _createGuestAccessKey = (): string => {
