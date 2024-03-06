@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { TabProps, Label, Icon, Checkbox } from "semantic-ui-react";
+import { TabProps, Checkbox } from "semantic-ui-react";
 import {
   AssetFilters,
+  AssetFiltersAction,
   Book,
   BookFilters,
+  BookFiltersAction,
   Project,
-  ProjectFileWCustomData,
   ProjectFileWProjectData,
 } from "../../../types";
 import CatalogTab from "./CatalogTab";
@@ -14,13 +15,15 @@ import VisualMode from "./VisualMode";
 import AssetsTable from "./AssetsTable";
 import ProjectsTable from "./ProjectsTable";
 import TabLabel from "./CatalogTabLabel";
-import { getAssetFilterText, getBookFilterText } from "../../../utils/misc";
-import { capitalizeFirstLetter } from "../../util/HelperFunctions";
+import CatalogBookFilters from "./CatalogBookFilters";
+import CatalogAssetFilters from "./CatalogAssetFilters";
 
 interface CatalogTabsProps extends TabProps {
   activeIndex: number;
   assetFilters: AssetFilters;
+  assetFiltersDispatch: React.Dispatch<AssetFiltersAction>;
   bookFilters: BookFilters;
+  bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
   onActiveTabChange: (index: number) => void;
   books: Book[];
   booksCount: number;
@@ -34,15 +37,15 @@ interface CatalogTabsProps extends TabProps {
   onLoadMoreBooks: () => void;
   onLoadMoreAssets: () => void;
   onLoadMoreProjects: () => void;
-  onRemoveBookFilter: (key: keyof BookFilters) => void;
-  onRemoveAssetFilter: (key: keyof AssetFilters) => void;
   onTriggerStopLoading: () => void;
 }
 
 const CatalogTabs: React.FC<CatalogTabsProps> = ({
   activeIndex,
-  bookFilters,
   assetFilters,
+  assetFiltersDispatch,
+  bookFilters,
+  bookFiltersDispatch,
   onActiveTabChange,
   books,
   booksCount,
@@ -56,8 +59,6 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   onLoadMoreBooks,
   onLoadMoreAssets,
   onLoadMoreProjects,
-  onRemoveBookFilter,
-  onRemoveAssetFilter,
   onTriggerStopLoading,
   ...rest
 }) => {
@@ -110,10 +111,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
               ? "Refresh Page to Continue Browsing"
               : "Jump to Bottom"}
           </button>
-          <label
-            className="font-semibold mr-2"
-            htmlFor="itemizedModeCheckbox"
-          >
+          <label className="font-semibold mr-2" htmlFor="itemizedModeCheckbox">
             Itemized Mode
           </label>
           <Checkbox
@@ -126,44 +124,20 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       </div>
       <div className="tab-content">
         {activeIndex === 0 && (
-          <div className="flex flex-row">
-            {Object.entries(bookFilters).map(([key, value]) => {
-              return (
-                <Label circular size="medium" key={crypto.randomUUID()}>
-                  <div
-                    className="flex flex-row items-center cursor-pointer"
-                    onClick={() => onRemoveBookFilter(key as keyof BookFilters)}
-                  >
-                    <p className="">
-                      {getBookFilterText(key)}: {capitalizeFirstLetter(value)}
-                    </p>
-                    <Icon name="x" className="!ml-1" />
-                  </div>
-                </Label>
-              );
-            })}
-          </div>
+          <CatalogBookFilters
+            filters={bookFilters}
+            onFilterChange={(type, value) =>
+              bookFiltersDispatch({ type, payload: value })
+            }
+          />
         )}
         {activeIndex === 1 && (
-          <div className="flex flex-row">
-            {Object.entries(assetFilters).map(([key, value]) => {
-              return (
-                <Label circular size="medium" key={crypto.randomUUID()}>
-                  <div
-                    className="flex flex-row items-center cursor-pointer"
-                    onClick={() =>
-                      onRemoveAssetFilter(key as keyof AssetFilters)
-                    }
-                  >
-                    <p className="">
-                      {getAssetFilterText(key)}: {value}
-                    </p>
-                    <Icon name="x" className="!ml-1" />
-                  </div>
-                </Label>
-              );
-            })}
-          </div>
+          <CatalogAssetFilters
+            filters={assetFilters}
+            onFilterChange={(type, value) =>
+              assetFiltersDispatch({ type, payload: value })
+            }
+          />
         )}
         {activeIndex === 0 && (
           <CatalogTab
