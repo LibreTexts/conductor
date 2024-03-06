@@ -43,7 +43,7 @@ import {
   getBookTOCFromAPI,
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
-import { isEmptyString, assembleUrl, getPaginationOffset } from '../util/helpers.js';
+import { isEmptyString, assembleUrl, getPaginationOffset, extractEmailDomain } from '../util/helpers.js';
 import { libraryNameKeys } from '../util/librariesmap.js';
 import authAPI from './auth.js';
 import mailAPI from './mail.js';
@@ -1424,7 +1424,11 @@ async function getPublicProjects(req, res) {
 async function getAddableMembers(req, res) {
   try {
     const { projectID } = req.params;
-    const { search } = req.query;
+    const { search, includeOutsideOrg, page, limit } = req.query;
+
+    const parsedPage = parseInt(page) || 1;
+    const parsedLimit = parseInt(limit) || 10;
+
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return res.status(404).send({
@@ -1439,6 +1443,12 @@ async function getAddableMembers(req, res) {
         err: true,
         errMsg: conductorErrors.err8,
       });
+    }
+
+    let userDomain;
+    if(["false", false].includes(includeOutsideOrg)){
+      const user = await User.findOne({uuid: req.user.decoded.uuid}).lean().orFail();
+      userDomain = extractEmailDomain(user.email);
     }
 
     const existing = constructProjectTeam(project); // don't include existing team members
@@ -1459,7 +1469,7 @@ async function getAddableMembers(req, res) {
       };
     }
 
-    const sortObj = { $sort: { firstName: -1 } }; // sort by first name if no search
+    const sortObj = { $sort: { firstName: -1 } }; // sort by first name if no search (otherwise, results are sorted by text score)
     const users = await User.aggregate([
       ...(search && [searchObj]),
       {
@@ -1467,6 +1477,8 @@ async function getAddableMembers(req, res) {
           $and: [
             { uuid: { $nin: existing } },
             { $expr: { $not: '$isSystem' } },
+            {centralID: {$exists: true}},
+            ...(userDomain ? [{email: {$regex: new RegExp(userDomain, 'i')}}] : []),
           ],
         },
       },
@@ -1481,19 +1493,12 @@ async function getAddableMembers(req, res) {
         },
       },
       ...(search ? [] : [sortObj]),
-    ]).limit(25); // limit to 25 results
-
-    const filtered = users.filter((user) => user.centralID) // filter out users without a centralID
-    // const settled = await Promise.allSettled(filtered.map((user) => centralIdentity._getUserOrgsRaw(user.centralID)))
-
-    // for(let i = 0; i < settled.length; i++) {
-    //   if(settled[i].status === 'fulfilled') {
-    //     filtered[i].orgs = settled[i].value ?? []
-    //   }
-    // }
+      { $skip: (parsedPage - 1) * parsedLimit },
+      { $limit: parsedLimit },
+    ])
 
     return res.send({
-      users: filtered,
+      users: users || [],
       err: false,
     });
   } catch (e) {
@@ -3203,10 +3208,6 @@ const validate = (method) => {
     case 'getUserProjectsAdmin':
       return [
           query('uuid', conductorErrors.err1).exists().isString().isUUID()
-      ]
-    case 'getAddableMembers':
-      return [
-          param('projectID', conductorErrors.err1).exists().isString().isLength({ min: 10, max: 10 })
       ]
     case 'addMemberToProject':
       return [

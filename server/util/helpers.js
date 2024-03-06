@@ -354,3 +354,12 @@ export function getSubdomainFromUrl(url){
   }
   return null;
 }
+
+export function extractEmailDomain(email) {
+  if(!email) return null;
+  const parts = email.split("@");
+  if (parts.length === 2) {
+      return parts[1];
+  }
+  return null;
+}
