@@ -1,17 +1,16 @@
-import { Dropdown } from "semantic-ui-react";
 import { useEffect, useState } from "react";
 import {
   AssetFilters,
   AssetFiltersAction,
-  CentralIdentityLicense,
   GenericKeyTextValueObj,
 } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
-import { catalogAssetTypeOptions } from "../../util/CatalogOptions";
 import COMMON_MIME_TYPES, {
   getPrettyNameFromMimeType,
 } from "../../../utils/common-mime-types";
+import CatalogFilterDropdown from "./CatalogFilterDropdown";
+import { prependClearOption } from "../../util/CatalogOptions";
 
 interface CatalogAssetFiltersProps {
   filters: AssetFilters;
@@ -22,19 +21,17 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   filters,
   onFilterChange,
 }) => {
-  const DROPDOWN_CLASSES = "icon !min-w-56 !text-center";
-  const MENU_CLASSES = "max-w-sm max-h-52 overflow-y-auto overflow-x-clip";
   const { handleGlobalError } = useGlobalError();
 
   const [licenseOptions, setLicenseOptions] = useState<
-    GenericKeyTextValueObj<string | undefined>[]
+    GenericKeyTextValueObj<string>[]
   >([]);
   const [orgOptions, setOrgOptions] = useState<
-    GenericKeyTextValueObj<string | undefined>[]
+    GenericKeyTextValueObj<string>[]
   >([]);
   const [fileTypeOptions, setFileTypeOptions] = useState<
-    GenericKeyTextValueObj<string | undefined>[]
-  >(catalogAssetTypeOptions);
+    GenericKeyTextValueObj<string>[]
+  >([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -59,31 +56,31 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text: org,
           };
         });
-        setOrgOptions(orgs);
+        setOrgOptions(prependClearOption(orgs));
       }
 
       if (res.data.licenses) {
-        setLicenseOptions(
-          res.data.licenses.map((l: string) => {
-            return {
-              key: crypto.randomUUID(),
-              text: l,
-              value: l,
-            };
-          })
-        );
+        const opts = res.data.licenses.map((l: string) => {
+          return {
+            key: crypto.randomUUID(),
+            text: l,
+            value: l,
+          };
+        });
+        setLicenseOptions(prependClearOption(opts));
       }
 
       if (res.data.fileTypes) {
-        setFileTypeOptions(
-          res.data.fileTypes.map((ft: string) => {
-            return {
-              key: crypto.randomUUID(),
-              text: getPrettyNameFromMimeType(ft),
-              value: ft,
-            };
-          })
-        );
+        const mapped = res.data.fileTypes.map((ft: string) => {
+          return {
+            key: crypto.randomUUID(),
+            text: getPrettyNameFromMimeType(ft),
+            value: ft,
+          };
+        });
+
+        mapped.sort((a, b) => a.text.localeCompare(b.text));
+        setFileTypeOptions(prependClearOption(mapped));
       }
     } catch (err) {
       handleGlobalError(err);
@@ -96,84 +93,39 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
       className="flex flex-row w-full justify-between items-center"
     >
       <div className="flex flex-row my-4 flex-wrap items-center gap-2">
-        <Dropdown
+        <CatalogFilterDropdown
           text={`License ${filters.license ? " - " : ""}${
             filters.license ?? ""
           }`}
           icon="legal"
-          floating
-          labeled
-          button
-          className={DROPDOWN_CLASSES}
+          options={licenseOptions}
+          filterKey="license"
+          onFilterSelect={(key, val) =>
+            onFilterChange(key as keyof AssetFilters, val)
+          }
           loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {licenseOptions.length > 0 &&
-              licenseOptions.map((license) => (
-                <Dropdown.Item
-                  key={license.key}
-                  onClick={() => onFilterChange("license", license.value ?? "")}
-                >
-                  {license.text}
-                </Dropdown.Item>
-              ))}
-            {licenseOptions.length === 0 && (
-              <Dropdown.Item disabled>No licenses available</Dropdown.Item>
-            )}
-          </Dropdown.Menu>
-        </Dropdown>
-        <Dropdown
+        />
+        <CatalogFilterDropdown
           text={`Organization ${filters.org ? " - " : ""}${filters.org ?? ""}`}
           icon="university"
-          floating
-          labeled
-          button
-          className={DROPDOWN_CLASSES}
-          loading={loading}
-          basic
-          search
-          selection
-          options={orgOptions.map((o) => ({
-            key: o.key,
-            text: o.text,
-            value: o.value,
-          }))}
-          onChange={(_, data) => {
-            onFilterChange("org", data.value?.toString() ?? "");
-          }}
+          options={orgOptions}
+          filterKey="org"
+          onFilterSelect={(key, val) =>
+            onFilterChange(key as keyof AssetFilters, val)
+          }
         />
-        <Dropdown
+        <CatalogFilterDropdown
           text={
             filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
           }
           icon="file alternate outline"
-          floating
-          labeled
-          button
-          className={DROPDOWN_CLASSES}
+          options={fileTypeOptions}
+          filterKey="fileType"
+          onFilterSelect={(key, val) =>
+            onFilterChange(key as keyof AssetFilters, val)
+          }
           loading={loading}
-          basic
-        >
-          <Dropdown.Menu className={MENU_CLASSES}>
-            {fileTypeOptions.length > 0 &&
-              fileTypeOptions
-                .sort((a, b) => a.text.localeCompare(b.text))
-                .map((ft) => (
-                  <Dropdown.Item
-                    key={ft.key}
-                    onClick={() =>
-                      onFilterChange("fileType", ft.value?.toString() ?? "")
-                    }
-                  >
-                    {ft.text}
-                  </Dropdown.Item>
-                ))}
-            {fileTypeOptions.length === 0 && (
-              <Dropdown.Item disabled>No file types available</Dropdown.Item>
-            )}
-          </Dropdown.Menu>
-        </Dropdown>
+        />
       </div>
     </div>
   );
