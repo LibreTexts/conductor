@@ -24,8 +24,15 @@ const catalogAssetTypeOptions = [
     {key: 'svg', text: 'SVG', value: 'svg'},
 ]
 
+const prependClearOption = (options: GenericKeyTextValueObj<string>[], alwaysSet = false) => {
+    if (alwaysSet) return [{ key: 'clear', text: 'Clear', value: '' }, ...options];
+    if (options.length === 0) return options;
+    return [{ key: 'clear', text: 'Clear', value: '' }, ...options];
+}
+
 export {
     catalogDisplayOptions,
     catalogLocationOptions,
-    catalogAssetTypeOptions
+    catalogAssetTypeOptions,
+    prependClearOption
 }

@@ -13,7 +13,6 @@ import {
   Project,
   ProjectFileWProjectData,
 } from "../../types";
-import AdvancedSearchDrawer from "./AdvancedSearchDrawer";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useHistory, useLocation } from "react-router-dom";
@@ -167,6 +166,8 @@ const CommonsCatalog = () => {
   const handleResetSearch = () => {
     clearSearchParam();
     setSearchString("");
+    assetsDispatch({ type: "reset" });
+    booksDispatch({ type: "reset" });
     setActivePage(1);
     setBooks([]);
     setAssets([]);
@@ -583,15 +584,7 @@ const CommonsCatalog = () => {
                   </div>
                 </Form>
               </div>
-              <div className="mb-8">
-                <AdvancedSearchDrawer
-                  activeIndex={activeIndex}
-                  setActiveIndex={setActiveIndex}
-                  assetFilters={assetsState}
-                  assetFiltersDispatch={assetsDispatch}
-                  bookFilters={booksState}
-                  bookFiltersDispatch={booksDispatch}
-                />
+              <div className="mb-12">
                 {(searchString !== "" ||
                   Object.keys(assetsState).length !== 0 ||
                   Object.keys(booksState).length !== 0) && (
@@ -605,7 +598,9 @@ const CommonsCatalog = () => {
               </div>
               <CatalogTabs
                 assetFilters={assetsState}
+                assetFiltersDispatch={assetsDispatch}
                 bookFilters={booksState}
+                bookFiltersDispatch={booksDispatch}
                 activeIndex={activeIndex}
                 onActiveTabChange={handleTabChange}
                 books={books}
@@ -620,12 +615,6 @@ const CommonsCatalog = () => {
                 onLoadMoreBooks={handleLoadMoreBooks}
                 onLoadMoreAssets={handleLoadMoreAssets}
                 onLoadMoreProjects={handleLoadMoreProjects}
-                onRemoveAssetFilter={(key) =>
-                  assetsDispatch({ type: "reset_one", payload: key })
-                }
-                onRemoveBookFilter={(key) =>
-                  booksDispatch({ type: "reset_one", payload: key })
-                }
                 onTriggerStopLoading={() => setLoadingDisabled(true)}
               />
             </Segment>
