@@ -261,7 +261,7 @@ const Home = () => {
             onClick={() => setShowCreateProjectModal(true)}
             fluid
             color="green"
-            content="Create a Project"
+            content="Create Conductor Project"
             icon="add"
             labelPosition="left"
           />
