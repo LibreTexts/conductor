@@ -28,7 +28,10 @@ import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
 import SelectFramework from "./SelectFramework";
 import api from "../../api";
-import { getInitValueFromTemplate } from "../../utils/assetHelpers";
+import {
+  cleanTagsForRequest,
+  getInitValueFromTemplate,
+} from "../../utils/assetHelpers";
 import { RenderTagInput } from "./RenderTagInput";
 import {
   AssetTagTemplate,
@@ -443,11 +446,6 @@ const EditFile: React.FC<EditFileProps> = ({
    * closes the modal on completion.
    */
   async function handleEdit() {
-    // if (Object.values(formState.errors).length > 0) return;
-    // /* Usually we would use formState.isValid, but seems to be a bug with react-hook-form
-    //   not setting valid to true even when there are no errors. See:
-    //   https://github.com/react-hook-form/react-hook-form/issues/2755
-    //   */
     setLoading(true);
     try {
       //clearErrors(); // Clear any previous errors
@@ -463,7 +461,7 @@ const EditFile: React.FC<EditFileProps> = ({
           license: vals.license,
           authors: vals.authors ?? undefined,
           publisher: vals.publisher,
-          tags: vals.tags,
+          tags: cleanTagsForRequest(vals.tags ?? []),
         }
       );
 
