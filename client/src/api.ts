@@ -26,6 +26,7 @@ import {
   ProjectFileWProjectData,
   ProjectTag,
 } from "./types/Project";
+import { CustomFilter } from "./types/Search";
 
 /**
  * @fileoverview
@@ -323,6 +324,7 @@ class API {
         licenses: string[];
         orgs: string[];
         fileTypes: string[];
+        customFilters: CustomFilter[];
       } & ConductorBaseResponse
     >("/search/asset-filters");
     return res;

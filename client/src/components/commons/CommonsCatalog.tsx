@@ -21,8 +21,8 @@ import { truncateString } from "../util/HelperFunctions";
 import { getDefaultCommonsModule } from "../../utils/misc";
 
 function assetsReducer(
-  state: AssetFilters,
-  action: AssetFiltersAction
+  state: Record<string, string>,
+  action: { type: string; payload: string }
 ): AssetFilters {
   switch (action.type) {
     case "license":
@@ -39,7 +39,7 @@ function assetsReducer(
       return newState;
     }
     default:
-      return state;
+      return { ...state, [action.type]: action.payload };
   }
 }
 
@@ -85,7 +85,9 @@ const CommonsCatalog = () => {
 
   const [searchString, setSearchString] = useState<string>("");
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<CommonsModule>(getDefaultCommonsModule(org.commonsModules));
+  const [activeTab, setActiveTab] = useState<CommonsModule>(
+    getDefaultCommonsModule(org.commonsModules)
+  );
   const [activePage, setActivePage] = useState(1);
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -150,7 +152,7 @@ const CommonsCatalog = () => {
       });
 
       // Reset the advanced search filters when a new search is run
-      assetsDispatch({ type: "reset" });
+      assetsDispatch({ type: "reset", payload: "" });
       booksDispatch({ type: "reset" });
     }
   };
@@ -168,7 +170,7 @@ const CommonsCatalog = () => {
   const handleResetSearch = () => {
     clearSearchParam();
     setSearchString("");
-    assetsDispatch({ type: "reset" });
+    assetsDispatch({ type: "reset", payload: "" });
     booksDispatch({ type: "reset" });
     setActivePage(1);
     setBooks([]);
@@ -318,16 +320,25 @@ const CommonsCatalog = () => {
 
   async function handleAssetsSearch(
     query?: string,
-    assetFilters?: AssetFilters,
+    assetFilters?: Record<string, string>,
     clearAndUpdate = false
   ) {
     try {
       setAssetsLoading(true);
+
+      const customFiltersApplied =
+        Object.entries(assetFilters ?? {}).filter(
+          ([key, value]) => !["license", "org", "fileType"].includes(key)
+        ).map(([key, value]) => ({ key, value }));
+
       const res = await api.assetsSearch({
         ...(query && { searchQuery: query }),
         page: activePage,
         limit: ITEMS_PER_PAGE,
-        ...assetFilters,
+        license: assetFilters?.license,
+        fileType: assetFilters?.fileType,
+        org: assetFilters?.org,
+        customFilters: customFiltersApplied,
       });
 
       if (res.data.err) {

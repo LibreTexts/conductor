@@ -24,6 +24,11 @@ export type BookFilters = {
   affiliation?: string;
 };
 
+export type CustomFilter = {
+  title: string;
+  options: string[];
+}
+
 type _commonSearchParams = {
   searchQuery?: string;
   page?: number;
@@ -35,6 +40,7 @@ export type AssetSearchParams = {
   licenseVersion?: string;
   org?: string;
   fileType?: string;
+  customFilters?: {key: string, value: string}[];
 } & _commonSearchParams;
 
 export type BookSearchParams = {

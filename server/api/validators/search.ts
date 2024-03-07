@@ -27,6 +27,7 @@ export const assetSearchSchema = z.object({
       licenseVersion: z.string().optional(),
       org: z.string().optional(),
       fileType: z.string().optional(),
+      customFilters: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
     })
     .merge(_commonItems),
 });
