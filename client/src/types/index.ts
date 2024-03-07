@@ -9,7 +9,13 @@ import {
 } from "./Collection";
 import { Book, BookLinks, ReaderResource } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
-import { Organization, CampusSettingsOpts } from "./Organization";
+import {
+  Organization,
+  CampusSettingsOpts,
+  CommonsModule,
+  CommonsModuleConfig,
+  CommonsModuleSettings,
+} from "./Organization";
 import {
   GenericKeyTextValueObj,
   TimeZoneOption,
@@ -90,7 +96,7 @@ import {
   SupportTicket,
   SupportTicketMessage,
   SupportTicketFeedEntry,
-  SupportTicketAttachment
+  SupportTicketAttachment,
 } from "./support";
 import {
   AssetTag,
@@ -113,7 +119,7 @@ import {
   BookSearchParams,
   HomeworkSearchParams,
   ProjectSearchParams,
-  UserSearchParams
+  UserSearchParams,
 } from "./Search";
 
 export type {
@@ -144,6 +150,9 @@ export type {
   CampusSettingsOpts,
   Collection,
   CollectionResource,
+  CommonsModule,
+  CommonsModuleConfig,
+  CommonsModuleSettings,
   ControlledInputProps,
   GenericKeyTextValueObj,
   TimeZoneOption,
@@ -204,7 +213,7 @@ export type {
   BookSearchParams,
   HomeworkSearchParams,
   ProjectSearchParams,
-  UserSearchParams
+  UserSearchParams,
 };
 
 export {

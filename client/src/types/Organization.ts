@@ -1,3 +1,16 @@
+export type CommonsModule = "books" | "assets" | "projects";
+
+export type CommonsModuleConfig = {
+  enabled: boolean;
+  order: number;
+}
+
+export type CommonsModuleSettings = {
+  books: CommonsModuleConfig;
+  assets: CommonsModuleConfig;
+  projects: CommonsModuleConfig;
+}
+
 export type Organization = {
   orgID: string;
   name: string;
@@ -22,6 +35,7 @@ export type Organization = {
   supportTicketNotifiers?: string[];
   FEAT_AssetTagsManager?: boolean;
   customOrgList?: string[];
+  commonsModules?: CommonsModuleSettings;
 };
 
 export type CampusSettingsOpts = Pick<
@@ -40,4 +54,5 @@ export type CampusSettingsOpts = Pick<
   | "addToLibreGridList"
   | "catalogMatchingTags"
   | "customOrgList"
+  | "commonsModules"
 >;

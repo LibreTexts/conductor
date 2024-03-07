@@ -1,18 +1,19 @@
 import { Icon, Label } from "semantic-ui-react";
+import { CommonsModule } from "../../../types";
 
 const TabLabel = ({
   title,
   index,
   itemsCount,
-  activeIndex,
+  isActive,
   onClick,
   loading,
 }: {
   title: "Books" | "Assets" | "Projects";
-  index: number;
+  index: CommonsModule;
   itemsCount: number | null;
-  activeIndex: number;
-  onClick: (index: number) => void;
+  isActive: boolean;
+  onClick: (index: CommonsModule) => void;
   loading: boolean;
 }) => {
   return (
@@ -20,7 +21,7 @@ const TabLabel = ({
       key={title}
       onClick={() => onClick(index)}
       className={`px-2 cursor-pointer pb-2 ${
-        activeIndex === index ? "font-bold border-b-2 border-black" : ""
+        isActive ? "font-bold border-b-2 border-black" : ""
       }`}
     >
       <Icon
