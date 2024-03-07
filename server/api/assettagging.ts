@@ -123,6 +123,8 @@ async function getUpsertedAssetTagKey(
   tag: AssetTagFromRequest,
   updatedKey?: string
 ): Promise<string> {
+  console.log('existingKeys')
+  console.log(existingKeys)
   const _compareFrameworks = (tagFramework: any, keyFramework: any) => {
     if (!tagFramework && !keyFramework) return true;
     if (!tagFramework || !keyFramework) return false;

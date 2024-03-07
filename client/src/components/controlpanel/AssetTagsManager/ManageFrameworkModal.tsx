@@ -1,10 +1,12 @@
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import {
   Button,
+  Checkbox,
   Dropdown,
   Icon,
   Modal,
   ModalProps,
+  Popup,
   Table,
 } from "semantic-ui-react";
 import {
@@ -83,6 +85,7 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
             valueType: t.valueType,
             defaultValue: t.defaultValue,
             options: t.options,
+            enabledAsFilter: t.enabledAsFilter,
             isDeleted: false,
           };
         }
@@ -225,6 +228,13 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                   <Table.HeaderCell>
                     Options / Default Value (optional)
                   </Table.HeaderCell>
+                  <Table.HeaderCell width={2}>
+                    Enabled as Search Filter
+                    <Popup
+                      trigger={<Icon name="info circle" className="!ml-1" />}
+                      content="If enabled, this tag will be available as a filter in Common's assets search."
+                    />
+                  </Table.HeaderCell>
                   <Table.HeaderCell width={2}>Actions</Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
@@ -285,6 +295,13 @@ const ManageFrameworkModal: React.FC<ManageFrameworkModalProps> = ({
                               placeholder="Enter default value (optional)..."
                             />
                           )}
+                        </Table.Cell>
+                        <Table.Cell>
+                          <CtlCheckbox
+                            name={`templates.${index}.enabledAsFilter`}
+                            control={control}
+                            toggle
+                          />
                         </Table.Cell>
                         <Table.Cell>
                           <Button

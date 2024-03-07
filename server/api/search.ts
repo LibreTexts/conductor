@@ -28,6 +28,7 @@ import Author from "../models/author.js";
 import { levenshteinDistance } from "../util/searchutils.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
+import AssetTagFramework from "../models/assettagframework.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -1328,6 +1329,28 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       { $group: { _id: "$mimeType" } },
     ]);
     aggregations.push(fileTypePromise);
+
+    const assetTagsPromise = AssetTagFramework.aggregate([
+      {
+        $match: {
+          "templates.enabledAsFilter": true,
+        },
+      },
+      {
+        $project: {
+          templates: {
+            $filter: {
+              input: "$templates",
+              as: "template",
+              cond: {
+                $eq: ["$$template.enabledAsFilter", true],
+              },
+            },
+          },
+        },
+      },
+    ]);
+    aggregations.push(assetTagsPromise);
 
     const orgsPromise = Project.aggregate([
       {
