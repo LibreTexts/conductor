@@ -21,7 +21,7 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
   ...rest
 }) => {
   return (
-    <Menu className="flex w-full" secondary>
+    <Menu className="flex w-full h-full" secondary>
       <div className="flex flex-row px-4 justify-between w-full items-center shadow-md">
         <div className="flex flex-row items-center">
           <h1 className="sr-only">{commonsTitle}</h1>
