@@ -23,7 +23,7 @@ import { useTypedSelector } from "../../../state/hooks";
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
   assetFilters: AssetFilters;
-  assetFiltersDispatch: React.Dispatch<AssetFiltersAction>;
+  assetFiltersDispatch: React.Dispatch<{type: string, payload: string}>;
   bookFilters: BookFilters;
   bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
   onActiveTabChange: (newTab: CommonsModule) => void;
@@ -134,30 +134,6 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
     <div className="custom-tabs">
       <div className="flex flex-row justify-between border-b border-gray-300 mb-2 mx-1">
         <div className="flex flex-row px-0.5 items-center">
-          {/* <TabLabel
-            title="Books"
-            index={0}
-            itemsCount={booksCount}
-            loading={booksLoading}
-            activeIndex={activeIndex}
-            onClick={() => onActiveTabChange(0)}
-          />
-          <TabLabel
-            title="Assets"
-            index={1}
-            itemsCount={assetsCount}
-            loading={assetsLoading}
-            activeIndex={activeIndex}
-            onClick={() => onActiveTabChange(1)}
-          />
-          <TabLabel
-            title="Projects"
-            index={2}
-            itemsCount={projectsCount}
-            loading={projectsLoading}
-            activeIndex={activeIndex}
-            onClick={() => onActiveTabChange(2)}
-          /> */}
           <RenderTabLabels />
         </div>
         <div className="flex flex-row items-center mr-1 mb-1">
