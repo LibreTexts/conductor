@@ -6,6 +6,7 @@ import {
   Book,
   BookFilters,
   BookFiltersAction,
+  CommonsModule,
   Project,
   ProjectFileWProjectData,
 } from "../../../types";
@@ -17,14 +18,15 @@ import ProjectsTable from "./ProjectsTable";
 import TabLabel from "./CatalogTabLabel";
 import CatalogBookFilters from "./CatalogBookFilters";
 import CatalogAssetFilters from "./CatalogAssetFilters";
+import { useTypedSelector } from "../../../state/hooks";
 
 interface CatalogTabsProps extends TabProps {
-  activeIndex: number;
+  activeTab: CommonsModule;
   assetFilters: AssetFilters;
   assetFiltersDispatch: React.Dispatch<AssetFiltersAction>;
   bookFilters: BookFilters;
   bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
-  onActiveTabChange: (index: number) => void;
+  onActiveTabChange: (newTab: CommonsModule) => void;
   books: Book[];
   booksCount: number;
   booksLoading: boolean;
@@ -41,7 +43,7 @@ interface CatalogTabsProps extends TabProps {
 }
 
 const CatalogTabs: React.FC<CatalogTabsProps> = ({
-  activeIndex,
+  activeTab,
   assetFilters,
   assetFiltersDispatch,
   bookFilters,
@@ -62,6 +64,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   onTriggerStopLoading,
   ...rest
 }) => {
+  const org = useTypedSelector((state) => state.org);
   const [itemizedMode, setItemizedMode] = useState(false);
   const [jumpToBottomClicked, setJumpToBottomClicked] = useState(false);
 
@@ -71,11 +74,67 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
     window.scrollTo(0, document.body.scrollHeight);
   };
 
+  const RenderTabLabels = () => {
+    const moduleSettings = org.commonsModules;
+    const labels = [];
+
+    // If module settings are not available, show all tabs
+    if (!moduleSettings || moduleSettings.books.enabled) {
+      labels.push(
+        <TabLabel
+          title="Books"
+          index='books'
+          itemsCount={booksCount}
+          loading={booksLoading}
+          isActive={activeTab === "books"}
+          onClick={() => onActiveTabChange('books')}
+        />
+      );
+    }
+
+    if (!moduleSettings || moduleSettings.assets.enabled) {
+      labels.push(
+        <TabLabel
+          title="Assets"
+          index='assets'
+          itemsCount={assetsCount}
+          loading={assetsLoading}
+          isActive={activeTab === "assets"}
+          onClick={() => onActiveTabChange('assets')}
+        />
+      );
+    }
+
+    if (!moduleSettings || moduleSettings.projects.enabled) {
+      labels.push(
+        <TabLabel
+          title="Projects"
+          index='projects'
+          itemsCount={projectsCount}
+          loading={projectsLoading}
+          isActive={activeTab === "projects"}
+          onClick={() => onActiveTabChange('projects')}
+        />
+      );
+    }
+
+    labels.sort((a, b) => {
+      const aIndex = a.props.index;
+      const bIndex = b.props.index;
+      if (moduleSettings) {
+        return moduleSettings[aIndex as CommonsModule].order - moduleSettings[bIndex as CommonsModule].order;
+      }
+      return 0;
+    })
+
+    return labels;
+  }
+
   return (
     <div className="custom-tabs">
       <div className="flex flex-row justify-between border-b border-gray-300 mb-2 mx-1">
         <div className="flex flex-row px-0.5 items-center">
-          <TabLabel
+          {/* <TabLabel
             title="Books"
             index={0}
             itemsCount={booksCount}
@@ -98,7 +157,8 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             loading={projectsLoading}
             activeIndex={activeIndex}
             onClick={() => onActiveTabChange(2)}
-          />
+          /> */}
+          <RenderTabLabels />
         </div>
         <div className="flex flex-row items-center mr-1 mb-1">
           <button
@@ -123,7 +183,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         </div>
       </div>
       <div className="tab-content">
-        {activeIndex === 0 && (
+        {activeTab === 'books' && (
           <CatalogBookFilters
             filters={bookFilters}
             onFilterChange={(type, value) =>
@@ -131,7 +191,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             }
           />
         )}
-        {activeIndex === 1 && (
+        {activeTab === 'assets' && (
           <CatalogAssetFilters
             filters={assetFilters}
             onFilterChange={(type, value) =>
@@ -139,7 +199,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             }
           />
         )}
-        {activeIndex === 0 && (
+        {activeTab === 'books' && (
           <CatalogTab
             key={"books-tab"}
             itemizedMode={itemizedMode}
@@ -150,7 +210,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             visualRender={<VisualMode items={books} loading={booksLoading} />}
           />
         )}
-        {activeIndex === 1 && (
+        {activeTab === 'assets' && (
           <CatalogTab
             key={"assets-tab"}
             itemizedMode={itemizedMode}
@@ -161,7 +221,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             visualRender={<VisualMode items={assets} loading={assetsLoading} />}
           />
         )}
-        {activeIndex === 2 && (
+        {activeTab === 'projects' && (
           <CatalogTab
             key={"projects-tab"}
             itemizedMode={itemizedMode}

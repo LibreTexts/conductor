@@ -1,4 +1,16 @@
 import { model, Document, Schema } from "mongoose";
+
+export type CommonsModuleConfig = {
+  enabled: boolean;
+  order: number;
+}
+
+export type CommonsModuleSettings = {
+  books: CommonsModuleConfig;
+  assets: CommonsModuleConfig;
+  projects: CommonsModuleConfig;
+}
+
 export interface OrganizationInterface extends Document {
   orgID: string;
   name: string;
@@ -23,6 +35,7 @@ export interface OrganizationInterface extends Document {
   supportTicketNotifiers?: string[];
   defaultAssetTagFrameworkUUID?: string;
   customOrgList?: string[];
+  commonsModules?: CommonsModuleSettings;
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -129,6 +142,31 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * A custom list of Orgs/Campuses to select from in certain contexts.
      */
     customOrgList: [String],
+    /**
+     * Configuration for the Commons modules.
+     */
+    commonsModules: {
+      type: {
+        books: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        assets: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        projects: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+      },
+    },
   },
   {
     timestamps: true,

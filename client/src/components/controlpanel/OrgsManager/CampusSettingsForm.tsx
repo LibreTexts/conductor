@@ -27,6 +27,7 @@ import isHexColor from "validator/es/lib/isHexColor";
 import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
+import CommonsModuleControl from "./CommonsModuleControl";
 const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
@@ -77,6 +78,11 @@ const CampusSettingsForm = forwardRef(
         addToLibreGridList: false,
         catalogMatchingTags: [],
         customOrgList: [],
+        commonsModules: {
+          books: { enabled: true, order: 1 },
+          assets: { enabled: true, order: 2 },
+          projects: { enabled: true, order: 3 },
+        },
       },
     });
 
@@ -888,25 +894,45 @@ const CampusSettingsForm = forwardRef(
             </div>
           </Form.Field>
           <Divider />
-          <h3 className="font-semibold">Custom Org/Campus List (optional)</h3>
-          <p className="mb-4">
-            Customize the list of organization/campus options availble in
-            certain contexts (i.e. associating organizations with a project).
-            This is useful for university systems or groups that have a specific
-            set of organizations they want users to be able to select from. If
-            no custom list is set, the default list from LibreTexts will be
-            shown.
-          </p>
-          <Button onClick={() => setShowCustomOrgListModal(true)} color="blue">
-            <Icon name="edit" />
-            Customize
-          </Button>
+          <div>
+            <p className="text-lg font-bold">
+              Custom Org/Campus List (optional)
+            </p>
+            <p className="">
+              Customize the list of organization/campus options availble in
+              certain contexts (i.e. associating organizations with a project).
+              This is useful for university systems or groups that have a
+              specific set of organizations they want users to be able to select
+              from. If no custom list is set, the default list from LibreTexts
+              will be shown.
+            </p>
+            <Button
+              onClick={() => setShowCustomOrgListModal(true)}
+              color="blue"
+            >
+              <Icon name="edit" />
+              Customize
+            </Button>
+          </div>
+          <div className="mt-4">
+            <p className="text-lg font-bold">Campus Commons Catalog Modules</p>
+            <p className="mb-2">
+              Enable, disable, or re-order the display of Catalog modules in
+              your Campus Commons.
+            </p>
+            <CommonsModuleControl
+              getValues={getFormValue}
+              setValue={setFormValue}
+              watch={watch}
+            />
+          </div>
+          <Divider />
         </Form>
         <CustomOrgListModal
           show={showCustomOrgListModal}
           orgID={props.orgID}
           onClose={() => setShowCustomOrgListModal(false)}
-          initCustomOrgList={watch('customOrgList')}
+          initCustomOrgList={watch("customOrgList")}
           onSave={(newList: string[]) => {
             setFormValue("customOrgList", newList, { shouldDirty: false });
             setShowCustomOrgListModal(false);
