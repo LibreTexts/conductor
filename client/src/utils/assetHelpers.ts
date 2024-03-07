@@ -1,7 +1,15 @@
 import { format, parseISO } from "date-fns";
 import { ProjectFile, User } from "../types";
-import { AssetTagTemplate, AssetTagValue } from "../types/AssetTagging";
-import { isAssetTagTemplateArray } from "./typeHelpers";
+import {
+  AssetTag,
+  AssetTagTemplate,
+  AssetTagValue,
+} from "../types/AssetTagging";
+import {
+  isAssetTagFramework,
+  isAssetTagKeyObject,
+  isAssetTagTemplateArray,
+} from "./typeHelpers";
 import useGlobalError from "../components/error/ErrorHooks";
 import axios from "axios";
 import { SemanticICONS } from "semantic-ui-react";
@@ -102,6 +110,12 @@ export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
       .map((a) => `${a.firstName} ${a.lastName}`)
       .join(", ") || "Unknown"
   );
+  return (
+    authors
+      .filter((a) => !!a.firstName && !!a.lastName)
+      .map((a) => `${a.firstName} ${a.lastName}`)
+      .join(", ") || "Unknown"
+  );
 }
 
 /**
@@ -162,3 +176,23 @@ export const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
 
   return "file alternate outline";
 };
+
+/**
+ * Returns the asset tags with only the necessary fields for a request
+ * (i.e removing unnecessary fields from the framework object and only keeping the _id field)
+ * This is used when sending asset tags to the server (i.e. updating an asset)
+ * Keeps the request body as small as possible to avoid unnecessary data transfer and 413 errors
+ * @param tags - The asset tags to clean
+ * @returns The cleaned tags
+ */
+export function cleanTagsForRequest(tags: AssetTag[]) {
+  return tags.map((tag) => {
+    if (tag.framework && isAssetTagFramework(tag.framework)) {
+      // @ts-ignore
+      tag.framework = {
+        _id: tag.framework._id || "",
+      };
+    }
+    return tag;
+  });
+}
