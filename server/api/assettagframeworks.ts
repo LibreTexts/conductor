@@ -19,7 +19,7 @@ import {
   AssetTagTemplateValueTypeOptions,
 } from "../models/assettagtemplate.js";
 import AssetTagKey, { AssetTagKeyInterface } from "../models/assettagkey.js";
-import { isAssetTagKeyObject } from "../util/typeHelpers.js";
+import { compareMongoIDs, isAssetTagKeyObject } from "../util/typeHelpers.js";
 import { getRandomColor } from "../util/assettaggingutils.js";
 import Organization from "../models/organization.js";
 import { z } from "zod";
@@ -165,7 +165,10 @@ async function getCampusDefaultFramework(
     }).lean();
 
     if (!framework) {
-      return conductor404Err(res);
+      return res.send({
+        err: false,
+        framework: null,
+      });
     }
 
     const keys = await AssetTagKey.find({
@@ -257,6 +260,7 @@ async function _upsertTemplates(
   templates: AssetTagTemplateInterface[]
 ): Promise<AssetTagTemplateInterface[]> {
   try {
+    console.log(templates);
     const upsertedTemplates: AssetTagTemplateInterface[] = [];
     const existingKeyDocs = await AssetTagKey.find({
       orgID: process.env.ORG_ID,
@@ -265,19 +269,36 @@ async function _upsertTemplates(
       framework: framework_mongo_id,
     }).lean();
 
+    function createNewKey(key: string) {
+      return new AssetTagKey({
+        title: key,
+        hex: getRandomColor(),
+        orgID: process.env.ORG_ID,
+        framework: framework_mongo_id,
+      });
+    }
+
     const existingKeys = existingKeyDocs.map((k) => k._id);
     const newKeys: AssetTagKeyInterface[] = [];
     for (let i = 0; i < templates.length; i++) {
       const t = templates[i];
       if (isAssetTagKeyObject(t.key) && existingKeys.includes(t.key._id)) {
         upsertedTemplates.push({ ...t, key: t.key._id });
+      } else if (typeof t.key === "string") {
+        const existingKey = existingKeyDocs.find(
+          (k) =>
+            k.title === (t.key as unknown as string) &&
+            compareMongoIDs(k.framework, framework_mongo_id)
+        );
+        if (existingKey) {
+          upsertedTemplates.push({ ...t, key: existingKey._id });
+        } else {
+          const newKey = createNewKey(t.key);
+          newKeys.push(newKey);
+          upsertedTemplates.push({ ...t, key: newKey._id });
+        }
       } else {
-        const newKey = new AssetTagKey({
-          title: t.key,
-          hex: getRandomColor(),
-          orgID: process.env.ORG_ID,
-          framework: framework_mongo_id,
-        });
+        const newKey = createNewKey(t.key as unknown as string);
         newKeys.push(newKey);
         upsertedTemplates.push({ ...t, key: newKey._id });
       }
@@ -288,7 +309,9 @@ async function _upsertTemplates(
     // Sort dropdown/multiselect options
     upsertedTemplates.forEach((t) => {
       if (t.options) {
-        t.options.sort((a, b) => a.localeCompare(b, "en", { ignorePunctuation: true }));
+        t.options.sort((a, b) =>
+          a.localeCompare(b, "en", { ignorePunctuation: true })
+        );
       }
     });
 

@@ -37,6 +37,7 @@ export interface AssetTagTemplate extends MongoBaseDocument {
   options?: string[];
   isDeleted: boolean;
   key: string | AssetTagKey
+  enabledAsFilter?: boolean;
 }
 
 export interface AssetTagFramework extends MongoBaseDocument {

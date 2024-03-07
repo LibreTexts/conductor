@@ -22,6 +22,7 @@ export interface AssetTagTemplateInterface {
   valueType: AssetTagTemplateValueType;
   defaultValue?: string | number | boolean | Date;
   options?: string[];
+  enabledAsFilter?: boolean;
   isDeleted: boolean;
 }
 
@@ -42,6 +43,10 @@ const AssetTagTemplateSchema = new Schema<AssetTagTemplateInterface>({
   options: {
     type: [String],
     required: false,
+  },
+  enabledAsFilter: {
+    type: Boolean,
+    default: false,
   },
   isDeleted: {
     type: Boolean,
