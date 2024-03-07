@@ -123,14 +123,19 @@ async function getUpsertedAssetTagKey(
   tag: AssetTagFromRequest,
   updatedKey?: string
 ): Promise<string> {
-  console.log('existingKeys')
-  console.log(existingKeys)
   const _compareFrameworks = (tagFramework: any, keyFramework: any) => {
     if (!tagFramework && !keyFramework) return true;
     if (!tagFramework || !keyFramework) return false;
+
+    // We could use isAssetTagFrameworkObject() here, but we only need to check if the _id is present
+    // This allows us to avoid having to pass the entire framework object in the request
     const isMatch = compareMongoIDs(
-      isAssetTagFrameworkObject(keyFramework) ? keyFramework._id : keyFramework,
-      isAssetTagFrameworkObject(tagFramework) ? tagFramework._id : tagFramework
+      typeof keyFramework === "object" && "_id" in keyFramework
+        ? keyFramework._id
+        : keyFramework,
+      typeof tagFramework === "object" && "_id" in tagFramework
+        ? tagFramework._id
+        : tagFramework
     );
     return isMatch;
   };
