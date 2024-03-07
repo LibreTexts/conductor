@@ -23,7 +23,7 @@ import { useTypedSelector } from "../../../state/hooks";
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
   assetFilters: AssetFilters;
-  assetFiltersDispatch: React.Dispatch<{type: string, payload: string}>;
+  assetFiltersDispatch: React.Dispatch<{ type: string; payload: string }>;
   bookFilters: BookFilters;
   bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
   onActiveTabChange: (newTab: CommonsModule) => void;
@@ -83,11 +83,11 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       labels.push(
         <TabLabel
           title="Books"
-          index='books'
+          index="books"
           itemsCount={booksCount}
           loading={booksLoading}
           isActive={activeTab === "books"}
-          onClick={() => onActiveTabChange('books')}
+          onClick={() => onActiveTabChange("books")}
         />
       );
     }
@@ -96,11 +96,11 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       labels.push(
         <TabLabel
           title="Assets"
-          index='assets'
+          index="assets"
           itemsCount={assetsCount}
           loading={assetsLoading}
           isActive={activeTab === "assets"}
-          onClick={() => onActiveTabChange('assets')}
+          onClick={() => onActiveTabChange("assets")}
         />
       );
     }
@@ -109,11 +109,11 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       labels.push(
         <TabLabel
           title="Projects"
-          index='projects'
+          index="projects"
           itemsCount={projectsCount}
           loading={projectsLoading}
           isActive={activeTab === "projects"}
-          onClick={() => onActiveTabChange('projects')}
+          onClick={() => onActiveTabChange("projects")}
         />
       );
     }
@@ -122,13 +122,16 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
       const aIndex = a.props.index;
       const bIndex = b.props.index;
       if (moduleSettings) {
-        return moduleSettings[aIndex as CommonsModule].order - moduleSettings[bIndex as CommonsModule].order;
+        return (
+          moduleSettings[aIndex as CommonsModule].order -
+          moduleSettings[bIndex as CommonsModule].order
+        );
       }
       return 0;
-    })
+    });
 
-    return labels;
-  }
+    return <>{labels}</>;
+  };
 
   return (
     <div className="custom-tabs">
@@ -159,7 +162,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         </div>
       </div>
       <div className="tab-content">
-        {activeTab === 'books' && (
+        {activeTab === "books" && (
           <CatalogBookFilters
             filters={bookFilters}
             onFilterChange={(type, value) =>
@@ -167,7 +170,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             }
           />
         )}
-        {activeTab === 'assets' && (
+        {activeTab === "assets" && (
           <CatalogAssetFilters
             filters={assetFilters}
             onFilterChange={(type, value) =>
@@ -175,7 +178,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             }
           />
         )}
-        {activeTab === 'books' && (
+        {activeTab === "books" && (
           <CatalogTab
             key={"books-tab"}
             itemizedMode={itemizedMode}
@@ -186,7 +189,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             visualRender={<VisualMode items={books} loading={booksLoading} />}
           />
         )}
-        {activeTab === 'assets' && (
+        {activeTab === "assets" && (
           <CatalogTab
             key={"assets-tab"}
             itemizedMode={itemizedMode}
@@ -197,7 +200,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             visualRender={<VisualMode items={assets} loading={assetsLoading} />}
           />
         )}
-        {activeTab === 'projects' && (
+        {activeTab === "projects" && (
           <CatalogTab
             key={"projects-tab"}
             itemizedMode={itemizedMode}
