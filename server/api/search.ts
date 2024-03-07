@@ -872,6 +872,44 @@ export async function assetsSearch(
       });
     }
 
+    if (req.query.customFilters) {
+      const customFilters = req.query.customFilters;
+      allResults = allResults.filter((file) => {
+        let includeFile = true;
+        for (const filter of customFilters) {
+          if (!file.tags) {
+            includeFile = false;
+            break;
+          }
+          const matchingTags = file.tags.filter(
+            (tag: any) => tag?.key?.title === filter.key
+          );
+          if (matchingTags.length === 0) {
+            includeFile = false;
+            break;
+          }
+
+          const matchingValues = matchingTags.filter((tag: any) => {
+            if (typeof tag.value === "string") {
+              return tag.value.toLowerCase() === filter.value.toLowerCase();
+            }
+            if (Array.isArray(tag.value)) {
+              return tag.value
+                .map((v: string) => v.toLowerCase())
+                .includes(filter.value.toLowerCase());
+            }
+            return false;
+          });
+
+          if (matchingValues.length === 0) {
+            includeFile = false;
+            break;
+          }
+        }
+        return includeFile;
+      });
+    }
+
     // Remove duplicate files
     const fileIDs = allResults.map((file: ProjectFileInterface) => file.fileID);
     const withoutDuplicates = Array.from(new Set(fileIDs)).map((fileID) => {
@@ -1334,6 +1372,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       {
         $match: {
           "templates.enabledAsFilter": true,
+          orgID: process.env.ORG_ID,
         },
       },
       {
@@ -1345,6 +1384,56 @@ async function getAssetFilterOptions(req: Request, res: Response) {
               cond: {
                 $eq: ["$$template.enabledAsFilter", true],
               },
+            },
+          },
+        },
+      },
+      {
+        $unwind: {
+          path: "$templates",
+        },
+      },
+      {
+        $lookup: {
+          from: "assettagkeys",
+          localField: "templates.key",
+          foreignField: "_id",
+          as: "foundKey",
+        },
+      },
+      {
+        $project: {
+          key: {
+            $arrayElemAt: ["$foundKey", 0],
+          },
+          valueType: "$templates.valueType",
+          options: "$templates.options",
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "key._id",
+          foreignField: "key",
+          as: "assetTags",
+        },
+      },
+      {
+        $project: {
+          key: 1,
+          valueType: 1,
+          options: {
+            $cond: {
+              if: {
+                $and: [
+                  { $eq: [{ $size: "$options" }, 0] },
+                  { $eq: ["$valueType", "text"] },
+                ],
+              },
+              then: {
+                $setUnion: ["$assetTags.value"],
+              },
+              else: "$options",
             },
           },
         },
@@ -1393,9 +1482,16 @@ async function getAssetFilterOptions(req: Request, res: Response) {
     const licenseNames = results[0][0]?.uniqueLicenseNames ?? [];
     const rawfileTypes = results[1] ?? [];
     const fileTypes = rawfileTypes.map((type: any) => type._id);
+    const assetTags =
+      results[2].map((a) => {
+        return {
+          title: a.key.title,
+          options: a.options,
+        };
+      }) ?? [];
     const orgs = hasCustomOrgList
       ? org.customOrgList
-      : results[2][0]?.associatedOrgs ?? [];
+      : results[3][0]?.associatedOrgs ?? [];
 
     // Sort results
     licenseNames.sort((a: string, b: string) =>
@@ -1413,6 +1509,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       licenses: licenseNames,
       fileTypes: fileTypes,
       orgs: orgs,
+      customFilters: assetTags ?? [],
     });
   } catch (err) {
     debugError(err);

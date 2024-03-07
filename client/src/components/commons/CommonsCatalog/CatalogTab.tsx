@@ -22,7 +22,7 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
   return (
     <TabPane
       attached={false}
-      className="!border-none !shadow-none !px-0 !pt-0 !rounded-md"
+      className="!border-none !shadow-none !px-0 !pt-0 !rounded-md !mt-0"
       {...rest}
     >
       <InfiniteScroll

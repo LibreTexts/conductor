@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  AssetFilters,
-  AssetFiltersAction,
   GenericKeyTextValueObj,
 } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
@@ -11,10 +9,11 @@ import COMMON_MIME_TYPES, {
 } from "../../../utils/common-mime-types";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { prependClearOption } from "../../util/CatalogOptions";
+import { CustomFilter } from "../../../types/Search";
 
 interface CatalogAssetFiltersProps {
-  filters: AssetFilters;
-  onFilterChange: (type: AssetFiltersAction["type"], payload: string) => void;
+  filters: Record<string, string>;
+  onFilterChange: (type: string, payload: string) => void;
 }
 
 const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
@@ -32,6 +31,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   const [fileTypeOptions, setFileTypeOptions] = useState<
     GenericKeyTextValueObj<string>[]
   >([]);
+  const [assetTagFilters, setAssetTagFilters] = useState<CustomFilter[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -82,6 +82,10 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
         mapped.sort((a, b) => a.text.localeCompare(b.text));
         setFileTypeOptions(prependClearOption(mapped));
       }
+
+      if (res.data.customFilters) {
+        setAssetTagFilters(res.data.customFilters);
+      }
     } catch (err) {
       handleGlobalError(err);
     }
@@ -101,7 +105,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           options={licenseOptions}
           filterKey="license"
           onFilterSelect={(key, val) =>
-            onFilterChange(key as keyof AssetFilters, val)
+            onFilterChange(key, val)
           }
           loading={loading}
         />
@@ -111,7 +115,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           options={orgOptions}
           filterKey="org"
           onFilterSelect={(key, val) =>
-            onFilterChange(key as keyof AssetFilters, val)
+            onFilterChange(key, val)
           }
         />
         <CatalogFilterDropdown
@@ -122,10 +126,34 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           options={fileTypeOptions}
           filterKey="fileType"
           onFilterSelect={(key, val) =>
-            onFilterChange(key as keyof AssetFilters, val)
+            onFilterChange(key, val)
           }
           loading={loading}
         />
+        {assetTagFilters.length > 0 &&
+          assetTagFilters.map((filter, index) => {
+            const filterKey = filter.title;
+            return (
+              <CatalogFilterDropdown
+                key={index}
+                text={
+                  filters[filterKey]
+                    ? `${filterKey} - ${filters[filterKey]}`
+                    : filterKey
+                }
+                icon="tags"
+                options={filter.options.map((option) => ({
+                  key: crypto.randomUUID(),
+                  text: option,
+                  value: option,
+                }))}
+                filterKey={filterKey}
+                onFilterSelect={(key, val) =>
+                  onFilterChange(key, val)
+                }
+              />
+            );
+          })}
       </div>
     </div>
   );
