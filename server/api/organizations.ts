@@ -70,9 +70,14 @@ async function lookupOrganization(orgID: string) {
       { orgID },
       { _id: 0, aliases: 0, defaultProjectLead: 0 },
     ).lean();
-    if (org) {
-      return org;
+    if(org?.commonsModules){
+      // Remove _id and __v fields from commonsModules subdocument
+      // @ts-ignore
+      delete org.commonsModules._id;
+      // @ts-ignore
+      delete org.commonsModules.__v;
     }
+    return org;
   } catch (e) {
     debugError(e);
   }
@@ -226,6 +231,7 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('supportTicketNotifiers');
     addToUpdateIfPresent('defaultAssetTagFrameworkUUID');
     addToUpdateIfPresent('customOrgList');
+    addToUpdateIfPresent('commonsModules');
 
     if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
       // Reset label to 'Collections' if empty string was passed 
@@ -374,6 +380,33 @@ function validateBrandingAssetName(assetName: string) {
   return assetFields.includes(assetName);
 }
 
+function validateCommonsModules(commonsModules: any) {
+  const validModules = ['books', 'assets', 'projects'];
+  if (typeof commonsModules !== 'object') {
+    return false;
+  }
+  for (const module in commonsModules) {
+    if(module === "_id" || module === "__v"){
+      // ignore these fields (mongodb adds them because commonsModules is technically a subdocument of the Organization model)
+      continue;
+    }
+
+    if (!validModules.includes(module)) {
+      return false;
+    }
+    if (typeof commonsModules[module] !== 'object') {
+      return false;
+    }
+    if (typeof commonsModules[module].enabled !== 'boolean') {
+      return false;
+    }
+    if (typeof commonsModules[module].order !== 'number') {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Middleware(s) to verify that requests contain necessary and/or valid fields.
  *
@@ -400,6 +433,7 @@ function validate(method: string) {
         body('supportTicketNotifiers', conductorErrors.err1).optional({ checkFalsy: true }).isArray().isEmail(),
         body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('customOrgList', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
+        body('commonsModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateCommonsModules),
       ];
     case 'updateBrandingImageAsset':
       return [

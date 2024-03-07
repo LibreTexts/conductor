@@ -1,5 +1,9 @@
 import { format as formatDate, parseISO } from "date-fns";
-import { GenericKeyTextValueObj } from "../types";
+import {
+  CommonsModule,
+  CommonsModuleSettings,
+  GenericKeyTextValueObj,
+} from "../types";
 import { FieldNamesMarkedBoolean } from "react-hook-form";
 import { SemanticCOLORS } from "semantic-ui-react";
 
@@ -188,4 +192,28 @@ export function extractEmailDomain(email: string): string | null {
       return parts[1];
   }
   return null;
+}
+
+/**
+ * Determines the default module to display in the Commons Catalog,
+ * based on the order and enabled status of each module.
+ * @param settings - object containing settings for each commons module
+ * @returns the key of the default module
+ */
+export function getDefaultCommonsModule(settings?: CommonsModuleSettings): CommonsModule {
+  let defaultModule = "books";
+  let lowestOrder = 100;
+  if (!settings) {
+    return defaultModule as CommonsModule;
+  }
+  Object.keys(settings).forEach((module) => {
+    if (!settings[module as CommonsModule].enabled) {
+      return;
+    }
+    if (settings[module as CommonsModule].order < lowestOrder) {
+      defaultModule = module;
+      lowestOrder = settings[module as CommonsModule].order;
+    }
+  });
+  return defaultModule as CommonsModule ?? "books";
 }

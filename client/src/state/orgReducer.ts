@@ -3,7 +3,7 @@
 // orgReducer.js
 //
 
-import { Organization } from "../types";
+import { CommonsModuleSettings, Organization } from "../types";
 import { AnyAction } from "redux";
 
 const orgInitialState = <Organization>{
@@ -22,6 +22,20 @@ const orgInitialState = <Organization>{
     primaryColor: '',
     footerColor: '',
     customOrgList: [] as string[],
+    commonsModules: {
+      books: {
+        enabled: true,
+        order: 1
+      },
+      assets: {
+        enabled: true,
+        order: 2
+      },
+      projects: {
+        enabled: true,
+        order: 3
+      }
+    } as CommonsModuleSettings
 };
 
 export default function orgReducer(

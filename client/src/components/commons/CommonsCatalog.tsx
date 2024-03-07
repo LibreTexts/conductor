@@ -10,6 +10,7 @@ import {
   Book,
   BookFilters,
   BookFiltersAction,
+  CommonsModule,
   Project,
   ProjectFileWProjectData,
 } from "../../types";
@@ -17,6 +18,7 @@ import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useHistory, useLocation } from "react-router-dom";
 import { truncateString } from "../util/HelperFunctions";
+import { getDefaultCommonsModule } from "../../utils/misc";
 
 function assetsReducer(
   state: AssetFilters,
@@ -83,7 +85,7 @@ const CommonsCatalog = () => {
 
   const [searchString, setSearchString] = useState<string>("");
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<CommonsModule>(getDefaultCommonsModule(org.commonsModules));
   const [activePage, setActivePage] = useState(1);
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -495,8 +497,8 @@ const CommonsCatalog = () => {
     }
   }
 
-  function handleTabChange(index: number) {
-    setActiveIndex(index);
+  function handleTabChange(newTab: CommonsModule) {
+    setActiveTab(newTab);
     setActivePage(1);
   }
 
@@ -601,7 +603,7 @@ const CommonsCatalog = () => {
                 assetFiltersDispatch={assetsDispatch}
                 bookFilters={booksState}
                 bookFiltersDispatch={booksDispatch}
-                activeIndex={activeIndex}
+                activeTab={activeTab}
                 onActiveTabChange={handleTabChange}
                 books={books}
                 booksCount={booksCount}
