@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  GenericKeyTextValueObj,
-} from "../../../types";
+import { GenericKeyTextValueObj } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import COMMON_MIME_TYPES, {
@@ -104,9 +102,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           icon="legal"
           options={licenseOptions}
           filterKey="license"
-          onFilterSelect={(key, val) =>
-            onFilterChange(key, val)
-          }
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
           loading={loading}
         />
         <CatalogFilterDropdown
@@ -114,9 +110,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           icon="university"
           options={orgOptions}
           filterKey="org"
-          onFilterSelect={(key, val) =>
-            onFilterChange(key, val)
-          }
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
         />
         <CatalogFilterDropdown
           text={
@@ -125,9 +119,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           icon="file alternate outline"
           options={fileTypeOptions}
           filterKey="fileType"
-          onFilterSelect={(key, val) =>
-            onFilterChange(key, val)
-          }
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
           loading={loading}
         />
         {assetTagFilters.length > 0 &&
@@ -142,15 +134,15 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
                     : filterKey
                 }
                 icon="tags"
-                options={filter.options.map((option) => ({
-                  key: crypto.randomUUID(),
-                  text: option,
-                  value: option,
-                }))}
+                options={prependClearOption(
+                  filter.options.map((option) => ({
+                    key: crypto.randomUUID(),
+                    text: option,
+                    value: option,
+                  }))
+                )}
                 filterKey={filterKey}
-                onFilterSelect={(key, val) =>
-                  onFilterChange(key, val)
-                }
+                onFilterSelect={(key, val) => onFilterChange(key, val)}
               />
             );
           })}
