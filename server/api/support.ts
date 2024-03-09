@@ -141,6 +141,8 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const { assignee, category, priority } = req.query;
+
     const getSortObj = () => {
       if (req.query.sort === "status") {
         return { status: -1 };
@@ -155,6 +157,9 @@ async function getOpenInProgressTickets(
 
     const tickets = await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
+      ...(assignee ? { assignedUUIDs: assignee } : {}),
+      ...(category ? { category } : {}),
+      ...(priority ? { priority } : {}),
     })
       .sort(sortObj as any)
       .populate("assignedUsers")
@@ -163,6 +168,9 @@ async function getOpenInProgressTickets(
 
     const total = await SupportTicket.countDocuments({
       status: { $in: ["open", "in_progress"] },
+      ...(assignee ? { assignedUUIDs: assignee } : {}),
+      ...(category ? { category } : {}),
+      ...(priority ? { priority } : {}),
     });
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
