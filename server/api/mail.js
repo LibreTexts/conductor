@@ -792,7 +792,7 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Support Ticket Created (ID #${ticketID})`,
+        subject: `New Support Ticket Created (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>A new support ticket has been created.</p>
@@ -823,7 +823,7 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message,
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket (ID #${ticketID})`,
+        subject: `New Message on Support Ticket (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted to your support ticket.</p>
@@ -850,7 +850,7 @@ const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticke
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket (P: ${priority}) (ID #${ticketID})`,
+        subject: `New Message on Support Ticket (P: ${priority}) (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
@@ -898,7 +898,7 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID})`,
+        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>${assignerName} has assigned you to the following support ticket:</p>
