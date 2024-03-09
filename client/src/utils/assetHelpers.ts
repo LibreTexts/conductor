@@ -4,6 +4,7 @@ import { AssetTagTemplate, AssetTagValue } from "../types/AssetTagging";
 import { isAssetTagTemplateArray } from "./typeHelpers";
 import useGlobalError from "../components/error/ErrorHooks";
 import axios from "axios";
+import { SemanticICONS } from "semantic-ui-react";
 
 /**
  * Loops through all tags and removes any empty options
@@ -95,7 +96,12 @@ export function getPrettyUploader(uploader: User) {
 
 export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
   if (!authors || !authors.length) return "Unknown";
-  return authors.filter((a) => !!a.firstName && !!a.lastName).map((a) => `${a.firstName} ${a.lastName}`).join(", ") || "Unknown";
+  return (
+    authors
+      .filter((a) => !!a.firstName && !!a.lastName)
+      .map((a) => `${a.firstName} ${a.lastName}`)
+      .join(", ") || "Unknown"
+  );
 }
 
 /**
@@ -124,3 +130,35 @@ export async function downloadFile(
     return false;
   }
 }
+
+export const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
+  if (file.storageType === "folder") return "folder outline";
+  if (file.isURL) return "linkify";
+
+  if (file.name.split(".").length > 1) {
+    const extension = file.name.split(".").pop() as string;
+    if (extension.includes("xls")) {
+      return "file excel outline";
+    }
+    if (extension.includes("doc")) {
+      return "file word outline";
+    }
+    if (extension.includes("ppt")) {
+      return "file powerpoint outline";
+    }
+    if (extension.includes("pdf")) {
+      return "file pdf outline";
+    }
+    if (["png", "jpg", "jpeg", "gif", "svg"].includes(extension)) {
+      return "file image outline";
+    }
+    if (["zip", "rar", "7z"].includes(extension)) {
+      return "file archive outline";
+    }
+    if (["mp3", "wav", "ogg"].includes(extension)) {
+      return "file audio outline";
+    }
+  }
+
+  return "file alternate outline";
+};
