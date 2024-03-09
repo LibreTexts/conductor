@@ -110,12 +110,6 @@ export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
       .map((a) => `${a.firstName} ${a.lastName}`)
       .join(", ") || "Unknown"
   );
-  return (
-    authors
-      .filter((a) => !!a.firstName && !!a.lastName)
-      .map((a) => `${a.firstName} ${a.lastName}`)
-      .join(", ") || "Unknown"
-  );
 }
 
 /**
