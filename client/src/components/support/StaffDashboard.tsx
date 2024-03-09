@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy } from "react";
-import { Button, Icon, Table } from "semantic-ui-react";
+import { Button, Dropdown, Icon, Table } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { SupportTicket } from "../../types";
+import { GenericKeyTextValueObj, SupportTicket } from "../../types";
 import axios from "axios";
 import { format, parseISO, set } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
@@ -32,21 +32,67 @@ const StaffDashboard = () => {
   const [metricWeek, setMetricWeek] = useState<number>(0);
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string>("");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [filterOptions, setFilterOptions] = useState<{
+    assigneeOptions: GenericKeyTextValueObj<string>[];
+    priorityOptions: GenericKeyTextValueObj<string>[];
+    categoryOptions: GenericKeyTextValueObj<string>[];
+  }>({
+    assigneeOptions: [],
+    priorityOptions: [],
+    categoryOptions: [],
+  });
 
   const queryClient = useQueryClient();
-
   const { data: openTickets, isFetching } = useQuery<SupportTicket[]>({
-    queryKey: ["openTickets", activePage, itemsPerPage, activeSort],
-    queryFn: () => getOpenTickets(activePage, itemsPerPage, activeSort),
+    queryKey: [
+      "openTickets",
+      activePage,
+      itemsPerPage,
+      activeSort,
+      assigneeFilter,
+      priorityFilter,
+      categoryFilter,
+    ],
+    queryFn: () =>
+      getOpenTickets({
+        page: activePage,
+        items: itemsPerPage,
+        sort: activeSort,
+        assigneeFilter,
+        priorityFilter,
+        categoryFilter,
+      }),
     keepPreviousData: true,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   useEffect(() => {
     getSupportMetrics();
+    getFilterOptions();
   }, []);
 
-  async function getOpenTickets(page: number, items: number, sort: string) {
+  useEffect(() => {
+    getFilterOptions();
+  }, [openTickets]);
+
+  async function getOpenTickets({
+    page,
+    items,
+    sort,
+    assigneeFilter,
+    priorityFilter,
+    categoryFilter,
+  }: {
+    page: number;
+    items: number;
+    sort: string;
+    assigneeFilter?: string;
+    priorityFilter?: string;
+    categoryFilter?: string;
+  }) {
     try {
       setLoading(true);
       const res = await axios.get("/support/ticket/open", {
@@ -54,6 +100,9 @@ const StaffDashboard = () => {
           page: page,
           limit: items,
           sort: sort,
+          assignee: assigneeFilter,
+          priority: priorityFilter,
+          category: categoryFilter,
         },
       });
       if (res.data.err) {
@@ -101,6 +150,82 @@ const StaffDashboard = () => {
     }
   }
 
+  function getFilterOptions() {
+    const CLEAR_OPT = { key: "", text: "Clear", value: "" };
+
+    const assigneeOptions = openTickets?.reduce((acc, ticket) => {
+      if (!ticket.assignedUsers) return acc;
+      if (ticket.assignedUsers) {
+        ticket.assignedUsers.forEach((u) => {
+          if (!acc.find((a) => a.key === u.uuid)) {
+            acc.push({ key: u.uuid, text: u.firstName, value: u.uuid });
+          }
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    const priorityOptions = openTickets?.reduce((acc, ticket) => {
+      if (!ticket.priority) return acc;
+      if (!acc.find((p) => p.key === ticket.priority)) {
+        acc.push({
+          key: ticket.priority,
+          text: ticket.priority,
+          value: ticket.priority,
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    const categoryOptions = openTickets?.reduce((acc, ticket) => {
+      if (!ticket.category) return acc;
+      if (!acc.find((c) => c.key === ticket.category)) {
+        acc.push({
+          key: ticket.category,
+          text: ticket.category,
+          value: ticket.category,
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    assigneeOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
+    priorityOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
+    categoryOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
+
+    const assigneePretty = assigneeOptions?.map((a) => {
+      return {
+        key: a.key,
+        text: capitalizeFirstLetter(a.text),
+        value: a.value,
+      };
+    });
+    const priorityPretty = priorityOptions?.map((p) => {
+      return {
+        key: p.key,
+        text: capitalizeFirstLetter(p.text),
+        value: p.value,
+      };
+    });
+    const categoryPretty = categoryOptions?.map((c) => {
+      return {
+        key: c.key,
+        text: capitalizeFirstLetter(c.text),
+        value: c.value,
+      };
+    });
+
+    assigneePretty?.unshift(CLEAR_OPT);
+    priorityPretty?.unshift(CLEAR_OPT);
+    categoryPretty?.unshift(CLEAR_OPT);
+
+    setFilterOptions({
+      assigneeOptions: assigneePretty ?? [],
+      priorityOptions: priorityPretty ?? [],
+      categoryOptions: categoryPretty ?? [],
+    });
+  }
+
   function openTicket(uuid: string) {
     window.open(`/support/ticket/${uuid}`, "_blank");
   }
@@ -114,6 +239,35 @@ const StaffDashboard = () => {
     setShowAssignModal(false);
     setSelectedTicketId("");
     queryClient.invalidateQueries(["openTickets"]);
+  }
+
+  function handleFilterChange(filter: string, value: string) {
+    setActivePage(1); // Reset to first page on filter change
+    queryClient.invalidateQueries(["openTickets"]);
+    switch (filter) {
+      case "assignee":
+        setAssigneeFilter(value);
+        break;
+      case "priority":
+        setPriorityFilter(value);
+        break;
+      case "category":
+        setCategoryFilter(value);
+        break;
+      default:
+        break;
+    }
+  }
+
+  function getAssigneeName(uuid: string) {
+    const user = openTickets?.find((t) =>
+      t.assignedUsers?.find((u) => u.uuid === uuid)
+    );
+    if (user) {
+      return user.assignedUsers?.find((u) => u.uuid === uuid)?.firstName;
+    } else {
+      return "";
+    }
   }
 
   const DashboardMetric = ({
@@ -184,7 +338,81 @@ const StaffDashboard = () => {
           activeSort={activeSort}
           setActiveSortFn={setActiveSort}
         />
-        <Table celled className="mt-4">
+        <div className="flex flex-row mt-2">
+          <Dropdown
+            text={
+              assigneeFilter
+                ? getAssigneeName(assigneeFilter)
+                : "Filter by Assignee"
+            }
+            icon="users"
+            floating
+            labeled
+            button
+            className="icon"
+            basic
+          >
+            <Dropdown.Menu>
+              {filterOptions.assigneeOptions.map((a) => (
+                <Dropdown.Item
+                  key={a.key}
+                  onClick={() => handleFilterChange("assignee", a.value)}
+                >
+                  {a.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              priorityFilter
+                ? capitalizeFirstLetter(priorityFilter)
+                : "Filter by Priority"
+            }
+            icon="exclamation triangle"
+            floating
+            labeled
+            button
+            className="icon !ml-3"
+            basic
+          >
+            <Dropdown.Menu>
+              {filterOptions.priorityOptions.map((p) => (
+                <Dropdown.Item
+                  key={p.key}
+                  onClick={() => handleFilterChange("priority", p.value)}
+                >
+                  {p.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+          <Dropdown
+            text={
+              categoryFilter
+                ? capitalizeFirstLetter(categoryFilter)
+                : "Filter by Category"
+            }
+            icon="filter"
+            floating
+            labeled
+            button
+            className="icon !ml-3"
+            basic
+          >
+            <Dropdown.Menu>
+              {filterOptions.categoryOptions.map((c) => (
+                <Dropdown.Item
+                  key={c.key}
+                  onClick={() => handleFilterChange("category", c.value)}
+                >
+                  {c.text}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
+        </div>
+        <Table celled className="mt-2">
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell>ID</Table.HeaderCell>
