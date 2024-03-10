@@ -7,6 +7,7 @@ import {
   Modal,
   ModalProps,
 } from "semantic-ui-react";
+import './Projects.css'
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { Controller, get, useForm } from "react-hook-form";
@@ -128,6 +129,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
     <Modal size="fullscreen" open={show} {...rest}>
       <Modal.Header>Create Book</Modal.Header>
       <Modal.Content>
+        <p id = "bookInstructions">This creates an empty book on your chosen library and links it to this Conductor project.</p>
         <Form
           onSubmit={(e) => {
             e.preventDefault();

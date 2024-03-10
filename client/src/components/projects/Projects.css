@@ -441,3 +441,9 @@
     font-size: .9em;
     padding-top: 0.5em;
 }
+
+#bookInstructions{
+    display:flex;
+    justify-content: center;
+    font-weight:600;
+}
