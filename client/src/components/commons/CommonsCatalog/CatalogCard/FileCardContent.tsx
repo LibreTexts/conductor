@@ -1,48 +1,15 @@
-import { Card, CardContentProps, Icon, SemanticICONS } from "semantic-ui-react";
-import {
-  ProjectFile,
-  ProjectFileWCustomData,
-  ProjectFileWProjectData,
-} from "../../../../types";
+import { Card, CardContentProps, Icon } from "semantic-ui-react";
+import { ProjectFileWProjectData } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
-import { getPrettyAuthorsList } from "../../../../utils/assetHelpers";
+import {
+  getFileTypeIcon,
+  getPrettyAuthorsList,
+} from "../../../../utils/assetHelpers";
 
 interface FileCardContentProps extends CardContentProps {
   file: ProjectFileWProjectData<"title" | "thumbnail">;
 }
-
-const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
-  if (file.storageType === "folder") return "folder outline";
-  if (file.isURL) return "linkify";
-
-  if (file.name.split(".").length > 1) {
-    const extension = file.name.split(".").pop() as string;
-    if (extension.includes("xls")) {
-      return "file excel outline";
-    }
-    if (extension.includes("doc")) {
-      return "file word outline";
-    }
-    if (extension.includes("ppt")) {
-      return "file powerpoint outline";
-    }
-    if (extension.includes("pdf")) {
-      return "file pdf outline";
-    }
-    if (["png", "jpg", "jpeg", "gif", "svg"].includes(extension)) {
-      return "file image outline";
-    }
-    if (["zip", "rar", "7z"].includes(extension)) {
-      return "file archive outline";
-    }
-    if (["mp3", "wav", "ogg"].includes(extension)) {
-      return "file audio outline";
-    }
-  }
-
-  return "file alternate outline";
-};
 
 function handleOpenProject(projectID: string) {
   window.open(`/projects/${projectID}`, "_blank");

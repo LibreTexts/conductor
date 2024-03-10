@@ -141,6 +141,8 @@ async function getOpenInProgressTickets(
     if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
+    const { assignee, category, priority } = req.query;
+
     const getSortObj = () => {
       if (req.query.sort === "status") {
         return { status: -1 };
@@ -155,6 +157,9 @@ async function getOpenInProgressTickets(
 
     const tickets = await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
+      ...(assignee ? { assignedUUIDs: assignee } : {}),
+      ...(category ? { category } : {}),
+      ...(priority ? { priority } : {}),
     })
       .sort(sortObj as any)
       .populate("assignedUsers")
@@ -163,6 +168,9 @@ async function getOpenInProgressTickets(
 
     const total = await SupportTicket.countDocuments({
       status: { $in: ["open", "in_progress"] },
+      ...(assignee ? { assignedUUIDs: assignee } : {}),
+      ...(category ? { category } : {}),
+      ...(priority ? { priority } : {}),
     });
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
@@ -778,6 +786,23 @@ async function createGeneralMessage(
       );
     }
 
+    // If user was found and user is the ticket author, send a notification to assigned staff
+    if ((foundUser && foundUser.uuid === ticket.userUUID) || !foundUser) {
+      const teamToNotify = await _getAssignedStaffEmails(ticket.assignedUUIDs);
+      if (teamToNotify.length > 0) {
+        await mailAPI.sendNewTicketMessageAssignedStaffNotification(
+          teamToNotify,
+          ticket.uuid,
+          message,
+          foundUser
+            ? `${foundUser.firstName} ${foundUser.lastName}`
+            : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`,
+          capitalizeFirstLetter(ticket.priority),
+          ticket.title
+        );
+      }
+    }
+
     return res.send({
       err: false,
       message: ticketMessage,
@@ -850,7 +875,7 @@ async function deleteTicket(
 ) {
   try {
     const { uuid } = req.params;
-    await SupportTicket.deleteOne({ uuid })
+    await SupportTicket.deleteOne({ uuid });
     return res.send({
       err: false,
     });
@@ -946,6 +971,16 @@ const _getTicketAuthorString = (
     : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
+};
+
+const _getAssignedStaffEmails = async (staffUUIDs?: string[]) => {
+  try {
+    if (!staffUUIDs || staffUUIDs.length === 0) return [];
+    const staff = await User.find({ uuid: { $in: staffUUIDs } });
+    return staff.map((s) => s.email);
+  } catch (err) {
+    throw err;
+  }
 };
 
 const _createGuestAccessKey = (): string => {

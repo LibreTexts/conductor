@@ -792,7 +792,7 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Support Ticket Created (ID #${ticketID})`,
+        subject: `New Support Ticket Created (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>A new support ticket has been created.</p>
@@ -823,13 +823,42 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message,
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket (ID #${ticketID})`,
+        subject: `New Message on Support Ticket (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted to your support ticket.</p>
             <p><strong>${messageSender}</strong> said:</p>
             <p>${message}</p>
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Sends a notification to the specified email addresses (of assigned staff) that a new message has been posted to a support ticket.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} message - the message's body
+ * @param {string} messageSender - the message's author
+ * @param {string} priority - the ticket's priority
+ * @param {string} subject - the ticket's subject
+ */
+const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticketID, message, messageSender, priority, subject) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `New Message on Support Ticket (P: ${priority}) (ID #${ticketID.slice(-7)})`,
+        html: `
+            <p>Hi,</p>
+            <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
+            <br />
+            <p><strong>${messageSender}</strong> said:</p>
+            <p>${message}</p>
+            <br />
+            <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}
@@ -869,7 +898,7 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID})`,
+        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
             <p>${assignerName} has assigned you to the following support ticket:</p>
@@ -919,6 +948,7 @@ export default {
     sendSupportTicketCreateConfirmation,
     sendSupportTicketCreateInternalNotification,
     sendNewTicketMessageNotification,
+    sendNewTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
     sendZIPFileReadyNotification
 }

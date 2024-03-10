@@ -1178,8 +1178,7 @@ router.route('/project/:projectID/team')
 router.route('/project/:projectID/team/addable').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
-  projectsAPI.validate('getAddableMembers'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(ProjectValidators.GetAddableTeamMembersSchema),
   projectsAPI.getAddableMembers,
 );
 

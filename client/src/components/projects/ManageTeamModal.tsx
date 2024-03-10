@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   Modal,
@@ -12,6 +12,10 @@ import {
   Image,
   Dropdown,
   Popup,
+  Table,
+  Input,
+  TableProps,
+  Radio,
 } from "semantic-ui-react";
 import { CentralIdentityOrg, Project, User } from "../../types";
 import {
@@ -22,6 +26,8 @@ import {
 import { projectRoleOptions } from "../util/ProjectHelpers";
 import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
+import { useTypedSelector } from "../../state/hooks";
+import { extractEmailDomain } from "../../utils/misc";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
 type AddableUser = Pick<User, "uuid" | "firstName" | "lastName" | "avatar">;
@@ -33,6 +39,10 @@ interface ManageTeamModalProps extends ModalProps {
   onClose: () => void;
 }
 
+interface RenderCurrentTeamTableProps extends TableProps {
+  project: Project;
+}
+
 const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   show,
   project,
@@ -41,19 +51,19 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 }) => {
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
+  const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState<boolean>(false);
+  const [hasNotSearched, setHasNotSearched] = useState<boolean>(true);
+  const [searchString, setSearchString] = useState<string>("");
+  const [includeOutsideOrg, setIncludeOutsideOrg] = useState<boolean>(false);
   const [teamUserOptions, setTeamUserOptions] = useState<AddableUser[]>([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
-  const [teamUserUUIDToAdd, setTeamUserUUIDToAdd] = useState<string | null>(
-    null
-  );
 
-  useEffect(() => {
-    if (show) {
-      getTeamUserOptions("");
-    }
-  }, [show]);
+  const userOrgDomain = useMemo(() => {
+    if (!user?.email) return "";
+    return extractEmailDomain(user.email);
+  }, [user.email]);
 
   /**
    * Resets state before calling the provided onClose function.
@@ -62,7 +72,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     setLoading(false);
     setTeamUserOptions([]);
     setTeamUserOptsLoading(false);
-    setTeamUserUUIDToAdd(null);
+    setSearchString("");
 
     if (onClose) {
       onClose();
@@ -77,9 +87,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     try {
       if (!project.projectID) return;
 
+      setHasNotSearched(false);
       setTeamUserOptsLoading(true);
       const res = await axios.get(
-        `/project/${project.projectID}/team/addable?search=${searchString}`
+        `/project/${project.projectID}/team/addable?search=${searchString}&includeOutsideOrg=${includeOutsideOrg}&page=1&limit=5`
       );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -183,13 +194,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
    * in state (teamUserToAdd) to the project's team, then
    * refreshes the project data and Addable Users options.
    */
-  const submitAddTeamMember = async () => {
+  const submitAddTeamMember = async (uuid: string) => {
     try {
-      if (
-        !teamUserUUIDToAdd ||
-        isEmptyString(teamUserUUIDToAdd) ||
-        isEmptyString(project.projectID)
-      ) {
+      if (!project.projectID || !uuid) {
         throw new Error(
           "Invalid user or project UUID. This may be caused by an internal error."
         );
@@ -197,7 +204,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
       setLoading(true);
       const res = await axios.post(`/project/${project.projectID}/team`, {
-        uuid: teamUserUUIDToAdd,
+        uuid
       });
 
       if (res.data.err) {
@@ -205,8 +212,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         return;
       }
 
-      setTeamUserOptions([]);
-      setTeamUserUUIDToAdd(null);
+      getTeamUserOptions(searchString); // Refresh addable users list
       onDataChanged();
     } catch (err) {
       handleGlobalError(err);
@@ -215,16 +221,20 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
-  const renderTeamModalList = (projData: Project) => {
-    if (!projData) return null;
-    let projTeam: ProjectDisplayMember[] = [];
-    if (projData.leads && Array.isArray(projData.leads)) {
-      projData.leads.forEach((item) => {
+  const RenderCurrentTeamTable: React.FC<RenderCurrentTeamTableProps> = ({
+    project,
+    ...rest
+  }: {
+    project: Project;
+  }) => {
+    const projTeam: ProjectDisplayMember[] = [];
+    if (project.leads && Array.isArray(project.leads)) {
+      project.leads.forEach((item) => {
         projTeam.push({ ...item, roleValue: "lead", roleDisplay: "Lead" });
       });
     }
-    if (projData.liaisons && Array.isArray(projData.liaisons)) {
-      projData.liaisons.forEach((item) => {
+    if (project.liaisons && Array.isArray(project.liaisons)) {
+      project.liaisons.forEach((item) => {
         projTeam.push({
           ...item,
           roleValue: "liaison",
@@ -232,13 +242,13 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         });
       });
     }
-    if (projData.members && Array.isArray(projData.members)) {
-      projData.members.forEach((item) => {
+    if (project.members && Array.isArray(project.members)) {
+      project.members.forEach((item) => {
         projTeam.push({ ...item, roleValue: "member", roleDisplay: "Member" });
       });
     }
-    if (projData.auditors && Array.isArray(projData.auditors)) {
-      projData.auditors.forEach((item) => {
+    if (project.auditors && Array.isArray(project.auditors)) {
+      project.auditors.forEach((item) => {
         projTeam.push({
           ...item,
           roleValue: "auditor",
@@ -246,106 +256,176 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         });
       });
     }
-    projTeam = sortUsersByName(projTeam) as ProjectDisplayMember[];
+    const sortedTeam = sortUsersByName(projTeam) as ProjectDisplayMember[];
+
     return (
-      <List divided verticalAlign="middle" className="mb-4p">
-        {projTeam.map((item, idx) => {
-          return (
-            <List.Item key={`team-${idx}`}>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <Image avatar src={item.avatar} />
-                  <List.Content className="ml-1p">
-                    {item.firstName} {item.lastName}
-                  </List.Content>
-                </div>
-                <div className="right-flex">
-                  <Dropdown
-                    placeholder="Change role..."
-                    selection
-                    options={projectRoleOptions}
-                    value={item.roleValue}
-                    loading={loading}
-                    onChange={(_e, { value }) =>
-                      submitChangeTeamMemberRole(
-                        item.uuid,
-                        value ? value.toString() : ""
-                      )
-                    }
-                  />
-                  <Popup
-                    position="top center"
-                    trigger={
-                      <Button
-                        color="red"
-                        className="ml-1p"
-                        onClick={() => {
-                          submitRemoveTeamMember(item.uuid);
-                        }}
-                        icon
-                      >
-                        <Icon name="remove circle" />
-                      </Button>
-                    }
-                    content="Remove from project"
-                  />
-                </div>
-              </div>
-            </List.Item>
-          );
-        })}
-      </List>
+      <Table celled striped compact {...rest}>
+        <Table.Header>
+          <Table.Row>
+            <Table.HeaderCell width={"7"}>Name</Table.HeaderCell>
+            <Table.HeaderCell width={"2"}>Role</Table.HeaderCell>
+            <Table.HeaderCell width={"1"}>Actions</Table.HeaderCell>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          {sortedTeam.map((item) => (
+            <Table.Row key={item.uuid}>
+              <Table.Cell>
+                <Image avatar src={item.avatar} />
+                {item.firstName} {item.lastName}
+              </Table.Cell>
+              <Table.Cell>
+                <Dropdown
+                  placeholder="Change role..."
+                  selection
+                  options={projectRoleOptions}
+                  value={item.roleValue}
+                  loading={loading}
+                  onChange={(_e, { value }) =>
+                    submitChangeTeamMemberRole(
+                      item.uuid,
+                      value ? value.toString() : ""
+                    )
+                  }
+                />
+              </Table.Cell>
+              <Table.Cell>
+                <Popup
+                  position="top center"
+                  trigger={
+                    <Button
+                      color="red"
+                      className="ml-1p"
+                      onClick={() => {
+                        submitRemoveTeamMember(item.uuid);
+                      }}
+                      icon
+                    >
+                      <Icon name="remove circle" />
+                    </Button>
+                  }
+                  content="Remove from project"
+                />
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table>
     );
   };
 
   return (
     <Modal open={show} onClose={handleClose} size="large" closeIcon>
       <Modal.Header>Manage Project Team</Modal.Header>
-      <Modal.Content scrolling id="project-manage-team-content">
-        <Form onSubmit={(e) => e.preventDefault()}>
-          <Form.Field className="flex flex-col">
-            <label htmlFor="addTeamMemberSelect">Add Team Member</label>
-            <Dropdown
-              id="addTeamMemberSelect"
-              placeholder="Start typing to search by name..."
-              options={teamUserOptions.map((item) => ({
-                key: crypto.randomUUID(),
-                text: `${item.firstName} ${item.lastName}`,
-                value: item.uuid ?? "",
-                image: {
-                  avatar: true,
-                  src: item.avatar,
-                },
-              }))}
-              onChange={(e, { value }) => {
-                setTeamUserUUIDToAdd(value?.toString() || "");
-              }}
-              fluid
-              selection
-              search
-              onSearchChange={(e, { searchQuery }) => {
-                getTeamUserOptionsDebounced(searchQuery);
-              }}
-              loading={teamUserOptsLoading}
-            />
-          </Form.Field>
-          <Button
-            fluid
-            color="green"
-            loading={loading}
-            onClick={submitAddTeamMember}
-          >
-            <Icon name="add user" />
-            Add Team Member
-          </Button>
-        </Form>
-        <Divider />
+      <Modal.Content
+        scrolling
+        className="!min-h-[48rem]"
+      >
         {!loading ? (
-          renderTeamModalList(project)
+          <>
+            <p className="text-xl font-semibold">Current Team Members</p>
+            <RenderCurrentTeamTable
+              project={project}
+              id="current-team-table"
+              className="!mt-0.5"
+            />
+            <Form onSubmit={(e) => e.preventDefault()} className="mt-16 h-72">
+              <Form.Field className="flex flex-col">
+                <div className="flex flex-row justify-between items-center mb-1">
+                  <p className="text-xl font-semibold">Add Team Members</p>
+                  <div className="flex flex-row items-center">
+                    <label className="" htmlFor="outside-org-radio">
+                      Include users outside of{" "}
+                      <span className="">{userOrgDomain}</span>
+                    </label>
+                    <Radio
+                      id="outside-org-radio"
+                      toggle
+                      className="ml-2"
+                      checked={includeOutsideOrg}
+                      onClick={(e) => setIncludeOutsideOrg(!includeOutsideOrg)}
+                    />
+                  </div>
+                </div>
+                <Input
+                  icon="search"
+                  placeholder="Start typing to search by name or email..."
+                  value={searchString}
+                  onChange={(e, { value }) => {
+                    setSearchString(value);
+                    getTeamUserOptionsDebounced(value);
+                  }}
+                />
+              </Form.Field>
+              <Table celled compact>
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell width={"8"}>Name</Table.HeaderCell>
+                    <Table.HeaderCell width={"2"}>Actions</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {teamUserOptsLoading && <Loader active inline="centered" />}
+                  {!teamUserOptsLoading &&
+                    teamUserOptions.map((item) => (
+                      <Table.Row key={item.uuid}>
+                        <Table.Cell>
+                          <Image avatar src={item.avatar} />
+                          {item.firstName} {item.lastName}
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Popup
+                            position="top center"
+                            trigger={
+                              <Button
+                                color="green"
+                                className="ml-1p"
+                                onClick={() => {
+                                  submitAddTeamMember(item.uuid);
+                                }}
+                                icon
+                              >
+                                <Icon name="add user" />
+                                <span className="ml-2">Add to Project</span>
+                              </Button>
+                            }
+                            content="Add to project"
+                          />
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  {!teamUserOptsLoading &&
+                    !hasNotSearched &&
+                    teamUserOptions.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={2}>
+                          <p className="text-center">
+                            No users found. Please try another search.
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  {!teamUserOptsLoading && hasNotSearched && (
+                    <Table.Row>
+                      <Table.Cell colSpan={2}>
+                        <p className="text-center">
+                          Start typing to search for users to add to the
+                          project.
+                        </p>
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
+                </Table.Body>
+              </Table>
+            </Form>
+          </>
         ) : (
           <Loader active inline="centered" />
         )}
       </Modal.Content>
+      <Modal.Actions>
+        <Button onClick={handleClose}>Close</Button>
+      </Modal.Actions>
     </Modal>
   );
 };

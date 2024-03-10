@@ -1,19 +1,40 @@
-import { Header, Table, TableProps } from "semantic-ui-react";
-import { ProjectFile } from "../../../types";
+import { Header, Icon, Table, TableProps } from "semantic-ui-react";
+import { ProjectFile, ProjectFileWProjectData } from "../../../types";
 import { Link } from "react-router-dom";
 import { truncateString } from "../../util/HelperFunctions";
-import { getPrettyAuthorsList } from "../../../utils/assetHelpers";
+import {
+  downloadFile,
+  fileSizePresentable,
+  getFileTypeIcon,
+  getPrettyAuthorsList,
+} from "../../../utils/assetHelpers";
 
 interface AssetsTableProps extends TableProps {
-  items: ProjectFile[];
+  items: ProjectFileWProjectData<"title" | "thumbnail">[];
 }
 
 const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
+  async function handleFileDownload(
+    file: ProjectFileWProjectData<"title" | "thumbnail">
+  ) {
+    let success = false;
+    try {
+      success = await downloadFile(file.projectID, file.fileID);
+    } catch (err) {
+      if (!success) {
+        console.error(err);
+        //handleGlobalError("Unable to download file. Please try again later.");
+      }
+    }
+  }
+
   return (
     <Table celled title="Search Results" {...rest}>
       <Table.Header>
         <Table.Row>
-          <Table.HeaderCell scope="col"></Table.HeaderCell>
+          <Table.HeaderCell scope="col">
+            <Header sub>Type</Header>
+          </Table.HeaderCell>
           <Table.HeaderCell scope="col">
             <Header sub>Name</Header>
           </Table.HeaderCell>
@@ -22,6 +43,9 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
           </Table.HeaderCell>
           <Table.HeaderCell scope="col">
             <Header sub>Author</Header>
+          </Table.HeaderCell>
+          <Table.HeaderCell>
+            <Header sub>Project</Header>
           </Table.HeaderCell>
           <Table.HeaderCell scope="col">
             <Header sub>License</Header>
@@ -36,19 +60,33 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
           items.map((item, index) => {
             return (
               <Table.Row key={index}>
-                <Table.Cell></Table.Cell>
                 <Table.Cell>
-                  <p>
-                    <strong>
-                      <Link to={`/file/${item.fileID}`}>{item.name}</Link>
-                    </strong>
-                  </p>
+                  <Icon
+                    name={getFileTypeIcon(item)}
+                    size="large"
+                    color="black"
+                  />
+                </Table.Cell>
+                <Table.Cell>
+                  <a
+                    onClick={() => handleFileDownload(item)}
+                    className="cursor-pointer"
+                  >
+                    {truncateString(item.name, 50)}
+                  </a>
                 </Table.Cell>
                 <Table.Cell>
                   <p>{truncateString(item.description, 50)}</p>
                 </Table.Cell>
                 <Table.Cell>
                   <p>{getPrettyAuthorsList(item.authors)}</p>
+                </Table.Cell>
+                <Table.Cell>
+                  <p>
+                    <Link to={`/projects/${item.projectID}`} target="_blank">
+                      {truncateString(item.projectInfo?.title, 50)}
+                    </Link>
+                  </p>
                 </Table.Cell>
                 <Table.Cell>
                   <p>
@@ -63,7 +101,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
                 </Table.Cell>
                 <Table.Cell>
                   <p>
-                    <em>{item.size}</em>
+                    <em>{fileSizePresentable(item.size)}</em>
                   </p>
                 </Table.Cell>
               </Table.Row>
