@@ -17,6 +17,12 @@ const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
 );
 
+type SupportMetrics = {
+  totalOpenTickets: number;
+  lastSevenTicketCount: number;
+  avgDaysToClose: string;
+};
+
 const StaffDashboard = () => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
@@ -27,9 +33,6 @@ const StaffDashboard = () => {
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [metricOpen, setMetricOpen] = useState<number>(0);
-  const [metricAvgDays, setMetricAvgDays] = useState<string>("");
-  const [metricWeek, setMetricWeek] = useState<number>(0);
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string>("");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
@@ -69,9 +72,11 @@ const StaffDashboard = () => {
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
-  useEffect(() => {
-    getSupportMetrics();
-  }, []);
+  const { data: supportMetrics } = useQuery<SupportMetrics>({
+    queryKey: ["supportMetrics"],
+    queryFn: getSupportMetrics,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
   async function getOpenTickets({
     page,
@@ -89,7 +94,6 @@ const StaffDashboard = () => {
     categoryFilter?: string;
   }) {
     try {
-      console.log('run')
       setLoading(true);
       const res = await axios.get("/support/ticket/open", {
         params: {
@@ -146,7 +150,7 @@ const StaffDashboard = () => {
     }
   }
 
-  async function getSupportMetrics() {
+  async function getSupportMetrics(): Promise<SupportMetrics> {
     try {
       setLoading(true);
       const res = await axios.get("/support/metrics");
@@ -158,15 +162,21 @@ const StaffDashboard = () => {
         throw new Error("Invalid response from server");
       }
 
-      setMetricOpen(res.data.metrics.totalOpenTickets ?? 0);
-      setMetricWeek(res.data.metrics.lastSevenTicketCount ?? 0);
-
       // Convert avgMins to days
       const avgMins = res.data.metrics.avgMinsToClose ?? 0;
       const avgDays = avgMins / (60 * 24);
-      setMetricAvgDays(avgDays.toPrecision(1) ?? "0");
+      return {
+        totalOpenTickets: res.data.metrics.totalOpenTickets ?? 0,
+        lastSevenTicketCount: res.data.metrics.lastSevenTicketCount ?? 0,
+        avgDaysToClose: avgDays.toPrecision(1) ?? "0",
+      };
     } catch (err) {
       handleGlobalError(err);
+      return {
+        totalOpenTickets: 0,
+        lastSevenTicketCount: 0,
+        avgDaysToClose: "0",
+      };
     } finally {
       setLoading(false);
     }
@@ -257,15 +267,15 @@ const StaffDashboard = () => {
       </div>
       <div className="flex flex-row justify-between w-full mt-6">
         <DashboardMetric
-          metric={metricOpen.toString()}
+          metric={supportMetrics?.totalOpenTickets?.toString() ?? "0"}
           title="Open/In Progress Tickets"
         />
         <DashboardMetric
-          metric={metricAvgDays.toString() + " days"}
+          metric={supportMetrics?.avgDaysToClose?.toString() + " days"}
           title="Average Time to Resolution"
         />
         <DashboardMetric
-          metric={metricWeek.toString()}
+          metric={supportMetrics?.lastSevenTicketCount?.toString() ?? "0"}
           title="Total Tickets Past 7 Days"
         />
       </div>
