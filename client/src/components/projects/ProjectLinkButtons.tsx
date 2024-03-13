@@ -35,7 +35,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
       <div className="flex flex-row mt-2">
         {!projectLink && !didCreateWorkbench && (
           <Button
-            color="blue"
+            color="green"
             onClick={() => setShowCreateWorkbenchModal(true)}
           >
             <Icon name="plus" />
