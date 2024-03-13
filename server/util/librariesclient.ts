@@ -18,6 +18,10 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
+    console.log("ATTEMPTING TO GENERATE LIBRARIES SSM CLIENT")
+    console.log("libTokenPairPath: " + libTokenPairPath)
+    console.log("apiUsername: " + apiUsername)
+
     const ssm = new SSMClient({
       credentials: {
         accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
@@ -25,6 +29,8 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       },
       region: process.env.AWS_SSM_REGION || "unknown",
     });
+
+    console.log("SSM CLIENT GENERATED")
 
     return {
       apiUsername,
@@ -48,6 +54,9 @@ export async function getLibraryTokenPair(
     const basePath = client.libTokenPairPath.endsWith("/")
       ? client.libTokenPairPath
       : `${client.libTokenPairPath}/`;
+    
+    console.log("basePath: " + basePath)
+    console.log("lib: " + lib)
     const pairResponse = await client.ssm.send(
       new GetParametersByPathCommand({
         Path: `${basePath}${lib}`,
@@ -98,7 +107,7 @@ export async function generateAPIRequestHeaders(
   libClient?: LibrariesSSMClient
 ): Promise<LibraryAPIRequestHeaders | null> {
   try {
-    const libsClient = libClient
+    const libsClient = libClient?.ssm
       ? libClient
       : await generateLibrariesSSMClient(); // generate a new client if one is not provided
     if (!libsClient) {
