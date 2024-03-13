@@ -13,6 +13,7 @@
     "@ckeditor/ckeditor5-react": "^6.2.0",
     "@fortawesome/fontawesome-free": "^5.15.4",
     "@libretexts/insight-ckeditor5-build": "^1.0.0",
+    "@marsidev/react-turnstile": "^0.5.3",
     "@tailwindcss/typography": "^0.5.10",
     "@tanstack/react-query": "^4.36.1",
     "@tanstack/react-query-devtools": "^4.36.1",
