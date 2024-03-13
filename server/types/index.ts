@@ -1,6 +1,6 @@
 import { AssetTagWithFramework, AssetTagTemplateWithKey, AssetTagWithFrameworkAndKey } from "./AssetTags";
 import { ReaderResource } from "../types/ReaderResource";
-import { TimeZoneOption } from "./Misc";
+import { TimeZoneOption, GenericKeyTextValueObj } from "./Misc";
 import {
   TypedReqUser,
   TypedReqWithUser,
@@ -62,6 +62,7 @@ export type {
   CXOneFetchParams,
   CXOneGroup,
   CXOneUser,
+  GenericKeyTextValueObj,
   LibrariesSSMClient,
   LibraryTokenPair,
   LibraryAPIRequestHeaders,
