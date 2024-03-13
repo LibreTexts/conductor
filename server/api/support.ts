@@ -32,7 +32,11 @@ import multer from "multer";
 import async from "async";
 import conductorErrors from "../conductor-errors.js";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
-import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
+import {
+  GenericKeyTextValueObj,
+  ZodReqWithOptionalUser,
+  ZodReqWithUser,
+} from "../types";
 import {
   assembleUrl,
   capitalizeFirstLetter,
@@ -166,12 +170,15 @@ async function getOpenInProgressTickets(
       .populate("user")
       .exec();
 
-    const total = await SupportTicket.countDocuments({
+    const unfiltered = (await SupportTicket.find({
       status: { $in: ["open", "in_progress"] },
-      ...(assignee ? { assignedUUIDs: assignee } : {}),
-      ...(category ? { category } : {}),
-      ...(priority ? { priority } : {}),
-    });
+    })
+      .populate("assignedUsers")
+      .populate("user")
+      .exec()) as (SupportTicketInterface & {
+      assignedUsers?: UserInterface[];
+      user?: UserInterface;
+    })[];
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
     if (req.query.sort === "priority") {
@@ -184,12 +191,79 @@ async function getOpenInProgressTickets(
       });
     }
 
+    const assigneeOptions = unfiltered?.reduce((acc, ticket) => {
+      if (!ticket.assignedUsers) return acc;
+      if (ticket.assignedUsers) {
+        ticket.assignedUsers.forEach((u) => {
+          if (!acc.find((a) => a.key === u.uuid)) {
+            acc.push({ key: u.uuid, text: u.firstName, value: u.uuid });
+          }
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    const priorityOptions = unfiltered?.reduce((acc, ticket) => {
+      if (!ticket.priority) return acc;
+      if (!acc.find((p) => p.key === ticket.priority)) {
+        acc.push({
+          key: ticket.priority,
+          text: ticket.priority,
+          value: ticket.priority,
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    const categoryOptions = unfiltered?.reduce((acc, ticket) => {
+      if (!ticket.category) return acc;
+      if (!acc.find((c) => c.key === ticket.category)) {
+        acc.push({
+          key: ticket.category,
+          text: ticket.category,
+          value: ticket.category,
+        });
+      }
+      return acc;
+    }, [] as GenericKeyTextValueObj<string>[]);
+
+    assigneeOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+    priorityOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+    categoryOptions?.sort((a, b) => a.text.localeCompare(b.text, "en"));
+
+    const assigneePretty = assigneeOptions?.map((a) => {
+      return {
+        key: a.key,
+        text: capitalizeFirstLetter(a.text),
+        value: a.value,
+      };
+    });
+    const priorityPretty = priorityOptions?.map((p) => {
+      return {
+        key: p.key,
+        text: capitalizeFirstLetter(p.text),
+        value: p.value,
+      };
+    });
+    const categoryPretty = categoryOptions?.map((c) => {
+      return {
+        key: c.key,
+        text: capitalizeFirstLetter(c.text),
+        value: c.value,
+      };
+    });
+
     const paginated = tickets.slice(offset, offset + limit);
 
     return res.send({
       err: false,
       tickets: paginated,
-      total,
+      total: tickets.length || 0,
+      filters: {
+        assignee: assigneePretty,
+        priority: priorityPretty,
+        category: categoryPretty,
+      },
     });
   } catch (err) {
     debugError(err);

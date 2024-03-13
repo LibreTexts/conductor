@@ -36,13 +36,13 @@ const StaffDashboard = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [filterOptions, setFilterOptions] = useState<{
-    assigneeOptions: GenericKeyTextValueObj<string>[];
-    priorityOptions: GenericKeyTextValueObj<string>[];
-    categoryOptions: GenericKeyTextValueObj<string>[];
+    assignee: GenericKeyTextValueObj<string>[];
+    priority: GenericKeyTextValueObj<string>[];
+    category: GenericKeyTextValueObj<string>[];
   }>({
-    assigneeOptions: [],
-    priorityOptions: [],
-    categoryOptions: [],
+    assignee: [],
+    priority: [],
+    category: [],
   });
 
   const queryClient = useQueryClient();
@@ -71,12 +71,7 @@ const StaffDashboard = () => {
 
   useEffect(() => {
     getSupportMetrics();
-    getFilterOptions();
   }, []);
-
-  useEffect(() => {
-    getFilterOptions();
-  }, [openTickets]);
 
   async function getOpenTickets({
     page,
@@ -94,6 +89,7 @@ const StaffDashboard = () => {
     categoryFilter?: string;
   }) {
     try {
+      console.log('run')
       setLoading(true);
       const res = await axios.get("/support/ticket/open", {
         params: {
@@ -115,6 +111,32 @@ const StaffDashboard = () => {
 
       setTotalItems(res.data.total);
       setTotalPages(Math.ceil(res.data.total / items));
+
+      const CLEAR_OPTION = { key: "clear", text: "Clear", value: "" };
+      if (res.data.filters) {
+        const _assignee = Array.isArray(res.data.filters.assignee)
+          ? [CLEAR_OPTION, ...res.data.filters.assignee]
+          : [];
+        const _priority = Array.isArray(res.data.filters.priority)
+          ? [CLEAR_OPTION, ...res.data.filters.priority]
+          : [];
+        const _category = Array.isArray(res.data.filters.category)
+          ? [CLEAR_OPTION, ...res.data.filters.category]
+          : [];
+
+        setFilterOptions({
+          assignee: _assignee,
+          priority: _priority,
+          category: _category,
+        });
+      } else {
+        setFilterOptions({
+          assignee: [],
+          priority: [],
+          category: [],
+        });
+      }
+
       return (res.data.tickets as SupportTicket[]) ?? [];
     } catch (err) {
       handleGlobalError(err);
@@ -150,82 +172,6 @@ const StaffDashboard = () => {
     }
   }
 
-  function getFilterOptions() {
-    const CLEAR_OPT = { key: "", text: "Clear", value: "" };
-
-    const assigneeOptions = openTickets?.reduce((acc, ticket) => {
-      if (!ticket.assignedUsers) return acc;
-      if (ticket.assignedUsers) {
-        ticket.assignedUsers.forEach((u) => {
-          if (!acc.find((a) => a.key === u.uuid)) {
-            acc.push({ key: u.uuid, text: u.firstName, value: u.uuid });
-          }
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    const priorityOptions = openTickets?.reduce((acc, ticket) => {
-      if (!ticket.priority) return acc;
-      if (!acc.find((p) => p.key === ticket.priority)) {
-        acc.push({
-          key: ticket.priority,
-          text: ticket.priority,
-          value: ticket.priority,
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    const categoryOptions = openTickets?.reduce((acc, ticket) => {
-      if (!ticket.category) return acc;
-      if (!acc.find((c) => c.key === ticket.category)) {
-        acc.push({
-          key: ticket.category,
-          text: ticket.category,
-          value: ticket.category,
-        });
-      }
-      return acc;
-    }, [] as GenericKeyTextValueObj<string>[]);
-
-    assigneeOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
-    priorityOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
-    categoryOptions?.sort((a) => a.text.localeCompare(a.text, "en"));
-
-    const assigneePretty = assigneeOptions?.map((a) => {
-      return {
-        key: a.key,
-        text: capitalizeFirstLetter(a.text),
-        value: a.value,
-      };
-    });
-    const priorityPretty = priorityOptions?.map((p) => {
-      return {
-        key: p.key,
-        text: capitalizeFirstLetter(p.text),
-        value: p.value,
-      };
-    });
-    const categoryPretty = categoryOptions?.map((c) => {
-      return {
-        key: c.key,
-        text: capitalizeFirstLetter(c.text),
-        value: c.value,
-      };
-    });
-
-    assigneePretty?.unshift(CLEAR_OPT);
-    priorityPretty?.unshift(CLEAR_OPT);
-    categoryPretty?.unshift(CLEAR_OPT);
-
-    setFilterOptions({
-      assigneeOptions: assigneePretty ?? [],
-      priorityOptions: priorityPretty ?? [],
-      categoryOptions: categoryPretty ?? [],
-    });
-  }
-
   function openTicket(uuid: string) {
     window.open(`/support/ticket/${uuid}`, "_blank");
   }
@@ -243,7 +189,6 @@ const StaffDashboard = () => {
 
   function handleFilterChange(filter: string, value: string) {
     setActivePage(1); // Reset to first page on filter change
-    queryClient.invalidateQueries(["openTickets"]);
     switch (filter) {
       case "assignee":
         setAssigneeFilter(value);
@@ -353,7 +298,7 @@ const StaffDashboard = () => {
             basic
           >
             <Dropdown.Menu>
-              {filterOptions.assigneeOptions.map((a) => (
+              {filterOptions.assignee.map((a) => (
                 <Dropdown.Item
                   key={a.key}
                   onClick={() => handleFilterChange("assignee", a.value)}
@@ -377,7 +322,7 @@ const StaffDashboard = () => {
             basic
           >
             <Dropdown.Menu>
-              {filterOptions.priorityOptions.map((p) => (
+              {filterOptions.priority.map((p) => (
                 <Dropdown.Item
                   key={p.key}
                   onClick={() => handleFilterChange("priority", p.value)}
@@ -401,7 +346,7 @@ const StaffDashboard = () => {
             basic
           >
             <Dropdown.Menu>
-              {filterOptions.categoryOptions.map((c) => (
+              {filterOptions.category.map((c) => (
                 <Dropdown.Item
                   key={c.key}
                   onClick={() => handleFilterChange("category", c.value)}
