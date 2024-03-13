@@ -66,6 +66,7 @@ const SupportTicketView = () => {
       updateTicket(status),
     onSuccess: () => {
       queryClient.invalidateQueries(["ticket", id]);
+      queryClient.invalidateQueries(["supportMetrics"]);
     },
   });
 
@@ -74,6 +75,7 @@ const SupportTicketView = () => {
     onSuccess: () => {
       window.location.href = "/support/dashboard";
       queryClient.invalidateQueries(["ticket"]);
+      queryClient.invalidateQueries(["supportMetrics"])
     },
   });
 
