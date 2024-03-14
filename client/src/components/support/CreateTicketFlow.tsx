@@ -55,7 +55,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [success, setSuccess] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
-  const [challengePassed, setChallengePassed] = useState(false);
+  const [challengePassed, setChallengePassed] = useState(true);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -66,11 +66,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (isLoggedIn) return;
-    if (!turnstileToken) return;
-    verifyTurnstile(turnstileToken);
-  }, [isLoggedIn, turnstileToken]);
+  // useEffect(() => {
+  //   if (isLoggedIn) return;
+  //   if (!turnstileToken) return;
+  //   verifyTurnstile(turnstileToken);
+  // }, [isLoggedIn, turnstileToken]);
 
   async function verifyTurnstile(token: string) {
     try {
@@ -442,11 +442,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             onUpload={saveFilesToState}
             showUploads={true}
           />
-          {!isLoggedIn && (
+          {/*{!isLoggedIn && (
             <div className="flex flex-row items-center justify-center mt-8">
               <TurnstileWidget onSuccess={(t) => setTurnstileToken(t)} />
             </div>
-          )}
+          )}*/}
           <div className="flex flex-row justify-end mt-4">
             <Button
               color="blue"
