@@ -18,10 +18,6 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
-    console.log("ATTEMPTING TO GENERATE LIBRARIES SSM CLIENT")
-    console.log("libTokenPairPath: " + libTokenPairPath)
-    console.log("apiUsername: " + apiUsername)
-
     const ssm = new SSMClient({
       credentials: {
         accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
@@ -29,8 +25,6 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       },
       region: process.env.AWS_SSM_REGION || "unknown",
     });
-
-    console.log("SSM CLIENT GENERATED")
 
     return {
       apiUsername,
@@ -54,9 +48,22 @@ export async function getLibraryTokenPair(
     const basePath = client.libTokenPairPath.endsWith("/")
       ? client.libTokenPairPath
       : `${client.libTokenPairPath}/`;
+
+    // base path may contain non alphanumeric characters like single quotes, so we need to remove these
+    // only alphanumberic characters and forward slashes are allowed in SSM parameter names
+    // we should do this without using regex to avoid potential security issues
+    // https://en.wikipedia.org/wiki/List_of_Unicode_characters
+    const cleaned = basePath.split("").filter((c) => {
+      const code = c.charCodeAt(0);
+      return (
+        (code >= 48 && code <= 57) ||
+        (code >= 65 && code <= 90) ||
+        (code >= 97 && code <= 122) ||
+        code === 47
+      );
+    }).join("");
     
-    console.log("basePath: " + basePath)
-    console.log("lib: " + lib)
+    console.log("basePath: " + cleaned) // Leave this in for debugging purposes
     const pairResponse = await client.ssm.send(
       new GetParametersByPathCommand({
         Path: `${basePath}${lib}`,
@@ -67,8 +74,6 @@ export async function getLibraryTokenPair(
     );
 
     if (pairResponse.$metadata.httpStatusCode !== 200) {
-      console.error("Error retrieving library token pair. Lib: " + lib);
-      console.error("Metadata: ");
       console.error(pairResponse.$metadata);
       throw new Error("Error retrieving library token pair.");
     }
