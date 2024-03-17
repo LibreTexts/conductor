@@ -933,6 +933,21 @@ async function createInternalMessage(
       type: "internal",
     });
 
+    const allTeamEmails = await _getAssignedStaffEmails(ticket.assignedUUIDs);
+    const teamToNotify = allTeamEmails.filter((e) => e !== foundUser.email); // remove the sender from the list of emails to notify
+    if (teamToNotify.length > 0) {
+      await mailAPI.sendNewInternalTicketMessageAssignedStaffNotification(
+        teamToNotify,
+        ticket.uuid,
+        message,
+        foundUser
+          ? `${foundUser.firstName} ${foundUser.lastName}`
+          : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`,
+        capitalizeFirstLetter(ticket.priority),
+        ticket.title
+      );
+    }
+
     return res.send({
       err: false,
       message: ticketMessage,
