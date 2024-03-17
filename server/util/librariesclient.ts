@@ -18,10 +18,6 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
-    console.log('Generating Libraries SSM Client');
-    console.log('libTokenPairPath: ' + libTokenPairPath);
-    console.log('apiUsername: ' + apiUsername);
-
     const ssm = new SSMClient({
       credentials: {
         accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
@@ -29,9 +25,6 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       },
       region: process.env.AWS_SSM_REGION || "unknown",
     });
-
-    console.log('SSM Client generated with credentials:')
-    console.log(ssm.config.credentials)
 
     return {
       apiUsername,
@@ -47,31 +40,39 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
 /**
  * Retrieves the token pair requried to interact with a library's API.
  */
-export async function getLibraryTokenPair(
-  lib: string,
-  client: LibrariesSSMClient
-): Promise<LibraryTokenPair | null> {
+export async function getLibraryCredentials(
+  lib: string
+): Promise<{ keyPair: LibraryTokenPair; apiUsername: string } | null> {
   try {
-    const basePath = client.libTokenPairPath.endsWith("/")
-      ? client.libTokenPairPath
-      : `${client.libTokenPairPath}/`;
+    const SSMClient = await generateLibrariesSSMClient();
+    if (!SSMClient) {
+      console.error("Failed to generate SSMClient - Null value returned.");
+      throw new Error("Error generating SSMClient.");
+    }
+
+    const basePath = SSMClient.libTokenPairPath.endsWith("/")
+      ? SSMClient.libTokenPairPath
+      : `${SSMClient.libTokenPairPath}/`;
 
     // base path may contain non alphanumeric characters like single quotes, so we need to remove these
     // only alphanumberic characters and forward slashes are allowed in SSM parameter names
     // we should do this without using regex to avoid potential security issues
     // https://en.wikipedia.org/wiki/List_of_Unicode_characters
-    const cleaned = basePath.split("").filter((c) => {
-      const code = c.charCodeAt(0);
-      return (
-        (code >= 48 && code <= 57) ||
-        (code >= 65 && code <= 90) ||
-        (code >= 97 && code <= 122) ||
-        code === 47
-      );
-    }).join("");
-    
-    console.log("basePath: " + cleaned) // Leave this in for debugging purposes
-    const pairResponse = await client.ssm.send(
+    const cleaned = basePath
+      .split("")
+      .filter((c) => {
+        const code = c.charCodeAt(0);
+        return (
+          (code >= 48 && code <= 57) ||
+          (code >= 65 && code <= 90) ||
+          (code >= 97 && code <= 122) ||
+          code === 47
+        );
+      })
+      .join("");
+    console.log("basePath: " + cleaned); // Leave this in for debugging purposes
+
+    const pairResponse = await SSMClient.ssm.send(
       new GetParametersByPathCommand({
         Path: `${basePath}${lib}`,
         MaxResults: 10,
@@ -80,8 +81,8 @@ export async function getLibraryTokenPair(
       })
     );
 
-    console.log('SSM GetParametersByPathCommand response: ')
-    console.log(pairResponse.$metadata)
+    console.log("SSM GetParametersByPathCommand response: ");
+    console.log(pairResponse.$metadata);
 
     if (pairResponse.$metadata.httpStatusCode !== 200) {
       console.error(pairResponse.$metadata);
@@ -103,11 +104,14 @@ export async function getLibraryTokenPair(
       throw new Error("Error retrieving library token pair.");
     }
 
-    console.log('Library token pair retrieved')
+    console.log("Library token pair retrieved");
 
     return {
-      key: libKey.Value,
-      secret: libSec.Value,
+      keyPair: {
+        key: libKey.Value,
+        secret: libSec.Value,
+      },
+      apiUsername: SSMClient.apiUsername,
     };
   } catch (err) {
     debugError(err);
@@ -120,29 +124,21 @@ export async function getLibraryTokenPair(
  * including the API token.
  */
 export async function generateAPIRequestHeaders(
-  lib: string,
-  libClient?: LibrariesSSMClient
+  lib: string
 ): Promise<LibraryAPIRequestHeaders | null> {
   try {
-    const libsClient = libClient?.ssm
-      ? libClient
-      : await generateLibrariesSSMClient(); // generate a new client if one is not provided
-    if (!libsClient) {
-      console.error("Failed attempt to generate libraries client.")
-      throw new Error("Error generating libraries client.");
-    }
-    const keyPair = await getLibraryTokenPair(lib, libsClient);
-    if (!keyPair) {
-      console.log("Failed attempt to generate library token pair.")
+    const creds = await getLibraryCredentials(lib);
+    if (!creds || !creds.keyPair || !creds.apiUsername) {
+      console.log("Failed attempt to generate library token pair.");
       throw new Error("Error generating library token pair.");
     }
 
     const epoch = Math.floor(Date.now() / 1000);
-    const hmac = createHmac("sha256", keyPair.secret);
-    hmac.update(`${keyPair.key}${epoch}=${libsClient.apiUsername}`);
+    const hmac = createHmac("sha256", creds.keyPair.secret);
+    hmac.update(`${creds.keyPair.key}${epoch}=${creds.apiUsername}`);
     return {
-      "X-Deki-Token": `${keyPair.key}_${epoch}_=${
-        libsClient.apiUsername
+      "X-Deki-Token": `${creds.keyPair.key}_${epoch}_=${
+        creds.apiUsername
       }_${hmac.digest("hex")}`,
       "X-Requested-With": "XMLHttpRequest",
     };
