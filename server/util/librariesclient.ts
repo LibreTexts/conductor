@@ -14,8 +14,7 @@ import { libraryNameKeys, libraryNameKeysWDev } from "./librariesmap.js";
 
 export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient | null> {
   try {
-    const libTokenPairPath =
-      process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
+    const libTokenPairPath = (process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production").replace(/['"]/g, '');
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
     const ssm = new SSMClient({
@@ -44,35 +43,16 @@ export async function getLibraryCredentials(
   lib: string
 ): Promise<{ keyPair: LibraryTokenPair; apiUsername: string } | null> {
   try {
-    const SSMClient = await generateLibrariesSSMClient();
-    if (!SSMClient) {
+    const ssmClient = await generateLibrariesSSMClient();
+    if (!ssmClient) {
       console.error("Failed to generate SSMClient - Null value returned.");
       throw new Error("Error generating SSMClient.");
     }
 
-    const basePath = SSMClient.libTokenPairPath.endsWith("/")
-      ? SSMClient.libTokenPairPath
-      : `${SSMClient.libTokenPairPath}/`;
-
-    // base path may contain non alphanumeric characters like single quotes, so we need to remove these
-    // only alphanumberic characters and forward slashes are allowed in SSM parameter names
-    // we should do this without using regex to avoid potential security issues
-    // https://en.wikipedia.org/wiki/List_of_Unicode_characters
-    const cleaned = basePath
-      .split("")
-      .filter((c) => {
-        const code = c.charCodeAt(0);
-        return (
-          (code >= 48 && code <= 57) ||
-          (code >= 65 && code <= 90) ||
-          (code >= 97 && code <= 122) ||
-          code === 47
-        );
-      })
-      .join("");
-    console.log("basePath: " + cleaned); // Leave this in for debugging purposes
-
-    const pairResponse = await SSMClient.ssm.send(
+    const basePath = ssmClient.libTokenPairPath.endsWith("/")
+      ? ssmClient.libTokenPairPath
+      : `${ssmClient.libTokenPairPath}/`;
+    const pairResponse = await ssmClient.ssm.send(
       new GetParametersByPathCommand({
         Path: `${basePath}${lib}`,
         MaxResults: 10,
@@ -80,9 +60,6 @@ export async function getLibraryCredentials(
         WithDecryption: true,
       })
     );
-
-    console.log("SSM GetParametersByPathCommand response: ");
-    console.log(pairResponse.$metadata);
 
     if (pairResponse.$metadata.httpStatusCode !== 200) {
       console.error(pairResponse.$metadata);
@@ -104,14 +81,12 @@ export async function getLibraryCredentials(
       throw new Error("Error retrieving library token pair.");
     }
 
-    console.log("Library token pair retrieved");
-
     return {
       keyPair: {
         key: libKey.Value,
         secret: libSec.Value,
       },
-      apiUsername: SSMClient.apiUsername,
+      apiUsername: ssmClient.apiUsername,
     };
   } catch (err) {
     debugError(err);
