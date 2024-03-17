@@ -18,6 +18,10 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       process.env.AWS_SSM_LIB_TOKEN_PAIR_PATH || "/libkeys/production";
     const apiUsername = process.env.LIBRARIES_API_USERNAME || "LibreBot";
 
+    console.log('Generating Libraries SSM Client');
+    console.log('libTokenPairPath: ' + libTokenPairPath);
+    console.log('apiUsername: ' + apiUsername);
+
     const ssm = new SSMClient({
       credentials: {
         accessKeyId: process.env.AWS_SSM_ACCESS_KEY_ID || "unknown",
@@ -25,6 +29,9 @@ export async function generateLibrariesSSMClient(): Promise<LibrariesSSMClient |
       },
       region: process.env.AWS_SSM_REGION || "unknown",
     });
+
+    console.log('SSM Client generated with credentials:')
+    console.log(ssm.config.credentials)
 
     return {
       apiUsername,
@@ -73,6 +80,9 @@ export async function getLibraryTokenPair(
       })
     );
 
+    console.log('SSM GetParametersByPathCommand response: ')
+    console.log(pairResponse.$metadata)
+
     if (pairResponse.$metadata.httpStatusCode !== 200) {
       console.error(pairResponse.$metadata);
       throw new Error("Error retrieving library token pair.");
@@ -92,6 +102,8 @@ export async function getLibraryTokenPair(
       console.error("Key param not found in token pair retrieval. Lib: " + lib);
       throw new Error("Error retrieving library token pair.");
     }
+
+    console.log('Library token pair retrieved')
 
     return {
       key: libKey.Value,
@@ -116,10 +128,12 @@ export async function generateAPIRequestHeaders(
       ? libClient
       : await generateLibrariesSSMClient(); // generate a new client if one is not provided
     if (!libsClient) {
+      console.error("Failed attempt to generate libraries client.")
       throw new Error("Error generating libraries client.");
     }
     const keyPair = await getLibraryTokenPair(lib, libsClient);
     if (!keyPair) {
+      console.log("Failed attempt to generate library token pair.")
       throw new Error("Error generating library token pair.");
     }
 
