@@ -112,6 +112,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   }, []);
 
   const submitDisabled = useMemo(() => {
+    if (loading) return true;
     if ((!user || !user.uuid) && !challengePassed) {
       return true;
     }
