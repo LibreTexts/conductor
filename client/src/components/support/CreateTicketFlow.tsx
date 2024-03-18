@@ -4,11 +4,12 @@ import {
   Dropdown,
   Form,
   Icon,
+  Label,
   Message,
   TextArea,
 } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { CentralIdentityApp, SupportTicket } from "../../types";
 import { Controller, get, useForm } from "react-hook-form";
@@ -56,6 +57,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
   const [challengePassed, setChallengePassed] = useState(true);
+  const [confirmEmail, setConfirmEmail] = useState<string>("");
+  const [startedConfirming, setStartedConfirming] = useState(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -120,6 +123,10 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         !getValues("guest.email").trim() ||
         !getValues("guest.organization").trim()
       ) {
+        return true;
+      }
+
+      if (getValues("guest.email") !== confirmEmail) {
         return true;
       }
     }
@@ -271,29 +278,43 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     />
                   </div>
                 </div>
-                <div className="flex flex-col lg:flex-row w-full mt-4">
-                  <div className="w-full mr-8">
-                    <CtlTextInput
-                      control={control}
-                      name="guest.email"
-                      label="Email"
-                      placeholder="Enter your email"
-                      rules={required}
-                      required
-                      fluid
-                    />
-                  </div>
-                  <div className="w-full">
-                    <CtlTextInput
-                      control={control}
-                      name="guest.organization"
-                      label="Organization"
-                      placeholder="Enter your school or organization"
-                      rules={required}
-                      required
-                      fluid
-                    />
-                  </div>
+                <div className="w-full mt-4">
+                  <CtlTextInput
+                    control={control}
+                    name="guest.organization"
+                    label="Organization"
+                    placeholder="Enter your school or organization"
+                    rules={required}
+                    required
+                    fluid
+                  />
+                </div>
+                <div className="w-full mt-4">
+                  <CtlTextInput
+                    control={control}
+                    name="guest.email"
+                    label="Email"
+                    placeholder="Enter your email"
+                    rules={required}
+                    required
+                    fluid
+                  />
+                </div>
+                <div className="w-full mt-4">
+                  <Form.Input
+                    label="Confirm Email"
+                    placeholder="Confirm your email"
+                    value={confirmEmail}
+                    onChange={(e) => {
+                      setConfirmEmail(e.target.value);
+                      setStartedConfirming(true);
+                    }}
+                    required
+                  />
+                  {startedConfirming &&
+                    confirmEmail !== watch("guest.email") && (
+                      <p className="text-red-500">Emails do not match</p>
+                    )}
                 </div>
                 <Divider className="" />
               </div>
