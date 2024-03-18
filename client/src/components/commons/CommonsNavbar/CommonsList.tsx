@@ -1,6 +1,7 @@
-import { Dropdown, Icon, Menu } from "semantic-ui-react";
-import { useCallback, useEffect, useState } from "react";
+import { Dropdown, Icon, Menu, DropdownProps } from "semantic-ui-react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import axios from "axios";
+
 
 interface CommonsListProps {
   isMobile?: boolean;
@@ -11,6 +12,10 @@ const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
   const [campusCommons, setCampusCommons] = useState<
     { key: string; name: string; link: string }[]
   >([]);
+
+  const [mouseIndex,setMouseIndex] = useState(0);
+
+  const selectRef = useRef(null);
 
   /**
    * Retrieves a list of LibreGrid/Campus Commons instances from the server and saves it to state.
@@ -70,17 +75,49 @@ const CommonsList: React.FC<CommonsListProps> = ({ isMobile = false }) => {
       </Menu.Menu>
     );
   }
+
+
+
+
+  const handleKeyPress = (e:React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowDown') {
+      setMouseIndex((prevIndex) => Math.min(prevIndex + 1, itemsArr.length - 1));
+      const element = document.getElementById("active");
+      if (element) {
+        element?.scrollIntoView({
+          behavior: "auto",
+          block: "start"
+        });
+      }
+    } else if (e.key === 'ArrowUp') {
+      setMouseIndex((prevIndex) => Math.max(prevIndex - 1, 0));
+      const element = document.getElementById("active");
+      if (element) {
+        element?.scrollIntoView({
+          behavior: "auto",
+          block: "start"
+        });
+      }
+    } else if (e.key == "Enter"){
+      window.location.href = itemsArr[mouseIndex].props.href;
+    }
+  };
+
+
+
   return (
-    <Dropdown item text="Campus Commons" >
-      <Dropdown.Menu direction="left" className="commons-desktopnav-commonslist">
-        {itemsArr.map((item) => (
-          <Dropdown.Item {...item.props}>
+    <div onKeyDown={handleKeyPress} className = "flex flex-row items-center" >
+    <Dropdown item text="Campus Commons">
+      <Dropdown.Menu direction="left" className="commons-desktopnav-commonslist"  >
+        {itemsArr.map((item,index) => (
+          <Dropdown.Item {...item.props} selected = {index==mouseIndex}  id={index==mouseIndex?"active":"inactive"}  >
             <Icon name="university" />
             {item.name}
           </Dropdown.Item>
         ))}
       </Dropdown.Menu>
     </Dropdown>
+    </div>
   );
 };
 
