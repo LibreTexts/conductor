@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TabProps, Checkbox } from "semantic-ui-react";
+import { TabProps, Checkbox, Icon, Popup } from "semantic-ui-react";
 import {
   AssetFilters,
   AssetFiltersAction,
@@ -139,25 +139,58 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
         <div className="flex flex-row px-0.5 items-center">
           <RenderTabLabels />
         </div>
-        <div className="flex flex-row items-center mr-1 mb-1">
-          <button
-            onClick={() => {
-              jumpToBottomClicked ? window.location.reload() : jumpToBottom();
-            }}
-            className="bg-slate-100 text-black mr-4 border border-slate-300 rounded-md px-2 py-1 shadow-sm hover:shadow-md"
-          >
-            {jumpToBottomClicked
-              ? "Refresh Page to Continue Browsing"
-              : "Jump to Bottom"}
-          </button>
-          <label className="font-semibold mr-2" htmlFor="itemizedModeCheckbox">
-            Itemized Mode
-          </label>
-          <Checkbox
-            id="itemizedModeCheckbox"
-            toggle
-            checked={itemizedMode}
-            onChange={() => setItemizedMode(!itemizedMode)}
+        <div className="flex flex-row items-center mb-1">
+          <Popup
+            trigger={
+              <button
+                onClick={() => {
+                  jumpToBottomClicked
+                    ? window.location.reload()
+                    : jumpToBottom();
+                }}
+                className="bg-slate-100 text-black border border-slate-300 rounded-md mr-2 !pl-1.5 p-1 shadow-sm hover:shadow-md"
+                aria-label={
+                  jumpToBottomClicked
+                    ? "Refresh to continue browsing"
+                    : "Jump to bottom"
+                }
+              >
+                {jumpToBottomClicked ? (
+                  <Icon name="refresh" />
+                ) : (
+                  <Icon name="arrow down" />
+                )}
+              </button>
+            }
+            content={
+              jumpToBottomClicked
+                ? "Refresh to continue browsing"
+                : "Jump to bottom"
+            }
+          />
+          <Popup
+            trigger={
+              <button
+                onClick={() => {
+                  setItemizedMode(!itemizedMode);
+                }}
+                className="bg-slate-100 text-black border border-slate-300 rounded-md !pl-1.5 p-1 shadow-sm hover:shadow-md"
+                aria-label={
+                  itemizedMode
+                    ? "Switch to visual mode"
+                    : "Switch to itemized mode"
+                }
+              >
+                {itemizedMode ? (
+                  <Icon name="grid layout" />
+                ) : (
+                  <Icon name="list layout" />
+                )}
+              </button>
+            }
+            content={
+              itemizedMode ? "Switch to visual mode" : "Switch to itemized mode"
+            }
           />
         </div>
       </div>
