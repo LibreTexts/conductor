@@ -3,9 +3,11 @@ import { ProjectFileWProjectData } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import {
+  downloadFile,
   getFileTypeIcon,
   getPrettyAuthorsList,
 } from "../../../../utils/assetHelpers";
+import { useState } from "react";
 
 interface FileCardContentProps extends CardContentProps {
   file: ProjectFileWProjectData<"title" | "thumbnail">;
@@ -16,6 +18,25 @@ function handleOpenProject(projectID: string) {
 }
 
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
+  const [loading, setLoading] = useState(false);
+
+  async function handleFileDownload(
+    file: ProjectFileWProjectData<"title" | "thumbnail">
+  ) {
+    let success = false;
+    try {
+      setLoading(true);
+      success = await downloadFile(file.projectID, file.fileID);
+    } catch (err) {
+      if (!success) {
+        console.error(err);
+        //handleGlobalError("Unable to download file. Please try again later.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {file.projectInfo.thumbnail ? (
@@ -34,7 +55,11 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
         </div>
       )}
-      <Card.Header as="h3" className="commons-content-card-header !mt-1 !mb-1">
+      <Card.Header
+        as="button"
+        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer"
+        onClick={() => handleFileDownload(file)}
+      >
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
@@ -73,11 +98,15 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         <div className="max-h-14 overflow-hidden mt-1">
           <RenderAssetTags
             file={file}
-            max={3}
+            max={4}
             showNoTagsMessage={false}
             size="small"
             basic={true}
+            spreadArray
           />
+        </div>
+        <div className="absolute bottom-0 right-0 pb-3 pr-2">
+          {loading && <Icon loading name="spinner" size="large" />}
         </div>
       </Card.Description>
     </Card.Content>
