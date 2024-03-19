@@ -2,6 +2,7 @@ import { Label, Popup } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
+import { spread } from "axios";
 
 const RenderAssetTags: React.FC<{
   file: ProjectFile;
@@ -10,6 +11,7 @@ const RenderAssetTags: React.FC<{
   size?: "small" | "large";
   basic?: boolean;
   popupDisabled?: boolean;
+  spreadArray?: boolean;
 }> = ({
   file,
   max = 5,
@@ -17,6 +19,7 @@ const RenderAssetTags: React.FC<{
   size = "large",
   basic = false,
   popupDisabled = false,
+  spreadArray = false,
 }) => {
   const sortedTags = file.tags?.sort((a, b) => {
     if (isAssetTagKeyObject(a.key) && isAssetTagKeyObject(b.key)) {
@@ -55,6 +58,59 @@ const RenderAssetTags: React.FC<{
     return "grey";
   }
 
+  function getRemainingCount(tags: string[] | AssetTag[], maxLen: number) {
+    if (!tags) return 0;
+    return tags?.length && tags?.length > maxLen ? tags?.length - maxLen : 0;
+  }
+
+  const getFlattenedTags = (tags: AssetTag[]) => {
+    return tags.reduce((acc, tag) => {
+      if (!tag.value || tag.value === "Unknown") return acc;
+      if (Array.isArray(tag.value)) {
+        if (tag.value.length === 0) return acc;
+        return [...acc, ...tag.value];
+      }
+      return [...acc, tag.value?.toString() ?? "Unknown"];
+    }, [] as string[]);
+  };
+
+  const RenderTag = ({
+    color,
+    size,
+    value,
+  }: {
+    color: string;
+    size: "small" | "large";
+    value: string;
+  }) => {
+    return (
+      <Label
+        style={{
+          backgroundColor: color,
+          borderColor: color,
+          color: basic ? "black" : "white",
+        }}
+        size={size === "small" ? "mini" : "tiny"}
+        key={crypto.randomUUID()}
+      >
+        {value}
+      </Label>
+    );
+  };
+
+  const RenderRemainingLabel = (
+    tags: string[] | AssetTag[],
+    maxLen: number
+  ) => {
+    const remaining = getRemainingCount(tags, maxLen);
+    if (remaining === 0) return;
+    return (
+      <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
+        +{remaining} more
+      </Label>
+    );
+  };
+
   return (
     <Popup
       disabled={popupDisabled}
@@ -64,32 +120,35 @@ const RenderAssetTags: React.FC<{
             (sortedTags.length === 0 && showNoTagsMessage && (
               <span className="muted-text italic">No associated tags</span>
             ))}
-          {sortedTags?.slice(0, max).map((tag) => {
-            const val = getLabelValue(tag, !basic);
-            if (!val || val === "Unknown") return <></>;
-            const color = getLabelColor(tag, basic).toString();
-            return (
-              <Label
-                style={{
-                  backgroundColor: color,
-                  borderColor: color,
-                  color: basic ? "black" : "white",
-                }}
-                size={size === "small" ? "mini" : "tiny"}
-                key={tag.uuid}
-              >
-                {val}
-              </Label>
-            );
-          })}
-          {sortedTags && sortedTags?.length > max && (
-            <Label
-              color="grey"
-              size={size === "small" ? "mini" : "tiny"}
-            >
-              +{sortedTags?.length - max} more
-            </Label>
-          )}
+          {sortedTags &&
+            spreadArray &&
+            getFlattenedTags(sortedTags)
+              .slice(0, max)
+              .map((value, index) => {
+                return (
+                  <RenderTag color="" key={index} size={size} value={value} />
+                );
+              })}
+          {sortedTags &&
+            !spreadArray &&
+            sortedTags?.slice(0, max).map((tag) => {
+              const val = getLabelValue(tag, !basic);
+              if (!val || val === "Unknown") return <></>;
+              const color = getLabelColor(tag, basic).toString();
+              return (
+                <RenderTag
+                  key={tag.uuid}
+                  color={color}
+                  size={size}
+                  value={val}
+                />
+              );
+            })}
+          {sortedTags &&
+            RenderRemainingLabel(
+              spreadArray ? getFlattenedTags(sortedTags) : sortedTags,
+              max
+            )}
         </div>
       }
       content={sortedTags?.map((tag) => {
@@ -100,16 +159,7 @@ const RenderAssetTags: React.FC<{
           <div key={tag.uuid} className="">
             <span className="font-semibold">{title}</span>:{" "}
             {text ? (
-              <Label
-                style={{
-                  backgroundColor: color,
-                  borderColor: color,
-                  color: "white",
-                }}
-                size="mini"
-              >
-                {text}
-              </Label>
+              <RenderTag color={color} size="small" value={text} />
             ) : (
               "No value provided"
             )}

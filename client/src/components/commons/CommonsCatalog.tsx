@@ -1,5 +1,5 @@
 import "./Commons.css";
-import { Grid, Segment, Header, Form, Icon } from "semantic-ui-react";
+import { Grid, Segment, Header, Form, Icon, Button } from "semantic-ui-react";
 import { useEffect, useState, useRef, useReducer } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
@@ -326,10 +326,9 @@ const CommonsCatalog = () => {
     try {
       setAssetsLoading(true);
 
-      const customFiltersApplied =
-        Object.entries(assetFilters ?? {}).filter(
-          ([key, value]) => !["license", "org", "fileType"].includes(key)
-        ).map(([key, value]) => ({ key, value }));
+      const customFiltersApplied = Object.entries(assetFilters ?? {})
+        .filter(([key, value]) => !["license", "org", "fileType"].includes(key))
+        .map(([key, value]) => ({ key, value }));
 
       const res = await api.assetsSearch({
         ...(query && { searchQuery: query }),
@@ -547,10 +546,10 @@ const CommonsCatalog = () => {
                 >
                   <div>
                     <Form.Input
-                      icon="search"
                       placeholder="Search..."
-                      className="color-libreblue !mb-0"
+                      className="!mb-0 !border-r-none"
                       id="commons-search-input"
+                      icon="search"
                       iconPosition="left"
                       onChange={(e) => {
                         setSearchString(e.target.value);
@@ -564,17 +563,34 @@ const CommonsCatalog = () => {
                       fluid
                       value={searchString}
                       aria-label="Search query"
-                      action={{
-                        content: "Search Catalog",
-                        color: "blue",
-                        onClick: () => updateSearchParam(searchString),
-                      }}
                       onBlur={() => {
                         setTimeout(() => {
                           setShowSuggestions(false); // Delay to allow suggestion click event to fully run
                         }, 200);
                       }}
-                    />
+                      action
+                    >
+                      <Icon name="search" />
+                      <input />
+                      {(searchString !== "" ||
+                        Object.keys(assetsState).length !== 0 ||
+                        Object.keys(booksState).length !== 0) && (
+                        <button
+                          onClick={handleResetSearch}
+                          className="!-mt-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.5px] !border-gray-2ks00"
+                        >
+                          <Icon name="close" color="grey" />
+                        </button>
+                      )}
+                      <Button
+                        color="blue"
+                        onClick={() => updateSearchParam(searchString)}
+                        className="!m-0"
+                      >
+                        <Icon name="search" />
+                        Search Catalog
+                      </Button>
+                    </Form.Input>
                     {showSuggestions && searchSuggestions.length > 0 && (
                       <div className="py-2 border rounded-md shadow-md">
                         {searchSuggestions.map((suggestion) => {
@@ -596,18 +612,6 @@ const CommonsCatalog = () => {
                     )}
                   </div>
                 </Form>
-              </div>
-              <div className="mb-12">
-                {(searchString !== "" ||
-                  Object.keys(assetsState).length !== 0 ||
-                  Object.keys(booksState).length !== 0) && (
-                  <p
-                    className="italic font-semibold cursor-pointer underline text-center mt-2"
-                    onClick={handleResetSearch}
-                  >
-                    Reset Search
-                  </p>
-                )}
               </div>
               <CatalogTabs
                 assetFilters={assetsState}
