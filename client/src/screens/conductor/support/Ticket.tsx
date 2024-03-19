@@ -75,7 +75,7 @@ const SupportTicketView = () => {
     onSuccess: () => {
       window.location.href = "/support/dashboard";
       queryClient.invalidateQueries(["ticket"]);
-      queryClient.invalidateQueries(["supportMetrics"])
+      queryClient.invalidateQueries(["supportMetrics"]);
     },
   });
 
@@ -89,6 +89,7 @@ const SupportTicketView = () => {
           ...(accessKey && { accessKey }),
         },
       });
+
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -96,7 +97,16 @@ const SupportTicketView = () => {
         throw new Error("Invalid response from server");
       }
       return res.data.ticket;
-    } catch (err) {
+    } catch (err: any) {
+      // Redirect to login if not authenticated or guest access key is invalid
+      if (err.response?.status === 401) {
+        const redirectURI = encodeURIComponent(
+          window.location.pathname + window.location.search
+        );
+        const params = new URLSearchParams({ redirectURI });
+        window.location.href = `/login?${params.toString()}`;
+        return;
+      }
       handleGlobalError(err);
     }
   }
