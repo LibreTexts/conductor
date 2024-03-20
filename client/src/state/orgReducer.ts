@@ -35,7 +35,8 @@ const orgInitialState = <Organization>{
         enabled: true,
         order: 3
       }
-    } as CommonsModuleSettings
+    } as CommonsModuleSettings,
+    showCollections: true
 };
 
 export default function orgReducer(
