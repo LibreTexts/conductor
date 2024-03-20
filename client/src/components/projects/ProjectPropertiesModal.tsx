@@ -33,6 +33,8 @@ import axios from "axios";
 import useDebounce from "../../hooks/useDebounce";
 import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import { useTypedSelector } from "../../state/hooks";
+import ProjectModulesControl from "./ProjectModulesControl";
+import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -92,6 +94,20 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         sourceURL: "",
         modifiedFromSource: false,
         additionalTerms: "",
+      },
+      projectModules: {
+        discussion: {
+          enabled: true,
+          order: 1,
+        },
+        files: {
+          enabled: true,
+          order: 2,
+        },
+        tasks: {
+          enabled: true,
+          order: 3,
+        },
       },
     },
   });
@@ -168,7 +184,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      reset(res.data.project);
+      reset({
+        ...res.data.project,
+        projectModules: res.data.project.projectModules ?? DEFAULT_PROJECT_MODULES
+      });
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -717,7 +736,19 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             </em>
           </p>
           <Divider />
-          <Header as="h3">Homework and Assessments</Header>
+          <Header as="h3" className="!mb-0">Project Modules</Header>
+          <div className="mt-2">
+            <p className="mb-2">
+              Enable, disable, or re-order the display of modules in your project's page.
+            </p>
+            <ProjectModulesControl
+              getValues={getValues}
+              setValue={setValue}
+              watch={watch}
+            />
+          </div>
+          <Divider />
+          <Header as="h3" className="!mb-0">Homework and Assessments</Header>
           <p>
             <em>
               {`Use this section to link your project's Commons page (if applicable) to an `}
@@ -759,7 +790,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </Form.Field>
           <Divider />
-          <Header as="h3">Source Properties</Header>
+          <Header as="h3" className="!mb-0">Source Properties</Header>
           <p>
             <em>
               Use this section if your project pertains to a particular resource

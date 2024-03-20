@@ -36,6 +36,9 @@ import {
   ProjectClassification,
   ProjectStatus,
   CIDDescriptor,
+  ProjectModule,
+  ProjectModuleConfig,
+  ProjectModuleSettings,
 } from "./Project";
 import { User, Account, AuthorizedApp } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
@@ -180,6 +183,9 @@ export type {
   CatalogLocation,
   PeerReview,
   PeerReviewRubric,
+  ProjectModule,
+  ProjectModuleConfig,
+  ProjectModuleSettings,
   BaseDocument,
   LicenseReport,
   License,
