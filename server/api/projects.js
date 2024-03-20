@@ -411,6 +411,14 @@ async function getProject(req, res) {
       projResult.tags = [];
     }
     delete projResult.tagResults; // prune lookup results
+
+    if(projResult?.projectModules){
+      // Remove _id and __v fields from projectModules subdocument
+      // @ts-ignore
+      delete projResult.projectModules._id;
+      // @ts-ignore
+      delete projResult.projectModules.__v;
+    }
     
     return res.send({
       err: false,
@@ -739,6 +747,9 @@ async function updateProject(req, res) {
 
     if(req.body.hasOwnProperty('defaultFileLicense')) {
       updateObj.defaultFileLicense = req.body.defaultFileLicense;
+    }
+    if(req.body.hasOwnProperty('projectModules')){
+      updateObj.projectModules = req.body.projectModules;
     }
     
     if (Object.keys(updateObj).length > 0) {
@@ -3170,6 +3181,33 @@ async function validateCIDDescriptors(descriptors) {
   return Promise.reject();
 }
 
+function validateProjectModules(projectModules) {
+  const validModules = ["discussion", "files", "tasks"];
+  if (typeof projectModules !== 'object') {
+    return false;
+  }
+  for (const module in projectModules) {
+    if(module === "_id" || module === "__v"){
+      // ignore these fields (mongodb adds them because projectModules is technically a subdocument of the Organization model)
+      continue;
+    }
+
+    if (!validModules.includes(module)) {
+      return false;
+    }
+    if (typeof projectModules[module] !== 'object') {
+      return false;
+    }
+    if (typeof projectModules[module].enabled !== 'boolean') {
+      return false;
+    }
+    if (typeof projectModules[module].order !== 'number') {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
@@ -3211,6 +3249,7 @@ const validate = (method) => {
           body('cidDescriptors', conductorErrors.err1).optional().custom(validateCIDDescriptors),
           body('associatedOrgs', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
+          body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules)
       ]
     case 'getProject':
       return [

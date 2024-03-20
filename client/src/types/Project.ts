@@ -94,6 +94,19 @@ export enum ProjectClassification {
   MISCELLANEOUS = "miscellaneous",
 }
 
+export type ProjectModule = 'discussion' | 'files' | 'tasks';
+
+export type ProjectModuleConfig = {
+  enabled: boolean;
+  order: number;
+};
+
+export type ProjectModuleSettings = {
+  discussion: ProjectModuleConfig;
+  files: ProjectModuleConfig;
+  tasks: ProjectModuleConfig;
+};
+
 export type Project = {
   orgID: string;
   projectID: string;
@@ -135,6 +148,7 @@ export type Project = {
   defaultFileLicense?: ProjectFileLicense;
   didCreateWorkbench?: boolean;
   thumbnail?: string;
+  projectModules?: ProjectModuleSettings;
   createdAt: string;
   updatedAt?: string;
 };
