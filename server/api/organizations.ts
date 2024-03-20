@@ -232,6 +232,7 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('defaultAssetTagFrameworkUUID');
     addToUpdateIfPresent('customOrgList');
     addToUpdateIfPresent('commonsModules');
+    addToUpdateIfPresent('showCollections');
 
     if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
       // Reset label to 'Collections' if empty string was passed 
@@ -434,6 +435,7 @@ function validate(method: string) {
         body('defaultAssetTagFrameworkUUID', conductorErrors.err1).optional({ checkFalsy: true }).isUUID(),
         body('customOrgList', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
         body('commonsModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateCommonsModules),
+        body('showCollections', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
       ];
     case 'updateBrandingImageAsset':
       return [

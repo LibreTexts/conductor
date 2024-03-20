@@ -35,27 +35,31 @@ const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
    * @returns {object[]} An array of objects containing identifier keys and corresponding UI text.
    */
   const generateMenuOptions = () => {
+    const opts: { key: string; text: string }[] = [];
+
     let collectionsText = org.collectionsDisplayLabel ?? 'Collections';
     const catalog = { key: "catalog", text: "Catalog" };
+    opts.push(catalog);
+
     const collections = { key: "collections", text: `${collectionsText}` };
+    if(org.showCollections === undefined || org.showCollections) { // Show by default if option not explicitly set to false
+      opts.push(collections);
+    }
+
     if (org.orgID === "libretexts") {
-      return [
-        catalog,
-        collections,
+      opts.push(...[
         { key: "homework", text: "Homework" },
         { key: "underdevelopment", text: "Under Development" },
-      ];
+      ])
     }
-    return [catalog, collections];
+
+    return opts;
   };
 
-  /**
-   * Renders the available menu options for use in the menu.
-   *
-   * @returns {JSX.Element}} The rendered menu options.
-   */
+  const options = generateMenuOptions();
+  if(options.length <= 1) return <></>; // Don't render if there's only one option
+
   const MenuOptions = (): JSX.Element => {
-    const options = generateMenuOptions();
     return (
       <>
         {options.map((item) => (
