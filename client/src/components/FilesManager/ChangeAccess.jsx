@@ -104,7 +104,7 @@ const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => 
           {`You're about to change the access setting on the following file(s). `}
           <strong>Changing access to a folder will also change access to all of its files and subdirectories.</strong>
         </p>
-        <ul>
+        <ul className='my-8'>
           {files.map((obj) => (
             <li key={obj.fileID}>
               {obj.storageType === 'folder' ? (
