@@ -141,7 +141,7 @@ const MoveFiles: React.FC<MoveFilesProps> = ({
         {!loading ? (
           <>
             <p>Select a new location for the following files:</p>
-            <ul>
+            <ul className="my-8">
               {files.map((obj) => (
                 <li key={obj.fileID}>
                   {obj.storageType === "folder" ? (

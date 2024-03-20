@@ -115,7 +115,7 @@ const AddFolder = ({
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAddFolder} color="olive" loading={loading}>
+        <Button onClick={handleAddFolder} color="green" loading={loading}>
           <Icon name="add" />
           Add Folder
         </Button>
