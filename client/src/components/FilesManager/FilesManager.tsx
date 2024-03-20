@@ -114,7 +114,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   /**
    * Load the Files list from the server, prepare it for the UI, then save it to state.
    */
-  const getFiles = useCallback(async () => {
+  const getFiles = async () => {
     setFilesLoading(true);
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
@@ -137,15 +137,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       handleGlobalError(e);
     }
     setFilesLoading(false);
-  }, [
-    projectID,
-    currDirectory,
-    setFilesLoading,
-    setFiles,
-    setCurrDirPath,
-    handleGlobalError,
-    setAllItemsChecked,
-  ]);
+  };
 
   /**
    * Load the Files list on open.
