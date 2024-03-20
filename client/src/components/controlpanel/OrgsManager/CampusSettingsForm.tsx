@@ -18,7 +18,7 @@ import {
   Input,
 } from "semantic-ui-react";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
+import { DEFAULT_COMMONS_MODULES, sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
 import { useForm } from "react-hook-form";
 import useGlobalError from "../../error/ErrorHooks";
 import { useDispatch } from "react-redux";
@@ -153,7 +153,10 @@ const CampusSettingsForm = forwardRef(
           throw new Error(res.data.errMsg);
         }
 
-        resetForm(res.data);
+        resetForm({
+          ...res.data,
+          commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES
+        });
         // Make local copies of matching tags with unique keys
         setMatchingTags(
           res.data.catalogMatchingTags?.map((item: string) => ({
