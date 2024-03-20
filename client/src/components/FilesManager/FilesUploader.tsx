@@ -12,7 +12,6 @@ import {
 import ProgressBar from "../ProgressBar";
 import useGlobalError from "../error/ErrorHooks";
 import FileUploader from "../FileUploader";
-import styles from "./FilesManager.module.css";
 import { z } from "zod";
 import api from "../../api";
 import { useTypedSelector } from "../../state/hooks";
@@ -129,10 +128,10 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         }
       }
 
-      if(mode === "replace"){
+      if (mode === "replace") {
         formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
       }
-      
+
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
@@ -306,7 +305,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             label={
               <label
                 htmlFor="upload-progress"
-                className={styles.upload_progress_label}
+                className="block text-center mb-4 font-semibold"
               >
                 {!finishedFileTransfer ? "Uploading..." : "Finishing..."}
               </label>
