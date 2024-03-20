@@ -11,6 +11,9 @@ import {
   Header,
   SegmentProps,
   SemanticWIDTHS,
+  Popup,
+  Dropdown,
+  ButtonOr,
 } from "semantic-ui-react";
 const AddFolder = React.lazy(() => import("./AddFolder"));
 const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
@@ -40,6 +43,7 @@ import api from "../../api";
 import { saveAs } from "file-saver";
 import { useTypedSelector } from "../../state/hooks";
 import { base64ToBlob } from "../../utils/misc";
+import { Link } from "react-router-dom";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -69,11 +73,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   }[] = [
     { key: "name", text: "Name", width: 5 },
     { key: "access", text: "Access", width: 2 },
-    { key: "license", text: "License", width: 2 },
-    { key: "size", text: "Size", width: 1 },
-    { key: "uploaded", text: "Created/Uploaded", width: 3 },
-    { key: "tags", text: "Tags", width: 6 },
-    { key: "download", text: "", width: 3, collapsing: true },
+    // { key: "license", text: "License", width: 2 },
+    // { key: "size", text: "Size", width: 1 },
+    // { key: "uploaded", text: "Created/Uploaded", width: 3 },
+    { key: "tags", text: "Tags", width: 10 },
+    { key: "actions", text: "", width: 1, collapsing: true },
   ];
 
   // Global Error Handling
@@ -287,8 +291,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    * Gathers the Files to be moved, enters them into state,
    * and opens the Move Files tool.
    */
-  function handleMoveFiles() {
-    const toMove = files.filter((obj) => obj.checked);
+  function handleMoveFiles(toMove: FileEntry[]) {
     if (toMove.length > 0) {
       setMoveFiles(toMove);
       setShowMove(true);
@@ -315,8 +318,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    * Gathers the Files to be modified, enters them into state,
    * and opens the Change Access tool.
    */
-  function handleChangeAccess() {
-    const toChange = files.filter((obj) => obj.checked);
+  function handleChangeAccess(toChange: FileEntry[]) {
     if (toChange.length > 0) {
       setAccessFiles(toChange);
       setShowChangeAccess(true);
@@ -344,8 +346,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    * Gathers the Files to be deleted, enters them into state,
    * and opens the Delete Files tool.
    */
-  function handleDeleteFiles() {
-    const toDelete = files.filter((obj) => obj.checked);
+  function handleDeleteFiles(toDelete: FileEntry[]) {
     if (toDelete.length > 0) {
       setDeleteFiles(toDelete);
       setShowDelete(true);
@@ -471,7 +472,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
           Hide
         </Button>
       </Header>
-      <Segment.Group size="large" raised className="mb-4p">
+      <Segment.Group size="large" raised className="mb-4">
         {canViewDetails && (
           <Segment>
             <p style={{ fontSize: "0.9em" }} className="mb-4">
@@ -479,69 +480,86 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               organize them. Files with 'public' access will be visible to the
               public on Commons via the resource's catalog entry.
             </p>
-            <Button.Group fluid widths="6">
+            <Button.Group
+              fluid
+              widths="6"
+              className={itemsChecked <= 1 ? "max-w-[34rem]" : ""}
+            >
               <Button color="green" onClick={handleShowUploader}>
                 <Icon name="upload" />
                 Upload
               </Button>
               <Button
-                color="blue"
-                onClick={handleDownloadRequest}
-                disabled={
-                  itemsChecked < 1 ||
-                  !checkProjectMemberPermission ||
-                  downloadLoading
-                }
+                color="green"
+                className="!bg-green-600"
+                onClick={handleShowAddFolder}
               >
-                {!downloadLoading && (
-                  <>
-                    <Icon name="download" />
-                    Download {itemsChecked > 1 ? "(ZIP)" : ""}
-                  </>
-                )}
-                {downloadLoading && (
-                  <>
-                    <Icon name="spinner" loading />
-                    This may take a moment...
-                  </>
-                )}
-              </Button>
-              <Button color="olive" onClick={handleShowAddFolder}>
                 <Icon name="add" />
                 New Folder
               </Button>
-              <Button
-                color="teal"
-                disabled={itemsChecked < 1}
-                onClick={handleMoveFiles}
-              >
-                <Icon name="move" />
-                Move
-              </Button>
-              <Button
-                color="yellow"
-                disabled={itemsChecked < 1 || !checkProjectMemberPermission}
-                onClick={handleChangeAccess}
-              >
-                <Icon name="lock" />
-                Change Access
-              </Button>
-              <Button
-                color="red"
-                disabled={itemsChecked < 1}
-                onClick={handleDeleteFiles}
-              >
-                <Icon name="trash" />
-                Delete
-              </Button>
+              {itemsChecked > 1 && (
+                <>
+                  <Button
+                    color="blue"
+                    onClick={handleDownloadRequest}
+                    disabled={!checkProjectMemberPermission || downloadLoading}
+                  >
+                    {!downloadLoading && (
+                      <>
+                        <Icon name="download" />
+                        Download (ZIP)
+                      </>
+                    )}
+                    {downloadLoading && (
+                      <>
+                        <Icon name="spinner" loading />
+                        This may take a moment...
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    color="teal"
+                    disabled={itemsChecked < 1}
+                    onClick={() => {
+                      handleMoveFiles(files.filter((obj) => obj.checked));
+                    }}
+                  >
+                    <Icon name="move" />
+                    Move
+                  </Button>
+                  <Button
+                    color="yellow"
+                    disabled={itemsChecked < 1 || !checkProjectMemberPermission}
+                    onClick={() => {
+                      handleChangeAccess(files.filter((obj) => obj.checked));
+                    }}
+                  >
+                    <Icon name="lock" />
+                    Change Access
+                  </Button>
+                  <Button
+                    color="red"
+                    disabled={itemsChecked < 1}
+                    onClick={() => {
+                      handleDeleteFiles(files.filter((obj) => obj.checked));
+                    }}
+                  >
+                    <Icon name="trash" />
+                    Delete
+                  </Button>
+                </>
+              )}
             </Button.Group>
           </Segment>
         )}
         {!filesLoading ? (
           <>
-            <Segment attached="top">
-              <DirectoryBreadcrumbs />
-            </Segment>
+            {currDirectory !== "" && (
+              <Segment attached="top">
+                <DirectoryBreadcrumbs />
+              </Segment>
+            )}
             <Table basic attached="bottom">
               <Table.Header>
                 <Table.Row>
@@ -584,34 +602,79 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       )}
                       <Table.Cell>
                         <div className={styles.namedescrip_cell}>
-                          <div>
-                            <div className={item.description ? "mb-05e" : ""}>
-                              {item.storageType === "folder" ? (
-                                <Icon name="folder outline" />
-                              ) : (
-                                <FileIcon filename={item.name} />
-                              )}
-                              {item.storageType === "folder" ? (
-                                <span
-                                  className={`text-link ${styles.namedescrip_title}`}
-                                  onClick={() =>
-                                    handleDirectoryClick(item.fileID)
-                                  }
-                                >
-                                  {item.name}
-                                </span>
-                              ) : (
-                                <a
-                                  onClick={() =>
-                                    handleDownloadFile(projectID, item.fileID)
-                                  }
-                                  className={
-                                    styles.namedescrip_title + " cursor-pointer"
-                                  }
-                                >
-                                  {item.name}
-                                </a>
-                              )}
+                          <div className="w-full">
+                            <div
+                              className={`flex flex-row justify-between ${
+                                item.description ? "mb-05e" : ""
+                              }`}
+                            >
+                              <div>
+                                {item.storageType === "folder" ? (
+                                  <Icon name="folder outline" />
+                                ) : (
+                                  <FileIcon filename={item.name} />
+                                )}
+                                {item.storageType === "folder" ? (
+                                  <span
+                                    className={`text-link ${styles.namedescrip_title}`}
+                                    onClick={() =>
+                                      handleDirectoryClick(item.fileID)
+                                    }
+                                  >
+                                    {item.name}
+                                  </span>
+                                ) : (
+                                  <a
+                                    onClick={() =>
+                                      handleDownloadFile(projectID, item.fileID)
+                                    }
+                                    className={
+                                      styles.namedescrip_title +
+                                      " cursor-pointer"
+                                    }
+                                  >
+                                    {item.name}
+                                  </a>
+                                )}
+                              </div>
+                              <Popup
+                                content={
+                                  <div>
+                                    <p>
+                                      <span className="font-semibold">
+                                        License:
+                                      </span>{" "}
+                                      {getFilesLicenseText(item.license)}
+                                    </p>
+                                    {item.storageType === "file" && (
+                                      <p>
+                                        <span className="font-semibold">
+                                          Size:
+                                        </span>{" "}
+                                        {fileSizePresentable(item.size)}
+                                      </p>
+                                    )}
+                                    {item.createdDate && (
+                                      <p>
+                                        <span className="font-semibold">
+                                          Created:
+                                        </span>{" "}
+                                        {getPrettyCreatedDate(item.createdDate)}{" "}
+                                        {item.uploader && (
+                                          <span>
+                                            {" "}
+                                            by{" "}
+                                            {getPrettyUploader(item.uploader)}
+                                          </span>
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                }
+                                trigger={
+                                  <Icon name="info circle" className="ml-1e" />
+                                }
+                              />
                             </div>
                             {item.description && (
                               <span className="muted-text ml-1e">
@@ -621,47 +684,55 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                           </div>
                         </div>
                       </Table.Cell>
-                      <Table.Cell>{getFilesAccessText(item.access)}</Table.Cell>
                       <Table.Cell>
-                        {getFilesLicenseText(item.license)}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {item.storageType === "file"
-                          ? fileSizePresentable(item.size)
-                          : "N/A"}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {item.createdDate && (
-                          <span>{getPrettyCreatedDate(item.createdDate)}</span>
-                        )}
-                        {item.uploader && (
-                          <span> by {getPrettyUploader(item.uploader)}</span>
-                        )}
+                        <button
+                          className="hover:underline text-blue-600"
+                          onClick={() => handleChangeAccess([item])}
+                        >
+                          {getFilesAccessText(item.access)}
+                        </button>
                       </Table.Cell>
                       <Table.Cell>
                         <RenderAssetTags file={item} popupDisabled />
                       </Table.Cell>
-                      <Table.Cell className="flex flex-row justify-end">
-                        {canViewDetails && (
-                          <Button
-                            icon="edit"
-                            size="small"
-                            title="Edit name or description"
-                            onClick={() => handleEditFile(item.fileID)}
-                          />
-                        )}
-                        {item.storageType === "file" && (
-                          <Button
-                            icon
-                            size="small"
-                            title="Download file (opens in new tab)"
-                            onClick={() =>
-                              handleDownloadFile(projectID, item.fileID)
-                            }
-                          >
-                            <Icon name="download" />
-                          </Button>
-                        )}
+                      <Table.Cell>
+                        <Dropdown
+                          icon
+                          trigger={
+                            <Icon name="ellipsis vertical" size="large" />
+                          }
+                        >
+                          <Dropdown.Menu>
+                            {canViewDetails && (
+                              <>
+                                <Dropdown.Item
+                                  icon="edit"
+                                  text="Edit"
+                                  onClick={() => handleEditFile(item.fileID)}
+                                />
+                                <Dropdown.Item
+                                  icon="move"
+                                  text="Move"
+                                  onClick={() => handleMoveFiles([item])}
+                                />
+                                <Dropdown.Item
+                                  icon="trash"
+                                  text="Delete"
+                                  onClick={() => handleDeleteFiles([item])}
+                                />
+                              </>
+                            )}
+                            {item.storageType === "file" && (
+                              <Dropdown.Item
+                                icon="download"
+                                text="Download"
+                                onClick={() =>
+                                  handleDownloadFile(projectID, item.fileID)
+                                }
+                              />
+                            )}
+                          </Dropdown.Menu>
+                        </Dropdown>
                       </Table.Cell>
                     </Table.Row>
                   );
