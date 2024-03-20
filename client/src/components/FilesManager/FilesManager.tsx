@@ -30,7 +30,6 @@ import {
 } from "../util/ProjectHelpers";
 import { truncateString } from "../util/HelperFunctions";
 import useGlobalError from "../error/ErrorHooks";
-import styles from "./FilesManager.module.css";
 import { ProjectFile } from "../../types";
 import RenderAssetTags from "./RenderAssetTags";
 import {
@@ -589,7 +588,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               <Table.Body>
                 {files.map((item) => {
                   return (
-                    <Table.Row className={styles.table_row} key={item.fileID}>
+                    <Table.Row className="h-[60px]" key={item.fileID}>
                       {canViewDetails && (
                         <Table.Cell>
                           <input
@@ -601,7 +600,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         </Table.Cell>
                       )}
                       <Table.Cell>
-                        <div className={styles.namedescrip_cell}>
+                        <div className="flex items-center justify-between">
                           <div className="w-full">
                             <div
                               className={`flex flex-row justify-between ${
@@ -616,7 +615,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                 )}
                                 {item.storageType === "folder" ? (
                                   <span
-                                    className={`text-link ${styles.namedescrip_title}`}
+                                    className="text-link text-lg break-all"
                                     onClick={() =>
                                       handleDirectoryClick(item.fileID)
                                     }
@@ -628,10 +627,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                     onClick={() =>
                                       handleDownloadFile(projectID, item.fileID)
                                     }
-                                    className={
-                                      styles.namedescrip_title +
-                                      " cursor-pointer"
-                                    }
+                                    className="text-lg cursor-pointer break-all"
                                   >
                                     {item.name}
                                   </a>
