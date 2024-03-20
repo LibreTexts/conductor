@@ -1,4 +1,5 @@
 import isHexColor from "validator/es/lib/isHexColor";
+import { Organization } from "../types";
 
 /**
  * @description Ensures a given string is a safe hex code for use in styling
@@ -20,3 +21,20 @@ export function sanitizeCustomColor(hexString: string): string {
 
   return "";
 }
+
+export const DEFAULT_COMMONS_MODULES: NonNullable<
+  Organization["commonsModules"]
+> = {
+  books: {
+    enabled: true,
+    order: 1,
+  },
+  assets: {
+    enabled: true,
+    order: 2,
+  },
+  projects: {
+    enabled: true,
+    order: 3,
+  },
+};

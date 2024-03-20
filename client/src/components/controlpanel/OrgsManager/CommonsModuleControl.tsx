@@ -87,7 +87,9 @@ const CommonsModuleControl: React.FC<CommonsModuleControlProps> = ({
       acc[key].order = idx;
       return acc;
     }, {});
-    setValue("commonsModules", newModulesObj as CommonsModuleSettings);
+    setValue("commonsModules", newModulesObj as CommonsModuleSettings, {
+      shouldDirty: true,
+    });
   }
 
   function onMoveDown(idx: number) {
@@ -104,7 +106,9 @@ const CommonsModuleControl: React.FC<CommonsModuleControlProps> = ({
       acc[key].order = idx;
       return acc;
     }, {});
-    setValue("commonsModules", newModulesObj as CommonsModuleSettings);
+    setValue("commonsModules", newModulesObj as CommonsModuleSettings, {
+      shouldDirty: true,
+    });
   }
 
   function onToggle(key: CommonsModule) {
@@ -112,7 +116,9 @@ const CommonsModuleControl: React.FC<CommonsModuleControlProps> = ({
     const newModules = { ...modules };
     // @ts-ignore
     newModules[key].enabled = !newModules[key].enabled;
-    setValue("commonsModules", newModules as CommonsModuleSettings);
+    setValue("commonsModules", newModules as CommonsModuleSettings, {
+      shouldDirty: true,
+    });
   }
 
   return (
