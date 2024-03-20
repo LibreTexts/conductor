@@ -3,6 +3,17 @@ import { projectClassifications } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
 import { ProjectFileLicense } from "./projectfile.js";
 
+export type ProjectModuleConfig = {
+  enabled: boolean;
+  order: number;
+};
+
+export type ProjectModuleSettings = {
+  discussion: ProjectModuleConfig;
+  files: ProjectModuleConfig;
+  tasks: ProjectModuleConfig;
+};
+
 export interface ProjectInterface extends Document {
   orgID: string;
   projectID: string;
@@ -54,6 +65,7 @@ export interface ProjectInterface extends Document {
   defaultFileLicense?: ProjectFileLicense;
   thumbnail?: string;
   // thumbnailVersion?: number;
+  projectModules?: ProjectModuleSettings;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -284,6 +296,31 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Version number of the Project's thumbnail.
      */
     // thumbnailVersion: Number
+    /**
+     * Project module settings.
+     */
+    projectModules: {
+      type: {
+        discussion: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        files: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        tasks: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+      },
+    },
   },
   {
     timestamps: true,

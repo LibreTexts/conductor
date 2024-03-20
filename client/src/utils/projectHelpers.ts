@@ -1,4 +1,5 @@
 import axios from "axios";
+import { Project } from "../types";
 
 /**
  * Submits a request to the server to pin a project. Closes the modal on success.
@@ -38,4 +39,19 @@ export function buildRemixerURL(libreLibrary: string, workbenchURL: string) {
 
 export function buildCommonsUrl(libreLibrary: string, libreCoverID: string) {
   return `/book/${libreLibrary}-${libreCoverID}`;
+}
+
+export const DEFAULT_PROJECT_MODULES: NonNullable<Project['projectModules']> = {
+  discussion: {
+    enabled: true,
+    order: 1,
+  },
+  files: {
+    enabled: true,
+    order: 2,
+  },
+  tasks: {
+    enabled: true,
+    order: 3,
+  },
 }
