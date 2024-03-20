@@ -1054,6 +1054,7 @@ async function getPublicProjectFiles(
       {
         $match: {
           access: "public",
+          storageType: "file",
         },
       },
       {
