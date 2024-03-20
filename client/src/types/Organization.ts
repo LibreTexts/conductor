@@ -36,6 +36,7 @@ export type Organization = {
   FEAT_AssetTagsManager?: boolean;
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
+  showCollections?: boolean;
 };
 
 export type CampusSettingsOpts = Pick<
@@ -55,4 +56,5 @@ export type CampusSettingsOpts = Pick<
   | "catalogMatchingTags"
   | "customOrgList"
   | "commonsModules"
+  | "showCollections"
 >;

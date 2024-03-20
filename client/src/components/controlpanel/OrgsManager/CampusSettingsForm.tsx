@@ -28,6 +28,7 @@ import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
 import CommonsModuleControl from "./CommonsModuleControl";
+import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
@@ -83,6 +84,7 @@ const CampusSettingsForm = forwardRef(
           assets: { enabled: true, order: 2 },
           projects: { enabled: true, order: 3 },
         },
+        showCollections: true,
       },
     });
 
@@ -787,7 +789,22 @@ const CampusSettingsForm = forwardRef(
               control={control}
             />
           </Form.Field>
-          <Form.Field>
+          <div className="mt-4  mb-2 flex flex-row items-center">
+            <label
+              htmlFor="show-collections-toggle"
+              className="form-field-label"
+            >
+              Show Collections Tab?
+            </label>
+            <CtlCheckbox
+              toggle
+              id="show-collections-toggle"
+              className="ml-4"
+              name="showCollections"
+              control={control}
+            />
+          </div>
+          <Form.Field disabled={!watch("showCollections")} className="!ml-2">
             <label htmlFor="collectionsDisplayLabel">
               <span>Collections Display Label </span>
               <Popup
@@ -808,7 +825,7 @@ const CampusSettingsForm = forwardRef(
               control={control}
             />
           </Form.Field>
-          <Form.Field>
+          <Form.Field disabled={!watch("showCollections")} className="!ml-2">
             <label htmlFor="collectionsDisplayLabel">
               <span>Collections Message </span>
               <Popup

@@ -36,6 +36,7 @@ export interface OrganizationInterface extends Document {
   defaultAssetTagFrameworkUUID?: string;
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
+  showCollections?: boolean;
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -167,6 +168,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
         },
       },
     },
+    /**
+     * Whether to show collections tab on the Commons.
+     */
+    showCollections: Boolean,
   },
   {
     timestamps: true,
