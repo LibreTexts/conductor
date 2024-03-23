@@ -206,7 +206,7 @@ const Chat = ({
    *
    * @param {string} msgID - Identifier of the message to delete.
    */
-  function handleOpenDeleteMessage(msgID) {
+  function handleOpenDeleteMessage(msgID:string) {
     if (msgID) {
       setDelMsgID(msgID);
       setDelMsgLoading(false);
@@ -391,7 +391,7 @@ const Chat = ({
             options={notificationOptions}
             selection
             value={notifySetting}
-            onChange={handleNotifySettingChange}
+            onChange={(e,data)=>handleNotifySettingChange(e,data)}
             text={notifySettingDropdownText}
           />
         </div>
@@ -408,7 +408,7 @@ const Chat = ({
             search
             selection
             options={projectTeam}
-            onChange={handleChangeTeamToNotify}
+            onChange={(e,data)=>handleChangeTeamToNotify(e,data)}
             value={teamToNotify}
             loading={loadingTeam}
           />
