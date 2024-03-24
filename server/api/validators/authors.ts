@@ -28,7 +28,9 @@ export const GetAllAuthorsValidator = z.object({
 export const GetAuthorValidator = AuthorIDParams;
 
 export const CreateAuthorValidator = z.object({
-  body: _AuthorValidator,
+  body: _AuthorValidator.merge(z.object({
+    isAdminEntry: z.boolean().optional().default(false)
+  }))
 });
 
 export const UpdateAuthorValidator =

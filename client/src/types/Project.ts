@@ -50,6 +50,7 @@ export type ProjectFile = {
   tags?: AssetTag[];
   createdDate?: Date;
   license?: ProjectFileLicense;
+  primaryAuthor?: ProjectFileAuthor;
   authors?: ProjectFileAuthor[];
   publisher?: ProjectFilePublisher;
   mimeType?: string;
@@ -151,4 +152,8 @@ export type Project = {
   projectModules?: ProjectModuleSettings;
   createdAt: string;
   updatedAt?: string;
+  defaultPrimaryAuthorID?: string;
+  defaultSecondaryAuthorIDs?: string[];
+  defaultPrimaryAuthor?: ProjectFileAuthor;
+  defaultSecondaryAuthors?: ProjectFileAuthor[];
 };

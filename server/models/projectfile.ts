@@ -49,6 +49,7 @@ export interface RawProjectFileInterface {
   createdBy?: string;
   downloadCount?: number;
   license?: ProjectFileLicense;
+  primaryAuthor?: Schema.Types.ObjectId;
   authors?: (Schema.Types.ObjectId)[];
   publisher?: ProjectFilePublisher;
   mimeType?: string;
@@ -139,6 +140,13 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
     sourceURL: String,
     modifiedFromSource: Boolean,
     additionalTerms: String,
+  },
+  /**
+   * Primary author information for the entry.
+   */
+  primaryAuthor: {
+    type: Schema.Types.ObjectId,
+    required: false,
   },
   /**
    * Author information for the entry.

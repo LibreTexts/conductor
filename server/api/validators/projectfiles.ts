@@ -17,6 +17,14 @@ const _projectFileParams = z.object({
   fileID: _projectFileIDSchema,
 });
 
+const projectFileAuthorSchema = z.object({
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().optional().or(z.literal("")),
+  url: z.string().url().optional().or(z.literal("")),
+  primaryInstitution: z.string().trim().optional(),
+});
+
 export const projectFileSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().max(500).optional(),
@@ -31,17 +39,14 @@ export const projectFileSchema = z.object({
       additionalTerms: z.string().trim().max(500).optional(),
     })
     .optional(),
+  primaryAuthor: projectFileAuthorSchema
+    .or(z.string().refine((val: string) => isMongoIDValidator(val)))
+    .optional(),
   authors: z
     .array(
-      z
-        .object({
-          firstName: z.string().trim().min(1).max(100),
-          lastName: z.string().trim().min(1).max(100),
-          email: z.string().trim().email().optional().or(z.literal("")),
-          url: z.string().url().optional().or(z.literal("")),
-          primaryInstitution: z.string().trim().optional(),
-        })
-        .or(z.string().refine((val: string) => isMongoIDValidator(val)))
+      projectFileAuthorSchema.or(
+        z.string().refine((val: string) => isMongoIDValidator(val))
+      )
     )
     .optional(),
   publisher: z
@@ -75,14 +80,12 @@ export const addProjectFileFolderSchema = z.object({
 export const updateProjectFileSchema = z.object({
   params: _projectFileParams,
   body: zfd.formData(
-    projectFileSchema
-      .partial()
-      .merge(
-        z.object({
-          tags: z.array(assetTagSchema).optional(),
-          overwriteName: z.coerce.boolean().optional(),
-        })
-      )
+    projectFileSchema.partial().merge(
+      z.object({
+        tags: z.array(assetTagSchema).optional(),
+        overwriteName: z.coerce.boolean().optional(),
+      })
+    )
   ),
 });
 
