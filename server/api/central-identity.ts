@@ -761,11 +761,15 @@ async function getLicenses(
 
     return res.send({
       err: false,
-      licenses: licensesRes.data.data
+      licenses: licensesRes?.data?.data ?? []
     })
   } catch (err) {
-    debugError(err);
-    return conductor500Err(res);
+    // debugError(err);
+    // return conductor500Err(res);
+    return res.send({
+      err: false,
+      licenses: []
+    })
   }
 }
 

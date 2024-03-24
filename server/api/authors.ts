@@ -96,14 +96,14 @@ async function createAuthor(
   res: Response
 ) {
   try {
-    const { firstName, lastName, email, primaryInstitution, url } = req.body;
+    const { firstName, lastName, email, primaryInstitution, url, isAdminEntry } = req.body;
     const author = await Author.create({
       firstName,
       lastName,
       primaryInstitution,
       ...(email && { email }),
       ...(url && { url }),
-      isAdminEntry: true,
+      isAdminEntry: isAdminEntry || false,
     });
 
     res.send({

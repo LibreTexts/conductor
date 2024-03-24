@@ -131,6 +131,10 @@ export async function addProjectFile(
     // Set the file license to the project default if it exists
     const licenseObj = project.defaultFileLicense || undefined;
 
+    // Set default authors if present
+    const defaultPrimary = project.defaultPrimaryAuthorID;
+    const defaultSecondary = project.defaultSecondaryAuthorIDs;
+
     const files = await retrieveAllProjectFiles(
       projectID,
       false,
@@ -157,8 +161,6 @@ export async function addProjectFile(
     }
 
     // Add a file
-    const parsedAuthors = await _parseAndSaveAuthors(req.body.authors);
-
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
     const filesToCreate: RawProjectFileInterface[] = [];
@@ -192,7 +194,12 @@ export async function addProjectFile(
           parent,
           license: licenseObj,
           mimeType: file.mimetype,
-          authors: parsedAuthors,
+          primaryAuthor: defaultPrimary
+            ? (defaultPrimary as unknown as Schema.Types.ObjectId)
+            : undefined,
+          authors: defaultSecondary
+            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
+            : undefined,
           publisher: req.body.publisher,
           version: 1, // initial version
         });
@@ -220,7 +227,8 @@ export async function addProjectFile(
           : {
               sourceURL: req.body.fileURL, // Set Source url as url
             },
-        authors: parsedAuthors,
+        primaryAuthor: defaultPrimary,
+        authors: defaultSecondary,
         publisher: req.body.publisher,
       });
     } else {
@@ -588,6 +596,7 @@ async function updateProjectFile(
       name,
       description,
       license,
+      primaryAuthor,
       authors,
       publisher,
       tags,
@@ -651,6 +660,10 @@ async function updateProjectFile(
     }
     if (license) {
       updateObj.license = license;
+    }
+    if (primaryAuthor) {
+      const parsed = await _parseAndSaveAuthors([primaryAuthor]);
+      updateObj.primaryAuthor = parsed[0] ?? undefined;
     }
     if (authors) {
       const parsedAuthors = await _parseAndSaveAuthors(authors);
@@ -1232,4 +1245,5 @@ export default {
   moveProjectFile,
   removeProjectFile,
   getPublicProjectFiles,
+  _parseAndSaveAuthors,
 };

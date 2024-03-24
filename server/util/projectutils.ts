@@ -514,6 +514,21 @@ export async function retrieveAllProjectFiles(
             as: "authors",
           },
         },
+        {
+          $lookup: {
+            from: "authors",
+            localField: "primaryAuthor",
+            foreignField: "_id",
+            as: "primaryAuthor",
+          }
+        },
+        {
+          $set: {
+            primaryAuthor: {
+              $arrayElemAt: ["$primaryAuthor", 0],
+            },
+          },
+        }
       ]
     );
 

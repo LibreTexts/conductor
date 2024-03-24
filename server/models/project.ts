@@ -2,6 +2,7 @@ import { model, Schema, Document } from "mongoose";
 import { projectClassifications } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
 import { ProjectFileLicense } from "./projectfile.js";
+import { AuthorInterface } from "./author.js";
 
 export type ProjectModuleConfig = {
   enabled: boolean;
@@ -66,6 +67,8 @@ export interface ProjectInterface extends Document {
   thumbnail?: string;
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
+  defaultPrimaryAuthorID?: string;
+  defaultSecondaryAuthorIDs?: string[];
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -321,6 +324,26 @@ const ProjectSchema = new Schema<ProjectInterface>(
         },
       },
     },
+    /**
+     * Default primary author.
+     */
+    defaultPrimaryAuthorID: {
+      type: {
+        ref: "Author",
+        type: Schema.Types.ObjectId,
+      },
+    },
+    /**
+     * Default secondary authors.
+     */
+    defaultSecondaryAuthorIDs: {
+      type: [
+        {
+          ref: "Author",
+          type: Schema.Types.ObjectId,
+        },
+      ],
+    },
   },
   {
     timestamps: true,
@@ -328,6 +351,19 @@ const ProjectSchema = new Schema<ProjectInterface>(
 );
 
 ProjectSchema.index({ title: "text" });
+
+ProjectSchema.virtual("defaultPrimaryAuthor", {
+  ref: "Author",
+  localField: "defaultPrimaryAuthor",
+  foreignField: "_id",
+  justOne: true,
+})
+
+ProjectSchema.virtual("defaultSecondaryAuthors", {
+  ref: "Author",
+  localField: "defaultSecondaryAuthors",
+  foreignField: "_id",
+})
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 
