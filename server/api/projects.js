@@ -51,6 +51,7 @@ import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
 import centralIdentity from './central-identity.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
+import projectFilesAPI from './projectfiles.js';
 
 const projectListingProjection = {
     _id: 0,
@@ -382,7 +383,31 @@ async function getProject(req, res) {
             ],
           },
         },
-      }, {
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "defaultPrimaryAuthorID",
+          foreignField: "_id",
+          as: "defaultPrimaryAuthor",
+        },
+      },
+      {
+        $set: {
+          defaultPrimaryAuthor: {
+            $arrayElemAt: ["$defaultPrimaryAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "defaultSecondaryAuthorIDs",
+          foreignField: "_id",
+          as: "defaultSecondaryAuthors",
+        }
+      },
+      {
         $project: {
           _id: 0
         }
@@ -750,6 +775,23 @@ async function updateProject(req, res) {
     }
     if(req.body.hasOwnProperty('projectModules')){
       updateObj.projectModules = req.body.projectModules;
+    }
+    if(req.body.hasOwnProperty('defaultPrimaryAuthor')){
+
+      const parsed = await projectFilesAPI._parseAndSaveAuthors([req.body.defaultPrimaryAuthor]);
+      if(!parsed || !Array.isArray(parsed) || parsed.length < 1){
+        throw new Error('Error parsing primary author');
+      }
+
+      updateObj.defaultPrimaryAuthorID = parsed[0]
+    }
+    if(req.body.hasOwnProperty('defaultSecondaryAuthors')){
+      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.defaultSecondaryAuthors);
+      if(!parsed || !Array.isArray(parsed)){
+        throw new Error('Error parsing secondary authors');
+      }
+      
+      updateObj.defaultSecondaryAuthorIDs = parsed;
     }
     
     if (Object.keys(updateObj).length > 0) {
@@ -3208,6 +3250,31 @@ function validateProjectModules(projectModules) {
   return true;
 }
 
+function validateAuthor(author){
+  if (typeof author !== 'object') {
+    return false;
+  }
+  if (!author.hasOwnProperty('firstName') || !author.hasOwnProperty('lastName')) {
+    return false;
+  }
+  if (typeof author.firstName !== 'string' || typeof author.lastName !== 'string') {
+    return false;
+  }
+  return true;
+}
+
+function validateAuthorArray(authors){
+  if (!Array.isArray(authors)) {
+    return false;
+  }
+  for (const author of authors) {
+    if (!validateAuthor(author)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
@@ -3249,7 +3316,9 @@ const validate = (method) => {
           body('cidDescriptors', conductorErrors.err1).optional().custom(validateCIDDescriptors),
           body('associatedOrgs', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('defaultFileLicense', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateDefaultFileLicense),
-          body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules)
+          body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules),
+          body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
+          body('defaultSecondaryAuthors', conductorErrors.err1).optional({ checkFalsy: true }).isArray().custom(validateAuthorArray),
       ]
     case 'getProject':
       return [

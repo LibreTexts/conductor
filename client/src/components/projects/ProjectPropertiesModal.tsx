@@ -9,17 +9,19 @@ import {
   ModalProps,
   Popup,
   Dropdown,
+  Card,
 } from "semantic-ui-react";
 import {
+  Author,
   CentralIdentityLicense,
   GenericKeyTextValueObj,
   Project,
   ProjectClassification,
   ProjectStatus,
 } from "../../types";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import useGlobalError from "../error/ErrorHooks";
-import { lazy, useEffect, useState, useCallback } from "react";
+import { lazy, useEffect, useState, useCallback, useRef } from "react";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import CtlTextArea from "../ControlledInputs/CtlTextArea";
@@ -35,6 +37,8 @@ import CtlCheckbox from "../ControlledInputs/CtlCheckbox";
 import { useTypedSelector } from "../../state/hooks";
 import ProjectModulesControl from "./ProjectModulesControl";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
+import { set } from "date-fns";
+import AuthorsForm from "../FilesManager/AuthorsForm";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -58,6 +62,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
+  const authorsFormRef = useRef<React.ElementRef<typeof AuthorsForm>>(null);
   const {
     control,
     getValues,
@@ -95,6 +100,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         modifiedFromSource: false,
         additionalTerms: "",
       },
+      defaultPrimaryAuthorID: "",
+      defaultSecondaryAuthorIDs: [],
       projectModules: {
         discussion: {
           enabled: true,
@@ -129,8 +136,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     GenericKeyTextValueObj<string>[]
   >([]);
   const [loadedOrgs, setLoadedOrgs] = useState<boolean>(false);
-  const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
-    useState<boolean>(false);
+
+  // Authors
+  const [authorOptions, setAuthorOptions] = useState<Author[]>([]);
+  const [loadingAuthors, setLoadingAuthors] = useState(false);
 
   useEffect(() => {
     if (show && projectID) {
@@ -138,6 +147,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       getTags();
       getCIDDescriptors();
       getLicenseOptions();
+      loadAuthorOptions();
     }
   }, [show, projectID]);
 
@@ -186,7 +196,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       }
       reset({
         ...res.data.project,
-        projectModules: res.data.project.projectModules ?? DEFAULT_PROJECT_MODULES
+        projectModules:
+          res.data.project.projectModules ?? DEFAULT_PROJECT_MODULES,
       });
     } catch (err) {
       handleGlobalError(err);
@@ -370,6 +381,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const submitEditInfoForm = async () => {
     try {
       setLoading(true);
+
+      const authorData = authorsFormRef.current?.getAuthors();
+      if (authorData) {
+        setValue("defaultPrimaryAuthor", authorData.primaryAuthor ?? undefined);
+        setValue("defaultSecondaryAuthors", authorData.authors);
+      }
+
       if (!(await triggerValidation())) {
         throw new Error("Please fix the errors in the form before submitting.");
       }
@@ -426,6 +444,30 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       setLoading(false);
     }
   }
+
+  async function loadAuthorOptions(searchQuery?: string) {
+    try {
+      setLoadingAuthors(true);
+      const res = await api.getAuthors({ query: searchQuery });
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.authors) {
+        throw new Error("Failed to load author options");
+      }
+
+      setAuthorOptions(res.data.authors);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoadingAuthors(false);
+    }
+  }
+
+  const getAuthorsDebounced = debounce(
+    (searchQuery?: string) => loadAuthorOptions(searchQuery),
+    200
+  );
 
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
@@ -736,10 +778,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             </em>
           </p>
           <Divider />
-          <Header as="h3" className="!mb-0">Project Modules</Header>
+          <Header as="h3" className="!mb-0">
+            Project Modules
+          </Header>
           <div className="mt-2">
             <p className="mb-2">
-              Enable, disable, or re-order the display of modules in your project's page.
+              Enable, disable, or re-order the display of modules in your
+              project's page.
             </p>
             <ProjectModulesControl
               getValues={getValues}
@@ -748,7 +793,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </div>
           <Divider />
-          <Header as="h3" className="!mb-0">Homework and Assessments</Header>
+          <Header as="h3" className="!mb-0">
+            Homework and Assessments
+          </Header>
           <p>
             <em>
               {`Use this section to link your project's Commons page (if applicable) to an `}
@@ -790,7 +837,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </Form.Field>
           <Divider />
-          <Header as="h3" className="!mb-0">Source Properties</Header>
+          <Header as="h3" className="!mb-0">
+            Source Properties
+          </Header>
           <p>
             <em>
               Use this section if your project pertains to a particular resource
@@ -945,7 +994,84 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             maxLength={DESCRIP_MAX_CHARS}
             showRemaining
           />
+          <AuthorsForm
+            mode="project-default"
+            currentPrimaryAuthor={
+              getValues("defaultPrimaryAuthor") ?? undefined
+            }
+            currentAuthors={getValues("defaultSecondaryAuthors") ?? []}
+            ref={authorsFormRef}
+          />
+          {/* <div className="mt-4">
+            <label className="form-field-label">Primary Author</label>
+            <Form.Field className="flex flex-col">
+              <Controller
+                name="defaultPrimaryAuthorID"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="primaryAuthorSelect"
+                    options={authorOptions.map((a) => ({
+                      key: crypto.randomUUID(),
+                      value: a._id ?? "",
+                      text: `${a.firstName} ${a.lastName}`,
+                    }))}
+                    {...field}
+                    onChange={(e, data) => {
+                      field.onChange(data.value?.toString() ?? "");
 
+                      const _secondaryAuthors = getValues('defaultSecondaryAuthorIDs') ?? [];
+                      if(_secondaryAuthors.includes(data.value?.toString() ?? "")) {
+                        const _filtered = _secondaryAuthors.filter((a) => a !== (data.value?.toString() ?? ""));
+                        setValue('defaultSecondaryAuthorIDs', _filtered);
+                      }
+                    }}
+                    fluid
+                    selection
+                    search
+                    placeholder="Seach authors..."
+                    loading={loadingAuthors}
+                  />
+                )}
+              />
+            </Form.Field>
+          </div>
+          <div className="mt-4">
+            <label className="form-field-label">Secondary Author(s)</label>
+            <Form.Field className="flex flex-col">
+              <Controller
+                name="defaultSecondaryAuthorIDs"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="secondaryAuthorSelect"
+                    placeholder="Search authors..."
+                    options={authorOptions
+                      .filter(
+                        (a) => a._id !== watch("defaultPrimaryAuthorID")
+                      )
+                      .map((a) => ({
+                        key: crypto.randomUUID(),
+                        value: a._id ?? "",
+                        text: `${a.firstName} ${a.lastName}`,
+                      }))}
+                    {...field}
+                    onChange={(e, { value }) => {
+                      field.onChange(value as string[]);
+                    }}
+                    multiple
+                    fluid
+                    selection
+                    search
+                    onSearchChange={(e, { searchQuery }) => {
+                      getAuthorsDebounced(searchQuery);
+                    }}
+                    loading={loadingAuthors}
+                  />
+                )}
+              />
+            </Form.Field>
+          </div> */}
           <Divider />
           <Header as="h3">Additional Information</Header>
           <CtlTextArea
