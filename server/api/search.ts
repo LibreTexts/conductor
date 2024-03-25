@@ -696,8 +696,23 @@ export async function assetsSearch(
       {
         $lookup: {
           from: "projectfiles",
-          localField: "_id",
-          foreignField: "authors",
+          let: { authorId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    {
+                      $in: ["$$authorId", "$authors"],
+                    }, // Check if the author id is in the authors array
+                    {
+                      $eq: ["$$authorId", "$primaryAuthor"],
+                    }, // Check if the author id is equal to the primary author
+                  ],
+                },
+              },
+            },
+          ],
           as: "matchingProjectFiles",
         },
       },
