@@ -24,7 +24,10 @@ interface CatalogCardProps extends CardProps {
 const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
   if (isAuthor(item)) {
     return (
-      <Card className="commons-author-card hover:shadow-lg hover:border" {...props}>
+      <Card
+        className="commons-author-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+        {...props}
+      >
         <AuthorCardContent author={item} />
       </Card>
     );
@@ -57,7 +60,10 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
   }
 
   return (
-    <Card className="commons-asset-card hover:shadow-lg" {...props}>
+    <Card
+      className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
+      {...props}
+    >
       <FileCardContent file={item} />
     </Card>
   );

@@ -95,7 +95,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
       className="flex flex-row w-full justify-between items-center ml-1"
     >
       <div className="flex flex-row my-4 flex-wrap items-center gap-2">
-        <CatalogFilterDropdown
+        {/* <CatalogFilterDropdown
           text={`License ${filters.license ? " - " : ""}${
             filters.license ?? ""
           }`}
@@ -104,24 +104,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           filterKey="license"
           onFilterSelect={(key, val) => onFilterChange(key, val)}
           loading={loading}
-        />
-        <CatalogFilterDropdown
-          text={`Organization ${filters.org ? " - " : ""}${filters.org ?? ""}`}
-          icon="university"
-          options={orgOptions}
-          filterKey="org"
-          onFilterSelect={(key, val) => onFilterChange(key, val)}
-        />
-        <CatalogFilterDropdown
-          text={
-            filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
-          }
-          icon="file alternate outline"
-          options={fileTypeOptions}
-          filterKey="fileType"
-          onFilterSelect={(key, val) => onFilterChange(key, val)}
-          loading={loading}
-        />
+        /> */}
         {assetTagFilters.length > 0 &&
           assetTagFilters.map((filter, index) => {
             const filterKey = filter.title;
@@ -146,6 +129,23 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
               />
             );
           })}
+        <CatalogFilterDropdown
+          text={
+            filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
+          }
+          icon="file alternate outline"
+          options={fileTypeOptions}
+          filterKey="fileType"
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
+          loading={loading}
+        />
+        <CatalogFilterDropdown
+          text={`Organization ${filters.org ? " - " : ""}${filters.org ?? ""}`}
+          icon="university"
+          options={orgOptions}
+          filterKey="org"
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
+        />
       </div>
     </div>
   );
