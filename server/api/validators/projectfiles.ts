@@ -99,7 +99,7 @@ export const updateProjectFileAccessSchema = z.object({
 export const moveProjectFileSchema = z.object({
   params: _projectFileParams,
   body: z.object({
-    newParent: z.string().uuid(),
+    newParent: z.string().uuid().or(z.literal("")),
   }),
 });
 
