@@ -115,6 +115,8 @@ import {
 import {
   AssetFilters,
   AssetFiltersAction,
+  AuthorFilters,
+  AuthorFiltersAction,
   BookFilters,
   BookFiltersAction,
   ConductorSearchResponse,
@@ -137,6 +139,8 @@ export type {
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
+  AuthorFilters,
+  AuthorFiltersAction,
   BookFilters,
   BookFiltersAction,
   CentralIdentityUser,

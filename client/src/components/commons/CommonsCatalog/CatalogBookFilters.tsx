@@ -174,7 +174,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
   return (
     <div
       aria-busy={loading}
-      className="flex flex-row w-full justify-between items-center"
+      className="flex flex-row w-full justify-between items-center ml-1"
     >
       <div className="flex flex-row mt-2 mb-4 flex-wrap items-center gap-y-2 ">
         <CatalogFilterDropdown

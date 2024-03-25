@@ -15,6 +15,10 @@ export type AssetFilters = {
   fileType?: string;
 };
 
+export type AuthorFilters = {
+  primaryInstitution?: string;
+};
+
 export type BookFilters = {
   library?: string;
   subject?: string;
@@ -28,7 +32,7 @@ export type BookFilters = {
 export type CustomFilter = {
   title: string;
   options: string[];
-}
+};
 
 type _commonSearchParams = {
   searchQuery?: string;
@@ -41,7 +45,7 @@ export type AssetSearchParams = {
   licenseVersion?: string;
   org?: string;
   fileType?: string;
-  customFilters?: {key: string, value: string}[];
+  customFilters?: { key: string; value: string }[];
 } & _commonSearchParams;
 
 export type AuthorSearchParams = {
@@ -92,6 +96,15 @@ export type ConductorSearchResponse<
 export type AssetFiltersAction =
   | {
       type: keyof AssetFilters | "reset_one";
+      payload: string;
+    }
+  | {
+      type: "reset";
+    };
+
+export type AuthorFiltersAction =
+  | {
+      type: keyof AuthorFilters | "reset_one";
       payload: string;
     }
   | {

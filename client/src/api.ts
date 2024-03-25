@@ -349,6 +349,15 @@ class API {
     return res;
   }
 
+  async getAuthorFilterOptions() {
+    const res = await axios.get<
+      {
+        primaryInstitutions: string[];
+      } & ConductorBaseResponse
+    >("/search/author-filters");
+    return res;
+  }
+
   async assetsSearch(params: AssetSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse
