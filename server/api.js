@@ -738,6 +738,9 @@ router.route('/search/authors').get(
 router.route('/search/asset-filters').get(
   searchAPI.getAssetFilterOptions,
 )
+router.route('/search/author-filters').get(
+  searchAPI.getAuthorFilterOptions,
+)
 
 
 

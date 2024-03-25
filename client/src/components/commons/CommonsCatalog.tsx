@@ -8,6 +8,8 @@ import {
   AssetFilters,
   AssetFiltersAction,
   Author,
+  AuthorFilters,
+  AuthorFiltersAction,
   Book,
   BookFilters,
   BookFiltersAction,
@@ -41,6 +43,24 @@ function assetsReducer(
     }
     default:
       return { ...state, [action.type]: action.payload };
+  }
+}
+
+function authorsReducer(
+  state: AuthorFilters,
+  action: AuthorFiltersAction
+): AuthorFilters {
+  switch (action.type) {
+    case "primaryInstitution":
+      return { ...state, primaryInstitution: action.payload };
+    case "reset":
+      return {};
+    case "reset_one":
+      const newState = { ...state };
+      delete newState[action.payload as keyof AuthorFilters];
+      return newState;
+    default:
+      return state;
   }
 }
 
@@ -78,6 +98,7 @@ const CommonsCatalog = () => {
   const ITEMS_PER_PAGE = 24;
 
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
+  const [authorsState, authorsDispatch] = useReducer(authorsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -127,8 +148,9 @@ const CommonsCatalog = () => {
       query: search ?? "",
       assetFilters: assetsState,
       bookFilters: booksState,
+      authorFilters: authorsState,
     });
-  }, [assetsState, booksState, location.search]);
+  }, [assetsState, booksState, authorsState, location.search]);
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
@@ -141,7 +163,7 @@ const CommonsCatalog = () => {
 
     if (search === "") {
       clearSearchParam();
-      if (assetFiltersApplied() || bookFiltersApplied()) {
+      if (assetFiltersApplied() || bookFiltersApplied() || authorFiltersApplied()) {
         runSearch({ query: search }); // handle no search query but filters
       } else {
         loadInitialData(true);
@@ -158,6 +180,7 @@ const CommonsCatalog = () => {
 
       // Reset the advanced search filters when a new search is run
       assetsDispatch({ type: "reset", payload: "" });
+      authorsDispatch({ type: "reset" });
       booksDispatch({ type: "reset" });
     }
   };
@@ -176,6 +199,7 @@ const CommonsCatalog = () => {
     clearSearchParam();
     setSearchString("");
     assetsDispatch({ type: "reset", payload: "" });
+    authorsDispatch({ type: "reset" });
     booksDispatch({ type: "reset" });
     setActivePage(1);
     setBooks([]);
@@ -189,10 +213,12 @@ const CommonsCatalog = () => {
     query,
     assetFilters,
     bookFilters,
+    authorFilters,
   }: {
     query?: string;
     assetFilters?: AssetFilters;
     bookFilters?: BookFilters;
+    authorFilters?: AuthorFilters;
   }) {
     try {
       if (loadingDisabled) return;
@@ -201,7 +227,8 @@ const CommonsCatalog = () => {
       if (
         !query &&
         (!assetFilters || !Object.keys(assetFilters).length) &&
-        (!bookFilters || !Object.keys(bookFilters).length)
+        (!bookFilters || !Object.keys(bookFilters).length) && 
+        (!authorFilters || !Object.keys(authorFilters).length)
       ) {
         return loadInitialData(true);
       }
@@ -210,7 +237,7 @@ const CommonsCatalog = () => {
         handleBooksSearch(query ?? searchString, bookFilters, true),
         handleAssetsSearch(query ?? searchString, assetFilters, true),
         handleProjectsSearch(query ?? searchString, true),
-        handleAuthorsSearch(query ?? searchString, true),
+        handleAuthorsSearch(query ?? searchString, authorFilters, true),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -224,7 +251,7 @@ const CommonsCatalog = () => {
         loadCommonsCatalog(clear),
         loadPublicAssets(clear),
         loadPublicProjects(clear),
-        handleAuthorsSearch("", clear),
+        handleAuthorsSearch("", undefined, clear),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -370,13 +397,14 @@ const CommonsCatalog = () => {
   }
 
   // Authors
-  async function handleAuthorsSearch(query?: string, clearAndUpdate = false) {
+  async function handleAuthorsSearch(query?: string, authorFilters?: AuthorFilters, clearAndUpdate = false) {
     try {
       setAuthorsLoading(true);
       const res = await api.authorsSearch({
         searchQuery: query,
         page: activePage,
         limit: ITEMS_PER_PAGE,
+        ...authorFilters,
       });
 
       if (res.data.err) {
@@ -471,6 +499,10 @@ const CommonsCatalog = () => {
     } catch (err) {
       console.error(err); // Fail silently
     }
+  }
+
+  const authorFiltersApplied = (): boolean => {
+    return Object.keys(authorsState).length > 0;
   }
 
   const bookFiltersApplied = (): boolean => {
@@ -677,6 +709,8 @@ const CommonsCatalog = () => {
               <CatalogTabs
                 assetFilters={assetsState}
                 assetFiltersDispatch={assetsDispatch}
+                authorFilters={authorsState}
+                authorFiltersDispatch={authorsDispatch}
                 bookFilters={booksState}
                 bookFiltersDispatch={booksDispatch}
                 activeTab={activeTab}

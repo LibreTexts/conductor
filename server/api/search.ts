@@ -1260,10 +1260,15 @@ async function authorsSearch(
       return 0;
     });
 
+    let filtered = paginated;
+    if(req.query.primaryInstitution){
+      filtered = paginated.filter(author => author.primaryInstitution === req.query.primaryInstitution)
+    }
+
     return res.send({
       err: false,
       numResults: totalCount,
-      results: paginated,
+      results: filtered,
     });
   } catch (err) {
     debugError(err);
@@ -1645,6 +1650,31 @@ async function getAssetFilterOptions(req: Request, res: Response) {
   }
 }
 
+async function getAuthorFilterOptions(req: Request, res: Response) {
+  try {
+    const primaryInstitutions = await Author.aggregate([
+      { $match: { primaryInstitution: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$primaryInstitution" } },
+    ]);
+
+    // Filter & sort results
+    const mapped = primaryInstitutions.map((inst) => inst._id);
+    const filtered = mapped.filter((inst) => !!inst);
+
+    filtered.sort((a: string, b: string) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+
+    return res.send({
+      err: false,
+      primaryInstitutions: filtered ?? [],
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 function _checkIsExactMatchQuery(query: string): [boolean, string] {
   let isExactMatchSearch = false;
   let strippedQuery = "";
@@ -1750,4 +1780,5 @@ export default {
   authorsSearch,
   getAutocompleteResults,
   getAssetFilterOptions,
+  getAuthorFilterOptions,
 };
