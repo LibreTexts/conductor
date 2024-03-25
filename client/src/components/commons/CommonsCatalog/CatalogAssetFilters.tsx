@@ -92,7 +92,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   return (
     <div
       aria-busy={loading}
-      className="flex flex-row w-full justify-between items-center"
+      className="flex flex-row w-full justify-between items-center ml-1"
     >
       <div className="flex flex-row my-4 flex-wrap items-center gap-2">
         <CatalogFilterDropdown

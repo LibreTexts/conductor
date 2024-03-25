@@ -82,6 +82,7 @@ export const projectSearchSchema = z.object({
 export const authorsSearchSchema = z.object({
   query: z
     .object({
+      primaryInstitution: z.string().optional(),
       sort: z.enum(["first", "last"]).default("first"),
     })
     .merge(_commonItems),

@@ -4,6 +4,8 @@ import {
   AssetFilters,
   AssetFiltersAction,
   Author,
+  AuthorFilters,
+  AuthorFiltersAction,
   Book,
   BookFilters,
   BookFiltersAction,
@@ -21,6 +23,7 @@ import CatalogBookFilters from "./CatalogBookFilters";
 import CatalogAssetFilters from "./CatalogAssetFilters";
 import { useTypedSelector } from "../../../state/hooks";
 import AuthorsTable from "./AuthorsTable";
+import CatalogAuthorFilters from "./CatalogAuthorFilters";
 
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
@@ -28,6 +31,8 @@ interface CatalogTabsProps extends TabProps {
   assetFiltersDispatch: React.Dispatch<{ type: string; payload: string }>;
   bookFilters: BookFilters;
   bookFiltersDispatch: React.Dispatch<BookFiltersAction>;
+  authorFilters: AuthorFilters;
+  authorFiltersDispatch: React.Dispatch<AuthorFiltersAction>;
   onActiveTabChange: (newTab: CommonsModule) => void;
   books: Book[];
   booksCount: number;
@@ -52,6 +57,8 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   activeTab,
   assetFilters,
   assetFiltersDispatch,
+  authorFilters,
+  authorFiltersDispatch,
   bookFilters,
   bookFiltersDispatch,
   onActiveTabChange,
@@ -235,6 +242,14 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             filters={assetFilters}
             onFilterChange={(type, value) =>
               assetFiltersDispatch({ type, payload: value })
+            }
+          />
+        )}
+        {activeTab === "authors" && (
+          <CatalogAuthorFilters
+            filters={authorFilters}
+            onFilterChange={(type, value) =>
+              authorFiltersDispatch({ type, payload: value })
             }
           />
         )}
