@@ -1,4 +1,4 @@
-export type CommonsModule = "books" | "assets" | "projects";
+export type CommonsModule = "books" | "assets" | "projects" | "authors";
 
 export type CommonsModuleConfig = {
   enabled: boolean;
@@ -9,6 +9,7 @@ export type CommonsModuleSettings = {
   books: CommonsModuleConfig;
   assets: CommonsModuleConfig;
   projects: CommonsModuleConfig;
+  authors: CommonsModuleConfig;
 }
 
 export type Organization = {

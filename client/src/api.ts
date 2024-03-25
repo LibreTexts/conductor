@@ -26,7 +26,7 @@ import {
   ProjectFileWProjectData,
   ProjectTag,
 } from "./types/Project";
-import { CustomFilter } from "./types/Search";
+import { AuthorSearchParams, CustomFilter } from "./types/Search";
 
 /**
  * @fileoverview
@@ -108,9 +108,13 @@ class API {
 
   // ASSETS
   async addProjectFile(
+    
     projectID: string,
+   
     file: FormData,
+   
     opts?: AxiosRequestConfig
+  
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files`,
@@ -193,6 +197,21 @@ class API {
         author: Author;
       } & ConductorBaseResponse
     >(`/authors/${id}`);
+    return res;
+  }
+
+  async getAuthorAssets(
+    id: string,
+    paramsObj?: { page?: number; limit?: number }
+  ) {
+    const res = await axios.get<
+      {
+        assets: ProjectFileWProjectData<"title" | "thumbnail">[];
+        total: number;
+      } & ConductorBaseResponse
+    >(`/authors/${id}/assets`, {
+      params: paramsObj,
+    });
     return res;
   }
 
@@ -334,6 +353,17 @@ class API {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse
     >("/search/assets", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async authorsSearch(params: AuthorSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"authors"> & ConductorBaseResponse
+    >("/search/authors", {
       params: {
         ...params,
       },

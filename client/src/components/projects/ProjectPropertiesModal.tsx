@@ -137,17 +137,12 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   >([]);
   const [loadedOrgs, setLoadedOrgs] = useState<boolean>(false);
 
-  // Authors
-  const [authorOptions, setAuthorOptions] = useState<Author[]>([]);
-  const [loadingAuthors, setLoadingAuthors] = useState(false);
-
   useEffect(() => {
     if (show && projectID) {
       loadProject();
       getTags();
       getCIDDescriptors();
       getLicenseOptions();
-      loadAuthorOptions();
     }
   }, [show, projectID]);
 
@@ -444,30 +439,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       setLoading(false);
     }
   }
-
-  async function loadAuthorOptions(searchQuery?: string) {
-    try {
-      setLoadingAuthors(true);
-      const res = await api.getAuthors({ query: searchQuery });
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.authors) {
-        throw new Error("Failed to load author options");
-      }
-
-      setAuthorOptions(res.data.authors);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLoadingAuthors(false);
-    }
-  }
-
-  const getAuthorsDebounced = debounce(
-    (searchQuery?: string) => loadAuthorOptions(searchQuery),
-    200
-  );
 
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">

@@ -57,13 +57,14 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       )}
       <Card.Header
         as="button"
-        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer"
+        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500"
         onClick={() => handleFileDownload(file)}
       >
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
-        <Icon name="user" color="blue" /> {getPrettyAuthorsList(file.authors)}
+        <Icon name="user" color="blue" />{" "}
+        {getPrettyAuthorsList(file.primaryAuthor, file.authors)}
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />

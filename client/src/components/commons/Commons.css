@@ -247,6 +247,13 @@
     background-repeat: no-repeat;
 }
 
+.commons-author-card {
+    height: 125px;
+    width: 250px;
+    margin: 0 !important;
+    text-overflow: ellipsis;
+}
+
 .commons-content-card-inner-content {
     border-top: none !important;
     height: 175px;

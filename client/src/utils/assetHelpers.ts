@@ -102,14 +102,22 @@ export function getPrettyUploader(uploader: User) {
   return "";
 }
 
-export function getPrettyAuthorsList(authors?: ProjectFile["authors"]) {
+export function getPrettyAuthorsList(
+  primaryAuthor?: ProjectFile["primaryAuthor"],
+  authors?: ProjectFile["authors"]
+) {
+  if (!primaryAuthor && (!authors || !authors.length)) return "Unknown";
   if (!authors || !authors.length) return "Unknown";
-  return (
+
+  const authorList =
     authors
       .filter((a) => !!a.firstName && !!a.lastName)
       .map((a) => `${a.firstName} ${a.lastName}`)
-      .join(", ") || "Unknown"
-  );
+      .join(", ") || "Unknown";
+
+  return primaryAuthor
+    ? `${primaryAuthor.firstName} ${primaryAuthor.lastName} et al.`
+    : authorList;
 }
 
 /**
