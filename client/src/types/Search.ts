@@ -1,3 +1,4 @@
+import { Author } from "./Author";
 import { Book } from "./Book";
 import { Homework } from "./Homework";
 import {
@@ -43,6 +44,10 @@ export type AssetSearchParams = {
   customFilters?: {key: string, value: string}[];
 } & _commonSearchParams;
 
+export type AuthorSearchParams = {
+  sort?: "first" | "last";
+} & _commonSearchParams;
+
 export type BookSearchParams = {
   sort?: "title" | "author" | "library" | "subject" | "affiliation";
 } & _commonSearchParams &
@@ -64,7 +69,7 @@ export type UserSearchParams = {
 } & _commonSearchParams;
 
 export type ConductorSearchResponse<
-  T extends "assets" | "books" | "homework" | "projects" | "users"
+  T extends "assets" | "books" | "homework" | "projects" | "users" | "authors"
 > = {
   numResults: number;
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
@@ -79,6 +84,8 @@ export type ConductorSearchResponse<
     ? Project[]
     : T extends "users"
     ? User[]
+    : T extends "authors"
+    ? Author[]
     : never;
 };
 

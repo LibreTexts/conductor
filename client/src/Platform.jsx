@@ -47,6 +47,7 @@ const Platform = () => {
     "/catalog",
     "/collections",
     "/collection/:id",
+    "/author/:id",
     "/book/:id",
     "/homework",
     "/underdevelopment",

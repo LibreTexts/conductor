@@ -3,6 +3,7 @@ import { TabProps, Checkbox, Icon, Popup } from "semantic-ui-react";
 import {
   AssetFilters,
   AssetFiltersAction,
+  Author,
   Book,
   BookFilters,
   BookFiltersAction,
@@ -19,6 +20,7 @@ import TabLabel from "./CatalogTabLabel";
 import CatalogBookFilters from "./CatalogBookFilters";
 import CatalogAssetFilters from "./CatalogAssetFilters";
 import { useTypedSelector } from "../../../state/hooks";
+import AuthorsTable from "./AuthorsTable";
 
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
@@ -36,9 +38,13 @@ interface CatalogTabsProps extends TabProps {
   projects: Project[];
   projectsCount: number;
   projectsLoading: boolean;
+  authors: Author[];
+  authorsCount: number;
+  authorsLoading: boolean;
   onLoadMoreBooks: () => void;
   onLoadMoreAssets: () => void;
   onLoadMoreProjects: () => void;
+  onLoadMoreAuthors: () => void;
   onTriggerStopLoading: () => void;
 }
 
@@ -58,9 +64,13 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   projects,
   projectsCount,
   projectsLoading,
+  authors,
+  authorsCount,
+  authorsLoading,
   onLoadMoreBooks,
   onLoadMoreAssets,
   onLoadMoreProjects,
+  onLoadMoreAuthors,
   onTriggerStopLoading,
   ...rest
 }) => {
@@ -88,6 +98,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
           loading={booksLoading}
           isActive={activeTab === "books"}
           onClick={() => onActiveTabChange("books")}
+          key={"books-tab-label"}
         />
       );
     }
@@ -101,6 +112,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
           loading={assetsLoading}
           isActive={activeTab === "assets"}
           onClick={() => onActiveTabChange("assets")}
+          key={"assets-tab-label"}
         />
       );
     }
@@ -114,6 +126,21 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
           loading={projectsLoading}
           isActive={activeTab === "projects"}
           onClick={() => onActiveTabChange("projects")}
+          key={"projects-tab-label"}
+        />
+      );
+    }
+
+    if (!moduleSettings || moduleSettings.authors.enabled) {
+      labels.push(
+        <TabLabel
+          title="Authors"
+          index="authors"
+          itemsCount={authorsCount}
+          loading={authorsLoading}
+          isActive={activeTab === "authors"}
+          onClick={() => onActiveTabChange("authors")}
+          key={"authors-tab-label"}
         />
       );
     }
@@ -243,6 +270,19 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             itemizedRender={<ProjectsTable items={projects} />}
             visualRender={
               <VisualMode items={projects} loading={projectsLoading} />
+            }
+          />
+        )}
+        {activeTab === "authors" && (
+          <CatalogTab
+            key={"authors-tab"}
+            itemizedMode={itemizedMode}
+            dataLength={authors.length}
+            totalLength={authorsCount}
+            getNextPage={onLoadMoreAuthors}
+            itemizedRender={<AuthorsTable items={authors} />}
+            visualRender={
+              <VisualMode items={authors} loading={authorsLoading} />
             }
           />
         )}

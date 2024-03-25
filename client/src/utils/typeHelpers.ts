@@ -18,6 +18,7 @@ import {
   Book,
   ProjectFile,
   Project,
+  Author,
 } from "../types";
 
 export function isCatalogLocation(
@@ -159,6 +160,11 @@ export const isAssetTagFramework = (value: any): value is AssetTagFramework => {
   );
 };
 
+export const isAuthor = (value: any): value is Author => {
+  if (!value || typeof value !== "object") return false;
+  return "firstName" in value && "lastName" in value;
+};
+
 // Asset Tag TEMPLATES
 export const isAssetTagTemplateValueType = (
   value: string
@@ -190,11 +196,7 @@ export const isAssetTagTemplateArray = (
 
 // Asset Tags
 export const isAssetTag = (value: any): value is AssetTag => {
-  return (
-    "uuid" in value &&
-    "title" in value &&
-    "value" in value
-  );
+  return "uuid" in value && "title" in value && "value" in value;
 };
 
 export const isAssetTagArray = (value: any): value is AssetTag[] => {

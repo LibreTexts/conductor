@@ -958,7 +958,7 @@ const Search = () => {
                               </a>
                             </Table.Cell>
                             <Table.Cell>
-                              <span>{getPrettyAuthorsList(item.authors)}</span>
+                              <span>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</span>
                             </Table.Cell>
                             <Table.Cell>
                               {item.license && (

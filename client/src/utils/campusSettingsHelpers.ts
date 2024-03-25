@@ -37,4 +37,8 @@ export const DEFAULT_COMMONS_MODULES: NonNullable<
     enabled: true,
     order: 3,
   },
+  authors: {
+    enabled: true,
+    order: 4,
+  }
 };

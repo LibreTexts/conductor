@@ -16,6 +16,7 @@ import AssetTag from "../models/assettag.js";
 import { getSchemaWithDefaults } from "../util/typeHelpers.js";
 import {
   assetSearchSchema,
+  authorsSearchSchema,
   autocompleteSchema,
   bookSearchSchema,
   homeworkSearchSchema,
@@ -757,6 +758,21 @@ export async function assetsSearch(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
         $match: matchObj,
       },
     ]);
@@ -832,6 +848,21 @@ export async function assetsSearch(
           localField: "authors",
           foreignField: "_id",
           as: "authors",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
         },
       },
       {
@@ -998,18 +1029,12 @@ function _buildAssetsSearchQuery({
       : type === "assettags"
       ? ["value"]
       : ["title", "associatedOrgs"];
-  let isExactMatchSearch = false;
-  let strippedQuery = "";
+
   if (!query) {
     return [];
   }
 
-  if (query.length > 2) {
-    if (query.charAt(0) === '"' && query.charAt(query.length - 1) === '"') {
-      isExactMatchSearch = true;
-      strippedQuery = query.substring(1, query.length - 1);
-    }
-  }
+  const [isExactMatchSearch, strippedQuery] = _checkIsExactMatchQuery(query);
 
   const innerQuery = isExactMatchSearch
     ? {
@@ -1181,6 +1206,109 @@ async function usersSearch(
     debugError(err);
     return conductor500Err(res);
   }
+}
+
+async function authorsSearch(
+  req: z.infer<typeof authorsSearchSchema>,
+  res: Response
+) {
+  try {
+    // Create regex for query
+    const query = req.query.searchQuery;
+
+    const authorsPage = parseInt(req.query.page?.toString()) || 1;
+    const authorsLimit = parseInt(req.query.limit?.toString()) || 25;
+    const authorsOffset = getPaginationOffset(authorsPage, req.query.limit);
+
+    const queryObj = _buildAuthorsSearchQuery({
+      query,
+    });
+
+    const results = await Author.aggregate([
+      ...(queryObj.length > 0 ? queryObj : []),
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          url: 1,
+          primaryInstitution: 1,
+        },
+      },
+    ]);
+
+    const totalCount = results.length;
+    const paginated = results.slice(
+      authorsOffset,
+      authorsOffset + authorsLimit
+    );
+
+    paginated.sort((a, b) => {
+      let aData = null;
+      let bData = null;
+      if (req.query.sort === "first") {
+        aData = _transformToCompare(a.firstName);
+        bData = _transformToCompare(b.firstName);
+      } else if (req.query.sort === "last") {
+        aData = _transformToCompare(a.lastName);
+        bData = _transformToCompare(b.lastName);
+      }
+      if (aData !== null && bData !== null) {
+        if (aData < bData) return -1;
+        if (aData > bData) return 1;
+      }
+      return 0;
+    });
+
+    return res.send({
+      err: false,
+      numResults: totalCount,
+      results: paginated,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+function _buildAuthorsSearchQuery({ query }: { query?: string }) {
+  const SEARCH_FIELDS = ["firstName", "lastName", "email"];
+
+  if (!query) {
+    return [];
+  }
+
+  const [isExactMatchSearch, strippedQuery] = _checkIsExactMatchQuery(query);
+
+  const innerQuery = isExactMatchSearch
+    ? {
+        phrase: {
+          query: strippedQuery,
+          path: SEARCH_FIELDS,
+          score: { boost: { value: 3 } },
+        },
+      }
+    : {
+        text: {
+          query,
+          path: SEARCH_FIELDS,
+          fuzzy: {
+            maxEdits: 2,
+            maxExpansions: 50,
+          },
+        },
+      };
+
+  return [
+    {
+      $search: innerQuery,
+    },
+    {
+      $addFields: {
+        score: { $meta: "searchScore" },
+      },
+    },
+  ];
 }
 
 async function getAutocompleteResults(
@@ -1517,6 +1645,20 @@ async function getAssetFilterOptions(req: Request, res: Response) {
   }
 }
 
+function _checkIsExactMatchQuery(query: string): [boolean, string] {
+  let isExactMatchSearch = false;
+  let strippedQuery = "";
+
+  if (query.length > 2) {
+    if (query.charAt(0) === '"' && query.charAt(query.length - 1) === '"') {
+      isExactMatchSearch = true;
+      strippedQuery = query.substring(1, query.length - 1);
+    }
+  }
+
+  return [isExactMatchSearch, strippedQuery];
+}
+
 function _transformToCompare(val: any) {
   return String(val)
     .toLowerCase()
@@ -1605,6 +1747,7 @@ export default {
   homeworkSearch,
   projectsSearch,
   usersSearch,
+  authorsSearch,
   getAutocompleteResults,
   getAssetFilterOptions,
 };
