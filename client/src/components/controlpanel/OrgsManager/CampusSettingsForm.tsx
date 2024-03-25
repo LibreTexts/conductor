@@ -83,6 +83,7 @@ const CampusSettingsForm = forwardRef(
           books: { enabled: true, order: 1 },
           assets: { enabled: true, order: 2 },
           projects: { enabled: true, order: 3 },
+          authors: { enabled: true, order: 4  }
         },
         showCollections: true,
       },

@@ -26,7 +26,7 @@ import {
   ProjectFileWProjectData,
   ProjectTag,
 } from "./types/Project";
-import { CustomFilter } from "./types/Search";
+import { AuthorSearchParams, CustomFilter } from "./types/Search";
 
 /**
  * @fileoverview
@@ -107,7 +107,11 @@ class API {
   }
 
   // ASSETS
-  async addProjectFile(projectID: string, file: FormData, opts?: AxiosRequestConfig) {
+  async addProjectFile(
+    projectID: string,
+    file: FormData,
+    opts?: AxiosRequestConfig
+  ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files`,
       file,
@@ -121,15 +125,27 @@ class API {
     return res;
   }
 
-  async addProjectFileFolder(projectID: string, name: string, parentID?: string) {
-    const res = await axios.post<ConductorBaseResponse>(`/project/${projectID}/files/folder`, {
-      name,
-      parentID
-    });
+  async addProjectFileFolder(
+    projectID: string,
+    name: string,
+    parentID?: string
+  ) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/project/${projectID}/files/folder`,
+      {
+        name,
+        parentID,
+      }
+    );
     return res;
   }
 
-  async replaceProjectFile_FormData(projectID: string, fileID: string, file: FormData, opts?: AxiosRequestConfig) {
+  async replaceProjectFile_FormData(
+    projectID: string,
+    fileID: string,
+    file: FormData,
+    opts?: AxiosRequestConfig
+  ) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/files/${fileID}`,
       file,
@@ -177,6 +193,21 @@ class API {
         author: Author;
       } & ConductorBaseResponse
     >(`/authors/${id}`);
+    return res;
+  }
+
+  async getAuthorAssets(
+    id: string,
+    paramsObj?: { page?: number; limit?: number }
+  ) {
+    const res = await axios.get<
+      {
+        assets: ProjectFileWProjectData<"title" | "thumbnail">[];
+        total: number;
+      } & ConductorBaseResponse
+    >(`/authors/${id}/assets`, {
+      params: paramsObj,
+    });
     return res;
   }
 
@@ -318,6 +349,17 @@ class API {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse
     >("/search/assets", {
+      params: {
+        ...params,
+      },
+    });
+    return res;
+  }
+
+  async authorsSearch(params: AuthorSearchParams) {
+    const res = await axios.get<
+      ConductorSearchResponse<"authors"> & ConductorBaseResponse
+    >("/search/authors", {
       params: {
         ...params,
       },
@@ -497,7 +539,7 @@ class API {
     );
     return res;
   }
-  
+
   async getTicketAttachmentURL(ticketID: string, attachmentID: string) {
     const res = await axios.get<
       {

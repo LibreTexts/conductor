@@ -10,6 +10,8 @@ import {
 } from "../../../types";
 import { capitalizeFirstLetter } from "../../util/HelperFunctions";
 import { Button, Checkbox } from "semantic-ui-react";
+import { DEFAULT_COMMONS_MODULES } from "../../../utils/campusSettingsHelpers";
+import { useMemo } from "react";
 
 const ModuleRow = ({
   index,
@@ -73,6 +75,8 @@ const CommonsModuleControl: React.FC<CommonsModuleControlProps> = ({
   watch,
   ...rest
 }) => {
+  const defaultModuleKeys = Object.keys(DEFAULT_COMMONS_MODULES);
+
   function onMoveUp(idx: number) {
     if (idx === 0) return;
     const modules = Object.entries(getValues("commonsModules") ?? {});
@@ -124,9 +128,7 @@ const CommonsModuleControl: React.FC<CommonsModuleControlProps> = ({
   return (
     <div className="bg-slate-100 p-2" {...rest}>
       {Object.entries(watch("commonsModules") ?? {})
-        .filter(
-          ([key, value]) => ["books", "assets", "projects"].includes(key)
-        )
+        .filter(([key, value]) => defaultModuleKeys.includes(key))
         .sort((a, b) => a[1].order - b[1].order)
         .map(([key, value], idx) => {
           return (

@@ -79,7 +79,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
                   <p>{truncateString(item.description, 50)}</p>
                 </Table.Cell>
                 <Table.Cell>
-                  <p>{getPrettyAuthorsList(item.authors)}</p>
+                  <p>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</p>
                 </Table.Cell>
                 <Table.Cell>
                   <p>

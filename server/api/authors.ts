@@ -6,12 +6,14 @@ import {
   CreateAuthorValidator,
   DeleteAuthorValidator,
   GetAllAuthorsValidator,
+  GetAuthorAssetsValidator,
   GetAuthorValidator,
   UpdateAuthorValidator,
 } from "./validators/authors.js";
 import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
+import ProjectFile from "../models/projectfile.js";
 
 async function getAuthors(
   req: z.infer<typeof GetAllAuthorsValidator>,
@@ -91,12 +93,168 @@ async function getAuthor(
   }
 }
 
+async function getAuthorAssets(
+  req: z.infer<typeof GetAuthorAssetsValidator>,
+  res: Response
+) {
+  try {
+    const page = parseInt(req.query.page?.toString()) || 1;
+    const limit = parseInt(req.query.limit?.toString())|| 10;
+    const offset = getPaginationOffset(page, limit);
+
+    const author = await Author.findOne({
+      _id: req.params.id,
+    })
+      .orFail()
+      .lean();
+
+    const aggRes = await ProjectFile.aggregate([
+      {
+        $match: {
+          access: "public",
+          storageType: "file",
+          $or: [
+            {
+              authors: {
+                $in: [author._id],
+              },
+            },
+            {
+              primaryAuthor: author._id,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          let: {
+            searchID: "$projectID",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$projectID", "$$searchID"],
+                },
+                visibility: "public",
+                orgID: process.env.ORG_ID,
+              },
+            },
+            {
+              $project: {
+                title: 1,
+                thumbnail: 1,
+              },
+            },
+          ],
+          as: "projectInfo",
+        },
+      },
+      {
+        $set: {
+          projectInfo: {
+            $arrayElemAt: ["$projectInfo", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "assettags",
+          localField: "tags",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $lookup: {
+                from: "assettagkeys",
+                localField: "key",
+                foreignField: "_id",
+                as: "key",
+              },
+            },
+            {
+              $set: {
+                key: {
+                  $arrayElemAt: ["$key", 0],
+                },
+              },
+            },
+          ],
+          as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
+        $match: {
+          // Filter where project was not public or does not exist, so projectInfo wasn't set
+          projectInfo: {
+            $exists: true,
+            $ne: [null, {}],
+          },
+        },
+      },
+      {
+        $sort: {
+          _id: -1,
+        },
+      },
+    ]);
+
+    const paginated = aggRes.slice(offset, offset + limit);
+    const total = aggRes.length;
+
+    res.send({
+      err: false,
+      assets: paginated,
+      total,
+    });
+  } catch (err: any) {
+    if (err.name === "DocumentNotFoundError") {
+      return res.status(404).send({
+        err: true,
+        message: "Author not found",
+      });
+    }
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function createAuthor(
   req: z.infer<typeof CreateAuthorValidator>,
   res: Response
 ) {
   try {
-    const { firstName, lastName, email, primaryInstitution, url, isAdminEntry } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      primaryInstitution,
+      url,
+      isAdminEntry,
+    } = req.body;
     const author = await Author.create({
       firstName,
       lastName,
@@ -226,6 +384,7 @@ async function deleteAuthor(
 export default {
   getAuthors,
   getAuthor,
+  getAuthorAssets,
   createAuthor,
   bulkCreateAuthors,
   updateAuthor,

@@ -79,6 +79,14 @@ export const projectSearchSchema = z.object({
     .merge(_commonItems),
 });
 
+export const authorsSearchSchema = z.object({
+  query: z
+    .object({
+      sort: z.enum(["first", "last"]).default("first"),
+    })
+    .merge(_commonItems),
+});
+
 export const userSearchSchema = z.object({
   query: z
     .object({

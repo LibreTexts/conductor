@@ -1137,6 +1137,21 @@ async function getPublicProjectFiles(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
         $match: {
           // Filter where project was not public or does not exist, so projectInfo wasn't set
           projectInfo: {

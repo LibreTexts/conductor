@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, Switch, Route } from "react-router-dom";
 import axios from "axios";
+import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
 import CommonsCollections from "./components/commons/CommonsCollections";
@@ -107,6 +108,7 @@ const Commons = () => {
           />,
         ]}
         <Route exact path="/collection/:id" component={CommonsCollectionView} />
+        <Route exact path="/author/:id" component={CommonsAuthor} />
         <Route exact path="/book/:id" component={CommonsBook} />
       </Switch>
       <CommonsFooter />

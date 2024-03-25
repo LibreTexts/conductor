@@ -7,6 +7,7 @@ import useDebounce from "../../hooks/useDebounce";
 import {
   AssetFilters,
   AssetFiltersAction,
+  Author,
   Book,
   BookFilters,
   BookFiltersAction,
@@ -101,9 +102,13 @@ const CommonsCatalog = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsCount, setProjectsCount] = useState<number>(0);
 
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [authorsCount, setAuthorsCount] = useState<number>(0);
+
   const [booksLoading, setBooksLoading] = useState(false);
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  const [authorsLoading, setAuthorsLoading] = useState(false);
 
   useEffect(() => {
     // Set page title based on the organization
@@ -176,6 +181,7 @@ const CommonsCatalog = () => {
     setBooks([]);
     setAssets([]);
     setProjects([]);
+    setAuthors([]);
     loadInitialData(true);
   };
 
@@ -204,6 +210,7 @@ const CommonsCatalog = () => {
         handleBooksSearch(query ?? searchString, bookFilters, true),
         handleAssetsSearch(query ?? searchString, assetFilters, true),
         handleProjectsSearch(query ?? searchString, true),
+        handleAuthorsSearch(query ?? searchString, true),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -217,6 +224,7 @@ const CommonsCatalog = () => {
         loadCommonsCatalog(clear),
         loadPublicAssets(clear),
         loadPublicProjects(clear),
+        handleAuthorsSearch("", clear),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -361,6 +369,36 @@ const CommonsCatalog = () => {
     }
   }
 
+  // Authors
+  async function handleAuthorsSearch(query?: string, clearAndUpdate = false) {
+    try {
+      setAuthorsLoading(true);
+      const res = await api.authorsSearch({
+        searchQuery: query,
+        page: activePage,
+        limit: ITEMS_PER_PAGE,
+      });
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (!res.data.results || !Array.isArray(res.data.results)) {
+        throw new Error("No results found.");
+      }
+
+      updateAuthors(res.data.results, clearAndUpdate);
+
+      if (typeof res.data.numResults === "number") {
+        setAuthorsCount(res.data.numResults);
+      }
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setAuthorsLoading(false);
+    }
+  }
+
   // Projects
   async function loadPublicProjects(clear = false) {
     try {
@@ -474,6 +512,12 @@ const CommonsCatalog = () => {
     }
   }
 
+  function handleLoadMoreAuthors() {
+    if (loadingDisabled) return;
+    setActivePage(activePage + 1);
+    return handleAuthorsSearch(searchString);
+  }
+
   /**
    * This is a workaround to handle cases where we want to clear the existing state,
    * but React doesn't update the state immediately/recognize the change.
@@ -504,6 +548,14 @@ const CommonsCatalog = () => {
       setProjects([...newProjects]);
     } else {
       setProjects([...projects, ...newProjects]);
+    }
+  }
+
+  function updateAuthors(newAuthors: Author[], clearAndUpdate = false) {
+    if (clearAndUpdate) {
+      setAuthors([...newAuthors]);
+    } else {
+      setAuthors([...authors, ...newAuthors]);
     }
   }
 
@@ -551,6 +603,10 @@ const CommonsCatalog = () => {
                       id="commons-search-input"
                       icon="search"
                       iconPosition="left"
+                      action
+                      fluid
+                      aria-label="Search query"
+                      value={searchString}
                       onChange={(e) => {
                         setSearchString(e.target.value);
                         getSuggestionsDebounced(e.target.value);
@@ -560,15 +616,17 @@ const CommonsCatalog = () => {
                           setShowSuggestions(true);
                         }
                       }}
-                      fluid
-                      value={searchString}
-                      aria-label="Search query"
                       onBlur={() => {
                         setTimeout(() => {
                           setShowSuggestions(false); // Delay to allow suggestion click event to fully run
                         }, 200);
                       }}
-                      action
+                      onKeyDown={(e: any) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault(); // Prevent form submission on Enter key press
+                          updateSearchParam(searchString); // Trigger search on Enter key press
+                        }
+                      }}
                     >
                       <Icon name="search" />
                       <input />
@@ -576,8 +634,11 @@ const CommonsCatalog = () => {
                         Object.keys(assetsState).length !== 0 ||
                         Object.keys(booksState).length !== 0) && (
                         <button
-                          onClick={handleResetSearch}
-                          className="!-mt-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.5px] !border-gray-2ks00"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleResetSearch();
+                          }}
+                          className="!-mt-[0.25px] !-mb-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.57px] !border-gray-200"
                         >
                           <Icon name="close" color="grey" />
                         </button>
@@ -629,9 +690,13 @@ const CommonsCatalog = () => {
                 booksLoading={booksLoading}
                 assetsLoading={assetsLoading}
                 projectsLoading={projectsLoading}
+                authors={authors}
+                authorsCount={authorsCount}
+                authorsLoading={authorsLoading}
                 onLoadMoreBooks={handleLoadMoreBooks}
                 onLoadMoreAssets={handleLoadMoreAssets}
                 onLoadMoreProjects={handleLoadMoreProjects}
+                onLoadMoreAuthors={handleLoadMoreAuthors}
                 onTriggerStopLoading={() => setLoadingDisabled(true)}
               />
             </Segment>

@@ -26,11 +26,19 @@ export const GetAllAuthorsValidator = z.object({
 });
 
 export const GetAuthorValidator = AuthorIDParams;
+export const GetAuthorAssetsValidator = z.object({
+  params: z.object({
+    id: z.string().refine((val: string) => isMongoIDValidator(val)),
+  }),
+  query: PaginationSchema,
+});
 
 export const CreateAuthorValidator = z.object({
-  body: _AuthorValidator.merge(z.object({
-    isAdminEntry: z.boolean().optional().default(false)
-  }))
+  body: _AuthorValidator.merge(
+    z.object({
+      isAdminEntry: z.boolean().optional().default(false),
+    })
+  ),
 });
 
 export const UpdateAuthorValidator =

@@ -409,6 +409,11 @@ router.route('/authors/:id').get(
   authorsAPI.deleteAuthor,
 );
 
+router.route('/authors/:id/assets').get(
+  middleware.validateZod(AuthorsValidators.GetAuthorAssetsValidator),
+  authorsAPI.getAuthorAssets,
+)
+
 
 /* Adoption Reports */
 // (submission route can be anonymous)
@@ -724,6 +729,11 @@ router.route('/search/users').get(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(SearchValidators.userSearchSchema),
   searchAPI.usersSearch,
+);
+router.route('/search/authors').get(
+  authAPI.optionalVerifyRequest,
+  middleware.validateZod(SearchValidators.authorsSearchSchema),
+  searchAPI.authorsSearch,
 );
 router.route('/search/asset-filters').get(
   searchAPI.getAssetFilterOptions,
