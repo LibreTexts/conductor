@@ -506,6 +506,29 @@ export async function assetsSearch(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
         $match: {
           // Filter where project was not public or does not exist, so projectInfo wasn't set
           projectInfo: {
@@ -621,6 +644,29 @@ export async function assetsSearch(
             },
           ],
           as: "tags",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "authors",
+          foreignField: "_id",
+          as: "authors",
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "primaryAuthor",
+          foreignField: "_id",
+          as: "primaryAuthor",
+        },
+      },
+      {
+        $set: {
+          primaryAuthor: {
+            $arrayElemAt: ["$primaryAuthor", 0],
+          },
         },
       },
       {
@@ -1261,8 +1307,10 @@ async function authorsSearch(
     });
 
     let filtered = paginated;
-    if(req.query.primaryInstitution){
-      filtered = paginated.filter(author => author.primaryInstitution === req.query.primaryInstitution)
+    if (req.query.primaryInstitution) {
+      filtered = paginated.filter(
+        (author) => author.primaryInstitution === req.query.primaryInstitution
+      );
     }
 
     return res.send({
