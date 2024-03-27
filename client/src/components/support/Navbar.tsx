@@ -5,8 +5,8 @@ import { Button, Form, Icon, Image } from "semantic-ui-react";
 import Launchpad from "../navigation/Launchpad.js";
 import { useTypedSelector } from "../../state/hooks.js";
 import { useMediaQuery } from "react-responsive";
-import { is } from "date-fns/locale";
 import { isSupportStaff } from "../../utils/supportHelpers.js";
+import AuthHelper from "../util/AuthHelper.js";
 
 const SupportCenterNavbar: React.FC<{}> = () => {
   const user = useTypedSelector((state) => state.user);
@@ -95,7 +95,7 @@ const SupportCenterNavbar: React.FC<{}> = () => {
           </Button>
         ) : (
           <>
-            {user && user.uuid && (
+            {user && user.uuid ? (
               <Button
                 className="h-10 !w-44"
                 color="blue"
@@ -106,9 +106,21 @@ const SupportCenterNavbar: React.FC<{}> = () => {
                 <Icon name="ticket" />
                 My Tickets
               </Button>
+            ) : (
+              <Button
+                className="h-10 !w-52"
+                color="blue"
+                as={Link}
+                to={AuthHelper.generateLoginURL(window.location.href)}
+                size="small"
+                basic
+              >
+                <Icon name="sign in" />
+                Login with LibreOne
+              </Button>
             )}
             <Button
-              className="h-10 !w-44"
+              className="h-10 !w-44 !ml-2"
               color="blue"
               as={Link}
               to="/support/contact"

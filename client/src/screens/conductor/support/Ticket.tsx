@@ -240,7 +240,7 @@ const SupportTicketView = () => {
                   ticket={ticket}
                 />
                 <div className="mt-4">
-                  <TicketAttachments ticket={ticket} />
+                  <TicketAttachments ticket={ticket} guestAccessKey={accessKey} />
                 </div>
               </div>
             </div>

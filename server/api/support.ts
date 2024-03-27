@@ -993,6 +993,11 @@ async function _uploadTicketAttachments(
     const savedFiles: SupportTicketAttachmentInterface[] = [];
 
     files.forEach((file) => {
+      const fileExt = file.originalname.split(".").pop();
+      if(!fileExt) {
+        throw new Error("File extension could not be determined");
+      }
+
       const fileUUID = v4();
       const fileKey = `${ticketID}/${fileUUID}`;
       const contentType = file.mimetype || "application/octet-stream";
@@ -1001,7 +1006,7 @@ async function _uploadTicketAttachments(
           Bucket: process.env.AWS_SUPPORTFILES_BUCKET,
           Key: fileKey,
           Body: file.buffer,
-          ContentDisposition: `inline; filename="${fileUUID}"`,
+          ContentDisposition: `inline; filename="${fileUUID}.${fileExt}"`,
           ContentType: contentType,
         })
       );

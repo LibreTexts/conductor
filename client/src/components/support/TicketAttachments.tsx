@@ -11,9 +11,13 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface TicketAttachmentsProps {
   ticket: SupportTicket;
+  guestAccessKey?: string;
 }
 
-const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
+const TicketAttachments: React.FC<TicketAttachmentsProps> = ({
+  ticket,
+  guestAccessKey,
+}) => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState<boolean>(false);
@@ -23,7 +27,7 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
   async function getDownloadURL(id: string) {
     try {
       setLoading(true);
-      const res = await api.getTicketAttachmentURL(ticket.uuid, id);
+      const res = await api.getTicketAttachmentURL(ticket.uuid, id, guestAccessKey);
 
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -48,9 +52,14 @@ const TicketAttachments: React.FC<TicketAttachmentsProps> = ({ ticket }) => {
       formData.append("files", file);
     });
 
+    const urlParams = new URLSearchParams();
+    if (guestAccessKey) {
+      urlParams.append("accessKey", guestAccessKey);
+    }
+
     try {
       const uploadRes = await axios.post(
-        `/support/ticket/${ticketID}/attachments`,
+        `/support/ticket/${ticketID}/attachments${guestAccessKey ? `?${urlParams}` : ""}`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },

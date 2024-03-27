@@ -106,7 +106,11 @@ class API {
   }
 
   // ASSETS
-  async addProjectFile(projectID: string, file: FormData, opts?: AxiosRequestConfig) {
+  async addProjectFile(
+    projectID: string,
+    file: FormData,
+    opts?: AxiosRequestConfig
+  ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files`,
       file,
@@ -120,15 +124,27 @@ class API {
     return res;
   }
 
-  async addProjectFileFolder(projectID: string, name: string, parentID?: string) {
-    const res = await axios.post<ConductorBaseResponse>(`/project/${projectID}/files/folder`, {
-      name,
-      parentID
-    });
+  async addProjectFileFolder(
+    projectID: string,
+    name: string,
+    parentID?: string
+  ) {
+    const res = await axios.post<ConductorBaseResponse>(
+      `/project/${projectID}/files/folder`,
+      {
+        name,
+        parentID,
+      }
+    );
     return res;
   }
 
-  async replaceProjectFile_FormData(projectID: string, fileID: string, file: FormData, opts?: AxiosRequestConfig) {
+  async replaceProjectFile_FormData(
+    projectID: string,
+    fileID: string,
+    file: FormData,
+    opts?: AxiosRequestConfig
+  ) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/files/${fileID}`,
       file,
@@ -495,13 +511,21 @@ class API {
     );
     return res;
   }
-  
-  async getTicketAttachmentURL(ticketID: string, attachmentID: string) {
+
+  async getTicketAttachmentURL(
+    ticketID: string,
+    attachmentID: string,
+    guestAccessKey?: string
+  ) {
     const res = await axios.get<
       {
         url: string;
       } & ConductorBaseResponse
-    >(`/support/ticket/${ticketID}/attachments/${attachmentID}`);
+    >(`/support/ticket/${ticketID}/attachments/${attachmentID}`, {
+      params: {
+        ...(guestAccessKey ? { accessKey: guestAccessKey } : {}),
+      },
+    });
     return res;
   }
 }
