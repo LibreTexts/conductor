@@ -18,7 +18,11 @@ const CXOneTemplates = {
       </grant>
     </grants.added>
   </security>`,
-  PUT_TeamAsContributors: (userIDs: string[], libreBotID: string) =>
+  PUT_TeamAsContributors: (
+    editorIDs: string[],
+    viewerIDs: string[],
+    libreBotID: string
+  ) =>
     `<security>
     <permissions.page>
       <restriction>Semi-Private</restriction>
@@ -28,10 +32,16 @@ const CXOneTemplates = {
       <permissions><role>Manager</role></permissions>
       <user id="${libreBotID}"></user>
     </grant>
-    ${userIDs.map((userID) => {
+    ${editorIDs.map((eID) => {
       return `<grant>
         <permissions><role>Manager</role></permissions>
-        <user id="${userID}"></user>
+        <user id="${eID}"></user>
+      </grant>`;
+    })}
+    ${viewerIDs.map((vID) => {
+      return `<grant>
+        <permissions><role>Viewer</role></permissions>
+        <user id="${vID}"></user>
       </grant>`;
     })}
     </grants>
