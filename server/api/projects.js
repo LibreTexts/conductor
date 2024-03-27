@@ -1847,6 +1847,17 @@ async function changeMemberRole(req, res) {
       throw (new Error('Project update failed.'));
     }
 
+
+    // PUT user permissions for updated team if project is linked to a Workbench book
+    if(project.didCreateWorkbench && project.libreLibrary && project.libreCoverID) {
+      const subdomain = getSubdomainFromLibrary(project.libreLibrary);
+      if(!subdomain) {
+        throw new Error("Invalid library");
+      }
+      
+      await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
+    }
+
     return res.send({
       err: false,
       msg: 'Successfully changed team member role!',

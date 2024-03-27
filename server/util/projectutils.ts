@@ -1271,8 +1271,22 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
       centralIDs.includes(u.username.toString())
     );
 
+    // Get auditors (viewers only)
+    const getAuditors = () => {
+      if(!project.auditors) {
+        return [];
+      }
+
+      const originalAuditors = conductorUsers.filter((user) => project.auditors?.includes(user.uuid));
+      return foundUsers.filter((u) => originalAuditors.map((a) => a.centralID).includes(u.username));
+    }
+
+    const auditors = getAuditors();
+    const withoutAuditors = foundUsers.filter((u) => !auditors.map((a) => a.username).includes(u.username));
+
     const body = MindTouch.Templates.PUT_TeamAsContributors(
-      foundUsers.map((u) => u.id),
+      withoutAuditors.map((u) => u.id),
+      auditors.map((u) => u.id),
       libreBotID
     );
 
