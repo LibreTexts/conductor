@@ -11,6 +11,9 @@ import { required } from "../../../utils/formRules";
 import CancelEventModal from "./CancelEventModal";
 import { utcToZonedTime } from "date-fns-tz";
 import { parseISO } from "date-fns";
+import axios from "axios";
+import {  useParams } from "react-router-dom";
+
 
 interface EventSettingsModalParams {
   show: boolean;
@@ -24,6 +27,8 @@ interface EventSettingsModalParams {
 /**
  * Modal tool to view and approve or deny an Instructor Account Request.
  */
+
+
 const EventSettingsModal: FC<EventSettingsModalParams> = ({
   show,
   canEdit,
@@ -32,6 +37,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   onRequestSave,
   onRequestCancelEvent,
 }) => {
+  
   // Reset form with incoming data when modal is opened
   useEffect(() => {
     if (show) {
@@ -41,6 +47,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
 
   // Global state & error handling
   const org = useTypedSelector((state) => state.org);
+  const routeParams = useParams<{ mode: string; duplicateID?: string }>();
   const {
     control,
     getValues,
@@ -55,6 +62,8 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [showCancelEventModal, setShowCancelEventModal] =
     useState<boolean>(false);
+  const [duplicateID, setDuplicateID] = useState<string | undefined>("");
+
 
   /**
    * Resets the tool to its initial state, then activates the provided `onClose` handler.
@@ -62,6 +71,40 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   function handleClose() {
     setLoading(false);
     onClose();
+  }
+  useEffect(() => {
+    if(routeParams.duplicateID){
+      setDuplicateID(routeParams.duplicateID);
+    }
+    console.log(duplicateID);
+
+  }, [routeParams]);
+  //another useEffect for duplicateID -> grab the duplicate events and run teh loadDuplicateEvent
+
+  const loadDuplicateEvent= async ()=>{
+    // const res = await axios.get(
+    //   `/orgevents/${routeParams.eventID}`
+    // );
+    //call resetForm and watch out for errors
+    // try {
+    //   if (manageMode !== "edit") return;
+    //   if (!routeParams.eventID || isEmptyString(routeParams.eventID)) {
+    //     handleGlobalError("No Event ID provided");
+    //   }
+
+    //   const res = await axios.get(/orgevents/${routeParams.eventID});
+    //   setLoadedOrgEvent(true);
+    //   if (res.data.err) {
+    //     handleGlobalError(res.data.errMsg);
+    //   }
+    //   resetForm(initOrgEventDates(res.data.orgEvent));
+
+    //   getOrgParticipants();
+    //   getOrgEventFeeWaivers();
+    // } catch (err) {
+    //   setLoadedOrgEvent(true);
+    //   handleGlobalError(err);
+    // }
   }
 
   return (

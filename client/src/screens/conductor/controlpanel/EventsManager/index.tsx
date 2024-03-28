@@ -22,6 +22,7 @@ const COLUMNS = [
   { key: "regClose", text: "Registration Close Date" },
   { key: "startDate", text: "Event Start Date" },
   { key: "endDate", text: "Event End Date" },
+  { key: "Action", text: "Action" },
 ];
 
 /**
@@ -80,6 +81,7 @@ const EventsManager = () => {
     getOrgEvents();
   }, [activePage]);
 
+
   function TableRow({ orgEvent, ...props }: { orgEvent: OrgEvent }) {
     return (
       <Table.Row {...props}>
@@ -113,6 +115,17 @@ const EventsManager = () => {
             {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)} (
             {orgEvent.timeZone.abbrev})
           </span>
+        </Table.Cell>
+        <Table.Cell>
+           <Button
+                  as={Link}
+                  to={{
+                    pathname: '/controlpanel/eventsmanager/create',
+                    search: `duplicateID=${orgEvent._id}` 
+                  }}
+                >
+            Duplicate
+          </Button>
         </Table.Cell>
       </Table.Row>
     );
