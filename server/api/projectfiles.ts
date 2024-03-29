@@ -1139,9 +1139,16 @@ async function getPublicProjectFiles(
     ]);
 
     const totalCount = aggRes.length;
-    const offset = getRandomOffset(totalCount);
+    const offset = getRandomOffset(totalCount, limit);
 
-    const paginatedRes = aggRes.slice(offset, offset + limit);
+    const upperBound = () => {
+      if((offset + limit) > totalCount) {
+        return totalCount;
+      }
+      return offset + limit;
+    }
+
+    const paginatedRes = aggRes.slice(offset, upperBound());
 
     return res.send({
       err: false,
