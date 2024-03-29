@@ -52,7 +52,7 @@ interface ViewTaskModalProps {
     parent: string | null
   ) => void;
   atdLoading: boolean;
-  getTaskMessages: (id: string) => void;
+  getTaskMessages: () => void;
   getParentTaskName: (id: string) => string;
   submitTaskStatus: (e: any, data: any) => void;
   saveTaskDate: (type: string) => void;
