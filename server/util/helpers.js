@@ -318,12 +318,17 @@ export function getPaginationOffset(page, offsetMultiplier = 25) {
 }
 
 /**
- * Generates a random number between 0 and max
- * @param {Number} max - The maximum number to generate a random offset for 
+ * Generates a random number between 0 and a given limit
+ * @param {Number} total - The maximum number to generate a random number for
+ * @param {Number} limit - The limit for the random number 
  * @returns {Number} - A random number between 0 and max
  */
-export function getRandomOffset(max){
-  return Math.floor(Math.random() * max);
+export function getRandomOffset(total, limit) {
+  if (total <= limit) {
+    return 0;
+  }
+  const maxOffset = Math.max(0, total - limit);
+  return Math.floor(Math.random() * maxOffset);
 }
 
 /**

@@ -910,9 +910,17 @@ async function getCommonsCatalog(
     });
     
     const totalNumBooks = resultBooks.length;
-    const offset = getRandomOffset(totalNumBooks);
+    const offset = getRandomOffset(totalNumBooks, limit);
 
-    const randomized = resultBooks.slice(offset, offset + limit);
+    const upperBound = () => {
+      if((offset + limit) > totalNumBooks) {
+        return totalNumBooks;
+      } else {
+        return offset + limit;
+      }
+    }
+
+    const randomized = resultBooks.slice(offset, upperBound());
 
     return res.send({
       err: false,
