@@ -11,9 +11,11 @@ import { required } from "../../../utils/formRules";
 import CancelEventModal from "./CancelEventModal";
 import { utcToZonedTime } from "date-fns-tz";
 import { parseISO } from "date-fns";
+import useGlobalError from "../../error/ErrorHooks";
+import { initOrgEventDates } from "../../../utils/orgEventsHelpers";
 import axios from "axios";
 import {  useParams } from "react-router-dom";
-
+ 
 
 interface EventSettingsModalParams {
   show: boolean;
@@ -47,7 +49,8 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
 
   // Global state & error handling
   const org = useTypedSelector((state) => state.org);
-  const routeParams = useParams<{ mode: string; duplicateID?: string }>();
+  const routeParams = useParams<{ mode: string; eventID?: string }>();
+  const { handleGlobalError } = useGlobalError();
   const {
     control,
     getValues,
@@ -62,7 +65,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [showCancelEventModal, setShowCancelEventModal] =
     useState<boolean>(false);
-  const [duplicateID, setDuplicateID] = useState<string | undefined>("");
+  const [duplicateID, setDuplicateID] = useState<string|undefined>("");
 
 
   /**
@@ -73,39 +76,42 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
     onClose();
   }
   useEffect(() => {
-    if(routeParams.duplicateID){
-      setDuplicateID(routeParams.duplicateID);
+    if( routeParams.eventID !== ""){
+      setDuplicateID(routeParams.eventID);
     }
-    console.log(duplicateID);
-
+  
   }, [routeParams]);
   //another useEffect for duplicateID -> grab the duplicate events and run teh loadDuplicateEvent
 
   const loadDuplicateEvent= async ()=>{
-    // const res = await axios.get(
-    //   `/orgevents/${routeParams.eventID}`
-    // );
-    //call resetForm and watch out for errors
-    // try {
-    //   if (manageMode !== "edit") return;
-    //   if (!routeParams.eventID || isEmptyString(routeParams.eventID)) {
-    //     handleGlobalError("No Event ID provided");
-    //   }
 
-    //   const res = await axios.get(/orgevents/${routeParams.eventID});
-    //   setLoadedOrgEvent(true);
-    //   if (res.data.err) {
-    //     handleGlobalError(res.data.errMsg);
-    //   }
-    //   resetForm(initOrgEventDates(res.data.orgEvent));
+    try {
+      if (routeParams.mode !== "create") return;
+      if (!routeParams.eventID ||  routeParams.eventID === '') {
+        handleGlobalError("No duplicate ID provided");
+      }
+      if(!duplicateID) return;
+      const res = (await axios.get(`/orgevents/`)).data ;
+      setLoading(true);
+      if (res .err) {
+        handleGlobalError(res.errMsg);
+      }
+      resetForm(initOrgEventDates(res.orgEvents.filter((event:any)=>event._id===duplicateID)[0]));
+      setLoading(false);
 
-    //   getOrgParticipants();
-    //   getOrgEventFeeWaivers();
-    // } catch (err) {
-    //   setLoadedOrgEvent(true);
-    //   handleGlobalError(err);
-    // }
+      // getOrgParticipants();
+      // getOrgEventFeeWaivers();
+    } catch (err) {
+      setLoading(true);
+      handleGlobalError(err);
+    }
   }
+  useEffect(() => {
+    if(duplicateID){
+      loadDuplicateEvent();
+    }
+
+  }, [duplicateID]);
 
   return (
     <Modal open={show} onClose={handleClose}>

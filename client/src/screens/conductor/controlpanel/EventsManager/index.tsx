@@ -120,8 +120,7 @@ const EventsManager = () => {
            <Button
                   as={Link}
                   to={{
-                    pathname: '/controlpanel/eventsmanager/create',
-                    search: `duplicateID=${orgEvent._id}` 
+                    pathname: `/controlpanel/eventsmanager/create/${orgEvent._id}`
                   }}
                 >
             Duplicate
