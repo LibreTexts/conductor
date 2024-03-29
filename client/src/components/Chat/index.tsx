@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState,FC } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
@@ -82,7 +82,7 @@ const Chat: FC<Chatinterface>= ({
       });
       if (!teamRes.data.err) {
         if (Array.isArray(teamRes.data.team)) {
-          const shaped = teamRes.data.team.map((item) => ({
+          const shaped = teamRes.data.team.map((item:any) => ({
             key: item.uuid,
             text: `${item.firstName} ${item.lastName}`,
             value: item.uuid,
@@ -189,6 +189,7 @@ const Chat: FC<Chatinterface>= ({
         const msgData = {
           message: messageCompose,
           notify: notifySetting,
+          notifyUsers: [] as string []
         };
         let postURL = `/project/thread/${activeThread}/message`;
         if (kind !== 'project' && kind !== 'a11y' && kind !== 'peerreview') {
@@ -286,7 +287,7 @@ const Chat: FC<Chatinterface>= ({
    * @param {object} data - Data passed from the UI component.
    * @param {string[]} data.value - The updated list of selected team members. 
    */
-  function handleChangeTeamToNotify(_e, { value }) {
+  function handleChangeTeamToNotify(_e:React.SyntheticEvent<HTMLElement, Event>, { value }: any) {
     setTeamToNotify(value);
   }
 
@@ -298,7 +299,7 @@ const Chat: FC<Chatinterface>= ({
    * @param {object} data - Data passed from the UI component.
    * @param {string} data.value - The new notification setting. 
    */
-  function handleNotifySettingChange(_e, { value }) {
+  function handleNotifySettingChange(_e:React.SyntheticEvent<HTMLElement, Event>, { value }:any) {
     if (value !== 'specific') {
       setNotifySetting(value);
     }
@@ -454,67 +455,5 @@ const Chat: FC<Chatinterface>= ({
   )
 };
 
-Chat.propTypes = {
-  /**
-   * Identifier of the Project the Chat window is in the context of.
-   */
-  projectID: PropTypes.string.isRequired,
-  /**
-   * Information about the current user.
-   */
-  user: PropTypes.shape({
-    uuid: PropTypes.string,
-  }).isRequired,
-  /**
-   * The mode to run the Chat window in.
-   */
-  mode: PropTypes.oneOf(['messaging', 'standalone']),
-  /**
-   * The kind of discussion the Chat window is used for.
-   */
-  kind: PropTypes.string.isRequired,
-  /**
-   * Internal identifier of the active thread or task.
-   */
-  activeThread: PropTypes.string.isRequired,
-  /**
-   * UI title of the active thread or task.
-   */
-  activeThreadTitle: PropTypes.string.isRequired,
-  /**
-   * The collection of messages already present in the active thread or task.
-   */
-  activeThreadMsgs: PropTypes.array.isRequired,
-  /**
-   * Indicates existing messages have already been loaded from the server.
-   */
-  loadedThreadMsgs: PropTypes.bool.isRequired,
-  /**
-   * Handler to refresh the available threads, if running in 'messaging' mode.
-   */
-  getThreads: PropTypes.func,
-  /**
-   * Handler to refresh the available messages.
-   */
-  getMessages: PropTypes.func.isRequired,
-  /**
-   * Indicates the current user is a Project administrator.
-   */
-  isProjectAdmin: PropTypes.bool,
-};
-
-Chat.defaultProps = {
-  projectID: '',
-  user: {},
-  mode: 'messaging',
-  kind: 'project',
-  activeThread: '',
-  activeThreadTitle: 'Messages',
-  activeThreadMsgs: [],
-  loadedThreadMsgs: false,
-  getThreads: null,
-  getMessages: () => { },
-  isProjectAdmin: false,
-};
 
 export default memo(Chat);
