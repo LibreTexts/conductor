@@ -19,11 +19,24 @@ import TextArea from '../TextArea';
 import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
-
+import {User} from "../../types";
+interface Chatinterface {
+  projectID: string;
+  user: User; 
+  mode: string;
+  kind: string;
+  activeThread: string; 
+  activeThreadTitle: string;
+  activeThreadMsgs: any[];
+  loadedThreadMsgs: boolean;
+  getThreads?: () => void | null;
+  getMessages: () => void;
+  isProjectAdmin: boolean;
+}
 /**
  * A reusable chat/message thread interface.
  */
-const Chat = ({
+const Chat: FC<Chatinterface>= ({
   projectID,
   user,
   mode,
@@ -41,7 +54,7 @@ const Chat = ({
   const { handleGlobalError } = useGlobalError();
 
   // UI
-  const chatWindowBottom = useRef(null);
+  const chatWindowBottom = useRef<HTMLDivElement>(null);
 
   // Delete Message Modal
   const [showDelMsgModal, setShowDelMsgModal] = useState(false);
@@ -141,7 +154,7 @@ const Chat = ({
       return `Notify ${teamToNotify.length} ${modifier}`;
     }
     const foundOption = notificationOptions.find((item) => item.value === notifySetting);
-    return foundOption.text;
+    return foundOption?.text;
   }, [notifySetting, notificationOptions, teamToNotify]);
 
   /**
