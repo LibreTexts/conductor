@@ -92,8 +92,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
       }
       if(!duplicateID) return;
       const res = (await axios.get(`/orgevents/`)).data;
-      console.log(res);
-
       setLoading(true);
       if (res .err) {
         handleGlobalError(res.errMsg);
@@ -102,9 +100,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
       currEvent.title = "Copy of " + currEvent.title;
       resetForm(initOrgEventDates(currEvent));
       setLoading(false);
-
-      // getOrgParticipants();
-      // getOrgEventFeeWaivers();
     } catch (err) {
       setLoading(true);
       handleGlobalError(err);
