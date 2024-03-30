@@ -91,12 +91,16 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
         handleGlobalError("No duplicate ID provided");
       }
       if(!duplicateID) return;
-      const res = (await axios.get(`/orgevents/`)).data ;
+      const res = (await axios.get(`/orgevents/`)).data;
+      console.log(res);
+
       setLoading(true);
       if (res .err) {
         handleGlobalError(res.errMsg);
       }
-      resetForm(initOrgEventDates(res.orgEvents.filter((event:any)=>event._id===duplicateID)[0]));
+      let currEvent = res.orgEvents.filter((event:any)=>event._id===duplicateID)[0];
+      currEvent.title = "Copy of " + currEvent.title;
+      resetForm(initOrgEventDates(currEvent));
       setLoading(false);
 
       // getOrgParticipants();
