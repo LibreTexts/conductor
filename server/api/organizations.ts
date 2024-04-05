@@ -382,7 +382,7 @@ function validateBrandingAssetName(assetName: string) {
 }
 
 function validateCommonsModules(commonsModules: any) {
-  const validModules = ['books', 'assets', 'projects'];
+  const validModules = ['books', 'assets', 'projects', 'authors'];
   if (typeof commonsModules !== 'object') {
     return false;
   }
