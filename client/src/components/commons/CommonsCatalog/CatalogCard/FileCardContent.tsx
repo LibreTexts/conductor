@@ -46,9 +46,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
             backgroundImage: `url(${file.projectInfo.thumbnail})`,
           }}
         >
-          <div className="app-item-icon-overlay">
+          {/* <div className="app-item-icon-overlay">
             <Icon name={getFileTypeIcon(file)} size="big" color="black" />
-          </div>
+          </div> */}
         </div>
       ) : (
         <div className="commons-asset-card-img-wrapper flex justify-center items-center">
@@ -86,7 +86,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       </Card.Meta>
       {!file.isURL && file.storageType === "file" && (
         <Card.Meta>
-          <Icon name="file alternate outline" color="blue" />{" "}
+          <Icon name={getFileTypeIcon(file)} color="blue" />{" "}
           {truncateString(file.mimeType ?? "", 30)}
         </Card.Meta>
       )}

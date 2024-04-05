@@ -2,7 +2,6 @@ import { Label, Popup } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
-import { spread } from "axios";
 
 const RenderAssetTags: React.FC<{
   file: ProjectFile;
@@ -78,17 +77,19 @@ const RenderAssetTags: React.FC<{
     color,
     size,
     value,
+    blackText
   }: {
     color: string;
     size: "small" | "large";
     value: string;
+    blackText: boolean;
   }) => {
     return (
       <Label
         style={{
           backgroundColor: color,
           borderColor: color,
-          color: basic ? "black" : "white",
+          color: blackText ? "black" : "white",
         }}
         size={size === "small" ? "mini" : "tiny"}
         key={crypto.randomUUID()}
@@ -125,8 +126,18 @@ const RenderAssetTags: React.FC<{
             getFlattenedTags(sortedTags)
               .slice(0, max)
               .map((value, index) => {
+                const color = getLabelColor(
+                  sortedTags[index],
+                  basic
+                ).toString();
                 return (
-                  <RenderTag color="" key={index} size={size} value={value} />
+                  <RenderTag
+                    color={color}
+                    key={index}
+                    size={size}
+                    value={value}
+                    blackText={basic}
+                  />
                 );
               })}
           {sortedTags &&
@@ -141,6 +152,7 @@ const RenderAssetTags: React.FC<{
                   color={color}
                   size={size}
                   value={val}
+                  blackText={false}
                 />
               );
             })}
@@ -158,11 +170,15 @@ const RenderAssetTags: React.FC<{
         return (
           <div key={tag.uuid} className="">
             <span className="font-semibold">{title}</span>:{" "}
-            {text ? (
-              <RenderTag color={color} size="small" value={text} />
-            ) : (
-              "No value provided"
+            {text &&
+              spreadArray &&
+              getFlattenedTags([tag]).map((text) => {
+                return <RenderTag color={color} size="small" value={text} blackText={false}/>;
+              })}
+            {text && !spreadArray && (
+              <RenderTag color={color} size="small" value={text} blackText={false}/>
             )}
+            {!text && "No value provided"}
           </div>
         );
       })}
