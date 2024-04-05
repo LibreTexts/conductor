@@ -22,6 +22,7 @@ import api from "../../api";
 import { useHistory, useLocation } from "react-router-dom";
 import { truncateString } from "../util/HelperFunctions";
 import { getDefaultCommonsModule } from "../../utils/misc";
+import { useMediaQuery } from "react-responsive";
 
 function assetsReducer(
   state: Record<string, string>,
@@ -95,6 +96,10 @@ const CommonsCatalog = () => {
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
+  const isTailwindLg = useMediaQuery(
+    { minWidth: 1024 }, // Tailwind LG breakpoint
+    undefined
+  );
   const ITEMS_PER_PAGE = 24;
 
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
@@ -163,7 +168,11 @@ const CommonsCatalog = () => {
 
     if (search === "") {
       clearSearchParam();
-      if (assetFiltersApplied() || bookFiltersApplied() || authorFiltersApplied()) {
+      if (
+        assetFiltersApplied() ||
+        bookFiltersApplied() ||
+        authorFiltersApplied()
+      ) {
         runSearch({ query: search }); // handle no search query but filters
       } else {
         loadInitialData(true);
@@ -227,7 +236,7 @@ const CommonsCatalog = () => {
       if (
         !query &&
         (!assetFilters || !Object.keys(assetFilters).length) &&
-        (!bookFilters || !Object.keys(bookFilters).length) && 
+        (!bookFilters || !Object.keys(bookFilters).length) &&
         (!authorFilters || !Object.keys(authorFilters).length)
       ) {
         return loadInitialData(true);
@@ -397,7 +406,11 @@ const CommonsCatalog = () => {
   }
 
   // Authors
-  async function handleAuthorsSearch(query?: string, authorFilters?: AuthorFilters, clearAndUpdate = false) {
+  async function handleAuthorsSearch(
+    query?: string,
+    authorFilters?: AuthorFilters,
+    clearAndUpdate = false
+  ) {
     try {
       setAuthorsLoading(true);
       const res = await api.authorsSearch({
@@ -503,7 +516,7 @@ const CommonsCatalog = () => {
 
   const authorFiltersApplied = (): boolean => {
     return Object.keys(authorsState).length > 0;
-  }
+  };
 
   const bookFiltersApplied = (): boolean => {
     return Object.keys(booksState).length > 0;
@@ -622,13 +635,13 @@ const CommonsCatalog = () => {
               </Segment>
             )}
             <Segment>
-              <div className="mt-8 mb-6 mx-56">
+              <div className="my-8 flex flex-row items-center justify-center w-full">
                 <Form
                   onSubmit={(e) => {
                     e.preventDefault();
                   }}
                 >
-                  <div>
+                  <div className="w-72 lg:w-[82rem]">
                     <Form.Input
                       placeholder="Search..."
                       className="!mb-0 !border-r-none"
@@ -678,10 +691,10 @@ const CommonsCatalog = () => {
                       <Button
                         color="blue"
                         onClick={() => updateSearchParam(searchString)}
-                        className="!m-0"
+                        className="!m-0 w-10 !p-4 lg:w-auto"
                       >
-                        <Icon name="search" />
-                        Search Catalog
+                        <Icon name="search"/>
+                        {isTailwindLg && "Search Catalog"}
                       </Button>
                     </Form.Input>
                     {showSuggestions && searchSuggestions.length > 0 && (
