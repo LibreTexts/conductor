@@ -681,7 +681,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         </button>
                       </Table.Cell>
                       <Table.Cell>
-                        <RenderAssetTags file={item} popupDisabled />
+                        <RenderAssetTags file={item} popupDisabled spreadArray/>
                       </Table.Cell>
                       <Table.Cell>
                         <Dropdown
