@@ -9,6 +9,7 @@ export type CommonsModuleSettings = {
   books: CommonsModuleConfig;
   assets: CommonsModuleConfig;
   projects: CommonsModuleConfig;
+  authors: CommonsModuleConfig;
 }
 
 export interface OrganizationInterface extends Document {
@@ -161,6 +162,12 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
           },
         },
         projects: {
+          type: {
+            enabled: Boolean,
+            order: Number,
+          },
+        },
+        authors: {
           type: {
             enabled: Boolean,
             order: Number,
