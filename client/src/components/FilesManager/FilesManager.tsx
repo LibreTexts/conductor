@@ -35,6 +35,7 @@ import RenderAssetTags from "./RenderAssetTags";
 import {
   downloadFile,
   fileSizePresentable,
+  getFileTypeIcon,
   getPrettyCreatedDate,
   getPrettyUploader,
 } from "../../utils/assetHelpers";
@@ -603,7 +604,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                 {item.storageType === "folder" ? (
                                   <Icon name="folder outline" />
                                 ) : (
-                                  <FileIcon filename={item.name} />
+                                  <Icon name={getFileTypeIcon(item)} />
                                 )}
                                 {item.storageType === "folder" ? (
                                   <span
