@@ -886,6 +886,13 @@ async function getCommonsCatalog(
               { $project: BOOK_PROJECTION },
             ])
           );
+        } else {
+          searchQueries.push(
+            Book.aggregate([
+              { $match: { $or: institutionOptions } },
+              { $project: BOOK_PROJECTION },
+            ])
+          );
         }
       }
     }
