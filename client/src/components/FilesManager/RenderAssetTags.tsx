@@ -51,7 +51,7 @@ const RenderAssetTags: React.FC<{
 
   function getLabelColor(tag: AssetTag, basic = false) {
     if (basic) return "";
-    if (tag.key && isAssetTagKeyObject(tag.key)) {
+    if (tag?.key && isAssetTagKeyObject(tag.key)) {
       return tag.key.hex;
     }
     return "grey";

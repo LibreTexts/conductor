@@ -185,7 +185,7 @@ export async function addProjectFile(
         filesToCreate.push({
           projectID,
           fileID: newID,
-          name: file.originalname,
+          name: _checkExistingNames(files, _removeExtension(file.originalname)),
           access: accessSetting,
           size: file.size,
           createdBy: req.user.decoded.uuid,
@@ -607,6 +607,13 @@ async function updateProjectFile(
 
     const shouldOverwriteName = overwriteName === true; // TODO: Check this
 
+    const allFiles =
+      (await retrieveAllProjectFiles(
+        projectID,
+        false,
+        req.user.decoded.uuid
+      )) ?? [];
+
     const [file] = await retrieveSingleProjectFile(
       projectID,
       fileID,
@@ -635,14 +642,11 @@ async function updateProjectFile(
     }
 
     if (processedName) {
-      // Ensure file extension remains in new name
-      if (!processedName.includes(".")) {
-        const splitCurrName = file.name?.split(".") ?? [];
-        if (splitCurrName.length > 1) {
-          const currExtension = splitCurrName[splitCurrName.length - 1];
-          processedName = `${processedName}.${currExtension}`;
-        }
-      }
+      processedName = _checkExistingNames(
+        allFiles,
+        _removeExtension(processedName),
+        true
+      );
     }
 
     // update tags
@@ -1171,11 +1175,11 @@ async function getPublicProjectFiles(
     const offset = getRandomOffset(totalCount, limit);
 
     const upperBound = () => {
-      if((offset + limit) > totalCount) {
+      if (offset + limit > totalCount) {
         return totalCount;
       }
       return offset + limit;
-    }
+    };
 
     const paginatedRes = aggRes.slice(offset, upperBound());
 
@@ -1246,6 +1250,32 @@ async function _parseAndSaveAuthors(
     throw new Error("authorparseerror");
   }
 }
+
+const _removeExtension = (originalName: string) => {
+  if (originalName.includes(".")) {
+    return originalName.split(".").slice(0, -1).join(".");
+  }
+  return originalName;
+};
+
+const _checkExistingNames = (
+  files: ProjectFileInterface[],
+  fileName: string,
+  updating = false
+) => {
+  const existing = files.filter((obj) => obj.name === fileName.trim());
+  if (existing && existing.length > 0) {
+    if (updating && existing.length === 1) {
+      return fileName; // If updating and only one file with the same name, don't change
+    }
+
+    const previousOccurences = existing.length;
+    const splitName = fileName.split(".");
+    const newName = `${splitName[0]} (${previousOccurences + 1})`;
+    return newName;
+  }
+  return fileName;
+};
 
 export default {
   fileUploadHandler,

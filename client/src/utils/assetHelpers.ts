@@ -176,6 +176,30 @@ export const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
     }
   }
 
+  if(file.mimeType) {
+    if (file.mimeType.includes("audio")) {
+      return "file audio outline";
+    }
+    if (file.mimeType.includes("image")) {
+      return "file image outline";
+    }
+    if (file.mimeType.includes("video")) {
+      return "file video outline";
+    }
+    if (file.mimeType.includes("pdf")) {
+      return "file pdf outline";
+    }
+    if (file.mimeType.includes("excel")) {
+      return "file excel outline";
+    }
+    if (file.mimeType.includes("word")) {
+      return "file word outline";
+    }
+    if (file.mimeType.includes("powerpoint")) {
+      return "file powerpoint outline";
+    }
+  }
+
   return "file alternate outline";
 };
 
