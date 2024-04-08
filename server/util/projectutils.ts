@@ -528,6 +528,21 @@ export async function retrieveAllProjectFiles(
               $arrayElemAt: ["$primaryAuthor", 0],
             },
           },
+        },
+        {
+          $lookup: {
+            from: "authors",
+            localField: "correspondingAuthor",
+            foreignField: "_id",
+            as: "correspondingAuthor",
+          }
+        },
+        {
+          $set: {
+            correspondingAuthor: {
+              $arrayElemAt: ["$correspondingAuthor", 0],
+            },
+          },
         }
       ]
     );

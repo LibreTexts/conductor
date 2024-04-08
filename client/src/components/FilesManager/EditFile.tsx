@@ -353,6 +353,7 @@ const EditFile: React.FC<EditFileProps> = ({
       }
       setValue("primaryAuthor", authors.primaryAuthor ?? undefined);
       setValue("authors", authors.authors);
+      setValue("correspondingAuthor", authors.correspondingAuthor ?? undefined);
 
       //clearErrors(); // Clear any previous errors
       const valid = await trigger(); // Trigger validation on all fields
@@ -367,6 +368,7 @@ const EditFile: React.FC<EditFileProps> = ({
           license: vals.license,
           primaryAuthor: vals.primaryAuthor ?? undefined,
           authors: vals.authors ?? undefined,
+          correspondingAuthor: vals.correspondingAuthor ?? undefined,
           publisher: vals.publisher,
           tags: cleanTagsForRequest(vals.tags ?? []),
         }
@@ -711,6 +713,7 @@ const EditFile: React.FC<EditFileProps> = ({
                         mode="file"
                         currentPrimaryAuthor={getValues("primaryAuthor")}
                         currentAuthors={getValues("authors")}
+                        currentCorrespondingAuthor={getValues('correspondingAuthor')}
                       />
                       <CtlTextInput
                         name="publisher.name"

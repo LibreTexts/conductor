@@ -51,6 +51,7 @@ export interface RawProjectFileInterface {
   license?: ProjectFileLicense;
   primaryAuthor?: Schema.Types.ObjectId;
   authors?: (Schema.Types.ObjectId)[];
+  correspondingAuthor?: Schema.Types.ObjectId;
   publisher?: ProjectFilePublisher;
   mimeType?: string;
   version?: number;
@@ -153,6 +154,13 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
    */
   authors: {
     type: [Schema.Types.ObjectId],
+    required: false,
+  },
+  /**
+   * Corresponding author information for the entry.
+   */
+  correspondingAuthor: {
+    type: Schema.Types.ObjectId,
     required: false,
   },
   /**

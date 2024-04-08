@@ -22,7 +22,7 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
   }, [author.firstName, author.lastName]);
 
   return (
-    <Card.Content className="commons-content-card-inner-content" {...rest}>
+    <Card.Content className="commons-content-card-inner-content overflow-hidden" {...rest}>
       <CardHeader
         as="a"
         className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer !hover:text-blue-500"

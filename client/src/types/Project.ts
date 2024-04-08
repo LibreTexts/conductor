@@ -52,6 +52,7 @@ export type ProjectFile = {
   license?: ProjectFileLicense;
   primaryAuthor?: ProjectFileAuthor;
   authors?: ProjectFileAuthor[];
+  correspondingAuthor?: ProjectFileAuthor;
   publisher?: ProjectFilePublisher;
   mimeType?: string;
 };
@@ -154,6 +155,8 @@ export type Project = {
   updatedAt?: string;
   defaultPrimaryAuthorID?: string;
   defaultSecondaryAuthorIDs?: string[];
+  defaultCorrespondingAuthorID?: string;
   defaultPrimaryAuthor?: ProjectFileAuthor;
   defaultSecondaryAuthors?: ProjectFileAuthor[];
+  defaultCorrespondingAuthor?: ProjectFileAuthor;
 };

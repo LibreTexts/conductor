@@ -17,18 +17,25 @@ interface AuthorsFormProps {
   mode: "project-default" | "file";
   currentPrimaryAuthor?: ProjectFileAuthor;
   currentAuthors?: ProjectFileAuthor[];
+  currentCorrespondingAuthor?: ProjectFileAuthor;
 }
 
 type AuthorsFormRef = {
   getAuthors: () => {
     primaryAuthor: ProjectFileAuthor | null;
     authors: ProjectFileAuthor[];
+    correspondingAuthor: ProjectFileAuthor | null;
   };
 };
 
 const AuthorsForm = forwardRef(
   (props: AuthorsFormProps, ref: React.ForwardedRef<AuthorsFormRef>) => {
-    const { mode, currentPrimaryAuthor, currentAuthors } = props;
+    const {
+      mode,
+      currentPrimaryAuthor,
+      currentAuthors,
+      currentCorrespondingAuthor,
+    } = props;
 
     const { handleGlobalError } = useGlobalError();
     const { debounce } = useDebounce();
@@ -37,7 +44,7 @@ const AuthorsForm = forwardRef(
     const [loadingAuthors, setLoadingAuthors] = useState(false);
     const [showNewAuthorModal, setShowNewAuthorModal] = useState(false);
     const [manualEntryLocation, setManualEntryLocation] = useState<
-      "primary" | "secondary"
+      "primary" | "secondary" | "corresponding"
     >("primary");
 
     const [selectedPrimary, setSelectedPrimary] =
@@ -45,11 +52,14 @@ const AuthorsForm = forwardRef(
     const [selectedSecondary, setSelectedSecondary] = useState<
       ProjectFileAuthor[]
     >(currentAuthors ?? []);
+    const [selectedCorresponding, setSelectedCorresponding] =
+      useState<ProjectFileAuthor | null>(currentCorrespondingAuthor ?? null);
 
     useImperativeHandle(ref, () => ({
       getAuthors: () => ({
         primaryAuthor: selectedPrimary,
         authors: selectedSecondary,
+        correspondingAuthor: selectedCorresponding,
       }),
     }));
 
@@ -62,7 +72,8 @@ const AuthorsForm = forwardRef(
     useEffect(() => {
       setSelectedPrimary(currentPrimaryAuthor ?? null);
       setSelectedSecondary(currentAuthors ?? []);
-    }, [currentPrimaryAuthor, currentAuthors])
+      setSelectedCorresponding(currentCorrespondingAuthor ?? null);
+    }, [currentPrimaryAuthor, currentAuthors, currentCorrespondingAuthor]);
 
     async function loadAuthorOptions(searchQuery?: string) {
       try {
@@ -97,6 +108,10 @@ const AuthorsForm = forwardRef(
         setSelectedPrimary(newAuthor);
       }
 
+      if (manualEntryLocation === "corresponding") {
+        setSelectedCorresponding(newAuthor);
+      }
+
       if (manualEntryLocation === "secondary") {
         if (currentAuthors) {
           setSelectedSecondary([...currentAuthors, newAuthor]);
@@ -106,7 +121,11 @@ const AuthorsForm = forwardRef(
       }
     };
 
-    const ManualEntryButton = ({ from }: { from: "primary" | "secondary" }) => (
+    const ManualEntryButton = ({
+      from,
+    }: {
+      from: "primary" | "secondary" | "corresponding";
+    }) => (
       <div className="flex justify-end">
         <Button
           onClick={() => {
@@ -160,10 +179,33 @@ const AuthorsForm = forwardRef(
       return opts;
     }, [authorOptions, selectedPrimary]);
 
+    const correspondingAuthorOpts = useMemo(() => {
+      const opts = authorOptions
+        .filter((a) => !selectedPrimary || a._id !== selectedPrimary._id)
+        .filter(
+          (a) =>
+            !selectedSecondary ||
+            !selectedSecondary.find((sa) => sa._id === a._id)
+        )
+        .map((a) => ({
+          key: crypto.randomUUID(),
+          value: a._id ?? "",
+          text: `${a.firstName} ${a.lastName}`,
+        }));
+
+      opts.unshift({
+        key: crypto.randomUUID(),
+        value: "",
+        text: "Clear...",
+      });
+
+      return opts;
+    }, [authorOptions, selectedPrimary, selectedSecondary]);
+
     return (
       <>
         <div className="mt-4">
-          <label className="form-field-label">
+          <label className="form-field-label" htmlFor="primaryAuthorSelect">
             {mode === "project-default" ? "Default " : ""}Primary Author
           </label>
           <Form.Field className="flex flex-col">
@@ -180,6 +222,36 @@ const AuthorsForm = forwardRef(
               selection
               search
               value={selectedPrimary?._id ?? ""}
+              onSearchChange={(e, { searchQuery }) => {
+                getAuthorsDebounced(searchQuery);
+              }}
+              placeholder="Seach authors..."
+              loading={loadingAuthors}
+            />
+          </Form.Field>
+          <ManualEntryButton from="primary" />
+        </div>
+        <div className="mt-4">
+          <label
+            className="form-field-label"
+            htmlFor="correspondingAuthorSelect"
+          >
+            {mode === "project-default" ? "Default " : ""}Corresponding Author
+          </label>
+          <Form.Field className="flex flex-col">
+            <Dropdown
+              id="correspondingAuthorSelect"
+              options={correspondingAuthorOpts}
+              onChange={(e, data) => {
+                if (!data.value) return;
+                const found = authorOptions.find((a) => a._id === data.value);
+                if (!found) return;
+                setSelectedCorresponding(found);
+              }}
+              fluid
+              selection
+              search
+              value={selectedCorresponding?._id ?? ""}
               onSearchChange={(e, { searchQuery }) => {
                 getAuthorsDebounced(searchQuery);
               }}
