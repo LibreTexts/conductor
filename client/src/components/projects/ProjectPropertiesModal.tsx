@@ -102,6 +102,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       },
       defaultPrimaryAuthorID: "",
       defaultSecondaryAuthorIDs: [],
+      defaultCorrespondingAuthorID: "",
       projectModules: {
         discussion: {
           enabled: true,
@@ -381,6 +382,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       if (authorData) {
         setValue("defaultPrimaryAuthor", authorData.primaryAuthor ?? undefined);
         setValue("defaultSecondaryAuthors", authorData.authors);
+        setValue(
+          "defaultCorrespondingAuthor",
+          authorData.correspondingAuthor ?? undefined
+        );
       }
 
       if (!(await triggerValidation())) {
@@ -971,6 +976,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               getValues("defaultPrimaryAuthor") ?? undefined
             }
             currentAuthors={getValues("defaultSecondaryAuthors") ?? []}
+            currentCorrespondingAuthor={getValues('defaultCorrespondingAuthor') ?? undefined}
             ref={authorsFormRef}
           />
           {/* <div className="mt-4">

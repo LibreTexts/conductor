@@ -402,6 +402,21 @@ async function getProject(req, res) {
       {
         $lookup: {
           from: "authors",
+          localField: "defaultCorrespondingAuthorID",
+          foreignField: "_id",
+          as: "defaultCorrespondingAuthor",
+        },
+      },
+      {
+        $set: {
+          defaultCorrespondingAuthor: {
+            $arrayElemAt: ["$defaultCorrespondingAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
           localField: "defaultSecondaryAuthorIDs",
           foreignField: "_id",
           as: "defaultSecondaryAuthors",
@@ -792,6 +807,14 @@ async function updateProject(req, res) {
       }
       
       updateObj.defaultSecondaryAuthorIDs = parsed;
+    }
+    if(req.body.hasOwnProperty('defaultCorrespondingAuthor')){
+      const parsed = await projectFilesAPI._parseAndSaveAuthors([req.body.defaultCorrespondingAuthor]);
+      if(!parsed || !Array.isArray(parsed) || parsed.length < 1){
+        throw new Error('Error parsing corresponding author');
+      }
+
+      updateObj.defaultCorrespondingAuthorID = parsed[0];
     }
     
     if (Object.keys(updateObj).length > 0) {
@@ -3319,6 +3342,7 @@ const validate = (method) => {
           body('projectModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateProjectModules),
           body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
           body('defaultSecondaryAuthors', conductorErrors.err1).optional({ checkFalsy: true }).isArray().custom(validateAuthorArray),
+          body('defaultCorrespondingAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
       ]
     case 'getProject':
       return [

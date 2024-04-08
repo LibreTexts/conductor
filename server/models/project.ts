@@ -69,6 +69,7 @@ export interface ProjectInterface extends Document {
   projectModules?: ProjectModuleSettings;
   defaultPrimaryAuthorID?: string;
   defaultSecondaryAuthorIDs?: string[];
+  defaultCorrespondingAuthorID?: string;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -344,6 +345,15 @@ const ProjectSchema = new Schema<ProjectInterface>(
         },
       ],
     },
+    /**
+     * Default corresponding author.
+     */
+    defaultCorrespondingAuthorID: {
+      type: {
+        ref: "Author",
+        type: Schema.Types.ObjectId,
+      },
+    }
   },
   {
     timestamps: true,

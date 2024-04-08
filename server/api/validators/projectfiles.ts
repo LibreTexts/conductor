@@ -49,6 +49,9 @@ export const projectFileSchema = z.object({
       )
     )
     .optional(),
+  correspondingAuthor: projectFileAuthorSchema
+    .or(z.string().refine((val: string) => isMongoIDValidator(val)))
+    .optional(),
   publisher: z
     .object({
       name: z.string().trim().max(255).optional().or(z.literal("")),

@@ -134,6 +134,7 @@ export async function addProjectFile(
     // Set default authors if present
     const defaultPrimary = project.defaultPrimaryAuthorID;
     const defaultSecondary = project.defaultSecondaryAuthorIDs;
+    const defaultCorresponding = project.defaultCorrespondingAuthorID;
 
     const files = await retrieveAllProjectFiles(
       projectID,
@@ -200,6 +201,7 @@ export async function addProjectFile(
           authors: defaultSecondary
             ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
             : undefined,
+          correspondingAuthor: defaultCorresponding ? (defaultCorresponding as unknown as Schema.Types.ObjectId) : undefined,
           publisher: req.body.publisher,
           version: 1, // initial version
         });
@@ -598,6 +600,7 @@ async function updateProjectFile(
       license,
       primaryAuthor,
       authors,
+      correspondingAuthor,
       publisher,
       tags,
       isURL,
@@ -672,6 +675,10 @@ async function updateProjectFile(
     if (authors) {
       const parsedAuthors = await _parseAndSaveAuthors(authors);
       updateObj.authors = parsedAuthors;
+    }
+    if (correspondingAuthor) {
+      const parsed = await _parseAndSaveAuthors([correspondingAuthor]);
+      updateObj.correspondingAuthor = parsed[0] ?? undefined;
     }
     if (publisher) {
       updateObj.publisher = publisher;
@@ -1152,6 +1159,21 @@ async function getPublicProjectFiles(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },

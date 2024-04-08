@@ -122,6 +122,9 @@ async function getAuthorAssets(
             {
               primaryAuthor: author._id,
             },
+            {
+              correspondingAuthor: author._id,
+            }
           ],
         },
       },
@@ -207,6 +210,21 @@ async function getAuthorAssets(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
+          },
+        },
+      },
+      {
         $match: {
           // Filter where project was not public or does not exist, so projectInfo wasn't set
           projectInfo: {
@@ -261,7 +279,7 @@ async function createAuthor(
       primaryInstitution,
       ...(email && { email }),
       ...(url && { url }),
-      isAdminEntry: isAdminEntry || false,
+      isAdminEntry: true // only Campus Admins use this endpoint so set to true
     });
 
     res.send({

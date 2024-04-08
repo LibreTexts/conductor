@@ -529,6 +529,21 @@ export async function assetsSearch(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
+          },
+        },
+      },
+      {
         $match: {
           // Filter where project was not public or does not exist, so projectInfo wasn't set
           projectInfo: {
@@ -666,6 +681,21 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },
@@ -834,6 +864,21 @@ export async function assetsSearch(
         },
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
+          },
+        },
+      },
+      {
         $match: matchObj,
       },
     ]);
@@ -923,6 +968,21 @@ export async function assetsSearch(
         $set: {
           primaryAuthor: {
             $arrayElemAt: ["$primaryAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "correspondingAuthor",
+          foreignField: "_id",
+          as: "correspondingAuthor",
+        },
+      },
+      {
+        $set: {
+          correspondingAuthor: {
+            $arrayElemAt: ["$correspondingAuthor", 0],
           },
         },
       },

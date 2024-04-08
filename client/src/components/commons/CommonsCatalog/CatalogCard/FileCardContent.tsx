@@ -1,4 +1,4 @@
-import { Card, CardContentProps, Icon } from "semantic-ui-react";
+import { Card, CardContentProps, Icon, Popup } from "semantic-ui-react";
 import { ProjectFileWProjectData } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
@@ -19,6 +19,8 @@ function handleOpenProject(projectID: string) {
 
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   const [loading, setLoading] = useState(false);
+
+  const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
 
   async function handleFileDownload(
     file: ProjectFileWProjectData<"title" | "thumbnail">
@@ -63,8 +65,49 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         {truncateString(file.name, 50)}
       </Card.Header>
       <Card.Meta>
-        <Icon name="user" color="blue" />{" "}
-        {getPrettyAuthorsList(file.primaryAuthor, file.authors)}
+        <Popup
+          disabled={!prettyAuthors || prettyAuthors === "Unknown"} // Disable popup if no authors
+          trigger={
+            <div>
+              <Icon name="user" color="blue" /> {prettyAuthors}
+            </div>
+          }
+          content={
+            <div>
+              {file.primaryAuthor && (
+                <p>
+                  <span className="font-semibold">Primary Author:</span>
+                  <span className="ml-1">
+                    {file.primaryAuthor?.firstName}{" "}
+                    {file.primaryAuthor?.lastName}
+                  </span>
+                </p>
+              )}
+              {file.correspondingAuthor && (
+                <p>
+                  <span className="font-semibold">Corresponding Author:</span>
+                  <span className="ml-1">
+                    {file.correspondingAuthor?.firstName}{" "}
+                    {file.correspondingAuthor?.lastName}
+                  </span>
+                </p>
+              )}
+              {file.authors && file.authors?.length > 1 && (
+                <p>
+                  <span className="font-semibold">Additional Authors:</span>
+                  <span className="ml-1">
+                    {file.authors
+                      ?.map(
+                        (author) => `${author.firstName} ${author.lastName}`
+                      )
+                      .join(", ")}
+                  </span>
+                </p>
+              )}
+            </div>
+          }
+          position="top center"
+        />
       </Card.Meta>
       <Card.Meta>
         <Icon name="clipboard list" color="blue" />
