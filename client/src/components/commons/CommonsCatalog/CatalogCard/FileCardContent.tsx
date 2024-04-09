@@ -8,6 +8,7 @@ import {
   getPrettyAuthorsList,
 } from "../../../../utils/assetHelpers";
 import { useState } from "react";
+import { ProjectFileAuthor } from "../../../../types/Project";
 
 interface FileCardContentProps extends CardContentProps {
   file: ProjectFileWProjectData<"title" | "thumbnail">;
@@ -21,6 +22,12 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
   const [loading, setLoading] = useState(false);
 
   const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
+
+  const allAuthors =
+    [file.primaryAuthor, file.correspondingAuthor, ...(file.authors ?? [])]
+      .filter((a) => a && !!a.firstName && !!a.lastName)
+      .map((a) => `${a?.firstName} ${a?.lastName}`)
+      .join(", ") || "Unknown";
 
   async function handleFileDownload(
     file: ProjectFileWProjectData<"title" | "thumbnail">
@@ -74,36 +81,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           content={
             <div>
-              {file.primaryAuthor && (
-                <p>
-                  <span className="font-semibold">Primary Author:</span>
-                  <span className="ml-1">
-                    {file.primaryAuthor?.firstName}{" "}
-                    {file.primaryAuthor?.lastName}
-                  </span>
-                </p>
-              )}
-              {file.correspondingAuthor && (
-                <p>
-                  <span className="font-semibold">Corresponding Author:</span>
-                  <span className="ml-1">
-                    {file.correspondingAuthor?.firstName}{" "}
-                    {file.correspondingAuthor?.lastName}
-                  </span>
-                </p>
-              )}
-              {file.authors && file.authors?.length > 1 && (
-                <p>
-                  <span className="font-semibold">Additional Authors:</span>
-                  <span className="ml-1">
-                    {file.authors
-                      ?.map(
-                        (author) => `${author.firstName} ${author.lastName}`
-                      )
-                      .join(", ")}
-                  </span>
-                </p>
-              )}
+              <p>{allAuthors}</p>
             </div>
           }
           position="top center"
