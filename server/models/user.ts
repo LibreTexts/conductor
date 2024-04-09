@@ -140,6 +140,11 @@ UserSchema.index({
   lastName: "text",
 });
 
+UserSchema.index({
+  centralID: 1,
+  uuid: 1,
+})
+
 const User = model<UserInterface>("User", UserSchema);
 
 export default User;

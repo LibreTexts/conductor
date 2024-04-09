@@ -166,6 +166,11 @@ BookSchema.index({
   libraryTags: "text",
 });
 
+BookSchema.index({
+  location: 1,
+  program: 1,
+});
+
 const Book = model<BookInterface>("Book", BookSchema);
 
 export default Book;
