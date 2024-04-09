@@ -104,9 +104,11 @@ export function getPrettyUploader(uploader: User) {
 
 export function getPrettyAuthorsList(
   primaryAuthor?: ProjectFile["primaryAuthor"],
-  authors?: ProjectFile["authors"]
+  authors?: ProjectFile["authors"],
+  correspondingAuthor?: ProjectFile["correspondingAuthor"]
 ) {
-  if (!primaryAuthor && (!authors || !authors.length)) return "Unknown";
+  if (!primaryAuthor && (!authors || !authors.length) && !correspondingAuthor)
+    return "Unknown";
   if (!authors || !authors.length) return "Unknown";
 
   const authorList =
@@ -117,6 +119,8 @@ export function getPrettyAuthorsList(
 
   return primaryAuthor
     ? `${primaryAuthor.firstName} ${primaryAuthor.lastName} et al.`
+    : correspondingAuthor
+    ? `${correspondingAuthor.firstName} ${correspondingAuthor.lastName}, ${authorList}`
     : authorList;
 }
 
@@ -176,7 +180,7 @@ export const getFileTypeIcon = (file: ProjectFile): SemanticICONS => {
     }
   }
 
-  if(file.mimeType) {
+  if (file.mimeType) {
     if (file.mimeType.includes("audio")) {
       return "file audio outline";
     }
