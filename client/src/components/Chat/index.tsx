@@ -3,9 +3,6 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import date from 'date-and-time';
-import ordinal from 'date-and-time/plugin/ordinal';
-import day_of_week from 'date-and-time/plugin/day-of-week';
 import {
   Header,
   Button,
@@ -20,6 +17,7 @@ import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
 import {User} from "../../types";
+import { format } from 'date-fns';
 interface Chatinterface {
   projectID: string;
   user: User; 
@@ -161,8 +159,6 @@ const Chat: FC<Chatinterface>= ({
    * Register plugins on load.
    */
   useEffect(() => {
-    date.plugin(ordinal);
-    date.plugin(day_of_week);
     // Hook to force message links to open in new window
     DOMPurify.addHook('afterSanitizeAttributes', function (node) {
       if ('target' in node) {
@@ -327,9 +323,9 @@ const Chat: FC<Chatinterface>= ({
               if (today.getDate() === itemDate.getDate()) { // today
                 item.date = 'Today';
               } else {
-                item.date = date.format(itemDate, 'MMM DDD, YYYY')
+               item.date = format(itemDate, 'MMM do, yyyy')
               }
-              item.time = date.format(itemDate, 'h:mm A');
+              item.time = format(itemDate, 'h:mm a');
               const readyMsgBody = {
                 __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
               };
