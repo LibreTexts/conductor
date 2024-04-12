@@ -23,8 +23,12 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
 
   const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
 
+  const prettyContactPerson = file.correspondingAuthor
+    ? `${file.correspondingAuthor.firstName} ${file.correspondingAuthor.lastName}`
+    : `Unknown`;
+
   const allAuthors =
-    [file.primaryAuthor, file.correspondingAuthor, ...(file.authors ?? [])]
+    [file.primaryAuthor, ...(file.authors ?? [])]
       .filter((a) => a && !!a.firstName && !!a.lastName)
       .map((a) => `${a?.firstName} ${a?.lastName}`)
       .join(", ") || "Unknown";
@@ -82,6 +86,44 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           content={
             <div>
               <p>{allAuthors}</p>
+            </div>
+          }
+          position="top center"
+        />
+      </Card.Meta>
+      <Card.Meta>
+        <Popup
+          disabled={!prettyContactPerson || prettyContactPerson === "Unknown"} // Disable popup if no authors
+          trigger={
+            <div>
+              <Icon name="phone" color="blue" />
+              {file.correspondingAuthor?.email ? (
+                <a href={`mailto:${file.correspondingAuthor?.email}`}>
+                  {prettyContactPerson}
+                </a>
+              ) : (
+                <span>{prettyContactPerson}</span>
+              )}
+            </div>
+          }
+          content={
+            <div>
+              <p>
+                <span className="font-semibold">Contact Person:</span>{" "}
+                {prettyContactPerson}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">Email:</span>{" "}
+                {file.correspondingAuthor?.email
+                  ? file.correspondingAuthor?.email
+                  : "Unknown"}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">Org:</span>{" "}
+                {file.correspondingAuthor?.primaryInstitution
+                  ? file.correspondingAuthor?.primaryInstitution
+                  : "Unknown"}
+              </p>
             </div>
           }
           position="top center"

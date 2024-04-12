@@ -316,7 +316,7 @@ const AuthorsForm = forwardRef(
             className="form-field-label"
             htmlFor="correspondingAuthorSelect"
           >
-            {mode === "project-default" ? "Default " : ""}Corresponding Author
+            {mode === "project-default" ? "Default " : ""}Contact Person
           </label>
           <Form.Field className="flex flex-col">
             <Dropdown
