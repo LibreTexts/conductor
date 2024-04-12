@@ -41,7 +41,17 @@ const AuthorsForm = forwardRef(
     const { debounce } = useDebounce();
 
     const [authorOptions, setAuthorOptions] = useState<ProjectFileAuthor[]>([]);
+    const [secondaryAuthorOptions, setSecondaryAuthorOptions] = useState<
+      ProjectFileAuthor[]
+    >([]);
+    const [correspondingAuthorOptions, setCorrespondingAuthorOptions] =
+      useState<ProjectFileAuthor[]>([]);
+
     const [loadingAuthors, setLoadingAuthors] = useState(false);
+    const [loadingSecondaryAuthors, setLoadingSecondaryAuthors] =
+      useState(false);
+    const [loadingCorrespondingAuthors, setLoadingCorrespondingAuthors] =
+      useState(false);
     const [showNewAuthorModal, setShowNewAuthorModal] = useState(false);
     const [manualEntryLocation, setManualEntryLocation] = useState<
       "primary" | "secondary" | "corresponding"
@@ -64,7 +74,7 @@ const AuthorsForm = forwardRef(
     }));
 
     useEffect(() => {
-      loadAuthorOptions();
+      loadAuthorOptions(undefined, true);
     }, []);
 
     // We need to update the selected authors when the current authors change
@@ -75,18 +85,30 @@ const AuthorsForm = forwardRef(
       setSelectedCorresponding(currentCorrespondingAuthor ?? null);
     }, [currentPrimaryAuthor, currentAuthors, currentCorrespondingAuthor]);
 
-    async function loadAuthorOptions(searchQuery?: string) {
+    async function loadAuthorOptions(searchQuery?: string, setOthers = false) {
       try {
         setLoadingAuthors(true);
         const res = await api.getAuthors({ query: searchQuery });
         if (res.data.err) {
           throw new Error(res.data.errMsg);
         }
-        if (!res.data.authors) {
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
           throw new Error("Failed to load author options");
         }
 
-        setAuthorOptions(res.data.authors);
+        const opts = [
+          ...res.data.authors,
+          ...(selectedPrimary ? [selectedPrimary] : []),
+        ];
+
+        setAuthorOptions(opts);
+
+        // We only use this when loading the authors for the first time
+        // so we don't need to run the same query multiple times
+        if (setOthers) {
+          setSecondaryAuthorOptions(opts);
+          setCorrespondingAuthorOptions(opts);
+        }
       } catch (err) {
         handleGlobalError(err);
       } finally {
@@ -94,8 +116,63 @@ const AuthorsForm = forwardRef(
       }
     }
 
+    async function loadSecondaryAuthorOptions(searchQuery?: string) {
+      try {
+        setLoadingCorrespondingAuthors(true);
+        const res = await api.getAuthors({ query: searchQuery });
+        if (res.data.err) {
+          throw new Error(res.data.errMsg);
+        }
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
+          throw new Error("Failed to load author options");
+        }
+
+        const opts = [...res.data.authors, ...(selectedSecondary ?? [])];
+
+        setSecondaryAuthorOptions(opts);
+      } catch (err) {
+        handleGlobalError(err);
+      } finally {
+        setLoadingSecondaryAuthors(false);
+      }
+    }
+
+    async function loadCorrespondingAuthorOptions(searchQuery?: string) {
+      try {
+        setLoadingCorrespondingAuthors(true);
+        const res = await api.getAuthors({ query: searchQuery });
+        if (res.data.err) {
+          throw new Error(res.data.errMsg);
+        }
+        if (!res.data.authors || !Array.isArray(res.data.authors)) {
+          throw new Error("Failed to load author options");
+        }
+
+        const opts = [
+          ...res.data.authors,
+          ...(selectedCorresponding ? [selectedCorresponding] : []),
+        ];
+
+        setCorrespondingAuthorOptions(opts);
+      } catch (err) {
+        handleGlobalError(err);
+      } finally {
+        setLoadingCorrespondingAuthors(false);
+      }
+    }
+
     const getAuthorsDebounced = debounce(
       (searchQuery?: string) => loadAuthorOptions(searchQuery),
+      200
+    );
+
+    const getSecondaryAuthorsDebounced = debounce(
+      (searchQuery?: string) => loadSecondaryAuthorOptions(searchQuery),
+      200
+    );
+
+    const getCorrespondingAuthorsDebounced = debounce(
+      (searchQuery?: string) => loadCorrespondingAuthorOptions(searchQuery),
       200
     );
 
@@ -162,7 +239,7 @@ const AuthorsForm = forwardRef(
     }, [authorOptions, selectedSecondary]);
 
     const secondaryAuthorOpts = useMemo(() => {
-      const opts = authorOptions
+      const opts = secondaryAuthorOptions
         .filter((a) => !selectedPrimary || a._id !== selectedPrimary._id)
         .map((a) => ({
           key: crypto.randomUUID(),
@@ -177,10 +254,10 @@ const AuthorsForm = forwardRef(
       });
 
       return opts;
-    }, [authorOptions, selectedPrimary]);
+    }, [secondaryAuthorOptions, selectedPrimary]);
 
     const correspondingAuthorOpts = useMemo(() => {
-      const opts = authorOptions
+      const opts = correspondingAuthorOptions
         .filter((a) => !selectedPrimary || a._id !== selectedPrimary._id)
         .filter(
           (a) =>
@@ -200,7 +277,7 @@ const AuthorsForm = forwardRef(
       });
 
       return opts;
-    }, [authorOptions, selectedPrimary, selectedSecondary]);
+    }, [correspondingAuthorOptions, selectedPrimary, selectedSecondary]);
 
     return (
       <>
@@ -212,9 +289,12 @@ const AuthorsForm = forwardRef(
             <Dropdown
               id="primaryAuthorSelect"
               options={primaryAuthorOpts}
-              onChange={(e, data) => {
-                if (!data.value) return;
-                const found = authorOptions.find((a) => a._id === data.value);
+              onChange={(e, { value }) => {
+                if (!value) {
+                  setSelectedPrimary(null);
+                  return;
+                }
+                const found = authorOptions.find((a) => a._id === value);
                 if (!found) return;
                 setSelectedPrimary(found);
               }}
@@ -242,9 +322,14 @@ const AuthorsForm = forwardRef(
             <Dropdown
               id="correspondingAuthorSelect"
               options={correspondingAuthorOpts}
-              onChange={(e, data) => {
-                if (!data.value) return;
-                const found = authorOptions.find((a) => a._id === data.value);
+              onChange={(e, { value }) => {
+                if (!value) {
+                  setSelectedCorresponding(null);
+                  return;
+                }
+                const found = correspondingAuthorOptions.find(
+                  (a) => a._id === value
+                );
                 if (!found) return;
                 setSelectedCorresponding(found);
               }}
@@ -253,7 +338,7 @@ const AuthorsForm = forwardRef(
               search
               value={selectedCorresponding?._id ?? ""}
               onSearchChange={(e, { searchQuery }) => {
-                getAuthorsDebounced(searchQuery);
+                getCorrespondingAuthorsDebounced(searchQuery);
               }}
               placeholder="Seach authors..."
               loading={loadingAuthors}
@@ -272,7 +357,13 @@ const AuthorsForm = forwardRef(
               options={secondaryAuthorOpts}
               onChange={(e, { value }) => {
                 if (!value) return;
-                const foundEntries = authorOptions.filter(
+
+                // If 'clear' is selected, the last value will be an empty string
+                if (Array.isArray(value) && value[value.length - 1] === "") {
+                  setSelectedSecondary([]);
+                  return;
+                }
+                const foundEntries = secondaryAuthorOptions.filter(
                   (a) => a._id && (value as string[])?.includes(a._id)
                 );
                 setSelectedSecondary(foundEntries);
@@ -287,7 +378,7 @@ const AuthorsForm = forwardRef(
                   .map((a) => a._id) as string[]
               }
               onSearchChange={(e, { searchQuery }) => {
-                getAuthorsDebounced(searchQuery);
+                getSecondaryAuthorsDebounced(searchQuery);
               }}
               loading={loadingAuthors}
             />
