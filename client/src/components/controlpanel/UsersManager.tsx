@@ -22,6 +22,7 @@ import axios from 'axios';
 import { itemsPerPageOptions } from '../util/PaginationOptions.js';
 import useGlobalError from '../error/ErrorHooks';
 import { User } from '../../types';
+import ManageUserRolesModal from './UsersManager/ManageUserRolesModal';
 
 const UsersManager = () => {
 
@@ -46,16 +47,10 @@ const UsersManager = () => {
     const [sortChoice, setSortChoice] = useState<string>('first');
 
     // Manage Roles Modal
-    const [showManageUserModal, setShowManageUserModal] = useState<boolean>(false);
-    const [manageUserUUID, setManageUserUUID] = useState<string>('');
-    const [manageUserName, setManageUserName] = useState<string>('');
-
-    //TODO: Determine correct typing here
-    const [manageUserRoles, setManageUserRoles] = useState<any[]>([]);
-
-    const [manageUserOrgRole, setManageUserOrgRole] = useState<string>('');
-    const [manageUserOrgRoleText, setManageUserOrgRoleText] = useState<string>('');
-    const [manageUserLoading, setManageUserLoading] = useState<boolean>(false);
+    const [showManageRolesModal, setShowManageRolesModal] = useState(false);
+    const [manageRolesUUID, setManageRolesUUID] = useState('');
+    const [manageRolesFirstName, setManageRolesFirstName] = useState('');
+    const [manageRolesLastName, setManageRolesLastName] = useState('');
 
     // Delete User Modal
     const [showDelUserModal, setShowDelUserModal] = useState<boolean>(false);
@@ -203,118 +198,16 @@ const UsersManager = () => {
 
 
     /**
-     * Retrieves the roles held by the user
-     * identified by @uuid and sets up
-     * either the Super Admin or Campus Admin
-     * interface with the relevant information.
-     */
-    const getUserRoles = (uuid: string) => {
-        setManageUserLoading(true);
-        axios.get('/user/roles', {
-            params: {
-                uuid: uuid
-            }
-        }).then((res) => {
-            if (!res.data.err) {
-                if (res.data.user) {
-                    if (isSuperAdmin) {
-                        if (res.data.user.roles && Array.isArray(res.data.user.roles)) {
-                            setManageUserRoles(res.data.user.roles);
-                        }
-                    } else if (isCampusAdmin) {
-                        if (res.data.user.roles.length === 1) {
-                            var campusRole = res.data.user.roles[0];
-                            if (campusRole.org && campusRole.org.orgID === org.orgID) {
-                                setManageUserOrgRole(campusRole.role);
-                                setManageUserOrgRoleText(campusRole.roleText);
-                            }
-                        } else if (res.data.user.roles.length === 0) {
-                            setManageUserOrgRole('');
-                            setManageUserOrgRoleText('Not Joined/Unknown');
-                        }
-                    }
-                }
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-            setManageUserLoading(false);
-        }).catch((err) => {
-            handleGlobalError(err);
-            setManageUserLoading(false);
-        });
-    };
-
-
-    /**
-     * Submits a PUT request to update
-     * the user being modified in the Manage Roles
-     * Modal (manageUserUUID) to have the org-relevant
-     * role specified by @newRole, then closes the Modal.
-     * For use in the Campus Administrator interface.
-     */
-    const campusAdminSetRole = (newRole: string) => {
-        axios.put('/user/role/update', {
-            uuid: manageUserUUID,
-            orgID: org.orgID,
-            role: newRole
-        }).then((res) => {
-            if (!res.data.err) {
-                closeManageUserModal();
-            } else {
-                handleGlobalError(res.data.errMsg);
-                setManageUserLoading(false);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-            setManageUserLoading(false);
-        });
-    };
-
-
-    /**
-     * Submits a PUT request to update
-     * the user specified by @uuid to have the role
-     * specified by @newRole in @orgID, then reloads the
-     * User's roles.
-     * For use in the Super Administrator interface.
-     */
-    const superSetOrgRole = (uuid: string, orgID: string, newRole: string) => {
-        setManageUserLoading(true);
-        if (uuid !== '') {
-            axios.put('/user/role/update', {
-                uuid: uuid,
-                orgID: orgID,
-                role: newRole
-            }).then((res) => {
-                if (!res.data.err) {
-                    getUserRoles(uuid);
-                } else {
-                    handleGlobalError(res.data.errMsg);
-                }
-                setManageUserLoading(false);
-            }).catch((err) => {
-                handleGlobalError(err);
-                setManageUserLoading(false);
-            });
-        }
-    };
-
-
-    /**
      * Open the Manage User Roles Modal and
      * set its respective values to the
      * requested user.
      */
     const openManageUserModal = (uuid: string, firstName: string, lastName: string) => {
         if ((uuid !== '') && (firstName !== '') && (lastName !== '')) {
-            setManageUserUUID(uuid);
-            setManageUserName(firstName + ' ' + lastName);
-            setManageUserRoles([]);
-            setManageUserOrgRole('');
-            setManageUserOrgRoleText('');
-            setManageUserLoading(false);
-            setShowManageUserModal(true);
-            getUserRoles(uuid);
+            setManageRolesUUID(uuid);
+            setManageRolesFirstName(firstName);
+            setManageRolesLastName(lastName);
+            setShowManageRolesModal(true);
         }
     };
 
@@ -323,14 +216,11 @@ const UsersManager = () => {
      * Close the Manage User Roles Modal and
      * reset its values to their defaults.
      */
-    const closeManageUserModal = () => {
-        setShowManageUserModal(false);
-        setManageUserUUID('');
-        setManageUserName('');
-        setManageUserRoles([]);
-        setManageUserOrgRole('');
-        setManageUserOrgRoleText('');
-        setManageUserLoading(false);
+    const closeManageRolesModal = () => {
+        setShowManageRolesModal(false);
+        setManageRolesUUID('');
+        setManageRolesFirstName('');
+        setManageRolesLastName('');
     };
 
 
@@ -536,140 +426,15 @@ const UsersManager = () => {
                             </Table>
                         </Segment>
                     </Segment.Group>
-                    {/* Manager User Modal */}
-                    <Modal
-                        open={showManageUserModal}
-                        closeOnDimmerClick={false}
-                    >
-                        <Modal.Header>Manage User Roles</Modal.Header>
-                        <Modal.Content scrolling>
-                            <p><strong>User: </strong> {manageUserName}</p>
-                            {(isSuperAdmin && !isCampusAdmin) &&
-                                <div>
-                                    <p><strong>Roles: </strong></p>
-                                    {(Array.isArray(manageUserRoles) && manageUserRoles.length > 0)
-                                        ? (
-                                            <List verticalAlign='middle' celled relaxed>
-                                                {manageUserRoles.map((item, idx) => {
-                                                    var orgVal = '';
-                                                    var orgText = 'Unknown Organization';
-                                                    var roleVal = '';
-                                                    var roleText = 'Unknown Role';
-                                                    if (item.org) {
-                                                        orgVal = item.org.orgID;
-                                                        if (item.org.shortName) orgText = item.org.shortName;
-                                                        else if (item.org.name) orgText = item.org.name;
-                                                    }
-                                                    if (typeof(item.roleInternal) === 'string') roleVal = item.roleInternal;
-                                                    if (typeof(item.role)) roleText = item.role;
-                                                    let ActionButton = null;
-                                                    switch (roleVal) {
-                                                        case 'superadmin':
-                                                            ActionButton = (
-                                                                <Button
-                                                                    color='orange'
-                                                                    onClick={() => { superSetOrgRole(manageUserUUID, orgVal, 'campusadmin') }}
-                                                                >
-                                                                    <Icon name='level down' />
-                                                                    <span>Lower to Campus Administrator</span>
-                                                                </Button>
-                                                            );
-                                                            break;
-                                                        case 'campusadmin':
-                                                            if (orgVal === 'libretexts') {
-                                                                ActionButton = (
-                                                                    <Button.Group widths={2}>
-                                                                        <Button
-                                                                            color='violet'
-                                                                            onClick={() => { superSetOrgRole(manageUserUUID, orgVal, 'superadmin') }}
-                                                                        >
-                                                                            <Icon name='level up' />
-                                                                            Elevate to Super Administrator
-                                                                        </Button>
-                                                                        <Button
-                                                                            color='yellow'
-                                                                            onClick={() => { superSetOrgRole(manageUserUUID, orgVal, 'member') }}
-                                                                        >
-                                                                            <Icon name='level down' />
-                                                                            <span>Lower to Campus Member</span>
-                                                                        </Button>
-                                                                    </Button.Group>
-                                                                );
-                                                            } else {
-                                                                ActionButton = (
-                                                                    <Button
-                                                                        color='yellow'
-                                                                        onClick={() => { superSetOrgRole(manageUserUUID, orgVal, 'member') }}
-                                                                    >
-                                                                        <Icon name='level down' />
-                                                                        <span>Lower to Campus Member</span>
-                                                                    </Button>
-                                                                );
-                                                            }
-                                                            break;
-                                                        case 'member':
-                                                            ActionButton = (
-                                                                <Button
-                                                                    color='green'
-                                                                    onClick={() => { superSetOrgRole(manageUserUUID, orgVal, 'campusadmin') }}
-                                                                >
-                                                                    <Icon name='level up' />
-                                                                    <span>Elevate to Campus Administrator</span>
-                                                                </Button>
-                                                            );
-                                                            break;
-                                                    }
-                                                    return (
-                                                        <List.Item key={idx}>
-                                                            <List.Content floated='right'>
-                                                                {ActionButton}
-                                                            </List.Content>
-                                                            <List.Content>
-                                                                <List.Header>{orgText}</List.Header>
-                                                                <List.Description>
-                                                                    {roleText}
-                                                                </List.Description>
-                                                            </List.Content>
-                                                        </List.Item>
-                                                    )
-                                                })}
-                                            </List>
-                                        )
-                                        : (<p><em>No roles available.</em></p>)
-                                    }
-                                </div>
-                            }
-                            {isCampusAdmin &&
-                                <div>
-                                    <p><strong>Role in <em>{org.shortName}</em>: </strong>{manageUserOrgRoleText}</p>
-                                    <Button
-                                        color={(manageUserOrgRole === 'campusadmin') ? 'yellow' : 'green'}
-                                        disabled={manageUserOrgRole === 'superadmin'}
-                                        fluid
-                                        onClick={() => {
-                                            if (manageUserOrgRole === 'campusadmin') campusAdminSetRole('member')
-                                            else campusAdminSetRole('campusadmin')
-                                        }}
-                                    >
-                                        <Icon name={(manageUserOrgRole === 'campusadmin') ? 'level down' : 'level up'} />
-                                        {(manageUserOrgRole === 'campusadmin')
-                                            ? (<span>Lower to Campus Member</span>)
-                                            : (<span>Elevate to Campus Administrator</span>)
-                                        }
-                                    </Button>
-                                </div>
-                            }
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                color='blue'
-                                loading={manageUserLoading}
-                                onClick={closeManageUserModal}
-                            >
-                                Done
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
+                    <ManageUserRolesModal
+                        firstName={manageRolesFirstName}
+                        isSuperAdmin={isSuperAdmin}
+                        lastName={manageRolesLastName}
+                        onClose={closeManageRolesModal}
+                        orgID={org?.orgID}
+                        show={showManageRolesModal}
+                        uuid={manageRolesUUID}
+                    />
                     {/* Delete User Modal */}
                     <Modal
                         open={showDelUserModal}
