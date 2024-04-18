@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import api from "../../../api";
 import useDebounce from "../../../hooks/useDebounce";
 import ConfirmDeletePersonModal from "./ConfirmDeletePersonModal";
+import { useTypedSelector } from "../../../state/hooks";
 
 interface ManagePersonModalProps extends ModalProps {
   show: boolean;
@@ -28,6 +29,7 @@ const ManagePersonModal: React.FC<ManagePersonModalProps> = ({
   personID,
   ...rest
 }) => {
+  const org = useTypedSelector((state) => state.org);
   const { debounce } = useDebounce();
   const { handleGlobalError } = useGlobalError();
   const { control, getValues, trigger, reset } = useForm<Author>({
@@ -98,6 +100,27 @@ const ManagePersonModal: React.FC<ManagePersonModalProps> = ({
   async function getOrgs(searchQuery?: string) {
     try {
       setLoadedOrgs(false);
+
+      const clearOption: GenericKeyTextValueObj<string> = {
+        key: crypto.randomUUID(),
+        text: "Clear selection",
+        value: "",
+      };
+
+      // If org has custom org list, use that instead of fetching from server
+      if(org.customOrgList && org.customOrgList.length > 0){
+        const orgs = org.customOrgList.map((org) => {
+          return {
+            value: org,
+            key: crypto.randomUUID(),
+            text: org,
+          };
+        });
+
+        setOrgOptions([clearOption, ...orgs]);
+        return;
+      }
+
       const res = await api.getCentralIdentityADAPTOrgs({
         query: searchQuery ?? undefined,
       });
@@ -115,12 +138,6 @@ const ManagePersonModal: React.FC<ManagePersonModalProps> = ({
           text: org,
         };
       });
-
-      const clearOption: GenericKeyTextValueObj<string> = {
-        key: crypto.randomUUID(),
-        text: "Clear selection",
-        value: "",
-      };
 
       setOrgOptions([clearOption, ...orgs]);
     } catch (err) {
