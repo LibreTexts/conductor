@@ -61,6 +61,8 @@ import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
 
 const filesStorage = multer.memoryStorage();
+const MAX_UPLOAD_FILES = 20;
+const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
 
 /**
  * Multer handler to process and validate Project File uploads.
@@ -78,8 +80,8 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
   const fileUploadConfig = multer({
     storage: filesStorage,
     limits: {
-      files: 10,
-      fileSize: 100000000,
+      files: MAX_UPLOAD_FILES,
+      fileSize: MAX_UPLOAD_FILE_SIZE,
     },
     fileFilter: (_req, file, cb) => {
       if (file.originalname.includes("/")) {
@@ -91,7 +93,7 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       }
       return cb(null, true);
     },
-  }).array("files", req.method === "POST" ? 10 : 1);
+  }).array("files", req.method === "POST" ? MAX_UPLOAD_FILES : 1);
   return fileUploadConfig(req, res, (err) => {
     if (err) {
       let errMsg = conductorErrors.err53;
