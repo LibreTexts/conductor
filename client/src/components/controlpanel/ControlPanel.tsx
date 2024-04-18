@@ -84,12 +84,6 @@ const ControlPanel = () => {
 
     let campusAdminTools: ControlPanelListItem[] = [
         {
-            url: '/controlpanel/authorsmanager',
-            icon: 'address book outline',
-            title: 'Authors Manager',
-            description: 'Manage known authors and their contact information for use in Conductor projects'
-        },
-        {
             url: '/controlpanel/booksmanager',
             icon: 'book',
             title: 'Books Manager',
@@ -106,6 +100,12 @@ const ControlPanel = () => {
             icon: 'comments outline',
             title: 'Peer Review Rubrics',
             description: 'Manage Peer Review rubrics available for use in Conductor projects'
+        },
+        {
+            url: '/controlpanel/peoplemanager',
+            icon: 'address book outline',
+            title: 'People Manager',
+            description: 'Manage known individuals and their contact information for use in Conductor projects'
         },
         {
             url: '/controlpanel/campussettings',

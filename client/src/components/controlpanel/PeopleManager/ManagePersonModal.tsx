@@ -14,18 +14,18 @@ import { required } from "../../../utils/formRules";
 import { useEffect, useState } from "react";
 import api from "../../../api";
 import useDebounce from "../../../hooks/useDebounce";
-import ConfirmDeleteAuthorModal from "./ConfirmDeleteAuthorModal";
+import ConfirmDeletePersonModal from "./ConfirmDeletePersonModal";
 
-interface ManageAuthorModalProps extends ModalProps {
+interface ManagePersonModalProps extends ModalProps {
   show: boolean;
   onClose: () => void;
-  authorID?: string;
+  personID?: string;
 }
 
-const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
+const ManagePersonModal: React.FC<ManagePersonModalProps> = ({
   show,
   onClose,
-  authorID,
+  personID,
   ...rest
 }) => {
   const { debounce } = useDebounce();
@@ -60,7 +60,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
   useEffect(() => {
     if (show) {
       getOrgs();
-      if (authorID) {
+      if (personID) {
         setMode("edit");
         loadAuthor();
       } else {
@@ -70,16 +70,16 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
     } else {
       resetForm();
     }
-  }, [show, authorID]);
+  }, [show, personID]);
 
   async function loadAuthor() {
     try {
-      if (!authorID) {
+      if (!personID) {
         throw new Error("Invalid author ID.");
       }
 
       setLoading(true);
-      const res = await api.getAuthor(authorID);
+      const res = await api.getAuthor(personID);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -136,7 +136,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
   );
 
   async function handeSubmit() {
-    if (mode === "edit" && authorID) {
+    if (mode === "edit" && personID) {
       handleEdit();
     } else {
       handleCreate();
@@ -169,13 +169,13 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
   async function handleEdit() {
     try {
       const valid = await trigger();
-      if (!valid || !authorID) {
+      if (!valid || !personID) {
         return;
       }
 
       setLoading(true);
       const values = getValues();
-      const editRes = await api.updateAuthor(authorID, values);
+      const editRes = await api.updateAuthor(personID, values);
 
       if (editRes.data.err) {
         throw new Error(editRes.data.errMsg);
@@ -197,7 +197,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
   return (
     <Modal open={show} onClose={onClose} {...rest}>
       <Modal.Header>
-        {mode === "create" ? "Create" : "Edit"} Author
+        {mode === "create" ? "Create" : "Edit"} Person
       </Modal.Header>
       <Modal.Content>
         <Form onSubmit={(e) => e.preventDefault()} loading={loading}>
@@ -274,7 +274,7 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
       </Modal.Content>
       <Modal.Actions>
         <div className="flex flex-row justify-between items-center">
-          {mode === "edit" && authorID && (
+          {mode === "edit" && personID && (
             <Button
               color="red"
               icon="trash alternate outline"
@@ -291,16 +291,16 @@ const ManageAuthorModal: React.FC<ManageAuthorModalProps> = ({
           </div>
         </div>
       </Modal.Actions>
-      {authorID && (
-        <ConfirmDeleteAuthorModal
+      {personID && (
+        <ConfirmDeletePersonModal
           show={showConfirmDelete}
           onCancel={() => setShowConfirmDelete(false)}
           onDeleted={handleDeleted}
-          authorID={authorID}
+          personID={personID}
         />
       )}
     </Modal>
   );
 };
 
-export default ManageAuthorModal;
+export default ManagePersonModal;

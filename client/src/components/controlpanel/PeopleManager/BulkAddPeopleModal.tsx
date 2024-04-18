@@ -16,19 +16,19 @@ import { ParseResult, parse } from "papaparse";
 import LoadingSpinner from "../../LoadingSpinner";
 import api from "../../../api";
 
-interface BulkAddAuthorsModalProps extends ModalProps {
+interface BulkAddPeopleModalProps extends ModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
+const BulkAddPeopleModal: React.FC<BulkAddPeopleModalProps> = ({
   open,
   onClose,
 }) => {
   // Global State & Hooks
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState<boolean>(false);
-  const [authorsToAdd, setAuthorsToAdd] = useState<Author[]>([]);
+  const [peopleToAdd, setPeopleToAdd] = useState<Author[]>([]);
   const [didParse, setDidParse] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,16 +73,16 @@ const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
         );
       }
 
-      const authorsToAdd = dataObjs.filter(
+      const peopleToAdd = dataObjs.filter(
         (obj) =>
           obj.hasOwnProperty("firstName") && obj.hasOwnProperty("lastName")
       );
 
-      if (authorsToAdd.length === 0) {
-        throw new Error("No authors to add");
+      if (peopleToAdd.length === 0) {
+        throw new Error("No people to add");
       }
 
-      setAuthorsToAdd(authorsToAdd as Author[]);
+      setPeopleToAdd(peopleToAdd as Author[]);
       setDidParse(true);
     } catch (err) {
       handleGlobalError(err);
@@ -95,21 +95,21 @@ const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
     try {
       setLoading(true);
 
-      if (!authorsToAdd || authorsToAdd.length === 0) {
-        throw new Error("No authors to add");
+      if (!peopleToAdd || peopleToAdd.length === 0) {
+        throw new Error("No people to add");
       }
 
-      const res = await api.bulkCreateAuthors(authorsToAdd);
+      const res = await api.bulkCreateAuthors(peopleToAdd);
 
       if (
         res.data.err ||
         !res.data.authors ||
         !Array.isArray(res.data.authors)
       ) {
-        throw new Error("Error adding authors");
+        throw new Error("Error adding people. Please try again.");
       }
 
-      setAuthorsToAdd([]);
+      setPeopleToAdd([]);
       setDidParse(false);
       onClose();
     } catch (err) {
@@ -121,7 +121,7 @@ const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
 
   return (
     <Modal open={open} onClose={() => onClose()} size="large">
-      <Modal.Header>Bulk Add Authors</Modal.Header>
+      <Modal.Header>Bulk Add People</Modal.Header>
       <Modal.Content
         scrolling
         className="flex flex-col justify-center items-center"
@@ -150,7 +150,7 @@ const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
       <Modal.Actions>
         <div className="flex flex-row justify-between items-center">
           <Popup
-            content="Create a CSV file with one author record per line. The first row should contain the column headers: firstName, lastName, email, url, primaryInstitution. All other columns will be ignored. Only firstName and lastName are required fields. Any duplicate records (based on email) will be ignored. To prevent misuse, only 1500 records can be added at a time."
+            content="Create a CSV file with one person record per line. The first row should contain the column headers: firstName, lastName, email, url, primaryInstitution. All other columns will be ignored. Only firstName and lastName are required fields. Any duplicate records (based on email) will be ignored. To prevent misuse, only 1500 records can be added at a time."
             trigger={
               <span className="underline cursor-pointer">
                 How do I use this?
@@ -177,4 +177,4 @@ const BulkAddAuthorsModal: React.FC<BulkAddAuthorsModalProps> = ({
   );
 };
 
-export default BulkAddAuthorsModal;
+export default BulkAddPeopleModal;
