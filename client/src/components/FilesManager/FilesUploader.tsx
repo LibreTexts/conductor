@@ -35,6 +35,8 @@ type FilesUploaderProps = ModalProps & {
   onFinishedUpload: () => void;
 } & (_AddProps | _ReplaceProps);
 
+const MAX_ADD_FILES = 20;
+
 /**
  * Modal interface to upload Project Files to a Project.
  */
@@ -254,14 +256,14 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             {mode === "add" && (
               <p>
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
-                Up to 10 files can be uploaded at once, with a maximum of 100 MB
+                Up to {MAX_ADD_FILES} files can be uploaded at once, with a maximum of 100 MB
                 each.
               </p>
             )}
 
             <FileUploader
               multiple={mode === "add" ? true : false}
-              maxFiles={mode === "add" ? 10 : 1}
+              maxFiles={mode === "add" ? MAX_ADD_FILES : 1}
               onUpload={handleUpload}
               disabled={fileDisabled}
             />
