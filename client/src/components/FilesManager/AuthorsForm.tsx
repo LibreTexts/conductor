@@ -118,7 +118,7 @@ const AuthorsForm = forwardRef(
 
     async function loadSecondaryAuthorOptions(searchQuery?: string) {
       try {
-        setLoadingCorrespondingAuthors(true);
+        setLoadingSecondaryAuthors(true);
         const res = await api.getAuthors({ query: searchQuery });
         if (res.data.err) {
           throw new Error(res.data.errMsg);
@@ -258,12 +258,6 @@ const AuthorsForm = forwardRef(
 
     const correspondingAuthorOpts = useMemo(() => {
       const opts = correspondingAuthorOptions
-        .filter((a) => !selectedPrimary || a._id !== selectedPrimary._id)
-        .filter(
-          (a) =>
-            !selectedSecondary ||
-            !selectedSecondary.find((sa) => sa._id === a._id)
-        )
         .map((a) => ({
           key: crypto.randomUUID(),
           value: a._id ?? "",
@@ -277,7 +271,7 @@ const AuthorsForm = forwardRef(
       });
 
       return opts;
-    }, [correspondingAuthorOptions, selectedPrimary, selectedSecondary]);
+    }, [correspondingAuthorOptions]);
 
     return (
       <>
@@ -341,7 +335,7 @@ const AuthorsForm = forwardRef(
                 getCorrespondingAuthorsDebounced(searchQuery);
               }}
               placeholder="Seach authors..."
-              loading={loadingAuthors}
+              loading={loadingCorrespondingAuthors}
             />
           </Form.Field>
           <ManualEntryButton from="primary" />
@@ -380,7 +374,7 @@ const AuthorsForm = forwardRef(
               onSearchChange={(e, { searchQuery }) => {
                 getSecondaryAuthorsDebounced(searchQuery);
               }}
-              loading={loadingAuthors}
+              loading={loadingSecondaryAuthors}
             />
           </Form.Field>
           <ManualEntryButton from="secondary" />
