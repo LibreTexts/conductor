@@ -16,20 +16,20 @@ import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import useDebounce from "../../../../hooks/useDebounce";
 import api from "../../../../api";
-const ManageAuthorModal = lazy(
+const ManagePersonModal = lazy(
   () =>
     import(
-      "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal"
+      "../../../../components/controlpanel/PeopleManager/ManagePersonModal"
     )
 );
-const BulkAddAuthorsModal = lazy(
+const BulkAddPeopleModal = lazy(
   () =>
     import(
-      "../../../../components/controlpanel/AuthorsManager/BulkAddAuthorsModal"
+      "../../../../components/controlpanel/PeopleManager/BulkAddPeopleModal"
     )
 );
 
-const AuthorsManager = () => {
+const PeopleManager = () => {
   //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
@@ -57,8 +57,8 @@ const AuthorsManager = () => {
   ];
 
   //Data
-  const [authors, setAuthors] = useState<Author[]>([]);
-  const [selectedAuthorId, setSelectedAuthorId] = useState<string | undefined>(
+  const [people, setPeople] = useState<Author[]>([]);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | undefined>(
     undefined
   );
   const [showManageModal, setShowManageModal] = useState<boolean>(false);
@@ -66,11 +66,11 @@ const AuthorsManager = () => {
 
   //Effects
   useEffect(() => {
-    getAuthors(searchString);
+    getPeople(searchString);
   }, [activePage, itemsPerPage, sortChoice]);
 
   // Handlers & Methods
-  async function getAuthors(searchString?: string) {
+  async function getPeople(searchString?: string) {
     try {
       setLoading(true);
 
@@ -90,7 +90,7 @@ const AuthorsManager = () => {
         throw new Error("Error retrieving authors");
       }
 
-      setAuthors(res.data.authors);
+      setPeople(res.data.authors);
       setTotalItems(res.data.totalCount);
       setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
     } catch (err) {
@@ -100,27 +100,27 @@ const AuthorsManager = () => {
     }
   }
 
-  const getAuthorsDebounced = debounce((searchVal: string) => {
+  const getPeopleDebounced = debounce((searchVal: string) => {
     setActivePage(1); // reset to first page when query changes
-    getAuthors(searchVal);
+    getPeople(searchVal);
   }, 500);
 
-  function handleSelectAuthor(id?: string) {
+  function handleSelectPerson(id?: string) {
     if (!id) return;
-    setSelectedAuthorId(id);
+    setSelectedPersonId(id);
     setShowManageModal(true);
   }
 
   function handleCloseManageModal() {
-    setSelectedAuthorId(undefined);
-    getAuthors(searchString);
+    setSelectedPersonId(undefined);
+    getPeople(searchString);
     setShowManageModal(false);
   }
 
   function handleCloseBulkAddModal() {
-    setSelectedAuthorId(undefined);
+    setSelectedPersonId(undefined);
     setShowBulkAddModal(false);
-    getAuthors(searchString);
+    getPeople(searchString);
   }
 
   return (
@@ -128,7 +128,7 @@ const AuthorsManager = () => {
       <Grid.Row>
         <Grid.Column width={16}>
           <Header className="component-header" as="h2">
-            Authors Manager
+            People Manager
           </Header>
         </Grid.Column>
       </Grid.Row>
@@ -142,9 +142,7 @@ const AuthorsManager = () => {
                     Control Panel
                   </Breadcrumb.Section>
                   <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>
-                    Authors Manager
-                  </Breadcrumb.Section>
+                  <Breadcrumb.Section active>People Manager</Breadcrumb.Section>
                 </Breadcrumb>
                 <div>
                   <Button
@@ -162,7 +160,7 @@ const AuthorsManager = () => {
                     className="ml-2"
                   >
                     <Icon name="plus" />
-                    Add Author
+                    Add Person
                   </Button>
                 </div>
               </div>
@@ -189,7 +187,7 @@ const AuthorsManager = () => {
                       placeholder="Search by First, Last, or Email"
                       onChange={(e) => {
                         setSearchString(e.target.value);
-                        getAuthorsDebounced(e.target.value.trim());
+                        getPeopleDebounced(e.target.value.trim());
                       }}
                       value={searchString}
                       fluid
@@ -220,29 +218,29 @@ const AuthorsManager = () => {
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {authors.length > 0 &&
-                    authors.map((author) => {
+                  {people.length > 0 &&
+                    people.map((p) => {
                       return (
                         <Table.Row
                           key={crypto.randomUUID()}
                           className="word-break-all"
                         >
                           <Table.Cell>
-                            <span>{author.firstName} </span>
+                            <span>{p.firstName} </span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>{author.lastName}</span>
+                            <span>{p.lastName}</span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>{author.email}</span>
+                            <span>{p.email}</span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span>{author.primaryInstitution}</span>
+                            <span>{p.primaryInstitution}</span>
                           </Table.Cell>
                           <Table.Cell>
                             <Button
                               color="blue"
-                              onClick={() => handleSelectAuthor(author._id)}
+                              onClick={() => handleSelectPerson(p._id)}
                             >
                               <Icon name="edit outline" />
                               Edit
@@ -251,7 +249,7 @@ const AuthorsManager = () => {
                         </Table.Row>
                       );
                     })}
-                  {authors.length === 0 && (
+                  {people.length === 0 && (
                     <Table.Row>
                       <Table.Cell colSpan={TABLE_COLS.length + 1}>
                         <p className="text-center">
@@ -274,12 +272,12 @@ const AuthorsManager = () => {
               />
             </Segment>
           </Segment.Group>
-          <ManageAuthorModal
+          <ManagePersonModal
             show={showManageModal}
             onClose={handleCloseManageModal}
-            authorID={selectedAuthorId}
+            personID={selectedPersonId}
           />
-          <BulkAddAuthorsModal
+          <BulkAddPeopleModal
             open={showBulkAddModal}
             onClose={handleCloseBulkAddModal}
           />
@@ -289,4 +287,4 @@ const AuthorsManager = () => {
   );
 };
 
-export default AuthorsManager;
+export default PeopleManager;

@@ -12,7 +12,6 @@ const AnalyticsInvites = lazy(() => import('./screens/conductor/analytics/Analyt
 const AnalyticsPortal = lazy(() => import('./screens/conductor/analytics/AnalyticsPortal'));
 const AnalyticsRequestAccess = lazy(() => import('./screens/conductor/analytics/AnalyticsRequestAccess'));
 const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/AnalyticsRequests'));
-const AuthorsManager = lazy(() => import('./screens/conductor/controlpanel/AuthorsManager'));
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
@@ -37,6 +36,7 @@ import OrganizationsManager from './components/controlpanel/OrganizationsManager
 import PeerReviewPage from './components/peerreview/PeerReviewPage';
 import PeerReviewRubricManage from './components/controlpanel/PeerReviewRubricManage';
 import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics';
+const PeopleManager = lazy(() => import('./screens/conductor/controlpanel/PeopleManager'));
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
 import ProjectsAvailable from './components/projects/ProjectsAvailable';
@@ -108,7 +108,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
         <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
         <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
-        <PrivateRoute exact path='/controlpanel/authorsmanager' component={AuthorsManager} />
+        <PrivateRoute exact path='/controlpanel/peoplemanager' component={PeopleManager} />
         <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
         <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
         <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />

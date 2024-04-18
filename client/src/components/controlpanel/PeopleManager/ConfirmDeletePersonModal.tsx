@@ -4,16 +4,16 @@ import LoadingSpinner from "../../LoadingSpinner";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 
-interface ConfirmDeleteAuthorModalProps extends ModalProps {
+interface ConfirmDeletePersonModalProps extends ModalProps {
   show: boolean;
-  authorID: string;
+  personID: string;
   onCancel: () => void;
   onDeleted: () => void;
 }
 
-const ConfirmDeleteAuthorModal: React.FC<ConfirmDeleteAuthorModalProps> = ({
+const ConfirmDeletePersonModal: React.FC<ConfirmDeletePersonModalProps> = ({
   show,
-  authorID,
+  personID,
   onCancel,
   onDeleted,
   ...rest
@@ -27,13 +27,13 @@ const ConfirmDeleteAuthorModal: React.FC<ConfirmDeleteAuthorModalProps> = ({
   // Methods
   async function handleDelete() {
     try {
-      if (!authorID) {
+      if (!personID) {
         throw new Error("No author ID provided");
       }
 
       setLoading(true);
 
-      const res = await api.deleteAuthor(authorID);
+      const res = await api.deleteAuthor(personID);
 
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -53,7 +53,7 @@ const ConfirmDeleteAuthorModal: React.FC<ConfirmDeleteAuthorModalProps> = ({
 
   return (
     <Modal open={show} onClose={onDeleted} {...rest}>
-      <Modal.Header>Delete Author</Modal.Header>
+      <Modal.Header>Delete Person</Modal.Header>
       <Modal.Content scrolling id="task-view-content">
         {loading && (
           <div className="my-4r">
@@ -61,7 +61,7 @@ const ConfirmDeleteAuthorModal: React.FC<ConfirmDeleteAuthorModalProps> = ({
           </div>
         )}
         {!loading && (
-          <p className="pa-2r">Are you sure you want to remove this author?</p>
+          <p className="pa-2r">Are you sure you want to remove this person?</p>
         )}
       </Modal.Content>
       <Modal.Actions>
@@ -75,4 +75,4 @@ const ConfirmDeleteAuthorModal: React.FC<ConfirmDeleteAuthorModalProps> = ({
   );
 };
 
-export default ConfirmDeleteAuthorModal;
+export default ConfirmDeletePersonModal;
