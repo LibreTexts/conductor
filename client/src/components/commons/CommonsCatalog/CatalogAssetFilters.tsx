@@ -29,6 +29,9 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   const [fileTypeOptions, setFileTypeOptions] = useState<
     GenericKeyTextValueObj<string>[]
   >([]);
+  const [peopleOptions, setPeopleOptions] = useState<
+    GenericKeyTextValueObj<string>[]
+  >([]);
   const [assetTagFilters, setAssetTagFilters] = useState<CustomFilter[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -79,6 +82,17 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
 
         mapped.sort((a, b) => a.text.localeCompare(b.text));
         setFileTypeOptions(prependClearOption(mapped));
+      }
+
+      if (res.data.people) {
+        const people = res.data.people.map((p) => {
+          return {
+            key: crypto.randomUUID(),
+            text: `${p.firstName} ${p.lastName}`,
+            value: `${p.firstName} ${p.lastName}`,
+          };
+        });
+        setPeopleOptions(prependClearOption(people));
       }
 
       if (res.data.customFilters) {
@@ -144,6 +158,13 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           icon="university"
           options={orgOptions}
           filterKey="org"
+          onFilterSelect={(key, val) => onFilterChange(key, val)}
+        />
+        <CatalogFilterDropdown
+          text={`People ${filters.person ? " - " : ""}${filters.person ?? ""}`}
+          icon="user"
+          options={peopleOptions}
+          filterKey="person"
           onFilterSelect={(key, val) => onFilterChange(key, val)}
         />
       </div>

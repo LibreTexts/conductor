@@ -493,7 +493,7 @@ export async function assetsSearch(
                 thumbnail: 1,
                 associatedOrgs: 1,
                 description: 1,
-                projectURL: 1
+                projectURL: 1,
               },
             },
           ],
@@ -1025,6 +1025,17 @@ export async function assetsSearch(
     if (req.query.org) {
       allResults = allResults.filter((file) => {
         return file.projectInfo.associatedOrgs?.includes(req.query.org);
+      });
+    }
+
+    // Filter by person if provided
+    if (req.query.person) {
+      allResults = allResults.filter((file) => {
+        return file.authors.find((author: any) => {
+          return `${author.firstName} ${author.lastName}`
+            .toLowerCase()
+            .includes((req.query.person as string).toLowerCase());
+        });
       });
     }
 
@@ -1701,6 +1712,13 @@ async function getAssetFilterOptions(req: Request, res: Response) {
     ]);
     aggregations.push(assetTagsPromise);
 
+    // Find all people (authors)
+    const authorsPromise = Author.find({
+      firstName: { $exists: true, $ne: "" },
+      lastName: { $exists: true, $ne: "" },
+    });
+    aggregations.push(authorsPromise);
+
     const orgsPromise = Project.aggregate([
       {
         $group: {
@@ -1749,9 +1767,10 @@ async function getAssetFilterOptions(req: Request, res: Response) {
           options: a.options,
         };
       }) ?? [];
+    const authors = results[3] ?? [];
     const orgs = hasCustomOrgList
       ? org.customOrgList
-      : results[3][0]?.associatedOrgs ?? [];
+      : results[4][0]?.associatedOrgs ?? [];
 
     // Sort results
     licenseNames.sort((a: string, b: string) =>
@@ -1763,6 +1782,11 @@ async function getAssetFilterOptions(req: Request, res: Response) {
     orgs.sort((a: string, b: string) =>
       a.toLowerCase().localeCompare(b.toLowerCase())
     );
+    authors.sort((a: any, b: any) =>
+      `${a.firstName} ${a.lastName}`
+        .toLowerCase()
+        .localeCompare(`${b.firstName} ${b.lastName}`.toLowerCase())
+    );
 
     return res.send({
       err: false,
@@ -1770,6 +1794,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
       fileTypes: fileTypes,
       orgs: orgs,
       customFilters: assetTags ?? [],
+      people: authors,
     });
   } catch (err) {
     debugError(err);

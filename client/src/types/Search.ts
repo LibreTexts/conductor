@@ -13,6 +13,7 @@ export type AssetFilters = {
   licenseVersion?: string;
   org?: string;
   fileType?: string;
+  person?: string;
 };
 
 export type AuthorFilters = {
@@ -45,6 +46,7 @@ export type AssetSearchParams = {
   licenseVersion?: string;
   org?: string;
   fileType?: string;
+  person?: string;
   customFilters?: { key: string; value: string }[];
 } & _commonSearchParams;
 
