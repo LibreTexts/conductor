@@ -119,7 +119,6 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     setFilesLoading(true);
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
-      console.log(fileRes.data);
       if (!fileRes.data.err) {
         if (Array.isArray(fileRes.data.files)) {
           const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
@@ -699,7 +698,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       </Table.Cell>
                       <Table.Cell>
                         <Dropdown
-                          icon
+                          icon={null}
                           trigger={
                             <Icon name="ellipsis vertical" size="large" />
                           }
