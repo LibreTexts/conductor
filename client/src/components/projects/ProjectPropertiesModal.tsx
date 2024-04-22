@@ -12,6 +12,7 @@ import {
   Card,
 } from "semantic-ui-react";
 import {
+  AssetTagFramework,
   Author,
   CentralIdentityLicense,
   GenericKeyTextValueObj,
@@ -39,6 +40,7 @@ import ProjectModulesControl from "./ProjectModulesControl";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 import { set } from "date-fns";
 import AuthorsForm from "../FilesManager/AuthorsForm";
+import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -148,6 +150,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const [loadingPIOptions, setLoadingPIOptions] = useState<boolean>(false);
   const [loadingCoPIOptions, setLoadingCoPIOptions] = useState<boolean>(false);
 
+  const [contentAreaOptions, setContentAreaOptions] = useState<
+    GenericKeyTextValueObj<string>[]
+  >([]);
+  const [pedagogyOptions, setPedagogyOptions] = useState<
+    GenericKeyTextValueObj<string>[]
+  >([]);
+
   useEffect(() => {
     if (show && projectID) {
       loadProject();
@@ -155,6 +164,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       getCIDDescriptors();
       getLicenseOptions();
       getPIOptions(undefined, true);
+      checkCampusDefault();
     }
   }, [show, projectID]);
 
@@ -439,9 +449,64 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   }
 
   const getCoPIsDebounced = debounce(
-    (inputVal: string) => getPIOptions(inputVal, true),
+    (inputVal: string) => getCoPIOptions(inputVal),
     200
   );
+
+  /**
+   * Loads the default framework for the campus, if one exists.
+   */
+  async function checkCampusDefault() {
+    try {
+      //const existing = getValues("tags");
+      //if (existing && existing.length > 0) return; // Don't load campus default if tags already exist
+      setLoading(true);
+      const res = await api.getCampusDefaultFramework(org.orgID);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      if (!res.data.framework) return;
+
+      // Get content area options
+      const contentAreaTemplate = res.data.framework.templates.find(
+        (t) =>
+          isAssetTagKeyObject(t.key) &&
+          t.key.title.toLowerCase() === "content area"
+      );
+      if (!contentAreaTemplate || !contentAreaTemplate.options) return;
+
+      const options = contentAreaTemplate.options.map((option) => {
+        return {
+          key: crypto.randomUUID(),
+          text: option,
+          value: option,
+        };
+      });
+
+      setContentAreaOptions(options);
+
+      // Get pedagogy options
+      const pedagogyTemplate = res.data.framework.templates.find(
+        (t) =>
+          isAssetTagKeyObject(t.key) && t.key.title.toLowerCase() === "pedagogy"
+      );
+      if (!pedagogyTemplate || !pedagogyTemplate.options) return;
+
+      const pedagogyOpts = pedagogyTemplate.options.map((option) => {
+        return {
+          key: crypto.randomUUID(),
+          text: option,
+          value: option,
+        };
+      });
+
+      setPedagogyOptions(pedagogyOpts);
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   /**
    * Ensure the form data is valid, then submit the
@@ -728,6 +793,27 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             />
           </Form.Field>
           <Form.Field className="flex flex-col !mt-4">
+            <label htmlFor="contentArea">Content Area</label>
+            <Controller
+              render={({ field }) => (
+                <Dropdown
+                  id="contentArea"
+                  placeholder="Search options..."
+                  options={contentAreaOptions}
+                  {...field}
+                  onChange={(e, { value }) => {
+                    field.onChange(value as string);
+                  }}
+                  fluid
+                  selection
+                  loading={!loadedTags}
+                />
+              )}
+              name="contentArea"
+              control={control}
+            />
+          </Form.Field>
+          <Form.Field className="flex flex-col !mt-4">
             <label htmlFor="projectTags">Project Tags</label>
             <Controller
               render={({ field }) => (
@@ -735,7 +821,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <Dropdown
                   id="projectTags"
                   placeholder="Search tags..."
-                  options={tagOptions}
+                  options={org.FEAT_PedagogyProjectTags ? pedagogyOptions : tagOptions}
                   {...field}
                   onChange={(e, { value }) => {
                     field.onChange(value as string);
@@ -744,9 +830,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   selection
                   multiple
                   search
-                  allowAdditions
+                  allowAdditions={!org.FEAT_PedagogyProjectTags}
                   loading={!loadedTags}
                   onAddItem={(e, { value }) => {
+                    if(!org.FEAT_PedagogyProjectTags) return;
                     if (value) {
                       tagOptions.push({
                         text: value.toString(),
