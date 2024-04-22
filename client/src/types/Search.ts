@@ -79,7 +79,7 @@ export type ConductorSearchResponse<
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
   // if origin is 'conductor', then response is of type ConductorSearchResultsObject
   results: T extends "assets"
-    ? ProjectFileWProjectData<"title" | "thumbnail">[]
+    ? ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
     : T extends "books"
     ? Book[]
     : T extends "homework"
