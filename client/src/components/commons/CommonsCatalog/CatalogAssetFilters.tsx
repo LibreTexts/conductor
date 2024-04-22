@@ -8,6 +8,7 @@ import COMMON_MIME_TYPES, {
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { prependClearOption } from "../../util/CatalogOptions";
 import { CustomFilter } from "../../../types/Search";
+import { useTypedSelector } from "../../../state/hooks";
 
 interface CatalogAssetFiltersProps {
   filters: Record<string, string>;
@@ -19,6 +20,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
   onFilterChange,
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const org = useTypedSelector((state) => state.org);
 
   const [licenseOptions, setLicenseOptions] = useState<
     GenericKeyTextValueObj<string>[]
@@ -143,30 +145,40 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
               />
             );
           })}
-        <CatalogFilterDropdown
-          text={
-            filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
-          }
-          icon="file alternate outline"
-          options={fileTypeOptions}
-          filterKey="fileType"
-          onFilterSelect={(key, val) => onFilterChange(key, val)}
-          loading={loading}
-        />
-        <CatalogFilterDropdown
-          text={`Organization ${filters.org ? " - " : ""}${filters.org ?? ""}`}
-          icon="university"
-          options={orgOptions}
-          filterKey="org"
-          onFilterSelect={(key, val) => onFilterChange(key, val)}
-        />
-        <CatalogFilterDropdown
-          text={`People ${filters.person ? " - " : ""}${filters.person ?? ""}`}
-          icon="user"
-          options={peopleOptions}
-          filterKey="person"
-          onFilterSelect={(key, val) => onFilterChange(key, val)}
-        />
+        {!org.assetFilterExclusions?.includes("fileType") && (
+          <CatalogFilterDropdown
+            text={
+              filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
+            }
+            icon="file alternate outline"
+            options={fileTypeOptions}
+            filterKey="fileType"
+            onFilterSelect={(key, val) => onFilterChange(key, val)}
+            loading={loading}
+          />
+        )}
+        {!org.assetFilterExclusions?.includes("org") && (
+          <CatalogFilterDropdown
+            text={`Organization ${filters.org ? " - " : ""}${
+              filters.org ?? ""
+            }`}
+            icon="university"
+            options={orgOptions}
+            filterKey="org"
+            onFilterSelect={(key, val) => onFilterChange(key, val)}
+          />
+        )}
+        {!org.assetFilterExclusions?.includes("person") && (
+          <CatalogFilterDropdown
+            text={`People ${filters.person ? " - " : ""}${
+              filters.person ?? ""
+            }`}
+            icon="user"
+            options={peopleOptions}
+            filterKey="person"
+            onFilterSelect={(key, val) => onFilterChange(key, val)}
+          />
+        )}
       </div>
     </div>
   );

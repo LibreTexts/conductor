@@ -16,9 +16,13 @@ import {
   Popup,
   Table,
   Input,
+  Checkbox,
 } from "semantic-ui-react";
 import CtlTextInput from "../../ControlledInputs/CtlTextInput";
-import { DEFAULT_COMMONS_MODULES, sanitizeCustomColor } from "../../../utils/campusSettingsHelpers";
+import {
+  DEFAULT_COMMONS_MODULES,
+  sanitizeCustomColor,
+} from "../../../utils/campusSettingsHelpers";
 import { useForm } from "react-hook-form";
 import useGlobalError from "../../error/ErrorHooks";
 import { useDispatch } from "react-redux";
@@ -62,7 +66,7 @@ const CampusSettingsForm = forwardRef(
       setValue: setFormValue,
       getValues: getFormValue,
       setError: setFormError,
-      formState: { errors, isDirty, dirtyFields },
+      formState,
     } = useForm<CampusSettingsOpts>({
       defaultValues: {
         coverPhoto: undefined,
@@ -83,9 +87,10 @@ const CampusSettingsForm = forwardRef(
           books: { enabled: true, order: 1 },
           assets: { enabled: true, order: 2 },
           projects: { enabled: true, order: 3 },
-          authors: { enabled: true, order: 4  }
+          authors: { enabled: true, order: 4 },
         },
         showCollections: true,
+        assetFilterExclusions: [],
       },
     });
 
@@ -156,7 +161,7 @@ const CampusSettingsForm = forwardRef(
 
         resetForm({
           ...res.data,
-          commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES
+          commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES,
         });
         // Make local copies of matching tags with unique keys
         setMatchingTags(
@@ -183,15 +188,11 @@ const CampusSettingsForm = forwardRef(
       getOrganization();
     }, [getOrganization]);
 
-    /**
-     * Watch form values and reset saved indicator
-     * if values were changes
-     */
+    // Display a success message when data is saved
     useEffect(() => {
-      if (isDirty) {
-        setSavedData(false);
-      }
-    }, [isDirty]);
+      if(!savedData) return;
+      setTimeout(() => setSavedData(false), 3000);
+    }, [savedData])
 
     /**
      * Validate the form, then submit
@@ -202,11 +203,6 @@ const CampusSettingsForm = forwardRef(
     const saveChanges = async (d: CampusSettingsOpts) => {
       try {
         setLoadedData(false);
-        if (!isDirty) {
-          setSavedData(true);
-          setLoadedData(true);
-          return;
-        }
 
         let primaryColorErr = false;
         let footerColorErr = false;
@@ -453,6 +449,25 @@ const CampusSettingsForm = forwardRef(
 
     function handleCatalogMatchTagDelete(key: string) {
       setMatchingTags((prev) => prev.filter((item) => item.key !== key));
+    }
+
+    function handleToggleAssetFilterExclusion(filter: string) {
+      const currentExclusions = getFormValue("assetFilterExclusions");
+      if (!currentExclusions) {
+        setFormValue("assetFilterExclusions", [filter], { shouldDirty: true });
+        return;
+      }
+      if (currentExclusions.includes(filter)) {
+        setFormValue(
+          "assetFilterExclusions",
+          currentExclusions.filter((item) => item !== filter),
+          { shouldDirty: true }
+        );
+      } else {
+        setFormValue("assetFilterExclusions", [...currentExclusions, filter], {
+          shouldDirty: true,
+        });
+      }
     }
 
     return (
@@ -930,6 +945,7 @@ const CampusSettingsForm = forwardRef(
             <Button
               onClick={() => setShowCustomOrgListModal(true)}
               color="blue"
+              className="!mt-2"
             >
               <Icon name="edit" />
               Customize
@@ -946,6 +962,48 @@ const CampusSettingsForm = forwardRef(
               setValue={setFormValue}
               watch={watch}
             />
+          </div>
+          <div className="mt-4">
+            <p className="text-lg font-bold">
+              Disable Inherent Commons Filters
+            </p>
+            <p className="mb-2">
+              Disable the display of certain filters automatically available in
+              the Commons Catalog search interface. If a Catalog module is
+              disabled, the settings for that module here will have no effect.
+            </p>
+            <div>
+              <p className="font-semibold">Assets</p>
+              <div className="flex flex-row mt-2">
+                <Checkbox
+                  toggle
+                  label="File Type"
+                  onChange={() => handleToggleAssetFilterExclusion("fileType")}
+                  checked={
+                    watch("assetFilterExclusions")?.includes("fileType") ??
+                    false
+                  }
+                />
+                <Checkbox
+                  toggle
+                  label="Organization"
+                  onChange={() => handleToggleAssetFilterExclusion("org")}
+                  checked={
+                    watch("assetFilterExclusions")?.includes("org") ?? false
+                  }
+                  className="ml-4"
+                />
+                <Checkbox
+                  toggle
+                  label="People"
+                  onChange={() => handleToggleAssetFilterExclusion("person")}
+                  checked={
+                    watch("assetFilterExclusions")?.includes("person") ?? false
+                  }
+                  className="ml-4"
+                />
+              </div>
+            </div>
           </div>
           <Divider />
         </Form>
