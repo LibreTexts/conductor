@@ -35,6 +35,7 @@ export type Organization = {
   catalogMatchingTags?: string[];
   supportTicketNotifiers?: string[];
   FEAT_AssetTagsManager?: boolean;
+  FEAT_PedagogyProjectTags?: boolean;
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
