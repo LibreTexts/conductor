@@ -423,6 +423,22 @@ async function getProject(req, res) {
         }
       },
       {
+        $lookup: {
+          from: "authors",
+          localField: "principalInvestigatorIDs",
+          foreignField: "_id",
+          as: "principalInvestigators",
+        }
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "coPrincipalInvestigatorIDs",
+          foreignField: "_id",
+          as: "coPrincipalInvestigators",
+        }
+      },
+      {
         $project: {
           _id: 0
         }
@@ -816,6 +832,32 @@ async function updateProject(req, res) {
 
       updateObj.defaultCorrespondingAuthorID = parsed[0];
     }
+
+    if(req.body.hasOwnProperty('principalInvestigators')){
+      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.principalInvestigators);
+      if(!parsed || !Array.isArray(parsed)){
+        throw new Error('Error parsing principal investigators');
+      }
+      updateObj.principalInvestigatorIDs = parsed;
+    }
+
+    if(req.body.hasOwnProperty('coPrincipalInvestigators')){
+      const parsed = await projectFilesAPI._parseAndSaveAuthors(req.body.coPrincipalInvestigators);
+      if(!parsed || !Array.isArray(parsed)){
+        throw new Error('Error parsing co-principal investigators');
+      }
+
+      updateObj.coPrincipalInvestigatorIDs = parsed;
+    }
+
+    if(req.body.hasOwnProperty('description')){
+      updateObj.description = req.body.description;
+    }
+    if(req.body.hasOwnProperty('contentArea')){
+      updateObj.contentArea = req.body.contentArea;
+    }
+
+
     
     if (Object.keys(updateObj).length > 0) {
       const updateRes = await Project.updateOne({ projectID }, updateObj);
@@ -3343,6 +3385,10 @@ const validate = (method) => {
           body('defaultPrimaryAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
           body('defaultSecondaryAuthors', conductorErrors.err1).optional({ checkFalsy: true }).isArray().custom(validateAuthorArray),
           body('defaultCorrespondingAuthor', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateAuthor),
+          body('principalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
+          body('coPrincipalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
+          body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('contentArea', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
       ]
     case 'getProject':
       return [

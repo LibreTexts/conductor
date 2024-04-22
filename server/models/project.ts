@@ -70,6 +70,10 @@ export interface ProjectInterface extends Document {
   defaultPrimaryAuthorID?: string;
   defaultSecondaryAuthorIDs?: string[];
   defaultCorrespondingAuthorID?: string;
+  principalInvestigatorIDs?: string[];
+  coPrincipalInvestigatorIDs?: string[];
+  description?: string;
+  contentArea: string;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -353,7 +357,33 @@ const ProjectSchema = new Schema<ProjectInterface>(
         ref: "Author",
         type: Schema.Types.ObjectId,
       },
-    }
+    },
+    /**
+     * Principal Investigators.
+     */
+    principalInvestigatorIDs: {
+      type: {
+        ref: "Author",
+        type: Schema.Types.ObjectId,
+      },
+    },
+    /**
+     * Co-Principal Investigators.
+     */
+    coPrincipalInvestigatorIDs: {
+      type: {
+        ref: "Author",
+        type: Schema.Types.ObjectId,
+      },
+    },
+    /**
+     * Project description.
+     */
+    description: String,
+    /**
+     * Content area.
+     */
+    contentArea: String,
   },
   {
     timestamps: true,
@@ -367,13 +397,13 @@ ProjectSchema.virtual("defaultPrimaryAuthor", {
   localField: "defaultPrimaryAuthor",
   foreignField: "_id",
   justOne: true,
-})
+});
 
 ProjectSchema.virtual("defaultSecondaryAuthors", {
   ref: "Author",
   localField: "defaultSecondaryAuthors",
   foreignField: "_id",
-})
+});
 
 const Project = model<ProjectInterface>("Project", ProjectSchema);
 
