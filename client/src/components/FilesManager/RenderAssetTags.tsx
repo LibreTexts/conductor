@@ -168,7 +168,7 @@ const RenderAssetTags: React.FC<{
         const text = getLabelText(tag);
         const color = getLabelColor(tag).toString();
         return (
-          <div key={tag.uuid} className="">
+          <div key={crypto.randomUUID()} className="">
             <span className="font-semibold">{title}</span>:{" "}
             {text &&
               spreadArray &&

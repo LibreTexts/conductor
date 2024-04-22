@@ -35,6 +35,8 @@ function assetsReducer(
       return { ...state, org: action.payload };
     case "fileType":
       return { ...state, fileType: action.payload };
+    case "person":
+      return { ...state, person: action.payload };
     case "reset":
       return {};
     case "reset_one": {
@@ -371,7 +373,7 @@ const CommonsCatalog = () => {
       setAssetsLoading(true);
 
       const customFiltersApplied = Object.entries(assetFilters ?? {})
-        .filter(([key, value]) => !["license", "org", "fileType"].includes(key))
+        .filter(([key, value]) => !["license", "org", "fileType", "person"].includes(key))
         .map(([key, value]) => ({ key, value }));
 
       const res = await api.assetsSearch({
@@ -381,6 +383,7 @@ const CommonsCatalog = () => {
         license: assetFilters?.license,
         fileType: assetFilters?.fileType,
         org: assetFilters?.org,
+        person: assetFilters?.person,
         customFilters: customFiltersApplied,
       });
 

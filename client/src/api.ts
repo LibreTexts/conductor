@@ -22,6 +22,7 @@ import {
 } from "./types";
 import {
   CIDDescriptor,
+  ProjectFileAuthor,
   ProjectFileWCustomData,
   ProjectFileWProjectData,
   ProjectTag,
@@ -343,6 +344,7 @@ class API {
         licenses: string[];
         orgs: string[];
         fileTypes: string[];
+        people: ProjectFileAuthor[];
         customFilters: CustomFilter[];
       } & ConductorBaseResponse
     >("/search/asset-filters");
