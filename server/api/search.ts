@@ -492,6 +492,8 @@ export async function assetsSearch(
                 title: 1,
                 thumbnail: 1,
                 associatedOrgs: 1,
+                description: 1,
+                projectURL: 1
               },
             },
           ],
@@ -913,6 +915,8 @@ export async function assetsSearch(
                   title: "$title",
                   associatedOrgs: "$associatedOrgs",
                   thumbnail: "$thumbnail",
+                  description: "$description",
+                  projectURL: "$projectURL",
                 },
               },
               "$matchingProjectFiles",

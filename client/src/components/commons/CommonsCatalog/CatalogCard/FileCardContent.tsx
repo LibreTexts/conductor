@@ -8,14 +8,11 @@ import {
   getPrettyAuthorsList,
 } from "../../../../utils/assetHelpers";
 import { useState } from "react";
-import { ProjectFileAuthor } from "../../../../types/Project";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWProjectData<"title" | "thumbnail">;
-}
-
-function handleOpenProject(projectID: string) {
-  window.open(`/projects/${projectID}`, "_blank");
+  file: ProjectFileWProjectData<
+    "title" | "thumbnail" | "description" | "projectURL"
+  >;
 }
 
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
@@ -70,7 +67,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       )}
       <Card.Header
         as="button"
-        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500"
+        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500 break-all"
         onClick={() => handleFileDownload(file)}
       >
         {truncateString(file.name, 50)}
@@ -130,17 +127,36 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         />
       </Card.Meta>
       <Card.Meta>
-        <Icon name="clipboard list" color="blue" />
-        {file.projectInfo.title ? (
-          <span
-            onClick={() => handleOpenProject(file.projectID)}
-            className="underline"
-          >
-            {truncateString(file.projectInfo.title, 30)}
-          </span>
-        ) : (
-          "Unknown Project"
-        )}
+        <Popup
+          trigger={
+            <div>
+              <Icon name="clipboard list" color="blue" />
+              {file.projectInfo.title ? (
+                <a
+                  href={
+                    file.projectInfo.projectURL
+                      ? file.projectInfo.projectURL
+                      : `/commons-project/${file.projectID}`
+                  }
+                  target="_blank"
+                >
+                  {truncateString(file.projectInfo.title, 30)}
+                </a>
+              ) : (
+                "Unknown Project"
+              )}
+            </div>
+          }
+          content={
+            <div>
+              <p>
+                <span className="font-semibold">Description:</span>{" "}
+                {file.projectInfo.description}
+              </p>
+            </div>
+          }
+          position="top center"
+        />
       </Card.Meta>
       <Card.Meta>
         <Icon name="legal" color="blue" />{" "}

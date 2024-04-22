@@ -1103,6 +1103,8 @@ async function getPublicProjectFiles(
               $project: {
                 title: 1,
                 thumbnail: 1,
+                description: 1,
+                projectURL: 1
               },
             },
           ],
