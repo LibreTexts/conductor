@@ -486,7 +486,7 @@ async function bulkDownloadProjectFiles(
  * @param {express.Response} res - Outgoing response object.
  */
 async function getProjectFolderContents(
-  req: ZodReqWithUser<z.infer<typeof getProjectFolderContentsSchema>>,
+  req: ZodReqWithOptionalUser<z.infer<typeof getProjectFolderContentsSchema>>,
   res: Response
 ) {
   try {
@@ -497,7 +497,7 @@ async function getProjectFolderContents(
       return conductor404Err(res);
     }
 
-    if (!projectsAPI.checkProjectGeneralPermission(project, req.user)) {
+    if (!projectsAPI.checkProjectGeneralPermission(project, req.user as Object)) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -507,8 +507,8 @@ async function getProjectFolderContents(
     const [files, path] = await retrieveProjectFiles(
       projectID,
       folderID,
-      undefined,
-      req.user.decoded.uuid
+      req.user ? false : true,
+      req.user?.decoded.uuid
     );
     if (!files) {
       // error encountered

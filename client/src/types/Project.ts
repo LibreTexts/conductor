@@ -159,4 +159,10 @@ export type Project = {
   defaultPrimaryAuthor?: ProjectFileAuthor;
   defaultSecondaryAuthors?: ProjectFileAuthor[];
   defaultCorrespondingAuthor?: ProjectFileAuthor;
+  principalInvestigatorIDs?: string[];
+  coPrincipalInvestigatorIDs?: string[];
+  principalInvestigators?: ProjectFileAuthor[];
+  coPrincipalInvestigators?: ProjectFileAuthor[];
+  description?: string;
+  contentArea?: string;
 };

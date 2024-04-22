@@ -119,6 +119,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     setFilesLoading(true);
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
+      console.log(fileRes.data);
       if (!fileRes.data.err) {
         if (Array.isArray(fileRes.data.files)) {
           const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
@@ -311,6 +312,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    * and opens the Change Access tool.
    */
   function handleChangeAccess(toChange: FileEntry[]) {
+    if (!canViewDetails) return;
     if (toChange.length > 0) {
       setAccessFiles(toChange);
       setShowChangeAccess(true);
@@ -457,9 +459,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   }
 
   return (
-    <Grid.Column>
+    <Grid.Column className="!w-full">
       <Header as="h2" dividing>
-        Files
+        Assets
         <Button compact floated="right" onClick={toggleFilesManager}>
           Hide
         </Button>
@@ -674,15 +676,26 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                         </div>
                       </Table.Cell>
                       <Table.Cell>
-                        <button
-                          className="hover:underline text-blue-600"
-                          onClick={() => handleChangeAccess([item])}
-                        >
-                          {getFilesAccessText(item.access)}
-                        </button>
+                        {canViewDetails ? (
+                          <button
+                            className="hover:underline text-blue-600"
+                            onClick={() => handleChangeAccess([item])}
+                            disabled={
+                              !checkProjectMemberPermission || !canViewDetails
+                            }
+                          >
+                            {getFilesAccessText(item.access)}
+                          </button>
+                        ) : (
+                          getFilesAccessText(item.access)
+                        )}
                       </Table.Cell>
                       <Table.Cell>
-                        <RenderAssetTags file={item} popupDisabled spreadArray/>
+                        <RenderAssetTags
+                          file={item}
+                          popupDisabled
+                          spreadArray
+                        />
                       </Table.Cell>
                       <Table.Cell>
                         <Dropdown

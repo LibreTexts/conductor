@@ -1400,8 +1400,7 @@ router.route('/project/:projectID/thumbnail').put(
 
 router.route('/project/:projectID?')
   .get(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
+    authAPI.optionalVerifyRequest,
     projectsAPI.validate('getProject'),
     middleware.checkValidationErrors,
     projectsAPI.getProject,
@@ -1452,8 +1451,7 @@ router.route('/project/:projectID/files/:fileID/move').put(
 );
 
 router.route('/project/:projectID/files/content/:folderID?').get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
+  authAPI.optionalVerifyRequest,
   middleware.validateZod(ProjectFileValidators.getProjectFolderContentsSchema),
   projectfilesAPI.getProjectFolderContents,
 )
