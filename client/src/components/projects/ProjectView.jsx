@@ -265,16 +265,6 @@ const ProjectView = (props) => {
       }
     });
     getProject();
-    if (localStorage.getItem('conductor_show_projectdiscussion') !== null) {
-      if (localStorage.getItem('conductor_show_projectdiscussion') === 'true') {
-        setShowDiscussion(true);
-      }
-    }
-    if (localStorage.getItem('conductor_show_projectfiles') !== null) {
-      if (localStorage.getItem('conductor_show_projectfiles') === 'true') {
-        setShowFiles(true);
-      }
-    }
   }, []);
 
 
@@ -892,7 +882,6 @@ const ProjectView = (props) => {
 
   const handleChangeFilesVis = () => {
     setShowFiles(!showFiles);
-    localStorage.setItem('conductor_show_projectfiles', !showFiles);
   };
 
   const getParentTaskName = (taskID) => {
@@ -1642,6 +1631,7 @@ const ProjectView = (props) => {
         <Grid.Row key={'files-module'}>
           {showFiles && (
             <FilesManager
+            key={'files-manager'}
               projectID={props.match.params.id}
               toggleFilesManager={handleChangeFilesVis}
               canViewDetails={canViewDetails}

@@ -392,10 +392,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         throw new Error("Failed to load PI options");
       }
 
-      const opts = [
-        ...res.data.authors,
-        ...(watch("principalInvestigators") ?? []),
-      ];
+      const existing = getValues("principalInvestigators") ?? [];
+      const opts = [...res.data.authors, ...existing];
 
       setPIOptions(opts);
 
@@ -467,9 +465,11 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         throw new Error("Please fix the errors in the form before submitting.");
       }
 
-      console.log(getValues("principalInvestigators"));
-
-      const res = await axios.put("/project", getValues());
+      const res = await axios.put("/project", {
+        ...getValues(),
+        principalInvestigators: getValues("principalInvestigatorIDs"),
+        coPrincipalInvestigators: getValues("coPrincipalInvestigatorIDs"),
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -541,10 +541,6 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       };
     });
   }, [coPIOptions]);
-
-  useEffect(() => {
-    console.log(watch("principalInvestigators"));
-  }, [watch("principalInvestigators")]);
 
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
@@ -681,27 +677,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             </label>
             <Controller
               render={({ field }) => (
-                // @ts-expect-error
                 <Dropdown
                   id="principalInvestigators"
                   placeholder="Search people..."
                   options={principalInvestigatorOpts}
                   {...field}
                   onChange={(e, { value }) => {
-                    if (!value) return;
-
-                    if (
-                      Array.isArray(value) &&
-                      value[value.length - 1] === ""
-                    ) {
-                      // Clear the field
-                      setValue("principalInvestigatorIDs", []);
-                      return;
-                    }
-                    const foundPIs = piOptions.filter(
-                      (pi) => pi._id && (value as string[]).includes(pi._id)
-                    );
-                    setValue("principalInvestigatorIDs", foundPIs.filter((pi) => pi._id).map((pi) => pi._id as string) ??  []);
+                    field.onChange(value);
                   }}
                   onSearchChange={(e, { searchQuery }) => {
                     getPIsDebounced(searchQuery);
@@ -723,14 +705,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             </label>
             <Controller
               render={({ field }) => (
-                // @ts-expect-error
                 <Dropdown
                   id="coPrincipalInvestigators"
                   placeholder="Search people..."
                   options={coPrincipalInvestigatorOpts}
                   {...field}
                   onChange={(e, { value }) => {
-                    field.onChange(value as string);
+                    field.onChange(value);
                   }}
                   onSearchChange={(e, { searchQuery }) => {
                     getCoPIsDebounced(searchQuery);
@@ -742,7 +723,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   loading={loadingCoPIOptions}
                 />
               )}
-              name="coPrincipalInvestigators"
+              name="coPrincipalInvestigatorIDs"
               control={control}
             />
           </Form.Field>
