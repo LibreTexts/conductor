@@ -38,6 +38,7 @@ export interface OrganizationInterface extends Document {
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
+  assetFilterExclusions?: string[];
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -179,6 +180,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Whether to show collections tab on the Commons.
      */
     showCollections: Boolean,
+    /**
+     * Inherent asset filters that should not be displayed in the Commons.
+     */
+    assetFilterExclusions: [String],
   },
   {
     timestamps: true,

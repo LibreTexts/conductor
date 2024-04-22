@@ -38,6 +38,7 @@ export type Organization = {
   customOrgList?: string[];
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
+  assetFilterExclusions?: string[];
 };
 
 export type CampusSettingsOpts = Pick<
@@ -58,4 +59,5 @@ export type CampusSettingsOpts = Pick<
   | "customOrgList"
   | "commonsModules"
   | "showCollections"
+  | "assetFilterExclusions"
 >;

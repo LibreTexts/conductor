@@ -36,7 +36,8 @@ const orgInitialState = <Organization>{
         order: 3
       }
     } as CommonsModuleSettings,
-    showCollections: true
+    showCollections: true,
+    assetFilterExclusions: [] as string[]
 };
 
 export default function orgReducer(
