@@ -721,6 +721,11 @@ export async function assetsSearch(
         },
       },
       {
+        $match: {
+          orgID: process.env.ORG_ID,
+        }
+      },
+      {
         $addFields: {
           score: { $meta: "searchScore" },
         },
@@ -1363,6 +1368,11 @@ async function authorsSearch(
     const results = await Author.aggregate([
       ...(queryObj.length > 0 ? queryObj : []),
       {
+        $match: {
+          orgID: process.env.ORG_ID,
+        } 
+      },
+      {
         $project: {
           _id: 1,
           firstName: 1,
@@ -1507,6 +1517,11 @@ async function getAutocompleteResults(
             ],
           },
         },
+      },
+      {
+        $match: {
+          orgID: process.env.ORG_ID,
+        }
       },
       {
         $project: {
@@ -1716,6 +1731,7 @@ async function getAssetFilterOptions(req: Request, res: Response) {
     const authorsPromise = Author.find({
       firstName: { $exists: true, $ne: "" },
       lastName: { $exists: true, $ne: "" },
+      orgID: process.env.ORG_ID,
     });
     aggregations.push(authorsPromise);
 
@@ -1805,7 +1821,12 @@ async function getAssetFilterOptions(req: Request, res: Response) {
 async function getAuthorFilterOptions(req: Request, res: Response) {
   try {
     const primaryInstitutions = await Author.aggregate([
-      { $match: { primaryInstitution: { $exists: true, $ne: "" } } },
+      {
+        $match: {
+          primaryInstitution: { $exists: true, $ne: "" },
+          orgID: process.env.ORG_ID,
+        },
+      },
       { $group: { _id: "$primaryInstitution" } },
     ]);
 

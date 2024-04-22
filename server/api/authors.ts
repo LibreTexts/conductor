@@ -24,7 +24,7 @@ async function getAuthors(
     const offset = getPaginationOffset(req.query.page, limit);
 
     const queryObj: Record<any, any> = {
-      $and: [{ isAdminEntry: true }],
+      $and: [{ isAdminEntry: true }, { orgID: process.env.ORG_ID }],
     };
 
     if (req.query.query) {
@@ -73,6 +73,7 @@ async function getAuthor(
     const author = await Author.findOne({
       _id: req.params.id,
       isAdminEntry: true,
+      orgID: process.env.ORG_ID,
     })
       .orFail()
       .lean();
@@ -99,11 +100,12 @@ async function getAuthorAssets(
 ) {
   try {
     const page = parseInt(req.query.page?.toString()) || 1;
-    const limit = parseInt(req.query.limit?.toString())|| 10;
+    const limit = parseInt(req.query.limit?.toString()) || 10;
     const offset = getPaginationOffset(page, limit);
 
     const author = await Author.findOne({
       _id: req.params.id,
+      orgID: process.env.ORG_ID,
     })
       .orFail()
       .lean();
@@ -124,7 +126,7 @@ async function getAuthorAssets(
             },
             {
               correspondingAuthor: author._id,
-            }
+            },
           ],
         },
       },
@@ -279,7 +281,8 @@ async function createAuthor(
       primaryInstitution,
       ...(email && { email }),
       ...(url && { url }),
-      isAdminEntry: true // only Campus Admins use this endpoint so set to true
+      isAdminEntry: true, // only Campus Admins use this endpoint so set to true
+      orgID: process.env.ORG_ID,
     });
 
     res.send({
@@ -315,6 +318,7 @@ async function bulkCreateAuthors(
     const withAdminFlag = noDuplicates.map((author) => ({
       ...author,
       isAdminEntry: true,
+      orgID: process.env.ORG_ID,
     }));
 
     const insertRes = await Author.insertMany(withAdminFlag);
@@ -349,6 +353,7 @@ async function updateAuthor(
         primaryInstitution,
         ...(email && { email }),
         ...(url && { url }),
+        orgID: process.env.ORG_ID,
       }
     ).orFail();
 
@@ -381,7 +386,10 @@ async function deleteAuthor(
   res: Response
 ) {
   try {
-    await Author.deleteOne({ _id: req.params.id }).orFail();
+    await Author.deleteOne({
+      _id: req.params.id,
+      orgID: process.env.ORG_ID,
+    }).orFail();
 
     return res.send({
       err: false,

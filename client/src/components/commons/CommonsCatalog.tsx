@@ -649,7 +649,6 @@ const CommonsCatalog = () => {
                       placeholder="Search..."
                       className="!mb-0 !border-r-none"
                       id="commons-search-input"
-                      icon="search"
                       iconPosition="left"
                       action
                       fluid

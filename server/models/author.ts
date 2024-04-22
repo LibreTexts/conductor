@@ -1,6 +1,7 @@
 import { Schema, model } from "mongoose";
 
 export interface AuthorInterface extends Document {
+  orgID: string;
   firstName: string;
   lastName: string;
   email?: string;
@@ -11,6 +12,10 @@ export interface AuthorInterface extends Document {
 }
 
 const AuthorSchema = new Schema<AuthorInterface>({
+  orgID: {
+    type: String,
+    required: true,
+  },
   firstName: {
     type: String,
     required: true,
@@ -43,7 +48,7 @@ const AuthorSchema = new Schema<AuthorInterface>({
 
 // Email is unique, but not required
 AuthorSchema.index(
-  { email: 1 },
+  { email: 1, orgID: 1},
   { unique: true, partialFilterExpression: { email: { $exists: true } } }
 );
 
