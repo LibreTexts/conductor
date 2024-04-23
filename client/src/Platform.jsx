@@ -54,6 +54,7 @@ const Platform = () => {
     "/underdevelopment",
     "/libraries",
     "/search-results",
+    "/file/:projectID/:fileID"
   ];
   const standalonePaths = [
     "/adopt",

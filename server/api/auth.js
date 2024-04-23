@@ -647,6 +647,20 @@ const getUserAttributes = (req, res, next) => {
 };
 
 /**
+ * Middleware to optionally populate the authorized user in the request object.
+ *
+ * @param {express.Request} req - the express.js request object.
+ * @param {express.Response} res - the express.js response object.
+ * @param {express.NextFunction} next - the next function in the middleware chain.
+ */
+function optionalGetUserAttributes(req, res, next) {
+  if (req.user?.decoded) {
+    return getUserAttributes(req, res, next);
+  }
+  return next();
+}
+
+/**
  * Checks that the user has a certain role within the specified Organization.
  * NOTE: This method should NOT be used as middleware.
  * @param {Object} user - The user data object.
@@ -795,6 +809,7 @@ export default {
   verifyRequest,
   optionalVerifyRequest,
   getUserAttributes,
+  optionalGetUserAttributes,
   checkHasRole,
   checkHasRoleMiddleware,
   cloudflareSiteVerify,

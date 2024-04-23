@@ -13,6 +13,7 @@ import CommonsMenu from "./components/commons/CommonsMenu";
 import CommonsNavbar from "./components/commons/CommonsNavbar";
 import CommonsProject from "./screens/commons/Project";
 import CommonsUnderDevelopment from "./components/commons/CommonsUnderDevelopment";
+import CommonsFile from "./screens/commons/File";
 import SystemAnnouncement from "./components/util/SystemAnnouncement";
 import withUserStateDependency from "./enhancers/withUserStateDependency";
 import "./components/commons/Commons.css";
@@ -79,44 +80,42 @@ const Commons = () => {
 
   return (
     <div className="commons">
-      <CommonsNavbar org={org} user={user} />
-      <Suspense fallback={<LoadingSpinner />}>
-        <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
-        <CommonsMenu activeItem={activeItem} />
-        {systemAnnouncement && (
-          <SystemAnnouncement
-            title={systemAnnouncement.title}
-            message={systemAnnouncement.message}
-          />
-        )}
-        <Switch>
-          <Route exact path="/" component={CommonsCatalog} />
-          <Route exact path="/catalog" component={CommonsCatalog} />
-          <Route exact path="/collections" component={CommonsCollections} />
-          {org.orgID === "libretexts" && [
-            <Route
-              exact
-              path="/homework"
-              key="homework"
-              component={CommonsHomework}
-            />,
-            <Route
-              exact
-              path="/underdevelopment"
-              key="underdev"
-              component={CommonsUnderDevelopment}
-            />,
-          ]}
+      <CommonsNavbar
+        org={org}
+        user={user}
+      />
+      <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
+      <CommonsMenu activeItem={activeItem} />
+      {systemAnnouncement && (
+        <SystemAnnouncement
+          title={systemAnnouncement.title}
+          message={systemAnnouncement.message}
+        />
+      )}
+      <Switch>
+        <Route exact path="/" component={CommonsCatalog} />
+        <Route exact path="/catalog" component={CommonsCatalog} />
+        <Route exact path="/collections" component={CommonsCollections} />
+        {org.orgID === "libretexts" && [
           <Route
             exact
-            path="/collection/:id"
-            component={CommonsCollectionView}
-          />
-          <Route exact path="/author/:id" component={CommonsAuthor} />
-          <Route exact path="/book/:id" component={CommonsBook} />
-          <Route exact path="/commons-project/:id" component={CommonsProject} />
-        </Switch>
-      </Suspense>
+            path="/homework"
+            key="homework"
+            component={CommonsHomework}
+          />,
+          <Route
+            exact
+            path="/underdevelopment"
+            key="underdev"
+            component={CommonsUnderDevelopment}
+          />,
+        ]}
+        <Route exact path="/collection/:id" component={CommonsCollectionView} />
+        <Route exact path="/author/:id" component={CommonsAuthor} />
+        <Route exact path="/book/:id" component={CommonsBook} />
+        <Route exact path="/commons-project/:id" component={CommonsProject} />
+        <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
+      </Switch>
       <CommonsFooter />
     </div>
   );

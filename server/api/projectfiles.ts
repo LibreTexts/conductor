@@ -60,6 +60,7 @@ import Author from "../models/author.js";
 import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
 import User from "../models/user.js";
+import { generateVideoStreamURL } from "../util/videoutils.js";
 
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
@@ -554,8 +555,8 @@ async function getProjectFile(
     }
 
     if (
-      !req.user?.decoded ||
-      !projectsAPI.checkProjectGeneralPermission(project, req.user)
+      (!req.user?.decoded && project.visibility !== 'public')
+      || (req.user?.decoded && !projectsAPI.checkProjectGeneralPermission(project, req.user))
     ) {
       return res.status(401).send({
         err: true,
@@ -566,12 +567,17 @@ async function getProjectFile(
     const [file, path] = await retrieveSingleProjectFile(
       projectID,
       fileID,
-      undefined,
-      req.user.decoded.uuid
+      req.user?.decoded ? undefined : true,
+      req.user?.decoded.uuid
     );
     if (!file) {
       // error encountered
       return conductor404Err(res);
+    }
+
+    let videoStreamURL: string | null = null;
+    if (file.isVideo && file.videoStorageID) {
+      videoStreamURL = await generateVideoStreamURL(file.videoStorageID);
     }
 
     return res.send({
@@ -579,6 +585,7 @@ async function getProjectFile(
       msg: "Successfully retrieved files!",
       file,
       path,
+      ...(videoStreamURL && { videoStreamURL }),
     });
   } catch (e) {
     debugError(e);
