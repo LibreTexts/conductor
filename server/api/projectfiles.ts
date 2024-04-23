@@ -1270,7 +1270,9 @@ async function _parseAndSaveAuthors(
       _parsed.push(new Types.ObjectId(newAuthor._id));
     }
 
-    return _parsed;
+    const uniqueParsed = [...new Set(_parsed)];
+
+    return uniqueParsed;
   } catch (err) {
     debugError(err);
     throw new Error("authorparseerror");
