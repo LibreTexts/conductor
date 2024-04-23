@@ -44,6 +44,8 @@ export interface RawProjectFileInterface {
   size: number;
   isURL?: boolean;
   url?: string;
+  isVideo?: boolean;
+  videoStorageID?: string;
   description?: string;
   parent?: string;
   createdBy?: string;
@@ -114,6 +116,17 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
    * URL of the entry, if entry is a URL.
    */
   url: String,
+  /**
+   * Indicates the entry is a video and should be stored/retrieved from video streaming storage.
+   */
+  isVideo: {
+    type: Boolean,
+    default: false,
+  },
+  /**
+   * The video streaming storage identifier, if entry is a video.
+   */
+  videoStorageID: String,
   /**
    * UI text describing the entry and its contents.
    */

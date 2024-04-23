@@ -513,6 +513,7 @@ class API {
     const res = await axios.get<
       {
         file: ProjectFile;
+        videoStreamURL?: string;
       } & ConductorBaseResponse
     >(`/project/${projectID}/files/${fileID}`);
     return res;

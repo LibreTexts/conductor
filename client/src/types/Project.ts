@@ -1,4 +1,4 @@
-import { AssetTag } from "./AssetTagging";
+import { AssetTag, AssetTagWithKey } from "./AssetTagging";
 import { Author } from "./Author";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
@@ -43,11 +43,13 @@ export type ProjectFile = {
   description: string;
   isURL?: boolean;
   url?: string;
+  isVideo?: boolean;
+  videoStorageID?: string;
   parent: string;
   createdBy: string;
   uploader?: User;
   downloadCount: number;
-  tags?: AssetTag[];
+  tags?: AssetTag[] | AssetTagWithKey[];
   createdDate?: Date;
   license?: ProjectFileLicense;
   primaryAuthor?: ProjectFileAuthor;
