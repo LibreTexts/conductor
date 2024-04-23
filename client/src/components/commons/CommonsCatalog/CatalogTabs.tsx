@@ -37,7 +37,7 @@ interface CatalogTabsProps extends TabProps {
   books: Book[];
   booksCount: number;
   booksLoading: boolean;
-  assets: ProjectFileWProjectData<"title" | "thumbnail">[];
+  assets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | 'projectURL'>[];
   assetsCount: number;
   assetsLoading: boolean;
   projects: Project[];

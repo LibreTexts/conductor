@@ -8,7 +8,7 @@ const VisualMode = ({
   loading,
   noResultsMessage,
 }: {
-  items: (Book | ProjectFileWProjectData<"title" | "thumbnail"> | Project | Author)[];
+  items: (Book | ProjectFileWProjectData<"title" | "thumbnail" | "description" | 'projectURL'> | Project | Author)[];
   loading?: boolean;
   noResultsMessage?: string;
 }) => {

@@ -207,7 +207,7 @@ class API {
   ) {
     const res = await axios.get<
       {
-        assets: ProjectFileWProjectData<"title" | "thumbnail">[];
+        assets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[];
         total: number;
       } & ConductorBaseResponse
     >(`/authors/${id}/assets`, {
@@ -538,7 +538,7 @@ class API {
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
-        files: ProjectFileWProjectData<"title" | "thumbnail">[];
+        files: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[];
         totalCount: number;
       } & ConductorBaseResponse
     >("/projects/files/public", {

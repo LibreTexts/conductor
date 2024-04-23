@@ -31,7 +31,7 @@ const CommonsAuthor = () => {
   const [loadingDisabled, setLoadingDisabled] = useState<boolean>(false);
   const [loadedAssets, setLoadedAssets] = useState<boolean>(false);
   const [assets, setAssets] = useState<
-    ProjectFileWProjectData<"title" | "thumbnail">[]
+    ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
   >([]);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalAssets, setTotalAssets] = useState<number>(0);

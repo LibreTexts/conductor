@@ -16,7 +16,7 @@ import AuthorCardContent from "./AuthorCardContent";
 interface CatalogCardProps extends CardProps {
   item:
     | Book
-    | ProjectFileWProjectData<"title" | "thumbnail">
+    | ProjectFileWProjectData<"title" | "thumbnail" | 'description' | 'projectURL'>
     | Project
     | Author;
 }
