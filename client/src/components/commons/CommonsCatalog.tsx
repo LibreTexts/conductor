@@ -123,7 +123,7 @@ const CommonsCatalog = () => {
   const [booksCount, setBooksCount] = useState<number>(0);
 
   const [assets, setAssets] = useState<
-    ProjectFileWProjectData<"title" | "thumbnail">[]
+    ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
   >([]);
   const [assetsCount, setAssetsCount] = useState<number>(0);
 
@@ -573,7 +573,7 @@ const CommonsCatalog = () => {
    * and the case where we are just loading more results, and don't want to clear the existing state.
    */
   function updateAssets(
-    newAssets: ProjectFileWProjectData<"title" | "thumbnail">[],
+    newAssets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[],
     clearAndUpdate = false
   ) {
     if (clearAndUpdate) {
