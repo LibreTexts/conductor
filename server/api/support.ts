@@ -744,31 +744,41 @@ async function updateTicket(
 
     let updatedFeed = ticket.feed;
 
-    // Check if status is changing to closed, if so, add a feed entry
-    if (
-      ["open", "in_progress"].includes(ticket.status) &&
-      status === "closed"
-    ) {
-      const feedEntry = _createFeedEntry_Closed(
-        `${user.firstName} ${user.lastName}`
-      );
-      updatedFeed.push(feedEntry);
+    if (ticket.status !== status) {
+      // Check if status is changing to closed, if so, add a feed entry
+      if (
+        ["open", "in_progress"].includes(ticket.status) &&
+        status === "closed"
+      ) {
+        const feedEntry = _createFeedEntry_Closed(
+          `${user.firstName} ${user.lastName}`
+        );
+        updatedFeed.push(feedEntry);
+      }
+
+      // Check if ticket is being reopened, if so, add a feed entry
+      if (ticket.status === "closed" && status === "in_progress") {
+        const feedEntry = _createFeedEntry_Reopened(
+          `${user.firstName} ${user.lastName}`
+        );
+        updatedFeed.push(feedEntry);
+      }
+
+      // Else, if attempting to reset to open, fail
+      if (ticket.status === "closed" && status === "open") {
+        return res.status(400).send({
+          err: true,
+          errMsg: conductorErrors.err89,
+        });
+      }
     }
 
-    // Check if ticket is being reopened, if so, add a feed entry
-    if (ticket.status === "closed" && status === "in_progress") {
-      const feedEntry = _createFeedEntry_Reopened(
-        `${user.firstName} ${user.lastName}`
+    if (ticket.priority !== priority) {
+      const feedEntry = _createFeedEntryPriorityChanged(
+        `${user.firstName} ${user.lastName}`,
+        capitalizeFirstLetter(priority)
       );
       updatedFeed.push(feedEntry);
-    }
-
-    // Else, if attempting to reset to open, fail
-    if (ticket.status === "closed" && status === "open") {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err89,
-      });
     }
 
     await SupportTicket.updateOne(
@@ -994,7 +1004,7 @@ async function _uploadTicketAttachments(
 
     files.forEach((file) => {
       const fileExt = file.originalname.split(".").pop();
-      if(!fileExt) {
+      if (!fileExt) {
         throw new Error("File extension could not be determined");
       }
 
@@ -1135,6 +1145,17 @@ const _createFeedEntry_AttachmentUploaded = (
   return {
     action: `Attachment uploaded: ${fileName}`,
     blame: uploader,
+    date: new Date().toISOString(),
+  };
+};
+
+const _createFeedEntryPriorityChanged = (
+  changer: string,
+  newPriority: string
+): SupportTicketFeedEntryInterface => {
+  return {
+    action: `Priority changed to ${newPriority}`,
+    blame: changer,
     date: new Date().toISOString(),
   };
 };
