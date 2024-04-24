@@ -197,7 +197,7 @@ async function booksSearch(
       queryRegex: queryRegex,
     });
 
-    const results = await Book.aggregate([
+    const fromBooks = Book.aggregate([
       {
         $match: matchObj,
       },
@@ -207,12 +207,122 @@ async function booksSearch(
           __v: 0,
         },
       },
+    ]);
+
+    const fromProjects = Project.aggregate([
       {
-        $sort: {
-          [req.query.sort]: 1,
+        $search: {
+          text: {
+            query: query,
+            path: ["tags"],
+            fuzzy: {
+              maxEdits: 2,
+              maxExpansions: 50,
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          libreCoverID: {
+            $exists: true,
+            $ne: "",
+          },
+          libreLibrary: {
+            $exists: true,
+            $ne: "",
+          },
+          visibility: "public",
+        },
+      },
+      {
+        $lookup: {
+          from: "books",
+          let: {
+            library: "$libreLibrary",
+            pageID: "$libreCoverID",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $ne: ["$$library", ""],
+                        },
+                        {
+                          $ne: ["$$pageID", ""],
+                        },
+                      ],
+                    },
+                    {
+                      $eq: [
+                        "$bookID",
+                        {
+                          $concat: ["$$library", "-", "$$pageID"],
+                        },
+                      ],
+                    },
+                    {
+                      $eq: ["$bookID", false], // empty lookup
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "book",
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $arrayElemAt: ["$book", 0],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          __v: 0,
         },
       },
     ]);
+
+    const [booksResults, projectsResults] = await Promise.all([
+      fromBooks,
+      fromProjects,
+    ]);
+
+    const results = [...booksResults, ...projectsResults];
+
+    results.sort((a, b) => {
+      let aData = null;
+      let bData = null;
+      if (req.query.sort === "title") {
+        aData = _transformToCompare(a.title);
+        bData = _transformToCompare(b.title);
+      } else if (req.query.sort === "author") {
+        aData = _transformToCompare(a.author);
+        bData = _transformToCompare(b.author);
+      } else if (req.query.sort === "subject") {
+        aData = _transformToCompare(a.course);
+        bData = _transformToCompare(b.course);
+      } else if (req.query.sort === "library") {
+        aData = _transformToCompare(a.library);
+        bData = _transformToCompare(b.library);
+      } else if (req.query.sort === "affiliation") {
+        aData = _transformToCompare(a.affiliation);
+        bData = _transformToCompare(b.affiliation);
+      }
+      if (aData !== null && bData !== null) {
+        if (aData < bData) return -1;
+        if (aData > bData) return 1;
+      }
+      return 0;
+    });
 
     const totalCount = results.length;
     const paginated = results.slice(booksOffset, booksOffset + booksLimit);
@@ -723,7 +833,7 @@ export async function assetsSearch(
       {
         $match: {
           orgID: process.env.ORG_ID,
-        }
+        },
       },
       {
         $addFields: {
@@ -1370,7 +1480,7 @@ async function authorsSearch(
       {
         $match: {
           orgID: process.env.ORG_ID,
-        } 
+        },
       },
       {
         $project: {
@@ -1521,7 +1631,7 @@ async function getAutocompleteResults(
       {
         $match: {
           orgID: process.env.ORG_ID,
-        }
+        },
       },
       {
         $project: {
