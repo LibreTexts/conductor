@@ -28,6 +28,7 @@ import useGlobalError from "../error/ErrorHooks";
 import useDebounce from "../../hooks/useDebounce";
 import { useTypedSelector } from "../../state/hooks";
 import { extractEmailDomain } from "../../utils/misc";
+import api from "../../api";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
 type AddableUser = Pick<User, "uuid" | "firstName" | "lastName" | "avatar">;
@@ -83,15 +84,20 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
    * Retrieves a list of users that can be added as team members to the
    * project, then processes and sets them in state.
    */
-  async function getTeamUserOptions(searchString: string) {
+  async function getTeamUserOptions(
+    searchString: string,
+    includeOutsideOrg: boolean = false
+  ) {
     try {
       if (!project.projectID) return;
 
       setHasNotSearched(false);
       setTeamUserOptsLoading(true);
-      const res = await axios.get(
-        `/project/${project.projectID}/team/addable?search=${searchString}&includeOutsideOrg=${includeOutsideOrg}&page=1&limit=5`
-      );
+      const res = await api.getAddableTeamMembers({
+        projectID: project.projectID,
+        searchString,
+        includeOutsideOrg: includeOutsideOrg,
+      });
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -111,7 +117,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   }
 
   const getTeamUserOptionsDebounced = debounce(
-    (inputVal: string) => getTeamUserOptions(inputVal),
+    (inputVal: string) => getTeamUserOptions(inputVal, includeOutsideOrg),
     200
   );
 
@@ -204,7 +210,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
       setLoading(true);
       const res = await axios.post(`/project/${project.projectID}/team`, {
-        uuid
+        uuid,
       });
 
       if (res.data.err) {
@@ -290,22 +296,17 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                 />
               </Table.Cell>
               <Table.Cell>
-                <Popup
-                  position="top center"
-                  trigger={
-                    <Button
-                      color="red"
-                      className="ml-1p"
-                      onClick={() => {
-                        submitRemoveTeamMember(item.uuid);
-                      }}
-                      icon
-                    >
-                      <Icon name="remove circle" />
-                    </Button>
-                  }
-                  content="Remove from project"
-                />
+                <Button
+                  color="red"
+                  className="ml-1p"
+                  onClick={() => {
+                    submitRemoveTeamMember(item.uuid);
+                  }}
+                  icon
+                >
+                  <Icon name="remove circle" />
+                  <span className="ml-2">Remove</span>
+                </Button>
               </Table.Cell>
             </Table.Row>
           ))}
@@ -317,10 +318,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   return (
     <Modal open={show} onClose={handleClose} size="large" closeIcon>
       <Modal.Header>Manage Project Team</Modal.Header>
-      <Modal.Content
-        scrolling
-        className="!min-h-[48rem]"
-      >
+      <Modal.Content scrolling className="!min-h-[48rem]">
         {!loading ? (
           <>
             <p className="text-xl font-semibold">Current Team Members</p>
@@ -343,7 +341,11 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                       toggle
                       className="ml-2"
                       checked={includeOutsideOrg}
-                      onClick={(e) => setIncludeOutsideOrg(!includeOutsideOrg)}
+                      onClick={(e) => {
+                        const newChecked = !includeOutsideOrg;
+                        setIncludeOutsideOrg(newChecked);
+                        getTeamUserOptions(searchString, newChecked); // Refresh addable users list
+                      }}
                     />
                   </div>
                 </div>
@@ -374,23 +376,17 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                           {item.firstName} {item.lastName}
                         </Table.Cell>
                         <Table.Cell>
-                          <Popup
-                            position="top center"
-                            trigger={
-                              <Button
-                                color="green"
-                                className="ml-1p"
-                                onClick={() => {
-                                  submitAddTeamMember(item.uuid);
-                                }}
-                                icon
-                              >
-                                <Icon name="add user" />
-                                <span className="ml-2">Add to Project</span>
-                              </Button>
-                            }
-                            content="Add to project"
-                          />
+                          <Button
+                            color="green"
+                            className="ml-1p"
+                            onClick={() => {
+                              submitAddTeamMember(item.uuid);
+                            }}
+                            icon
+                          >
+                            <Icon name="add user" />
+                            <span className="ml-2">Add to Project</span>
+                          </Button>
                         </Table.Cell>
                       </Table.Row>
                     ))}

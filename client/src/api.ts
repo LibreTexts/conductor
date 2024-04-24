@@ -427,6 +427,24 @@ class API {
   }
 
   //Projects
+  async getAddableTeamMembers(params: {
+    projectID: string;
+    searchString: string;
+    includeOutsideOrg: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams({
+      search: params.searchString,
+      includeOutsideOrg: params.includeOutsideOrg.toString(),
+      page: params.page?.toString() || "1",
+      limit: params.limit?.toString() || "20",
+    });
+    const res = await axios.get<{ users: User[] } & ConductorBaseResponse>(
+      `/project/${params.projectID}/team/addable?${queryParams}`
+    );
+    return res;
+  }
   async getPublicProjects(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
