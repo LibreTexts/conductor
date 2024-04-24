@@ -9,13 +9,10 @@ import CtlTimeZoneInput from "../../ControlledInputs/CtlTimeZoneInput";
 import { useTypedSelector } from "../../../state/hooks";
 import { required } from "../../../utils/formRules";
 import CancelEventModal from "./CancelEventModal";
-import { utcToZonedTime } from "date-fns-tz";
-import { parseISO } from "date-fns";
 import useGlobalError from "../../error/ErrorHooks";
 import { initOrgEventDates } from "../../../utils/orgEventsHelpers";
 import axios from "axios";
-import {  useParams } from "react-router-dom";
- 
+import { useLocation, useParams } from "react-router-dom";
 
 interface EventSettingsModalParams {
   show: boolean;
@@ -30,7 +27,6 @@ interface EventSettingsModalParams {
  * Modal tool to view and approve or deny an Instructor Account Request.
  */
 
-
 const EventSettingsModal: FC<EventSettingsModalParams> = ({
   show,
   canEdit,
@@ -39,17 +35,10 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   onRequestSave,
   onRequestCancelEvent,
 }) => {
-  
-  // Reset form with incoming data when modal is opened
-  useEffect(() => {
-    if (show) {
-      resetForm(orgEvent);
-    }
-  }, [show]);
-
   // Global state & error handling
   const org = useTypedSelector((state) => state.org);
-  const routeParams = useParams<{ mode: string; eventID?: string }>();
+  const location = useLocation();
+  const routeParams = useParams<{ mode: string }>();
   const { handleGlobalError } = useGlobalError();
   const {
     control,
@@ -65,8 +54,49 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [showCancelEventModal, setShowCancelEventModal] =
     useState<boolean>(false);
-  const [duplicateID, setDuplicateID] = useState<string|undefined>("");
 
+  // Reset form with incoming data when modal is opened
+  useEffect(() => {
+    if (show) {
+      resetForm(orgEvent);
+    }
+  }, [show]);
+
+  useEffect(() => {
+    if (!show) return;
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has("duplicateID")) {
+      const _duplicateID = searchParams.get("duplicateID");
+      if (!_duplicateID) return;
+      loadDuplicateEvent(_duplicateID);
+    }
+  }, [show, location.search]);
+
+  const loadDuplicateEvent = async (duplicateID: string) => {
+    try {
+      if (routeParams.mode !== "create" || !duplicateID) return;
+
+      setLoading(true);
+
+      const res = (await axios.get(`/orgevents/${duplicateID}`)).data;
+
+      if (res.err) {
+        handleGlobalError(res.errMsg);
+      }
+
+      const currEvent = res.orgEvent;
+      currEvent.title = "Copy of " + currEvent.title;
+
+      // Remove projectSyncID from the object (we don't want to copy this over)
+      const {projectSyncID, ...withoutProjectSyncID} = currEvent;
+
+      resetForm(initOrgEventDates(withoutProjectSyncID));
+    } catch (err) {
+      handleGlobalError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * Resets the tool to its initial state, then activates the provided `onClose` handler.
@@ -75,42 +105,6 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
     setLoading(false);
     onClose();
   }
-  useEffect(() => {
-    if( routeParams.eventID !== ""){
-      setDuplicateID(routeParams.eventID);
-    }
-  
-  }, [routeParams]);
-  //another useEffect for duplicateID -> grab the duplicate events and run teh loadDuplicateEvent
-
-  const loadDuplicateEvent= async ()=>{
-
-    try {
-      if (routeParams.mode !== "create") return;
-      if (!routeParams.eventID ||  routeParams.eventID === '') {
-        handleGlobalError("No duplicate ID provided");
-      }
-      if(!duplicateID) return;
-      const res = (await axios.get(`/orgevents/`)).data;
-      setLoading(true);
-      if (res .err) {
-        handleGlobalError(res.errMsg);
-      }
-      let currEvent = res.orgEvents.filter((event:any)=>event._id===duplicateID)[0];
-      currEvent.title = "Copy of " + currEvent.title;
-      resetForm(initOrgEventDates(currEvent));
-      setLoading(false);
-    } catch (err) {
-      setLoading(true);
-      handleGlobalError(err);
-    }
-  }
-  useEffect(() => {
-    if(duplicateID){
-      loadDuplicateEvent();
-    }
-
-  }, [duplicateID]);
 
   return (
     <Modal open={show} onClose={handleClose}>
@@ -247,7 +241,7 @@ const EventSettingsModal: FC<EventSettingsModalParams> = ({
             disabled={!canEdit}
           />
           {/*Danger zone options only applicable when editing */}
-          {getValues("eventID") && (
+          {getValues("eventID") && routeParams.mode !== "create" && (
             <Accordion
               className="mt-2p"
               panels={[

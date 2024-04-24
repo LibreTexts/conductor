@@ -71,7 +71,13 @@ const EventsManager = () => {
       handleGlobalError(e);
     }
     setLoadedData(true);
-  }, [setOrgEvents, setTotalItems, setLoadedData, handleGlobalError, activePage]);
+  }, [
+    setOrgEvents,
+    setTotalItems,
+    setLoadedData,
+    handleGlobalError,
+    activePage,
+  ]);
 
   /**
    * Set page title on initial load.
@@ -80,7 +86,6 @@ const EventsManager = () => {
     document.title = "LibreTexts Conductor | Events Manager";
     getOrgEvents();
   }, [activePage]);
-
 
   function TableRow({ orgEvent, ...props }: { orgEvent: OrgEvent }) {
     return (
@@ -117,12 +122,11 @@ const EventsManager = () => {
           </span>
         </Table.Cell>
         <Table.Cell>
-           <Button
-                  as={Link}
-                  to={{
-                    pathname: `/controlpanel/eventsmanager/create/${orgEvent._id}`
-                  }}
-                >
+          <Button
+            as={Link}
+            to={`/controlpanel/eventsmanager/create?duplicateID=${orgEvent.eventID}`}
+          >
+            <Icon name="copy" />
             Duplicate
           </Button>
         </Table.Cell>
@@ -195,9 +199,11 @@ const EventsManager = () => {
                     totalPages={totalPages}
                     firstItem={null}
                     lastItem={null}
-                    onPageChange={(e, data) => setActivePage(
-                      parseInt(data.activePage?.toString() ?? "1") ?? 1
-                    )}
+                    onPageChange={(e, data) =>
+                      setActivePage(
+                        parseInt(data.activePage?.toString() ?? "1") ?? 1
+                      )
+                    }
                   />
                 </div>
               </div>

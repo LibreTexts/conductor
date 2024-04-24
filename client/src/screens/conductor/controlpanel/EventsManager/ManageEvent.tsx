@@ -380,7 +380,7 @@ const ManageEvent = () => {
         if (editRes.data.err) {
           throw new Error(editRes.data.errMsg);
         }
-        getOrgEvent();
+        await getOrgEvent();
       }
 
       if (showEventSettingsModal) {
