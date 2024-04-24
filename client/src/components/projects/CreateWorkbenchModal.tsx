@@ -129,8 +129,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
     <Modal size="fullscreen" open={show} {...rest}>
       <Modal.Header>Create Book</Modal.Header>
       <Modal.Content>
-       
-        <p className = "flex font-semibold justify-center">This creates an empty book on your chosen library and links it to this Conductor project.</p>
+        <p id = "bookInstructions">This creates an empty book on your chosen library and links it to this Conductor project.</p>
         <Form
           onSubmit={(e) => {
             e.preventDefault();

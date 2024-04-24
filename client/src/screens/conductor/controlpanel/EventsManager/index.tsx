@@ -22,6 +22,7 @@ const COLUMNS = [
   { key: "regClose", text: "Registration Close Date" },
   { key: "startDate", text: "Event Start Date" },
   { key: "endDate", text: "Event End Date" },
+  { key: "Action", text: "Action" },
 ];
 
 /**
@@ -70,7 +71,13 @@ const EventsManager = () => {
       handleGlobalError(e);
     }
     setLoadedData(true);
-  }, [setOrgEvents, setTotalItems, setLoadedData, handleGlobalError, activePage]);
+  }, [
+    setOrgEvents,
+    setTotalItems,
+    setLoadedData,
+    handleGlobalError,
+    activePage,
+  ]);
 
   /**
    * Set page title on initial load.
@@ -113,6 +120,15 @@ const EventsManager = () => {
             {parseAndFormatDate(orgEvent.endDate, DATE_FORMAT_STRING)} (
             {orgEvent.timeZone.abbrev})
           </span>
+        </Table.Cell>
+        <Table.Cell>
+          <Button
+            as={Link}
+            to={`/controlpanel/eventsmanager/create?duplicateID=${orgEvent.eventID}`}
+          >
+            <Icon name="copy" />
+            Duplicate
+          </Button>
         </Table.Cell>
       </Table.Row>
     );
@@ -183,9 +199,11 @@ const EventsManager = () => {
                     totalPages={totalPages}
                     firstItem={null}
                     lastItem={null}
-                    onPageChange={(e, data) => setActivePage(
-                      parseInt(data.activePage?.toString() ?? "1") ?? 1
-                    )}
+                    onPageChange={(e, data) =>
+                      setActivePage(
+                        parseInt(data.activePage?.toString() ?? "1") ?? 1
+                      )
+                    }
                   />
                 </div>
               </div>

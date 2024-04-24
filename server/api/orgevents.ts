@@ -181,13 +181,17 @@ async function getOrgEventParticipants(
       eventID: req.params.eventID,
     });
 
-    const participantsWithSortedResponses = (foundParticipants || []).map((participant) => {
-      const sortedFormResponses = participant.formResponses.sort((a, b) => a.promptNum - b.promptNum);
-      return {
-        ...participant,
-        formResponses: sortedFormResponses,
-      };
-    })
+    const participantsWithSortedResponses = (foundParticipants || []).map(
+      (participant) => {
+        const sortedFormResponses = participant.formResponses.sort(
+          (a, b) => a.promptNum - b.promptNum
+        );
+        return {
+          ...participant,
+          formResponses: sortedFormResponses,
+        };
+      }
+    );
 
     return res.send({
       err: false,
@@ -259,6 +263,7 @@ async function createOrgEvent(
       timeZone: req.body.timeZone,
       regFee: req.body.regFee,
       collectShipping: req.body.collectShipping ?? false,
+      ...(req.body.prompts && { prompts: req.body.prompts }),
     });
 
     const newDoc = await orgEvent.save();
