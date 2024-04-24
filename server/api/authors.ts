@@ -277,6 +277,35 @@ async function createAuthor(
       url,
       isAdminEntry,
     } = req.body;
+
+    // If an author was already created with the same email (and was not admin entry), we should "merge" the two, preferring the admin's data
+    if (email) {
+      const existingAuthor = await Author.findOne({
+        email,
+        isAdminEntry: false,
+        orgID: process.env.ORG_ID,
+      });
+
+      if (existingAuthor) {
+        await Author.updateOne(
+          { _id: existingAuthor._id },
+          {
+            $set: {
+              isAdminEntry: true,
+              firstName,
+              lastName,
+              primaryInstitution,
+              ...(url && { url }),
+            },
+          }
+        );
+        return res.send({
+          err: false,
+          author: existingAuthor,
+        });
+      }
+    }
+
     const author = await Author.create({
       firstName,
       lastName,
@@ -348,7 +377,7 @@ async function updateAuthor(
   try {
     const { firstName, lastName, email, primaryInstitution, url } = req.body;
     await Author.updateOne(
-      { _id: req.params.id },
+      { _id: req.params.id, orgID: process.env.ORG_ID },
       {
         firstName,
         lastName,
