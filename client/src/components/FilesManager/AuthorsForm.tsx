@@ -129,7 +129,11 @@ const AuthorsForm = forwardRef(
 
         const opts = [...res.data.authors, ...(selectedSecondary ?? [])];
 
-        setSecondaryAuthorOptions(opts);
+        const unique = opts.filter(
+          (a, i, self) => self.findIndex((b) => b._id === a._id) === i
+        );
+
+        setSecondaryAuthorOptions(unique);
       } catch (err) {
         handleGlobalError(err);
       } finally {
@@ -257,12 +261,11 @@ const AuthorsForm = forwardRef(
     }, [secondaryAuthorOptions, selectedPrimary]);
 
     const correspondingAuthorOpts = useMemo(() => {
-      const opts = correspondingAuthorOptions
-        .map((a) => ({
-          key: crypto.randomUUID(),
-          value: a._id ?? "",
-          text: `${a.firstName} ${a.lastName}`,
-        }));
+      const opts = correspondingAuthorOptions.map((a) => ({
+        key: crypto.randomUUID(),
+        value: a._id ?? "",
+        text: `${a.firstName} ${a.lastName}`,
+      }));
 
       opts.unshift({
         key: crypto.randomUUID(),
