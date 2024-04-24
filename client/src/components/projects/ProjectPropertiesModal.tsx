@@ -697,7 +697,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               <Form.Field className="flex flex-col !mt-4">
                 <label htmlFor="projectURL">
                   <span className="mr-05p">
-                    Project URL{" "}
+                    {org.orgID === 'calearninglab' ? "Project" : "Textbook"} URL{" "}
                     <span className="muted-text">(if applicable)</span>
                   </span>
                   <Popup
@@ -714,7 +714,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <CtlTextInput
                   name="projectURL"
                   control={control}
-                  placeholder="Enter project URL..."
+                  placeholder={`Enter ${org.orgID === 'calearninglab' ? "project" : "textbook"} URL...`}
                   type="url"
                   id="projectURL"
                 />
