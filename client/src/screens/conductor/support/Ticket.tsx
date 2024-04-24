@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy } from "react";
+import { useState, useEffect, lazy, useMemo } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import DefaultLayout from "../../../components/kb/DefaultLayout";
@@ -7,7 +7,13 @@ import axios from "axios";
 import TicketStatusLabel from "../../../components/support/TicketStatusLabel";
 import TicketMessaging from "../../../components/support/TicketMessaging";
 import { useTypedSelector } from "../../../state/hooks";
-import { Button, Icon, Label } from "semantic-ui-react";
+import {
+  Button,
+  Dropdown,
+  Icon,
+  Label,
+  SemanticICONS,
+} from "semantic-ui-react";
 import TicketDetails from "../../../components/support/TicketDetails";
 import TicketFeed from "../../../components/support/TicketFeed";
 import { isSupportStaff } from "../../../utils/supportHelpers";
@@ -16,6 +22,8 @@ import TicketInternalMessaging from "../../../components/support/TicketInternalM
 import TicketAttachments from "../../../components/support/TicketAttachments";
 import ConfirmDeleteTicketModal from "../../../components/support/ConfirmDeleteTicketModal";
 import api from "../../../api";
+import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
+import { ca, hi } from "date-fns/locale";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -61,12 +69,20 @@ const SupportTicketView = () => {
     enabled: !!id,
   });
 
-  const updateTicketMutation = useMutation({
+  const updateTicketStatusMutation = useMutation({
     mutationFn: (status: "open" | "in_progress" | "closed") =>
-      updateTicket(status),
+      updateTicket({ status }),
     onSuccess: () => {
       queryClient.invalidateQueries(["ticket", id]);
       queryClient.invalidateQueries(["supportMetrics"]);
+    },
+  });
+
+  const updateTicketPriorityMutation = useMutation({
+    mutationFn: (priority: "high" | "medium" | "low") =>
+      updateTicket({ priority }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["ticket", id]);
     },
   });
 
@@ -111,7 +127,13 @@ const SupportTicketView = () => {
     }
   }
 
-  async function updateTicket(status: "open" | "in_progress" | "closed") {
+  async function updateTicket({
+    status,
+    priority,
+  }: {
+    status?: "open" | "in_progress" | "closed";
+    priority?: "high" | "medium" | "low";
+  }) {
     try {
       if (typeof id !== "string" || !id) {
         throw new Error("Invalid ticket ID");
@@ -120,7 +142,8 @@ const SupportTicketView = () => {
       setLoading(true);
       const res = await axios.patch(`/support/ticket/${id}`, {
         ...ticket,
-        status,
+        ...(status && { status }),
+        ...(priority && { priority: priority.toLowerCase() }),
       });
 
       if (res.data.err) {
@@ -159,6 +182,27 @@ const SupportTicketView = () => {
     deleteTicketMutation.mutateAsync();
   }
 
+  const changePriorityOptions = useMemo(() => {
+    const allOpts = ["high", "medium", "low"];
+    const currentPriority = ticket?.priority ?? "medium";
+    const allowed = allOpts.filter((opt) => opt !== currentPriority);
+
+    const higherOrLower = (priority: string) => {
+      if (currentPriority === "high") {
+        return priority === "medium" ? "lower" : "lower";
+      } else if (currentPriority === "medium") {
+        return priority === "high" ? "higher" : "lower";
+      } else {
+        return priority === "medium" ? "higher" : "higher";
+      }
+    };
+
+    return allowed.map((opt) => ({
+      value: capitalizeFirstLetter(opt),
+      icon: higherOrLower(opt) === "higher" ? "arrow up" : "arrow down",
+    }));
+  }, [ticket]);
+
   const AdminOptions = () => (
     <div className="flex flex-row">
       {ticket?.status === "open" && (
@@ -173,6 +217,32 @@ const SupportTicketView = () => {
       )}
       {["open", "in_progress"].includes(ticket?.status ?? "") && (
         <>
+          <Dropdown
+            text={`Priority: ${capitalizeFirstLetter(
+              ticket?.priority ?? "medium"
+            )}`}
+            icon="exclamation triangle"
+            floating
+            labeled
+            button
+            className="icon"
+          >
+            <Dropdown.Menu>
+              {changePriorityOptions.map((opt) => (
+                <Dropdown.Item
+                  key={opt.value}
+                  onClick={() =>
+                    updateTicketPriorityMutation.mutateAsync(
+                      opt.value as "high" | "medium" | "low"
+                    )
+                  }
+                >
+                  <Icon name={opt.icon as SemanticICONS} />
+                  {opt.value}
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
           <Button
             color="blue"
             onClick={() => setShowAssignModal(true)}
@@ -186,7 +256,7 @@ const SupportTicketView = () => {
           </Button>
           <Button
             color="green"
-            onClick={() => updateTicketMutation.mutateAsync("closed")}
+            onClick={() => updateTicketStatusMutation.mutateAsync("closed")}
             loading={loading || isFetching}
           >
             <Icon name="check" />
@@ -197,7 +267,7 @@ const SupportTicketView = () => {
       {ticket?.status === "closed" && (
         <Button
           color="orange"
-          onClick={() => updateTicketMutation.mutateAsync("in_progress")}
+          onClick={() => updateTicketStatusMutation.mutateAsync("in_progress")}
           loading={loading || isFetching}
         >
           <Icon name="undo" />
@@ -240,7 +310,10 @@ const SupportTicketView = () => {
                   ticket={ticket}
                 />
                 <div className="mt-4">
-                  <TicketAttachments ticket={ticket} guestAccessKey={accessKey} />
+                  <TicketAttachments
+                    ticket={ticket}
+                    guestAccessKey={accessKey}
+                  />
                 </div>
               </div>
             </div>
