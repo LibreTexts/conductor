@@ -119,6 +119,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     setFilesLoading(true);
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
+      console.log('loaded files')
       if (!fileRes.data.err) {
         if (Array.isArray(fileRes.data.files)) {
           const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
@@ -144,6 +145,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    * Load the Files list on open.
    */
   useEffect(() => {
+    console.log('currDirectory', currDirectory)
     getFiles();
   }, [currDirectory]);
 
