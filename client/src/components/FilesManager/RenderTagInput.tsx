@@ -3,7 +3,6 @@ import {
   AssetTag,
   AssetTagFramework,
   AssetTagTemplate,
-  AssetTagWithKey,
   GenericKeyTextValueObj,
   ProjectFile,
 } from "../../types";
@@ -18,7 +17,7 @@ import Fuse from "fuse.js";
 import { useEffect, useMemo } from "react";
 
 interface RenderTagInputProps {
-  tag: AssetTag | AssetTagWithKey;
+  tag: AssetTag;
   index: number;
   control: Control<ProjectFile>;
   formState: FormState<ProjectFile>;
@@ -30,7 +29,7 @@ const genMultiSelectOptions = ({
   tag,
 }: {
   template?: AssetTagTemplate;
-  tag?: AssetTag | AssetTagWithKey;
+  tag?: AssetTag;
 }): GenericKeyTextValueObj<string>[] => {
   if (!template || !tag) {
     return [];
@@ -126,7 +125,7 @@ const MultiSelectController = ({
   control: Control<ProjectFile>;
   formState: FormState<ProjectFile>;
   templateInFramework: AssetTagTemplate;
-  tag: AssetTag | AssetTagWithKey;
+  tag: AssetTag;
   strictRequire?: boolean;
 }) => {
   const fuse = useMemo(() => {

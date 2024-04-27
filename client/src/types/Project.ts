@@ -1,4 +1,4 @@
-import { AssetTag, AssetTagWithKey } from "./AssetTagging";
+import { AssetTag } from "./AssetTagging";
 import { Author } from "./Author";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
@@ -49,7 +49,7 @@ export type ProjectFile = {
   createdBy: string;
   uploader?: User;
   downloadCount: number;
-  tags?: AssetTag[] | AssetTagWithKey[];
+  tags?: AssetTag[];
   createdDate?: Date;
   license?: ProjectFileLicense;
   primaryAuthor?: ProjectFileAuthor;
