@@ -1,5 +1,5 @@
 import { Label, Popup } from "semantic-ui-react";
-import { AssetTag, AssetTagWithKey, ProjectFile } from "../../types";
+import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 
@@ -27,7 +27,7 @@ const RenderAssetTags: React.FC<{
     return 0;
   });
 
-  function getLabelText(tag: AssetTag | AssetTagWithKey) {
+  function getLabelText(tag: AssetTag) {
     const text = tag.value
       ? Array.isArray(tag.value)
         ? tag.value.join(", ")
@@ -36,20 +36,20 @@ const RenderAssetTags: React.FC<{
     return text.toString();
   }
 
-  function getLabelTitle(tag: AssetTag | AssetTagWithKey) {
+  function getLabelTitle(tag: AssetTag) {
     if (isAssetTagKeyObject(tag.key)) {
       return tag.key.title;
     }
     return "Unknown";
   }
 
-  function getLabelValue(tag: AssetTag | AssetTagWithKey, showTitle = true, truncate = true) {
+  function getLabelValue(tag: AssetTag, showTitle = true, truncate = true) {
     const text = getLabelText(tag);
     const truncated = truncate ? truncateString(text, 40) : text;
     return showTitle ? `${getLabelTitle(tag)}: ${truncated}` : truncated;
   }
 
-  function getLabelColor(tag: AssetTag | AssetTagWithKey, basic = false) {
+  function getLabelColor(tag: AssetTag, basic = false) {
     if (basic) return "";
     if (tag?.key && isAssetTagKeyObject(tag.key)) {
       return tag.key.hex;
