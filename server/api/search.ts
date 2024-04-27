@@ -291,12 +291,14 @@ async function booksSearch(
       },
     ]);
 
-    const [booksResults, projectsResults] = await Promise.all([
-      fromBooks,
-      fromProjects,
-    ]);
+    const promises = [fromBooks]
+    if(query) {
+      promises.push(fromProjects)
+    }
 
-    const results = [...booksResults, ...projectsResults];
+    const [booksResults, projectsResults] = await Promise.all(promises);
+
+    const results = [...booksResults, ...projectsResults ?? []];
 
     results.sort((a, b) => {
       let aData = null;
