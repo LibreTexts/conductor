@@ -452,8 +452,15 @@ async function getProject(req, res) {
     }
     const projResult = projects[0];
 
-    /* check permission */
-    if (!checkProjectGeneralPermission(projResult, req.user)) {
+    /* Because we only optionally verify the request
+    we need to attempt to load the user here
+    and pass it to the permission check */
+    let foundUser;
+    if(req.user?.decoded?.uuid){
+      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+    }
+
+    if (!checkProjectGeneralPermission(projResult, foundUser ?? undefined)) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -2977,7 +2984,7 @@ function getBookLinkedToProject(project) {
  * Checks if a user has permission to perform general actions on or view a
  * project.
  * @param {Object} project          - the project data object
- * @param {Object} user             - the current user context
+ * @param {any} user             - the current user context
  * @returns {Boolean} true if user has permission, false otherwise
  */
 const checkProjectGeneralPermission = (project, user) => {
