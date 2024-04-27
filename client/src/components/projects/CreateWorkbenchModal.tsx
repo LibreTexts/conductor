@@ -49,6 +49,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
       },
     });
   const [loading, setLoading] = useState(false);
+  const [libraryOptsLoading, setLibraryOptsLoading] = useState(false);
   const [libraryOptions, setLibraryOptions] = useState<CentralIdentityApp[]>(
     []
   );
@@ -64,7 +65,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
 
   async function loadLibraries() {
     try {
-      setLoading(true);
+      setLibraryOptsLoading(true);
       const res = await axios.get("/central-identity/public/apps");
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -80,7 +81,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
     } catch (err) {
       handleGlobalError(err);
     } finally {
-      setLoading(false);
+      setLibraryOptsLoading(false);
     }
   }
 
@@ -164,6 +165,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                   selection
                   placeholder="Select Library..."
                   error={formState.errors.library ? true : false}
+                  loading={libraryOptsLoading}
+                  disabled={libraryOptsLoading}
                 />
               )}
             />
@@ -171,10 +174,10 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
               <>
                 {/* Super Admins can use the dev library for debugging */}
                 <p
-                  className="underline cursor-pointer"
+                  className="underline cursor-pointer mt-1"
                   onClick={() => setValue("library", "dev")}
                 >
-                  Use Dev
+                  Use Dev (Super Admins Only)
                 </p>
               </>
             )}
@@ -190,8 +193,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
             />
           </div>
           <p>
-            <strong>CAUTION:</strong> Library cannot be changed after Book is
-            created. Please check your selection before submitting.
+            <strong>CAUTION:</strong> Library cannot be changed after book is
+            created! Please check your selection before submitting.
           </p>
         </Form>
         {!canAccessLibrary && (
