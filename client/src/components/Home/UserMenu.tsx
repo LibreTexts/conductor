@@ -86,7 +86,7 @@ const UserMenu: React.FC = () => {
         <Segment>
           <div className="flex justify-between items-center">
             <div className="flex flex-row">
-              <Image circular src={`${user.avatar}`} className="mb-1 w-16" />
+              <Image circular src={`${user.avatar}`} className="mb-1 w-16 mr-1" />
               <div className="flex flex-col">
                 <h1 className="ml-1 text-2xl font-semibold">
                   Welcome, {user.firstName}
