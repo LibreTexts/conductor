@@ -13,6 +13,8 @@ import {
 } from "../../utils/typeHelpers";
 import { Dropdown } from "semantic-ui-react";
 import { required } from "../../utils/formRules";
+import Fuse from "fuse.js";
+import { useEffect, useMemo } from "react";
 
 interface RenderTagInputProps {
   tag: AssetTag;
@@ -32,26 +34,20 @@ const genMultiSelectOptions = ({
   if (!template || !tag) {
     return [];
   }
-  const options: GenericKeyTextValueObj<string>[] = [];
+  const options: string[] = [];
   if (template.options) {
-    options.push(
-      ...template.options.map((opt) => ({
-        key: opt,
-        value: opt,
-        text: opt,
-      }))
-    );
+    options.push(...template.options);
   }
   if (tag.value && Array.isArray(tag.value)) {
-    options.push(
-      ...tag.value.map((opt) => ({
-        key: opt,
-        value: opt,
-        text: opt,
-      }))
-    );
+    options.push(...tag.value);
   }
-  return options;
+
+  const uniqueStrings = new Set(options);
+  return Array.from(uniqueStrings).map((opt) => ({
+    key: opt,
+    value: opt,
+    text: opt,
+  }));
 };
 
 const TagTextInput = ({
@@ -132,36 +128,62 @@ const MultiSelectController = ({
   tag: AssetTag;
   strictRequire?: boolean;
 }) => {
+  const fuse = useMemo(() => {
+    return new Fuse(
+      genMultiSelectOptions({ template: templateInFramework, tag }),
+      {
+        keys: ["text"],
+        threshold: 0.3,
+      }
+    );
+  }, [templateInFramework, tag]);
+
+  const options = useMemo(() => {
+    return genMultiSelectOptions({ template: templateInFramework, tag });
+  }, [templateInFramework, tag]);
+
   return (
     <Controller
-      render={({ field }) => (
-        // @ts-expect-error
-        <Dropdown
-          options={genMultiSelectOptions({
-            template: templateInFramework,
-            tag,
-          })}
-          {...field}
-          onChange={(e, { value }) => {
-            field.onChange(value);
-          }}
-          fluid
-          selection
-          multiple
-          search
-          allowAdditions
-          placeholder="Select value(s)"
-          onAddItem={(e, { value }) => {
-            if (value) {
-              templateInFramework.options?.push(value.toString());
-              field.onChange([...(field.value as string[]), value.toString()]);
+      render={({ field }) => {
+        return (
+          // @ts-expect-error
+          <Dropdown
+            options={options}
+            {...field}
+            onChange={(e, { value }) => {
+              field.onChange(value);
+            }}
+            fluid
+            selection
+            multiple
+            search={(_o, query) => {
+              if (!query) return options;
+              const res = fuse.search(query).map((r) => ({
+                key: r.item.key,
+                value: r.item.value,
+                text: r.item.text,
+              }));
+              return res;
+            }}
+            allowAdditions
+            placeholder="Select value(s)"
+            onAddItem={(e, { value }) => {
+              if (value) {
+                templateInFramework.options?.push(value.toString());
+                field.onChange([
+                  ...(field.value as string[]),
+                  value.toString(),
+                ]);
+              }
+            }}
+            error={
+              formState.errors.tags && formState.errors.tags[index]
+                ? true
+                : false
             }
-          }}
-          error={
-            formState.errors.tags && formState.errors.tags[index] ? true : false
-          }
-        />
-      )}
+          />
+        );
+      }}
       name={`tags.${index}.value`}
       control={control}
       rules={strictRequire ? required : undefined}
