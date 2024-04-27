@@ -59,6 +59,7 @@ import { ZodReqWithFiles } from "../types/Express";
 import Author from "../models/author.js";
 import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
+import User from "../models/user.js";
 
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
@@ -497,7 +498,12 @@ async function getProjectFolderContents(
       return conductor404Err(res);
     }
 
-    if (!projectsAPI.checkProjectGeneralPermission(project, req.user as Object)) {
+    let foundUser;
+    if(req.user?.decoded?.uuid) {
+      foundUser = await User.findOne({uuid: req.user.decoded.uuid}).lean();
+    }
+
+    if (!projectsAPI.checkProjectGeneralPermission(project, foundUser ?? undefined)) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
