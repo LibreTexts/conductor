@@ -92,7 +92,6 @@ import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
 import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
 import ProjectLinkButtons from './ProjectLinkButtons';
-const CreateWorkbenchModal = lazy(() => import('./CreateWorkbenchModal'));
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
