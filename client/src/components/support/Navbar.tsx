@@ -111,7 +111,7 @@ const SupportCenterNavbar: React.FC<{}> = () => {
                 className="h-10 !w-52"
                 color="blue"
                 as={Link}
-                to={AuthHelper.generateLoginURL(window.location.href)}
+                href={AuthHelper.generateLoginURL('/support')}
                 size="small"
                 basic
               >
