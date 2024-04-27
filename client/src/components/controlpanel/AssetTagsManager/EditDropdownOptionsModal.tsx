@@ -84,8 +84,24 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
         .map((obj) => obj["options"])
         .flat();
       const stringOptions = options.map((opt) => opt.toString());
-      const uniqueOptions = [...new Set(stringOptions)];
-      const sortedOptions = uniqueOptions.sort((a, b) => a.localeCompare(b));
+      const uniqueOptions = new Set();
+
+      // Remove duplicates, check if lowercase version of option is already in set
+      for (const option of stringOptions) {
+        const lowerCaseOption = option.toLowerCase();
+        if (!uniqueOptions.has(lowerCaseOption)) {
+          uniqueOptions.add(option);
+          continue;
+        }
+        if (!uniqueOptions.has(option)) {
+          uniqueOptions.add(option);
+        }
+      }
+
+      const uniqueOptionsArray = Array.from(uniqueOptions) as string[];
+      const sortedOptions = uniqueOptionsArray.sort((a, b) =>
+        a.localeCompare(b)
+      );
 
       if (sortedOptions.length + fields.length > 1500) {
         throw new Error(
@@ -160,14 +176,14 @@ const EditDropdownOptionsModal: React.FC<EditDropdownOptionsModalProps> = ({
             </Button>
           )}
           <div>
-          <Button
-            color="blue"
-            onClick={() => append("", { shouldFocus: false })}
-            loading={loading}
-          >
-            <Icon name="plus" />
-            Add Option
-          </Button>
+            <Button
+              color="blue"
+              onClick={() => append("", { shouldFocus: false })}
+              loading={loading}
+            >
+              <Icon name="plus" />
+              Add Option
+            </Button>
           </div>
         </div>
         <p className="text-muted italic text-center mb-4">
