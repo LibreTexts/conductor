@@ -54,7 +54,7 @@ app.use(
         "https://fonts.gstatic.com",
         "data:",
       ],
-      frameSrc: ["'self'", "https://*.libretexts.org", "https://*.cloudflare.com"],
+      frameSrc: ["'self'", "https://*.libretexts.org", "https://*.cloudflare.com", "https://www.youtube.com"], // Cloudflare (Turnstile), YouTube
       imgSrc: ["'self'", "https:", "data:"],
       objectSrc: ["none"],
       scriptSrc: [
