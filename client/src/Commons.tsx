@@ -80,10 +80,7 @@ const Commons = () => {
 
   return (
     <div className="commons">
-      <CommonsNavbar
-        org={org}
-        user={user}
-      />
+      <CommonsNavbar org={org} user={user} />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />
       {systemAnnouncement && (
@@ -92,30 +89,40 @@ const Commons = () => {
           message={systemAnnouncement.message}
         />
       )}
-      <Switch>
-        <Route exact path="/" component={CommonsCatalog} />
-        <Route exact path="/catalog" component={CommonsCatalog} />
-        <Route exact path="/collections" component={CommonsCollections} />
-        {org.orgID === "libretexts" && [
+      <Suspense fallback={<LoadingSpinner />}>
+        <Switch>
+          <Route exact path="/" component={CommonsCatalog} />
+          <Route exact path="/catalog" component={CommonsCatalog} />
+          <Route exact path="/collections" component={CommonsCollections} />
+          {org.orgID === "libretexts" && [
+            <Route
+              exact
+              path="/homework"
+              key="homework"
+              component={CommonsHomework}
+            />,
+            <Route
+              exact
+              path="/underdevelopment"
+              key="underdev"
+              component={CommonsUnderDevelopment}
+            />,
+          ]}
           <Route
             exact
-            path="/homework"
-            key="homework"
-            component={CommonsHomework}
-          />,
+            path="/collection/:id"
+            component={CommonsCollectionView}
+          />
+          <Route exact path="/author/:id" component={CommonsAuthor} />
+          <Route exact path="/book/:id" component={CommonsBook} />
+          <Route exact path="/commons-project/:id" component={CommonsProject} />
           <Route
             exact
-            path="/underdevelopment"
-            key="underdev"
-            component={CommonsUnderDevelopment}
-          />,
-        ]}
-        <Route exact path="/collection/:id" component={CommonsCollectionView} />
-        <Route exact path="/author/:id" component={CommonsAuthor} />
-        <Route exact path="/book/:id" component={CommonsBook} />
-        <Route exact path="/commons-project/:id" component={CommonsProject} />
-        <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
-      </Switch>
+            path="/file/:projectID/:fileID"
+            component={CommonsFile}
+          />
+        </Switch>
+      </Suspense>
       <CommonsFooter />
     </div>
   );
