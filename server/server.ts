@@ -66,6 +66,7 @@ app.use(
         "*.googletagmanager.com", // gtag.js,
         "*.ssa.gov", // ANDI,
         "https://ajax.googleapis.com", // Google CDN (jQuery for ANDI)
+        "https://embed.cloudflarestream.com", // Cloudflare Stream
       ],
       styleSrc: [
         "'self'",
