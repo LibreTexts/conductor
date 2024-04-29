@@ -98,7 +98,7 @@ const CommonsProject = () => {
         </Segment>
         <Segment loading={!loadedData} className="">
           <div className="flex flex-row px-1 pb-8">
-            <div className="flex flex-col w-1/4 min-h-48 border shadow-md p-4 rounded-md mr-16">
+            <div className="flex flex-col w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
               <Header as="h1" className="!mb-2 !ml-0.5">
                 {project?.projectURL ? (
                   <a

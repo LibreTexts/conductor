@@ -110,8 +110,8 @@ const SupportCenterNavbar: React.FC<{}> = () => {
               <Button
                 className="h-10 !w-52"
                 color="blue"
-                as={Link}
-                href={AuthHelper.generateLoginURL()}
+                as="a"
+                href={AuthHelper.generateLoginURL("/support")}
                 size="small"
                 basic
               >
