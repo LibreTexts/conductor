@@ -391,6 +391,10 @@ const ProjectSchema = new Schema<ProjectInterface>(
 );
 
 ProjectSchema.index({ title: "text" });
+ProjectSchema.index({members: 1, updatedAt: -1, title: -1, status: 1, projectID: 1})
+ProjectSchema.index({leads: 1, updatedAt: -1, title: -1, status: 1, projectID: 1})
+ProjectSchema.index({liaisons: 1, updatedAt: -1, title: -1, status: 1, projectID: 1})
+ProjectSchema.index({auditors: 1, updatedAt: -1, title: -1, status: 1, projectID: 1})
 
 ProjectSchema.virtual("defaultPrimaryAuthor", {
   ref: "Author",
