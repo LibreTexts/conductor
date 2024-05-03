@@ -884,8 +884,11 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               render={({ field }) => (
                 <Dropdown
                   id="cidinput"
-                  control={control}
                   name="cidDescriptors"
+                  {...field}
+                  onChange={(e, { value }) => {
+                    field.onChange(value);
+                  }}
                   fluid
                   deburr
                   placeholder="Search C-IDs..."
