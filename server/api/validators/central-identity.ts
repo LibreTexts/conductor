@@ -17,6 +17,13 @@ export const LibraryAccessWebhookValidator = z.object({
   }),
 });
 
+export const VerificationStatusUpdateWebhookValidator = z.object({
+  body: z.object({
+    central_identity_id: z.string().uuid(),
+    verify_status: z.string(),
+  }),
+});
+
 export const CheckUserApplicationAccessValidator = z.object({
   params: z.object({
     id: z.string().uuid(),
