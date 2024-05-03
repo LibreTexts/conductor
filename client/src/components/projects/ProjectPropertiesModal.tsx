@@ -882,9 +882,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               name="cidDescriptors"
               control={control}
               render={({ field }) => (
+                // @ts-expect-error
                 <Dropdown
                   id="cidinput"
-                  name="cidDescriptors"
                   {...field}
                   onChange={(e, { value }) => {
                     field.onChange(value);
