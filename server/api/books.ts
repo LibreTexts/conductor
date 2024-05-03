@@ -457,7 +457,6 @@ const syncWithLibraries = (_req: Request, res: Response) => {
         {
           $match: {
             $and: [
-              { projectURL: { $ne: null } },
               { libreLibrary: { $ne: null } },
               { libreCoverID: { $ne: null } },
             ],
