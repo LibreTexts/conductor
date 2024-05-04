@@ -28,15 +28,23 @@ import {
   CentralIdentityVerificationRequest,
   CentralIdentityVerificationRequestStatus,
 } from "../types";
-import { CentralIdentityLicense, CentralIdentityUpdateVerificationRequestBody } from "../types/CentralIdentity.js";
+import {
+  CentralIdentityLicense,
+  CentralIdentityUpdateVerificationRequestBody,
+} from "../types/CentralIdentity.js";
 import User from "../models/user.js";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
-import { LibraryAccessWebhookValidator, NewUserWebhookValidator, CheckUserApplicationAccessValidator } from "./validators/central-identity.js";
+import {
+  LibraryAccessWebhookValidator,
+  NewUserWebhookValidator,
+  CheckUserApplicationAccessValidator,
+  VerificationStatusUpdateWebhookValidator,
+} from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
-import fse from 'fs-extra';
+import fse from "fs-extra";
 
 async function getUsers(
   req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
@@ -89,7 +97,9 @@ async function getUser(
       return conductor400Err(res);
     }
 
-    const userRes = await useCentralIdentityAxios(false).get(`/users/${req.params.id}`);
+    const userRes = await useCentralIdentityAxios(false).get(
+      `/users/${req.params.id}`
+    );
 
     if (!userRes.data || !userRes.data.data) {
       return conductor500Err(res);
@@ -152,7 +162,9 @@ async function getUserApplications(
   }
 }
 
-async function getUserApplicationsInternal(userId: string): Promise<CentralIdentityApp[] | null> {
+async function getUserApplicationsInternal(
+  userId: string
+): Promise<CentralIdentityApp[] | null> {
   try {
     const appsRes = await useCentralIdentityAxios(false).get(
       `/users/${userId}/applications`
@@ -202,9 +214,11 @@ async function checkUserApplicationAccessInternal(
 ): Promise<boolean | null> {
   try {
     const appsRes = await getUserApplicationsInternal(userId);
-    if(!appsRes) return null;
+    if (!appsRes) return null;
 
-    const hasAccess = appsRes.some((app: CentralIdentityApp) => app.id.toString() === appId.toString());
+    const hasAccess = appsRes.some(
+      (app: CentralIdentityApp) => app.id.toString() === appId.toString()
+    );
     return hasAccess;
   } catch (err) {
     debugError(err);
@@ -213,7 +227,9 @@ async function checkUserApplicationAccessInternal(
 }
 
 async function _getUserOrgsRaw(id: string): Promise<CentralIdentityOrg[]> {
-  const orgsRes = await useCentralIdentityAxios(false).get(`/users/${id}/organizations`);
+  const orgsRes = await useCentralIdentityAxios(false).get(
+    `/users/${id}/organizations`
+  );
 
   if (!orgsRes.data || !orgsRes.data.data) {
     return [];
@@ -227,10 +243,10 @@ async function getUserOrgs(
   res: Response<{ err: boolean; orgs: CentralIdentityOrg[] }>
 ) {
   try {
-    if(!req.params.id) return conductor400Err(res);
+    if (!req.params.id) return conductor400Err(res);
 
     const orgsRes = await _getUserOrgsRaw(req.params.id);
-    if(!orgsRes) return conductor500Err(res);
+    if (!orgsRes) return conductor500Err(res);
 
     return res.send({
       err: false,
@@ -254,9 +270,12 @@ async function addUserApplications(
       id.toString()
     );
     const promiseArr = parsedIds.map((id) =>
-    useCentralIdentityAxios(false).post(`/users/${req.params.id}/applications`, {
-        application_id: id,
-      })
+      useCentralIdentityAxios(false).post(
+        `/users/${req.params.id}/applications`,
+        {
+          application_id: id,
+        }
+      )
     );
 
     const results = await Promise.all(promiseArr);
@@ -310,9 +329,12 @@ async function addUserOrgs(
   try {
     const parsedIds: string[] = req.body.orgs.map((id) => id.toString());
     const promiseArr = parsedIds.map((id) =>
-    useCentralIdentityAxios(false).post(`/users/${req.params.id}/organizations`, {
-        organization_id: id,
-      })
+      useCentralIdentityAxios(false).post(
+        `/users/${req.params.id}/organizations`,
+        {
+          organization_id: id,
+        }
+      )
     );
 
     const results = await Promise.all(promiseArr);
@@ -468,11 +490,15 @@ async function getApplicationsPublic(
   }
 }
 
-async function getApplicationById(id: number): Promise<CentralIdentityApp | null> {
+async function getApplicationById(
+  id: number
+): Promise<CentralIdentityApp | null> {
   try {
     const appsRes = await _getApplicationsPriveledgedInternal(1, 1000);
     if (!appsRes) return null;
-    const found = appsRes.applications.find((app) => app.id.toString() === id.toString());
+    const found = appsRes.applications.find(
+      (app) => app.id.toString() === id.toString()
+    );
     return found ?? null;
   } catch (err) {
     debugError(err);
@@ -480,11 +506,15 @@ async function getApplicationById(id: number): Promise<CentralIdentityApp | null
   }
 }
 
-async function getLibraryFromSubdomain(subdomain: string): Promise<CentralIdentityApp | null> {
+async function getLibraryFromSubdomain(
+  subdomain: string
+): Promise<CentralIdentityApp | null> {
   try {
     const apps = await _getApplicationsPriveledgedInternal(1, 1000);
     if (!apps) return null;
-    const found = apps.applications.find((app) => app.main_url.includes(subdomain));
+    const found = apps.applications.find((app) =>
+      app.main_url.includes(subdomain)
+    );
     return found ?? null;
   } catch (err) {
     debugError(err);
@@ -493,7 +523,7 @@ async function getLibraryFromSubdomain(subdomain: string): Promise<CentralIdenti
 }
 
 async function getOrgs(
-  req: TypedReqQuery<{ activePage?: number, limit?: number, query?: string }>,
+  req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
   res: Response<{
     err: boolean;
     orgs: CentralIdentityOrg[];
@@ -556,19 +586,23 @@ async function getADAPTOrgs(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const data = await fse.readJSON(process.cwd() + "/util/adapt-schools-list.json");
+    const data = await fse.readJSON(
+      process.cwd() + "/util/adapt-schools-list.json"
+    );
     if (!data) {
       throw new Error("Failed to read ADAPT schools list");
     }
 
     const orgs = data.map((org: any) => org.name);
-    if(!orgs || !Array.isArray(orgs)){
+    if (!orgs || !Array.isArray(orgs)) {
       throw new Error("Failed to parse ADAPT schools list");
     }
 
     const search = (query: string) => {
-      return orgs.filter((org) => org.toLowerCase().indexOf(query.toLowerCase()) >= 0);
-    }
+      return orgs.filter(
+        (org) => org.toLowerCase().indexOf(query.toLowerCase()) >= 0
+      );
+    };
 
     const searched = req.query.query ? search(req.query.query) : orgs; // If no query, return all orgs
     const paginated = searched.slice(offset, offset + limit);
@@ -603,12 +637,15 @@ async function getSystems(
     }
     const offset = getPaginationOffset(page, limit);
 
-    const orgsRes = await useCentralIdentityAxios(false).get("/organization-systems", {
-      params: {
-        offset,
-        limit,
-      },
-    });
+    const orgsRes = await useCentralIdentityAxios(false).get(
+      "/organization-systems",
+      {
+        params: {
+          offset,
+          limit,
+        },
+      }
+    );
 
     if (!orgsRes.data || !orgsRes.data.data || !orgsRes.data.meta) {
       return conductor500Err(res);
@@ -733,7 +770,9 @@ async function getVerificationRequest(
 
     // TODO: This is a temporary fix until the backend is updated to return the user object
     requestRes.data.data.user = (
-      await useCentralIdentityAxios(false).get(`/users/${requestRes.data.data.user_id}`)
+      await useCentralIdentityAxios(false).get(
+        `/users/${requestRes.data.data.user_id}`
+      )
     ).data.data;
 
     return res.send({
@@ -750,26 +789,26 @@ async function getLicenses(
   req: Request,
   res: Response<{
     err: boolean;
-    licenses: CentralIdentityLicense[]; 
+    licenses: CentralIdentityLicense[];
   }>
-){
+) {
   try {
-    const licensesRes = await useCentralIdentityAxios().get('/licenses');
-    if(!licensesRes.data || !licensesRes.data.data){
+    const licensesRes = await useCentralIdentityAxios().get("/licenses");
+    if (!licensesRes.data || !licensesRes.data.data) {
       return conductor500Err(res);
     }
 
     return res.send({
       err: false,
-      licenses: licensesRes?.data?.data ?? []
-    })
+      licenses: licensesRes?.data?.data ?? [],
+    });
   } catch (err) {
     // debugError(err);
     // return conductor500Err(res);
     return res.send({
       err: false,
-      licenses: []
-    })
+      licenses: [],
+    });
   }
 }
 
@@ -813,7 +852,9 @@ async function processNewUserWebhookEvent(
     const { central_identity_id, first_name, last_name, email, avatar } =
       req.body;
 
-    const existUser = await User.findOne({ $or: [{ email }, { centralID: central_identity_id }] });
+    const existUser = await User.findOne({
+      $or: [{ email }, { centralID: central_identity_id }],
+    });
     if (existUser) {
       return res.send({
         err: false,
@@ -836,7 +877,7 @@ async function processNewUserWebhookEvent(
 
     await newUser.save();
 
-    console.log('New user created from webhook: ', newUser.centralID)
+    console.log("New user created from webhook: ", newUser.centralID);
 
     return res.send({
       err: false,
@@ -882,14 +923,18 @@ async function processLibraryAccessWebhookEvent(
     const promises = withSubdomain.map((project) => {
       if (!project) return null;
       const { projectID, subdomain, libreCoverID } = project;
-      if(!projectID || !subdomain || !libreCoverID) return null;
+      if (!projectID || !subdomain || !libreCoverID) return null;
       return updateTeamWorkbenchPermissions(projectID, subdomain, libreCoverID);
-    })
+    });
 
     const settled = await Promise.allSettled(promises);
 
-    const failed = settled.filter((result) => result.status === "rejected")?.length;
-    const fulfilled = settled.filter((result) => result.status === "fulfilled")?.length;
+    const failed = settled.filter(
+      (result) => result.status === "rejected"
+    )?.length;
+    const fulfilled = settled.filter(
+      (result) => result.status === "fulfilled"
+    )?.length;
 
     return res.send({
       err: false,
@@ -897,7 +942,39 @@ async function processLibraryAccessWebhookEvent(
       meta: {
         failed,
         fulfilled,
-      }
+      },
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function processVerificationStatusUpdateWebook(
+  req: z.infer<typeof VerificationStatusUpdateWebhookValidator>,
+  res: Response
+) {
+  try {
+    const { central_identity_id, verify_status } = req.body;
+    const user = await User.findOne({ centralID: central_identity_id });
+    if (!user) return conductor404Err(res);
+
+    if (verify_status === "verified") {
+      await User.updateOne(
+        { centralID: central_identity_id },
+        { $set: { verifiedInstructor: true } }
+      );
+    } else {
+      await User.updateOne(
+        { centralID: central_identity_id },
+        { $set: { verifiedInstructor: false } }
+      );
+    }
+
+    return res.send({
+      err: false,
+      msg: "User instructor verification status successfully updated.",
+      meta: {},
     });
   } catch (err) {
     debugError(err);
@@ -963,19 +1040,19 @@ function validate(method: string) {
           .custom(validateVerificationRequestStatus),
       ];
     }
-    case 'getOrgs': {
+    case "getOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
         param("limit", conductorErrors.err1).optional().isInt(),
         param("query", conductorErrors.err1).optional().isString(),
-      ]
+      ];
     }
-    case 'getADAPTOrgs': {
+    case "getADAPTOrgs": {
       return [
         param("activePage", conductorErrors.err1).optional().isInt(),
         param("limit", conductorErrors.err1).optional().isInt(),
         param("query", conductorErrors.err1).optional().isString(),
-      ]
+      ];
     }
     case "getVerificationRequest": {
       return [param("id", conductorErrors.err1).exists().isString()];
@@ -1015,6 +1092,7 @@ export default {
   updateUser,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
+  processVerificationStatusUpdateWebook,
   getLicenses,
   validate,
 };

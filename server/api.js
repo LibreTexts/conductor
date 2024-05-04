@@ -1632,6 +1632,13 @@ router.route('/central-identity/webhooks/user-library-access').post(
   centralIdentityAPI.processLibraryAccessWebhookEvent,
 )
 
+router.route('/central-identity/webhooks/verify-status').post(
+  express.raw({ type: 'application/json' }),
+  middleware.authLibreOneRequest,
+  middleware.validateZod(centralIdentityValidators.VerificationStatusUpdateWebhookValidator),
+  centralIdentityAPI.processVerificationStatusUpdateWebook
+)
+
 router.route('/kb/search').get(
   middleware.validateZod(kbValidators.SearchKBValidator),
   kbAPI.searchKB
