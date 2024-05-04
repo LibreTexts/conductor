@@ -30,6 +30,57 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
         {truncateString(project.title, 50)}
       </Card.Header>
       <Card.Meta>
+        <Icon name="user" color="blue" className="!mr-2" />
+        {project?.principalInvestigators &&
+        project?.principalInvestigators.length > 0 ? (
+          project?.principalInvestigators
+            ?.map((p) => `${p.firstName} ${p.lastName}`)
+            .join(", ")
+        ) : (
+          <span className="muted-text">No principal investigators</span>
+        )}
+      </Card.Meta>
+      <Card.Meta>
+        <Icon name="user plus" color="blue" className="!mr-2" />
+        {project?.coPrincipalInvestigators &&
+        project?.coPrincipalInvestigators.length > 0 ? (
+          project?.coPrincipalInvestigators
+            ?.map((p) => `${p.firstName} ${p.lastName}`)
+            .join(", ")
+        ) : (
+          <span className="muted-text">No co-principal investigators</span>
+        )}
+      </Card.Meta>
+      <Card.Meta>
+        <Icon name="university" color="blue" className="!mr-2" />
+        {project?.associatedOrgs && project?.associatedOrgs.length > 0 ? (
+          project?.associatedOrgs.join(", ")
+        ) : (
+          <span className="muted-text">No associated organizations</span>
+        )}
+      </Card.Meta>
+      <Card.Meta>
+        <Icon name="linkify" color="blue" />{" "}
+        {project.projectURL ? (
+          <a
+            href={project.projectURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="!text-blue-500 break-all"
+          >
+            {truncateString(project.projectURL, 50)}
+          </a>
+        ) : (
+          "No URL Specified"
+        )}
+      </Card.Meta>
+      <Card.Meta>
+        <Icon name="area graph" color="blue" />{" "}
+        {project.contentArea
+          ? capitalizeFirstLetter(project.contentArea)
+          : "No Content Area Specified"}
+      </Card.Meta>
+      <Card.Meta>
         <Icon name="dashboard" color="blue" />{" "}
         {project.status
           ? capitalizeFirstLetter(project.status)

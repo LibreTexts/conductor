@@ -51,7 +51,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
       <Card
         as={Link}
         to={`/commons-project/${item.projectID}`}
-        className="commons-content-card"
+        className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
         {...props}
       >
         <ProjectCardContent project={item} />
