@@ -1503,6 +1503,8 @@ async function getPublicProjects(req, res) {
               libreCoverID: 1,
               thumbnail: 1,
               libreLibrary: 1,
+              projectURL: 1,
+              contentArea: 1,
             },
           },
           {

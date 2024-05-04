@@ -150,7 +150,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           content={
             <div>
               <p>
-                <span className="font-semibold">Description:</span>{" "}
+                <span className="font-semibold">Project Description:</span>{" "}
                 {file.projectInfo.description}
               </p>
             </div>
@@ -161,7 +161,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       <Card.Meta>
         <Icon name="legal" color="blue" />{" "}
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
-        {file.license?.version ? `(${file.license.version})` : ""}
+        {file.license?.version ? `${file.license.version}` : ""}
       </Card.Meta>
       {!file.isURL && file.storageType === "file" && (
         <Card.Meta>

@@ -125,6 +125,8 @@ async function projectsSearch(
           author: 1,
           thumbnail: 1,
           updatedAt: 1,
+          projectURL: 1,
+          contentArea: 1
         },
       },
     ]);
