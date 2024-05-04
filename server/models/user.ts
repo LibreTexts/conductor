@@ -53,7 +53,6 @@ const UserSchema = new Schema<UserInterface>(
     centralID: {
       type: String,
       required: true, // set 'system' for fallback authentication
-      index: true,
       unique: true,
     },
     uuid: {
@@ -142,6 +141,8 @@ UserSchema.index({
 
 UserSchema.index({
   centralID: 1,
+  firstName: 1,
+  lastName: 1,
   uuid: 1,
 })
 
