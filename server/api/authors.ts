@@ -14,6 +14,7 @@ import { Response } from "express";
 import { conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import ProjectFile from "../models/projectfile.js";
+import { Types } from "mongoose";
 
 async function getAuthors(
   req: z.infer<typeof GetAllAuthorsValidator>,
@@ -24,7 +25,7 @@ async function getAuthors(
     const offset = getPaginationOffset(req.query.page, limit);
 
     const queryObj: Record<any, any> = {
-      $and: [{ isAdminEntry: true }, { orgID: process.env.ORG_ID }],
+      $and: [{ orgID: process.env.ORG_ID }],
     };
 
     if (req.query.query) {
@@ -70,13 +71,25 @@ async function getAuthor(
   res: Response
 ) {
   try {
-    const author = await Author.findOne({
-      _id: req.params.id,
-      isAdminEntry: true,
-      orgID: process.env.ORG_ID,
-    })
-      .orFail()
-      .lean();
+    const convertedID = new Types.ObjectId(req.params.id);
+    const aggRes = await Author.aggregate([
+      {
+        $match: {
+          _id: convertedID,
+          orgID: process.env.ORG_ID,
+        },
+      },
+      LOOKUP_AUTHOR_PROJECTS,
+    ]);
+
+    const author = aggRes[0];
+
+    if (!author) {
+      return res.status(404).send({
+        err: true,
+        message: "Author not found",
+      });
+    }
 
     res.send({
       err: false,
@@ -438,6 +451,87 @@ async function deleteAuthor(
   }
 }
 
+const LOOKUP_AUTHOR_PROJECTS = {
+  $lookup: {
+    from: "projects",
+    let: {
+      authorID: "$_id",
+    },
+    pipeline: [
+      {
+        $match: {
+          orgID: process.env.ORG_ID,
+          visibility: "public",
+        },
+      },
+      {
+        $match: {
+          $expr: {
+            $or: [
+              {
+                $eq: ["$defaultPrimaryAuthorID", "$$authorID"],
+              },
+              {
+                $eq: ["$defaultCorrespondingAuthorID", "$$authorID"],
+              },
+              {
+                $in: [
+                  "$$authorID",
+                  {
+                    $cond: {
+                      if: {
+                        $isArray: "$defaultSecondaryAuthorIDs",
+                      },
+                      then: "$defaultSecondaryAuthorIDs",
+                      else: [],
+                    },
+                  },
+                ],
+              },
+              {
+                $in: [
+                  "$$authorID",
+                  {
+                    $cond: {
+                      if: {
+                        $isArray: "$principalInvestigatorIDs",
+                      },
+                      then: "$principalInvestigatorIDs",
+                      else: [],
+                    },
+                  },
+                ],
+              },
+              {
+                $in: [
+                  "$$authorID",
+                  {
+                    $cond: {
+                      if: {
+                        $isArray: "$coPrincipalInvestigatorIDs",
+                      },
+                      then: "$coPrincipalInvestigatorIDs",
+                      else: [],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          projectID: 1,
+          title: 1,
+        },
+      },
+    ],
+    as: "projects",
+  },
+};
+
 export default {
   getAuthors,
   getAuthor,
@@ -446,4 +540,5 @@ export default {
   bulkCreateAuthors,
   updateAuthor,
   deleteAuthor,
+  LOOKUP_AUTHOR_PROJECTS,
 };

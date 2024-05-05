@@ -1,4 +1,9 @@
-import { Author, Book, Project, ProjectFileWProjectData } from "../../../types";
+import {
+  Book,
+  ConductorSearchResponseAuthor,
+  ConductorSearchResponseFile,
+  Project,
+} from "../../../types";
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
@@ -8,7 +13,12 @@ const VisualMode = ({
   loading,
   noResultsMessage,
 }: {
-  items: (Book | ProjectFileWProjectData<"title" | "thumbnail" | "description" | 'projectURL'> | Project | Author)[];
+  items: (
+    | Book
+    | ConductorSearchResponseFile
+    | Project
+    | ConductorSearchResponseAuthor
+  )[];
   loading?: boolean;
   noResultsMessage?: string;
 }) => {
@@ -35,7 +45,8 @@ const VisualMode = ({
   return (
     <div>
       <p className="text-center italic">
-        {noResultsMessage ?? "No results found - Try adjusting your search or filters."}
+        {noResultsMessage ??
+          "No results found - Try adjusting your search or filters."}
       </p>
     </div>
   );

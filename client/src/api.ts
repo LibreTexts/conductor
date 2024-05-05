@@ -20,14 +20,12 @@ import {
   User,
   UserSearchParams,
 } from "./types";
+import { CIDDescriptor, ProjectFileAuthor, ProjectTag } from "./types/Project";
 import {
-  CIDDescriptor,
-  ProjectFileAuthor,
-  ProjectFileWCustomData,
-  ProjectFileWProjectData,
-  ProjectTag,
-} from "./types/Project";
-import { AuthorSearchParams, CustomFilter } from "./types/Search";
+  AuthorSearchParams,
+  ConductorSearchResponseFile,
+  CustomFilter,
+} from "./types/Search";
 
 /**
  * @fileoverview
@@ -109,13 +107,11 @@ class API {
 
   // ASSETS
   async addProjectFile(
-    
     projectID: string,
-   
+
     file: FormData,
-   
+
     opts?: AxiosRequestConfig
-  
   ) {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/files`,
@@ -195,7 +191,7 @@ class API {
   async getAuthor(id: string) {
     const res = await axios.get<
       {
-        author: Author;
+        author: Author & { projects: Pick<Project, "projectID" | "title">[] };
       } & ConductorBaseResponse
     >(`/authors/${id}`);
     return res;
@@ -207,7 +203,7 @@ class API {
   ) {
     const res = await axios.get<
       {
-        assets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[];
+        assets: ConductorSearchResponseFile[];
         total: number;
       } & ConductorBaseResponse
     >(`/authors/${id}/assets`, {
@@ -557,7 +553,7 @@ class API {
   async getPublicProjectFiles(params?: { page?: number; limit?: number }) {
     const res = await axios.get<
       {
-        files: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[];
+        files: ConductorSearchResponseFile[];
         totalCount: number;
       } & ConductorBaseResponse
     >("/projects/files/public", {

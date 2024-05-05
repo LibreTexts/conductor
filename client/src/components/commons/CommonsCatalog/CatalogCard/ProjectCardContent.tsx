@@ -1,10 +1,13 @@
 import { Card, CardContentProps, Icon, Image } from "semantic-ui-react";
-import { Project, ProjectFile } from "../../../../types";
+import { Project } from "../../../../types";
 import {
   capitalizeFirstLetter,
   truncateString,
 } from "../../../util/HelperFunctions";
 import { getLibGlyphURL, getLibraryName } from "../../../util/LibraryOptions";
+import { useTypedSelector } from "../../../../state/hooks";
+import { useMemo } from "react";
+import CardMetaWIcon from "../../../util/CardMetaWIcon";
 
 interface ProjectCardContentProps extends CardContentProps {
   project: Project;
@@ -14,6 +17,17 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
   project,
   ...rest
 }) => {
+  const org = useTypedSelector((state) => state.org);
+
+  const libGlyphImage = useMemo(() => {
+    return (
+      <Image
+        src={getLibGlyphURL(project.libreLibrary)}
+        className="library-glyph"
+      />
+    );
+  }, [project.libreLibrary]);
+
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {project.thumbnail ? (
@@ -29,8 +43,13 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       <Card.Header as="h3" className="commons-content-card-header !mt-4">
         {truncateString(project.title, 50)}
       </Card.Header>
-      <Card.Meta>
-        <Icon name="user" color="blue" className="!mr-2" />
+      <p className="text-black">
+        <strong>Description: </strong>
+        {project?.description
+          ? project?.description
+          : "No description available."}
+      </p>
+      <CardMetaWIcon icon="user">
         {project?.principalInvestigators &&
         project?.principalInvestigators.length > 0 ? (
           project?.principalInvestigators
@@ -39,9 +58,8 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
         ) : (
           <span className="muted-text">No principal investigators</span>
         )}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="user plus" color="blue" className="!mr-2" />
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="user plus">
         {project?.coPrincipalInvestigators &&
         project?.coPrincipalInvestigators.length > 0 ? (
           project?.coPrincipalInvestigators
@@ -50,17 +68,15 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
         ) : (
           <span className="muted-text">No co-principal investigators</span>
         )}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="university" color="blue" className="!mr-2" />
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="university">
         {project?.associatedOrgs && project?.associatedOrgs.length > 0 ? (
           project?.associatedOrgs.join(", ")
         ) : (
           <span className="muted-text">No associated organizations</span>
         )}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="linkify" color="blue" />{" "}
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="linkify">
         {project.projectURL ? (
           <a
             href={project.projectURL}
@@ -73,37 +89,30 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
         ) : (
           "No URL Specified"
         )}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="area graph" color="blue" />{" "}
-        {project.contentArea
-          ? capitalizeFirstLetter(project.contentArea)
-          : "No Content Area Specified"}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="dashboard" color="blue" />{" "}
-        {project.status
-          ? capitalizeFirstLetter(project.status)
-          : "Unknown Status"}
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="clipboard list" color="blue" />{" "}
-        {project.classification
-          ? capitalizeFirstLetter(project.classification)
-          : "Unknown Classification"}
-      </Card.Meta>
-      <Card.Meta>
-        <Card.Meta>
-          <Image
-            src={getLibGlyphURL(project.libreLibrary)}
-            className="library-glyph"
-          />
-          {getLibraryName(project.libreLibrary)}
-        </Card.Meta>
-      </Card.Meta>
-      <Card.Description>
-        <p className="commons-content-card-author"></p>
-      </Card.Description>
+      </CardMetaWIcon>
+      {project.contentArea && org.orgID == "calearninglab" && (
+        <CardMetaWIcon icon="content">
+          {capitalizeFirstLetter(project.contentArea)}
+        </CardMetaWIcon>
+      )}
+      {org.orgID !== "calearninglab" && (
+        <>
+          <CardMetaWIcon icon="dashboard">
+            {project.status
+              ? capitalizeFirstLetter(project.status)
+              : "Unknown Status"}
+          </CardMetaWIcon>
+          <CardMetaWIcon icon="clipboard list">
+            {project.classification
+              ? capitalizeFirstLetter(project.classification)
+              : "Unknown Classification"}
+          </CardMetaWIcon>
+          <Card.Meta>
+            {libGlyphImage}
+            {getLibraryName(project.libreLibrary)}
+          </Card.Meta>
+        </>
+      )}
     </Card.Content>
   );
 };
