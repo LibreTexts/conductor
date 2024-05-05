@@ -39,7 +39,7 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
             </p>
           </CommentMetadata>
         </div>
-        <CommentText>{msg.message}</CommentText>
+        <CommentText className="!break-words">{msg.message}</CommentText>
       </CommentContent>
     </Comment>
   );
