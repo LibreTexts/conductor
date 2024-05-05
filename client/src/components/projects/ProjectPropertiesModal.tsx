@@ -471,7 +471,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       const contentAreaTemplate = res.data.framework.templates.find(
         (t) =>
           isAssetTagKeyObject(t.key) &&
-          t.key.title.toLowerCase() === "content area"
+          t.key.title.toLowerCase() === "subject"
       );
       if (!contentAreaTemplate || !contentAreaTemplate.options) return;
 
