@@ -11,7 +11,7 @@ const BookCardContent: React.FC<BookCardContentProps> = ({ book, ...rest }) => {
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       <div
-        className="commons-card-img-container"
+        className="commons-card-img-container !bg-cover"
         style={{ backgroundImage: `url(${book.thumbnail})` }}
       ></div>
       <Card.Header as="h3" className="commons-content-card-header !mt-4">

@@ -46,7 +46,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       <p className="text-black">
         <strong>Description: </strong>
         {project?.description
-          ? project?.description
+          ? truncateString(project.description, 200)
           : "No description available."}
       </p>
       <CardMetaWIcon icon="user">
@@ -56,7 +56,7 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
             ?.map((p) => `${p.firstName} ${p.lastName}`)
             .join(", ")
         ) : (
-          <span className="muted-text">No principal investigators</span>
+          "No principal investigators"
         )}
       </CardMetaWIcon>
       <CardMetaWIcon icon="user plus">
@@ -66,14 +66,14 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
             ?.map((p) => `${p.firstName} ${p.lastName}`)
             .join(", ")
         ) : (
-          <span className="muted-text">No co-principal investigators</span>
+          "No co-principal investigators"
         )}
       </CardMetaWIcon>
       <CardMetaWIcon icon="university">
         {project?.associatedOrgs && project?.associatedOrgs.length > 0 ? (
           project?.associatedOrgs.join(", ")
         ) : (
-          <span className="muted-text">No associated organizations</span>
+          "No associated organizations"
         )}
       </CardMetaWIcon>
       <CardMetaWIcon icon="linkify">
