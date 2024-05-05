@@ -677,7 +677,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       <Table.Cell>
                         {canViewDetails ? (
                           <button
-                            className="hover:underline text-blue-600"
+                            className="hover:underline text-blue-600 text-left"
                             onClick={() => handleChangeAccess([item])}
                             disabled={
                               !checkProjectMemberPermission || !canViewDetails
