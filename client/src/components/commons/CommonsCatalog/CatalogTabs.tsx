@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { TabProps, Checkbox, Icon, Popup } from "semantic-ui-react";
+import { TabProps, Icon, Popup } from "semantic-ui-react";
 import {
   AssetFilters,
-  AssetFiltersAction,
-  Author,
   AuthorFilters,
   AuthorFiltersAction,
   Book,
   BookFilters,
   BookFiltersAction,
   CommonsModule,
+  ConductorSearchResponseAuthor,
+  ConductorSearchResponseFile,
   Project,
-  ProjectFileWProjectData,
 } from "../../../types";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
@@ -37,13 +36,13 @@ interface CatalogTabsProps extends TabProps {
   books: Book[];
   booksCount: number;
   booksLoading: boolean;
-  assets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | 'projectURL'>[];
+  assets: ConductorSearchResponseFile[];
   assetsCount: number;
   assetsLoading: boolean;
   projects: Project[];
   projectsCount: number;
   projectsLoading: boolean;
-  authors: Author[];
+  authors: ConductorSearchResponseAuthor[];
   authorsCount: number;
   authorsLoading: boolean;
   onLoadMoreBooks: () => void;

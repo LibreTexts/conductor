@@ -1,5 +1,5 @@
 import { Card, CardContentProps, Icon, Popup } from "semantic-ui-react";
-import { ProjectFileWProjectData } from "../../../../types";
+import { ConductorSearchResponseFile } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import {
@@ -10,9 +10,7 @@ import {
 import { useState } from "react";
 
 interface FileCardContentProps extends CardContentProps {
-  file: ProjectFileWProjectData<
-    "title" | "thumbnail" | "description" | "projectURL"
-  >;
+  file: ConductorSearchResponseFile;
 }
 
 const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
@@ -30,9 +28,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       .map((a) => `${a?.firstName} ${a?.lastName}`)
       .join(", ") || "Unknown";
 
-  async function handleFileDownload(
-    file: ProjectFileWProjectData<"title" | "thumbnail">
-  ) {
+  async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
       setLoading(true);
@@ -95,7 +91,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
             <div>
               <Icon name="phone" color="blue" />
               {file.correspondingAuthor?.email ? (
-                <a href={`mailto:${file.correspondingAuthor?.email}`}>
+                <a href={`/author/${file.correspondingAuthor._id}`}>
                   {prettyContactPerson}
                 </a>
               ) : (
@@ -132,14 +128,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
             <div>
               <Icon name="clipboard list" color="blue" />
               {file.projectInfo.title ? (
-                <a
-                  href={
-                    file.projectInfo.projectURL
-                      ? file.projectInfo.projectURL
-                      : `/commons-project/${file.projectID}`
-                  }
-                  target="_blank"
-                >
+                <a href={`/commons-project/${file.projectID}`} target="_blank">
                   {truncateString(file.projectInfo.title, 30)}
                 </a>
               ) : (

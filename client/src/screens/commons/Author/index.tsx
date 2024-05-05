@@ -2,7 +2,10 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Icon, Segment, Header, Breadcrumb, Popup } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { Author, ProjectFileWProjectData } from "../../../types";
+import {
+  ConductorSearchResponseAuthor,
+  ConductorSearchResponseFile,
+} from "../../../types";
 import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
@@ -19,20 +22,20 @@ const CommonsAuthor = () => {
 
   // Author data
   const [loadedData, setLoadedData] = useState<boolean>(false);
-  const [author, setAuthor] = useState<Author>({
+  const [author, setAuthor] = useState<ConductorSearchResponseAuthor>({
     firstName: "",
     lastName: "",
     email: "",
     primaryInstitution: "",
+    url: "",
+    projects: [],
   });
 
   // Asset data
   const [itemizedMode, setItemizedMode] = useState<boolean>(false);
   const [loadingDisabled, setLoadingDisabled] = useState<boolean>(false);
   const [loadedAssets, setLoadedAssets] = useState<boolean>(false);
-  const [assets, setAssets] = useState<
-    ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
-  >([]);
+  const [assets, setAssets] = useState<ConductorSearchResponseFile[]>([]);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalAssets, setTotalAssets] = useState<number>(0);
   const [jumpToBottomClicked, setJumpToBottomClicked] =
@@ -147,20 +150,46 @@ const CommonsAuthor = () => {
         </Segment>
         <Segment loading={!loadedData} className="">
           <div className="flex flex-row px-1">
-            <div className="flex flex-col w-1/4 max-h-48 border shadow-md p-4 rounded-md mr-16">
+            <div className="flex flex-col w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
               <Header as="h1" className="!mb-2 !ml-0.5">
                 {authorFullName}
               </Header>
-              <p>
-                <Icon name="university" />
-                {author.primaryInstitution}
-              </p>
-              <p>
-                <Icon name="linkify" />
-                <a href={author.url} target="_blank" rel="noreferrer">
-                  {author.url}
-                </a>
-              </p>
+              {author.primaryInstitution && (
+                <p>
+                  <Icon name="university" />
+                  {author.primaryInstitution}
+                </p>
+              )}
+              {author.url && (
+                <p>
+                  <Icon name="linkify" />
+                  <a href={author.url} target="_blank" rel="noreferrer">
+                    {author.url}
+                  </a>
+                </p>
+              )}
+              {author.email && (
+                <p>
+                  <Icon name="mail" className="mr-1" />
+                  <a href={`mailto:${author.email}`} className="!text-blue-500">
+                    {author.email}
+                  </a>
+                </p>
+              )}
+              {author.projects?.length > 0 && (
+                <p>
+                  <Icon name="wrench" className="mr-1" />{" "}
+                  {author.projects.map((p) => (
+                    <a
+                      href={`/commons-project/${p.projectID}`}
+                      key={p.projectID}
+                      className="hover:underline cursor-pointer !text-blue-500 !hover:text-blue-500"
+                    >
+                      {`${p.title}${author.projects.length > 1 ? ", " : ""}`}
+                    </a>
+                  ))}
+                </p>
+              )}
             </div>
             <div className="flex flex-col w-3/4">
               <div className="flex flex-row justify-between items-start">

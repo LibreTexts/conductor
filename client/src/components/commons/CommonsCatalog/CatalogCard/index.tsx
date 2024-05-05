@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { Card, CardProps } from "semantic-ui-react";
 import {
-  Author,
   Book,
+  ConductorSearchResponseAuthor,
+  ConductorSearchResponseFile,
   Project,
-  ProjectFileWProjectData,
 } from "../../../../types";
 import { isAuthor, isBook, isProject } from "../../../../utils/typeHelpers";
 import BookCardContent from "./BookCardContent";
@@ -16,9 +16,9 @@ import AuthorCardContent from "./AuthorCardContent";
 interface CatalogCardProps extends CardProps {
   item:
     | Book
-    | ProjectFileWProjectData<"title" | "thumbnail" | 'description' | 'projectURL'>
+    | ConductorSearchResponseFile
     | Project
-    | Author;
+    | ConductorSearchResponseAuthor;
 }
 
 const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {

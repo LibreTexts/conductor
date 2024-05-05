@@ -10,7 +10,7 @@ import {
   Button,
 } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
-import { Author, Project, ProjectFileWProjectData } from "../../../types";
+import { Project } from "../../../types";
 import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
@@ -153,25 +153,48 @@ const CommonsProject = () => {
                   </span>
                 )}
               </p>
-              <p className="mt-2">
-                <Icon name="dashboard" color="blue" />{" "}
-                {project?.status
-                  ? capitalizeFirstLetter(project.status)
-                  : "Unknown Status"}
-              </p>
-              <p className="mt-2">
-                <Icon name="clipboard list" color="blue" />{" "}
-                {project?.classification
-                  ? capitalizeFirstLetter(project.classification)
-                  : "Unknown Classification"}
-              </p>
-              <p className="mt-2">
-                <Image
-                  src={getLibGlyphURL(project?.libreLibrary)}
-                  className="library-glyph"
-                />
-                {getLibraryName(project?.libreLibrary)}
-              </p>
+              {project?.projectURL && (
+                <p className="mt-2">
+                  <Icon name="linkify" color="blue" className="!mr-2" />
+                  <a
+                    href={project?.projectURL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all"
+                  >
+                    {truncateString(project?.projectURL, 50)}
+                  </a>
+                </p>
+              )}
+              {org.orgID == "calearninglab" && project?.contentArea && (
+                <p className="mt-2">
+                  <Icon name="content" color="blue" className="!mr-2" />
+                  {project?.contentArea}
+                </p>
+              )}
+              {org.orgID !== "calearninglab" && (
+                <>
+                  <p className="mt-2">
+                    <Icon name="dashboard" color="blue" />{" "}
+                    {project?.status
+                      ? capitalizeFirstLetter(project.status)
+                      : "Unknown Status"}
+                  </p>
+                  <p className="mt-2">
+                    <Icon name="clipboard list" color="blue" />{" "}
+                    {project?.classification
+                      ? capitalizeFirstLetter(project.classification)
+                      : "Unknown Classification"}
+                  </p>
+                  <p className="mt-2">
+                    <Image
+                      src={getLibGlyphURL(project?.libreLibrary)}
+                      className="library-glyph"
+                    />
+                    {getLibraryName(project?.libreLibrary)}
+                  </p>
+                </>
+              )}
               <Button
                 icon="lightning"
                 content="View in Conductor"

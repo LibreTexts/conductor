@@ -6,16 +6,15 @@ import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import useDebounce from "../../hooks/useDebounce";
 import {
   AssetFilters,
-  AssetFiltersAction,
-  Author,
   AuthorFilters,
   AuthorFiltersAction,
   Book,
   BookFilters,
   BookFiltersAction,
   CommonsModule,
+  ConductorSearchResponseAuthor,
+  ConductorSearchResponseFile,
   Project,
-  ProjectFileWProjectData,
 } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
@@ -122,15 +121,13 @@ const CommonsCatalog = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [booksCount, setBooksCount] = useState<number>(0);
 
-  const [assets, setAssets] = useState<
-    ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
-  >([]);
+  const [assets, setAssets] = useState<ConductorSearchResponseFile[]>([]);
   const [assetsCount, setAssetsCount] = useState<number>(0);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsCount, setProjectsCount] = useState<number>(0);
 
-  const [authors, setAuthors] = useState<Author[]>([]);
+  const [authors, setAuthors] = useState<ConductorSearchResponseAuthor[]>([]);
   const [authorsCount, setAuthorsCount] = useState<number>(0);
 
   const [booksLoading, setBooksLoading] = useState(false);
@@ -373,7 +370,10 @@ const CommonsCatalog = () => {
       setAssetsLoading(true);
 
       const customFiltersApplied = Object.entries(assetFilters ?? {})
-        .filter(([key, value]) => !["license", "org", "fileType", "person"].includes(key))
+        .filter(
+          ([key, value]) =>
+            !["license", "org", "fileType", "person"].includes(key)
+        )
         .map(([key, value]) => ({ key, value }));
 
       const res = await api.assetsSearch({
@@ -573,7 +573,7 @@ const CommonsCatalog = () => {
    * and the case where we are just loading more results, and don't want to clear the existing state.
    */
   function updateAssets(
-    newAssets: ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[],
+    newAssets: ConductorSearchResponseFile[],
     clearAndUpdate = false
   ) {
     if (clearAndUpdate) {
@@ -599,7 +599,10 @@ const CommonsCatalog = () => {
     }
   }
 
-  function updateAuthors(newAuthors: Author[], clearAndUpdate = false) {
+  function updateAuthors(
+    newAuthors: ConductorSearchResponseAuthor[],
+    clearAndUpdate = false
+  ) {
     if (clearAndUpdate) {
       setAuthors([...newAuthors]);
     } else {
@@ -695,7 +698,7 @@ const CommonsCatalog = () => {
                         onClick={() => updateSearchParam(searchString)}
                         className="!m-0 w-10 !p-4 lg:w-auto"
                       >
-                        <Icon name="search"/>
+                        <Icon name="search" />
                         {isTailwindLg && "Search Catalog"}
                       </Button>
                     </Form.Input>

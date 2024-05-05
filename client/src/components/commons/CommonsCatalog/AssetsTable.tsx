@@ -1,5 +1,5 @@
 import { Header, Icon, Table, TableProps } from "semantic-ui-react";
-import { ProjectFile, ProjectFileWProjectData } from "../../../types";
+import { ConductorSearchResponseFile } from "../../../types";
 import { Link } from "react-router-dom";
 import { truncateString } from "../../util/HelperFunctions";
 import {
@@ -10,13 +10,11 @@ import {
 } from "../../../utils/assetHelpers";
 
 interface AssetsTableProps extends TableProps {
-  items: ProjectFileWProjectData<"title" | "thumbnail">[];
+  items: ConductorSearchResponseFile[];
 }
 
 const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
-  async function handleFileDownload(
-    file: ProjectFileWProjectData<"title" | "thumbnail">
-  ) {
+  async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
       success = await downloadFile(file.projectID, file.fileID);
@@ -79,7 +77,9 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
                   <p>{truncateString(item.description, 50)}</p>
                 </Table.Cell>
                 <Table.Cell>
-                  <p>{getPrettyAuthorsList(item.primaryAuthor, item.authors)}</p>
+                  <p>
+                    {getPrettyAuthorsList(item.primaryAuthor, item.authors)}
+                  </p>
                 </Table.Cell>
                 <Table.Cell>
                   <p>

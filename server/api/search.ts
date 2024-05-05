@@ -30,6 +30,7 @@ import { levenshteinDistance } from "../util/searchutils.js";
 import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
+import authorsAPI from "./authors.js";
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -109,6 +110,7 @@ async function projectsSearch(
           as: "leads",
         },
       },
+      ...projectAPI.LOOKUP_PROJECT_PI_STAGES,
       {
         $project: {
           _id: 0,
@@ -126,7 +128,11 @@ async function projectsSearch(
           thumbnail: 1,
           updatedAt: 1,
           projectURL: 1,
-          contentArea: 1
+          contentArea: 1,
+          associatedOrgs: 1,
+          description: 1,
+          principalInvestigators: 1,
+          coPrincipalInvestigators: 1,
         },
       },
     ]);
@@ -293,14 +299,14 @@ async function booksSearch(
       },
     ]);
 
-    const promises = [fromBooks]
-    if(query) {
-      promises.push(fromProjects)
+    const promises = [fromBooks];
+    if (query) {
+      promises.push(fromProjects);
     }
 
     const [booksResults, projectsResults] = await Promise.all(promises);
 
-    const results = [...booksResults, ...projectsResults ?? []];
+    const results = [...booksResults, ...(projectsResults ?? [])];
 
     results.sort((a, b) => {
       let aData = null;
@@ -1486,6 +1492,7 @@ async function authorsSearch(
           orgID: process.env.ORG_ID,
         },
       },
+      authorsAPI.LOOKUP_AUTHOR_PROJECTS,
       {
         $project: {
           _id: 1,
@@ -1493,6 +1500,8 @@ async function authorsSearch(
           lastName: 1,
           url: 1,
           primaryInstitution: 1,
+          projects: 1,
+          email: 1,
         },
       },
     ]);

@@ -74,6 +74,13 @@ export type UserSearchParams = {
   sort?: "first" | "last";
 } & _commonSearchParams;
 
+export type ConductorSearchResponseAuthor = Author & {
+  projects: Pick<Project, "projectID" | "title">[];
+};
+export type ConductorSearchResponseFile = ProjectFileWProjectData<
+  "title" | "thumbnail" | "description" | "projectURL"
+>;
+
 export type ConductorSearchResponse<
   T extends "assets" | "books" | "homework" | "projects" | "users" | "authors"
 > = {
@@ -81,7 +88,7 @@ export type ConductorSearchResponse<
   // if origin is 'commons', then response is of type CommonsSearchResultsObject
   // if origin is 'conductor', then response is of type ConductorSearchResultsObject
   results: T extends "assets"
-    ? ProjectFileWProjectData<"title" | "thumbnail" | "description" | "projectURL">[]
+    ? ConductorSearchResponseFile[]
     : T extends "books"
     ? Book[]
     : T extends "homework"
@@ -91,7 +98,7 @@ export type ConductorSearchResponse<
     : T extends "users"
     ? User[]
     : T extends "authors"
-    ? Author[]
+    ? ConductorSearchResponseAuthor[]
     : never;
 };
 
