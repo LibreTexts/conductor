@@ -8,6 +8,7 @@ import {
   getPrettyAuthorsList,
 } from "../../../../utils/assetHelpers";
 import { useState } from "react";
+import CardMetaWIcon from "../../../util/CardMetaWIcon";
 
 interface FileCardContentProps extends CardContentProps {
   file: ConductorSearchResponseFile;
@@ -47,7 +48,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {file.projectInfo.thumbnail ? (
         <div
-          className="commons-card-img-container"
+          className="commons-card-img-container !bg-contain"
           style={{
             backgroundImage: `url(${file.projectInfo.thumbnail})`,
           }}
@@ -68,14 +69,10 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       >
         {truncateString(file.name, 50)}
       </Card.Header>
-      <Card.Meta>
+      <CardMetaWIcon icon="user">
         <Popup
           disabled={!prettyAuthors || prettyAuthors === "Unknown"} // Disable popup if no authors
-          trigger={
-            <div>
-              <Icon name="user" color="blue" /> {prettyAuthors}
-            </div>
-          }
+          trigger={<div>{truncateString(prettyAuthors, 50)}</div>}
           content={
             <div>
               <p>{allAuthors}</p>
@@ -83,13 +80,12 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           position="top center"
         />
-      </Card.Meta>
-      <Card.Meta>
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="phone">
         <Popup
           disabled={!prettyContactPerson || prettyContactPerson === "Unknown"} // Disable popup if no authors
           trigger={
             <div>
-              <Icon name="phone" color="blue" />
               {file.correspondingAuthor?.email ? (
                 <a href={`/author/${file.correspondingAuthor._id}`}>
                   {prettyContactPerson}
@@ -121,12 +117,11 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           position="top center"
         />
-      </Card.Meta>
-      <Card.Meta>
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="clipboard list">
         <Popup
           trigger={
             <div>
-              <Icon name="clipboard list" color="blue" />
               {file.projectInfo.title ? (
                 <a href={`/commons-project/${file.projectID}`} target="_blank">
                   {truncateString(file.projectInfo.title, 30)}
@@ -146,17 +141,15 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           position="top center"
         />
-      </Card.Meta>
-      <Card.Meta>
-        <Icon name="legal" color="blue" />{" "}
+      </CardMetaWIcon>
+      <CardMetaWIcon icon="legal">
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
         {file.license?.version ? `${file.license.version}` : ""}
-      </Card.Meta>
+      </CardMetaWIcon>
       {!file.isURL && file.storageType === "file" && (
-        <Card.Meta>
-          <Icon name={getFileTypeIcon(file)} color="blue" />{" "}
+        <CardMetaWIcon icon={getFileTypeIcon(file)}>
           {truncateString(file.mimeType ?? "", 30)}
-        </Card.Meta>
+        </CardMetaWIcon>
       )}
       <Card.Description className="overflow-hidden !mt-1">
         <p className="commons-content-card-author !mb-0">

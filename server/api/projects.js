@@ -1433,6 +1433,7 @@ async function getPublicProjects(req, res) {
               visibility: "public",
             },
           },
+          ...LOOKUP_PROJECT_PI_STAGES,
           {
             $project: {
               _id: 0,
@@ -1452,6 +1453,9 @@ async function getPublicProjects(req, res) {
               libreLibrary: 1,
               projectURL: 1,
               contentArea: 1,
+              description: 1,
+              principalInvestigators: 1,
+              coPrincipalInvestigators: 1,
             },
           },
           {
