@@ -6,7 +6,7 @@ import axios from "axios";
 import { format, parseISO } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
 
 const UserDashboard = () => {
