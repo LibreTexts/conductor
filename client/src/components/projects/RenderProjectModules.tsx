@@ -610,14 +610,15 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
       modules.push(TasksModule);
     }
 
+    const moduleOrder = Object.keys(moduleSettings).map((key) => {
+      return { key: key + "-module", order: moduleSettings[key].order };
+    });
+
     modules.sort((a, b) => {
-      const aIndex = a.props.index;
-      const bIndex = b.props.index;
-      if (moduleSettings && Object.keys(moduleSettings).length > 0) {
-        if (!moduleSettings[aIndex] || !moduleSettings[bIndex]) return 0;
-        return moduleSettings[aIndex].order - moduleSettings[bIndex].order;
-      }
-      return 0;
+      return (
+        moduleOrder.find((m) => m.key === a.key)?.order -
+        moduleOrder.find((m) => m.key === b.key)?.order
+      );
     });
 
     return <>{modules}</>;
