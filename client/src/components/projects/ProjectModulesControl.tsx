@@ -27,12 +27,14 @@ const ModuleRow = ({
   const isLastItem = index === 2;
   return (
     <div
-      className={`bg-white border h-14 px-4 max-w-5xl ${
+      className={`bg-white border h-14 px-4 w-full ${
         isFirstItem && "rounded-t-md"
       } ${isLastItem && "rounded-b-md"}`}
     >
       <div className="flex flex-row justify-between items-center h-full">
-        <p className="font-bold">{capitalizeFirstLetter(title)}</p>
+        <p className="font-bold">
+          {title === "files" ? "Assets" : capitalizeFirstLetter(title)}
+        </p>
         <div className="flex flex-row items-center">
           <Button.Group size="tiny">
             <Button
@@ -115,7 +117,9 @@ const ProjectModulesControl: React.FC<ProjectModulesControlProps> = ({
   return (
     <div className="bg-slate-100 p-2" {...rest}>
       {Object.entries(watch("projectModules") ?? {})
-        .filter(([key, value]) => ["discussion", "files", "tasks"].includes(key))
+        .filter(([key, value]) =>
+          ["discussion", "files", "tasks"].includes(key)
+        )
         .sort((a, b) => a[1].order - b[1].order)
         .map(([key, value], idx) => {
           return (
