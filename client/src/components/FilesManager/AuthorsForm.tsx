@@ -83,7 +83,28 @@ const AuthorsForm = forwardRef(
       setSelectedPrimary(currentPrimaryAuthor ?? null);
       setSelectedSecondary(currentAuthors ?? []);
       setSelectedCorresponding(currentCorrespondingAuthor ?? null);
+      if (currentPrimaryAuthor) {
+        setAuthorOptions((prev) => {
+          return noDuplicateAuthors([...prev, currentPrimaryAuthor]);
+        });
+      }
+      if (currentAuthors) {
+        setSecondaryAuthorOptions((prev) => {
+          return noDuplicateAuthors([...prev, ...currentAuthors]);
+        });
+      }
+      if (currentCorrespondingAuthor) {
+        setCorrespondingAuthorOptions((prev) => {
+          return noDuplicateAuthors([...prev, currentCorrespondingAuthor]);
+        });
+      }
     }, [currentPrimaryAuthor, currentAuthors, currentCorrespondingAuthor]);
+
+    function noDuplicateAuthors(authors: ProjectFileAuthor[]) {
+      return authors.filter(
+        (a, i, self) => self.findIndex((b) => b._id === a._id) === i
+      );
+    }
 
     async function loadAuthorOptions(searchQuery?: string, setOthers = false) {
       try {
@@ -99,8 +120,9 @@ const AuthorsForm = forwardRef(
         const opts = [
           ...res.data.authors,
           ...(selectedPrimary ? [selectedPrimary] : []),
+          ...(selectedCorresponding ? [selectedCorresponding] : []),
+          ...(selectedSecondary ?? []),
         ];
-
         setAuthorOptions(opts);
 
         // We only use this when loading the authors for the first time
