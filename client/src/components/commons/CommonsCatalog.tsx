@@ -267,11 +267,11 @@ const CommonsCatalog = () => {
   }
 
   // Books
-  async function loadCommonsCatalog(clear = false) {
+  async function loadCommonsCatalog(clear = false, page = activePage) {
     try {
       setBooksLoading(true);
       const res = await api.getCommonsCatalog({
-        activePage: activePage,
+        activePage: page,
         limit: ITEMS_PER_PAGE,
       });
       if (res.data.err) {
@@ -531,11 +531,12 @@ const CommonsCatalog = () => {
 
   function handleLoadMoreBooks() {
     if (loadingDisabled) return;
-    setActivePage(activePage + 1);
+    const nextPage = activePage + 1;
+    setActivePage(nextPage);
     if (searchString || bookFiltersApplied()) {
       return handleBooksSearch(searchString);
     } else {
-      return loadCommonsCatalog();
+      return loadCommonsCatalog(false, nextPage);
     }
   }
 
