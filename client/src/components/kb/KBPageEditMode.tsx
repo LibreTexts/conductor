@@ -5,14 +5,15 @@ import axios from "axios";
 import { useTypedSelector } from "../../state/hooks";
 import { get, useForm } from "react-hook-form";
 import { KBPage } from "../../types";
-import PreviewPageModal from "./PreviewPageModal";
 import PageLastEditor from "./PageLastEditor";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
 import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
 import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
-import KBCKEditor from "./KBCKEditor";
+
+const KBCKEditor = lazy(() => import("./KBCKEditor"));
+const PreviewPageModal = lazy(() => import("./PreviewPageModal"));
 const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
 
 const KBPageEditMode = ({

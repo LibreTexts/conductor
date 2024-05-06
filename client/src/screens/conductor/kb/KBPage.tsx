@@ -1,11 +1,11 @@
 import { useParams } from "react-router-dom";
 import DefaultLayoutWNavTree from "../../../components/kb/DefaultLayoutWNavTree";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy } from "react";
 import KBPageViewMode from "../../../components/kb/KBPageViewMode";
-import KBPageEditMode from "../../../components/kb/KBPageEditMode";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon } from "semantic-ui-react";
 import { canEditKB } from "../../../utils/kbHelpers";
+const KBPageEditMode = lazy(() => import("../../../components/kb/KBPageEditMode"));
 
 const KBPage = () => {
   const { slug } = useParams<{ slug: any }>();
