@@ -102,6 +102,7 @@ async function getUserTickets(
     let page = 1;
     let limit = 25;
     if (req.query.page) page = req.query.page;
+    if (req.query.limit) limit = parseInt(req.query.limit.toString());
     const offset = getPaginationOffset(page, limit);
 
     const getSortObj = () => {

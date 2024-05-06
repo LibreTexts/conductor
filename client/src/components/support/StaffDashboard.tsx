@@ -78,6 +78,10 @@ const StaffDashboard = () => {
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
+  useEffect(() => {
+    setActivePage(1); // Reset to first page when itemsPerPage changes
+  }, [itemsPerPage])
+
   async function getOpenTickets({
     page,
     items,

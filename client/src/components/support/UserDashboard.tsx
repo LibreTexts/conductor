@@ -6,6 +6,8 @@ import axios from "axios";
 import { format, parseISO } from "date-fns";
 import TicketStatusLabel from "./TicketStatusLabel";
 import { PaginationWithItemsSelect } from "../util/PaginationWithItemsSelect";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import LoadingSpinner from "../LoadingSpinner";
 
 const UserDashboard = () => {
   const { handleGlobalError } = useGlobalError();
@@ -13,22 +15,28 @@ const UserDashboard = () => {
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(2);
   const [totalItems, setTotalItems] = useState<number>(0);
-  const [openTickets, setOpenTickets] = useState<SupportTicket[]>([]);
+
+  const { data: userTickets, isFetching } = useQuery<SupportTicket[]>({
+    queryKey: ["userTickets", activePage, itemsPerPage, activeSort],
+    queryFn: () => getUserTickets(activePage, itemsPerPage, activeSort),
+    keepPreviousData: true,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
   useEffect(() => {
-    getUserTickets();
-  }, []);
+    setActivePage(1); // Reset to first page when itemsPerPage changes
+  }, [itemsPerPage])
 
-  async function getUserTickets() {
+  async function getUserTickets(page: number, limit: number, sort: string) {
     try {
       setLoading(true);
       const res = await axios.get("/support/ticket/user", {
         params: {
-          page: activePage,
-          limit: itemsPerPage,
-          sort: activeSort,
+          page,
+          limit,
+          sort,
         },
       });
       if (res.data.err) {
@@ -39,9 +47,10 @@ const UserDashboard = () => {
         throw new Error("Invalid response from server");
       }
 
-      setOpenTickets(res.data.tickets);
       setTotalItems(res.data.total);
       setTotalPages(Math.ceil(res.data.total / itemsPerPage));
+
+      return res.data.tickets;
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -80,28 +89,30 @@ const UserDashboard = () => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {openTickets.map((ticket) => (
-              <Table.Row key={ticket.uuid}>
-                <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
-                <Table.Cell>
-                  {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
-                </Table.Cell>
-                <Table.Cell>{ticket.title}</Table.Cell>
-                <Table.Cell>
-                  <TicketStatusLabel status={ticket.status} />
-                </Table.Cell>
-                <Table.Cell>
-                  <Button
-                    color="blue"
-                    size="tiny"
-                    onClick={() => openTicket(ticket.uuid)}
-                  >
-                    <Icon name="eye" />
-                    View
-                  </Button>
-                </Table.Cell>
-              </Table.Row>
-            ))}
+            {isFetching && <LoadingSpinner />}
+            {!isFetching &&
+              userTickets?.map((ticket) => (
+                <Table.Row key={ticket.uuid}>
+                  <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
+                  <Table.Cell>
+                    {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
+                  </Table.Cell>
+                  <Table.Cell>{ticket.title}</Table.Cell>
+                  <Table.Cell>
+                    <TicketStatusLabel status={ticket.status} />
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Button
+                      color="blue"
+                      size="tiny"
+                      onClick={() => openTicket(ticket.uuid)}
+                    >
+                      <Icon name="eye" />
+                      View
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
           </Table.Body>
         </Table>
         <PaginationWithItemsSelect
