@@ -14,12 +14,10 @@ let mailgun = null;
 
 if (process.env.NODE_ENV === 'production') {
   const mgInstance = new Mailgun(formData);
-  console.log('instantiating mailgun instance')
   mailgun = mgInstance.client({
     username: 'api',
     key: process.env.MAILGUN_API_KEY,
   });
-  console.log('mailgun instance created')
 } else { // helper for testing mail sends in development
   mailgun = {
     messages: {

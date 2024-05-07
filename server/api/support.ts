@@ -862,7 +862,6 @@ async function createGeneralMessage(
 
       const senderName = `${foundUser.firstName} ${foundUser.lastName}`;
 
-      console.log('sending new ticket message notification')
       await mailAPI.sendNewTicketMessageNotification(
         [emailToNotify],
         ticket.uuid,
@@ -870,14 +869,12 @@ async function createGeneralMessage(
         senderName,
         addParams ? params.toString() : ""
       );
-      console.log('sent new ticket message notification')
     }
 
     // If user was found and user is the ticket author, send a notification to assigned staff
     if ((foundUser && foundUser.uuid === ticket.userUUID) || !foundUser) {
       const teamToNotify = await _getAssignedStaffEmails(ticket.assignedUUIDs);
       if (teamToNotify.length > 0) {
-        console.log('sending new ticket message assigned staff notification')
         await mailAPI.sendNewTicketMessageAssignedStaffNotification(
           teamToNotify,
           ticket.uuid,
@@ -888,7 +885,6 @@ async function createGeneralMessage(
           capitalizeFirstLetter(ticket.priority),
           ticket.title
         );
-        console.log('sent new ticket message assigned staff notification')
       }
     }
 
