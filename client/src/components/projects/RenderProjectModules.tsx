@@ -15,6 +15,7 @@ import Messaging from "../Messaging";
 import FilesManager from "../FilesManager";
 import { Link } from "react-router-dom";
 import Breakpoint from "../util/Breakpoints";
+import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 
 interface RenderProjectModulesProps {
   projectID: string;
@@ -595,7 +596,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
       return <p>Loading...</p>;
     }
 
-    const moduleSettings = project.projectModules;
+    const moduleSettings = project.projectModules ?? DEFAULT_PROJECT_MODULES;
     const modules: JSX.Element[] = [];
 
     if (!moduleSettings || moduleSettings.discussion.enabled) {
