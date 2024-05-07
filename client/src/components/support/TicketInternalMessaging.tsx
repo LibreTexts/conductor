@@ -103,10 +103,14 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
               comments are not visible to the ticket submitter.
             </p>
           </div>
-          <TicketCommentsContainer ref={containerRef} messages={messages} scope="internal" />
+          <TicketCommentsContainer
+            ref={containerRef}
+            messages={messages}
+            scope="internal"
+          />
           <div className="mt-2">
             <p className="font-semibold mb-1 ml-1">Send Message:</p>
-            <Form>
+            <Form onSubmit={(e) => e.preventDefault()}>
               <Controller
                 control={control}
                 name="message"
@@ -139,9 +143,9 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
                   </Button>
                   <Button
                     color="blue"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!getValues("message")) return;
-                      sendMessageMutation.mutateAsync();
+                      await sendMessageMutation.mutateAsync();
                     }}
                   >
                     <Icon name="send" />

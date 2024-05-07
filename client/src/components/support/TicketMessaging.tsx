@@ -19,7 +19,7 @@ interface TicketMessagingProps {
 const TicketMessaging: React.FC<TicketMessagingProps> = ({
   id,
   guestAccessKey,
-  ticket
+  ticket,
 }) => {
   const user = useTypedSelector((state) => state.user);
   const containerRef =
@@ -125,10 +125,15 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               </p>
             </div>
           )}
-          <TicketCommentsContainer ref={containerRef} scope="general" messages={messages} ticket={ticket}/>
+          <TicketCommentsContainer
+            ref={containerRef}
+            scope="general"
+            messages={messages}
+            ticket={ticket}
+          />
           <div className="mt-2">
             <p className="font-semibold mb-1 ml-1">Send Message:</p>
-            <Form>
+            <Form onSubmit={(e) => e.preventDefault()}>
               <Controller
                 control={control}
                 name="message"
@@ -166,9 +171,9 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
                   </Button>
                   <Button
                     color="blue"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!getValues("message")) return;
-                      sendMessageMutation.mutateAsync();
+                      await sendMessageMutation.mutateAsync();
                     }}
                   >
                     <Icon name="send" />
