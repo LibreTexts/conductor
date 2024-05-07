@@ -590,7 +590,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   ]);
 
   const CalculatedModules = useMemo(() => {
-    if (!Object.keys(project).length) {
+    if (!project || !Object.keys(project).length) {
       // project not loaded yet
       return <p>Loading...</p>;
     }
