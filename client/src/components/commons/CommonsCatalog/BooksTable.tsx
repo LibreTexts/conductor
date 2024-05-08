@@ -1,16 +1,20 @@
 import { Header, Image, Table, TableProps } from "semantic-ui-react";
 import { Book } from "../../../types";
-import {
-  getLibGlyphAltText,
-  getLibGlyphURL,
-} from "../../util/LibraryOptions";
+import { getLibGlyphAltText, getLibGlyphURL } from "../../util/LibraryOptions";
 import { Link } from "react-router-dom";
 
 interface BooksTableProps extends TableProps {
   items: Book[];
+  lastElementRef?: any;
+  loading?: boolean;
 }
 
-const BooksTable: React.FC<BooksTableProps> = ({ items, ...rest }) => {
+const BooksTable: React.FC<BooksTableProps> = ({
+  items,
+  lastElementRef,
+  loading,
+  ...rest
+}) => {
   return (
     <Table celled title="Search Results" {...rest}>
       <Table.Header>
@@ -71,6 +75,16 @@ const BooksTable: React.FC<BooksTableProps> = ({ items, ...rest }) => {
               </Table.Row>
             );
           })}
+        <tr ref={lastElementRef}></tr>
+        {loading && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>Loading...</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>
@@ -85,4 +99,4 @@ const BooksTable: React.FC<BooksTableProps> = ({ items, ...rest }) => {
   );
 };
 
-export default BooksTable
+export default BooksTable;

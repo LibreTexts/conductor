@@ -1,5 +1,6 @@
-import { Button, TabPane, TabPaneProps } from "semantic-ui-react";
-import InfiniteScroll from "react-infinite-scroll-component";
+import { TabPane, TabPaneProps } from "semantic-ui-react";
+import { cloneElement } from "react";
+import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 
 interface CatalogTabProps extends TabPaneProps {
   itemizedMode: boolean;
@@ -8,6 +9,7 @@ interface CatalogTabProps extends TabPaneProps {
   getNextPage: () => void;
   itemizedRender: React.ReactNode;
   visualRender: React.ReactNode;
+  loading: boolean;
 }
 
 const CatalogTab: React.FC<CatalogTabProps> = ({
@@ -17,24 +19,33 @@ const CatalogTab: React.FC<CatalogTabProps> = ({
   getNextPage,
   itemizedRender,
   visualRender,
+  loading,
   ...rest
 }) => {
+  const { lastElementRef } = useInfiniteScroll({
+    next: getNextPage,
+    hasMore: dataLength < totalLength,
+    isLoading: loading,
+  });
+
   return (
     <TabPane
       attached={false}
-      className="!border-none !shadow-none !px-0 !pt-0 !rounded-md !mt-0"
+      className="!border-none !shadow-none !px-0 !pt-0 !rounded-md !mt-0 !pb-4"
       {...rest}
     >
-      <InfiniteScroll
-        dataLength={dataLength}
-        next={getNextPage}
-        hasMore={dataLength < totalLength}
-        loader={<p className="text-center font-semibold mt-4">Loading...</p>}
-        endMessage={<p className="text-center mt-4 italic">End of Results</p>}
-        height={800}
-      >
-        {itemizedMode ? itemizedRender : visualRender}
-      </InfiniteScroll>
+      {itemizedMode
+        ? cloneElement(itemizedRender as React.ReactElement, {
+            lastElementRef,
+          })
+        : cloneElement(visualRender as React.ReactElement, {
+            lastElementRef,
+          })}
+      {dataLength >= totalLength && (
+        <div className="w-full mt-4">
+          <p className="text-center font-semibold">End of results</p>
+        </div>
+      )}
     </TabPane>
   );
 };

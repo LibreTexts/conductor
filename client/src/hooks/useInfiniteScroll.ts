@@ -1,29 +1,45 @@
-import { useInView } from "react-cool-inview";
+import { useCallback, useEffect, useRef } from "react";
 
-interface useInfiniteScrollOptions {
-  rootMargin?: string;
-  loading?: boolean;
+interface InfiniteScrollProps {
+  next: () => void | Promise<void>;
+  hasMore: boolean;
+  isLoading: boolean;
   threshold?: number;
-  preventUnobserve?: boolean;
 }
 
-const useInfiniteScroll = (
-  callback: () => void,
-  options?: useInfiniteScrollOptions
-) => {
-  const { observe } = useInView({
-    rootMargin: options?.rootMargin || "0px 0px 100px 0px",
-    threshold: options?.threshold || 0.5,
-    onEnter: ({ unobserve }) => {
-      if (options?.loading) return; // Prevent multiple requests
-      callback();
-      if (!options?.preventUnobserve) unobserve();
+const useInfiniteScroll = ({
+  next,
+  hasMore,
+  isLoading,
+  threshold = 0.8,
+}: InfiniteScrollProps) => {
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastElementRef = useCallback(
+    (node: any) => {
+      if (isLoading || !node) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasMore) {
+            next();
+          }
+        },
+        { threshold }
+      );
+      if (node) {
+        observer.current.observe(node);
+      }
     },
-  });
+    [isLoading, hasMore, next, threshold]
+  );
 
-  return {
-    observe,
-  };
+  useEffect(() => {
+    return () => {
+      if (observer.current) observer.current.disconnect();
+    };
+  }, []);
+
+  return { lastElementRef };
 };
 
 export default useInfiniteScroll;

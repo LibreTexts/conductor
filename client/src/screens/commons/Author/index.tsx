@@ -10,7 +10,7 @@ import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
-import InfiniteScroll from "react-infinite-scroll-component";
+import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 
 /**
  * Displays an Author's page in the Commons catalog, showing information about an author and their works.
@@ -120,6 +120,12 @@ const CommonsAuthor = () => {
         author.lastName;
     }
   }, [author]);
+
+  const { lastElementRef } = useInfiniteScroll({
+    next: onLoadMoreAssets,
+    isLoading: loadedAssets,
+    hasMore: assets.length < totalAssets,
+  });
 
   const authorFullName = useMemo(() => {
     if (!author || !author.firstName || !author.lastName)
@@ -252,28 +258,25 @@ const CommonsAuthor = () => {
                 </div>
               </div>
               <div>
-                <InfiniteScroll
-                  dataLength={assets.length}
-                  next={onLoadMoreAssets}
-                  hasMore={assets.length < totalAssets}
-                  loader={
-                    <p className="text-center font-semibold mt-4">Loading...</p>
-                  }
-                  endMessage={
-                    <p className="text-center mt-4 italic">End of Results</p>
-                  }
-                  height={itemizedMode ? 500 : 800}
-                >
-                  {itemizedMode ? (
-                    <AssetsTable items={assets} loading={!loadedAssets} />
-                  ) : (
-                    <VisualMode
-                      items={assets}
-                      loading={!loadedAssets}
-                      noResultsMessage="No assets found for this author."
-                    />
-                  )}
-                </InfiniteScroll>
+                {itemizedMode ? (
+                  <AssetsTable
+                    items={assets}
+                    loading={!loadedAssets}
+                    lastElementRef={lastElementRef}
+                  />
+                ) : (
+                  <VisualMode
+                    items={assets}
+                    loading={!loadedAssets}
+                    noResultsMessage="No assets found for this author."
+                    lastElementRef={lastElementRef}
+                  />
+                )}
+                {assets.length >= totalAssets && (
+                  <div className="w-full mt-4">
+                    <p className="text-center font-semibold">End of results</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
