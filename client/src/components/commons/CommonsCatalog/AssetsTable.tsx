@@ -11,9 +11,16 @@ import {
 
 interface AssetsTableProps extends TableProps {
   items: ConductorSearchResponseFile[];
+  lastElementRef?: any;
+  loading?: boolean;
 }
 
-const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
+const AssetsTable: React.FC<AssetsTableProps> = ({
+  items,
+  lastElementRef,
+  loading,
+  ...rest
+}) => {
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
@@ -107,6 +114,16 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ items, ...rest }) => {
               </Table.Row>
             );
           })}
+        <tr ref={lastElementRef}></tr>
+        {loading && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>Loading...</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>

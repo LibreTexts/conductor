@@ -259,6 +259,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             dataLength={books.length}
             totalLength={booksCount}
             getNextPage={onLoadMoreBooks}
+            loading={booksLoading}
             itemizedRender={<BooksTable items={books} />}
             visualRender={<VisualMode items={books} loading={booksLoading} />}
           />
@@ -270,6 +271,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             dataLength={assets.length}
             totalLength={assetsCount}
             getNextPage={onLoadMoreAssets}
+            loading={assetsLoading}
             itemizedRender={<AssetsTable items={assets} />}
             visualRender={<VisualMode items={assets} loading={assetsLoading} />}
           />
@@ -281,6 +283,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             dataLength={projects.length}
             totalLength={projectsCount}
             getNextPage={onLoadMoreProjects}
+            loading={projectsLoading}
             itemizedRender={<ProjectsTable items={projects} />}
             visualRender={
               <VisualMode items={projects} loading={projectsLoading} />
@@ -294,6 +297,7 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             dataLength={authors.length}
             totalLength={authorsCount}
             getNextPage={onLoadMoreAuthors}
+            loading={authorsLoading}
             itemizedRender={<AuthorsTable items={authors} />}
             visualRender={
               <VisualMode items={authors} loading={authorsLoading} />

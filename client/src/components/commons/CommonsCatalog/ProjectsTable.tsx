@@ -11,9 +11,16 @@ import { format, parseISO } from "date-fns";
 
 interface ProjectsTableProps extends TableProps {
   items: Project[];
+  lastElementRef?: any;
+  loading?: boolean;
 }
 
-const ProjectsTable: React.FC<ProjectsTableProps> = ({ items, ...rest }) => {
+const ProjectsTable: React.FC<ProjectsTableProps> = ({
+  items,
+  lastElementRef,
+  loading,
+  ...rest
+}) => {
   return (
     <Table celled title="Search Results" {...rest}>
       <Table.Header>
@@ -96,14 +103,22 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ items, ...rest }) => {
                 </Table.Cell>
                 <Table.Cell>
                   {item.updatedAt && (
-                    <p>
-                      {format(parseISO(item.updatedAt), "MM/dd/yy")}
-                    </p>
+                    <p>{format(parseISO(item.updatedAt), "MM/dd/yy")}</p>
                   )}
                 </Table.Cell>
               </Table.Row>
             );
           })}
+        <tr ref={lastElementRef}></tr>
+        {loading && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>Loading...</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>

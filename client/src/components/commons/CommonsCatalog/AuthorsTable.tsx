@@ -4,9 +4,16 @@ import { truncateString } from "../../util/HelperFunctions";
 
 interface AuthorsTableProps extends TableProps {
   items: Author[];
+  lastElementRef?: any;
+  loading?: boolean;
 }
 
-const AuthorsTable: React.FC<AuthorsTableProps> = ({ items, ...rest }) => {
+const AuthorsTable: React.FC<AuthorsTableProps> = ({
+  items,
+  lastElementRef,
+  loading,
+  ...rest
+}) => {
   return (
     <Table celled title="Search Results" {...rest}>
       <Table.Header>
@@ -51,6 +58,16 @@ const AuthorsTable: React.FC<AuthorsTableProps> = ({ items, ...rest }) => {
               </Table.Row>
             );
           })}
+        <tr ref={lastElementRef}></tr>
+        {loading && (
+          <Table.Row>
+            <Table.Cell colSpan={5}>
+              <p className="text-center">
+                <em>Loading...</em>
+              </p>
+            </Table.Cell>
+          </Table.Row>
+        )}
         {items.length === 0 && (
           <Table.Row>
             <Table.Cell colSpan={5}>

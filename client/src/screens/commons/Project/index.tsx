@@ -15,7 +15,6 @@ import api from "../../../api";
 import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
 import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
-import InfiniteScroll from "react-infinite-scroll-component";
 import FilesManager from "../../../components/FilesManager";
 import { truncate } from "fs";
 import {
