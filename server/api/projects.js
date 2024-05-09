@@ -1456,6 +1456,7 @@ async function getPublicProjects(req, res) {
               description: 1,
               principalInvestigators: 1,
               coPrincipalInvestigators: 1,
+              associatedOrgs: 1
             },
           },
           {

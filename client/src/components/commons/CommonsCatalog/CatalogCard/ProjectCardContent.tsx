@@ -28,6 +28,27 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
     );
   }, [project.libreLibrary]);
 
+  const piText =
+    project?.principalInvestigators &&
+    project?.principalInvestigators.length > 0
+      ? project?.principalInvestigators
+          ?.map((p) => `${p.firstName} ${p.lastName}`)
+          .join(", ")
+      : "No principal investigators";
+
+  const coPIText =
+    project?.coPrincipalInvestigators &&
+    project?.coPrincipalInvestigators.length > 0
+      ? project?.coPrincipalInvestigators
+          ?.map((p) => `${p.firstName} ${p.lastName}`)
+          .join(", ")
+      : "No co-principal investigators";
+
+  const associatedOrgText =
+    project?.associatedOrgs && project?.associatedOrgs.length > 0
+      ? project?.associatedOrgs.join(", ")
+      : "No associated organizations";
+
   return (
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {project.thumbnail ? (
@@ -46,35 +67,15 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
       <p className="text-black">
         <strong>Description: </strong>
         {project?.description
-          ? truncateString(project.description, 200)
+          ? truncateString(project.description, 150)
           : "No description available."}
       </p>
-      <CardMetaWIcon icon="user">
-        {project?.principalInvestigators &&
-        project?.principalInvestigators.length > 0 ? (
-          project?.principalInvestigators
-            ?.map((p) => `${p.firstName} ${p.lastName}`)
-            .join(", ")
-        ) : (
-          "No principal investigators"
-        )}
-      </CardMetaWIcon>
+      <CardMetaWIcon icon="user">{truncateString(piText, 85)}</CardMetaWIcon>
       <CardMetaWIcon icon="user plus">
-        {project?.coPrincipalInvestigators &&
-        project?.coPrincipalInvestigators.length > 0 ? (
-          project?.coPrincipalInvestigators
-            ?.map((p) => `${p.firstName} ${p.lastName}`)
-            .join(", ")
-        ) : (
-          "No co-principal investigators"
-        )}
+        {truncateString(coPIText, 75)}
       </CardMetaWIcon>
       <CardMetaWIcon icon="university">
-        {project?.associatedOrgs && project?.associatedOrgs.length > 0 ? (
-          project?.associatedOrgs.join(", ")
-        ) : (
-          "No associated organizations"
-        )}
+        {truncateString(associatedOrgText, 60)}
       </CardMetaWIcon>
       <CardMetaWIcon icon="linkify">
         {project.projectURL ? (
