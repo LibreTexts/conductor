@@ -251,7 +251,7 @@ export const getBookTOCFromAPI = (bookID, bookURL) => {
         } else {
             throw (new Error('tocretrieve'));
         }
-        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${bookAddr}`, {
+        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${encodeURIComponent(bookAddr)}`, {
             headers: { 'Origin': getProductionURL() }
         });
     }).then((tocRes) => {
