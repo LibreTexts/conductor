@@ -159,14 +159,18 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 
   useEffect(() => {
     if (show && projectID) {
-      loadProject();
-      getTags();
-      getCIDDescriptors();
-      getLicenseOptions();
-      getPIOptions(undefined, true);
-      checkCampusDefault();
+      initData();
     }
   }, [show, projectID]);
+
+  async function initData() {
+    await loadProject(); // fire and forget after this point
+    getTags();
+    getCIDDescriptors();
+    getLicenseOptions();
+    getPIOptions(undefined, true);
+    checkCampusDefault();
+  }
 
   useEffect(() => {
     getOrgs();
@@ -410,7 +414,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       // We only use this when loading the PI's for the first time
       // so we don't need to run the same query multiple times
       if (setOthers) {
-        setCoPIOptions(opts);
+        const existingCoPIs = getValues("coPrincipalInvestigators") ?? [];
+        setCoPIOptions([...opts, ...existingCoPIs]);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -440,7 +445,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         ...(watch("coPrincipalInvestigators") ?? []),
       ];
 
-      setPIOptions(opts);
+      setCoPIOptions(opts);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -470,8 +475,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       // Get content area options
       const contentAreaTemplate = res.data.framework.templates.find(
         (t) =>
-          isAssetTagKeyObject(t.key) &&
-          t.key.title.toLowerCase() === "subject"
+          isAssetTagKeyObject(t.key) && t.key.title.toLowerCase() === "subject"
       );
       if (!contentAreaTemplate || !contentAreaTemplate.options) return;
 
@@ -697,7 +701,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               <Form.Field className="flex flex-col !mt-4">
                 <label htmlFor="projectURL">
                   <span className="mr-05p">
-                    {org.orgID === 'calearninglab' ? "Project" : "Textbook"} URL{" "}
+                    {org.orgID === "calearninglab" ? "Project" : "Textbook"} URL{" "}
                     <span className="muted-text">(if applicable)</span>
                   </span>
                   <Popup
@@ -714,7 +718,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <CtlTextInput
                   name="projectURL"
                   control={control}
-                  placeholder={`Enter ${org.orgID === 'calearninglab' ? "project" : "textbook"} URL...`}
+                  placeholder={`Enter ${
+                    org.orgID === "calearninglab" ? "project" : "textbook"
+                  } URL...`}
                   type="url"
                   id="projectURL"
                 />
@@ -821,7 +827,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <Dropdown
                   id="projectTags"
                   placeholder="Search tags..."
-                  options={org.FEAT_PedagogyProjectTags ? pedagogyOptions : tagOptions}
+                  options={
+                    org.FEAT_PedagogyProjectTags ? pedagogyOptions : tagOptions
+                  }
                   {...field}
                   onChange={(e, { value }) => {
                     field.onChange(value as string);
@@ -833,7 +841,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   allowAdditions={!org.FEAT_PedagogyProjectTags}
                   loading={!loadedTags}
                   onAddItem={(e, { value }) => {
-                    if(!org.FEAT_PedagogyProjectTags) return;
+                    if (!org.FEAT_PedagogyProjectTags) return;
                     if (value) {
                       tagOptions.push({
                         text: value.toString(),
