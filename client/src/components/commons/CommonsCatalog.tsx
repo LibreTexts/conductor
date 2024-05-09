@@ -259,7 +259,7 @@ const CommonsCatalog = () => {
         loadCommonsCatalog(clear),
         loadPublicAssets(clear),
         loadPublicProjects(clear),
-        handleAuthorsSearch("", undefined, clear),
+        handleAuthorsSearch("", {}, clear),
       ]);
     } catch (err) {
       handleGlobalError(err);
@@ -410,15 +410,16 @@ const CommonsCatalog = () => {
 
   // Authors
   async function handleAuthorsSearch(
-    query?: string,
+    query: string,
     authorFilters?: AuthorFilters,
-    clearAndUpdate = false
+    clearAndUpdate = false,
+    page = activePage
   ) {
     try {
       setAuthorsLoading(true);
       const res = await api.authorsSearch({
         searchQuery: query,
-        page: activePage,
+        page,
         limit: ITEMS_PER_PAGE,
         ...authorFilters,
       });
@@ -563,8 +564,9 @@ const CommonsCatalog = () => {
 
   function handleLoadMoreAuthors() {
     if (loadingDisabled) return;
-    setActivePage(activePage + 1);
-    return handleAuthorsSearch(searchString);
+    const nextPage = activePage + 1;
+    setActivePage(nextPage);
+    return handleAuthorsSearch(searchString, authorsState, false, nextPage);
   }
 
   /**

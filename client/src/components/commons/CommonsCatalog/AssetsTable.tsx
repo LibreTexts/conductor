@@ -11,13 +11,11 @@ import {
 
 interface AssetsTableProps extends TableProps {
   items: ConductorSearchResponseFile[];
-  lastElementRef?: any;
   loading?: boolean;
 }
 
 const AssetsTable: React.FC<AssetsTableProps> = ({
   items,
-  lastElementRef,
   loading,
   ...rest
 }) => {
@@ -114,7 +112,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
               </Table.Row>
             );
           })}
-        <tr ref={lastElementRef}></tr>
         {loading && (
           <Table.Row>
             <Table.Cell colSpan={5}>

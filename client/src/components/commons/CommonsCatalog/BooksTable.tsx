@@ -5,13 +5,11 @@ import { Link } from "react-router-dom";
 
 interface BooksTableProps extends TableProps {
   items: Book[];
-  lastElementRef?: any;
   loading?: boolean;
 }
 
 const BooksTable: React.FC<BooksTableProps> = ({
   items,
-  lastElementRef,
   loading,
   ...rest
 }) => {
@@ -75,7 +73,6 @@ const BooksTable: React.FC<BooksTableProps> = ({
               </Table.Row>
             );
           })}
-        <tr ref={lastElementRef}></tr>
         {loading && (
           <Table.Row>
             <Table.Cell colSpan={5}>
