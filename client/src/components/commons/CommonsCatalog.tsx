@@ -648,7 +648,7 @@ const CommonsCatalog = () => {
                     e.preventDefault();
                   }}
                 >
-                  <div className="w-72 lg:w-[82rem]">
+                  <div className="w-72 lg:w-[68rem]">
                     <Form.Input
                       placeholder="Search..."
                       className="!mb-0 !border-r-none"
