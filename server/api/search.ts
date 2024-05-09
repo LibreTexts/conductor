@@ -2036,6 +2036,26 @@ function _boostExactMatches(file: any, query: string) {
     file.score = file.score * 2;
   }
 
+  const boostByPrimaryOrCorresponding = () => {
+    if (file.primaryAuthor) {
+      const primaryAuthor = `${file.primaryAuthor.firstName} ${file.primaryAuthor.lastName}`;
+      if (searchQuery.some((s) => primaryAuthor.toLowerCase().includes(s))) {
+        file.score = file.score * 2;
+        return; // don't boost corresponding author if primary author is a match
+      }
+    }
+    if (file.correspondingAuthor) {
+      const correspondingAuthor = `${file.correspondingAuthor.firstName} ${file.correspondingAuthor.lastName}`;
+      if (
+        searchQuery.some((s) => correspondingAuthor.toLowerCase().includes(s))
+      ) {
+        file.score = file.score * 2;
+      }
+    }
+  }
+
+  boostByPrimaryOrCorresponding();
+
   if (tags.length > 0) {
     const flattened = tags.flat();
     // split each tag into words and flatten
