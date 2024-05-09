@@ -269,9 +269,9 @@ const CommonsAuthor = () => {
                     items={assets}
                     loading={!loadedAssets}
                     noResultsMessage="No assets found for this author."
-                    lastElementRef={lastElementRef}
                   />
                 )}
+                <div ref={lastElementRef}></div>
                 {assets.length >= totalAssets && (
                   <div className="w-full mt-4">
                     <p className="text-center font-semibold">End of results</p>

@@ -11,13 +11,11 @@ import { format, parseISO } from "date-fns";
 
 interface ProjectsTableProps extends TableProps {
   items: Project[];
-  lastElementRef?: any;
   loading?: boolean;
 }
 
 const ProjectsTable: React.FC<ProjectsTableProps> = ({
   items,
-  lastElementRef,
   loading,
   ...rest
 }) => {
@@ -109,7 +107,6 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({
               </Table.Row>
             );
           })}
-        <tr ref={lastElementRef}></tr>
         {loading && (
           <Table.Row>
             <Table.Cell colSpan={5}>

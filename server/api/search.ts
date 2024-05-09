@@ -1538,7 +1538,7 @@ async function authorsSearch(
 
     return res.send({
       err: false,
-      numResults: totalCount,
+      numResults: req.query.primaryInstitution ? filtered.length : totalCount,
       results: filtered,
     });
   } catch (err) {

@@ -12,7 +12,6 @@ const VisualMode = ({
   items,
   loading,
   noResultsMessage,
-  lastElementRef,
 }: {
   items: (
     | Book
@@ -22,11 +21,10 @@ const VisualMode = ({
   )[];
   loading?: boolean;
   noResultsMessage?: string;
-  lastElementRef?: any;
 }) => {
   if (items.length > 0) {
     return (
-      <div className="commons-content-card-grid">
+      <div className="commons-content-card-grid ">
         {items.map((item) => (
           <CatalogCard item={item} key={crypto.randomUUID()} />
         ))}
@@ -37,7 +35,6 @@ const VisualMode = ({
             ))}
           </>
         )}
-        <div ref={lastElementRef}></div>
       </div>
     );
   }
