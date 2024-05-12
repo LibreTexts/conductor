@@ -232,30 +232,24 @@ export const genPermalink = (bookID) => {
  * @param {String} [bookURL] - The URL of the LibreText to lookup.
  * @returns {Promise<Object|Error>} The Book's TOC object, or throws an error.
  */
-export const getBookTOCFromAPI = (bookID, bookURL) => {
-    let bookLookup = false;
-    return Promise.try(() => {
-        if (typeof (bookID) === 'string' && !isEmptyString(bookID) && checkBookIDFormat(bookID)) {
-            bookLookup = true;
-            return Book.findOne({ bookID: bookID }).lean();
-        } else if (typeof (bookURL) === 'string' && !isEmptyString(bookURL)) {
-            return {};
-        }
-        throw (new Error('tocretrieve'));
-    }).then((commonsBook) => {
-        let bookAddr = '';
-        if (bookLookup && typeof (commonsBook) === 'object' && typeof (commonsBook.links?.online) === 'string') {
-            bookAddr = commonsBook.links.online;
-        } else if (!bookLookup && typeof (bookURL) === 'string') {
-            bookAddr = bookURL;
-        } else {
-            throw (new Error('tocretrieve'));
-        }
-        return axios.get(`https://api.libretexts.org/endpoint/getTOC/${encodeURIComponent(bookAddr)}`, {
-            headers: { 'Origin': getProductionURL() }
-        });
-    }).then((tocRes) => {
-        if (tocRes.data && tocRes.data.toc) return tocRes.data.toc;
-        else throw (new Error('tocretrieve'));
+export const getBookTOCFromAPI = async (bookID, bookURL) => {
+    let bookAddr = bookURL;
+    if (checkBookIDFormat(bookID)) {
+        const book = await Book.findOne({ bookID: bookID }).lean();
+        bookAddr = book.links?.online;
+    }
+    if (!bookAddr) throw new Error('tocretrieve');
+
+    const tocRes = await axios.get(`https://api.libretexts.org/endpoint/getTOC/${encodeURIComponent(bookAddr)}`, {
+        headers: { 'Origin': getProductionURL() }
     });
+    if (!tocRes?.data?.toc?.structured) throw (new Error('tocretrieve'));
+
+    const buildStructure = (page) => ({
+        children: Array.isArray(page.subpages) ? page.subpages.map((s) => buildStructure(s)) : [],
+        id: page['@id'],
+        title: page.title,
+        url: page.url,
+    });
+    return buildStructure(tocRes.data.toc.structured);
 };
