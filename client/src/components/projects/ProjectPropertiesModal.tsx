@@ -841,7 +841,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                   allowAdditions={!org.FEAT_PedagogyProjectTags}
                   loading={!loadedTags}
                   onAddItem={(e, { value }) => {
-                    if (!org.FEAT_PedagogyProjectTags) return;
+                    if (org.FEAT_PedagogyProjectTags) return;
                     if (value) {
                       tagOptions.push({
                         text: value.toString(),
