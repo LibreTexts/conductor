@@ -7,7 +7,7 @@
   "scripts": {
     "start": "ts-node --esm server.ts",
     "start:prod": "node dist/server.js",
-    "dev": "nodemon",
+    "dev": "tsx watch server.ts",
     "build": "tsc --build"
   },
   "dependencies": {
@@ -75,6 +75,7 @@
     "eslint": "^8.3.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.3",
+    "tsx": "^4.9.3",
     "typescript": "^5.4.2"
   },
   "eslintConfig": {
