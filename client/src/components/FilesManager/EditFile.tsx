@@ -367,12 +367,14 @@ const EditFile: React.FC<EditFileProps> = ({
         {
           name: vals.name,
           description: vals.description,
-          license: vals.license,
-          primaryAuthor: vals.primaryAuthor ?? undefined,
-          authors: vals.authors ?? undefined,
-          correspondingAuthor: vals.correspondingAuthor ?? undefined,
-          publisher: vals.publisher,
-          tags: cleanTagsForRequest(vals.tags ?? []),
+          ...(!isFolder && {
+            license: vals.license,
+            primaryAuthor: vals.primaryAuthor ?? undefined,
+            authors: vals.authors ?? undefined,
+            correspondingAuthor: vals.correspondingAuthor ?? undefined,
+            publisher: vals.publisher,
+            tags: cleanTagsForRequest(vals.tags ?? []),
+          }),
         }
       );
 
