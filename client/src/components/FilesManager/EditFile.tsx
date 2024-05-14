@@ -346,16 +346,20 @@ const EditFile: React.FC<EditFileProps> = ({
     try {
       setLoading(true);
 
-      // Get authors data from AuthorsForm component
-      const authors = authorsFormRef.current?.getAuthors();
-      if (!authors) {
-        throw new Error("Failed to get authors");
+      if (!isFolder) {
+        // Get authors data from AuthorsForm component
+        const authors = authorsFormRef.current?.getAuthors();
+        if (!authors) {
+          throw new Error("Failed to get authors");
+        }
+        setValue("primaryAuthor", authors.primaryAuthor ?? undefined);
+        setValue("authors", authors.authors);
+        setValue(
+          "correspondingAuthor",
+          authors.correspondingAuthor ?? undefined
+        );
       }
-      setValue("primaryAuthor", authors.primaryAuthor ?? undefined);
-      setValue("authors", authors.authors);
-      setValue("correspondingAuthor", authors.correspondingAuthor ?? undefined);
 
-      //clearErrors(); // Clear any previous errors
       const valid = await trigger(); // Trigger validation on all fields
       if (!valid) return;
       const vals = getValues();
@@ -548,9 +552,9 @@ const EditFile: React.FC<EditFileProps> = ({
                 </div>
               )}
               <div className="mt-8">
-                <p className="font-semibold">File Preview</p>
                 {filePreviewURL && !getValues("isURL") && !getValues("url") && (
                   <>
+                    <p className="font-semibold">File Preview</p>
                     {previewLoading ? (
                       <LoadingSpinner />
                     ) : (
@@ -713,7 +717,9 @@ const EditFile: React.FC<EditFileProps> = ({
                         mode="file"
                         currentPrimaryAuthor={getValues("primaryAuthor")}
                         currentAuthors={getValues("authors")}
-                        currentCorrespondingAuthor={getValues('correspondingAuthor')}
+                        currentCorrespondingAuthor={getValues(
+                          "correspondingAuthor"
+                        )}
                       />
                       <CtlTextInput
                         name="publisher.name"
