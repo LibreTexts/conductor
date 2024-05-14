@@ -2,6 +2,18 @@ import { Label, Popup } from "semantic-ui-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
+import { useMemo } from "react";
+
+type LiteTag = {
+  hex: string;
+  text: string;
+};
+
+const isLiteTag = (value: any): value is LiteTag => {
+  if (!value) return false;
+  if (typeof value !== "object") return false;
+  return "hex" in value && "text" in value;
+};
 
 const RenderAssetTags: React.FC<{
   file: ProjectFile;
@@ -49,35 +61,55 @@ const RenderAssetTags: React.FC<{
     return showTitle ? `${getLabelTitle(tag)}: ${truncated}` : truncated;
   }
 
-  function getLabelColor(tag: AssetTag, basic = false) {
+  function getLabelColor(tag: AssetTag | LiteTag, basic = false) {
     if (basic) return "";
+    if (typeof tag === "object" && isLiteTag(tag)) {
+      return tag.hex;
+    }
     if (tag?.key && isAssetTagKeyObject(tag.key)) {
       return tag.key.hex;
     }
     return "grey";
   }
 
-  function getRemainingCount(tags: string[] | AssetTag[], maxLen: number) {
+  function getRemainingCount(tags: string[] | AssetTag[] | LiteTag[], maxLen: number) {
     if (!tags) return 0;
     return tags?.length && tags?.length > maxLen ? tags?.length - maxLen : 0;
   }
 
-  const getFlattenedTags = (tags: AssetTag[]) => {
+  const _flattenTags = (tags: AssetTag[]) => {
     return tags.reduce((acc, tag) => {
       if (!tag.value || tag.value === "Unknown") return acc;
       if (Array.isArray(tag.value)) {
         if (tag.value.length === 0) return acc;
-        return [...acc, ...tag.value];
+        return [
+          ...acc,
+          ...tag.value.map((v) => ({
+            hex: isAssetTagKeyObject(tag.key) ? tag.key.hex : "grey",
+            text: v.toString(),
+          })),
+        ];
       }
-      return [...acc, tag.value?.toString() ?? "Unknown"];
-    }, [] as string[]);
+      return [
+        ...acc,
+        {
+          hex: isAssetTagKeyObject(tag.key) ? tag.key.hex : "grey",
+          text: tag.value.toString() ?? "Unknown",
+        },
+      ];
+    }, [] as LiteTag[]);
   };
+
+  const flattenedTags = useMemo(
+    () => _flattenTags(sortedTags ?? []),
+    [sortedTags]
+  );
 
   const RenderTag = ({
     color,
     size,
     value,
-    blackText
+    blackText,
   }: {
     color: string;
     size: "small" | "large";
@@ -100,7 +132,7 @@ const RenderAssetTags: React.FC<{
   };
 
   const RenderRemainingLabel = (
-    tags: string[] | AssetTag[],
+    tags: string[] | AssetTag[] | LiteTag[],
     maxLen: number
   ) => {
     const remaining = getRemainingCount(tags, maxLen);
@@ -123,23 +155,21 @@ const RenderAssetTags: React.FC<{
             ))}
           {sortedTags &&
             spreadArray &&
-            getFlattenedTags(sortedTags)
-              .slice(0, max)
-              .map((value, index) => {
-                const color = getLabelColor(
-                  sortedTags[index],
-                  basic
-                ).toString();
-                return (
-                  <RenderTag
-                    color={color}
-                    key={index}
-                    size={size}
-                    value={value}
-                    blackText={basic}
-                  />
-                );
-              })}
+            flattenedTags.slice(0, max).map((t, index) => {
+              const color = getLabelColor(
+                flattenedTags[index],
+                basic
+              ).toString();
+              return (
+                <RenderTag
+                  color={color}
+                  key={index}
+                  size={size}
+                  value={t.text}
+                  blackText={basic}
+                />
+              );
+            })}
           {sortedTags &&
             !spreadArray &&
             sortedTags?.slice(0, max).map((tag) => {
@@ -157,10 +187,7 @@ const RenderAssetTags: React.FC<{
               );
             })}
           {sortedTags &&
-            RenderRemainingLabel(
-              spreadArray ? getFlattenedTags(sortedTags) : sortedTags,
-              max
-            )}
+            RenderRemainingLabel(spreadArray ? flattenedTags : sortedTags, max)}
         </div>
       }
       content={sortedTags?.map((tag) => {
@@ -172,11 +199,23 @@ const RenderAssetTags: React.FC<{
             <span className="font-semibold">{title}</span>:{" "}
             {text &&
               spreadArray &&
-              getFlattenedTags([tag]).map((text) => {
-                return <RenderTag color={color} size="small" value={text} blackText={false}/>;
+              _flattenTags([tag]).map((t) => {
+                return (
+                  <RenderTag
+                    color={color}
+                    size="small"
+                    value={t.text}
+                    blackText={false}
+                  />
+                );
               })}
             {text && !spreadArray && (
-              <RenderTag color={color} size="small" value={text} blackText={false}/>
+              <RenderTag
+                color={color}
+                size="small"
+                value={text}
+                blackText={false}
+              />
             )}
             {!text && "No value provided"}
           </div>
