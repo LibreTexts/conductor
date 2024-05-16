@@ -15,6 +15,21 @@ interface TicketCommentProps {
 }
 
 const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
+  const formatMessage = (message: string) => {
+    return message.split("\n").map((line, index) => {
+      // ignore trailing empty line
+      if (index === message.split("\n").length - 1 && line === "") {
+        return null;
+      }
+      return (
+        <span key={index}>
+          {line}
+          <br />
+        </span>
+      );
+    });
+  };
+
   return (
     <Comment className="flex flex-row w-full border-b items-center py-4 px-2">
       <CommentAvatar
@@ -39,7 +54,9 @@ const TicketComment: React.FC<TicketCommentProps> = ({ msg }) => {
             </p>
           </CommentMetadata>
         </div>
-        <CommentText className="!break-words">{msg.message}</CommentText>
+        <CommentText className="!break-words">
+          {formatMessage(msg.message)}
+        </CommentText>
       </CommentContent>
     </Comment>
   );
