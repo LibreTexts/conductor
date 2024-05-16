@@ -11,7 +11,8 @@ const TextArea = ({
   onTextChange,
   hideFormatMsg,
   contentType,
-  error
+  error,
+  innerRef
 }) => {
 
   /**
@@ -31,6 +32,7 @@ const TextArea = ({
         value={textValue}
         onChange={handleInputChange}
         rows={1}
+        ref={innerRef}
       />
       {!hideFormatMsg && (
         <div id={styles.format_msg}>
@@ -50,6 +52,7 @@ TextArea.propTypes = {
   hideFormatMsg: PropTypes.bool,
   contentType: PropTypes.string,
   error: PropTypes.bool,
+  innerRef: PropTypes.object
 };
 
 TextArea.defaultProps = {
@@ -59,6 +62,7 @@ TextArea.defaultProps = {
   hideFormatMsg: false,
   contentType: 'message',
   error: false,
+  innerRef: null
 };
 
 
