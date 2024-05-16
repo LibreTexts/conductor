@@ -826,7 +826,7 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message,
         subject: `New Message on Support Ticket (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
-            <p>A new message has been posted to your support ticket.</p>
+            <p>A new message has been posted a support ticket you have subscribed to.</p>
             <p><strong>${messageSender}</strong> said:</p>
             <p>${message}</p>
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
@@ -882,7 +882,7 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresse
         subject: `New Internal Message on Support Ticket (P: ${priority}) (ID #${ticketID.slice(-7)})`,
         html: `
             <p>Hi,</p>
-            <p>A new internal message has been posted to a support ticket you are assigned to: "${subject}"</p>
+            <p>A new internal message has been posted to a support ticket you have subscribed to: "${subject}"</p>
             <br />
             <p><strong>${messageSender}</strong> said:</p>
             <p>${message}</p>
