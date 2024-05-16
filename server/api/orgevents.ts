@@ -67,7 +67,7 @@ async function getOrgEvents(
       },
       undefined,
       {
-        sort: { title: 1 },
+        sort: { regOpenDate: -1 },
       }
     )
       .skip(offset)
