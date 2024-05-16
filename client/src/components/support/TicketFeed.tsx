@@ -46,7 +46,7 @@ const TicketFeed: React.FC<TicketFeedProps> = ({ ticket }) => {
 
   return (
     <div className="flex flex-col w-full bg-white rounded-md">
-      <div className="flex flex-col border shadow-md rounded-md p-4">
+      <div className="flex flex-col border shadow-md rounded-md p-4 max-h-96 overflow-y-auto">
         <p className="text-2xl font-semibold text-center mb-0">Activity Feed</p>
         <div className="flex flex-col mt-2">
           {ticket.feed?.length === 0 && (

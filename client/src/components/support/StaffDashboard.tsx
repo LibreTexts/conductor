@@ -275,7 +275,7 @@ const StaffDashboard = () => {
           title="Open/In Progress Tickets"
         />
         <DashboardMetric
-          metric={supportMetrics?.avgDaysToClose?.toString() + " days"}
+          metric={supportMetrics?.avgDaysToClose?.toString() ?? 0 + " days"}
           title="Average Time to Resolution"
         />
         <DashboardMetric

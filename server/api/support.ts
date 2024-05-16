@@ -412,10 +412,26 @@ async function assignTicket(
       .select("firstName lastName")
       .orFail();
 
+    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+
+    if (!assigned || assigned.length === 0) {
+      // If no assignees, remove all assignees and set status to open
+      await SupportTicket.updateOne(
+        { uuid },
+        {
+          assignedUUIDs: [],
+          status: "in_progress",
+        }
+      ).orFail();
+
+      return res.send({
+        err: false,
+        ticket,
+      });
+    }
+
     const assignees = await User.find({ uuid: { $in: assigned } }).orFail();
     const assigneeEmails = assignees.map((a) => a.email);
-
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
     // Check that ticket is open or in progress
     if (!["open", "in_progress"].includes(ticket.status)) {
