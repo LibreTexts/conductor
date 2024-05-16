@@ -76,7 +76,7 @@ export const GetClosedTicketsValidator = z.object({
 export const AssignTicketValidator = z
   .object({
     body: z.object({
-      assigned: z.array(z.string().uuid()).min(1).max(25),
+      assigned: z.array(z.string().uuid()).min(0).max(25),
     }),
   })
   .merge(TicketUUIDParams);
