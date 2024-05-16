@@ -48,7 +48,7 @@ import { ZodReqWithFiles } from "../types/Express";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import base64 from "base-64";
 import Organization from "../models/organization.js";
-import auth from "./auth";
+import authAPI from "../api/auth.js";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -1139,7 +1139,7 @@ const _getEmails = async (
 
     if (staffOnly) {
       return users
-        .filter((u) => auth.checkHasRole(u, "libretexts", "support", true))
+        .filter((u) => authAPI.checkHasRole(u, "libretexts", "support", true))
         .map((u) => u.email);
     }
 
