@@ -48,6 +48,7 @@ import { ZodReqWithFiles } from "../types/Express";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 import base64 from "base-64";
 import Organization from "../models/organization.js";
+import auth from "./auth";
 
 export const SUPPORT_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -852,41 +853,74 @@ async function createGeneralMessage(
       type: "general",
     });
 
-    // If user was found and user is not the ticket author, send a notification to the ticket author
-    if (foundUser && foundUser.uuid !== ticket.userUUID) {
-      const emailToNotify = await _getTicketAuthorEmail(ticket);
-      if (!emailToNotify) return conductor500Err(res);
+    // Notify all users who have previously commented on the ticket, are assigned to the ticket, or the ticket author
+    const previousCommenters = await SupportTicketMessage.find({
+      ticket: ticket.uuid,
+    }).distinct("senderUUID");
+
+    const allUUIDs = [
+      ...new Set([
+        ...(ticket.assignedUUIDs ?? []),
+        ...previousCommenters,
+        ticket.userUUID,
+      ]),
+    ];
+
+    const emailsToNotify = await _getEmails(allUUIDs);
+
+    // Remove the comment author from the list of emails to notify
+    if (foundUser && foundUser.uuid) {
+      const index = emailsToNotify.indexOf(foundUser.email);
+      if (index > -1) {
+        emailsToNotify.splice(index, 1);
+      }
+    }
+
+    // If the user was not found and the ticket has a guest, assume the guest is the comment author
+    // if (!foundUser && ticket.guest?.email) {
+    //   const index = emailsToNotify.indexOf(ticket.guest.email);
+    //   if (index > -1) {
+    //     emailsToNotify.splice(index, 1);
+    //   }
+    // }
+
+    // Filter null or undefined emails
+    const filteredEmails = emailsToNotify.filter((e) => e);
+    if (!filteredEmails) return conductor500Err(res);
+
+    // If the ticket has a guest, but the commenter was found, send a notification to the guest
+    // otherwise, we assume the commenter is the guest
+    const senderName = foundUser
+      ? `${foundUser?.firstName} ${foundUser?.lastName}`
+      : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`;
+    if (ticket.guest?.email && foundUser?.uuid) {
       const params = new URLSearchParams();
       params.append("accessKey", ticket.guestAccessKey);
-      const addParams = !foundUser?.uuid ? true : false; // if guest, append access key to ticket path
-
-      const senderName = `${foundUser.firstName} ${foundUser.lastName}`;
 
       await mailAPI.sendNewTicketMessageNotification(
-        [emailToNotify],
+        [ticket.guest.email],
         ticket.uuid,
         message,
         senderName,
-        addParams ? params.toString() : ""
+        params.toString()
       );
     }
 
-    // If user was found and user is the ticket author, send a notification to assigned staff
-    if ((foundUser && foundUser.uuid === ticket.userUUID) || !foundUser) {
-      const teamToNotify = await _getAssignedStaffEmails(ticket.assignedUUIDs);
-      if (teamToNotify.length > 0) {
-        await mailAPI.sendNewTicketMessageAssignedStaffNotification(
-          teamToNotify,
-          ticket.uuid,
-          message,
-          foundUser
-            ? `${foundUser.firstName} ${foundUser.lastName}`
-            : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`,
-          capitalizeFirstLetter(ticket.priority),
-          ticket.title
-        );
-      }
+    // If no other emails to notify, return (ie ticket author commented on their own ticket before ticket was assigned to staff)
+    if (filteredEmails.length === 0) {
+      return res.send({
+        err: false,
+        message: ticketMessage,
+      });
     }
+
+    await mailAPI.sendNewTicketMessageNotification(
+      filteredEmails,
+      ticket.uuid,
+      message,
+      senderName,
+      ""
+    );
 
     return res.send({
       err: false,
@@ -945,8 +979,20 @@ async function createInternalMessage(
       type: "internal",
     });
 
-    const allTeamEmails = await _getAssignedStaffEmails(ticket.assignedUUIDs);
-    const teamToNotify = allTeamEmails.filter((e) => e !== foundUser.email); // remove the sender from the list of emails to notify
+    const previousCommenters = await SupportTicketMessage.find({
+      ticket: ticket.uuid,
+    }).distinct("senderUUID");
+
+    const allUUIDs = [
+      ...new Set([
+        ...(ticket.assignedUUIDs ?? []),
+        ...previousCommenters,
+        ticket.userUUID,
+      ]),
+    ];
+
+    const emailsToNotify = await _getEmails(allUUIDs, true); // only notify staff
+    const teamToNotify = emailsToNotify.filter((e) => e !== foundUser.email); // remove the sender from the list of emails to notify
     if (teamToNotify.length > 0) {
       await mailAPI.sendNewInternalTicketMessageAssignedStaffNotification(
         teamToNotify,
@@ -954,7 +1000,7 @@ async function createInternalMessage(
         message,
         foundUser
           ? `${foundUser.firstName} ${foundUser.lastName}`
-          : `${ticket.guest?.firstName} ${ticket.guest?.lastName}`,
+          : "Unknown Commenter",
         capitalizeFirstLetter(ticket.priority),
         ticket.title
       );
@@ -1063,6 +1109,28 @@ const _getTicketAuthorEmail = async (
     return ticket.guest.email;
   }
   return undefined;
+};
+
+const _getEmails = async (
+  uuids: string[],
+  staffOnly = false
+): Promise<string[]> => {
+  try {
+    if (!uuids || uuids.length === 0) return [];
+    const users = await User.find({
+      uuid: { $in: uuids },
+    });
+
+    if (staffOnly) {
+      return users
+        .filter((u) => auth.checkHasRole(u, "libretexts", "support", true))
+        .map((u) => u.email);
+    }
+
+    return users.map((u) => u.email);
+  } catch (err) {
+    throw err;
+  }
 };
 
 const _getTicketAuthorString = (
