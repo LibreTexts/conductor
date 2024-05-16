@@ -124,6 +124,14 @@ const EventsManager = () => {
         <Table.Cell>
           <Button
             as={Link}
+            to={`/controlpanel/eventsmanager/edit/${orgEvent.eventID}`}
+            color="blue"
+          >
+            <Icon name="eye" />
+            View
+          </Button>
+          <Button
+            as={Link}
             to={`/controlpanel/eventsmanager/create?duplicateID=${orgEvent.eventID}`}
           >
             <Icon name="copy" />
