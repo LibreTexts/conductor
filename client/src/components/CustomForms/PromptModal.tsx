@@ -11,7 +11,7 @@ import {
 } from "semantic-ui-react";
 import { CustomFormPromptType, GenericKeyTextValueObj } from "../../types";
 import { customFormPromptTypes } from "./CustomFormPromptTypes";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface PromptModalProps extends ModalProps {
   show: boolean;
@@ -63,6 +63,13 @@ const PromptModal: React.FC<PromptModalProps> = ({
     setPromptTypeError(false);
     setDropdownError(false);
     setDropdownErrorText("");
+
+    if (show) {
+      const textInput = document.getElementById("prompt-text-input");
+      if (textInput) {
+        textInput.focus();
+      }
+    }
   }, [show]);
 
   function validateForm() {
@@ -89,7 +96,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
       setDropdownErrorText("Option must be between 1 and 250 characters.");
       return;
     }
-    
+
     onAddDropdownPromptOption();
     setDropdownError(false);
     setDropdownErrorText("");
@@ -109,6 +116,7 @@ const PromptModal: React.FC<PromptModalProps> = ({
             placeholder="Enter prompt/instructions/question..."
             error={promptTextError}
             required={true}
+            id="prompt-text-input"
           />
           <Form.Select
             options={customFormPromptTypes}

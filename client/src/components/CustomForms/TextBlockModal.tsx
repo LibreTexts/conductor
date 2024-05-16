@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from "react";
 import { Modal, Button, Icon, ModalProps } from "semantic-ui-react";
 import TextArea from "../TextArea";
 
@@ -23,15 +23,13 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
   loading,
   ...rest
 }) => {
-  /*
-  //Auto-focus input on open
+  // Focus on text area when modal is opened
   const textAreaRef = useRef(null);
   useEffect(() => {
     if (show && textAreaRef.current) {
       (textAreaRef.current as HTMLFormElement).focus();
     }
   }, [show]);
-  */
 
   return (
     <Modal open={show} onClose={onClose} {...rest}>
@@ -41,6 +39,7 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
           placeholder={`Enter ${mode === "add" && "new"} text...`}
           textValue={value}
           onTextChange={(newVal) => onChange(newVal)}
+          innerRef={textAreaRef}
         />
       </Modal.Content>
       <Modal.Actions>
