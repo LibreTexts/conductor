@@ -264,6 +264,9 @@ async function createOrgEvent(
       regFee: req.body.regFee,
       collectShipping: req.body.collectShipping ?? false,
       ...(req.body.prompts && { prompts: req.body.prompts }),
+      ...(req.body.headings && { headings: req.body.headings }),
+      ...(req.body.textBlocks && { textBlocks: req.body.textBlocks }),
+      ...(req.body.description && { description: req.body.description }),
     });
 
     const newDoc = await orgEvent.save();
