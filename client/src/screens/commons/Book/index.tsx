@@ -1061,7 +1061,7 @@ const CommonsBook = () => {
                 </Segment>
               )}
               {showFiles && projFiles && projFiles.length > 0 && (
-                <Segment.Group size="large" raised className="mb-4p">
+                <Segment.Group size="large">
                   <Segment>
                     <div className="ui dividing header">
                       <div className="hideablesection">
