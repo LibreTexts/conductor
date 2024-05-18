@@ -128,6 +128,13 @@ const SupportDashboard = () => {
                       {capitalizeFirstLetter(ticket.priority)}
                     </Table.Cell>
                     <Table.Cell>
+                      {ticket.timeClosed &&
+                        format(
+                          parseISO(ticket.timeClosed),
+                          "MM/dd/yyyy hh:mm aa"
+                        )}
+                    </Table.Cell>
+                    <Table.Cell>
                       <Button
                         color="blue"
                         size="tiny"

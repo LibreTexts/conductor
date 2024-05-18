@@ -26,7 +26,9 @@ import SupportTicket, {
   SupportTicketFeedEntryInterface,
   SupportTicketInterface,
 } from "../models/supporticket.js";
-import SupportTicketMessage from "../models/supporticketmessage.js";
+import SupportTicketMessage, {
+  SupportTicketMessageInterface,
+} from "../models/supporticketmessage.js";
 import mailAPI from "../api/mail.js";
 import multer from "multer";
 import async from "async";
@@ -42,7 +44,7 @@ import {
   capitalizeFirstLetter,
   getPaginationOffset,
 } from "../util/helpers.js";
-import { addMonths, differenceInMinutes, subDays } from "date-fns";
+import { addDays, addMonths, differenceInMinutes, subDays } from "date-fns";
 import { randomBytes } from "crypto";
 import { ZodReqWithFiles } from "../types/Express";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
@@ -745,7 +747,7 @@ async function updateTicket(
 ) {
   try {
     const { uuid } = req.params;
-    const { priority, status } = req.body;
+    const { priority, status, autoCloseSilenced } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
     const user = await User.findOne({ uuid: userUUID }).orFail();
@@ -753,7 +755,28 @@ async function updateTicket(
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
     // If status/priority is the same, just return the ticket
-    if (ticket.status === status && ticket.priority === priority) {
+    if (
+      ticket.status === status &&
+      ticket.priority === priority &&
+      !autoCloseSilenced
+    ) {
+      return res.send({
+        err: false,
+        ticket,
+      });
+    }
+
+    // If autoCloseSilenced is true, update the ticket and return
+    if (autoCloseSilenced) {
+      await SupportTicket.updateOne(
+        { uuid },
+        {
+          autoCloseSilenced: true,
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+        }
+      ).orFail();
+
       return res.send({
         err: false,
         ticket,
@@ -852,7 +875,13 @@ async function createGeneralMessage(
     const { message, attachments } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      {
+        autoCloseTriggered: false,
+        autoCloseDate: null,
+      }
+    ).orFail(); // reset auto-close trigger
     let foundUser;
     if (userUUID) {
       foundUser = await User.findOne({ uuid: userUUID });
@@ -955,7 +984,7 @@ async function getInternalMessages(
 ) {
   try {
     const { uuid } = req.params;
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOne({ uuid }).orFail(); // reset auto-close trigger
     const ticketMessages = await SupportTicketMessage.find({
       ticket: ticket.uuid,
       type: "internal",
@@ -982,7 +1011,13 @@ async function createInternalMessage(
     const { message, attachments } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
-    const ticket = await SupportTicket.findOne({ uuid }).orFail();
+    const ticket = await SupportTicket.findOneAndUpdate(
+      { uuid },
+      {
+        autoCloseTriggered: false,
+        autoCloseDate: null,
+      }
+    ).orFail();
     const foundUser = await User.findOne({ uuid: userUUID }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -1045,6 +1080,135 @@ async function deleteTicket(
   } catch (err) {
     debugError(err);
     return conductor500Err(res);
+  }
+}
+
+async function findTicketsToInitAutoClose(req: Request, res: Response) {
+  try {
+    const tickets = await SupportTicket.find({
+      status: "in_progress",
+      autoCloseSilenced: { $ne: true },
+    }).populate("messages");
+
+    const toSet: SupportTicketInterface[] = [];
+
+    // Check if the ticket has had any messages in the last 7 days
+    for (const ticket of tickets) {
+      // @ts-ignore
+      const lastMessage = ticket.messages[ticket.messages.length - 1];
+      if (!lastMessage) {
+        // toSet.push(ticket);
+        continue; // ignore tickets with no messages for now
+      }
+
+      const lastMessageDate = new Date(
+        (lastMessage as SupportTicketMessageInterface).timeSent
+      );
+
+      const implementationDate = new Date("2024-05-19");
+      const sevenDaysAgo = subDays(new Date(), 7);
+      if (
+        lastMessageDate < sevenDaysAgo &&
+        lastMessageDate > implementationDate
+      ) {
+        toSet.push(ticket);
+      }
+    }
+
+    if (toSet.length === 0) {
+      return res.send({
+        err: false,
+      });
+    }
+
+    await SupportTicket.updateMany(
+      {
+        uuid: {
+          $in: toSet.map((t) => t.uuid),
+        },
+      },
+      {
+        autoCloseTriggered: true,
+        autoCloseDate: addDays(new Date(), 3).toISOString(), // 3 days from now
+      }
+    );
+
+    for (const ticket of toSet) {
+      await _sendAutoCloseWarning(
+        ticket as SupportTicketInterface & {
+          messages: SupportTicketMessageInterface[];
+        }
+      );
+    }
+
+    return res.send({ err: false });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function autoCloseTickets(req: Request, res: Response) {
+  try {
+    const tickets = await SupportTicket.find({
+      autoCloseTriggered: true,
+      autoCloseDate: { $lte: new Date().toISOString() },
+      autoCloseSilenced: { $ne: true }, // ignore silenced tickets
+    });
+
+    const feedEntry = _createFeedEntry_AutoClosed();
+
+    for (const ticket of tickets) {
+      await SupportTicket.updateOne(
+        { uuid: ticket.uuid },
+        {
+          status: "closed",
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+          timeClosed: new Date().toISOString(),
+          feed: [...ticket.feed, feedEntry],
+        }
+      );
+    }
+
+    return res.send({
+      err: false,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function _sendAutoCloseWarning(
+  ticket: SupportTicketInterface & { messages: SupportTicketMessageInterface[] }
+) {
+  try {
+    const allCommenters = ticket.messages.map((m) => m.senderUUID);
+    const userIds = [
+      ...(ticket.userUUID ? [ticket.userUUID] : []),
+      ...(ticket.assignedUUIDs ?? []),
+      ...allCommenters,
+    ].filter((u) => u);
+
+    const uniqueUserIds = [...new Set(userIds)] as string[];
+
+    const emails = await _getEmails(uniqueUserIds, false);
+    if (ticket.guest?.email) emails.push(ticket.guest.email);
+
+    if (emails.length === 0) return;
+
+    const params = new URLSearchParams();
+    params.append("accessKey", ticket.guestAccessKey);
+
+    await mailAPI.sendSupportTicketAutoCloseWarning(
+      emails,
+      ticket.uuid,
+      ticket.title,
+      ticket.guest?.email ? params.toString() : ""
+    );
+  } catch (err) {
+    throw err;
   }
 }
 
@@ -1246,6 +1410,14 @@ const _createFeedEntryPriorityChanged = (
   };
 };
 
+const _createFeedEntry_AutoClosed = (): SupportTicketFeedEntryInterface => {
+  return {
+    action: "Ticket was automatically closed",
+    blame: "Conductor System",
+    date: new Date().toISOString(),
+  };
+};
+
 export default {
   getTicket,
   getUserTickets,
@@ -1263,5 +1435,7 @@ export default {
   createInternalMessage,
   getInternalMessages,
   deleteTicket,
+  findTicketsToInitAutoClose,
+  autoCloseTickets,
   ticketAttachmentUploadHandler,
 };

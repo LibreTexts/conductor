@@ -1832,4 +1832,14 @@ router.route('/support/ticket').post(
   supportAPI.createTicket
 )
 
+router.route('/support/init-autoclose').post(
+  middleware.checkEventBridgeAPIKey,
+  supportAPI.findTicketsToInitAutoClose
+)
+
+router.route('/support/run-autoclose').post(
+  middleware.checkEventBridgeAPIKey,
+  supportAPI.autoCloseTickets
+)
+
 export default router;

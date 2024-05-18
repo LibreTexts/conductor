@@ -44,6 +44,7 @@ export const UpdateTicketValidator = z
     body: z.object({
       priority: z.enum(["low", "medium", "high"]),
       status: z.enum(["open", "in_progress", "closed"]),
+      autoCloseSilenced: z.boolean().optional(),
     }),
   })
   .merge(TicketUUIDParams);
