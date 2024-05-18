@@ -87,6 +87,23 @@ const checkLibreAPIKey = (req: Request, res: Response, next: NextFunction) => {
 };
 
 /**
+ * Verifies that a request has provided a valid key from an EventBridge event.
+ * @param {object} req - The Express.js request object.
+ * @param {object} res - The Express.js response object.
+ * @param {function} next - The next function in the middleware chain.
+ */
+const checkEventBridgeAPIKey = (req: Request, res: Response, next: NextFunction) => {
+  if (typeof req.headers?.authorization === "string") {
+    const foundToken = req.headers.authorization.replace("Bearer ", "");
+    if (!process.env.EVENT_BRIDGE_API_KEY || process.env.EVENT_BRIDGE_API_KEY.length === 0) {
+      return res.status(500).send({ errMsg: conductorErrors.err6 });
+    }
+    if (process.env.EVENT_BRIDGE_API_KEY === foundToken) return next();
+  }
+  return res.status(401).send({ errMsg: conductorErrors.err5 });
+};
+
+/**
  * Reconstructs the Authorization header from cookies, if not already present.
  *
  * @param {express.Request} req - Incoming request object.
@@ -317,6 +334,7 @@ export default {
   checkValidationErrors,
   checkLibreCommons,
   checkLibreAPIKey,
+  checkEventBridgeAPIKey,
   authSanitizer,
   requestSecurityHelper,
   middlewareFilter,

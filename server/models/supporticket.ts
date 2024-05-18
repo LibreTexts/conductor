@@ -44,6 +44,9 @@ export interface SupportTicketInterface extends Document {
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntryInterface[];
+  autoCloseTriggered?: boolean;
+  autoCloseDate?: string;
+  autoCloseSilenced?: boolean;
 }
 
 const SupportTicketSchema = new Schema<SupportTicketInterface>({
@@ -153,6 +156,15 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
       },
     ],
   },
+  autoCloseTriggered: {
+    type: Boolean,
+  },
+  autoCloseDate: {
+    type: Date,
+  },
+  autoCloseSilenced: {
+    type: Boolean,
+  },
 });
 
 SupportTicketSchema.virtual("assignedUsers", {
@@ -173,6 +185,12 @@ SupportTicketSchema.virtual("user", {
     projection: SanitizedUserSelectProjection,
   },
 });
+
+SupportTicketSchema.virtual("messages", {
+  ref: "SupportTicketMessage",
+  localField: "uuid",
+  foreignField: "ticket",
+})
 
 SupportTicketSchema.index({ title: "text" });
 SupportTicketSchema.set("toObject", { virtuals: true });

@@ -24,6 +24,7 @@ import ConfirmDeleteTicketModal from "../../../components/support/ConfirmDeleteT
 import api from "../../../api";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
 import { ca, hi } from "date-fns/locale";
+import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -86,6 +87,13 @@ const SupportTicketView = () => {
     },
   });
 
+  const disableAutoCloseMutation = useMutation({
+    mutationFn: () => updateTicket({ autoCloseSilenced: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["ticket", id]);
+    },
+  });
+
   const deleteTicketMutation = useMutation({
     mutationFn: () => deleteTicket(),
     onSuccess: () => {
@@ -130,9 +138,11 @@ const SupportTicketView = () => {
   async function updateTicket({
     status,
     priority,
+    autoCloseSilenced,
   }: {
     status?: "open" | "in_progress" | "closed";
     priority?: "high" | "medium" | "low";
+    autoCloseSilenced?: boolean;
   }) {
     try {
       if (typeof id !== "string" || !id) {
@@ -144,6 +154,7 @@ const SupportTicketView = () => {
         ...ticket,
         ...(status && { status }),
         ...(priority && { priority: priority.toLowerCase() }),
+        ...(autoCloseSilenced && { autoCloseSilenced }),
       });
 
       if (res.data.err) {
@@ -293,6 +304,14 @@ const SupportTicketView = () => {
             </div>
             <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
               <div className="flex flex-col xl:basis-2/5 xl:pl-4">
+                {ticket?.autoCloseTriggered && (
+                  <TicketAutoCloseWarning
+                    ticket={ticket}
+                    onDisableAutoClose={() =>
+                      disableAutoCloseMutation.mutateAsync()
+                    }
+                  />
+                )}
                 <TicketDetails ticket={ticket} />
                 <div className="mt-4">
                   <TicketFeed ticket={ticket} />

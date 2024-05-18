@@ -24,6 +24,9 @@ export type SupportTicket = {
   timeOpened: string;
   timeClosed?: string;
   feed: SupportTicketFeedEntry[];
+  autoCloseTriggered?: boolean;
+  autoCloseDate?: string;
+  autoCloseSilenced?: boolean;
 };
 
 export type SupportTicketMessage = {

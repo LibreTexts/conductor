@@ -895,6 +895,32 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresse
     });
 };
 
+/**
+ * Sends a warning that a ticket will be closed in 3 days if no response is received.
+ * @param {string[]} recipientAddresses - the email addresses to send the notification to
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} subject - the ticket's subject
+ * @param {string} params - any URL parameters to append to the ticket URL
+ */
+const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject, params) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `Ticket Will Automatically Close Soon (ID #${ticketID.slice(-7)})`,
+        html: `
+            <p>Hi,</p>
+            <p>We're writing to let you know that a support ticket you have subscribed to will automatically close for inactivity in three days from this notification: "${subject}"</p>
+            <br />
+            <p>If you would like to keep the ticket open, please respond to the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            <br />
+            <p>Otherwise, no action is required.
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
 const sendZIPFileReadyNotification = (url, recipientAddress) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
@@ -980,5 +1006,6 @@ export default {
     sendNewTicketMessageAssignedStaffNotification,
     sendNewInternalTicketMessageAssignedStaffNotification,
     sendSupportTicketAssignedNotification,
+    sendSupportTicketAutoCloseWarning,
     sendZIPFileReadyNotification
 }
