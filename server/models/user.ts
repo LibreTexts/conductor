@@ -134,6 +134,10 @@ const UserSchema = new Schema<UserInterface>(
 );
 
 UserSchema.index({
+  firstName: 1
+})
+
+UserSchema.index({
   email: "text",
   firstName: "text",
   lastName: "text",
