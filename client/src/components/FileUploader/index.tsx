@@ -35,6 +35,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
 
   // Uploader State
   const [dragActive, setDragActive] = useState(false);
+  const [files, setFiles] = useState<File[]>([]); // for showing uploads
 
   /**
    * Activates the "droppable" area visual state when a file is dragged into the uploader.
@@ -61,26 +62,31 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     e: React.DragEvent | React.ChangeEvent,
     src = "select"
   ) {
-    let files;
+    let filesToUpload: FileList | null = null;
     if (src === "drag") {
       if ((e as React.DragEvent).dataTransfer?.files) {
-        files = (e as React.DragEvent).dataTransfer.files;
+        filesToUpload = (e as React.DragEvent).dataTransfer.files;
       }
     } else {
       // @ts-expect-error
       if ((e as React.ChangeEvent).target?.files) {
         // @ts-expect-error
-        files = e.target.files;
+        filesToUpload = e.target.files;
       }
     }
-    if (multiple && maxFiles && files.length > maxFiles) {
+
+    const newLength = files
+      ? files.length + (filesToUpload ? filesToUpload.length : 0)
+      : 0;
+    if (multiple && maxFiles && newLength > maxFiles) {
       // too many files
       handleGlobalError(
         `This uploader accepts a maximum of ${maxFiles} files.`
       );
-    } else if (files.length > 0) {
+    } else if (filesToUpload && filesToUpload.length > 0) {
       // files uploaded
-      onUpload(files);
+      setFiles([...files, ...Array.from(filesToUpload)]); // for showing uploads (not actually used for upload)
+      onUpload(filesToUpload);
     }
   }
 
@@ -159,10 +165,15 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           onDrop={handleFileDrop}
         />
       )}
-      {showUploads && multiple && inputReference.current?.files && (
+      {showUploads && multiple && files && files.length > 0 && (
         <div className="flex flex-row justify-start mt-2">
-          {Array.from(inputReference.current.files).map((file) => (
-            <Label color="blue" size="tiny" key={crypto.randomUUID()} className="mr-2">
+          {Array.from(files).map((file) => (
+            <Label
+              color="blue"
+              size="tiny"
+              key={crypto.randomUUID()}
+              className="mr-2"
+            >
               {truncateString(file.name, 40)}
             </Label>
           ))}

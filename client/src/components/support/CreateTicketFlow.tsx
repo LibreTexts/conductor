@@ -189,7 +189,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         return;
       }
 
-      await handleAttachmentsUpload(res.data.ticket.uuid, files);
+      await handleAttachmentsUpload(res.data.ticket.uuid, files, res.data.ticket.guestAccessKey);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -197,7 +197,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     }
   }
 
-  async function handleAttachmentsUpload(ticketID: string, files: File[]) {
+  async function handleAttachmentsUpload(ticketID: string, files: File[], guestAccessKey?: string) {
     setLoading(true);
     const formData = new FormData();
     Array.from(files).forEach((file) => {
@@ -206,7 +206,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
     try {
       const uploadRes = await axios.post(
-        `/support/ticket/${ticketID}/attachments`,
+        `/support/ticket/${ticketID}/attachments${guestAccessKey ? `?accessKey=${guestAccessKey}` : ''}`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -223,9 +223,9 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     }
   }
 
-  async function saveFilesToState(files: FileList) {
+  async function saveFilesToState(filesToSet: FileList) {
     setLoading(true);
-    setFiles(Array.from(files));
+    setFiles([...files, ...Array.from(filesToSet)]);
     setLoading(false);
   }
 
@@ -254,7 +254,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
             )}
             {(!user || !user.uuid) && (
               <div className="mb-4">
-                <p className="font-bold mb-1">Your Contact Info</p>
+                <p className="font-bold mb-1 text-lg">Your Contact Info</p>
                 <div className="flex flex-col lg:flex-row w-full">
                   <div className="w-full mr-8">
                     <CtlTextInput
@@ -320,7 +320,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 <Divider className="" />
               </div>
             )}
-            <p className="font-bold !mb-2">Request Info</p>
+            <p className="font-bold !mb-0 text-lg">Request Info</p>
+            <p className="text-gray-500 text-sm !mt-1">
+              Please only submit one ticket per issue. If you have multiple
+              issues, please submit a separate ticket for each.
+            </p>
             <div className="!mt-0">
               <CtlTextInput
                 control={control}
@@ -454,6 +458,13 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 passwords) in your description.
               </p>
             </Form.Field>
+            <p className="text-center italic">
+              <strong>Note:</strong> Please include any relevant ADAPT question
+              or course ID's in your description. Screenshots and videos of the
+              issue are also extremely helpful. If your issue is related to a
+              Conductor project, please include the project ID if possible. This
+              will help us resolve your issue faster.
+            </p>
           </Form>
           <label className="form-field-label">
             Attachments (optional) (max 4 files, 100 MB each)
