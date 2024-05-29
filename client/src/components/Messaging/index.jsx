@@ -216,7 +216,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                             <Icon name='trash'/>
                         </Button>
                         <Button
-                            color='olive'
+                            color='green'
                             onClick={openNewThreadModal}
                             fluid
                             icon
