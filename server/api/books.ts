@@ -63,6 +63,15 @@ import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 import { PipelineStage } from "mongoose";
+import {
+  createBookSchema,
+  getCommonsCatalogSchema,
+  getMasterCatalogSchema,
+  getWithBookIDParamSchema,
+  getWithBookIDBodySchema,
+  getBookFilesSchema,
+  downloadBookFileSchema,
+} from "../validators/book.js";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2125,69 +2134,6 @@ const retrieveKBExport = (_req: Request, res: Response) => {
     });
 };
 
-const createBookSchema = z.object({
-  body: z.object({
-    library: z.coerce.number().positive().int(),
-    title: z.string().min(1).max(255),
-    projectID: z.string().length(10),
-  }),
-});
-
-const getCommonsCatalogSchema = z.object({
-  query: z.object({
-    activePage: z.coerce.number().min(1).default(1),
-    limit: z.coerce.number().min(1).default(10),
-    sort: z
-      .union([z.literal("title"), z.literal("author"), z.literal("random")])
-      .optional()
-      .default("title"),
-  }),
-});
-
-const getMasterCatalogSchema = z.object({
-  query: z.object({
-    sort: z
-      .union([z.literal("title"), z.literal("author"), z.literal("random")])
-      .optional()
-      .default("title"),
-    search: z.string().min(1).optional(),
-  }),
-});
-
-const getWithBookIDParamSchema = z.object({
-  params: z.object({
-    bookID: z.string().refine(checkBookIDFormat, {
-      message: conductorErrors.err1,
-    }),
-  }),
-});
-
-const getWithBookIDBodySchema = z.object({
-  body: z.object({
-    bookID: z.string().refine(checkBookIDFormat, {
-      message: conductorErrors.err1,
-    }),
-  }),
-});
-
-const getBookFilesSchema = z.object({
-  params: z.object({
-    bookID: z.string().refine(checkBookIDFormat, {
-      message: conductorErrors.err1,
-    }),
-    fileID: z.string().uuid().optional(),
-  }),
-});
-
-const downloadBookFileSchema = z.object({
-  params: z.object({
-    bookID: z.string().refine(checkBookIDFormat, {
-      message: conductorErrors.err1,
-    }),
-    fileID: z.string().uuid(),
-  }),
-});
-
 export default {
   syncWithLibraries,
   runAutomatedSyncWithLibraries,
@@ -2205,11 +2151,4 @@ export default {
   getBookTOC,
   getLicenseReport,
   retrieveKBExport,
-  createBookSchema,
-  getCommonsCatalogSchema,
-  getMasterCatalogSchema,
-  getWithBookIDParamSchema,
-  getWithBookIDBodySchema,
-  getBookFilesSchema,
-  downloadBookFileSchema,
 };

@@ -46,6 +46,7 @@ import * as ProjectFileValidators from './api/validators/projectfiles.js';
 import * as SearchValidators from './api/validators/search.js';
 import * as AssetTagFrameworkValidators from './api/validators/assettagframeworks.js';
 import * as AuthorsValidators from './api/validators/authors.js';
+import * as BookValidators from './api/validators/book.js';
 
 const router = express.Router();
 
@@ -613,53 +614,53 @@ router.route('/commons/syncwithlibs/automated').put(
 
 /* Commons Books/Catalogs */
 router.route('/commons/catalog').get(
-  middleware.validateZod(booksAPI.getCommonsCatalogSchema),
+  middleware.validateZod(BookValidators.getCommonsCatalogSchema),
   booksAPI.getCommonsCatalog,
 );
 
 router.route('/commons/mastercatalog').get(
-  middleware.validateZod(booksAPI.getMasterCatalogSchema),
+  middleware.validateZod(BookValidators.getMasterCatalogSchema),
   booksAPI.getMasterCatalog,
 );
 
 router.route('/commons/book').post(
   authAPI.verifyRequest,
-  middleware.validateZod(booksAPI.createBookSchema),
+  middleware.validateZod(BookValidators.createBookSchema),
   booksAPI.createBook,
 )
 
 router.route('/commons/book/:bookID').get(
-  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
   booksAPI.getBookDetail,
 );
 
 router.route('/commons/book/:bookID/summary').get(
-  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
   booksAPI.getBookSummary,
 );
 
 router.route('/commons/book/:bookID/files/:fileID?').get(
-  middleware.validateZod(booksAPI.getBookFilesSchema),
+  middleware.validateZod(BookValidators.getBookFilesSchema),
   booksAPI.getBookFiles,
 );
 
 router.route('/commons/book/:bookID/files/:fileID/download').get(
-  middleware.validateZod(booksAPI.downloadBookFileSchema),
+  middleware.validateZod(BookValidators.downloadBookFileSchema),
   booksAPI.downloadBookFile,
 );
 
 router.route('/commons/book/:bookID/toc').get(
-  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
   booksAPI.getBookTOC,
 );
 
 router.route('/commons/book/:bookID/licensereport').get(
-  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
   booksAPI.getLicenseReport,
 );
 
 router.route('/commons/book/:bookID/peerreviews').get(
-  middleware.validateZod(booksAPI.getWithBookIDParamSchema),
+  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
   booksAPI.getBookPeerReviews,
 );
 
@@ -669,7 +670,7 @@ router.route('/commons/catalogs/addresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  middleware.validateZod(booksAPI.getWithBookIDBodySchema),
+  middleware.validateZod(BookValidators.getWithBookIDBodySchema),
   booksAPI.addBookToCustomCatalog,
 );
 
@@ -677,7 +678,7 @@ router.route('/commons/catalogs/removeresource').put(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  middleware.validateZod(booksAPI.getWithBookIDBodySchema),
+  middleware.validateZod(BookValidators.getWithBookIDBodySchema),
   booksAPI.removeBookFromCustomCatalog,
 );
 
