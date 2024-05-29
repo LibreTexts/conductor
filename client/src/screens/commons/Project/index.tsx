@@ -96,8 +96,8 @@ const CommonsProject = () => {
           </Breadcrumb>
         </Segment>
         <Segment loading={!loadedData} className="">
-          <div className="flex flex-row px-1 pb-8">
-            <div className="flex flex-col w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
+          <div className="flex flex-col lg:flex-row px-1 pb-8">
+            <div className="flex flex-col w-full lg:w-1/4 min-h-48 h-fit border shadow-md p-4 rounded-md mr-16">
               <Header as="h1" className="!mb-2 !ml-0.5">
                 {project?.projectURL ? (
                   <a
@@ -203,7 +203,7 @@ const CommonsProject = () => {
                 className="!mt-4"
               />
             </div>
-            <div className="flex flex-col w-3/4">
+            <div className="flex flex-col w-full lg:w-3/4 mt-8 lg:mt-0">
               {projectID && showAssets && (
                 <div className="flex flex-row ">
                   <FilesManager
