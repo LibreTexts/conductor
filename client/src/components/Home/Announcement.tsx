@@ -37,7 +37,7 @@ const Annnouncement: React.FC<AnnouncementProps> = ({
         </div>
       </div>
       <p
-        className="announcement-text prose prose-code:before:hidden prose-code:after:hidden"
+        className="announcement-text prose prose-code:before:hidden prose-code:after:hidden max-w-full"
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(
             marked(truncateString(announcement.message, 200))
