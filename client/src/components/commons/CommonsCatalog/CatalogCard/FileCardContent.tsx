@@ -64,7 +64,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       )}
       <Card.Header
         as="button"
-        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500 break-all"
+        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500 break-words hyphens-auto"
         onClick={() => handleFileDownload(file)}
       >
         <div className="line-clamp-2">{file.name}</div>
