@@ -31,6 +31,11 @@ import Fuse from "fuse.js";
 import Organization from "../models/organization.js";
 import AssetTagFramework from "../models/assettagframework.js";
 import authorsAPI from "./authors.js";
+import SearchQuery, {
+  SearchQueryInterface_Raw,
+} from "../models/searchquery.js";
+
+const searchQueryCache: SearchQueryInterface_Raw[] = []; // in-memory cache for search queries
 
 /**
  * Performs a global search across multiple Conductor resource types (e.g. Projects, Books, etc.)
@@ -50,6 +55,10 @@ async function projectsSearch(
           $options: "i",
         }
       : undefined;
+
+    if (query) {
+      addToSearchQueryCache(query, "projects"); // don't await
+    }
 
     // Get pagination offsets
     const projectsPage = parseInt(req.query.page?.toString()) || 1;
@@ -188,6 +197,10 @@ async function booksSearch(
           $options: "i",
         }
       : undefined;
+
+    if (query) {
+      addToSearchQueryCache(query, "books");
+    }
 
     const booksPage = parseInt(req.query.page?.toString()) || 1;
     const booksLimit = parseInt(req.query.limit?.toString()) || 25;
@@ -531,6 +544,10 @@ export async function assetsSearch(
     const assetsPage = parseInt(req.query.page?.toString()) || 1;
     const assetsLimit = parseInt(req.query.limit?.toString()) || 25;
     const assetsOffset = getPaginationOffset(assetsPage, assetsLimit);
+
+    if (mongoSearchQueryTerm) {
+      addToSearchQueryCache(mongoSearchQueryTerm, "assets");
+    }
 
     const projectFilesQuery = _buildAssetsSearchQuery({
       query: mongoSearchQueryTerm,
@@ -1342,6 +1359,10 @@ async function homeworkSearch(
         }
       : undefined;
 
+    if (query) {
+      addToSearchQueryCache(query, "homework"); // Don't await
+    }
+
     const homeworkPage = parseInt(req.query.page?.toString()) || 1;
     const homeworkLimit = parseInt(req.query.limit?.toString()) || 25;
     const homeworkOffset = getPaginationOffset(homeworkPage, req.query.limit);
@@ -1412,6 +1433,10 @@ async function usersSearch(
         }
       : undefined;
 
+    if (query) {
+      addToSearchQueryCache(query, "users"); // Don't await
+    }
+
     const usersPage = parseInt(req.query.page?.toString()) || 1;
     const usersLimit = parseInt(req.query.limit?.toString()) || 25;
     const usersOffset = getPaginationOffset(usersPage, req.query.limit);
@@ -1476,6 +1501,10 @@ async function authorsSearch(
   try {
     // Create regex for query
     const query = req.query.searchQuery;
+
+    if (query) {
+      addToSearchQueryCache(query, "authors"); // Don't await
+    }
 
     const authorsPage = parseInt(req.query.page?.toString()) || 1;
     const authorsLimit = parseInt(req.query.limit?.toString()) || 25;
@@ -2052,7 +2081,7 @@ function _boostExactMatches(file: any, query: string) {
         file.score = file.score * 2;
       }
     }
-  }
+  };
 
   boostByPrimaryOrCorresponding();
 
@@ -2086,6 +2115,60 @@ function _calculateLowerOutlierThreshold(numbers: number[], k = 1.5) {
   // Step 4: Return the threshold as absolute value
   return Math.abs(threshold);
 }
+
+async function addToSearchQueryCache(query: string, scope: string) {
+  try {
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    })
+
+    // @ts-ignore
+    if(!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
+
+    searchQueryCache.push({
+      query,
+      scope,
+      timestamp: new Date(),
+    });
+
+    // Flush the cache if it's too large
+    if (searchQueryCache.length >= 100) {
+      await flushSearchQueryCache();
+    }
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
+  }
+}
+
+async function flushSearchQueryCache() {
+  try {
+    if (searchQueryCache.length === 0) return true;
+
+    const org = await Organization.findOne({
+      orgID: process.env.ORG_ID,
+    });
+
+    // @ts-ignore
+    if(!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
+
+    const localCopy = [...searchQueryCache]; // Copy so we can keep collecting queries while we flush
+    searchQueryCache.splice(0, searchQueryCache.length); // Clear the cache
+
+    // Write to the database
+    await SearchQuery.insertMany(localCopy);
+    console.log("[SYSTEM] Flushed search query cache to database");
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
+  }
+}
+
+setInterval(flushSearchQueryCache, 1000 * 60 * 60 * 3); // Flush every 3 hours
 
 export default {
   assetsSearch,
