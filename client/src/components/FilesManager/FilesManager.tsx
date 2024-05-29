@@ -44,6 +44,7 @@ import { saveAs } from "file-saver";
 import { useTypedSelector } from "../../state/hooks";
 import { base64ToBlob } from "../../utils/misc";
 import { Link } from "react-router-dom";
+import { useMediaQuery } from "react-responsive";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -84,6 +85,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const { handleGlobalError } = useGlobalError();
 
   const user = useTypedSelector((state) => state.user);
+  const isTailwindLg = useMediaQuery({ minWidth: 1024 }, undefined);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
 
@@ -457,6 +459,85 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     return <Breadcrumb>{nodes}</Breadcrumb>;
   }
 
+  const RowMenu = (item: FileEntry) => {
+    return (
+      <Dropdown
+        icon={null}
+        trigger={<Icon name="ellipsis vertical" size="large" />}
+        direction="right"
+      >
+        <Dropdown.Menu>
+          {canViewDetails && (
+            <>
+              <Dropdown.Item
+                icon="edit"
+                text="Edit"
+                onClick={() => handleEditFile(item.fileID)}
+              />
+              <Dropdown.Item
+                icon="move"
+                text="Move"
+                onClick={() => handleMoveFiles([item])}
+              />
+              <Dropdown.Item
+                icon="trash"
+                text="Delete"
+                onClick={() => handleDeleteFiles([item])}
+              />
+            </>
+          )}
+          {item.storageType === "file" && (
+            <Dropdown.Item
+              icon="download"
+              text="Download"
+              onClick={() => handleDownloadFile(projectID, item.fileID)}
+            />
+          )}
+        </Dropdown.Menu>
+      </Dropdown>
+    );
+  };
+
+  const MobileTableRow = (item: FileEntry) => {
+    return (
+      <Table.Row>
+        <Table.Cell colSpan={TABLE_COLS.length}>
+          <div className="flex flex-row w-full">
+            <div className="flex flex-col w-full">
+              <p>
+                {item.storageType === "folder" ? (
+                  <Icon name="folder outline" />
+                ) : (
+                  <Icon name={getFileTypeIcon(item)} />
+                )}
+                {item.storageType === "folder" ? (
+                  <span
+                    className="text-link text-lg break-all"
+                    onClick={() => handleDirectoryClick(item.fileID)}
+                  >
+                    {item.name}
+                  </span>
+                ) : (
+                  <a
+                    onClick={() => handleDownloadFile(projectID, item.fileID)}
+                    className="text-lg cursor-pointer break-all"
+                  >
+                    {item.name}
+                  </a>
+                )}
+              </p>
+              <p>{item.description}</p>
+              <div>
+                <RenderAssetTags file={item} popupDisabled spreadArray />
+              </div>
+            </div>
+            <div className="flex flex-col">{RowMenu(item)}</div>
+          </div>
+        </Table.Cell>
+      </Table.Row>
+    );
+  };
+
   return (
     <Grid.Column className="!w-full">
       <Header as="h2" dividing>
@@ -581,6 +662,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               </Table.Header>
               <Table.Body>
                 {files.map((item) => {
+                  if (!isTailwindLg) return MobileTableRow(item);
                   return (
                     <Table.Row className="h-[60px]" key={item.fileID}>
                       {canViewDetails && (
@@ -696,45 +778,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                           spreadArray
                         />
                       </Table.Cell>
-                      <Table.Cell>
-                        <Dropdown
-                          icon={null}
-                          trigger={
-                            <Icon name="ellipsis vertical" size="large" />
-                          }
-                        >
-                          <Dropdown.Menu>
-                            {canViewDetails && (
-                              <>
-                                <Dropdown.Item
-                                  icon="edit"
-                                  text="Edit"
-                                  onClick={() => handleEditFile(item.fileID)}
-                                />
-                                <Dropdown.Item
-                                  icon="move"
-                                  text="Move"
-                                  onClick={() => handleMoveFiles([item])}
-                                />
-                                <Dropdown.Item
-                                  icon="trash"
-                                  text="Delete"
-                                  onClick={() => handleDeleteFiles([item])}
-                                />
-                              </>
-                            )}
-                            {item.storageType === "file" && (
-                              <Dropdown.Item
-                                icon="download"
-                                text="Download"
-                                onClick={() =>
-                                  handleDownloadFile(projectID, item.fileID)
-                                }
-                              />
-                            )}
-                          </Dropdown.Menu>
-                        </Dropdown>
-                      </Table.Cell>
+                      <Table.Cell>{RowMenu(item)}</Table.Cell>
                     </Table.Row>
                   );
                 })}
