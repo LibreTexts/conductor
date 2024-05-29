@@ -40,6 +40,10 @@
     word-break: break-all;
 }
 
+.conductor-chat-del:hover {
+    color: red !important;
+}
+
 #conductor-chat-reply-container {
     border-top: 1px solid rgba(34,36,38,.15);
     -webkit-box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
