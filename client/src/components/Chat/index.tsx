@@ -345,7 +345,8 @@ const Chat: FC<Chatinterface>= ({
                     />
                     {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
                       <Comment.Actions>
-                        <Comment.Action
+                        <Comment.Action className="conductor-chat-del"
+                          
                           onClick={() => handleOpenDeleteMessage(item.messageID)}
                         >
                           Delete
