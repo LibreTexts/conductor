@@ -1863,7 +1863,7 @@ const ProjectView = (props) => {
                           <Grid.Column>
                             <Header as='h3' dividing>Notes</Header>
                             <p
-                              className='project-notes-body prose prose-code:before:hidden prose-code:after:hidden'
+                              className='project-notes-body prose prose-code:before:hidden prose-code:after:hidden max-w-[100%]'
                               dangerouslySetInnerHTML={{
                                 __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))
                               }}
