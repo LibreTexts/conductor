@@ -3425,7 +3425,7 @@ const validate = (method) => {
     case 'getUserProjectsAdmin':
       return [
           query('uuid', conductorErrors.err1).exists().isString().isUUID(),
-          param('centralID', conductorErrors.err1).optional({checkFalsy: true}).isBoolean().toBoolean()
+          query('centralID', conductorErrors.err1).optional({checkFalsy: true}).isBoolean().toBoolean()
       ]
     case 'addMemberToProject':
       return [
