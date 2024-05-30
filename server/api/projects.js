@@ -1662,16 +1662,17 @@ async function addMemberToProject(req, res) {
     }
 
     const teamEmails = foundTeam.map((member) => member.email);
-    for (let i = 0; i < teamEmails.length; i++) {
-      await mailAPI.sendAddedAsMemberNotification(
+    const emailPromises = teamEmails.map((e) => {
+      return mailAPI.sendAddedAsMemberNotification(
         user.firstName,
-        teamEmails[i],
+        e,
         projectID,
         project.title,
-      ).catch((e) => {
-        debugError('Error sending Team Member Added notification email: ', e);
-      });
-    } 
+      )
+    });
+    await Promise.all(emailPromises).catch((e) => {
+      debugError('Error sending Team Member Added notification email: ', e);
+    });
 
     return res.send({
       err: false,
