@@ -1660,20 +1660,25 @@ async function addMemberToProject(req, res) {
     if (!foundTeam) {
       throw (new Error('Error finding updated members.'));
     }
+
     const teamEmails = foundTeam.map((member) => member.email);
-    await mailAPI.sendAddedAsMemberNotification(
-      user.firstName,
-      teamEmails,
-      projectID,
-      project.title,
-    ).catch((e) => {
+    const emailPromises = teamEmails.map((e) => {
+      return mailAPI.sendAddedAsMemberNotification(
+        user.firstName,
+        e,
+        projectID,
+        project.title,
+      )
+    });
+    await Promise.all(emailPromises).catch((e) => {
       debugError('Error sending Team Member Added notification email: ', e);
     });
-      
+
     return res.send({
       err: false,
       msg: 'Successfully added user as team member!',
     });
+
   } catch (e) {
     debugError(e);
     return res.status(500).send({
