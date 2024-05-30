@@ -96,15 +96,15 @@ const sendPasswordChangeNotification = (recipientAddress, recipientName) => {
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
  *  only after proper verification via other internal methods.
  * @param {string} newMemberName     - the newly added user's name ('firstName' or 'firstName lastName')
- * @param {array}  memberAddresses   - the email addresses of the existing prject members
+ * @param {string}  memberAddress   - the email addresses of the existing prject members
  * @param {string} projectID         - the internal project identifier string
  * @param {string} projectName       - the project's title/name
  * @returns {Promise<Object|Error>} a Mailgun API Promise
  */
-const sendAddedAsMemberNotification = (newMemberName, memberAddresses, projectID, projectName) => {
+const sendAddedAsMemberNotification = (newMemberName, memberAddress, projectID, projectName) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Conductor <conductor@noreply.libretexts.org>',
-        to: memberAddresses,
+        to: memberAddress,
         subject: `${projectName} - New Team Member Added`,
         text: `Hi, You're receiving this email because ${newMemberName} was added as a team member in the "${projectName}" project on the LibreTexts Conductor Platform. You can access this project by visiting ${process.env.LIBRE_SUBDOMAIN}.libretexts.org and opening the Projects tab. Sincerely, The LibreTexts team` + autoGenNoticeText,
         html: `<p>Hi,</p><p>You're receiving this email because ${newMemberName} was added as a team member in the <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/projects/${projectID}' target='_blank' rel='noopener noreferrer'>${projectName}</a> project on the LibreTexts Conductor Platform.</p>You can access this project by clicking the project's name in this email, or by visiting <a href='http://${process.env.LIBRE_SUBDOMAIN}.libretexts.org' target='_blank' rel='noopener noreferrer'>Conductor</a> and opening the Projects tab.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
