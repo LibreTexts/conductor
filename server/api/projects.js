@@ -953,8 +953,8 @@ async function getUserProjectsAdmin(req, res) {
     let userid = req.query.uuid;
     const centralID = req.query.centralID;
     if (centralID) {
-      const found = await User.findOne({centralID: req.query.uuid});
-      userid = found.query.uuid;
+      const found = await User.findOne({centralID: req.query.uuid}).orFail();
+      userid = found.uuid;
     };
     const projects = await Project.aggregate([
       {
@@ -1009,7 +1009,7 @@ async function getUserProjectsAdmin(req, res) {
     ]);
     return res.send({
       err: false,
-      uuid: req.query.uuid,
+      uuid: userid,
       projects: projects,
     });
   } catch (err) {
@@ -3424,7 +3424,8 @@ const validate = (method) => {
       ]
     case 'getUserProjectsAdmin':
       return [
-          query('uuid', conductorErrors.err1).exists().isString().isUUID()
+          query('uuid', conductorErrors.err1).exists().isString().isUUID(),
+          param('centralID', conductorErrors.err1).optional({checkFalsy: true}).isBoolean().toBoolean()
       ]
     case 'addMemberToProject':
       return [
