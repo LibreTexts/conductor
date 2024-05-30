@@ -948,72 +948,77 @@ const getUserProjects = (req, res) => {
  * @param {Object} req - The Express.js request object.
  * @param {Object} res - The Express.js response object.
  */
-const getUserProjectsAdmin = (req, res) => {
-  Project.aggregate([
-    {
-      $match: {
-        $and: [
-          {
-            $or: constructProjectTeamMemberQuery(req.query.uuid),
-          },
-          {
-            status: {
-              $ne: "completed",
+async function getUserProjectsAdmin(req, res) {
+  try {
+    let userid = req.query.uuid;
+    const centralID = req.query.centralID;
+    if (centralID) {
+      const found = await User.findOne({centralID: req.query.uuid});
+      userid = found.query.uuid;
+    };
+    const projects = await Project.aggregate([
+      {
+        $match: {
+          $and: [
+            {
+              $or: constructProjectTeamMemberQuery(userid),
             },
-          },
-        ],
-      },
-    },
-    {
-      $lookup: {
-        from: "users",
-        let: {
-          leads: "$leads",
-        },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $in: ["$uuid", "$$leads"],
+            {
+              status: {
+                $ne: "completed",
               },
             },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: {
+            leads: "$leads",
           },
-          {
-            $project: {
-              _id: 0,
-              uuid: 1,
-              firstName: 1,
-              lastName: 1,
-              avatar: 1,
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$uuid", "$$leads"],
+                },
+              },
             },
-          },
-        ],
-        as: "leads",
+            {
+              $project: {
+                _id: 0,
+                uuid: 1,
+                firstName: 1,
+                lastName: 1,
+                avatar: 1,
+              },
+            },
+          ],
+          as: "leads",
+        },
       },
-    },
-    {
-      $sort: {
-        title: -1,
+      {
+        $sort: {
+          title: -1,
+        },
       },
-    },
-    {
-      $project: projectListingProjection,
-    },
-  ])
-    .then((projects) => {
-      return res.send({
-        err: false,
-        uuid: req.query.uuid,
-        projects: projects,
-      });
-    })
-    .catch((err) => {
-      debugError(err);
-      return res.send({
-        err: false,
-        errMsg: conductorErrors.err6,
-      });
+      {
+        $project: projectListingProjection,
+      },
+    ]);
+    return res.send({
+      err: false,
+      uuid: req.query.uuid,
+      projects: projects,
     });
+  } catch (err) {
+    debugError(err);
+    return res.send({
+      err: false,
+      errMsg: conductorErrors.err6,
+    });
+  }
 };
 
 
