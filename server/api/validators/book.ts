@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { checkBookIDFormat } from "../../util/bookutils";
-import conductorErrors from "../../conductor-errors";
+import { checkBookIDFormat } from "../../util/bookutils.js";
+import conductorErrors from "../../conductor-errors.js";
 
 export const createBookSchema = z.object({
     body: z.object({
