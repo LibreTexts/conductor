@@ -62,34 +62,40 @@ const ProjectCardContent: React.FC<ProjectCardContentProps> = ({
         </div>
       )}
       <Card.Header as="h3" className="commons-content-card-header !mt-4">
-        {truncateString(project.title, 50)}
+        <div className="line-clamp-2">{project.title}</div>
       </Card.Header>
-      <p className="text-black">
-        <strong>Description: </strong>
-        {project?.description
-          ? truncateString(project.description, 150)
-          : "No description available."}
-      </p>
-      <CardMetaWIcon icon="user">{truncateString(piText, 85)}</CardMetaWIcon>
+      <div className="line-clamp-5 mb-1">
+        <p className="text-black">
+          <strong>Description: </strong>
+          {project?.description
+            ? project.description
+            : "No description available."}
+        </p>
+      </div>
+      <CardMetaWIcon icon="user">
+        <div className="line-clamp-1">{piText}</div>
+      </CardMetaWIcon>
       <CardMetaWIcon icon="user plus">
-        {truncateString(coPIText, 75)}
+        <div className="line-clamp-2">{coPIText}</div>
       </CardMetaWIcon>
       <CardMetaWIcon icon="university">
-        {truncateString(associatedOrgText, 60)}
+        <div className="line-clamp-1">{associatedOrgText}</div>
       </CardMetaWIcon>
       <CardMetaWIcon icon="linkify">
-        {project.projectURL ? (
-          <a
-            href={project.projectURL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="!text-blue-500 break-all"
-          >
-            {truncateString(project.projectURL, 50)}
-          </a>
-        ) : (
-          "No URL Specified"
-        )}
+        <div className="line-clamp-2">
+          {project.projectURL ? (
+            <a
+              href={project.projectURL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="!text-blue-500 break-all"
+            >
+              {project.projectURL}
+            </a>
+          ) : (
+            "No URL Specified"
+          )}
+        </div>
       </CardMetaWIcon>
       {project.contentArea && org.orgID == "calearninglab" && (
         <CardMetaWIcon icon="content">

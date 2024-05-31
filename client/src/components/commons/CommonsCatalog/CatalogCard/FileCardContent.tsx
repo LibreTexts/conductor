@@ -67,14 +67,14 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
         className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500 break-all"
         onClick={() => handleFileDownload(file)}
       >
-        {truncateString(file.name, 50)}
+        <div className="line-clamp-2">{file.name}</div>
       </Card.Header>
       <CardMetaWIcon icon="user">
         <Popup
           disabled={!prettyAuthors || prettyAuthors === "Unknown"} // Disable popup if no authors
           trigger={<div>{truncateString(prettyAuthors, 50)}</div>}
           content={
-            <div>
+            <div className="line-clamp-2">
               <p>{allAuthors}</p>
             </div>
           }
@@ -121,10 +121,10 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       <CardMetaWIcon icon="clipboard list">
         <Popup
           trigger={
-            <div>
+            <div className="line-clamp-1">
               {file.projectInfo.title ? (
                 <a href={`/commons-project/${file.projectID}`} target="_blank">
-                  {truncateString(file.projectInfo.title, 30)}
+                  {file.projectInfo.title}
                 </a>
               ) : (
                 "Unknown Project"
@@ -148,29 +148,29 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       </CardMetaWIcon>
       {!file.isURL && file.storageType === "file" && (
         <CardMetaWIcon icon={getFileTypeIcon(file)}>
-          {truncateString(file.mimeType ?? "", 30)}
+          <div className="line-clamp-1">{file.mimeType ?? ""}</div>
         </CardMetaWIcon>
       )}
       <Card.Description className="overflow-hidden !mt-1">
-        <p className="commons-content-card-author !mb-0">
-          {file.description
-            ? truncateString(file.description, 50)
-            : "No description provided"}
-        </p>
-        <div className="max-h-14 overflow-hidden mt-1">
-          <RenderAssetTags
-            file={file}
-            max={4}
-            showNoTagsMessage={false}
-            size="small"
-            basic={true}
-            spreadArray
-          />
-        </div>
-        <div className="absolute bottom-0 right-0 pb-3 pr-2">
-          {loading && <Icon loading name="spinner" size="large" />}
+        <div className="line-clamp-3">
+          <p className="commons-content-card-author !mb-0">
+            {file.description ? file.description : "No description provided"}
+          </p>
         </div>
       </Card.Description>
+      <div className="max-h-20 overflow-hidden mt-1">
+        <RenderAssetTags
+          file={file}
+          max={4}
+          showNoTagsMessage={false}
+          size="small"
+          basic={true}
+          spreadArray
+        />
+      </div>
+      <div className="absolute bottom-0 right-0 pb-3 pr-2">
+        {loading && <Icon loading name="spinner" size="large" />}
+      </div>
     </Card.Content>
   );
 };
