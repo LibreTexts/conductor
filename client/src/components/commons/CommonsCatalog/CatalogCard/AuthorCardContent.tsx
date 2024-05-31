@@ -1,11 +1,5 @@
-import {
-  Card,
-  CardContentProps,
-  CardHeader,
-  CardMeta,
-  Icon,
-} from "semantic-ui-react";
-import { Author, ConductorSearchResponseAuthor } from "../../../../types";
+import { Card, CardContentProps, CardHeader } from "semantic-ui-react";
+import { ConductorSearchResponseAuthor } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
 import { useMemo } from "react";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
@@ -37,7 +31,7 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
       </CardHeader>
       {author.primaryInstitution && (
         <CardMetaWIcon icon="university">
-          {author.primaryInstitution ?? ""}
+          <div className="line-clamp-1">{author.primaryInstitution ?? ""}</div>
         </CardMetaWIcon>
       )}
       {author.email && (
@@ -49,27 +43,36 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
       )}
       {author.projects?.length > 0 && (
         <CardMetaWIcon icon="wrench">
-          {author.projects.map((p, idx) => (
-            <a
-              href={`/commons-project/${p.projectID}`}
-              key={p.projectID}
-              className="hover:underline cursor-pointer !text-blue-500 !hover:text-blue-500"
-            >
-              {`${p.title}${author.projects.length > 1 && idx !== author.projects.length - 1 ? ", " : ""}`}
-            </a>
-          ))}
+          <div className="line-clamp-2">
+            {author.projects.map((p, idx) => (
+              <a
+                href={`/commons-project/${p.projectID}`}
+                key={p.projectID}
+                className="hover:underline cursor-pointer !text-blue-500 !hover:text-blue-500"
+              >
+                {`${p.title}${
+                  author.projects.length > 1 &&
+                  idx !== author.projects.length - 1
+                    ? ", "
+                    : ""
+                }`}
+              </a>
+            ))}
+          </div>
         </CardMetaWIcon>
       )}
       {author.url && (
         <CardMetaWIcon icon="linkify">
-          <a
-            href={author.url}
-            target="_blank"
-            rel="noreferrer"
-            className="break-all !text-blue-500 !hover:text-blue-500"
-          >
-            {truncateString(author.url, 60)}
-          </a>
+          <div className="line-clamp-2">
+            <a
+              href={author.url}
+              target="_blank"
+              rel="noreferrer"
+              className="break-all !text-blue-500 !hover:text-blue-500"
+            >
+              {author.url}
+            </a>
+          </div>
         </CardMetaWIcon>
       )}
     </Card.Content>
