@@ -31,10 +31,11 @@ const ViewUserProjectsModal: React.FC<ViewUserProjectsModalProps> = ({
 
   // Global state & hooks 
   const { handleGlobalError } = useGlobalError();
-  const user = useTypedSelector((state) => state.user);
+ // const user = useTypedSelector((state) => state.user);
 
   // Data & UI
   const [loading, setLoading] = useState(false);
+  //const [userProjects, setUserProjects] = useState<Project[]>([]);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
 
   // Effects
@@ -49,7 +50,7 @@ const ViewUserProjectsModal: React.FC<ViewUserProjectsModalProps> = ({
 
       setLoading(true);
 
-      const res = await axios.get(`/user/projects`, {
+      const res = await axios.get('/user/projects', {
         params: {
           uuid: userId,
         },
