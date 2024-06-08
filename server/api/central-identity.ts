@@ -47,21 +47,27 @@ import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 import fse from "fs-extra";
 
 async function getUsers(
-  req: TypedReqQuery<{ activePage?: number; limit?: number; query?: string }>,
+  req: TypedReqQuery<{
+    page?: number;
+    limit?: number;
+    query?: string;
+    sort?: string;
+  }>,
   res: Response<{
     err: boolean;
     users: CentralIdentityUser[];
-    totalCount: number;
+    total: number;
   }>
 ) {
   try {
     let page = 1;
-    let limit = req.query.limit || 25;
+    let limit = req.query.limit || 10;
+    const sortChoice = req.query.sort || "first";
     if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
+      req.query.page &&
+      Number.isInteger(parseInt(req.query.page.toString()))
     ) {
-      page = req.query.activePage;
+      page = req.query.page;
     }
     const offset = getPaginationOffset(page, limit);
 
@@ -77,10 +83,31 @@ async function getUsers(
       return conductor500Err(res);
     }
 
+    const sortData = (data: CentralIdentityUser[], sortChoice: string) => {
+      switch (sortChoice) {
+        case "first":
+          return data.sort((a, b) => a.first_name.localeCompare(b.first_name));
+        case "last":
+          return data.sort((a, b) => a.last_name.localeCompare(b.last_name));
+        case "email":
+          return data.sort((a, b) => a.email.localeCompare(b.email));
+        case "auth":
+          return data.sort(
+            (a, b) => a.external_idp?.localeCompare(b.external_idp ?? "") ?? 0
+          );
+        default:
+          return data;
+      }
+    };
+
+    if (req.query.sort) {
+      usersRes.data.data = sortData(usersRes.data.data, sortChoice);
+    }
+
     return res.send({
       err: false,
       users: usersRes.data.data,
-      totalCount: usersRes.data.meta.total,
+      total: usersRes.data.meta.total ?? 0,
     });
   } catch (err) {
     debugError(err);
@@ -989,9 +1016,10 @@ function validate(method: string) {
   switch (method) {
     case "getUsers": {
       return [
-        param("activePage", conductorErrors.err1).optional().isInt(),
+        param("page", conductorErrors.err1).optional().isInt(),
         param("limit", conductorErrors.err1).optional().isInt(),
         param("query", conductorErrors.err1).optional().isString(),
+        param("sort", conductorErrors.err1).optional().isString(),
       ];
     }
     case "getUser": {
