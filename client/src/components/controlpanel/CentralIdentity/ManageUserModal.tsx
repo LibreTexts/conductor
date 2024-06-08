@@ -32,7 +32,10 @@ import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
 const AddUserAppModal = lazy(() => import("./AddUserAppModal"));
 const AddUserOrgModal = lazy(() => import("./AddUserOrgModal"));
-const ConfirmRemoveOrgOrAppModal = lazy(() => import("./ConfirmRemoveOrgOrAppModal"));
+const ConfirmRemoveOrgOrAppModal = lazy(
+  () => import("./ConfirmRemoveOrgOrAppModal")
+);
+const ViewUserProjectsModal = lazy(() => import("./ViewUserProjectsModal"));
 
 interface ManageUserModalProps extends ModalProps {
   show: boolean;
@@ -73,6 +76,8 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
   const [userInitVal, setUserInitVal] = useState<
     CentralIdentityUser | undefined
   >(undefined);
+  const [showViewUserProjectsModal, setShowViewUserProjectsModal] =
+    useState<boolean>(false);
 
   // Hooks and Error Handling
   const { handleGlobalError } = useGlobalError();
@@ -190,6 +195,10 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
       return;
     }
     loadUserApps(); // Refresh user apps
+  }
+
+  function handleViewUserProjectsModalClose() {
+    setShowViewUserProjectsModal(false);
   }
 
   async function handleSave() {
@@ -505,6 +514,14 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         )}
                       </div>
                     )}
+                    <Button
+                      color="blue"
+                      className="w-fit"
+                      onClick={() => setShowViewUserProjectsModal(true)}
+                    >
+                      <Icon name="eye" />
+                      View Projects
+                    </Button>
                   </div>
                 </div>
                 <div className="mt-1p mb-2p">
@@ -706,6 +723,11 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
           userId={userId}
           targetId={removeOrgOrAppTargetId}
           onClose={handleRemoveOrgOrAppModalClose}
+        />
+        <ViewUserProjectsModal
+          show={showViewUserProjectsModal}
+          userId={userId}
+          onClose={handleViewUserProjectsModalClose}
         />
       </Modal.Content>
       <Modal.Actions>
