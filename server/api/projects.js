@@ -1000,7 +1000,7 @@ async function getUserProjectsAdmin(req, res) {
       },
       {
         $sort: {
-          title: -1,
+          title: 1,
         },
       },
       {
