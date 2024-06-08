@@ -5,15 +5,13 @@ import {
   Segment,
   Grid,
   Breadcrumb,
-  Loader,
   Table,
   Icon,
   Button,
   Dropdown,
   Input,
 } from "semantic-ui-react";
-import { CentralIdentityUser, User } from "../../../../types";
-import axios from "axios";
+import { CentralIdentityUser } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import ManageUserModal from "../../../../components/controlpanel/CentralIdentity/ManageUserModal";
@@ -23,6 +21,9 @@ import {
   getPrettyVerficationStatus,
 } from "../../../../utils/centralIdentityHelpers";
 import useDebounce from "../../../../hooks/useDebounce";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../../../api";
+import LoadingSpinner from "../../../../components/LoadingSpinner";
 
 const CentralIdentityUsers = () => {
   //Global State & Hooks
@@ -31,13 +32,13 @@ const CentralIdentityUsers = () => {
   const location = useLocation();
 
   //UI
-  const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [sortChoice, setSortChoice] = useState<string>("");
-  const [searchString, setSearchString] = useState<string>("");
+  const [sortChoice, setSortChoice] = useState<string>("first");
+  const [searchInput, setSearchInput] = useState<string>(""); // For debouncing
+  const [searchString, setSearchString] = useState<string>(""); // For the actual search
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
@@ -57,8 +58,24 @@ const CentralIdentityUsers = () => {
   ];
 
   //Data
-  const [users, setUsers] = useState<CentralIdentityUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const { data: users, isFetching } = useQuery<CentralIdentityUser[]>({
+    queryKey: [
+      "central-identity-users",
+      activePage,
+      itemsPerPage,
+      sortChoice,
+      searchString,
+    ],
+    queryFn: () =>
+      getUsers({
+        activePage,
+        itemsPerPage,
+        searchString,
+        sortChoice,
+      }),
+    keepPreviousData: true,
+  });
 
   //Effects
 
@@ -72,44 +89,48 @@ const CentralIdentityUsers = () => {
     }
   }, []);
 
-  useEffect(() => {
-    getUsers(searchString);
-  }, [activePage, itemsPerPage]);
-
   // Handlers & Methods
-  async function getUsers(searchString?: string) {
+  async function getUsers({
+    activePage,
+    itemsPerPage,
+    searchString,
+    sortChoice,
+  }: {
+    activePage: number;
+    itemsPerPage: number;
+    searchString: string;
+    sortChoice: string;
+  }) {
     try {
-      setLoading(true);
-
-      const res = await axios.get("/central-identity/users", {
-        params: {
-          activePage,
-          query: searchString,
-        },
+      const res = await api.getCentralIdentityUsers({
+        page: activePage,
+        limit: itemsPerPage,
+        query: searchString,
+        sort: sortChoice,
       });
 
       if (
         res.data.err ||
         !res.data.users ||
         !Array.isArray(res.data.users) ||
-        res.data.totalCount === undefined
+        res.data.total === undefined
       ) {
         throw new Error("Error retrieving users");
       }
 
-      setUsers(res.data.users);
-      setTotalItems(res.data.totalCount);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
+      setTotalItems(res.data.total);
+      setTotalPages(Math.ceil(res.data.total / itemsPerPage));
+
+      return res.data.users;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return [];
     }
   }
 
   const getUsersDebounced = debounce(
-    (searchVal: string) => getUsers(searchVal),
-    500
+    (searchVal: string) => setSearchString(searchVal),
+    250
   );
 
   function handleSelectUser(user: CentralIdentityUser) {
@@ -120,7 +141,6 @@ const CentralIdentityUsers = () => {
   function handleCloseUserModal() {
     setShowUserModal(false);
     setSelectedUserId(null);
-    getUsers(searchString);
   }
 
   return (
@@ -162,25 +182,25 @@ const CentralIdentityUsers = () => {
                         setSortChoice(value as string);
                       }}
                       value={sortChoice}
-                      disabled={true}
                     />
                   </Grid.Column>
                   <Grid.Column width={5}>
                     <Input
                       icon="search"
-                      placeholder="Search by First, Last, Email, or Student ID..."
+                      placeholder="Search by Name, Email, Student ID, or UUID..."
                       onChange={(e) => {
-                        setSearchString(e.target.value);
-                        getUsersDebounced(e.target.value.trim());
+                        setSearchInput(e.target.value);
+                        getUsersDebounced(e.target.value);
                       }}
-                      value={searchString}
+                      value={searchInput}
                       fluid
                     />
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
             </Segment>
-            <Segment loading={loading}>
+            {isFetching && <LoadingSpinner />}
+            <Segment>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}
@@ -190,7 +210,7 @@ const CentralIdentityUsers = () => {
                 totalLength={totalItems}
               />
             </Segment>
-            <Segment loading={loading}>
+            <Segment>
               <Table striped celled selectable>
                 <Table.Header>
                   <Table.Row>
@@ -202,7 +222,8 @@ const CentralIdentityUsers = () => {
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {users.length > 0 &&
+                  {users &&
+                    users.length > 0 &&
                     users.map((user) => {
                       return (
                         <Table.Row key={user.uuid} className="word-break-all">
@@ -281,7 +302,7 @@ const CentralIdentityUsers = () => {
                         </Table.Row>
                       );
                     })}
-                  {users.length === 0 && (
+                  {users?.length === 0 && (
                     <Table.Row>
                       <Table.Cell colSpan={TABLE_COLS.length + 1}>
                         <p className="text-center">
@@ -293,7 +314,7 @@ const CentralIdentityUsers = () => {
                 </Table.Body>
               </Table>
             </Segment>
-            <Segment loading={loading}>
+            <Segment>
               <PaginationWithItemsSelect
                 activePage={activePage}
                 totalPages={totalPages}

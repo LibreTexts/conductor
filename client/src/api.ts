@@ -10,6 +10,7 @@ import {
   BookSearchParams,
   CentralIdentityLicense,
   CentralIdentityOrg,
+  CentralIdentityUser,
   ConductorBaseResponse,
   ConductorSearchResponse,
   Homework,
@@ -304,6 +305,33 @@ class API {
         licenses: CentralIdentityLicense[];
       } & ConductorBaseResponse
     >("/central-identity/licenses");
+    return res;
+  }
+
+  async getCentralIdentityUsers({
+    page,
+    limit,
+    query,
+    sort
+  }: {
+    page?: number;
+    limit?: number;
+    query?: string;
+    sort?: string;
+  }) {
+    const res = await axios.get<
+      {
+        total: number;
+        users: CentralIdentityUser[];
+      } & ConductorBaseResponse
+    >("/central-identity/users", {
+      params: {
+        ...(page ? { page } : {}),
+        ...(limit ? { limit } : {}),
+        ...(query ? { query } : {}),
+        ...(sort ? { sort } : {}),
+      },
+    });
     return res;
   }
 
