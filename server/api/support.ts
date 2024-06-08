@@ -432,8 +432,12 @@ async function assignTicket(
       });
     }
 
+    const newAssignees = assigned.filter((a) => !ticket.assignedUUIDs?.includes(a));
+
     const assignees = await User.find({ uuid: { $in: assigned } }).orFail();
-    const assigneeEmails = assignees.map((a) => a.email);
+    const newAssigneeEmails = assignees.map((a) => {
+      if(newAssignees.includes(a.uuid)) return a.email;
+    }).filter(e => e) as string[];
 
     // Check that ticket is open or in progress
     if (!["open", "in_progress"].includes(ticket.status)) {
@@ -471,9 +475,17 @@ async function assignTicket(
       }
     ).orFail();
 
-    // Notify the assignees
+    // If no new assignees to notify (or assignee was removed), return
+    if(newAssigneeEmails.length === 0) {
+      return res.send({
+        err: false,
+        ticket
+      });
+    }
+
+    // Notify the new assignees
     await mailAPI.sendSupportTicketAssignedNotification(
-      assigneeEmails,
+      newAssigneeEmails,
       ticket.uuid,
       ticket.title,
       assigner.firstName,
