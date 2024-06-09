@@ -2122,7 +2122,6 @@ async function addToSearchQueryCache(query: string, scope: string) {
       orgID: process.env.ORG_ID,
     })
 
-    // @ts-ignore
     if(!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
 
     searchQueryCache.push({
