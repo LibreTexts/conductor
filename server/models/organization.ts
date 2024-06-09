@@ -39,6 +39,9 @@ export interface OrganizationInterface extends Document {
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
   assetFilterExclusions?: string[];
+  FEAT_AssetTagsManager?: boolean;
+  FEAT_PedagogyProjectTags?: boolean;
+  FEAT_RecordSearchQueries?: boolean;
 }
 
 const OrganizationSchema = new Schema<OrganizationInterface>(
@@ -184,6 +187,18 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Inherent asset filters that should not be displayed in the Commons.
      */
     assetFilterExclusions: [String],
+    /**
+     * Whether the Asset Tags Manager feature is enabled.
+     */
+    FEAT_AssetTagsManager: Boolean,
+    /**
+     * Whether the Pedagogy Project Tags feature is enabled.
+     */
+    FEAT_PedagogyProjectTags: Boolean,
+    /**
+     * Whether the Record Search Queries feature is enabled.
+     */
+    FEAT_RecordSearchQueries: Boolean,
   },
   {
     timestamps: true,
