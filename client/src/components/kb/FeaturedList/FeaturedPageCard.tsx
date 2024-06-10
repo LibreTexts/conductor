@@ -38,11 +38,11 @@ const FeaturedPageCard = ({
           <Icon name="trash" size="small" />
         </div>
       )}
-      <div className="flex flex-col">
+      <div className="flex flex-col px-4">
         <p className="text-lg font-semibold flex-wrap">
           {truncateString(page.page.title, 50)}
         </p>
-        <p className="text-sm flex-wrap">{truncateString(page.page.description, 100)}</p>
+        <p className="text-sm flex-wrap my-1">{truncateString(page.page.description, 100)}</p>
       </div>
       <ConfirmDeleteFeaturedModal
         open={showDeleteModal}
