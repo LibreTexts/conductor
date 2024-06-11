@@ -15,6 +15,7 @@ import FileUploader from "../FileUploader";
 import { z } from "zod";
 import api from "../../api";
 import { useTypedSelector } from "../../state/hooks";
+import tusUpload from "../../utils/tusUpload";
 
 type _AddProps = {
   mode: "add";
@@ -134,7 +135,51 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         formData.append("overwriteName", overwriteName.toString()); // Only used for replace mode
       }
 
-      Array.from(files).forEach((file) => {
+      const filesArray = Array.from(files);
+
+      const videoFiles = filesArray.filter((file) =>
+        file.type.startsWith("video")
+      );
+      const standardFiles = filesArray.filter(
+        (file) => !file.type.startsWith("video")
+      );
+
+      console.log("VIDEOS: ", videoFiles.length);
+      console.log("STANDARD: ", standardFiles.length);
+
+      // Handle video files with Cloudflare Stream
+      const videoData: { videoID: string; videoName: string }[] = [];
+      const videoPromises = videoFiles.map((file) => {
+        return (async () => {
+          const uploadId = await tusUpload(
+            file,
+            api.cloudflareStreamUploadURL,
+            (progress) => {
+              setPercentUploaded(progress / videoFiles.length);
+              if (
+                progress / videoFiles.length === 100 &&
+                standardFiles.length === 0
+              ) {
+                // If this is the last file to upload, set finished to true
+                setFinishedFileTransfer(true);
+              }
+            },
+            abortControllerRef.current.signal
+          );
+
+          if (!uploadId) throw new Error("Failed to upload video file");
+          videoData.push({ videoID: uploadId, videoName: file.name });
+        })();
+      });
+
+      await Promise.all(videoPromises);
+
+      if (videoData.length > 0) {
+        formData.append("videoData", JSON.stringify(videoData));
+      }
+
+      // Handle non-video files
+      standardFiles.forEach((file) => {
         formData.append("files", file);
       });
 
@@ -256,8 +301,8 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             {mode === "add" && (
               <p>
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
-                Up to {MAX_ADD_FILES} files can be uploaded at once, with a maximum of 100 MB
-                each.
+                Up to {MAX_ADD_FILES} files can be uploaded at once, with a
+                maximum of 100 MB each.
               </p>
             )}
 

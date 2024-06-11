@@ -366,7 +366,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
 
   function handleDownloadRequest() {
     const requested = files.filter(
-      (obj) => obj.checked && obj.storageType === "file"
+      (obj) => obj.checked && obj.storageType === "file" && !obj.isVideo // filter out videos for now
     );
     if (requested.length === 0) return;
     if (requested.length === 1) {
@@ -376,7 +376,15 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  function handleDownloadFile(projectID: string, fileID: string) {
+  function handleDownloadFile(
+    projectID: string,
+    fileID: string,
+    isVideo?: boolean
+  ) {
+    if (isVideo) {
+      window.open(`/file/${projectID}/${fileID}`, "_blank");
+      return;
+    }
     const success = downloadFile(projectID, fileID);
     if (!success) {
       handleGlobalError(
@@ -490,7 +498,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             <Dropdown.Item
               icon="download"
               text="Download"
-              onClick={() => handleDownloadFile(projectID, item.fileID)}
+              onClick={() => handleDownloadFile(projectID, item.fileID, item.isVideo)}
             />
           )}
         </Dropdown.Menu>
@@ -519,7 +527,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   </span>
                 ) : (
                   <a
-                    onClick={() => handleDownloadFile(projectID, item.fileID)}
+                    onClick={() => handleDownloadFile(projectID, item.fileID, item.isVideo)}
                     className="text-lg cursor-pointer break-all"
                   >
                     {item.name}
@@ -701,7 +709,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                 ) : (
                                   <a
                                     onClick={() =>
-                                      handleDownloadFile(projectID, item.fileID)
+                                      handleDownloadFile(projectID, item.fileID, item.isVideo)
                                     }
                                     className="text-lg cursor-pointer break-all"
                                   >

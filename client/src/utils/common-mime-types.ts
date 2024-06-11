@@ -27,15 +27,35 @@ const COMMON_MIME_TYPES: {
         value: "image/tiff",
       },
       {
-        name: 'SVG',
-        value: 'image/svg+xml',
-      }
+        name: "SVG",
+        value: "image/svg+xml",
+      },
     ],
   },
   {
     title: "Video",
     anySubType: "video/*",
     mimeTypes: [
+      {
+        name: "AVI",
+        value: "video/x-msvideo",
+      },
+      {
+        name: "FLV",
+        value: "video/x-flv",
+      },
+      {
+        name: "QuickTime (MOV)",
+        value: "video/quicktime",
+      },
+      {
+        name: "MPEG",
+        value: "video/mpeg",
+      },
+      {
+        name: "WMV",
+        value: "video/x-ms-wmv",
+      },
       {
         name: "MP4",
         value: "video/mp4",
@@ -118,7 +138,7 @@ const COMMON_MIME_TYPES: {
       {
         name: "Other/Unknown",
         value: "application/octet-stream",
-      }
+      },
     ],
   },
   {
@@ -148,7 +168,7 @@ const COMMON_MIME_TYPES: {
       {
         name: "LaTeX",
         value: "text/x-tex",
-      }
+      },
     ],
   },
 ];
@@ -166,5 +186,13 @@ export function getPrettyNameFromMimeType(mimeType: string): string {
   }
   return mimeType;
 }
+
+export const VIDEO_MIME_TYPES = (): string[] => {
+  const found = COMMON_MIME_TYPES.find((cmt) => cmt.title === "Video");
+  if (found) {
+    return found.mimeTypes.map((mt) => mt.value);
+  }
+  return [];
+};
 
 export default COMMON_MIME_TYPES;

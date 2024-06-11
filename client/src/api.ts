@@ -27,6 +27,7 @@ import {
   ConductorSearchResponseFile,
   CustomFilter,
 } from "./types/Search";
+import { CloudflareCaptionData } from "./types/Misc";
 
 /**
  * @fileoverview
@@ -160,6 +161,35 @@ class API {
     );
     return res;
   }
+
+  async getProjectFileCaptions(projectID: string, fileID: string) {
+    const res = await axios.get<
+      {
+        captions: CloudflareCaptionData[];
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/${fileID}/captions`);
+    return res;
+  }
+
+  async uploadProjectFileCaptions(
+    projectID: string,
+    fileID: string,
+    captions: FormData
+  ) {
+    const res = await axios.put<ConductorBaseResponse>(
+      `/project/${projectID}/files/${fileID}/captions`,
+      captions,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return res;
+  }
+
+  public cloudflareStreamUploadURL: string =
+    "http://localhost:5000/api/v1/cloudflare/stream-url";
 
   // Authors
   async getAuthors({
