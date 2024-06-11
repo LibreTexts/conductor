@@ -24,6 +24,7 @@ import {
   AtlasSearchHighlight,
   _MoveFile,
   _MoveFileWithChildren,
+  CloudflareCaptionData
 } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";

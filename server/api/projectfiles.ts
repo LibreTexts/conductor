@@ -36,7 +36,11 @@ import {
 import { v4 } from "uuid";
 import { debugError } from "../debug.js";
 import * as MiscValidators from "./validators/misc.js";
-import { conductor404Err, conductor500Err } from "../util/errorutils.js";
+import {
+  conductor400Err,
+  conductor404Err,
+  conductor500Err,
+} from "../util/errorutils.js";
 import projectsAPI from "./projects.js";
 import { upsertAssetTags } from "./assettagging.js";
 import { Types } from "mongoose";
@@ -53,6 +57,10 @@ import {
   updateProjectFileAccessSchema,
   updateProjectFileSchema,
   addProjectFileFolderSchema,
+  createCloudflareStreamURLSchema,
+  videoDataSchema,
+  updateProjectFileCaptionsSchema,
+  getProjectFileCaptionsSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -61,6 +69,7 @@ import { isAuthorObject } from "../util/typeHelpers.js";
 import { Schema } from "mongoose";
 import User from "../models/user.js";
 import { generateVideoStreamURL } from "../util/videoutils.js";
+import axios from "axios";
 
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
@@ -92,6 +101,9 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       }
       if (file.originalname.endsWith(".tex")) {
         file.mimetype = "text/x-tex";
+      }
+      if (file.originalname.endsWith(".vtt")) {
+        file.mimetype = "text/vtt";
       }
       return cb(null, true);
     },
@@ -170,6 +182,46 @@ export async function addProjectFile(
     const providedFiles = Array.isArray(req.files) && req.files.length > 0;
     const filesToCreate: RawProjectFileInterface[] = [];
 
+    const parsedVideoData =
+      typeof req.body.videoData === "string"
+        ? JSON.parse(req.body.videoData)
+        : req.body.videoData;
+
+    if (parsedVideoData && parsedVideoData.length) {
+      parsedVideoData.forEach((videoData: z.infer<typeof videoDataSchema>) => {
+        const newID = v4();
+        filesToCreate.push({
+          projectID,
+          fileID: newID,
+          name: videoData.videoName,
+          access: accessSetting,
+          size: 0,
+          createdBy: req.user.decoded.uuid,
+          downloadCount: 0,
+          storageType: "file",
+          parent,
+          license: licenseObj,
+          mimeType: "video/*",
+          primaryAuthor: defaultPrimary
+            ? (defaultPrimary as unknown as Schema.Types.ObjectId)
+            : undefined,
+          authors: defaultSecondary
+            ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
+            : undefined,
+          correspondingAuthor: defaultCorresponding
+            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
+            : undefined,
+          publisher: req.body.publisher,
+          isVideo: true,
+          videoStorageID: videoData.videoID,
+          version: 1, // initial version
+        });
+      });
+
+      await ProjectFile.insertMany(filesToCreate);
+      filesToCreate.length = 0; // clear array for use by standard files below
+    }
+
     // Adding a file
     if (providedFiles) {
       const uploadCommands: any[] = [];
@@ -205,7 +257,9 @@ export async function addProjectFile(
           authors: defaultSecondary
             ? (defaultSecondary as unknown as Schema.Types.ObjectId[])
             : undefined,
-          correspondingAuthor: defaultCorresponding ? (defaultCorresponding as unknown as Schema.Types.ObjectId) : undefined,
+          correspondingAuthor: defaultCorresponding
+            ? (defaultCorresponding as unknown as Schema.Types.ObjectId)
+            : undefined,
           publisher: req.body.publisher,
           version: 1, // initial version
         });
@@ -237,8 +291,8 @@ export async function addProjectFile(
         authors: defaultSecondary,
         publisher: req.body.publisher,
       });
-    } else {
-      // If not file, and not URL, then it's an invalid request
+    } else if (!providedFiles && !req.body.isURL && !parsedVideoData) {
+      // If not file, URL, or video data, return error
       return res.status(400).send({
         err: true,
         errMsg: conductorErrors.err65,
@@ -500,11 +554,16 @@ async function getProjectFolderContents(
     }
 
     let foundUser;
-    if(req.user?.decoded?.uuid) {
-      foundUser = await User.findOne({uuid: req.user.decoded.uuid}).lean();
+    if (req.user?.decoded?.uuid) {
+      foundUser = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
     }
 
-    if (!projectsAPI.checkProjectGeneralPermission(project, foundUser ?? undefined)) {
+    if (
+      !projectsAPI.checkProjectGeneralPermission(
+        project,
+        foundUser ?? undefined
+      )
+    ) {
       return res.status(401).send({
         err: true,
         errMsg: conductorErrors.err8,
@@ -555,8 +614,9 @@ async function getProjectFile(
     }
 
     if (
-      (!req.user?.decoded && project.visibility !== 'public')
-      || (req.user?.decoded && !projectsAPI.checkProjectGeneralPermission(project, req.user))
+      (!req.user?.decoded && project.visibility !== "public") ||
+      (req.user?.decoded &&
+        !projectsAPI.checkProjectGeneralPermission(project, req.user))
     ) {
       return res.status(401).send({
         err: true,
@@ -1078,6 +1138,127 @@ async function removeProjectFile(
   }
 }
 
+async function getProjectFileCaptions(
+  req: z.infer<typeof getProjectFileCaptionsSchema>,
+  res: Response
+) {
+  try {
+    const { projectID, fileID } = req.params;
+
+    const file = await ProjectFile.findOne({ projectID, fileID }).lean();
+    if (!file || !file.videoStorageID) {
+      return conductor404Err(res);
+    }
+
+    const captionsRes = await axios.get(
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${file.videoStorageID}/captions`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+        },
+      }
+    );
+
+    if (captionsRes.status !== 200) {
+      throw new Error("Failed to retrieve captions");
+    }
+
+    return res.send({
+      err: false,
+      captions: captionsRes.data.result ?? [],
+    });
+  } catch (e) {
+    debugError(e);
+    return conductor500Err(res);
+  }
+}
+
+async function updateProjectFileCaptions(
+  req: ZodReqWithFiles<
+    ZodReqWithUser<z.infer<typeof updateProjectFileCaptionsSchema>>
+  >,
+  res: Response
+) {
+  try {
+    if(!req.files || req.files.length === 0) {
+      return conductor400Err(res);
+    }
+    if(!req.body.language || typeof req.body.language !== "string" || req.body.language.length !== 2) {
+      return conductor400Err(res);
+    }
+
+    if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
+      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
+    ) {
+      throw new Error("Missing Cloudflare credentials");
+    }
+
+    const captionFile = req.files[0];
+    const { projectID, fileID } = req.params;
+
+    const project = await Project.findOne({ projectID }).lean();
+    if (!project) {
+      return conductor404Err(res);
+    }
+
+    const file = await ProjectFile.findOne({ projectID, fileID }).lean();
+    if (!file || !file.videoStorageID) {
+      return conductor404Err(res);
+    }
+
+    // Check if user has permission to update file
+    const canAccess = projectsAPI.checkProjectGeneralPermission(
+      project,
+      req.user
+    );
+    if (!canAccess) {
+      return res.status(401).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    if (
+      !captionFile ||
+      !["text/vtt", "text/plain"].includes(captionFile.mimetype)
+    ) {
+      return conductor400Err(res);
+    }
+
+    const UPLOAD_URL = `https://api.cloudflare.com/client/v4/accounts/${
+      process.env.CLOUDFLARE_STREAM_ACCOUNT_ID
+    }/stream/${
+      file.videoStorageID
+    }/captions/${req.body.language.toLowerCase()}`;
+
+    const _formData = new FormData();
+    const blob = new Blob([captionFile.buffer], {
+      type: captionFile.mimetype,
+    });
+    _formData.append("file", blob);
+
+    const uploadRes = await axios.put(UPLOAD_URL, _formData, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+      },
+    });
+
+    if (uploadRes.status !== 200) {
+      throw new Error("Failed to upload caption file");
+    }
+
+    return res.send({
+      err: false,
+      msg: "Successfully uploaded caption file!",
+    });
+  } catch (e: any) {
+    debugError(e);
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Returns all available public Project Files (in public Projects).
  */
@@ -1117,7 +1298,7 @@ async function getPublicProjectFiles(
                 title: 1,
                 thumbnail: 1,
                 description: 1,
-                projectURL: 1
+                projectURL: 1,
               },
             },
           ],
@@ -1233,6 +1414,84 @@ async function getPublicProjectFiles(
   }
 }
 
+async function createProjectFileStreamUploadURL(req: Request, res: Response) {
+  try {
+    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
+    if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
+      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
+    ) {
+      throw new Error("Missing Cloudflare credentials");
+    }
+
+    if (!req.headers["upload-length"] || !req.headers["upload-metadata"]) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+
+    const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream?direct_user=true`;
+    const cloudFlareRes = await axios.post(ENDPOINT, undefined, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+        "Tus-Resumable": "1.0.0",
+        "Upload-Length": req.headers["upload-length"],
+        "Upload-Metadata": req.headers["upload-metadata"],
+      },
+    });
+
+    if (!cloudFlareRes || !cloudFlareRes.headers) {
+      throw new Error("Failed to get Cloudflare response");
+    }
+
+    const streamMediaId = cloudFlareRes.headers["stream-media-id"];
+
+    const destination = cloudFlareRes.headers["location"];
+    if (!destination) {
+      throw new Error("Failed to get Cloudflare uploadURL");
+    }
+
+    // https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#step-1-create-your-own-api-endpoint-that-returns-an-upload-url
+    res.setHeader("Access-Control-Expose-Headers", [
+      "Location",
+      "Stream-Media-Id",
+    ]);
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Location", destination);
+    res.setHeader("Stream-Media-Id", streamMediaId);
+
+    return res.send({
+      err: false,
+      destination,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function createProjectFileStreamUploadURLOptions(
+  req: Request,
+  res: Response
+) {
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Max-Age", "86400");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Expose-Headers", [
+    "Location",
+    "Stream-Media-Id",
+  ]);
+  return res.send({
+    err: false,
+  });
+}
+
 async function _parseAndSaveAuthors(
   authors: z.infer<typeof addProjectFileSchema>["body"]["authors"]
 ): Promise<Schema.Types.ObjectId[]> {
@@ -1330,6 +1589,10 @@ export default {
   updateProjectFileAccess,
   moveProjectFile,
   removeProjectFile,
+  getProjectFileCaptions,
+  updateProjectFileCaptions,
   getPublicProjectFiles,
+  createProjectFileStreamUploadURL,
+  createProjectFileStreamUploadURLOptions,
   _parseAndSaveAuthors,
 };

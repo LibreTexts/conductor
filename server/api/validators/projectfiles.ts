@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PaginationSchema, isMongoIDValidator } from "./misc.js";
 import { zfd } from "zod-form-data";
+import { param } from "express-validator";
 
 export const assetTagSchema = z.object({
   key: z.string(),
@@ -15,6 +16,11 @@ const _projectFileIDSchema = z.string().uuid();
 const _projectFileParams = z.object({
   projectID: _projectIDSchema,
   fileID: _projectFileIDSchema,
+});
+
+export const videoDataSchema = z.object({
+  videoID: z.string(),
+  videoName: z.string(),
 });
 
 const projectFileAuthorSchema = z.object({
@@ -61,6 +67,7 @@ export const projectFileSchema = z.object({
   isURL: z.coerce.boolean().optional(),
   fileURL: z.string().url().optional(),
   parentID: z.string().uuid().optional().or(z.literal("")),
+  videoData: z.array(videoDataSchema).max(20).optional(),
 });
 
 export const addProjectFileSchema = z.object({
@@ -97,6 +104,15 @@ export const updateProjectFileAccessSchema = z.object({
   body: z.object({
     newAccess: z.enum(["public", "users", "instructors", "team", "mixed"]),
   }),
+});
+
+export const updateProjectFileCaptionsSchema = z.object({
+  params: _projectFileParams,
+  body: zfd.formData(
+    z.object({
+      language: z.string().length(2), // IANA language code
+    })
+  ),
 });
 
 export const moveProjectFileSchema = z.object({
@@ -138,6 +154,17 @@ export const getProjectFolderContentsSchema = z.object({
   }),
 });
 
+export const getProjectFileCaptionsSchema = z.object({
+  params: _projectFileParams,
+});
+
 export const getPublicProjectFilesSchema = z.object({
   query: PaginationSchema,
+});
+
+export const createCloudflareStreamURLSchema = z.object({
+  //params: _projectFileParams,
+  body: z.object({
+    contentLength: z.coerce.number(),
+  }),
 });

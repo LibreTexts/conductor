@@ -41,6 +41,8 @@ import { useTypedSelector } from "../../state/hooks";
 import LoadingSpinner from "../LoadingSpinner";
 import useDebounce from "../../hooks/useDebounce";
 import AuthorsForm from "./AuthorsForm";
+import FilePreview from "./FilePreview";
+import ManageCaptionsModal from "./ManageCaptionsModal";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -113,15 +115,16 @@ const EditFile: React.FC<EditFileProps> = ({
   // Data & UI
   const [loading, setLoading] = useState(false);
   const [licensesLoading, setLicensesLoading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [filePreviewURL, setFilePreviewURL] = useState<string>("");
   const [isFolder, setIsFolder] = useState(false); // No asset tags for folders
   const [showUploader, setShowUploader] = useState(false);
-  const [shouldShowPreview, setShouldShowPreview] = useState(false);
   const [showLicenseInfo, setShowLicenseInfo] = useState(true);
   const [showAuthorInfo, setShowAuthorInfo] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showSelectFramework, setShowSelectFramework] = useState(false);
+  const [showCaptionsModal, setShowCaptionsModal] = useState(false);
+  const [videoStreamURL, setVideoStreamURL] = useState<string | undefined>(
+    undefined
+  ); // Video stream URL for video files
 
   // Frameworks
   const [selectedFramework, setSelectedFramework] =
@@ -204,10 +207,11 @@ const EditFile: React.FC<EditFileProps> = ({
         { keepDefaultValues: true }
       );
       setIsFolder(fileData.storageType !== "file");
-      _checkShouldShowPreview(fileData);
+      if (res.data.videoStreamURL && fileData.isVideo) {
+        setVideoStreamURL(res.data.videoStreamURL);
+      }
       if (fileData.storageType === "file") {
         checkCampusDefault(); // We want to make sure the file is loaded before checking for campus default and updating tags (if applicable)
-        loadFileURL(); // Don't await this, we don't want to block the rest of the load
       }
     } catch (err) {
       handleGlobalError(err);
@@ -260,49 +264,6 @@ const EditFile: React.FC<EditFileProps> = ({
       handleGlobalError(err);
     } finally {
       setLoading(false);
-    }
-  }
-
-  function _checkShouldShowPreview(fileData: ProjectFile) {
-    // Don't show preview for folders
-    if (fileData.storageType !== "file") {
-      setShouldShowPreview(false);
-      return;
-    }
-
-    if (fileData.storageType === "file" && fileData.isURL && fileData.url) {
-      setShouldShowPreview(true);
-      return;
-    }
-
-    // Check if file is an image
-    const ext = fileData.name.split(".").pop()?.toLowerCase();
-    const validImgExt = ["png", "jpg", "jpeg", "gif", "bmp", "svg"].includes(
-      ext ?? ""
-    );
-    if (!validImgExt) {
-      setShouldShowPreview(false);
-      return;
-    }
-
-    setShouldShowPreview(true);
-  }
-
-  async function loadFileURL() {
-    try {
-      setPreviewLoading(true);
-      const res = await api.getFileDownloadURL(projectID, fileID, false);
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.url) {
-        throw new Error("Failed to load file preview");
-      }
-      setFilePreviewURL(res.data.url);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setPreviewLoading(false);
     }
   }
 
@@ -539,7 +500,7 @@ const EditFile: React.FC<EditFileProps> = ({
                     showRemaining
                   />
                 </div>
-                {!isFolder && (
+                {!isFolder && !getValues("isVideo") && (
                   <div className="mt-4">
                     <Button
                       color="blue"
@@ -552,39 +513,26 @@ const EditFile: React.FC<EditFileProps> = ({
                     </Button>
                   </div>
                 )}
-                <div className="mt-8">
-                  {filePreviewURL &&
-                    !getValues("isURL") &&
-                    !getValues("url") && (
-                      <>
-                        <p className="font-semibold">File Preview</p>
-                        {previewLoading ? (
-                          <p className="mt-2 mr-2">
-                            <Icon name="spinner" loading />
-                            Loading preview...
-                          </p>
-                        ) : (
-                          <div className="mt-2">
-                            <FileRenderer
-                              url={filePreviewURL}
-                              projectID={projectID}
-                              fileID={fileID}
-                              validImgExt={shouldShowPreview}
-                              className="max-w-full max-h-full p-2"
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  {filePreviewURL && getValues("isURL") && getValues("url") && (
-                    <>
-                      <p className="font-semibold">External URL</p>
-                      <div className="mt-2">
-                        <URLFileHyperlink url={getValues("url")} />
-                      </div>
-                    </>
-                  )}
-                </div>
+                {!isFolder && getValues("isVideo") && getValues('videoStorageID') && (
+                  <div className="mt-4">
+                    <Button
+                      color="blue"
+                      onClick={() => setShowCaptionsModal(true)}
+                      disabled={false}
+                      type="button"
+                    >
+                      <Icon name="closed captioning outline" />
+                      Manage Captions
+                    </Button>
+                  </div>
+                )}
+                <FilePreview
+                  className="mt-8"
+                  projectID={projectID}
+                  fileID={fileID}
+                  file={watch()}
+                  videoStreamURL={videoStreamURL}
+                />
               </div>
               {!isFolder && (
                 <div className="flex flex-col basis-1/2">
@@ -875,6 +823,13 @@ const EditFile: React.FC<EditFileProps> = ({
           loadFramework(id);
           setShowSelectFramework(false);
         }}
+      />
+      <ManageCaptionsModal
+        show={showCaptionsModal}
+        onClose={() => setShowCaptionsModal(false)}
+        projectID={projectID}
+        fileID={fileID}
+        key='captions-modal'
       />
       <FilesUploader
         show={showUploader}

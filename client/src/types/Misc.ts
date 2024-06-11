@@ -29,3 +29,8 @@ export type _MoveFileWithChildren = _MoveFile & {
   children: _MoveFileWithChildren[];
   disabled: boolean;
 };
+
+export type CloudflareCaptionData = {
+  language: string;
+  label: string;
+}

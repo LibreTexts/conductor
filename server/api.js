@@ -88,7 +88,7 @@ router.use(cors({
     return callback(null, 'https://libretexts.org'); // default
   },
   methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Origin', 'Content-Type', 'Authorization', 'X-Requested-With', 'upload-length', 'tus-resumable', 'upload-metadata'],
   credentials: true,
   maxAge: 7200,
 }));
@@ -102,6 +102,7 @@ router.use(middleware.middlewareFilter(
     '/commons/kbexport',
     '/analytics/learning/init',
     '/payments/webhook',
+    '/cloudflare/stream-url',
   ],
   middleware.requestSecurityHelper,
 ));
@@ -1489,6 +1490,18 @@ router.route('/project/:projectID/files/:fileID?')
     projectfilesAPI.removeProjectFile,
   );
 
+router.route('/project/:projectID/files/:fileID/captions')
+  .get(
+    middleware.validateZod(ProjectFileValidators.getProjectFileCaptionsSchema),
+    projectfilesAPI.getProjectFileCaptions, // GET is public endpoint
+  ).put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    //middleware.validateZod(ProjectFileValidators.updateProjectFileCaptionsSchema), TODO: figure out why zfd is not reading form data
+    projectfilesAPI.fileUploadHandler,
+    projectfilesAPI.updateProjectFileCaptions,
+  );
+
 router.route('/project/:projectID/book/readerresources')
   .get(
     authAPI.verifyRequest,
@@ -1841,6 +1854,17 @@ router.route('/support/init-autoclose').post(
 router.route('/support/run-autoclose').post(
   middleware.checkEventBridgeAPIKey,
   supportAPI.autoCloseTickets
+)
+
+router.route('/cloudflare/stream-url').post(
+  //authAPI.verifyRequest,
+  //authAPI.getUserAttributes,
+  //middleware.validateZod(ProjectFileValidators.createCloudflareStreamURLSchema),
+  projectfilesAPI.createProjectFileStreamUploadURL,
+);
+
+router.route('/cloudflare/stream-url').options(
+  projectfilesAPI.createProjectFileStreamUploadURLOptions,
 )
 
 export default router;
