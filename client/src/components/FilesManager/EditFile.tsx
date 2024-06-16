@@ -513,24 +513,31 @@ const EditFile: React.FC<EditFileProps> = ({
                     </Button>
                   </div>
                 )}
-                {!isFolder && getValues("isVideo") && getValues('videoStorageID') && (
-                  <div className="mt-4">
-                    <Button
-                      color="blue"
-                      onClick={() => setShowCaptionsModal(true)}
-                      disabled={false}
-                      type="button"
-                    >
-                      <Icon name="closed captioning outline" />
-                      Manage Captions
-                    </Button>
-                  </div>
-                )}
+                {!isFolder &&
+                  getValues("isVideo") &&
+                  getValues("videoStorageID") && (
+                    <div className="mt-4">
+                      <Button
+                        color="blue"
+                        onClick={() => setShowCaptionsModal(true)}
+                        disabled={false}
+                        type="button"
+                      >
+                        <Icon name="closed captioning outline" />
+                        Manage Captions
+                      </Button>
+                    </div>
+                  )}
                 <FilePreview
                   className="mt-8"
                   projectID={projectID}
                   fileID={fileID}
-                  file={watch()}
+                  name={getValues("name")}
+                  isURL={getValues("isURL")}
+                  url={getValues("url")}
+                  isVideo={getValues("isVideo")}
+                  videoStorageID={getValues("videoStorageID")}
+                  storageType={getValues("storageType")}
                   videoStreamURL={videoStreamURL}
                 />
               </div>
@@ -829,7 +836,7 @@ const EditFile: React.FC<EditFileProps> = ({
         onClose={() => setShowCaptionsModal(false)}
         projectID={projectID}
         fileID={fileID}
-        key='captions-modal'
+        key="captions-modal"
       />
       <FilesUploader
         show={showUploader}
