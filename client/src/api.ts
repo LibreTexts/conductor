@@ -188,8 +188,9 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string =
-    "http://localhost:5000/api/v1/cloudflare/stream-url";
+  public cloudflareStreamUploadURL: string = `${
+    import.meta.env.MODE === "development" && import.meta.env.VITE_DEV_BASE_URL
+  }/api/v1/cloudflare/stream-url`;
 
   // Authors
   async getAuthors({
@@ -342,7 +343,7 @@ class API {
     page,
     limit,
     query,
-    sort
+    sort,
   }: {
     page?: number;
     limit?: number;
