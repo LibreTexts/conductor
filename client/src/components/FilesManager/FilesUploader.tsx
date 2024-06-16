@@ -144,9 +144,6 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         (file) => !file.type.startsWith("video")
       );
 
-      console.log("VIDEOS: ", videoFiles.length);
-      console.log("STANDARD: ", standardFiles.length);
-
       // Handle video files with Cloudflare Stream
       const videoData: { videoID: string; videoName: string }[] = [];
       const videoPromises = videoFiles.map((file) => {
