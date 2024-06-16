@@ -10,14 +10,24 @@ import { Stream } from "@cloudflare/stream-react";
 interface FilePreviewProps extends React.HTMLAttributes<HTMLDivElement> {
   projectID: string;
   fileID: string;
-  file: ProjectFile;
+  name: string;
+  isURL?: boolean;
+  url?: string;
+  isVideo?: boolean;
+  videoStorageID?: string;
+  storageType: "file" | "folder";
   videoStreamURL?: string;
 }
 
 const FilePreview: React.FC<FilePreviewProps> = ({
   projectID,
   fileID,
-  file,
+  name,
+  isURL,
+  url,
+  isVideo,
+  videoStorageID,
+  storageType,
   videoStreamURL,
   ...rest
 }) => {
@@ -30,12 +40,12 @@ const FilePreview: React.FC<FilePreviewProps> = ({
   ); // image is default type if not determined
 
   useEffect(() => {
-    if (!file) return;
+    if (!fileID) return;
     const { shouldShow, type } = checkShouldShowPreview();
     setShouldShowPreview(shouldShow);
     setPreviewType(type);
     if (shouldShow && type === "image") loadFileURL();
-  }, [file]);
+  }, [fileID]);
 
   async function loadFileURL() {
     try {
@@ -60,23 +70,23 @@ const FilePreview: React.FC<FilePreviewProps> = ({
     shouldShow: boolean;
     type: "image" | "video" | "url";
   } {
-    if (!file) return { shouldShow: false, type: "image" };
+    if (!fileID) return { shouldShow: false, type: "image" };
 
     // Don't show preview for folders
-    if (file.storageType !== "file") {
+    if (storageType !== "file") {
       return { shouldShow: false, type: "image" };
     }
 
-    if (file.isURL && file.url) {
+    if (isURL && url) {
       return { shouldShow: true, type: "url" };
     }
 
-    if (file.isVideo && file.videoStorageID) {
+    if (isVideo && videoStorageID) {
       return { shouldShow: true, type: "video" };
     }
 
     // Check if file is an image
-    const ext = file.name.split(".").pop()?.toLowerCase();
+    const ext = name.split(".").pop()?.toLowerCase();
     const validImgExt = ["png", "jpg", "jpeg", "gif", "bmp", "svg"].includes(
       ext ?? ""
     );
@@ -114,7 +124,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({
         <>
           <p className="font-semibold">External URL</p>
           <div className="mt-2">
-            <URLFileHyperlink url={file.url} />
+            <URLFileHyperlink url={url} />
           </div>
         </>
       )}

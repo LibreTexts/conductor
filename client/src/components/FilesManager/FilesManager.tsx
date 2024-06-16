@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import React, { useState, useMemo } from "react";
 import {
   Button,
   Loader,
@@ -13,7 +12,6 @@ import {
   SemanticWIDTHS,
   Popup,
   Dropdown,
-  ButtonOr,
 } from "semantic-ui-react";
 const AddFolder = React.lazy(() => import("./AddFolder"));
 const ChangeAccess = React.lazy(() => import("./ChangeAccess"));
@@ -43,8 +41,8 @@ import api from "../../api";
 import { saveAs } from "file-saver";
 import { useTypedSelector } from "../../state/hooks";
 import { base64ToBlob } from "../../utils/misc";
-import { Link } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface FilesManagerProps extends SegmentProps {
   projectID: string;
@@ -81,13 +79,10 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     { key: "actions", text: "", width: 1, collapsing: true },
   ];
 
-  // Global Error Handling
+  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
-
   const user = useTypedSelector((state) => state.user);
   const isTailwindLg = useMediaQuery({ minWidth: 1024 }, undefined);
-
-  const [files, setFiles] = useState<FileEntry[]>([]);
 
   const [showUploader, setShowUploader] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
@@ -96,10 +91,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const [showEdit, setShowEdit] = useState<boolean>(false);
   const [showMove, setShowMove] = useState(false);
   const [showLargeDownload, setShowLargeDownload] = useState(false);
-  const [filesLoading, setFilesLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [itemsChecked, setItemsChecked] = useState(0);
-  const [allItemsChecked, setAllItemsChecked] = useState(false);
 
   const [currDirectory, setCurrDirectory] = useState("");
   const [currDirPath, setCurrDirPath] = useState([
@@ -114,113 +106,121 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   const [accessFiles, setAccessFiles] = useState<FileEntry[]>([]);
   const [deleteFiles, setDeleteFiles] = useState<FileEntry[]>([]);
 
-  /**
-   * Load the Files list from the server, prepare it for the UI, then save it to state.
-   */
-  const getFiles = async () => {
-    setFilesLoading(true);
+  const { data: files, isFetching: filesLoading } = useQuery<FileEntry[]>({
+    queryKey: ["project-files", projectID, currDirectory],
+    queryFn: () => getFiles(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  async function getFiles() {
     try {
       const fileRes = await api.getProjectFiles(projectID, currDirectory);
-      if (!fileRes.data.err) {
-        if (Array.isArray(fileRes.data.files)) {
-          const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
-            ...item,
-            checked: false,
-          }));
-          setFiles(withChecked);
-          setAllItemsChecked(false);
-        }
-        if (Array.isArray(fileRes.data.path)) {
-          setCurrDirPath(fileRes.data.path);
-        }
-      } else {
+      if (fileRes.data.err) {
         throw new Error(fileRes.data.errMsg);
       }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-    setFilesLoading(false);
-  };
 
-  /**
-   * Load the Files list on open.
-   */
-  useEffect(() => {
-    getFiles();
-  }, [currDirectory]);
-
-  /**
-   * Track updates to the number and type of currently checked files.
-   */
-  useEffect(() => {
-    let numChecked = 0;
-    files.forEach((item) => {
-      if (item.checked) {
-        numChecked += 1;
+      if (
+        !Array.isArray(fileRes.data.files) ||
+        !Array.isArray(fileRes.data.path)
+      ) {
+        throw new Error("Unable to fetch files. Please try again later.");
       }
-    });
-    setItemsChecked(numChecked);
-  }, [files, setItemsChecked]);
+
+      const withChecked = fileRes.data.files.map((item: ProjectFile) => ({
+        ...item,
+        checked: false,
+      }));
+      setCurrDirPath(fileRes.data.path);
+
+      return withChecked;
+    } catch (err) {
+      handleGlobalError(err);
+      return [];
+    }
+  }
+
+  const itemsChecked = useMemo(() => {
+    if (!files) return 0;
+    return files.filter((item) => item.checked).length;
+  }, [files]);
+
+  const allItemsChecked = useMemo(() => {
+    if (!files) return false;
+    return files.length > 0 && files.every((item) => item.checked);
+  }, [files]);
+
+  const handleEntryCheckedMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => _handleEntryChecked(id),
+    onSuccess(data, variables, context) {
+      if (!data) return;
+      queryClient.setQueryData(
+        ["project-files", projectID, currDirectory],
+        data
+      );
+    },
+  });
+
+  const handleToggleAllCheckedMutation = useMutation<FileEntry[]>({
+    mutationFn: _handleToggleAllChecked,
+    onSuccess(data, variables, context) {
+      if (!data) return;
+      queryClient.setQueryData(
+        ["project-files", projectID, currDirectory],
+        data
+      );
+    },
+  });
 
   /**
    * Update state when a File entry is checked/unchecked.
    */
-  function handleEntryChecked(e: React.ChangeEvent<HTMLInputElement>) {
-    setFiles((prevFiles) =>
-      prevFiles.map((item) => {
-        if (item.fileID === e.target.value) {
-          return {
-            ...item,
-            checked: !item.checked,
-          };
-        }
-        return item;
-      })
-    );
+  async function _handleEntryChecked(id: string): Promise<FileEntry[]> {
+    if (!id || typeof id !== "string") {
+      if (files) return files; // no change
+      return [];
+    }
+
+    if (!files) return [];
+    const newMapped = files.map((item) => {
+      if (item.fileID === id) {
+        return {
+          ...item,
+          checked: !item.checked,
+        };
+      }
+      return item;
+    });
+    return newMapped;
   }
 
   /**
    * Toggles the checked status of all entries in the list.
    */
-  function handleToggleAllChecked() {
+  async function _handleToggleAllChecked(): Promise<FileEntry[]> {
+    if (!files) return [];
+
     const foundChecked = files.find((item) => item.checked);
     if (foundChecked) {
       // one checked, uncheck all
-      setFiles((prevFiles) =>
-        prevFiles.map((item) => {
-          return {
-            ...item,
-            checked: false,
-          };
-        })
-      );
-      setAllItemsChecked(false);
-    } else {
-      // none checked, check all
-      setFiles((prevFiles) =>
-        prevFiles.map((item) => {
-          return {
-            ...item,
-            checked: true,
-          };
-        })
-      );
-      setAllItemsChecked(true);
+      const newMapped = files.map((item) => {
+        return {
+          ...item,
+          checked: false,
+        };
+      });
+
+      return newMapped;
     }
-  }
 
-  /**
-   * Sets the Files Uploader tool to open.
-   */
-  function handleShowUploader() {
-    setShowUploader(true);
-  }
-
-  /**
-   * Sets the Files Uploader tool to closed.
-   */
-  function handleUploaderClose() {
-    setShowUploader(false);
+    // none checked, check all
+    const newMapped = files.map((item) => {
+      return {
+        ...item,
+        checked: true,
+      };
+    });
+    return newMapped;
   }
 
   /**
@@ -228,21 +228,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleUploadFinished() {
     setShowUploader(false);
-    getFiles();
-  }
-
-  /**
-   * Sets the Add Folder tool to open.
-   */
-  function handleShowAddFolder() {
-    setShowAddFolder(true);
-  }
-
-  /**
-   * Set the Add Folder tool to close.
-   */
-  function handleAddFolderClose() {
-    setShowAddFolder(false);
+    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
   }
 
   /**
@@ -250,7 +236,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleAddFolderFinished() {
     setShowAddFolder(false);
-    getFiles();
+    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
   }
 
   /**
@@ -278,7 +264,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleEditFinished() {
     handleEditClose();
-    getFiles();
+    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
   }
 
   /**
@@ -305,7 +291,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleMoveFinished() {
     handleMoveClose();
-    getFiles();
+    queryClient.invalidateQueries(["project-files", projectID]); // invalidate entire project as we don't know where it moved
   }
 
   /**
@@ -334,7 +320,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleAccessFinished() {
     handleAccessClose();
-    getFiles();
+    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
   }
 
   /**
@@ -361,10 +347,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
    */
   function handleDeleteFinished() {
     handleDeleteClose();
-    getFiles();
+    queryClient.invalidateQueries(["project-files", projectID, currDirectory]);
   }
 
   function handleDownloadRequest() {
+    if (!files) return;
     const requested = files.filter(
       (obj) => obj.checked && obj.storageType === "file" && !obj.isVideo // filter out videos for now
     );
@@ -416,7 +403,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       handleGlobalError(err);
     } finally {
       setDownloadLoading(false);
-      handleToggleAllChecked();
+      handleToggleAllCheckedMutation.mutate();
     }
   }
 
@@ -498,7 +485,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             <Dropdown.Item
               icon="download"
               text="Download"
-              onClick={() => handleDownloadFile(projectID, item.fileID, item.isVideo)}
+              onClick={() =>
+                handleDownloadFile(projectID, item.fileID, item.isVideo)
+              }
             />
           )}
         </Dropdown.Menu>
@@ -527,7 +516,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                   </span>
                 ) : (
                   <a
-                    onClick={() => handleDownloadFile(projectID, item.fileID, item.isVideo)}
+                    onClick={() =>
+                      handleDownloadFile(projectID, item.fileID, item.isVideo)
+                    }
                     className="text-lg cursor-pointer break-all"
                   >
                     {item.name}
@@ -567,14 +558,14 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               widths="6"
               className={itemsChecked <= 1 ? "max-w-[34rem]" : ""}
             >
-              <Button color="green" onClick={handleShowUploader}>
+              <Button color="green" onClick={() => setShowUploader(true)}>
                 <Icon name="upload" />
                 Upload
               </Button>
               <Button
                 color="green"
                 className="!bg-green-600"
-                onClick={handleShowAddFolder}
+                onClick={() => setShowAddFolder(true)}
               >
                 <Icon name="add" />
                 New Folder
@@ -604,7 +595,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     color="teal"
                     disabled={itemsChecked < 1}
                     onClick={() => {
-                      handleMoveFiles(files.filter((obj) => obj.checked));
+                      handleMoveFiles(
+                        files?.filter((obj) => obj.checked) || []
+                      );
                     }}
                   >
                     <Icon name="move" />
@@ -614,7 +607,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     color="yellow"
                     disabled={itemsChecked < 1 || !checkProjectMemberPermission}
                     onClick={() => {
-                      handleChangeAccess(files.filter((obj) => obj.checked));
+                      handleChangeAccess(
+                        files?.filter((obj) => obj.checked) || []
+                      );
                     }}
                   >
                     <Icon name="lock" />
@@ -624,7 +619,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     color="red"
                     disabled={itemsChecked < 1}
                     onClick={() => {
-                      handleDeleteFiles(files.filter((obj) => obj.checked));
+                      handleDeleteFiles(
+                        files?.filter((obj) => obj.checked) || []
+                      );
                     }}
                   >
                     <Icon name="trash" />
@@ -650,7 +647,9 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                       <input
                         type="checkbox"
                         checked={allItemsChecked}
-                        onChange={handleToggleAllChecked}
+                        onChange={() => {
+                          handleToggleAllCheckedMutation.mutate();
+                        }}
                         aria-label={`${
                           allItemsChecked ? "Uncheck" : "Check"
                         } all`}
@@ -669,7 +668,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {files.map((item) => {
+                {files?.map((item) => {
                   if (!isTailwindLg) return MobileTableRow(item);
                   return (
                     <Table.Row className="h-[60px]" key={item.fileID}>
@@ -678,7 +677,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                           <input
                             type="checkbox"
                             checked={item.checked}
-                            onChange={(e) => handleEntryChecked(e)}
+                            onChange={(e) =>
+                              handleEntryCheckedMutation.mutate({
+                                id: item.fileID,
+                              })
+                            }
                             value={item.fileID}
                           />
                         </Table.Cell>
@@ -709,7 +712,11 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                                 ) : (
                                   <a
                                     onClick={() =>
-                                      handleDownloadFile(projectID, item.fileID, item.isVideo)
+                                      handleDownloadFile(
+                                        projectID,
+                                        item.fileID,
+                                        item.isVideo
+                                      )
                                     }
                                     className="text-lg cursor-pointer break-all"
                                   >
@@ -790,7 +797,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     </Table.Row>
                   );
                 })}
-                {files.length === 0 && (
+                {(!files || files.length === 0) && (
                   <Table.Row>
                     <Table.Cell colSpan={TABLE_COLS.length}>
                       <p className="text-muted text-center mt-1p mb-1p">
@@ -818,7 +825,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         )}
         <FilesUploader
           show={showUploader}
-          onClose={handleUploaderClose}
+          onClose={() => setShowUploader(false)}
           directory={currDirPath[currDirPath.length - 1].name}
           projectID={projectID}
           uploadPath={currDirectory}
@@ -828,7 +835,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         />
         <AddFolder
           show={showAddFolder}
-          onClose={handleAddFolderClose}
+          onClose={() => setShowAddFolder(false)}
           projectID={projectID}
           parentDirectory={currDirPath[currDirPath.length - 1].fileID}
           onFinishedAdd={handleAddFolderFinished}
