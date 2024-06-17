@@ -432,12 +432,16 @@ async function assignTicket(
       });
     }
 
-    const newAssignees = assigned.filter((a) => !ticket.assignedUUIDs?.includes(a));
+    const newAssignees = assigned.filter(
+      (a) => !ticket.assignedUUIDs?.includes(a)
+    );
 
     const assignees = await User.find({ uuid: { $in: assigned } }).orFail();
-    const newAssigneeEmails = assignees.map((a) => {
-      if(newAssignees.includes(a.uuid)) return a.email;
-    }).filter(e => e) as string[];
+    const newAssigneeEmails = assignees
+      .map((a) => {
+        if (newAssignees.includes(a.uuid)) return a.email;
+      })
+      .filter((e) => e) as string[];
 
     // Check that ticket is open or in progress
     if (!["open", "in_progress"].includes(ticket.status)) {
@@ -476,10 +480,10 @@ async function assignTicket(
     ).orFail();
 
     // If no new assignees to notify (or assignee was removed), return
-    if(newAssigneeEmails.length === 0) {
+    if (newAssigneeEmails.length === 0) {
       return res.send({
         err: false,
-        ticket
+        ticket,
       });
     }
 
@@ -766,29 +770,8 @@ async function updateTicket(
 
     const ticket = await SupportTicket.findOne({ uuid }).orFail();
 
-    // If status/priority is the same, just return the ticket
-    if (
-      ticket.status === status &&
-      ticket.priority === priority &&
-      !autoCloseSilenced
-    ) {
-      return res.send({
-        err: false,
-        ticket,
-      });
-    }
-
-    // If autoCloseSilenced is true, update the ticket and return
-    if (autoCloseSilenced) {
-      await SupportTicket.updateOne(
-        { uuid },
-        {
-          autoCloseSilenced: true,
-          autoCloseTriggered: false,
-          autoCloseDate: null,
-        }
-      ).orFail();
-
+    // If status/priority/autoClose is the same, just return the ticket
+    if (ticket.status === status && ticket.priority === priority && autoCloseSilenced === ticket.autoCloseSilenced) {
       return res.send({
         err: false,
         ticket,
@@ -834,6 +817,8 @@ async function updateTicket(
       updatedFeed.push(feedEntry);
     }
 
+    const autoCloseStatusChanged = autoCloseSilenced !== ticket.autoCloseSilenced;
+
     await SupportTicket.updateOne(
       { uuid },
       {
@@ -841,6 +826,11 @@ async function updateTicket(
         status,
         feed: updatedFeed,
         timeClosed: status === "closed" ? new Date().toISOString() : undefined, // if status is closed, set timeClosed to now
+        autoCloseSilenced: autoCloseSilenced,
+        ...(autoCloseStatusChanged && {
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+        })
       }
     ).orFail();
 
