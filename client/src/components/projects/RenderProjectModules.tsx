@@ -148,6 +148,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
               project.defaultFileLicense &&
               Object.keys(project.defaultFileLicense).length > 0
             }
+            projectVisibility={project.visibility}
           />
         )}
         {!showFiles && (

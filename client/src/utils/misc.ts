@@ -51,10 +51,11 @@ export function parseAndFormatDate(date: Date | string, formatString: string) {
   return "Unknown Date";
 }
 
-export async function copyToClipboard(text: string) {
+export async function copyToClipboard(text: string, msg?: string) {
   try {
+    const defaultMsg = "Copied text to clipboard.";
     await navigator.clipboard.writeText(text).then(() => {
-      alert("Copied text to clipboard.");
+      alert(msg || defaultMsg);
     });
   } catch (e) {
     console.error(e);

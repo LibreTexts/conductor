@@ -40,7 +40,7 @@ import {
 import api from "../../api";
 import { saveAs } from "file-saver";
 import { useTypedSelector } from "../../state/hooks";
-import { base64ToBlob } from "../../utils/misc";
+import { base64ToBlob, copyToClipboard } from "../../utils/misc";
 import { useMediaQuery } from "react-responsive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -49,6 +49,7 @@ interface FilesManagerProps extends SegmentProps {
   toggleFilesManager: () => void;
   canViewDetails: boolean;
   projectHasDefaultLicense?: boolean;
+  projectVisibility?: string;
 }
 
 type FileEntry = ProjectFile & {
@@ -63,6 +64,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   toggleFilesManager,
   canViewDetails = false,
   projectHasDefaultLicense = false,
+  projectVisibility = "private",
 }) => {
   const TABLE_COLS: {
     key: string;
@@ -407,6 +409,23 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
+  async function handleGetEmbedCode(videoID: string) {
+    try {
+      const res = await api.getProjectFileEmbedHTML(projectID, videoID);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+      const code = res.data.embedHTML;
+
+      await copyToClipboard(
+        code,
+        "Embed code copied to clipboard. NOTE: This code is only valid on libretexts.org or libretexts.net domains."
+      );
+    } catch (err) {
+      handleGlobalError(err);
+    }
+  }
+
   /**
    * Updates state with the a new directory to bring into view.
    *
@@ -481,7 +500,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               />
             </>
           )}
-          {item.storageType === "file" && (
+          {item.storageType === "file" && !item.isURL && (
             <Dropdown.Item
               icon="download"
               text="Download"
@@ -490,6 +509,19 @@ const FilesManager: React.FC<FilesManagerProps> = ({
               }
             />
           )}
+          {item.storageType === "file" &&
+            item.isVideo &&
+            item.videoStorageID &&
+            item.access === "public" &&
+            projectVisibility === "public" && (
+              <Dropdown.Item
+                icon="code"
+                text="Embed"
+                onClick={async () => {
+                  await handleGetEmbedCode(item.fileID);
+                }}
+              />
+            )}
         </Dropdown.Menu>
       </Dropdown>
     );
