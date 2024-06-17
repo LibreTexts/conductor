@@ -87,8 +87,9 @@ const SupportTicketView = () => {
     },
   });
 
-  const disableAutoCloseMutation = useMutation({
-    mutationFn: () => updateTicket({ autoCloseSilenced: true }),
+  const toggleAutoCloseMutation = useMutation({
+    mutationFn: (newStatus: boolean) =>
+      updateTicket({ autoCloseSilenced: newStatus }),
     onSuccess: () => {
       queryClient.invalidateQueries(["ticket", id]);
     },
@@ -152,9 +153,9 @@ const SupportTicketView = () => {
       setLoading(true);
       const res = await axios.patch(`/support/ticket/${id}`, {
         ...ticket,
+        autoCloseSilenced: autoCloseSilenced ?? false,
         ...(status && { status }),
         ...(priority && { priority: priority.toLowerCase() }),
-        ...(autoCloseSilenced && { autoCloseSilenced }),
       });
 
       if (res.data.err) {
@@ -228,6 +229,15 @@ const SupportTicketView = () => {
       )}
       {["open", "in_progress"].includes(ticket?.status ?? "") && (
         <>
+          <Button
+            onClick={() =>
+              toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)
+            }
+            loading={loading || isFetching}
+          >
+            <Icon name="shield alternate" />
+            {ticket?.autoCloseSilenced ? "Enable" : "Disable"} Auto-Close
+          </Button>
           <Dropdown
             text={`Priority: ${capitalizeFirstLetter(
               ticket?.priority ?? "medium"
@@ -237,6 +247,7 @@ const SupportTicketView = () => {
             labeled
             button
             className="icon"
+            loading={loading || isFetching}
           >
             <Dropdown.Menu>
               {changePriorityOptions.map((opt) => (
@@ -308,7 +319,7 @@ const SupportTicketView = () => {
                   <TicketAutoCloseWarning
                     ticket={ticket}
                     onDisableAutoClose={() =>
-                      disableAutoCloseMutation.mutateAsync()
+                      toggleAutoCloseMutation.mutateAsync(false)
                     }
                   />
                 )}
