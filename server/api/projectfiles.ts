@@ -1059,6 +1059,14 @@ async function removeProjectFile(
   res: Response
 ) {
   try {
+    if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
+      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
+    ) {
+      throw new Error("Missing Cloudflare credentials");
+    }
+
     const projectID = req.params.projectID;
     const fileID = req.params.fileID;
 
@@ -1084,10 +1092,19 @@ async function removeProjectFile(
 
     const filesToDelete = objsToDelete
       .map((obj) => {
-        if (obj.storageType === "file") {
+        if (obj.storageType === "file" && !obj.isURL && !obj.isVideo) {
           return {
             Key: `${projectID}/${obj.fileID}`,
           };
+        }
+        return null;
+      })
+      .filter((obj) => obj !== null);
+
+    const videosToDelete = objsToDelete
+      .map((obj) => {
+        if (obj.storageType === "file" && obj.isVideo && obj.videoStorageID) {
+          return obj.videoStorageID;
         }
         return null;
       })
@@ -1109,6 +1126,19 @@ async function removeProjectFile(
           errMsg: conductorErrors.err58,
         });
       }
+    }
+
+    if (videosToDelete.length > 0) {
+      const deletePromises = videosToDelete.map((videoID) => {
+        const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${videoID}`;
+        return axios.delete(ENDPOINT, {
+          headers: {
+            Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+          },
+        });
+      });
+
+      await Promise.all(deletePromises);
     }
 
     const deleteRes = await ProjectFile.deleteMany({
@@ -1180,10 +1210,14 @@ async function updateProjectFileCaptions(
   res: Response
 ) {
   try {
-    if(!req.files || req.files.length === 0) {
+    if (!req.files || req.files.length === 0) {
       return conductor400Err(res);
     }
-    if(!req.body.language || typeof req.body.language !== "string" || req.body.language.length !== 2) {
+    if (
+      !req.body.language ||
+      typeof req.body.language !== "string" ||
+      req.body.language.length !== 2
+    ) {
       return conductor400Err(res);
     }
 
