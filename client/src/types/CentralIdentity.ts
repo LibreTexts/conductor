@@ -50,6 +50,7 @@ export type CentralIdentityUser = {
   first_name: string;
   last_name: string;
   last_password_change: string | null;
+  last_access?: string | null;
   legacy: boolean;
   organizations: CentralIdentityOrg[];
   registration_complete: boolean | null;
