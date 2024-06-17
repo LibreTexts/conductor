@@ -30,6 +30,7 @@ import useGlobalError from "../../error/ErrorHooks";
 import { copyToClipboard, dirtyValues } from "../../../utils/misc";
 import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
+import { format, parseISO } from "date-fns";
 const AddUserAppModal = lazy(() => import("./AddUserAppModal"));
 const AddUserOrgModal = lazy(() => import("./AddUserOrgModal"));
 const ConfirmRemoveOrgOrAppModal = lazy(
@@ -91,6 +92,8 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
         user_type: "student",
         student_id: "",
         avatar: DEFAULT_AVATAR_URL,
+        last_access: "",
+        last_password_change: "",
       },
     });
 
@@ -556,7 +559,13 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                     </div>
                     <div className="flex-row-div mb-2p">
                       <p>
-                        <strong>Time of Last Access:</strong> Unknown
+                        <strong>Time of Last Access: </strong>
+                        {getValues("last_access")
+                          ? format(
+                              parseISO(getValues("last_access") as string),
+                              "MM/dd/yyyy hh:mm aa"
+                            )
+                          : "Unknown"}
                       </p>
                     </div>
                     <div className="flex-row-div">
