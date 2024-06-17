@@ -158,6 +158,10 @@ export const getProjectFileCaptionsSchema = z.object({
   params: _projectFileParams,
 });
 
+export const getProjectFileEmbedHTMLSchema = z.object({
+  params: _projectFileParams,
+});
+
 export const getPublicProjectFilesSchema = z.object({
   query: PaginationSchema,
 });

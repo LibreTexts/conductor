@@ -188,6 +188,15 @@ class API {
     return res;
   }
 
+  async getProjectFileEmbedHTML(projectID: string, fileID: string) {
+    const res = await axios.get<
+      {
+        embedHTML: string;
+      } & ConductorBaseResponse
+    >(`/project/${projectID}/files/${fileID}/embed`);
+    return res;
+  }
+
   public cloudflareStreamUploadURL: string = `${
     import.meta.env.MODE === "development" && import.meta.env.VITE_DEV_BASE_URL
   }/api/v1/cloudflare/stream-url`;

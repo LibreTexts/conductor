@@ -61,6 +61,7 @@ import {
   videoDataSchema,
   updateProjectFileCaptionsSchema,
   getProjectFileCaptionsSchema,
+  getProjectFileEmbedHTMLSchema,
 } from "./validators/projectfiles.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { ZodReqWithFiles } from "../types/Express";
@@ -74,6 +75,7 @@ import axios from "axios";
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
+const LIBRETEXTS_ALLOWED_ORIGINS = ["*.libretexts.org", "*.libretexts.net"];
 
 /**
  * Multer handler to process and validate Project File uploads.
@@ -188,6 +190,7 @@ export async function addProjectFile(
         : req.body.videoData;
 
     if (parsedVideoData && parsedVideoData.length) {
+      const cloudflareUpdates: Promise<any>[] = [];
       parsedVideoData.forEach((videoData: z.infer<typeof videoDataSchema>) => {
         const newID = v4();
         filesToCreate.push({
@@ -216,7 +219,26 @@ export async function addProjectFile(
           videoStorageID: videoData.videoID,
           version: 1, // initial version
         });
+
+        // Set allowedOrigins on Cloudflare Stream
+        const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${videoData.videoID}`;
+        cloudflareUpdates.push(
+          axios.post(
+            ENDPOINT,
+            {
+              allowedOrigins: LIBRETEXTS_ALLOWED_ORIGINS,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+            }
+          )
+        );
       });
+
+      await Promise.all(cloudflareUpdates);
 
       await ProjectFile.insertMany(filesToCreate);
       filesToCreate.length = 0; // clear array for use by standard files below
@@ -1203,6 +1225,47 @@ async function getProjectFileCaptions(
   }
 }
 
+async function getProjectFileEmbedHTML(
+  req: z.infer<typeof getProjectFileEmbedHTMLSchema>,
+  res: Response
+) {
+  try {
+    const { projectID, fileID } = req.params;
+
+    const file = await ProjectFile.findOne({ projectID, fileID }).lean();
+    if (!file || !file.videoStorageID) {
+      return conductor404Err(res);
+    }
+
+    // Check if file is public
+    if (file.access !== "public") {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err90,
+      });
+    }
+
+    const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${file.videoStorageID}/embed`;
+    const cloudFlareRes = await axios.get(ENDPOINT, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+      },
+    });
+
+    if (cloudFlareRes.status !== 200) {
+      throw new Error("Failed to retrieve embed HTML");
+    }
+
+    return res.send({
+      err: false,
+      embedHTML: cloudFlareRes.data,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 async function updateProjectFileCaptions(
   req: ZodReqWithFiles<
     ZodReqWithUser<z.infer<typeof updateProjectFileCaptionsSchema>>
@@ -1624,6 +1687,7 @@ export default {
   moveProjectFile,
   removeProjectFile,
   getProjectFileCaptions,
+  getProjectFileEmbedHTML,
   updateProjectFileCaptions,
   getPublicProjectFiles,
   createProjectFileStreamUploadURL,

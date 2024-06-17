@@ -1502,6 +1502,11 @@ router.route('/project/:projectID/files/:fileID/captions')
     projectfilesAPI.updateProjectFileCaptions,
   );
 
+router.route('/project/:projectID/files/:fileID/embed').get(
+  middleware.validateZod(ProjectFileValidators.getProjectFileEmbedHTMLSchema),
+  projectfilesAPI.getProjectFileEmbedHTML,
+)
+
 router.route('/project/:projectID/book/readerresources')
   .get(
     authAPI.verifyRequest,

@@ -82,6 +82,7 @@ const conductorErrors = {
     "err85": "Unable to create chapter.",
     "err86": "Unable to create book. Please check that your book title is unique to its library and try again.",
     "err89": "Ticket is not in a valid status for this action.",
+    "err90": "Cannot get embed code for non-public resource."
 };
 
 export default conductorErrors;
