@@ -165,12 +165,22 @@ BookSchema.index({
   summary: "text",
   libraryTags: "text",
 });
-
 BookSchema.index({
   location: 1,
   program: 1,
 });
-
+BookSchema.index({
+  subject: 1,
+});
+BookSchema.index({
+  publisher: 1,
+});
+BookSchema.index({
+  course: 1,
+});
+BookSchema.index({
+  libraryTags: 1,
+});
 const Book = model<BookInterface>("Book", BookSchema);
 
 export default Book;
