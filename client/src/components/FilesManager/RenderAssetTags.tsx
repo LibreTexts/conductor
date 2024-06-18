@@ -17,7 +17,7 @@ const isLiteTag = (value: any): value is LiteTag => {
 
 const RenderAssetTags: React.FC<{
   file: ProjectFile;
-  max?: number;
+  max?:  number | 'none';
   showNoTagsMessage?: boolean;
   size?: "small" | "large";
   basic?: boolean;
@@ -122,6 +122,7 @@ const RenderAssetTags: React.FC<{
           backgroundColor: color,
           borderColor: color,
           color: blackText ? "black" : "white",
+          marginBottom: "0.5rem",
         }}
         size={size === "small" ? "mini" : "tiny"}
         key={crypto.randomUUID()}
@@ -155,7 +156,7 @@ const RenderAssetTags: React.FC<{
             ))}
           {sortedTags &&
             spreadArray &&
-            flattenedTags.slice(0, max).map((t, index) => {
+            flattenedTags.slice(0, max === 'none' ? flattenedTags.length : max).map((t, index) => {
               const color = getLabelColor(
                 flattenedTags[index],
                 basic
@@ -172,7 +173,7 @@ const RenderAssetTags: React.FC<{
             })}
           {sortedTags &&
             !spreadArray &&
-            sortedTags?.slice(0, max).map((tag) => {
+            sortedTags?.slice(0, max === 'none' ? flattenedTags.length : max).map((tag) => {
               const val = getLabelValue(tag, !basic);
               if (!val || val === "Unknown") return <></>;
               const color = getLabelColor(tag, basic).toString();
@@ -187,7 +188,7 @@ const RenderAssetTags: React.FC<{
               );
             })}
           {sortedTags &&
-            RenderRemainingLabel(spreadArray ? flattenedTags : sortedTags, max)}
+            RenderRemainingLabel(spreadArray ? flattenedTags : sortedTags, max === 'none' ? spreadArray ? flattenedTags.length : sortedTags.length : max)}
         </div>
       }
       content={sortedTags?.map((tag) => {

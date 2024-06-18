@@ -19,9 +19,14 @@ interface CatalogCardProps extends CardProps {
     | ConductorSearchResponseFile
     | Project
     | ConductorSearchResponseAuthor;
+  onDetailClick?: () => void;
 }
 
-const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
+const CatalogCard: React.FC<CatalogCardProps> = ({
+  item,
+  onDetailClick,
+  ...props
+}) => {
   if (isAuthor(item)) {
     return (
       <Card
@@ -64,7 +69,7 @@ const CatalogCard: React.FC<CatalogCardProps> = ({ item, ...props }) => {
       className="commons-asset-card shadow-md transform transition-transform duration-300 hover:-translate-y-1"
       {...props}
     >
-      <FileCardContent file={item} />
+      <FileCardContent file={item} onDetailClick={onDetailClick} />
     </Card>
   );
 };

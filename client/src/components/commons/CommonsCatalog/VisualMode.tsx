@@ -7,6 +7,8 @@ import {
 import CatalogCard from "./CatalogCard";
 import "../Commons.css";
 import PlaceholderCard from "./PlaceholderCard";
+import { useState } from "react";
+import DetailModal from "./DetailModal";
 
 const VisualMode = ({
   items,
@@ -22,20 +24,46 @@ const VisualMode = ({
   loading?: boolean;
   noResultsMessage?: string;
 }) => {
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<
+    | Book
+    | ConductorSearchResponseFile
+    | Project
+    | ConductorSearchResponseAuthor
+    | undefined
+  >(undefined);
+
   if (items.length > 0) {
     return (
-      <div className="commons-content-card-grid ">
-        {items.map((item) => (
-          <CatalogCard item={item} key={crypto.randomUUID()} />
-        ))}
-        {loading && (
-          <>
-            {[...Array(10)].map((_, index) => (
-              <PlaceholderCard key={index} />
-            ))}
-          </>
-        )}
-      </div>
+      <>
+        <div className="commons-content-card-grid ">
+          {items.map((item) => (
+            <CatalogCard
+              item={item}
+              key={crypto.randomUUID()}
+              onDetailClick={() => {
+                setSelectedItem(item);
+                setDetailModalOpen(true);
+              }}
+            />
+          ))}
+          {loading && (
+            <>
+              {[...Array(10)].map((_, index) => (
+                <PlaceholderCard key={index} />
+              ))}
+            </>
+          )}
+        </div>
+        <DetailModal
+          item={selectedItem}
+          open={detailModalOpen}
+          onClose={() => {
+            setDetailModalOpen(false);
+            setSelectedItem(undefined);
+          }}
+        />
+      </>
     );
   }
 
