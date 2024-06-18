@@ -7,7 +7,6 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
-import { prependClearOption } from "../../util/CatalogOptions";
 
 interface CatalogAuthorFilters {
   filters: AuthorFilters;
@@ -47,7 +46,7 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
             text: org,
           };
         });
-        setOrgOptions(prependClearOption(orgs));
+        setOrgOptions(orgs);
       }
     } catch (err) {
       handleGlobalError(err);

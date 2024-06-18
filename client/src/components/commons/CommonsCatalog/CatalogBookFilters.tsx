@@ -6,10 +6,7 @@ import {
   GenericKeyTextValueObj,
 } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
-import {
-  catalogLocationOptions,
-  prependClearOption,
-} from "../../util/CatalogOptions";
+import { catalogLocationOptions } from "../../util/CatalogOptions";
 import api from "../../../api";
 import { libraryOptions } from "../../util/LibraryOptions";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
@@ -74,7 +71,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: a,
           };
         });
-        setAuthorOptions(prependClearOption(opts));
+        setAuthorOptions(opts);
       }
 
       if (res.data.subjects && Array.isArray(res.data.subjects)) {
@@ -85,7 +82,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: s,
           };
         });
-        setSubjectOptions(prependClearOption(opts));
+        setSubjectOptions(opts);
       }
       if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
         const opts = res.data.affiliations.map((a: string) => {
@@ -95,7 +92,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: a,
           };
         });
-        setAffOptions(prependClearOption(opts));
+        setAffOptions(opts);
       }
       if (res.data.courses && Array.isArray(res.data.courses)) {
         const opts = res.data.courses.map((c: string) => {
@@ -105,7 +102,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: c,
           };
         });
-        setCourseOptions(prependClearOption(opts));
+        setCourseOptions(opts);
       }
       if (res.data.publishers && Array.isArray(res.data.publishers)) {
         const opts = res.data.publishers.map((p: string) => {
@@ -115,7 +112,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: p,
           };
         });
-        setPubOptions(prependClearOption(opts));
+        setPubOptions(opts);
       }
       if (Array.isArray(res.data.cids)) {
         const opts = res.data.cids.map((cid: string) => {
@@ -125,7 +122,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             value: cid,
           };
         });
-        setCIDOptions(prependClearOption(opts));
+        setCIDOptions(opts);
       }
     } catch (err) {
       handleGlobalError(err);
@@ -163,7 +160,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         });
       });
 
-      setLicenseOptions(prependClearOption(newLicenseOptions));
+      setLicenseOptions(newLicenseOptions);
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -202,7 +199,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             filters.location ? `Location - ${filters.location}` : "Location"
           }
           icon="globe"
-          options={prependClearOption(catalogLocationOptions)}
+          options={catalogLocationOptions}
           filterKey="location"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
