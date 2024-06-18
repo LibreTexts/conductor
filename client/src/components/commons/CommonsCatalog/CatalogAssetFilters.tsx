@@ -2,11 +2,8 @@ import { useEffect, useState } from "react";
 import { GenericKeyTextValueObj } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
-import COMMON_MIME_TYPES, {
-  getPrettyNameFromMimeType,
-} from "../../../utils/common-mime-types";
+import { getPrettyNameFromMimeType } from "../../../utils/common-mime-types";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
-import { prependClearOption } from "../../util/CatalogOptions";
 import { CustomFilter } from "../../../types/Search";
 import { useTypedSelector } from "../../../state/hooks";
 
@@ -59,7 +56,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             text: org,
           };
         });
-        setOrgOptions(prependClearOption(orgs));
+        setOrgOptions(orgs);
       }
 
       if (res.data.licenses) {
@@ -70,7 +67,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             value: l,
           };
         });
-        setLicenseOptions(prependClearOption(opts));
+        setLicenseOptions(opts);
       }
 
       if (res.data.fileTypes) {
@@ -83,7 +80,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
         });
 
         mapped.sort((a, b) => a.text.localeCompare(b.text));
-        setFileTypeOptions(prependClearOption(mapped));
+        setFileTypeOptions(mapped);
       }
 
       if (res.data.people) {
@@ -94,7 +91,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
             value: `${p.firstName} ${p.lastName}`,
           };
         });
-        setPeopleOptions(prependClearOption(people));
+        setPeopleOptions(people);
       }
 
       if (res.data.customFilters) {
@@ -133,13 +130,11 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
                     : filterKey
                 }
                 icon="tags"
-                options={prependClearOption(
-                  filter.options.map((option) => ({
-                    key: crypto.randomUUID(),
-                    text: option,
-                    value: option,
-                  }))
-                )}
+                options={filter.options.map((option) => ({
+                  key: crypto.randomUUID(),
+                  text: option,
+                  value: option,
+                }))}
                 filterKey={filterKey}
                 onFilterSelect={(key, val) => onFilterChange(key, val)}
               />
