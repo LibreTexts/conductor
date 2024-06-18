@@ -198,7 +198,9 @@ class API {
   }
 
   public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development" && import.meta.env.VITE_DEV_BASE_URL
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_DEV_BASE_URL
+      : ""
   }/api/v1/cloudflare/stream-url`;
 
   // Authors
