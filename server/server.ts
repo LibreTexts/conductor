@@ -45,7 +45,8 @@ app.use(
         "'self'",
         "https://*.libretexts.org",
         "*.google-analytics.com", // gtag.js
-        '*.cloudfront.net' // TODO: Review
+        '*.cloudfront.net',
+        '*.videodelivery.net', // Cloudflare Stream
       ],
       defaultSrc: ["'self'"],
       fontSrc: [
