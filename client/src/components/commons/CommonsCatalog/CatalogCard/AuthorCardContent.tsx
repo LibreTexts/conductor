@@ -34,13 +34,6 @@ const AuthorCardContent: React.FC<AuthorCardContentProps> = ({
           <div className="line-clamp-1">{author.primaryInstitution ?? ""}</div>
         </CardMetaWIcon>
       )}
-      {author.email && (
-        <CardMetaWIcon icon="mail">
-          <a href={`mailto:${author.email}`} className="!text-blue-500">
-            {author.email}
-          </a>
-        </CardMetaWIcon>
-      )}
       {author.projects?.length > 0 && (
         <CardMetaWIcon icon="wrench">
           <div className="line-clamp-2">
