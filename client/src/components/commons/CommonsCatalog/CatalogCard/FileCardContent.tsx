@@ -12,9 +12,14 @@ import CardMetaWIcon from "../../../util/CardMetaWIcon";
 
 interface FileCardContentProps extends CardContentProps {
   file: ConductorSearchResponseFile;
+  onDetailClick?: () => void;
 }
 
-const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
+const FileCardContent: React.FC<FileCardContentProps> = ({
+  file,
+  onDetailClick,
+  ...rest
+}) => {
   const [loading, setLoading] = useState(false);
 
   const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
@@ -48,15 +53,12 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {file.projectInfo.thumbnail ? (
         <div
-          className="commons-card-img-container !bg-contain"
+          onClick={() => onDetailClick && onDetailClick()}
+          className="commons-card-img-container !bg-contain !cursor-pointer"
           style={{
             backgroundImage: `url(${file.projectInfo.thumbnail})`,
           }}
-        >
-          {/* <div className="app-item-icon-overlay">
-            <Icon name={getFileTypeIcon(file)} size="big" color="black" />
-          </div> */}
-        </div>
+        ></div>
       ) : (
         <div className="commons-asset-card-img-wrapper flex justify-center items-center">
           <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
@@ -64,11 +66,18 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
       )}
       <Card.Header
         as="button"
-        className="commons-content-card-header !mt-1 !mb-1 text-left hover:underline cursor-pointer hover:!text-blue-500 break-words hyphens-auto"
-        onClick={() => handleFileDownload(file)}
+        className="commons-content-card-header !my-2 text-left hover:underline cursor-pointer !text-blue-500 break-words hyphens-auto"
+        onClick={() => onDetailClick && onDetailClick()}
       >
         <div className="line-clamp-2">{file.name}</div>
       </Card.Header>
+      <Card.Description className="overflow-hidden !my-1">
+        <div className="line-clamp-3">
+          <p className="commons-content-card-author !mb-0">
+            {file.description ? file.description : "No description provided"}
+          </p>
+        </div>
+      </Card.Description>
       <CardMetaWIcon icon="user">
         <Popup
           disabled={!prettyAuthors || prettyAuthors === "Unknown"} // Disable popup if no authors
@@ -81,7 +90,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           position="top center"
         />
       </CardMetaWIcon>
-      <CardMetaWIcon icon="phone">
+      {/* <CardMetaWIcon icon="phone">
         <Popup
           disabled={!prettyContactPerson || prettyContactPerson === "Unknown"} // Disable popup if no authors
           trigger={
@@ -117,8 +126,8 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           position="top center"
         />
-      </CardMetaWIcon>
-      <CardMetaWIcon icon="clipboard list">
+      </CardMetaWIcon> */}
+      {/* <CardMetaWIcon icon="clipboard list">
         <Popup
           trigger={
             <div className="line-clamp-1">
@@ -141,24 +150,17 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           }
           position="top center"
         />
-      </CardMetaWIcon>
-      <CardMetaWIcon icon="legal">
+      </CardMetaWIcon> */}
+      {/* <CardMetaWIcon icon="legal">
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
         {file.license?.version ? `${file.license.version}` : ""}
-      </CardMetaWIcon>
+      </CardMetaWIcon> */}
       {!file.isURL && file.storageType === "file" && (
         <CardMetaWIcon icon={getFileTypeIcon(file)}>
           <div className="line-clamp-1">{file.mimeType ?? ""}</div>
         </CardMetaWIcon>
       )}
-      <Card.Description className="overflow-hidden !mt-1">
-        <div className="line-clamp-3">
-          <p className="commons-content-card-author !mb-0">
-            {file.description ? file.description : "No description provided"}
-          </p>
-        </div>
-      </Card.Description>
-      <div className="max-h-20 overflow-hidden mt-1">
+      {/* <div className="max-h-20 overflow-hidden mt-1">
         <RenderAssetTags
           file={file}
           max={4}
@@ -167,6 +169,14 @@ const FileCardContent: React.FC<FileCardContentProps> = ({ file, ...rest }) => {
           basic={true}
           spreadArray
         />
+      </div> */}
+      <div className="w-full absolute bottom-4 left-0 text-center">
+        <a
+          className="text-lg font-semibold text-blue-500 text-center"
+          onClick={() => onDetailClick && onDetailClick()}
+        >
+          DETAILS
+        </a>
       </div>
       <div className="absolute bottom-0 right-0 pb-3 pr-2">
         {loading && <Icon loading name="spinner" size="large" />}
