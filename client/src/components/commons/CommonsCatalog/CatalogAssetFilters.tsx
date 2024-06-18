@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { GenericKeyTextValueObj } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
@@ -6,6 +5,15 @@ import { getPrettyNameFromMimeType } from "../../../utils/common-mime-types";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { CustomFilter } from "../../../types/Search";
 import { useTypedSelector } from "../../../state/hooks";
+import { useQuery } from "@tanstack/react-query";
+
+type AssetFilterData = {
+  licenseOptions: GenericKeyTextValueObj<string>[];
+  orgOptions: GenericKeyTextValueObj<string>[];
+  fileTypeOptions: GenericKeyTextValueObj<string>[];
+  peopleOptions: GenericKeyTextValueObj<string>[];
+  assetTagFilters: CustomFilter[];
+};
 
 interface CatalogAssetFiltersProps {
   filters: Record<string, string>;
@@ -18,28 +26,23 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
 }) => {
   const { handleGlobalError } = useGlobalError();
   const org = useTypedSelector((state) => state.org);
-
-  const [licenseOptions, setLicenseOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [orgOptions, setOrgOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [fileTypeOptions, setFileTypeOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [peopleOptions, setPeopleOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [assetTagFilters, setAssetTagFilters] = useState<CustomFilter[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    getFilterOptions();
-  }, []);
+  const { data, isFetching: loading } = useQuery<AssetFilterData>({
+    queryKey: ["assetFilterOptions"],
+    queryFn: getFilterOptions,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
 
   async function getFilterOptions() {
     try {
+      const allFilters: AssetFilterData = {
+        licenseOptions: [],
+        orgOptions: [],
+        fileTypeOptions: [],
+        peopleOptions: [],
+        assetTagFilters: [],
+      };
+
       const res = await api.getAssetFilterOptions();
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -49,25 +52,23 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
       }
 
       if (res.data.orgs) {
-        const orgs = res.data.orgs.map((org: string) => {
+        allFilters.orgOptions = res.data.orgs.map((org: string) => {
           return {
             value: org,
             key: crypto.randomUUID(),
             text: org,
           };
         });
-        setOrgOptions(orgs);
       }
 
       if (res.data.licenses) {
-        const opts = res.data.licenses.map((l: string) => {
+        allFilters.licenseOptions = res.data.licenses.map((l: string) => {
           return {
             key: crypto.randomUUID(),
             text: l,
             value: l,
           };
         });
-        setLicenseOptions(opts);
       }
 
       if (res.data.fileTypes) {
@@ -80,25 +81,33 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
         });
 
         mapped.sort((a, b) => a.text.localeCompare(b.text));
-        setFileTypeOptions(mapped);
+        allFilters.fileTypeOptions = mapped;
       }
 
       if (res.data.people) {
-        const people = res.data.people.map((p) => {
+        allFilters.peopleOptions = res.data.people.map((p) => {
           return {
             key: crypto.randomUUID(),
             text: `${p.firstName} ${p.lastName}`,
             value: `${p.firstName} ${p.lastName}`,
           };
         });
-        setPeopleOptions(people);
       }
 
       if (res.data.customFilters) {
-        setAssetTagFilters(res.data.customFilters);
+        allFilters.assetTagFilters = res.data.customFilters;
       }
+
+      return allFilters;
     } catch (err) {
       handleGlobalError(err);
+      return {
+        licenseOptions: [],
+        orgOptions: [],
+        fileTypeOptions: [],
+        peopleOptions: [],
+        assetTagFilters: [],
+      };
     }
   }
 
@@ -118,8 +127,9 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
           onFilterSelect={(key, val) => onFilterChange(key, val)}
           loading={loading}
         /> */}
-        {assetTagFilters.length > 0 &&
-          assetTagFilters.map((filter, index) => {
+        {data?.assetTagFilters &&
+          data?.assetTagFilters.length > 0 &&
+          data?.assetTagFilters.map((filter, index) => {
             const filterKey = filter.title;
             return (
               <CatalogFilterDropdown
@@ -146,7 +156,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
               filters.fileType ? `File Type - ${filters.fileType}` : "File Type"
             }
             icon="file alternate outline"
-            options={fileTypeOptions}
+            options={data?.fileTypeOptions ?? []}
             filterKey="fileType"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
             loading={loading}
@@ -158,7 +168,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
               filters.org ?? ""
             }`}
             icon="university"
-            options={orgOptions}
+            options={data?.orgOptions ?? []}
             filterKey="org"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
           />
@@ -169,7 +179,7 @@ const CatalogAssetFilters: React.FC<CatalogAssetFiltersProps> = ({
               filters.person ?? ""
             }`}
             icon="user"
-            options={peopleOptions}
+            options={data?.peopleOptions ?? []}
             filterKey="person"
             onFilterSelect={(key, val) => onFilterChange(key, val)}
           />

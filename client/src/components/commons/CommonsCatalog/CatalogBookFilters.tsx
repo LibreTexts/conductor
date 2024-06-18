@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import axios from "axios";
 import {
   BookFilters,
@@ -10,6 +10,17 @@ import { catalogLocationOptions } from "../../util/CatalogOptions";
 import api from "../../../api";
 import { libraryOptions } from "../../util/LibraryOptions";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
+import { useQuery } from "@tanstack/react-query";
+
+type BookFilterData = {
+  subjectOptions: GenericKeyTextValueObj<string>[];
+  licenseOptions: GenericKeyTextValueObj<string>[];
+  authorOptions: GenericKeyTextValueObj<string>[];
+  courseOptions: GenericKeyTextValueObj<string>[];
+  pubOptions: GenericKeyTextValueObj<string>[];
+  affOptions: GenericKeyTextValueObj<string>[];
+  cidOptions: GenericKeyTextValueObj<string>[];
+};
 
 interface CatalogBookFiltersProps {
   filters: BookFilters;
@@ -21,34 +32,21 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
   onFilterChange,
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const { data, isFetching: loading } = useQuery<BookFilterData>({
+    queryKey: ["bookFilterOptions"],
+    queryFn: getFilterOptions,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
 
-  const [subjectOptions, setSubjectOptions] = useState<
+  const { data: licenseOptions, isFetching: licensesLoading } = useQuery<
     GenericKeyTextValueObj<string>[]
-  >([]);
-  const [licenseOptions, setLicenseOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [authorOptions, setAuthorOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [courseOptions, setCourseOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [pubOptions, setPubOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [affOptions, setAffOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [cidOptions, setCIDOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    getFilterOptions();
-    getLicenseOptions();
-  }, []);
+  >({
+    queryKey: ["licenseOptions"],
+    queryFn: getLicenseOptions,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
 
   /**
    * Retrieve the list(s) of dynamic
@@ -56,7 +54,15 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
    */
   async function getFilterOptions() {
     try {
-      setLoading(true);
+      const allFilters: BookFilterData = {
+        subjectOptions: [],
+        licenseOptions: [],
+        authorOptions: [],
+        courseOptions: [],
+        pubOptions: [],
+        affOptions: [],
+        cidOptions: [],
+      };
 
       const res = await axios.get("/commons/filters");
       if (res.data.err) {
@@ -64,84 +70,83 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       }
 
       if (res.data.authors && Array.isArray(res.data.authors)) {
-        const opts = res.data.authors.map((a: string) => {
+        allFilters.authorOptions = res.data.authors.map((a: string) => {
           return {
             key: a,
             text: a,
             value: a,
           };
         });
-        setAuthorOptions(opts);
       }
 
       if (res.data.subjects && Array.isArray(res.data.subjects)) {
-        const opts = res.data.subjects.map((s: string) => {
+        allFilters.subjectOptions = res.data.subjects.map((s: string) => {
           return {
             key: s,
             text: s,
             value: s,
           };
         });
-        setSubjectOptions(opts);
       }
       if (res.data.affiliations && Array.isArray(res.data.affiliations)) {
-        const opts = res.data.affiliations.map((a: string) => {
+        allFilters.affOptions = res.data.affiliations.map((a: string) => {
           return {
             key: a,
             text: a,
             value: a,
           };
         });
-        setAffOptions(opts);
       }
       if (res.data.courses && Array.isArray(res.data.courses)) {
-        const opts = res.data.courses.map((c: string) => {
+        allFilters.courseOptions = res.data.courses.map((c: string) => {
           return {
             key: c,
             text: c,
             value: c,
           };
         });
-        setCourseOptions(opts);
       }
       if (res.data.publishers && Array.isArray(res.data.publishers)) {
-        const opts = res.data.publishers.map((p: string) => {
+        allFilters.pubOptions = res.data.publishers.map((p: string) => {
           return {
             key: p,
             text: p,
             value: p,
           };
         });
-        setPubOptions(opts);
       }
       if (Array.isArray(res.data.cids)) {
-        const opts = res.data.cids.map((cid: string) => {
+        allFilters.cidOptions = res.data.cids.map((cid: string) => {
           return {
             key: cid,
             text: cid,
             value: cid,
           };
         });
-        setCIDOptions(opts);
       }
+
+      return allFilters;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return {
+        subjectOptions: [],
+        licenseOptions: [],
+        authorOptions: [],
+        courseOptions: [],
+        pubOptions: [],
+        affOptions: [],
+        cidOptions: [],
+      };
     }
   }
 
   async function getLicenseOptions() {
     try {
-      setLoading(true);
-
       const res = await api.getCentralIdentityLicenses();
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      const newLicenseOptions: typeof licenseOptions = [
-        // { key: "empty", text: "Clear...", value: "" },
-      ];
+      const opts: GenericKeyTextValueObj<string>[] = [];
 
       if (!res.data.licenses || !Array.isArray(res.data.licenses)) {
         throw new Error("Invalid response from server.");
@@ -153,18 +158,17 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
       });
 
       noDuplicates.forEach((licenseName) => {
-        newLicenseOptions.push({
+        opts.push({
           key: crypto.randomUUID(),
           text: licenseName,
           value: licenseName,
         });
       });
 
-      setLicenseOptions(newLicenseOptions);
+      return opts;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return [];
     }
   }
 
@@ -187,7 +191,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         <CatalogFilterDropdown
           text={filters.subject ? `Subject - ${filters.subject}` : "Subject"}
           icon="filter"
-          options={subjectOptions}
+          options={data?.subjectOptions ?? []}
           filterKey="subject"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
@@ -209,17 +213,17 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         <CatalogFilterDropdown
           text={filters.license ? `License - ${filters.license}` : "License"}
           icon="legal"
-          options={licenseOptions}
+          options={licenseOptions ?? []}
           filterKey="license"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
           }
-          loading={loading}
+          loading={licensesLoading}
         />
         <CatalogFilterDropdown
           text={filters.author ? `Author - ${filters.author}` : "Author"}
           icon="user"
-          options={authorOptions}
+          options={data?.authorOptions ?? []}
           filterKey="author"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
@@ -229,7 +233,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
         <CatalogFilterDropdown
           text={filters.course ? `Course - ${filters.course}` : "Course"}
           icon="users"
-          options={courseOptions}
+          options={data?.courseOptions ?? []}
           filterKey="course"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)
@@ -243,7 +247,7 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
               : "Affiliation"
           }
           icon="filter"
-          options={affOptions}
+          options={data?.affOptions ?? []}
           filterKey="affiliation"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof BookFilters, val)

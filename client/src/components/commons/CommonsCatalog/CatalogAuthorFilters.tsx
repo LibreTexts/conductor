@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   AuthorFilters,
   AuthorFiltersAction,
@@ -7,6 +6,11 @@ import {
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
 import CatalogFilterDropdown from "./CatalogFilterDropdown";
+import { useQuery } from "@tanstack/react-query";
+
+type AuthorFilterData = {
+  orgOptions: GenericKeyTextValueObj<string>[];
+};
 
 interface CatalogAuthorFilters {
   filters: AuthorFilters;
@@ -18,18 +22,19 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
   onFilterChange,
 }) => {
   const { handleGlobalError } = useGlobalError();
-
-  const [orgOptions, setOrgOptions] = useState<
-    GenericKeyTextValueObj<string>[]
-  >([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    getFilterOptions();
-  }, []);
+  const { data, isFetching: loading } = useQuery<AuthorFilterData>({
+    queryKey: ["authorFilterOptions"],
+    queryFn: getFilterOptions,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  });
 
   async function getFilterOptions() {
     try {
+      const allFilters: AuthorFilterData = {
+        orgOptions: [],
+      };
+
       const res = await api.getAuthorFilterOptions();
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -39,17 +44,23 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
       }
 
       if (res.data.primaryInstitutions) {
-        const orgs = res.data.primaryInstitutions.map((org: string) => {
-          return {
-            value: org,
-            key: crypto.randomUUID(),
-            text: org,
-          };
-        });
-        setOrgOptions(orgs);
+        allFilters.orgOptions = res.data.primaryInstitutions.map(
+          (org: string) => {
+            return {
+              value: org,
+              key: crypto.randomUUID(),
+              text: org,
+            };
+          }
+        );
       }
+
+      return allFilters;
     } catch (err) {
       handleGlobalError(err);
+      return {
+        orgOptions: [],
+      };
     }
   }
 
@@ -64,7 +75,7 @@ const CatalogAuthorFilters: React.FC<CatalogAuthorFilters> = ({
             filters.primaryInstitution ? ` - ${filters.primaryInstitution}` : ""
           }`}
           icon="university"
-          options={orgOptions}
+          options={data?.orgOptions ?? []}
           filterKey="primaryInstitution"
           onFilterSelect={(key, val) =>
             onFilterChange(key as keyof AuthorFilters, val)
