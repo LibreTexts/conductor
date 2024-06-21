@@ -42,6 +42,10 @@ const UserMenu: React.FC = () => {
         <Icon name="alarm" />
         My Alerts
       </Menu.Item>
+      <Menu.Item as={Link} to="/support/dashboard">
+        <Icon name="ticket" />
+        My Support Tickets
+      </Menu.Item>
       <Menu.Item
         href="https://commons.libretexts.org/harvestrequest"
         target="_blank"
@@ -63,7 +67,7 @@ const UserMenu: React.FC = () => {
         target="_blank"
         rel="noopener noreferrer"
       >
-        Instructor Verification Request
+        Instructor Verification<br></br> Request
         <Icon name="share alternate" />
       </Menu.Item>
       <Menu.Item
