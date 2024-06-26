@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button, Icon, Table } from "semantic-ui-react";
+import { Button, Icon, Table, TableBody } from "semantic-ui-react";
 import useGlobalError from "../error/ErrorHooks";
 import { SupportTicket } from "../../types";
 import axios from "axios";
@@ -15,7 +15,7 @@ const UserDashboard = () => {
   const [activePage, setActivePage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
-  const [itemsPerPage, setItemsPerPage] = useState<number>(2);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
 
   const { data: userTickets, isFetching } = useQuery<SupportTicket[]>({
@@ -47,7 +47,8 @@ const UserDashboard = () => {
         throw new Error("Invalid response from server");
       }
 
-      setTotalItems(res.data.total);
+       setTotalItems(res.data.total);
+    
       setTotalPages(Math.ceil(res.data.total / itemsPerPage));
 
       return res.data.tickets;
@@ -61,7 +62,7 @@ const UserDashboard = () => {
   function openTicket(uuid: string) {
     window.open(`/support/ticket/${uuid}`, "_blank");
   }
-
+  console.log(totalItems);
   return (
     <div className="flex flex-col p-8" aria-busy={loading}>
       <p className="text-4xl font-semibold">My Support Tickets</p>
@@ -88,6 +89,7 @@ const UserDashboard = () => {
               <Table.HeaderCell>Actions</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
+          {totalItems>0 &&
           <Table.Body>
             {isFetching && <LoadingSpinner />}
             {!isFetching &&
@@ -113,7 +115,14 @@ const UserDashboard = () => {
                   </Table.Cell>
                 </Table.Row>
               ))}
-          </Table.Body>
+          </Table.Body>}
+          {totalItems==0 && <TableBody>
+            <tr className = "text-center">
+              <td colSpan={5}>
+              No Tickets Found
+              </td>
+            </tr>
+            </TableBody>}
         </Table>
         <PaginationWithItemsSelect
           activePage={activePage}
