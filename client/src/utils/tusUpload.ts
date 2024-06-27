@@ -11,8 +11,13 @@ export default async function tusUpload(
   return new Promise((resolve, reject) => {
     const options: tus.UploadOptions = {
       endpoint,
-      chunkSize: 50 * 1024 * 1024,
-      //   retryDelays: [0, 3000, 5000, 10000, 20000],
+      /**
+       * https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#resumable-uploads-with-tus-for-large-files
+       * Important: Cloudflare Stream requires a minimum chunk size of 5,242,880 bytes when using TUS, unless the entire file is less than this amount.
+       * We recommend increasing the chunk size to 52,428,800 bytes for better performance when the client connection is expected to be reliable.
+       * Maximum chunk size can be 209,715,200 bytes.
+       */
+      chunkSize: 5242880, 
       retryDelays: [0, 3000],
       metadata: {
         name: file.name,

@@ -810,7 +810,7 @@ async function updateProjectFile(
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
 
     const isPhysicalFile =
-      file.storageType === "file" && !file.isURL && !file.url;
+      file.storageType === "file" && !file.isURL && !file.url && !file.isVideo;
     if (isPhysicalFile && processedName && processedName !== file.name) {
       // rename file
       const fileKey = `${projectID}/${fileID}`;
