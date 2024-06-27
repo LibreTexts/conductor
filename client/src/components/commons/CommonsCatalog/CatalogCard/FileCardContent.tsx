@@ -24,10 +24,6 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
 
   const prettyAuthors = getPrettyAuthorsList(file.primaryAuthor, file.authors);
 
-  const prettyContactPerson = file.correspondingAuthor
-    ? `${file.correspondingAuthor.firstName} ${file.correspondingAuthor.lastName}`
-    : `Unknown`;
-
   const allAuthors =
     [file.primaryAuthor, ...(file.authors ?? [])]
       .filter((a) => a && !!a.firstName && !!a.lastName)
@@ -53,7 +49,7 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
     <Card.Content className="commons-content-card-inner-content" {...rest}>
       {file.projectInfo.thumbnail ? (
         <div
-          onClick={() => onDetailClick && onDetailClick()}
+          onClick={() => window.open(`/commons-project/${file.projectID}`)}
           className="commons-card-img-container !bg-contain !cursor-pointer"
           style={{
             backgroundImage: `url(${file.projectInfo.thumbnail})`,

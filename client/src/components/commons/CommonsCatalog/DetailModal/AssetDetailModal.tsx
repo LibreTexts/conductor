@@ -53,7 +53,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       <div className="flex w-full h-32">
         {file.projectInfo.thumbnail ? (
           <div
-            //onClick={() => handleFileDownload(file)}
+            onClick={() => window.open(`/commons-project/${file.projectID}`)}
             className="flex h-32 w-full rounded-md bg-left bg-no-repeat !bg-contain !cursor-pointer"
             style={{
               backgroundImage: `url(${file.projectInfo.thumbnail})`,
