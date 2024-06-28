@@ -43,6 +43,7 @@ import useDebounce from "../../hooks/useDebounce";
 import AuthorsForm from "./AuthorsForm";
 import FilePreview from "./FilePreview";
 import ManageCaptionsModal from "./ManageCaptionsModal";
+import { useQuery } from "@tanstack/react-query";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -114,7 +115,6 @@ const EditFile: React.FC<EditFileProps> = ({
 
   // Data & UI
   const [loading, setLoading] = useState(false);
-  const [licensesLoading, setLicensesLoading] = useState(false);
   const [isFolder, setIsFolder] = useState(false); // No asset tags for folders
   const [showUploader, setShowUploader] = useState(false);
   const [showLicenseInfo, setShowLicenseInfo] = useState(true);
@@ -130,15 +130,18 @@ const EditFile: React.FC<EditFileProps> = ({
   const [selectedFramework, setSelectedFramework] =
     useState<AssetTagFramework | null>(null);
 
-  // Licenses
-  const [licenseOptions, setLicenseOptions] = useState<
+  const { data: licenseOptions, isFetching: licensesLoading } = useQuery<
     CentralIdentityLicense[]
-  >([]);
+  >({
+    queryKey: ["centralIdentityLicenses"],
+    queryFn: loadLicenseOptions,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
   // Effects
   useEffect(() => {
     if (show) {
-      loadLicenseOptions();
       loadFile().then(() => loadProjectLicenseSettings()); // Load file first, then project license settings
     }
   }, [show]);
@@ -160,7 +163,7 @@ const EditFile: React.FC<EditFileProps> = ({
       return;
     }
 
-    const license = licenseOptions.find(
+    const license = licenseOptions?.find(
       (l) => l.name === getValues("license.name")
     );
     if (!license) return;
@@ -174,7 +177,7 @@ const EditFile: React.FC<EditFileProps> = ({
 
   // Return new license version options when license name changes
   const selectedLicenseVersions = useCallback(() => {
-    const license = licenseOptions.find(
+    const license = licenseOptions?.find(
       (l) => l.name === getValues("license.name")
     );
     if (!license) return [];
@@ -269,7 +272,6 @@ const EditFile: React.FC<EditFileProps> = ({
 
   async function loadLicenseOptions() {
     try {
-      setLicensesLoading(true);
       const res = await api.getCentralIdentityLicenses();
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -289,11 +291,10 @@ const EditFile: React.FC<EditFileProps> = ({
           }),
         };
       });
-      setLicenseOptions(versionsSorted);
+      return versionsSorted;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLicensesLoading(false);
+      return [];
     }
   }
 
@@ -571,7 +572,7 @@ const EditFile: React.FC<EditFileProps> = ({
                             render={({ field }) => (
                               <Dropdown
                                 id="selectLicenseName"
-                                options={licenseOptions.map((l) => ({
+                                options={licenseOptions?.map((l) => ({
                                   key: l.name,
                                   value: l.name,
                                   text: l.name,
