@@ -8,6 +8,8 @@ import {
   getFileTypeIcon,
   getPrettyAuthorsList,
 } from "../../../utils/assetHelpers";
+import { useState } from "react";
+import LoadingSpinner from "../../LoadingSpinner";
 
 interface AssetsTableProps extends TableProps {
   items: ConductorSearchResponseFile[];
@@ -19,15 +21,20 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
   loading,
   ...rest
 }) => {
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
+      setDownloadLoading(true);
       success = await downloadFile(file.projectID, file.fileID);
     } catch (err) {
       if (!success) {
         console.error(err);
         //handleGlobalError("Unable to download file. Please try again later.");
       }
+    } finally {
+      setDownloadLoading(false);
     }
   }
 
@@ -59,6 +66,11 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
         </Table.Row>
       </Table.Header>
       <Table.Body>
+        {
+          downloadLoading && (
+            <LoadingSpinner />
+          )
+        }
         {items.length > 0 &&
           items.map((item, index) => {
             return (
@@ -88,7 +100,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({
                 </Table.Cell>
                 <Table.Cell>
                   <p>
-                    <Link to={`/projects/${item.projectID}`} target="_blank">
+                    <Link to={`/commons-project/${item.projectID}`} target="_blank">
                       {truncateString(item.projectInfo?.title, 50)}
                     </Link>
                   </p>
