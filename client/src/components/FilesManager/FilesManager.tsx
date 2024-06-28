@@ -588,7 +588,13 @@ const FilesManager: React.FC<FilesManagerProps> = ({
             <Button.Group
               fluid
               widths="6"
-              className={itemsChecked <= 1 ? "max-w-[34rem]" : ""}
+              className={
+                itemsChecked === 0
+                  ? "max-w-[34rem]"
+                  : itemsChecked === 1
+                  ? "max-w-[46rem]"
+                  : ""
+              }
             >
               <Button color="green" onClick={() => setShowUploader(true)}>
                 <Icon name="upload" />
@@ -603,63 +609,64 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 New Folder
               </Button>
               {itemsChecked > 1 && (
-                <>
-                  <Button
-                    color="blue"
-                    onClick={handleDownloadRequest}
-                    disabled={!checkProjectMemberPermission || downloadLoading}
-                  >
-                    {!downloadLoading && (
-                      <>
-                        <Icon name="download" />
-                        Download (ZIP)
-                      </>
-                    )}
-                    {downloadLoading && (
-                      <>
-                        <Icon name="spinner" loading />
-                        This may take a moment...
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    color="teal"
-                    disabled={itemsChecked < 1}
-                    onClick={() => {
-                      handleMoveFiles(
-                        files?.filter((obj) => obj.checked) || []
-                      );
-                    }}
-                  >
-                    <Icon name="move" />
-                    Move
-                  </Button>
-                  <Button
-                    color="yellow"
-                    disabled={itemsChecked < 1 || !checkProjectMemberPermission}
-                    onClick={() => {
-                      handleChangeAccess(
-                        files?.filter((obj) => obj.checked) || []
-                      );
-                    }}
-                  >
-                    <Icon name="lock" />
-                    Change Access
-                  </Button>
-                  <Button
-                    color="red"
-                    disabled={itemsChecked < 1}
-                    onClick={() => {
-                      handleDeleteFiles(
-                        files?.filter((obj) => obj.checked) || []
-                      );
-                    }}
-                  >
-                    <Icon name="trash" />
-                    Delete
-                  </Button>
-                </>
+                <Button
+                  color="blue"
+                  onClick={handleDownloadRequest}
+                  disabled={!checkProjectMemberPermission || downloadLoading}
+                >
+                  {!downloadLoading && (
+                    <>
+                      <Icon name="download" />
+                      Download (ZIP)
+                    </>
+                  )}
+                  {downloadLoading && (
+                    <>
+                      <Icon name="spinner" loading />
+                      This may take a moment...
+                    </>
+                  )}
+                </Button>
+              )}
+              {itemsChecked > 1 && (
+                <Button
+                  color="teal"
+                  disabled={itemsChecked < 1}
+                  onClick={() => {
+                    handleMoveFiles(files?.filter((obj) => obj.checked) || []);
+                  }}
+                >
+                  <Icon name="move" />
+                  Move
+                </Button>
+              )}
+              {itemsChecked > 0 && (
+                <Button
+                  color="yellow"
+                  disabled={itemsChecked < 1 || !checkProjectMemberPermission}
+                  onClick={() => {
+                    handleChangeAccess(
+                      files?.filter((obj) => obj.checked) || []
+                    );
+                  }}
+                >
+                  <Icon name="lock" />
+                  Change Access
+                </Button>
+              )}
+              {itemsChecked > 1 && (
+                <Button
+                  color="red"
+                  disabled={itemsChecked < 1}
+                  onClick={() => {
+                    handleDeleteFiles(
+                      files?.filter((obj) => obj.checked) || []
+                    );
+                  }}
+                >
+                  <Icon name="trash" />
+                  Delete
+                </Button>
               )}
             </Button.Group>
           </Segment>
