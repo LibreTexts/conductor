@@ -1798,61 +1798,6 @@ async function getBookSummary(
 }
 
 /**
- * Makes a request to a Book's respective Project to retrieve the public Project Files.
- * NOTE: This function should only be called AFTER the validation chain.
- * VALIDATION: 'getBookFiles'
- *
- * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing response object.
- */
-async function getBookFiles(
-  req: z.infer<typeof getBookFilesSchema>,
-  res: Response
-) {
-  try {
-    const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
-    const fileID = req.params.fileID || "";
-    if (isEmptyString(lib) || isEmptyString(coverID)) {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err2,
-      });
-    }
-
-    const project = await Project.findOne({
-      $and: [
-        { libreLibrary: lib },
-        { libreCoverID: coverID },
-        { visibility: "public" },
-      ],
-    }).lean();
-    if (!project) {
-      return res.send({
-        err: false,
-        msg: "No Projects associated with this resource.",
-      });
-    }
-
-    const [files, path] = await retrieveProjectFiles(
-      project.projectID,
-      fileID,
-      false,
-      true
-    );
-    return res.send({
-      err: false,
-      files,
-      path,
-    });
-  } catch (e) {
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
-
-/**
  * Makes a request to a Book's respective Project to retrieve a signed download URL for a given file
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookFiles'
@@ -2145,7 +2090,6 @@ export default {
   getCatalogFilterOptions,
   addBookToCustomCatalog,
   removeBookFromCustomCatalog,
-  getBookFiles,
   downloadBookFile,
   getBookSummary,
   getBookTOC,

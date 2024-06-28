@@ -12,10 +12,10 @@ import {
   computeStructureAccessSettings,
   createZIPAndNotify,
   downloadProjectFiles,
+  getFolderContents,
+  getProjectFiles,
   parseAndZipS3Objects,
   retrieveAllProjectFiles,
-  retrieveProjectFiles,
-  retrieveSingleProjectFile,
   updateProjectFiles as updateProjectFilesUtil,
 } from "../util/projectutils.js";
 import { isObjectIdOrHexString } from "mongoose";
@@ -351,19 +351,14 @@ export async function addProjectFileFolder(
       });
     }
 
-    const files = await retrieveAllProjectFiles(
-      projectID,
-      false,
-      req.user.decoded.uuid
-    );
-    if (!files) {
-      throw new Error("retrieveerror");
-    }
-
     let parent = "";
     let accessSetting = "public" as ProjectFileInterfaceAccess; // default
     if (req.body.parentID && req.body.parentID !== "") {
-      const foundParent = files.find((obj) => obj.fileID === req.body.parentID);
+      const foundParent = await ProjectFile.findOne({
+        projectID,
+        fileID: req.body.parentID,
+      }).lean();
+
       if (!foundParent) {
         return res.status(400).send({
           err: true,
@@ -477,16 +472,15 @@ async function bulkDownloadProjectFiles(
       });
     }
 
-    const allFiles = await retrieveAllProjectFiles(
+    const foundFiles = await getProjectFiles(
       projectID,
+      fileIDs,
       false,
       req.user?.decoded.uuid
     );
-    if (!allFiles) {
+    if (!foundFiles || foundFiles.length === 0) {
       throw new Error("retrieveerror");
     }
-
-    const foundFiles = allFiles.filter((file) => fileIDs.includes(file.fileID));
 
     const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
     const downloadCommands: any[] = [];
@@ -592,9 +586,11 @@ async function getProjectFolderContents(
       });
     }
 
-    const [files, path] = await retrieveProjectFiles(
+    console.log("FOLDER ID: ", folderID)
+
+    const [files, path] = await getFolderContents(
       projectID,
-      folderID,
+      folderID ?? "",
       req.user ? false : true,
       req.user?.decoded.uuid
     );
@@ -646,12 +642,15 @@ async function getProjectFile(
       });
     }
 
-    const [file, path] = await retrieveSingleProjectFile(
+    const files = await getProjectFiles(
       projectID,
-      fileID,
-      req.user?.decoded ? undefined : true,
+      [fileID],
+      req.user?.decoded.uuid ? undefined : true,
       req.user?.decoded.uuid
-    );
+    )
+
+    const file = files && files?.length > 0 ? files[0] : null;
+
     if (!file) {
       // error encountered
       return conductor404Err(res);
@@ -664,9 +663,8 @@ async function getProjectFile(
 
     return res.send({
       err: false,
-      msg: "Successfully retrieved files!",
+      msg: "Successfully retrieved file!",
       file,
-      path,
       ...(videoStreamURL && { videoStreamURL }),
     });
   } catch (e) {
@@ -714,13 +712,14 @@ async function updateProjectFile(
         req.user.decoded.uuid
       )) ?? [];
 
-    const [file] = await retrieveSingleProjectFile(
+    const foundFiles = await getProjectFiles(
       projectID,
-      fileID,
+      [fileID],
       false,
       req.user.decoded.uuid
     );
 
+    const file = foundFiles && foundFiles.length > 0 ? foundFiles[0] : null;
     if (!file) {
       return res.status(400).send({
         err: true,
@@ -923,7 +922,7 @@ async function updateProjectFileAccess(
     }
 
     /* Update file and any children */
-    const entriesToUpdate: ProjectFileInterface[] = [];
+    const entriesToUpdate: (RawProjectFileInterface | ProjectFileInterface)[] = [];
 
     const findChildEntriesToUpdate = (parentID: string) => {
       files.forEach((obj) => {
@@ -1656,7 +1655,7 @@ const _removeExtension = (originalName: string) => {
 };
 
 const _checkExistingNames = (
-  files: ProjectFileInterface[],
+  files: (RawProjectFileInterface | ProjectFileInterface)[],
   fileName: string,
   updating = false
 ) => {
