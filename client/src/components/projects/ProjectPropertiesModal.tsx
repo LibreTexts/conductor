@@ -41,6 +41,7 @@ import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
 import { set } from "date-fns";
 import AuthorsForm from "../FilesManager/AuthorsForm";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
+import { useQueryClient } from "@tanstack/react-query";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -61,6 +62,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 }) => {
   const DESCRIP_MAX_CHARS = 500;
   // Global state & hooks
+  const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
@@ -542,6 +544,11 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
+
+      // Invalidate cached project data
+      queryClient.invalidateQueries(["project", projectID]);
+      queryClient.invalidateQueries(['projectLicenseSettings', projectID]);
+
       onClose();
       return;
     } catch (err) {

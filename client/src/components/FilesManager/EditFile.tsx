@@ -44,6 +44,7 @@ import AuthorsForm from "./AuthorsForm";
 import FilePreview from "./FilePreview";
 import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
+import { ProjectFileLicense } from "../../types/Project";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -139,10 +140,28 @@ const EditFile: React.FC<EditFileProps> = ({
     refetchOnWindowFocus: false,
   });
 
+  const {
+    data: projectLicenseSettings,
+    isFetching: projectLicenseSettingsLoading,
+  } = useQuery<ProjectFileLicense | null>({
+    queryKey: ["projectLicenseSettings", projectID],
+    queryFn: loadProjectLicenseSettings,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: campusDefaultFramework, isFetching: campusDefaultLoading } =
+    useQuery<AssetTagFramework | null>({
+      queryKey: ["campusDefaultFramework", org.orgID],
+      queryFn: loadCampusDefault,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+    });
+
   // Effects
   useEffect(() => {
     if (show) {
-      loadFile().then(() => loadProjectLicenseSettings()); // Load file first, then project license settings
+      loadFile();
     }
   }, [show]);
 
@@ -151,6 +170,18 @@ const EditFile: React.FC<EditFileProps> = ({
       genTagsFromFramework();
     }
   }, [selectedFramework]);
+
+  useEffect(() => {
+    if (!campusDefaultFramework) return;
+    setSelectedFramework(campusDefaultFramework);
+  }, [watch("fileID"), campusDefaultFramework]);
+
+  useEffect(() => {
+    if (get("license.name")) return; // Don't overwrite license if already set
+    if (projectLicenseSettings) {
+      setValue("license", projectLicenseSettings);
+    }
+  }, [watch("fileID"), projectLicenseSettings]);
 
   // Update license URL and (version as appropriate) when license name changes
   useEffect(() => {
@@ -213,9 +244,6 @@ const EditFile: React.FC<EditFileProps> = ({
       if (res.data.videoStreamURL && fileData.isVideo) {
         setVideoStreamURL(res.data.videoStreamURL);
       }
-      if (fileData.storageType === "file") {
-        checkCampusDefault(); // We want to make sure the file is loaded before checking for campus default and updating tags (if applicable)
-      }
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -225,9 +253,6 @@ const EditFile: React.FC<EditFileProps> = ({
 
   async function loadProjectLicenseSettings() {
     try {
-      if (getValues("license.name")) return; // Don't load project license settings if file license is already set
-      setLoading(true);
-
       const res = await api.getProject(projectID);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -240,33 +265,28 @@ const EditFile: React.FC<EditFileProps> = ({
         res.data.project.defaultFileLicense &&
         typeof res.data.project.defaultFileLicense === "object"
       ) {
-        setValue("license", res.data.project.defaultFileLicense);
+        return res.data.project.defaultFileLicense as ProjectFileLicense;
       }
+      return null;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return null;
     }
   }
 
-  /**
-   * Loads the default framework for the campus, if one exists.
-   */
-  async function checkCampusDefault() {
+  async function loadCampusDefault() {
     try {
-      const existing = getValues("tags");
-      if (existing && existing.length > 0) return; // Don't load campus default if tags already exist
-      setLoading(true);
       const res = await api.getCampusDefaultFramework(org.orgID);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      if (!res.data.framework) return;
-      setSelectedFramework(res.data.framework);
+      if (!res.data.framework) {
+        return null;
+      }
+      return res.data.framework;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return null;
     }
   }
 

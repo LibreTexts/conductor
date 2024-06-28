@@ -24,6 +24,7 @@ import {
 import { truncateString } from "../../../../components/util/HelperFunctions";
 import { useTypedSelector } from "../../../../state/hooks";
 import { isCallChain } from "typescript";
+import { useQueryClient } from "@tanstack/react-query";
 const ManageFrameworkModal = lazy(
   () =>
     import(
@@ -42,6 +43,7 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
+  const queryClient = useQueryClient();
 
   // Data & UI
   const [frameworks, setFrameworks] = useState<
@@ -126,6 +128,7 @@ const AssetTagsManager: React.FC<{}> = ({}) => {
         throw new Error(res.data.errMsg);
       }
 
+      queryClient.invalidateQueries(["campusDefaultFramework", org.orgID])
       getFrameworks(searchString);
     } catch (err) {
       handleGlobalError(err);
