@@ -135,7 +135,10 @@ const ProjectFileSchema = new Schema<ProjectFileInterface>({
    * Identifier of the immediate parent in the hierarchy. Empty string if the
    * entry is at the top-level of the hierarchy.
    */
-  parent: String,
+  parent: {
+    type: String,
+    index: true,
+  },
   /**
    * UUID of the user that uploaded or created the entry.
    */

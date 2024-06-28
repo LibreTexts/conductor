@@ -150,7 +150,7 @@ export const getProjectFileSchema = z.object({
 export const getProjectFolderContentsSchema = z.object({
   params: z.object({
     projectID: _projectIDSchema,
-    folderID: _projectFileIDSchema.optional(),
+    folderID: _projectFileIDSchema.optional(), // undefined means root folder
   }),
 });
 

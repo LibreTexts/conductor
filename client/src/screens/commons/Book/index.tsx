@@ -365,9 +365,11 @@ const CommonsBook = () => {
    * Load the Files list from the server, prepare it for the UI, then save it to state.
    */
   const getProjectFiles = useCallback(async () => {
+    if(!book.projectID) return;
     setLoadingFiles(true);
+    
     axios
-      .get(`/commons/book/${bookID}/files/${currDirectory}`)
+      .get(`/project/${book.projectID}/files/${currDirectory}`)
       .then((res) => {
         if (!res.data.err) {
           if (Array.isArray(res.data.files)) {

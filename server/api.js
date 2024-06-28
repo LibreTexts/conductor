@@ -640,11 +640,6 @@ router.route('/commons/book/:bookID/summary').get(
   booksAPI.getBookSummary,
 );
 
-router.route('/commons/book/:bookID/files/:fileID?').get(
-  middleware.validateZod(BookValidators.getBookFilesSchema),
-  booksAPI.getBookFiles,
-);
-
 router.route('/commons/book/:bookID/files/:fileID/download').get(
   middleware.validateZod(BookValidators.downloadBookFileSchema),
   booksAPI.downloadBookFile,
