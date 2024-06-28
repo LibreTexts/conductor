@@ -1172,12 +1172,23 @@ export async function assetsSearch(
 
     // Filter by person if provided
     if (req.query.person) {
+      const lowercased = req.query.person.toString().toLowerCase();
       allResults = allResults.filter((file) => {
-        return file.authors.find((author: any) => {
-          return `${author.firstName} ${author.lastName}`
-            .toLowerCase()
-            .includes((req.query.person as string).toLowerCase());
-        });
+        const primaryAuthor =
+          `${file.primaryAuthor?.firstName} ${file.primaryAuthor?.lastName}`.toLowerCase();
+        const correspondingAuthor =
+          `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}`.toLowerCase();
+
+        // Check if the person is in authors array, primary author, or corresponding author
+        return (
+          file.authors.find((author: any) => {
+            return `${author.firstName} ${author.lastName}`
+              .toLowerCase()
+              .includes(lowercased);
+          }) ||
+          primaryAuthor.includes(lowercased) ||
+          correspondingAuthor.includes(lowercased)
+        );
       });
     }
 
@@ -2120,9 +2131,9 @@ async function addToSearchQueryCache(query: string, scope: string) {
   try {
     const org = await Organization.findOne({
       orgID: process.env.ORG_ID,
-    })
+    });
 
-    if(!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
+    if (!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
 
     searchQueryCache.push({
       query,
@@ -2151,7 +2162,7 @@ async function flushSearchQueryCache() {
     });
 
     // @ts-ignore
-    if(!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
+    if (!org?.FEAT_RecordSearchQueries) return true; // Check if feature flag is enabled
 
     const localCopy = [...searchQueryCache]; // Copy so we can keep collecting queries while we flush
     searchQueryCache.splice(0, searchQueryCache.length); // Clear the cache
