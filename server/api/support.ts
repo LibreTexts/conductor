@@ -947,6 +947,7 @@ async function createGeneralMessage(
       await mailAPI.sendNewTicketMessageNotification(
         [ticket.guest.email],
         ticket.uuid,
+        ticket.title,
         message,
         senderName,
         params.toString()
@@ -964,6 +965,7 @@ async function createGeneralMessage(
     await mailAPI.sendNewTicketMessageNotification(
       filteredEmails,
       ticket.uuid,
+      ticket.title,
       message,
       senderName,
       ""
