@@ -815,15 +815,16 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
  * Sends a notification to the specified email addresses that a new message has been posted to a support ticket.
  * @param {string[]} recipientAddresses - the email addresses to send the notification to
  * @param {string} ticketID - the ticket's uuid
+ * @param {string} ticketSubject - the ticket's subject
  * @param {string} message - the message's body
  * @param {string} messageSender - the message's author
  * @param {string} params - any URL parameters to append to the ticket URL
  */
-const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message, messageSender, params) => {
+const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketSubject, message, messageSender, params) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket (ID #${ticketID.slice(-7)})`,
+        subject: `New Message on Support Ticket: ${truncateString(ticketSubject, 20)}`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted a support ticket you have subscribed to.</p>
@@ -832,6 +833,8 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, message,
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
             ${autoGenNoticeHTML}
         `,
     });
@@ -850,7 +853,7 @@ const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticke
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket (P: ${priority}) (ID #${ticketID.slice(-7)})`,
+        subject: `New Message on Support Ticket: ${truncateString(subject, 20)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
@@ -861,6 +864,8 @@ const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticke
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
             ${autoGenNoticeHTML}
         `,
     });
@@ -879,7 +884,7 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresse
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Internal Message on Support Ticket (P: ${priority}) (ID #${ticketID.slice(-7)})`,
+        subject: `New Internal Message on Support Ticket: ${truncateString(subject, 20)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
             <p>A new internal message has been posted to a support ticket you have subscribed to: "${subject}"</p>
@@ -890,6 +895,8 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresse
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
             ${autoGenNoticeHTML}
         `,
     });
@@ -906,7 +913,7 @@ const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Ticket Will Automatically Close Soon (ID #${ticketID.slice(-7)})`,
+        subject: `Ticket Will Automatically Close Soon (Subject: ${truncateString(subject, 20)})`,
         html: `
             <p>Hi,</p>
             <p>We're writing to let you know that a support ticket you have subscribed to will automatically close for inactivity in three days from this notification: "${subject}"</p>
@@ -916,6 +923,8 @@ const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject
             <p>Otherwise, no action is required.
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
             ${autoGenNoticeHTML}
         `,
     });
@@ -953,7 +962,7 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned (P: ${ticketPriority}) (ID #${ticketID.slice(-7)})`,
+        subject: `Support Ticket Assigned: ${truncateString(ticketTitle, 20)} (P: ${ticketPriority})`,
         html: `
             <p>Hi,</p>
             <p>${assignerName} has assigned you to the following support ticket:</p>
@@ -967,6 +976,8 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
+            <br />
+            <p>Ticket ID: ${ticketID}</p>
             ${autoGenNoticeHTML}
         `,
     });
