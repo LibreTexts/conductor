@@ -21,10 +21,10 @@ const SwitchAppWithUser: React.FC<SwitchAppWithUserProps> = ({
   if (user.isAuthenticated) {
     return (
       <>
-        {isSupportStaff(user) && parent === "conductor" && (
+        {parent === "conductor" && (
           <Menu.Item
-            as={Link}
-            to="/support/dashboard"
+            as="a"
+            href={`https://commons.libretexts.org/support${isSupportStaff(user) ? "/dashboard" : ""}`}
             className="commons-nav-link"
             aria-label="Support Center"
           >
