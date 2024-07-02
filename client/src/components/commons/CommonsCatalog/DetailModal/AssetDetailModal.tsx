@@ -83,10 +83,10 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
         textClassName="!text-black"
         className="my-4"
       /> */}
-      {!file.isURL && file.storageType === "file" && (
+      {file.storageType === "file" && (
         <CatalogDetailMeta
           icon={getFileTypeIcon(file)}
-          text={file.mimeType ?? "Unknown"}
+          text={file.isURL ? 'External Link' : file.mimeType ?? "Unknown"}
           className="my-4"
         />
       )}

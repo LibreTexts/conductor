@@ -151,9 +151,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
         {file.license?.name ? file.license.name : "Unknown License"}{" "}
         {file.license?.version ? `${file.license.version}` : ""}
       </CardMetaWIcon> */}
-      {!file.isURL && file.storageType === "file" && (
+      {file.storageType === "file" && (
         <CardMetaWIcon icon={getFileTypeIcon(file)}>
-          <div className="line-clamp-1">{file.mimeType ?? ""}</div>
+          <div className="line-clamp-1">{file.isURL ? 'External Link' : file.mimeType ?? ""}</div>
         </CardMetaWIcon>
       )}
       {/* <div className="max-h-20 overflow-hidden mt-1">
