@@ -105,12 +105,13 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
             basic={true}
             spreadArray
             max="none"
+            popupDisabled={true}
           />
         </div>
         <div className="flex flex-col justify-end">
           <Button
             color="blue"
-            icon="download"
+            icon={file.isURL ? "external" : "download"}
             size="big"
             loading={downloadLoading}
             onClick={() => handleFileDownload(file)}
