@@ -501,10 +501,12 @@ export async function getFolderContents(
     const sortedResults = sortProjectFiles(foundItems);
     const accessFiltered = [];
 
-    // If user ID is provided, then files were not filtered by publicOnly earlier - so filter by access
-    if(userID && !publicOnly) {
+    // If not public only, then user ID is required - filter by access
+    if(!publicOnly) {
       const filtered = await filterFilesByAccess(projectID, sortedResults, publicOnly, userID);
       accessFiltered.push(...filtered);
+    } else {
+      accessFiltered.push(...sortedResults);
     }
 
     if(folderID === "") { // Root folder

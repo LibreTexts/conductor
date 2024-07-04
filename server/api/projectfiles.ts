@@ -564,6 +564,8 @@ async function getProjectFolderContents(
   try {
     const projectID = req.params.projectID;
     const folderID = req.params.folderID;
+    const publicOnly = req.query.publicOnly;
+    
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return conductor404Err(res);
@@ -586,12 +588,10 @@ async function getProjectFolderContents(
       });
     }
 
-    console.log("FOLDER ID: ", folderID)
-
     const [files, path] = await getFolderContents(
       projectID,
       folderID ?? "",
-      req.user ? false : true,
+      publicOnly ? true : req.user ? false : true,
       req.user?.decoded.uuid
     );
     if (!files) {

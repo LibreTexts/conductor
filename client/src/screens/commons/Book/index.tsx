@@ -46,6 +46,8 @@ import {
 } from "../../../types";
 import { isLicenseReport } from "../../../utils/typeHelpers";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../../api";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -107,13 +109,11 @@ const CommonsBook = () => {
   const [loadedData, setLoadedData] = useState<boolean>(false);
   const [loadedTOC, setLoadedTOC] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
-  const [loadingFiles, setLoadingFiles] = useState<boolean>(false);
   const [showFiles, setShowFiles] = useState<boolean>(true); // show files by default
   const [showTOC, setShowTOC] = useState<boolean>(false);
   const [showLicensing, setShowLicensing] = useState<boolean>(false);
 
   // Project Files
-  const [projFiles, setProjFiles] = useState<ProjectFile[]>([]);
   const [currDirectory, setCurrDirectory] = useState<string>("");
   const [currDirPath, setCurrDirPath] = useState([
     {
@@ -121,6 +121,14 @@ const CommonsBook = () => {
       name: "",
     },
   ]);
+  const { data: projFiles, isFetching: loadingFiles } = useQuery<ProjectFile[]>(
+    {
+      queryKey: ["book-files", book.projectID, currDirectory],
+      queryFn: getProjectFiles,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // File Search
   const [fileSearchLoading, setFileSearchLoading] = useState<boolean>(false);
@@ -364,42 +372,27 @@ const CommonsBook = () => {
   /**
    * Load the Files list from the server, prepare it for the UI, then save it to state.
    */
-  const getProjectFiles = useCallback(async () => {
-    if(!book.projectID) return;
-    setLoadingFiles(true);
-    
-    axios
-      .get(`/project/${book.projectID}/files/${currDirectory}`)
-      .then((res) => {
-        if (!res.data.err) {
-          if (Array.isArray(res.data.files)) {
-            setProjFiles(res.data.files);
-          }
-          if (Array.isArray(res.data.path)) {
-            setCurrDirPath(res.data.path);
-          }
-        } else {
-          throw new Error(res.data.errMsg);
-        }
-        if (!res.data.err) {
-          setProjFiles(res.data.files);
-        } else {
-          handleGlobalError(res.data.errMsg);
-        }
-        setLoadingFiles(false);
-      })
-      .catch((err) => {
-        handleGlobalError(err);
-        setLoadingFiles(false);
-      });
-  }, [
-    bookID,
-    currDirectory,
-    setProjFiles,
-    setCurrDirPath,
-    setLoadingFiles,
-    handleGlobalError,
-  ]);
+  async function getProjectFiles() {
+    try {
+      if (!book.projectID) return [];
+
+      const res = await api.getProjectFiles(book.projectID, currDirectory, true);
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
+      }
+
+      if (!res.data.files || !Array.isArray(res.data.files)) return [];
+
+      if (Array.isArray(res.data.path)) {
+        setCurrDirPath(res.data.path);
+      }
+
+      return res.data.files;
+    } catch (e) {
+      handleGlobalError(e);
+      return [];
+    }
+  }
 
   /**
    * Load information about the Book from the server catalog.
@@ -552,13 +545,6 @@ const CommonsBook = () => {
   }
 
   /**
-   * Refresh Project Files when currDirectory (folder) changes
-   */
-  useEffect(() => {
-    getProjectFiles();
-  }, [getProjectFiles]);
-
-  /**
    * Updates state with the a new directory to bring into view.
    *
    * @param {string} directoryID - Identifier of the directory entry.
@@ -576,7 +562,7 @@ const CommonsBook = () => {
     setFileSearchLoading(true);
     setFileSearchQuery(value);
     let searchRegExp = new RegExp(value.toLowerCase(), "g");
-    let filterResults = projFiles.filter((file) => {
+    let filterResults = projFiles?.filter((file) => {
       let descripString =
         String(file.name).toLowerCase() +
         " " +
@@ -590,18 +576,18 @@ const CommonsBook = () => {
       return false;
     });
 
-    let results = filterResults.map((item) => {
+    let results = filterResults?.map((item) => {
       return {
         title: item.name,
         description: item.description,
       };
     });
-    setFileSearchResults(results);
+    setFileSearchResults(results ?? []);
     setFileSearchLoading(false);
   };
 
   const handleFileSearchSelect = (resultID: string) => {
-    const foundFile = projFiles.find((file) => file.fileID === resultID);
+    const foundFile = projFiles?.find((file) => file.fileID === resultID);
     if (!foundFile) return;
 
     if (foundFile.storageType === "folder") {
@@ -1141,9 +1127,12 @@ const CommonsBook = () => {
                                           </span>
                                         ) : (
                                           <a
-                                            onClick={() => handleDownloadFile(file.fileID)}
+                                            onClick={() =>
+                                              handleDownloadFile(file.fileID)
+                                            }
                                             className={
-                                              styles.project_file_title + " cursor-pointer"
+                                              styles.project_file_title +
+                                              " cursor-pointer"
                                             }
                                           >
                                             {file.name}
