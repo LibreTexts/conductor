@@ -565,13 +565,21 @@ class API {
     return res;
   }
 
-  async getProjectFiles(projectID: string, folderID?: string) {
+  async getProjectFiles(
+    projectID: string,
+    folderID?: string,
+    publicOnly = false
+  ) {
     const res = await axios.get<
       {
         files: ProjectFile[];
         path: { fileID: string; name: string }[];
       } & ConductorBaseResponse
-    >(`/project/${projectID}/files/content/${folderID ? folderID : ""}`);
+    >(`/project/${projectID}/files/content/${folderID ? folderID : ""}`, {
+      params: {
+        ...(publicOnly ? { publicOnly } : {}),
+      },
+    });
     return res;
   }
 

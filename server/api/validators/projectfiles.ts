@@ -152,6 +152,9 @@ export const getProjectFolderContentsSchema = z.object({
     projectID: _projectIDSchema,
     folderID: _projectFileIDSchema.optional(), // undefined means root folder
   }),
+  query: z.object({
+    publicOnly: z.coerce.boolean().optional(),
+  })
 });
 
 export const getProjectFileCaptionsSchema = z.object({
