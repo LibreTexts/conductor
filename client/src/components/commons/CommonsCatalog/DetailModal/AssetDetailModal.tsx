@@ -5,13 +5,16 @@ import CatalogDetailMeta from "../../../util/CatalogDetailMeta";
 import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import "../../Commons.css";
 import { useState } from "react";
+import useGlobalError from "../../../error/ErrorHooks";
 
 interface AssetDetailModalProps {
   file: ConductorSearchResponseFile;
 }
 
 const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
+  const { handleGlobalError } = useGlobalError();
   const [downloadLoading, setDownloadLoading] = useState(false);
+
   const getAllAuthors = () => {
     const corresponding = file.correspondingAuthor
       ? `${file.correspondingAuthor?.firstName} ${file.correspondingAuthor?.lastName}* (<a href="mailto:${file.correspondingAuthor.email}">${file.correspondingAuthor?.email}</a>)`
@@ -36,12 +39,21 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
+      if(file.isURL) {
+        window.open(file.url, "_blank", "noreferrer");
+        return;
+      }
+      if(file.isVideo) {
+        window.open(`/file/${file.projectID}/${file.fileID}`, "_blank", "noreferrer");
+        return;
+      }
+
       setDownloadLoading(true);
       success = await downloadFile(file.projectID, file.fileID);
     } catch (err) {
       if (!success) {
         console.error(err);
-        //handleGlobalError("Unable to download file. Please try again later.");
+        handleGlobalError("Unable to download file. Please try again later.");
       }
     } finally {
       setDownloadLoading(false);
@@ -60,7 +72,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
             }}
           ></div>
         ) : (
-          <div className="commons-asset-card-img-wrapper flex justify-center items-center">
+          <div className="flex h-32 w-full">
             <Icon name={getFileTypeIcon(file)} size="massive" color="black" />
           </div>
         )}
@@ -77,16 +89,10 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
         </div>
         <p className="text-slate-600 ml-1.5">{getAllAuthors() || "Unknown"}</p>
       </div>
-      {/* <CatalogDetailMeta
-        icon="user"
-        text={getAllAuthors() || "Unknown"}
-        textClassName="!text-black"
-        className="my-4"
-      /> */}
       {file.storageType === "file" && (
         <CatalogDetailMeta
           icon={getFileTypeIcon(file)}
-          text={file.isURL ? 'External Link' : file.mimeType ?? "Unknown"}
+          text={file.isURL ? "External Link" : file.mimeType ?? "Unknown"}
           className="my-4"
         />
       )}
@@ -96,7 +102,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
           file.license?.version ? file.license.version : ""
         }`}
       />
-      <div className="mt-8 flex">
+      <div className={`${file.tags ? "mt-8" : ""} flex`}>
         <div className="flex flex-row items-center w-full pr-4">
           <RenderAssetTags
             file={file}
@@ -111,7 +117,7 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
         <div className="flex flex-col justify-end">
           <Button
             color="blue"
-            icon={file.isURL ? "external" : "download"}
+            icon={file.isURL ? "external" : file.isVideo ? "play" : "download"}
             size="big"
             loading={downloadLoading}
             onClick={() => handleFileDownload(file)}
