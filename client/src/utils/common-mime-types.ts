@@ -173,7 +173,8 @@ const COMMON_MIME_TYPES: {
   },
 ];
 
-export function getPrettyNameFromMimeType(mimeType: string): string {
+export function getPrettyNameFromMimeType(mimeType?: string): string {
+  if (!mimeType) return "Unknown";
   const found = COMMON_MIME_TYPES.find((cmt) => {
     const foundMT = cmt.mimeTypes.find((mt) => mt.value === mimeType);
     return foundMT !== undefined;
@@ -184,6 +185,15 @@ export function getPrettyNameFromMimeType(mimeType: string): string {
       return foundMT.name;
     }
   }
+
+  // If a specific subtype is not found, try to find a generic one (i.e. video/* => Video)
+  if(!found) {
+    const generic = COMMON_MIME_TYPES.find((cmt) => cmt.anySubType === mimeType);
+    if (generic) {
+      return generic.title
+    }
+  }
+
   return mimeType;
 }
 

@@ -6,6 +6,7 @@ import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import "../../Commons.css";
 import { useState } from "react";
 import useGlobalError from "../../../error/ErrorHooks";
+import { getPrettyNameFromMimeType } from "../../../../utils/common-mime-types";
 
 interface AssetDetailModalProps {
   file: ConductorSearchResponseFile;
@@ -39,12 +40,16 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
   async function handleFileDownload(file: ConductorSearchResponseFile) {
     let success = false;
     try {
-      if(file.isURL) {
+      if (file.isURL) {
         window.open(file.url, "_blank", "noreferrer");
         return;
       }
-      if(file.isVideo) {
-        window.open(`/file/${file.projectID}/${file.fileID}`, "_blank", "noreferrer");
+      if (file.isVideo) {
+        window.open(
+          `/file/${file.projectID}/${file.fileID}`,
+          "_blank",
+          "noreferrer"
+        );
         return;
       }
 
@@ -92,7 +97,11 @@ const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ file }) => {
       {file.storageType === "file" && (
         <CatalogDetailMeta
           icon={getFileTypeIcon(file)}
-          text={file.isURL ? "External Link" : file.mimeType ?? "Unknown"}
+          text={
+            file.isURL
+              ? "External Link"
+              : getPrettyNameFromMimeType(file.mimeType) ?? "Unknown"
+          }
           className="my-4"
         />
       )}
