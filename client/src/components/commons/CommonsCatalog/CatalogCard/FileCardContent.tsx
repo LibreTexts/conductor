@@ -9,6 +9,7 @@ import {
 } from "../../../../utils/assetHelpers";
 import { useState } from "react";
 import CardMetaWIcon from "../../../util/CardMetaWIcon";
+import { getPrettyNameFromMimeType } from "../../../../utils/common-mime-types";
 
 interface FileCardContentProps extends CardContentProps {
   file: ConductorSearchResponseFile;
@@ -153,19 +154,9 @@ const FileCardContent: React.FC<FileCardContentProps> = ({
       </CardMetaWIcon> */}
       {file.storageType === "file" && (
         <CardMetaWIcon icon={getFileTypeIcon(file)}>
-          <div className="line-clamp-1">{file.isURL ? 'External Link' : file.mimeType ?? ""}</div>
+          <div className="line-clamp-1">{file.isURL ? 'External Link' : getPrettyNameFromMimeType(file.mimeType) ?? ""}</div>
         </CardMetaWIcon>
       )}
-      {/* <div className="max-h-20 overflow-hidden mt-1">
-        <RenderAssetTags
-          file={file}
-          max={4}
-          showNoTagsMessage={false}
-          size="small"
-          basic={true}
-          spreadArray
-        />
-      </div> */}
       <div className="w-full absolute bottom-4 left-0 text-center">
         <a
           className="text-lg font-semibold text-blue-500 text-center"
