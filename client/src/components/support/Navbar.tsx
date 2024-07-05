@@ -51,7 +51,7 @@ const SupportCenterNavbar: React.FC<{}> = () => {
               src="https://cdn.libretexts.net/Logos/libretexts_full.png"
               className="h-12 ml-6"
             />
-            <span className="hidden lg:flex ml-2 text-2xl font-semibold">
+            <span className="hidden lg:flex ml-2 base:text-xl lg:text-2xl font-semibold">
               | Support Center
             </span>
           </div>
