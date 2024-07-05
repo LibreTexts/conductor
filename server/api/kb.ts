@@ -649,10 +649,9 @@ function _generatePageSlug(title: string, userInput?: string) {
     val = title
   }
   const trimmed = val.trim(); // remove leading and trailing whitespace
-  const noQuotations = trimmed.replace(/['"]+/g, ""); // remove quotations
-  const noSpecialChars = noQuotations.replace(/[!@#$%^&*]/g, ""); // remove special characters
-  const spacesReplaced = noSpecialChars.replace(/\s/g, "-"); // replace spaces with hyphens
-  return encodeURIComponent(spacesReplaced.toLowerCase()); // encode the slug
+  const spacesReplaced = trimmed.replace(/\s/g, "-"); // replace spaces with hyphens
+  const urlFriendly = spacesReplaced.replace(/[^\w-_]/g, '') // remove all non-alphanumeric characters (except hyphens and underscores)
+  return encodeURIComponent(urlFriendly.toLowerCase()); // encode the slug
 }
 
 export default {

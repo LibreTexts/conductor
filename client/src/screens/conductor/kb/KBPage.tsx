@@ -5,11 +5,12 @@ import KBPageViewMode from "../../../components/kb/KBPageViewMode";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon } from "semantic-ui-react";
 import { canEditKB } from "../../../utils/kbHelpers";
-const KBPageEditMode = lazy(() => import("../../../components/kb/KBPageEditMode"));
+const KBPageEditMode = lazy(
+  () => import("../../../components/kb/KBPageEditMode")
+);
 
 const KBPage = () => {
   const { slug } = useParams<{ slug: any }>();
-  const defaultLayoutRef = useRef<{ loadTree: () => void }>();
   const user = useTypedSelector((state) => state.user);
   const [parsedSlug, setParsedSlug] = useState<string | null>(null);
   const [mode, setMode] = useState<"create" | "edit" | "view">("view");
@@ -31,12 +32,6 @@ const KBPage = () => {
     setMode("edit");
   }
 
-  function handleDataChanged() {
-    if (defaultLayoutRef.current) {
-      defaultLayoutRef.current.loadTree();
-    }
-  }
-
   const AdminOptions = () => {
     return (
       <>
@@ -55,17 +50,13 @@ const KBPage = () => {
   };
 
   return (
-    <DefaultLayoutWNavTree ref={defaultLayoutRef}>
+    <DefaultLayoutWNavTree>
       <AdminOptions />
       {mode === "view" && parsedSlug && (
         <KBPageViewMode slug={parsedSlug} canEdit={canEdit} />
       )}
       {["create", "edit"].includes(mode) && (
-        <KBPageEditMode
-          mode={mode}
-          slug={parsedSlug}
-          onDataChanged={() => handleDataChanged()}
-        />
+        <KBPageEditMode mode={mode} slug={parsedSlug} />
       )}
       <AdminOptions />
     </DefaultLayoutWNavTree>

@@ -11,6 +11,7 @@ import { required } from "../../utils/formRules";
 import useQueryParam from "../../utils/useQueryParam";
 import PageStatusLabel from "./PageStatusLabel";
 import { checkIsUUID, getKBSharingObj } from "../../utils/kbHelpers";
+import { useQueryClient } from "@tanstack/react-query";
 
 const KBCKEditor = lazy(() => import("./KBCKEditor"));
 const PreviewPageModal = lazy(() => import("./PreviewPageModal"));
@@ -19,13 +20,12 @@ const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
 const KBPageEditMode = ({
   mode,
   slug,
-  onDataChanged,
 }: {
   mode: "create" | "edit" | "view";
   slug?: string | null;
-  onDataChanged?: () => void;
 }) => {
   const { handleGlobalError } = useGlobalError();
+  const queryClient = useQueryClient();
   const parentQueryParam = useQueryParam("parent");
   const user = useTypedSelector((state) => state.user);
   const { control, getValues, setValue, reset, trigger, watch } =
@@ -99,6 +99,12 @@ const KBPageEditMode = ({
       if (!res.data.page || !res.data.page.slug) {
         throw new Error("Error creating page");
       }
+
+      // Invalidate nav tree cache
+      queryClient.invalidateQueries({
+        queryKey: ["nav-tree"],
+      });
+
       window.location.assign(`/insight/${res.data.page.slug}`); // Redirect to new page
     } catch (err) {
       handleGlobalError(err);
@@ -121,12 +127,19 @@ const KBPageEditMode = ({
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      setSaveSuccess(true);
-      loadPage();
-      if (onDataChanged) {
-        onDataChanged();
+      if (!res.data.page) {
+        throw new Error("Invalid response from server.");
       }
-      window.scrollTo(0, 0);
+
+      const updated = res.data.page;
+      setSaveSuccess(true);
+
+      // Invalidate nav tree cache
+      queryClient.invalidateQueries({
+        queryKey: ["nav-tree"],
+      });
+
+      window.location.assign(`/insight/${updated.slug}`); // Redirect to updated page
     } catch (err) {
       handleGlobalError(err);
     } finally {

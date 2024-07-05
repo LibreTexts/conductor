@@ -1,27 +1,28 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect } from "react";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import { KBTreeNode } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
-import { Icon, Label, LabelProps, Popup } from "semantic-ui-react";
+import { Icon, Popup } from "semantic-ui-react";
 import { truncateString } from "../util/HelperFunctions";
 import { canEditKB } from "../../utils/kbHelpers";
+import { useQuery } from "@tanstack/react-query";
 
-const NavTree = forwardRef((props, ref) => {
+const NavTree = () => {
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
-  const [loading, setLoading] = useState(false);
-  const [tree, setTree] = useState<KBTreeNode[]>([]);
   const [canEdit, setCanEdit] = useState(false);
 
-  // Allows parent component to call this function
-  useImperativeHandle(ref, () => ({
-    loadTree,
-  }));
-
-  useEffect(() => {
-    loadTree();
-  }, []);
+  const {
+    data: tree,
+    isFetching: loading,
+    refetch,
+  } = useQuery<KBTreeNode[]>({
+    queryKey: ["nav-tree"],
+    queryFn: loadTree,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     setCanEdit(canEditKB(user));
@@ -29,7 +30,6 @@ const NavTree = forwardRef((props, ref) => {
 
   async function loadTree() {
     try {
-      setLoading(true);
       const res = await axios.get(`/kb/tree`);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -37,11 +37,10 @@ const NavTree = forwardRef((props, ref) => {
       if (!res.data.tree || !Array.isArray(res.data.tree)) {
         throw new Error("Tree not found");
       }
-      setTree(res.data.tree);
+      return res.data.tree || [];
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return [];
     }
   }
 
@@ -58,21 +57,13 @@ const NavTree = forwardRef((props, ref) => {
     }
   }
 
-  const StatusLabel = ({
-    status,
-    ...rest
-  }: Pick<KBTreeNode, "status"> & LabelProps) => {
-    return (
-      <Label
-        color={status === "draft" ? "blue" : "green"}
-        size="mini"
-        circular
-        basic
-        {...rest}
-      >
-        {status === "draft" ? "D" : <Icon name="check" className="!m-0" />}
-      </Label>
-    );
+  const StatusLabel = ({ status }: Pick<KBTreeNode, "status">) => {
+    if (status === "published") {
+      return (
+        <Icon name="check" className="!ml-2 !mt-1" color="green" size="small" />
+      );
+    }
+    return <Icon name="paperclip" className="!ml-2 !mb-1" color="blue" />;
   };
 
   return (
@@ -101,37 +92,19 @@ const NavTree = forwardRef((props, ref) => {
           </Popup>
         )}
       </div>
-      {tree.map((node) => {
+      {tree?.map((node) => {
         return (
           <div key={node.uuid} className="p-2 rounded-xl hover:bg-slate-100">
             <div className="flex flex-row justify-between items-center">
-              <div className="flex flex-row items-center overflow-x-clip">
+              <div className="flex flex-row items-center overflow-x-clip align-middle">
                 <a
-                  className="text-lg font-semibold text-black break-all"
+                  className="text-lg font-semibold text-black break-words hyphens-auto"
                   href={getLink(node.slug)}
                 >
                   {truncateString(node.title, 50)}
                 </a>
-                {canEdit && (
-                  <StatusLabel status={node.status} className="!ml-2 !mr-3" />
-                )}
+                {canEdit && <StatusLabel status={node.status} />}
               </div>
-              {canEdit && (
-                <Popup
-                  trigger={
-                    <Icon
-                      name="plus"
-                      className="!mb-1 !cursor-pointer"
-                      onClick={() => handleCreatePage(node.uuid)}
-                    />
-                  }
-                  position="top center"
-                >
-                  <Popup.Content>
-                    <p className="text-sm">Create new sub page</p>
-                  </Popup.Content>
-                </Popup>
-              )}
             </div>
             <div className="pl-4">
               {node.children &&
@@ -142,23 +115,29 @@ const NavTree = forwardRef((props, ref) => {
                       className="p-2 flex flex-row items-center"
                     >
                       <a
-                        className="text-md font-semibold text-gray-600 break-all"
+                        className="text-md font-semibold text-gray-600 break-words hyphens-auto"
                         href={getLink(child.slug)}
                       >
                         {truncateString(child.title, 50)}
                       </a>
-                      {canEdit && (
-                        <StatusLabel status={child.status} className="!ml-2 !mr-2" />
-                      )}
+                      {canEdit && <StatusLabel status={child.status} />}
                     </div>
                   );
                 })}
+              {canEdit && (
+                <a
+                  className="p-2 text-md font-semibold text-blue-500  break-words hyphens-auto !cursor-pointer"
+                  onClick={() => handleCreatePage(node.uuid)}
+                >
+                  + Add Page
+                </a>
+              )}
             </div>
           </div>
         );
       })}
     </div>
   );
-});
+};
 
 export default NavTree;
