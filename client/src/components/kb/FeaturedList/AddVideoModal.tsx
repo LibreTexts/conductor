@@ -31,7 +31,7 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
     if (open) {
       reset(); // Reset form when modal opens
     }
-  }, []);
+  }, [open]);
 
   async function handleSave() {
     try {
@@ -54,14 +54,14 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="large" {...rest}>
+    <Modal open={open} onClose={onClose} size="small" {...rest}>
       <Modal.Header>Add Featured Video</Modal.Header>
       <Modal.Content>
         <Form onSubmit={(e) => e.preventDefault()}>
           <CtlTextInput
             control={control}
             name="title"
-            label="Title (max 100 characters)"
+            label="Title (max 100 chars)"
             placeholder="Title"
             rules={required}
             required
@@ -70,11 +70,12 @@ const AddVideoModal: React.FC<AddVideoModalProps> = ({
           <CtlTextInput
             control={control}
             name="url"
-            label="Video URL"
+            label="Video URL (must be embed URL)"
             placeholder="Video URL"
             rules={required}
             required
             type="url"
+            className="mt-4"
           />
         </Form>
       </Modal.Content>

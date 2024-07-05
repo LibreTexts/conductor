@@ -90,7 +90,7 @@ const AddPageModal: React.FC<AddPageModalProps> = ({
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="large" {...rest}>
+    <Modal open={open} onClose={onClose} size="small" {...rest}>
       <Modal.Header>Add Featured Article</Modal.Header>
       <Modal.Content>
         <Form onSubmit={(e) => e.preventDefault()}>
