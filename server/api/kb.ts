@@ -9,6 +9,7 @@ import {
   DeleteKBPageValidator,
   GetKBPageValidator,
   GetKBTreeValidator,
+  GetOEmbedValidator,
   SearchKBValidator,
   UpdateKBPageValidator,
 } from "./validators/kb.js";
@@ -32,6 +33,7 @@ import {
   S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { assembleUrl } from "../util/helpers.js";
+import axios from "axios";
 
 export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -190,8 +192,7 @@ async function createKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, slug, status, parent } =
-      req.body;
+    const { title, description, body, slug, status, parent } = req.body;
     const { decoded } = req.user;
 
     const editor = await User.findOne({ uuid: decoded.uuid }).orFail();
@@ -320,8 +321,7 @@ async function updateKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, slug, parent } =
-      req.body; // Image URLs should not be updated directly
+    const { title, description, body, status, slug, parent } = req.body; // Image URLs should not be updated directly
     const { uuid } = req.params;
     const { decoded } = req.user;
 
@@ -482,7 +482,10 @@ async function createKBFeaturedPage(
   try {
     const { page } = req.body;
 
-    const kbPage = await KBPage.findOne({ uuid: page, status: 'published' }).orFail();
+    const kbPage = await KBPage.findOne({
+      uuid: page,
+      status: "published",
+    }).orFail();
 
     const newFeaturedPage = await KBFeaturedPage.create({
       uuid: v4(),
@@ -494,7 +497,7 @@ async function createKBFeaturedPage(
       page: newFeaturedPage,
     });
   } catch (err: any) {
-    if(err.name === 'DocumentNotFoundError') {
+    if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
     debugError(err);
@@ -554,6 +557,33 @@ async function deleteKBFeaturedVideo(
 
     return res.send({
       err: false,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function getOEmbed(
+  req: z.infer<typeof GetOEmbedValidator>,
+  res: Response
+) {
+  try {
+    const { url } = req.query;
+
+    const oEmbedRes = await axios.get(`https://noembed.com/embed?url=${url}`);
+    const oEmbedData = oEmbedRes.data;
+
+    if (!oEmbedData || !oEmbedData.html) {
+      return res.send({
+        err: true,
+        errMsg: "Failed to get oEmbed data",
+      });
+    }
+
+    return res.send({
+      err: false,
+      oembed: oEmbedData.html,
     });
   } catch (err) {
     debugError(err);
@@ -627,13 +657,15 @@ async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
 function _sanitizeBodyContent(content: string) {
   try {
     return DOMPurify.sanitize(content, {
-      ADD_TAGS: ["iframe"],
+      ADD_TAGS: ["iframe", "figure", "oembed"],
       ADD_ATTR: [
         "allow",
         "allowfullscreen",
         "frameborder",
         "scrolling",
         "srcdoc",
+        "class",
+        "url",
       ],
     });
   } catch (err) {
@@ -642,15 +674,15 @@ function _sanitizeBodyContent(content: string) {
 }
 
 function _generatePageSlug(title: string, userInput?: string) {
-  let val = '';
+  let val = "";
   if (userInput && userInput.length > 0) {
     val = userInput;
   } else {
-    val = title
+    val = title;
   }
   const trimmed = val.trim(); // remove leading and trailing whitespace
   const spacesReplaced = trimmed.replace(/\s/g, "-"); // replace spaces with hyphens
-  const urlFriendly = spacesReplaced.replace(/[^\w-_]/g, '') // remove all non-alphanumeric characters (except hyphens and underscores)
+  const urlFriendly = spacesReplaced.replace(/[^\w-_]/g, ""); // remove all non-alphanumeric characters (except hyphens and underscores)
   return encodeURIComponent(urlFriendly.toLowerCase()); // encode the slug
 }
 
@@ -662,6 +694,7 @@ export default {
   addKBImage,
   updateKBPage,
   deleteKBPage,
+  getOEmbed,
   searchKB,
   getKBFeaturedContent,
   createKBFeaturedPage,

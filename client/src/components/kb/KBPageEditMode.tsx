@@ -20,9 +20,11 @@ const ConfirmDeletePageModal = lazy(() => import("./ConfirmDeletePageModal"));
 const KBPageEditMode = ({
   mode,
   slug,
+  onSaved
 }: {
   mode: "create" | "edit" | "view";
   slug?: string | null;
+  onSaved: () => void;
 }) => {
   const { handleGlobalError } = useGlobalError();
   const queryClient = useQueryClient();
@@ -139,7 +141,14 @@ const KBPageEditMode = ({
         queryKey: ["nav-tree"],
       });
 
-      window.location.assign(`/insight/${updated.slug}`); // Redirect to updated page
+      // Redirect if slug has changed
+      const currentSlug = window.location.pathname.split("/").pop();
+      if(currentSlug !== updated.slug) {
+        window.location.assign(`/insight/${updated.slug}`);
+        return;
+      }
+
+      onSaved();
     } catch (err) {
       handleGlobalError(err);
     } finally {

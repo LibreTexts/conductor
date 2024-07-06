@@ -12,7 +12,7 @@ export const GetKBPageValidator = z
     params: z.object({
       uuid: z.string().uuid().optional(),
       slug: z.string().optional(),
-    })
+    }),
   })
   .refine((data) => {
     if (!data.params.uuid && !data.params.slug) {
@@ -24,19 +24,26 @@ export const GetKBPageValidator = z
 export const DeleteKBPageValidator = KBUUIDParams;
 
 export const CreateKBPageValidator = z.object({
-  body: z.object({
-    title: z.string().max(100),
-    description: z.string().max(200),
-    body: z.string(),
-    status: z.enum(["draft", "published"]),
-    slug: z.string().optional(),
-    parent: z.string().uuid().optional(),
-  }).refine((data) => {
-    if(data.slug && ['new', 'edit', 'create', 'welcome'].includes(data.slug)){
-      throw new Error("Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')");
-    }
-    return true;
-  }),
+  body: z
+    .object({
+      title: z.string().max(100),
+      description: z.string().max(200),
+      body: z.string(),
+      status: z.enum(["draft", "published"]),
+      slug: z.string().optional(),
+      parent: z.string().uuid().optional(),
+    })
+    .refine((data) => {
+      if (
+        data.slug &&
+        ["new", "edit", "create", "welcome"].includes(data.slug)
+      ) {
+        throw new Error(
+          "Slug cannot be reserved word ('new', 'edit', 'create', 'welcome')"
+        );
+      }
+      return true;
+    }),
 });
 
 export const AddKbImageValidator = KBUUIDParams;
@@ -47,7 +54,7 @@ export const SearchKBValidator = z.object({
   query: z.object({
     query: z.string().min(3),
   }),
-})
+});
 
 // KB Tree
 export const GetKBTreeValidator = z.object({
@@ -74,3 +81,10 @@ export const CreateKBFeaturedVideoValidator = z.object({
 });
 
 export const DeleteKBFeaturedVideoValidator = KBUUIDParams;
+
+// Misc
+export const GetOEmbedValidator = z.object({
+  query: z.object({
+    url: z.string().url(),
+  }),
+});
