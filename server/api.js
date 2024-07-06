@@ -1737,6 +1737,11 @@ router.route('/kb/featured/video/:uuid').delete(
   kbAPI.deleteKBFeaturedVideo
 )
 
+router.route('/kb/oembed').get(
+  middleware.validateZod(kbValidators.GetOEmbedValidator),
+  kbAPI.getOEmbed
+)
+
 router.route('/support/metrics').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

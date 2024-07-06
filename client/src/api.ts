@@ -640,6 +640,17 @@ class API {
     return res;
   }
 
+  // Knowledge Base
+  async getKBOEmbed(url: string) {
+    const res = await axios.get<{ oembed: string } & ConductorBaseResponse>(
+      "/kb/oembed",
+      {
+        params: { url },
+      }
+    );
+    return res;
+  }
+
   // Support
   async deleteTicket(ticketID: string) {
     const res = await axios.delete<ConductorBaseResponse>(

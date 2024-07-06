@@ -56,7 +56,13 @@ const KBPage = () => {
         <KBPageViewMode slug={parsedSlug} canEdit={canEdit} />
       )}
       {["create", "edit"].includes(mode) && (
-        <KBPageEditMode mode={mode} slug={parsedSlug} />
+        <KBPageEditMode
+          mode={mode}
+          slug={parsedSlug}
+          onSaved={() => {
+            setMode("view");
+          }}
+        />
       )}
       <AdminOptions />
     </DefaultLayoutWNavTree>
