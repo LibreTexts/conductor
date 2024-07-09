@@ -18,6 +18,8 @@ import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
 import {User} from "../../types";
 import { format } from 'date-fns';
+import { CHAT_NOTIFY_OPTS } from '../../utils/constants';
+
 interface Chatinterface {
   projectID: string;
   user: User; 
@@ -30,6 +32,7 @@ interface Chatinterface {
   getThreads?: () => void | null;
   getMessages: () => void;
   isProjectAdmin: boolean;
+  defaultNotificationSetting?: string;
 }
 /**
  * A reusable chat/message thread interface.
@@ -46,6 +49,7 @@ const Chat: FC<Chatinterface>= ({
   getThreads,
   getMessages,
   isProjectAdmin,
+  defaultNotificationSetting: defaultNotificationSettingProp
 }) => {
 
   // Global State and Eror Handling
@@ -105,41 +109,21 @@ const Chat: FC<Chatinterface>= ({
   }, [getProjectTeam]);
 
   const notificationOptions = useMemo(() => {
-    const NOTIFY_OPTIONS = [
-      {
-        key: 'all',
-        text: 'Notify entire team',
-        value: 'all',
-      },
-      {
-        key: 'specific',
-        text: 'Notify specific people...',
-        value: 'specific',
-        onClick: handleOpenNotifyPicker,
-      },
-      {
-        key: 'support',
-        text: 'Notify LibreTexts Support',
-        value: 'support',
-      },
-      {
-        key: 'none',
-        text: `Don't notify anyone`,
-        value: 'none',
-      },
-    ];
     if (kind === 'task') {
       return [
         { key: 'assigned', text: 'Notify assignees', value: 'assigned' },
-        ...NOTIFY_OPTIONS,
+        ...CHAT_NOTIFY_OPTS(false, handleOpenNotifyPicker)
       ]
     }
-    return NOTIFY_OPTIONS;
+    return CHAT_NOTIFY_OPTS(false, handleOpenNotifyPicker);
   }, [kind, handleOpenNotifyPicker]);
 
   const defaultNotificationSetting = useMemo(() => {
     if (kind === 'task') {
       return 'assigned';
+    }
+    if(defaultNotificationSettingProp){
+      return defaultNotificationSettingProp;
     }
     return 'all';
   }, [kind]);

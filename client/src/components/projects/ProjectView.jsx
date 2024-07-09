@@ -1901,6 +1901,7 @@ const ProjectView = (props) => {
                   renderStatusIndicator={renderStatusIndicator}
                   toggleTaskDetail={toggleTaskDetail}
                   loadingTasks={loadingTasks}
+                  defaultNotificationSetting={project.defaultChatNotification}
                   mngTaskLoading={mngTaskLoading}
                 />                
               </Grid>

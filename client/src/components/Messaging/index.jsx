@@ -26,7 +26,7 @@ import './Messaging.css';
 /**
  * A reusable messaging (threads and chat window) interface.
  */
-const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
+const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationSetting }) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
@@ -276,6 +276,7 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin }) => {
                 getThreads={getDiscussionThreads}
                 getMessages={getThreadMessages}
                 isProjectAdmin={isProjectAdmin}
+                defaultNotificationSetting={defaultNotificationSetting}
             />
             {/* New Discussion Thread Modal */}
             <Modal
@@ -348,7 +349,8 @@ Messaging.propTypes = {
     projectID: PropTypes.string.isRequired,
     user: PropTypes.object.isRequired,
     kind: PropTypes.string.isRequired,
-    isProjectAdmin: PropTypes.bool
+    isProjectAdmin: PropTypes.bool,
+    defaultNotificationSetting: PropTypes.string
 };
 
 Messaging.defaultProps = {
