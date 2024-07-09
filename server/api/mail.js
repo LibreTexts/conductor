@@ -824,7 +824,7 @@ const sendNewTicketMessageNotification = (recipientAddresses, ticketID, ticketSu
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket: ${truncateString(ticketSubject, 20)}`,
+        subject: `New Message on Support Ticket: ${truncateString(ticketSubject, 30)}`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted a support ticket you have subscribed to.</p>
@@ -853,7 +853,7 @@ const sendNewTicketMessageAssignedStaffNotification = (recipientAddresses, ticke
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Message on Support Ticket: ${truncateString(subject, 20)} (P: ${priority})`,
+        subject: `New Message on Support Ticket: ${truncateString(subject, 30)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
             <p>A new message has been posted to a support ticket you are assigned to: "${subject}"</p>
@@ -884,7 +884,7 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (recipientAddresse
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `New Internal Message on Support Ticket: ${truncateString(subject, 20)} (P: ${priority})`,
+        subject: `New Internal Message on Support Ticket: ${truncateString(subject, 30)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
             <p>A new internal message has been posted to a support ticket you have subscribed to: "${subject}"</p>
@@ -913,7 +913,7 @@ const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Ticket Will Automatically Close Soon (Subject: ${truncateString(subject, 20)})`,
+        subject: `Ticket Will Automatically Close Soon (Subject: ${truncateString(subject, 30)})`,
         html: `
             <p>Hi,</p>
             <p>We're writing to let you know that a support ticket you have subscribed to will automatically close for inactivity in three days from this notification: "${subject}"</p>
@@ -962,7 +962,7 @@ const sendSupportTicketAssignedNotification = (recipientAddresses, ticketID, tic
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
-        subject: `Support Ticket Assigned: ${truncateString(ticketTitle, 20)} (P: ${ticketPriority})`,
+        subject: `Support Ticket Assigned: ${truncateString(ticketTitle, 30)} (P: ${ticketPriority})`,
         html: `
             <p>Hi,</p>
             <p>${assignerName} has assigned you to the following support ticket:</p>
