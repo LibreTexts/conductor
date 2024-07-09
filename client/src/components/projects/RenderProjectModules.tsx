@@ -42,6 +42,7 @@ interface RenderProjectModulesProps {
   toggleTaskDetail: (taskId: string) => void;
   userProjectMember: boolean;
   loadingTasks: boolean;
+  defaultNotificationSetting?: string;
   mngTaskLoading: boolean;
 }
 
@@ -66,7 +67,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   toggleTaskDetail,
   userProjectMember,
   loadingTasks,
-
+  defaultNotificationSetting,
   mngTaskLoading,
 }) => {
   const [showDiscussion, setShowDiscussion] = useState(true);
@@ -97,6 +98,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                 user={user}
                 kind="project"
                 isProjectAdmin={userProjectAdmin}
+                defaultNotificationSetting={defaultNotificationSetting}
               />
             </Segment>
           </Grid.Column>

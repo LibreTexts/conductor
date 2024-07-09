@@ -145,6 +145,7 @@ export type Project = {
   harvestReqID: string;
   flag: "libretexts" | "campusadmin" | "lead" | "liaison";
   flagDescrip: string;
+  defaultChatNotification?: string;
   allowAnonPR: boolean;
   preferredPRRubric: String;
   cidDescriptors: CIDDescriptor[];

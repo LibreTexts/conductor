@@ -59,6 +59,7 @@ export interface ProjectInterface extends Document {
   harvestReqID?: string;
   flag?: "libretexts" | "campusadmin" | "lead" | "liaison";
   flagDescrip?: string;
+  defaultChatNotification?: string;
   allowAnonPR: boolean;
   preferredPRRubric?: string;
   cidDescriptors?: string[];
@@ -266,6 +267,10 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * A description of the reason for flagging.
      */
     flagDescrip: String,
+    /**
+     * Default chat notification setting.
+     */
+    defaultChatNotification: String,
     /**
      * Allow 'anonymous' Peer Reviews (if Project is public and has associated Book).
      */

@@ -74,3 +74,48 @@ export const LIBRARIES: {
     longName: "Workforce",
   },
 ];
+
+export const CHAT_NOTIFY_OPTS = (
+  defaultOnly: boolean,
+  onNotifySpecific: () => void
+) => {
+  // Notify specific cannot be selected as default option
+  const notifySpecific = () => {
+    if (defaultOnly) return [];
+    return [
+      {
+        key: "specific",
+        text: "Notify specific people...",
+        value: "specific",
+        onClick: onNotifySpecific,
+      },
+    ];
+  };
+
+  // Notify support cannot be selected as default option
+  const notifySupport = () => {
+    if (defaultOnly) return [];
+    return [
+      {
+        key: "support",
+        text: "Notify LibreTexts Support",
+        value: "support",
+      },
+    ];
+  };
+
+  return [
+    {
+      key: "all",
+      text: "Notify entire team",
+      value: "all",
+    },
+    ...notifySpecific(),
+    ...notifySupport(),
+    {
+      key: "none",
+      text: `Don't notify anyone`,
+      value: "none",
+    },
+  ];
+};

@@ -42,6 +42,7 @@ import { set } from "date-fns";
 import AuthorsForm from "../FilesManager/AuthorsForm";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import { useQueryClient } from "@tanstack/react-query";
+import { CHAT_NOTIFY_OPTS } from "../../utils/constants";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -95,6 +96,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       notes: "",
       associatedOrgs: [],
       thumbnail: "",
+      defaultChatNotification: "",
       didCreateWorkbench: false,
       defaultFileLicense: {
         name: "",
@@ -547,7 +549,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
 
       // Invalidate cached project data
       queryClient.invalidateQueries(["project", projectID]);
-      queryClient.invalidateQueries(['projectLicenseSettings', projectID]);
+      queryClient.invalidateQueries(["projectLicenseSettings", projectID]);
 
       onClose();
       return;
@@ -1322,6 +1324,31 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               />
             </Form.Field>
           </div> */}
+          <Divider />
+          <Header as="h3">Discussion Settings</Header>
+          <div className="w-1/4">
+          <label htmlFor="defaultChatNotification" className="form-field-label">
+            Default Message Notification Type
+          </label>
+          <Controller
+            name="defaultChatNotification"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id="defaultChatNotification"
+                options={CHAT_NOTIFY_OPTS(true, () => {})}
+                {...field}
+                onChange={(e, data) => {
+                  field.onChange(data.value?.toString() ?? "all");
+                }}
+                fluid
+                selection
+                className="mr-8 mt-1"
+                placeholder="Notification type..."
+              />
+            )}
+          />
+          </div>
           <Divider />
           <Header as="h3">Additional Information</Header>
           <CtlTextArea

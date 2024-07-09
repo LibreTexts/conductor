@@ -810,6 +810,9 @@ async function updateProject(req, res) {
     if(req.body.hasOwnProperty('contentArea')){
       updateObj.contentArea = req.body.contentArea;
     }
+    if(req.body.hasOwnProperty('defaultChatNotification')){
+      updateObj.defaultChatNotification = req.body.defaultChatNotification;
+    }
 
 
     
@@ -3396,6 +3399,7 @@ const validate = (method) => {
           body('classification', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateProjectClassification),
           body('visibility', conductorErrors.err1).optional({ checkFalsy: true }).custom(validateVisibility),
           body('projectURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('defaultChatNotification', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('allowAnonPR', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
