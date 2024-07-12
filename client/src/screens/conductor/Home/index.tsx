@@ -24,6 +24,7 @@ import useGlobalError from "../../../components/error/ErrorHooks";
 import { pinProject } from "../../../utils/projectHelpers";
 import Annnouncement from "../../../components/Home/Announcement";
 import UserMenu from "../../../components/Home/UserMenu";
+import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 const NewMemberModal = lazy(
   () => import("../../../components/Home/NewMemberModal")
 );
@@ -44,6 +45,7 @@ const Home = () => {
   const { handleGlobalError } = useGlobalError();
   const location = useLocation();
   const user = useTypedSelector((state) => state.user);
+  const { sysAnnouncement } = useSystemAnnouncement();
 
   /* Data */
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -56,12 +58,6 @@ const Home = () => {
   const [loadedAllRecents, setLoadedAllRecents] = useState<boolean>(false);
   const [loadedAllPinned, setLoadedAllPinned] = useState<boolean>(false);
   const [showNASuccess, setShowNASuccess] = useState<boolean>(false);
-
-  // System Announcement Message
-  const [showSystemAnnouncement, setShowSystemAnnouncement] =
-    useState<boolean>(false);
-  const [systemAnnouncementData, setSystemAnnouncementData] =
-    useState<Announcement>({} as Announcement);
 
   // New Announcement Modal
   const [showNewAnnounceModal, setShowNewAnnounceModal] =
@@ -91,25 +87,6 @@ const Home = () => {
       setShowNMModal(true);
     }
   }, [location.search, setShowNMModal]);
-
-  /**
-   * Checks if a System Announcement is available and updates the UI accordingly if so.
-   */
-  const getSystemAnnouncement = useCallback(async () => {
-    try {
-      const res = await axios.get("/announcements/system");
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (res.data.sysAnnouncement !== null) {
-        setShowSystemAnnouncement(true);
-        setSystemAnnouncementData(res.data.sysAnnouncement);
-      }
-    } catch (err) {
-      console.error(err); // fail silently
-    }
-  }, [setShowSystemAnnouncement, setSystemAnnouncementData]);
 
   /**
    * Loads the 5 most recent announcements via GET
@@ -194,12 +171,10 @@ const Home = () => {
     });
     getPinnedProjects();
     getRecentProjects();
-    getSystemAnnouncement();
     getAnnouncements();
   }, [
     getPinnedProjects,
     getRecentProjects,
-    getSystemAnnouncement,
     getAnnouncements,
   ]);
 
@@ -241,13 +216,13 @@ const Home = () => {
         <Header className="component-header">Home</Header>
         <div className="border border-b-gray-300 w-full"></div>
       </div>
-      {showSystemAnnouncement && (
+      {sysAnnouncement && (
         <div className="flex w-full mb-4">
           <Message icon info>
             <Icon name="info circle" />
             <Message.Content>
-              <Message.Header>{systemAnnouncementData.title}</Message.Header>
-              <p>{systemAnnouncementData.message}</p>
+              <Message.Header>{sysAnnouncement.title}</Message.Header>
+              <p>{sysAnnouncement.message}</p>
             </Message.Content>
           </Message>
         </div>
