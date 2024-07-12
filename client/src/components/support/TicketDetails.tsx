@@ -1,4 +1,4 @@
-import { Label } from "semantic-ui-react";
+import { Button } from "semantic-ui-react";
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
@@ -14,26 +14,43 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
       <p className="2xl:text-xl">
         <span className="font-semibold">Subject:</span> {ticket?.title}
       </p>
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Requester:</span>{" "}
+      <div className="flex flex-row items-center">
+        <p className="2xl:text-xl font-semibold">Requester:</p>{" "}
         {ticket.user && (
           <>
-            <span>
+            <a
+              href={"/controlpanel/libreone/users?user_id=" + ticket.user.uuid}
+              target="_blank"
+              className="2xl:text-xl ml-1"
+            >
               {`${ticket.user.firstName} ${ticket.user.lastName} (${ticket.user.email})`}
-            </span>
-            <Label className="!ml-2" basic color="green" size="tiny">
+            </a>
+            <Button
+              className="!ml-2 !p-2"
+              basic
+              color="green"
+              size="mini"
+              onClick={() =>
+                window.open(
+                  `/controlpanel/libreone/users?user_id=${ticket?.user?.uuid}`,
+                  "_blank"
+                )
+              }
+            >
               Authenticated
-            </Label>
+            </Button>
           </>
         )}
         {ticket.guest &&
           `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
+      </div>
+      <p className="2xl:text-xl">
+        <span className="font-semibold">Category:</span>{" "}
+        {getPrettySupportTicketCategory(ticket?.category)}
       </p>
       <p className="2xl:text-xl">
-        <span className="font-semibold">Category:</span> {getPrettySupportTicketCategory(ticket?.category)}
-      </p>
-      <p className="2xl:text-xl">
-        <span className="font-semibold">Priority:</span> {capitalizeFirstLetter(ticket?.priority) ?? "Unknown"}
+        <span className="font-semibold">Priority:</span>{" "}
+        {capitalizeFirstLetter(ticket?.priority) ?? "Unknown"}
       </p>
       <p className="2xl:text-xl break-all">
         <span className="font-semibold">Captured URL:</span>
