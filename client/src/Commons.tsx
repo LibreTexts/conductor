@@ -20,6 +20,7 @@ import "./components/commons/Commons.css";
 import { useTypedSelector } from "./state/hooks";
 import { Announcement } from "./types";
 import LoadingSpinner from "./components/LoadingSpinner";
+import useSystemAnnouncement from "./hooks/useSystemAnnouncement";
 
 /**
  * The public-facing catalog and showcase application.
@@ -29,21 +30,11 @@ const Commons = () => {
   const location = useLocation();
   const org = useTypedSelector((state) => state.org);
   const user = useTypedSelector((state) => state.user);
+  const { sysAnnouncement } = useSystemAnnouncement();
   const LAUNCHPAD_URL = "https://one.libretexts.org/launchpad";
 
   // Menu state
   const [activeItem, setActiveItem] = useState("");
-
-  // System Announcement
-  const [systemAnnouncement, setSystemAnnouncement] =
-    useState<Announcement | null>(null);
-
-  /**
-   * Check for any available global System Announcements on load.
-   */
-  useEffect(() => {
-    loadSystemAnnouncements();
-  }, []);
 
   /**
    * Subscribe to changes to location and update the Menu with the active page.
@@ -63,30 +54,15 @@ const Commons = () => {
     }
   }, [location.pathname]);
 
-  async function loadSystemAnnouncements() {
-    try {
-      const res = await axios.get("/announcements/system");
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-
-      if (res.data.sysAnnouncement !== null) {
-        setSystemAnnouncement(res.data.sysAnnouncement);
-      }
-    } catch (err) {
-      console.error(err); // fail silently
-    }
-  }
-
   return (
     <div className="commons">
       <CommonsNavbar org={org} user={user} />
       <CommonsJumbotron backgroundURL={org.coverPhoto ?? ""} />
       <CommonsMenu activeItem={activeItem} />
-      {systemAnnouncement && (
+      {sysAnnouncement && (
         <SystemAnnouncement
-          title={systemAnnouncement.title}
-          message={systemAnnouncement.message}
+          title={sysAnnouncement.title}
+          message={sysAnnouncement.message}
         />
       )}
       <Suspense fallback={<LoadingSpinner />}>

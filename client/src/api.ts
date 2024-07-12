@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
+  Announcement,
   AssetFilters,
   AssetSearchParams,
   AssetTagFramework,
@@ -36,6 +37,17 @@ import { CloudflareCaptionData } from "./types/Misc";
  */
 
 class API {
+  // ANNOUNCEMENTS
+  async getSystemAnnouncement() {
+    const res = await axios.get<
+      {
+        sysAnnouncement: Announcement | null;
+      } & ConductorBaseResponse
+    >("/announcements/system");
+
+    return res;
+  }
+  
   // ASSET TAGS FRAMEWORKS
   async getFrameworks({
     page,
