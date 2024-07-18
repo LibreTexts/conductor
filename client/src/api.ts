@@ -12,6 +12,7 @@ import {
   CentralIdentityLicense,
   CentralIdentityOrg,
   CentralIdentityUser,
+  CollectionResource,
   ConductorBaseResponse,
   ConductorSearchResponse,
   Homework,
@@ -24,12 +25,13 @@ import {
   UserSearchParams,
 } from "./types";
 import { CIDDescriptor, ProjectFileAuthor, ProjectTag } from "./types/Project";
+import { Collection } from "./types/Collection";
 import {
   AuthorSearchParams,
   ConductorSearchResponseFile,
   CustomFilter,
 } from "./types/Search";
-import { CloudflareCaptionData } from "./types/Misc";
+import {CloudflareCaptionData, SortDirection} from "./types/Misc";
 
 /**
  * @fileoverview
@@ -699,6 +701,64 @@ class API {
       },
     });
     return res;
+  }
+
+  // Commons Collections
+  async getCollection(collectionIDOrTitle: string) {
+    return await axios.get<{
+      coll: Collection,
+    } & ConductorBaseResponse>(`/commons/collections/${encodeURIComponent(collectionIDOrTitle)}`);
+  }
+
+  async getCollectionResources({
+     collIDOrTitle,
+     limit,
+     page,
+     query,
+     sort
+  } : {
+    collIDOrTitle?: string;
+    limit?: number;
+    page?: number;
+    query?: string | null;
+    sort?: string;
+  }) {
+    return await axios.get<{
+      resources: CollectionResource[]
+    } & ConductorBaseResponse>(`/commons/collections/${encodeURIComponent(collIDOrTitle ?? '')}/resources`, {
+      params: {
+        page,
+        limit,
+        sort,
+        query,
+      },
+    });
+  }
+
+  async getCommonsCollections({
+      limit,
+      page,
+      query,
+      sort,
+      sortDirection,
+  } : {
+    limit?: number;
+    page?: number;
+    query?: string | null;
+    sort?: string;
+    sortDirection?: SortDirection;
+  }) {
+    return await axios.get<{
+      collections: Collection[]
+    } & ConductorBaseResponse>(`/commons/collections`, {
+      params: {
+        limit,
+        page,
+        query,
+        sort,
+        sortDirection,
+      },
+    });
   }
 }
 
