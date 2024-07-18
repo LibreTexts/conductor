@@ -3,7 +3,6 @@
  * @author LibreTexts <info@libretexts.org>
  */
 
-'use strict';
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -17,8 +16,8 @@ import orgsAPI from './api/organizations.js';
 import alertsAPI from './api/alerts.js';
 import adoptionReportAPI from './api/adoptionreports.js';
 import harvestingRequestsAPI from './api/harvestingrequests.js';
-import collectionsAPI from './api/collections.js';
-import booksAPI from './api/books.js';
+import collectionsAPI from './api/collections.ts';
+import booksAPI from './api/books.ts';
 import homeworkAPI from './api/homework.js';
 import librariesAPI from './api/libraries.js';
 import searchAPI from './api/search.js';
@@ -39,6 +38,7 @@ import kbAPI from './api/kb.js';
 import supportAPI from './api/support.js';
 
 import * as centralIdentityValidators from './api/validators/central-identity.js';
+import * as collectionValidators from './api/validators/collections.js';
 import * as kbValidators from './api/validators/kb.js';
 import * as supportValidators from './api/validators/support.js';
 import * as ProjectValidators from './api/validators/projects.js';
@@ -57,7 +57,7 @@ router.use(middleware.middlewareFilter(['/payments/webhook'], bodyParser.json())
 router.use(bodyParser.urlencoded({ extended: false }));
 
 router.use(cors({
-  origin: function (origin, callback) {
+  origin(origin, callback) {
     /* Build dynamic origins list */
     let allowedOrigins = [];
     if (process.env.NODE_ENV === 'production') {
@@ -134,8 +134,8 @@ router.route('/central-identity/users').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getUsers'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getUsers
-)
+  centralIdentityAPI.getUsers,
+);
 
 router.route('/central-identity/users/:id').get(
   middleware.checkCentralIdentityConfig,
@@ -144,17 +144,17 @@ router.route('/central-identity/users/:id').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getUser'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getUser
+  centralIdentityAPI.getUser,
 )
-.patch(
-  middleware.checkCentralIdentityConfig,
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.validate('updateUser'),
-  middleware.checkValidationErrors,
-  centralIdentityAPI.updateUser
-)
+  .patch(
+    middleware.checkCentralIdentityConfig,
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    centralIdentityAPI.validate('updateUser'),
+    middleware.checkValidationErrors,
+    centralIdentityAPI.updateUser,
+  );
 
 router.route('/central-identity/users/:id/applications').get(
   middleware.checkCentralIdentityConfig,
@@ -163,7 +163,7 @@ router.route('/central-identity/users/:id/applications').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getUserApplications'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getUserApplications
+  centralIdentityAPI.getUserApplications,
 ).post(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
@@ -171,15 +171,15 @@ router.route('/central-identity/users/:id/applications').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('addUserApplications'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.addUserApplications
-)
+  centralIdentityAPI.addUserApplications,
+);
 
 router.route('/central-identity/users/:id/applications/:applicationId').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(centralIdentityValidators.CheckUserApplicationAccessValidator),
-  centralIdentityAPI.checkUserApplicationAccess
+  centralIdentityAPI.checkUserApplicationAccess,
 ).delete(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
@@ -187,8 +187,8 @@ router.route('/central-identity/users/:id/applications/:applicationId').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('deleteUserApplication'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.deleteUserApplication
-)
+  centralIdentityAPI.deleteUserApplication,
+);
 
 router.route('/central-identity/users/:id/orgs').get(
   middleware.checkCentralIdentityConfig,
@@ -197,7 +197,7 @@ router.route('/central-identity/users/:id/orgs').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getUserOrgs'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getUserOrgs
+  centralIdentityAPI.getUserOrgs,
 ).post(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
@@ -205,8 +205,8 @@ router.route('/central-identity/users/:id/orgs').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('addUserOrgs'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.addUserOrgs
-)
+  centralIdentityAPI.addUserOrgs,
+);
 
 router.route('/central-identity/users/:id/orgs/:orgId').delete(
   middleware.checkCentralIdentityConfig,
@@ -215,50 +215,50 @@ router.route('/central-identity/users/:id/orgs/:orgId').delete(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('deleteUserOrg'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.deleteUserOrg
-)
+  centralIdentityAPI.deleteUserOrg,
+);
 
 router.route('/central-identity/apps').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.getApplicationsPriveledged
-)
+  centralIdentityAPI.getApplicationsPriveledged,
+);
 
 router.route('/central-identity/public/apps').get(
   middleware.checkCentralIdentityConfig,
-  centralIdentityAPI.getApplicationsPublic
-)
+  centralIdentityAPI.getApplicationsPublic,
+);
 
 router.route('/central-identity/orgs').get(
   middleware.checkCentralIdentityConfig,
   centralIdentityAPI.validate('getOrgs'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getOrgs
-)
+  centralIdentityAPI.getOrgs,
+);
 
 router.route('/central-identity/adapt-orgs').get(
   centralIdentityAPI.validate('getADAPTOrgs'), // Don't need checkCentralIdentityConfig here because it's does not require a valid API key
   middleware.checkValidationErrors,
-  centralIdentityAPI.getADAPTOrgs
-)
+  centralIdentityAPI.getADAPTOrgs,
+);
 
 router.route('/central-identity/systems').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.getSystems
-)
+  centralIdentityAPI.getSystems,
+);
 
 router.route('/central-identity/services').get(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.getServices
-)
+  centralIdentityAPI.getServices,
+);
 
 router.route('/central-identity/verification-requests').get(
   middleware.checkCentralIdentityConfig,
@@ -267,8 +267,8 @@ router.route('/central-identity/verification-requests').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getVerificationRequests'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getVerificationRequests
-)
+  centralIdentityAPI.getVerificationRequests,
+);
 
 router.route('/central-identity/verification-requests/:id').get(
   middleware.checkCentralIdentityConfig,
@@ -277,7 +277,7 @@ router.route('/central-identity/verification-requests/:id').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('getVerificationRequest'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.getVerificationRequest
+  centralIdentityAPI.getVerificationRequest,
 ).patch(
   middleware.checkCentralIdentityConfig,
   authAPI.verifyRequest,
@@ -285,20 +285,19 @@ router.route('/central-identity/verification-requests/:id').get(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   centralIdentityAPI.validate('updateVerificationRequest'),
   middleware.checkValidationErrors,
-  centralIdentityAPI.updateVerificationRequest
-)
+  centralIdentityAPI.updateVerificationRequest,
+);
 
 // Public route
 router.route('/central-identity/licenses').get(
   middleware.checkCentralIdentityConfig,
-  centralIdentityAPI.getLicenses
-)
+  centralIdentityAPI.getLicenses,
+);
 
 /* OAuth (server) */
 router.route('/oauth2.0/authorize').get(authAPI.verifyRequest, OAuth.authorize());
 
 router.route('/oauth2.0/accessToken').post(OAuth.token());
-
 
 /* Organizations */
 router.route('/orgs').get(
@@ -372,7 +371,7 @@ router.route('/assettagframeworks/:uuid').get(
   assetTagFrameworkAPI.validate('updateFramework'),
   middleware.checkValidationErrors,
   assetTagFrameworkAPI.updateFramework,
-)
+);
 
 /* Authors */
 router.route('/authors').get(
@@ -414,8 +413,7 @@ router.route('/authors/:id').get(
 router.route('/authors/:id/assets').get(
   middleware.validateZod(AuthorsValidators.GetAuthorAssetsValidator),
   authorsAPI.getAuthorAssets,
-)
-
+);
 
 /* Adoption Reports */
 // (submission route can be anonymous)
@@ -446,7 +444,6 @@ router.route('/adoptionreport/delete').delete(
   adoptionReportAPI.deleteReport,
 );
 
-
 /* Translation Feedback */
 // (submission route can be anonymous)
 router.route('/translationfeedback').post(
@@ -462,7 +459,6 @@ router.route('/translationfeedback/export').get(
   middleware.checkValidationErrors,
   transFeedbackAPI.exportFeedback,
 );
-
 
 /* OER/Harvesting Requests */
 // (submission route can be anonymous)
@@ -490,7 +486,7 @@ router.route('/harvestingrequest/decline').patch(
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
   harvestingRequestsAPI.validate('declineRequest'),
   middleware.checkValidationErrors,
-  harvestingRequestsAPI.declineRequest
+  harvestingRequestsAPI.declineRequest,
 );
 
 router.route('/harvestingrequest/convert').post(
@@ -514,31 +510,36 @@ router.route('/harvestingrequests').get(
 );
 
 /* Commons Collections */
-router.route('/commons/collections').get(collectionsAPI.getCommonsCollections);
+router.route('/commons/collections').get(
+  middleware.validateZod(collectionValidators.getCommonsCollectionsSchema),
+  collectionsAPI.getCommonsCollections,
+);
 
 router.route('/commons/collections/all').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(collectionValidators.getAllCollectionsSchema),
   collectionsAPI.getAllCollections,
 );
 
-//These are defined first because of the nature in which route params fall-through
-router.route('/commons/collection/:collID/resources').post(
+// These are defined first because of the nature in which route params fall-through
+router.route('/commons/collection/:collID/resources').get(
+  middleware.validateZod(collectionValidators.getCollectionResourcesSchema),
+  collectionsAPI.getCollectionResources,
+).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('addCollResource'),
-  middleware.checkValidationErrors,
-  collectionsAPI.addResourceToCollection,
+  middleware.validateZod(collectionValidators.addCollectionResourceSchema),
+  collectionsAPI.addResourcesToCollection,
 );
 
 router.route('/commons/collection/:collID/resources/:resourceID').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('remCollResource'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.removeCollectionResourceSchema),
   collectionsAPI.removeResourceFromCollection,
 );
 
@@ -546,37 +547,32 @@ router.route('/commons/collection/:collID/assets/:assetName').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('updateCollectionImageAsset'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.updateCollectionImageAssetSchema),
   collectionsAPI.assetUploadHandler,
   collectionsAPI.updateCollectionImageAsset,
 );
 // end
 
 router.route('/commons/collection/:collID?').get(
-  collectionsAPI.validate('getCollection'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.getCollectionSchema),
   collectionsAPI.getCollection,
 ).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('createCollection'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.createCollectionSchema),
   collectionsAPI.createCollection,
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('editCollection'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.editCollectionSchema),
   collectionsAPI.editCollection,
 ).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
-  collectionsAPI.validate('deleteCollection'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(collectionValidators.deleteCollectionSchema),
   collectionsAPI.deleteCollection,
 );
 
@@ -585,7 +581,6 @@ router.route('/commons/kbexport').get(
   middleware.checkLibreCommons,
   booksAPI.retrieveKBExport,
 );
-
 
 /* Libraries Directory */
 router.route('/commons/libraries').get(librariesAPI.getLibraries);
@@ -597,7 +592,6 @@ router.route('/commons/libraries/shelves').get(
   middleware.checkValidationErrors,
   librariesAPI.getLibraryShelves,
 );
-
 
 /* Commons Management */
 router.route('/commons/syncwithlibs').post(
@@ -611,7 +605,6 @@ router.route('/commons/syncwithlibs/automated').put(
   middleware.checkLibreAPIKey,
   booksAPI.runAutomatedSyncWithLibraries,
 );
-
 
 /* Commons Books/Catalogs */
 router.route('/commons/catalog').get(
@@ -628,7 +621,7 @@ router.route('/commons/book').post(
   authAPI.verifyRequest,
   middleware.validateZod(BookValidators.createBookSchema),
   booksAPI.createBook,
-)
+);
 
 router.route('/commons/book/:bookID').get(
   middleware.validateZod(BookValidators.getWithBookIDParamSchema),
@@ -678,12 +671,10 @@ router.route('/commons/catalogs/removeresource').put(
   booksAPI.removeBookFromCustomCatalog,
 );
 
-
 /* Homework */
 router.route('/commons/homework/all').get(homeworkAPI.getAllHomework);
 
 router.route('/commons/homework/adapt').get(homeworkAPI.getADAPTCatalog);
-
 
 router.route('/commons/homework/sync').post(
   authAPI.verifyRequest,
@@ -700,8 +691,8 @@ router.route('/commons/homework/sync/automated').put(
 /* Search */
 router.route('/search/autocomplete').get(
   middleware.validateZod(SearchValidators.autocompleteSchema),
-  searchAPI.getAutocompleteResults
-)
+  searchAPI.getAutocompleteResults,
+);
 router.route('/search/assets').get(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(SearchValidators.assetSearchSchema),
@@ -734,12 +725,10 @@ router.route('/search/authors').get(
 );
 router.route('/search/asset-filters').get(
   searchAPI.getAssetFilterOptions,
-)
+);
 router.route('/search/author-filters').get(
   searchAPI.getAuthorFilterOptions,
-)
-
-
+);
 
 /* Users */
 router.route('/user/basicinfo').get(
@@ -823,7 +812,6 @@ router.route('/users/basic').get(
   usersAPI.getBasicUsersList,
 );
 
-
 /* Announcements */
 router.route('/announcement')
   .post(
@@ -851,7 +839,6 @@ router.route('/announcements/recent').get(
 );
 
 router.route('/announcements/system').get(announcementAPI.getSystemAnnouncement);
-
 
 /* Alerts */
 router.route('/alert')
@@ -1008,7 +995,6 @@ router.route('/analytics/learning/init').get(
   analyticsAPI.startLearningAnalyticsFlow,
 );
 
-
 /* Peer Review */
 router.route('/peerreview')
   .get(
@@ -1087,7 +1073,6 @@ router.route('/peerreviews').get(
   peerReviewAPI.getProjectPeerReviews,
 );
 
-
 /* Projects */
 router.route('/projects/all').get(
   authAPI.verifyRequest,
@@ -1124,7 +1109,7 @@ router.route('/projects/completed').get(
 router.route('/projects/public').get(
   middleware.validateZod(ProjectValidators.getPublicProjectsSchema),
   projectsAPI.getPublicProjects,
-)
+);
 
 router.route('/projects/tags/org').get(
   authAPI.verifyRequest,
@@ -1134,7 +1119,7 @@ router.route('/projects/tags/org').get(
 router.route('/projects/files/public').get(
   middleware.validateZod(ProjectFileValidators.getPublicProjectFilesSchema),
   projectfilesAPI.getPublicProjectFiles,
-)
+);
 
 router.route('/project/flag').put(
   authAPI.verifyRequest,
@@ -1282,7 +1267,8 @@ router.route('/project/task')
     tasksAPI.validate('updateTask'),
     middleware.checkValidationErrors,
     tasksAPI.updateTask,
-  ).delete(
+  )
+  .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     tasksAPI.validate('deleteTask'),
@@ -1393,7 +1379,7 @@ router.route('/project/:projectID/thumbnail').put(
   middleware.checkValidationErrors,
   projectsAPI.thumbnailUploadHandler,
   projectsAPI.uploadProjectThumbnail,
-)
+);
 
 router.route('/project/:projectID?')
   .get(
@@ -1412,7 +1398,8 @@ router.route('/project/:projectID?')
     projectsAPI.validate('updateProject'),
     middleware.checkValidationErrors,
     projectsAPI.updateProject,
-  ).delete(
+  )
+  .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     projectsAPI.validate('deleteProject'),
@@ -1425,7 +1412,7 @@ router.route('/project/:projectID/files/bulk').get(
   authAPI.getUserAttributes,
   middleware.validateZod(ProjectFileValidators.bulkDownloadProjectFilesSchema),
   projectfilesAPI.bulkDownloadProjectFiles,
-)
+);
 
 router.route('/project/:projectID/files/:fileID/access').put(
   authAPI.verifyRequest,
@@ -1437,7 +1424,7 @@ router.route('/project/:projectID/files/:fileID/access').put(
 router.route('/project/:projectID/files/:fileID/download').get(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(ProjectFileValidators.getProjectFileDownloadURLSchema),
-  projectfilesAPI.getProjectFileDownloadURL
+  projectfilesAPI.getProjectFileDownloadURL,
 );
 
 router.route('/project/:projectID/files/:fileID/move').put(
@@ -1451,14 +1438,14 @@ router.route('/project/:projectID/files/content/:folderID?').get(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(ProjectFileValidators.getProjectFolderContentsSchema),
   projectfilesAPI.getProjectFolderContents,
-)
+);
 
 router.route('/project/:projectID/files/folder').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(ProjectFileValidators.addProjectFileFolderSchema),
   projectfilesAPI.addProjectFileFolder,
-)
+);
 
 router.route('/project/:projectID/files/:fileID?')
   .post(
@@ -1478,7 +1465,8 @@ router.route('/project/:projectID/files/:fileID?')
     middleware.validateZod(ProjectFileValidators.updateProjectFileSchema),
     projectfilesAPI.fileUploadHandler,
     projectfilesAPI.updateProjectFile,
-  ).delete(
+  )
+  .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectFileValidators.removeProjectFileSchema),
@@ -1492,7 +1480,7 @@ router.route('/project/:projectID/files/:fileID/captions')
   ).put(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    //middleware.validateZod(ProjectFileValidators.updateProjectFileCaptionsSchema), TODO: figure out why zfd is not reading form data
+    // middleware.validateZod(ProjectFileValidators.updateProjectFileCaptionsSchema), TODO: figure out why zfd is not reading form data
     projectfilesAPI.fileUploadHandler,
     projectfilesAPI.updateProjectFileCaptions,
   );
@@ -1500,13 +1488,13 @@ router.route('/project/:projectID/files/:fileID/captions')
 router.route('/project/:projectID/files/:fileID/embed').get(
   middleware.validateZod(ProjectFileValidators.getProjectFileEmbedHTMLSchema),
   projectfilesAPI.getProjectFileEmbedHTML,
-)
+);
 
 router.route('/project/:projectID/book/readerresources')
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    projectsAPI.validate('getProjectBookReaderResources'), //this is plural
+    projectsAPI.validate('getProjectBookReaderResources'), // this is plural
     middleware.checkValidationErrors,
     projectsAPI.getProjectBookReaderResources,
   ).put(
@@ -1515,83 +1503,84 @@ router.route('/project/:projectID/book/readerresources')
     projectsAPI.validate('updateProjectBookReaderResources'),
     middleware.checkValidationErrors,
     projectsAPI.updateProjectBookReaderResources,
-    //No DELETE ENDPOINT - Reader Resources are only PUT with the new data, even if empty
-);
+    // No DELETE ENDPOINT - Reader Resources are only PUT with the new data, even if empty
+  );
 router.route('/orgevents')
-.get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.getOrgEvents // this is plural
-)
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.getOrgEvents, // this is plural
+  );
 
 router.route('/orgevents/:eventID?')
-.get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.getOrgEvent
-).post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate('createOrgEvent'),
-  middleware.checkValidationErrors,
-  orgEventsAPI.createOrgEvent
-).patch(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate('updateOrgEvent'),
-  middleware.checkValidationErrors,
-  orgEventsAPI.updateOrgEvent
-).delete(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate('cancelOrgEvent'),
-  middleware.checkValidationErrors,
-  orgEventsAPI.cancelOrgEvent
-)
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.getOrgEvent,
+  ).post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('createOrgEvent'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.createOrgEvent,
+  ).patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('updateOrgEvent'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.updateOrgEvent,
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('cancelOrgEvent'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.cancelOrgEvent,
+  );
 
 router.route('/orgevents/:eventID/participants')
-.get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.getOrgEventParticipants
-)
-.delete(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate("unregisterParticipants"),
-  middleware.checkValidationErrors,
-  orgEventsAPI.unregisterParticipants
-);
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.getOrgEventParticipants,
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('unregisterParticipants'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.unregisterParticipants,
+  );
 
 router.route('/orgevents/:eventID/participants/download')
-.get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.downloadParticipantData
-)
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.downloadParticipantData,
+  );
 
 router.route('/orgevents/:eventID/register')
-.post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate('submitRegistration'),
-  middleware.checkValidationErrors,
-  orgEventsAPI.submitRegistration
-)
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('submitRegistration'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.submitRegistration,
+  );
 
 router.route('/orgevents/:eventID/feewaivers')
-.get(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  middleware.checkValidationErrors,
-  orgEventsAPI.getOrgEventFeeWaivers,
-).post(
-  authAPI.verifyRequest,
-  authAPI.getUserAttributes,
-  orgEventsAPI.validate('createFeeWaiver'),
-  middleware.checkValidationErrors,
-  orgEventsAPI.createFeeWaiver
-);
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.checkValidationErrors,
+    orgEventsAPI.getOrgEventFeeWaivers,
+  ).post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    orgEventsAPI.validate('createFeeWaiver'),
+    middleware.checkValidationErrors,
+    orgEventsAPI.createFeeWaiver,
+  );
 
 router.route('/orgevents/:eventID/feewaivers/:feeWaiverCode').patch(
   authAPI.verifyRequest,
@@ -1607,7 +1596,7 @@ router.route('/orgevents/:eventID/configure-sync/:projectID').put(
   orgEventsAPI.validate('configureAutoSync'),
   middleware.checkValidationErrors,
   orgEventsAPI.configureAutoSync,
-)
+);
 
 router.route('/apiclients/:clientID').get(
   authAPI.verifyRequest,
@@ -1637,61 +1626,61 @@ router.route('/central-identity/webhooks/new-user').post(
   middleware.authLibreOneRequest,
   middleware.validateZod(centralIdentityValidators.NewUserWebhookValidator),
   centralIdentityAPI.processNewUserWebhookEvent,
-)
+);
 
 router.route('/central-identity/webhooks/user-library-access').post(
   express.raw({ type: 'application/json' }),
   middleware.authLibreOneRequest,
   middleware.validateZod(centralIdentityValidators.LibraryAccessWebhookValidator),
   centralIdentityAPI.processLibraryAccessWebhookEvent,
-)
+);
 
 router.route('/central-identity/webhooks/verify-status').post(
   express.raw({ type: 'application/json' }),
   middleware.authLibreOneRequest,
   middleware.validateZod(centralIdentityValidators.VerificationStatusUpdateWebhookValidator),
-  centralIdentityAPI.processVerificationStatusUpdateWebook
-)
+  centralIdentityAPI.processVerificationStatusUpdateWebook,
+);
 
 router.route('/kb/search').get(
   middleware.validateZod(kbValidators.SearchKBValidator),
-  kbAPI.searchKB
-)
+  kbAPI.searchKB,
+);
 
 router.route('/kb/tree').get(
   authAPI.optionalVerifyRequest,
-  kbAPI.getKBTree
-)
+  kbAPI.getKBTree,
+);
 
 router.route('/kb/page').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBPageValidator),
-  kbAPI.createKBPage
-)
+  kbAPI.createKBPage,
+);
 
 router.route('/kb/page/slug/:slug').get(
   middleware.validateZod(kbValidators.GetKBPageValidator),
-  kbAPI.getKBPage
-)
+  kbAPI.getKBPage,
+);
 
 router.route('/kb/page/:uuid').get(
   middleware.validateZod(kbValidators.GetKBPageValidator),
-  kbAPI.getKBPage
+  kbAPI.getKBPage,
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.UpdateKBPageValidator),
-  kbAPI.updateKBPage  
+  kbAPI.updateKBPage,
 ).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBPageValidator),
-  kbAPI.deleteKBPage
-)
+  kbAPI.deleteKBPage,
+);
 
 router.route('/kb/page/:uuid/files').post(
   authAPI.verifyRequest,
@@ -1699,43 +1688,43 @@ router.route('/kb/page/:uuid/files').post(
   middleware.validateZod(kbValidators.AddKbImageValidator),
   kbAPI.imageUploadHandler,
   kbAPI.addKBImage,
-)
+);
 
 router.route('/kb/featured').get(
-  kbAPI.getKBFeaturedContent
-)
+  kbAPI.getKBFeaturedContent,
+);
 
 router.route('/kb/featured/page').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBFeaturedPageValidator),
-  kbAPI.createKBFeaturedPage
-)
+  kbAPI.createKBFeaturedPage,
+);
 
 router.route('/kb/featured/page/:uuid').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBFeaturedPageValidator),
-  kbAPI.deleteKBFeaturedPage
-)
+  kbAPI.deleteKBFeaturedPage,
+);
 
 router.route('/kb/featured/video').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.CreateKBFeaturedVideoValidator),
-  kbAPI.createKBFeaturedVideo
-)
+  kbAPI.createKBFeaturedVideo,
+);
 
 router.route('/kb/featured/video/:uuid').delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'kbeditor'),
   middleware.validateZod(kbValidators.DeleteKBFeaturedVideoValidator),
-  kbAPI.deleteKBFeaturedVideo
-)
+  kbAPI.deleteKBFeaturedVideo,
+);
 
 router.route('/kb/oembed').get(
   middleware.validateZod(kbValidators.GetOEmbedValidator),
@@ -1746,130 +1735,130 @@ router.route('/support/metrics').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
-  supportAPI.getSupportMetrics
-)
+  supportAPI.getSupportMetrics,
+);
 
 router.route('/support/ticket/open').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.GetOpenTicketsValidator),
-  supportAPI.getOpenInProgressTickets
-)
+  supportAPI.getOpenInProgressTickets,
+);
 
 router.route('/support/ticket/closed').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.GetClosedTicketsValidator),
-  supportAPI.getClosedTickets
-)
+  supportAPI.getClosedTickets,
+);
 
 router.route('/support/ticket/user').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   middleware.validateZod(supportValidators.GetUserTicketsValidator), // TODO: RBAC
-  supportAPI.getUserTickets
-)
+  supportAPI.getUserTickets,
+);
 
 router.route('/support/ticket/:uuid/assign').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
-  supportAPI.getAssignableUsers
+  supportAPI.getAssignableUsers,
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.AssignTicketValidator),
-  supportAPI.assignTicket
-)
+  supportAPI.assignTicket,
+);
 
 router.route('/support/ticket/:uuid/msg').get(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
   middleware.validateZod(supportValidators.GetTicketValidator),
-  supportAPI.getGeneralMessages
+  supportAPI.getGeneralMessages,
 ).post(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
   middleware.validateZod(supportValidators.SendTicketMessageValidator),
-  supportAPI.createGeneralMessage
-)
+  supportAPI.createGeneralMessage,
+);
 
 router.route('/support/ticket/:uuid/internal-msg').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.GetTicketValidator),
-  supportAPI.getInternalMessages
+  supportAPI.getInternalMessages,
 ).post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.SendTicketMessageValidator),
-  supportAPI.createInternalMessage
-)
+  supportAPI.createInternalMessage,
+);
 
 router.route('/support/ticket/:uuid/attachments').post(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
   middleware.validateZod(supportValidators.AddTicketAttachementsValidator),
   supportAPI.ticketAttachmentUploadHandler,
-  supportAPI.addTicketAttachments
+  supportAPI.addTicketAttachments,
 );
 
 router.route('/support/ticket/:uuid/attachments/:attachmentUUID').get(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
   middleware.validateZod(supportValidators.GetTicketAttachmentValidator),
-  supportAPI.getTicketAttachmentURL
-)
+  supportAPI.getTicketAttachmentURL,
+);
 
 router.route('/support/ticket/:uuid').get(
   authAPI.optionalVerifyRequest,
   middleware.canAccessSupportTicket,
   middleware.validateZod(supportValidators.GetTicketValidator),
-  supportAPI.getTicket
+  supportAPI.getTicket,
 ).patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.UpdateTicketValidator),
-  supportAPI.updateTicket
+  supportAPI.updateTicket,
 ).delete(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'support'),
   middleware.validateZod(supportValidators.DeleteTicketValidator),
-  supportAPI.deleteTicket
-)
+  supportAPI.deleteTicket,
+);
 
 router.route('/support/ticket').post(
   authAPI.optionalVerifyRequest,
   middleware.validateZod(supportValidators.CreateTicketValidator),
-  supportAPI.createTicket
-)
+  supportAPI.createTicket,
+);
 
 router.route('/support/init-autoclose').post(
   middleware.checkEventBridgeAPIKey,
-  supportAPI.findTicketsToInitAutoClose
-)
+  supportAPI.findTicketsToInitAutoClose,
+);
 
 router.route('/support/run-autoclose').post(
   middleware.checkEventBridgeAPIKey,
-  supportAPI.autoCloseTickets
-)
+  supportAPI.autoCloseTickets,
+);
 
 router.route('/cloudflare/stream-url').post(
-  //authAPI.verifyRequest,
-  //authAPI.getUserAttributes,
-  //middleware.validateZod(ProjectFileValidators.createCloudflareStreamURLSchema),
+  // authAPI.verifyRequest,
+  // authAPI.getUserAttributes,
+  // middleware.validateZod(ProjectFileValidators.createCloudflareStreamURLSchema),
   projectfilesAPI.createProjectFileStreamUploadURL,
 );
 
 router.route('/cloudflare/stream-url').options(
   projectfilesAPI.createProjectFileStreamUploadURLOptions,
-)
+);
 
 export default router;
