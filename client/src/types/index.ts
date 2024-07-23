@@ -41,7 +41,7 @@ import {
   ProjectModuleConfig,
   ProjectModuleSettings,
 } from "./Project";
-import { User, Account, AuthorizedApp } from "./User";
+import { User, Account, AuthorizedApp, UserWCentralID } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
 import {
   AccountRequest,
@@ -184,6 +184,7 @@ export type {
   User,
   Account,
   AuthorizedApp,
+  UserWCentralID,
   Homework,
   AdaptAssignment,
   AccountRequest,

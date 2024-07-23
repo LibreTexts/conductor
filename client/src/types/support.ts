@@ -1,4 +1,4 @@
-import { User } from "./User";
+import { User, UserWCentralID } from "./User";
 
 export type SupportTicketGuest = {
   firstName: string;
@@ -18,8 +18,8 @@ export type SupportTicket = {
   category: string;
   capturedURL?: string;
   assignedUUIDs?: string[]; // User uuids
-  assignedUsers?: User[];
-  user?: User;
+  assignedUsers?: UserWCentralID[];
+  user?: UserWCentralID;
   guest?: SupportTicketGuest;
   timeOpened: string;
   timeClosed?: string;

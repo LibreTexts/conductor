@@ -30,12 +30,13 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
               basic
               color="green"
               size="mini"
-              onClick={() =>
+              onClick={() => {
+                if (!ticket.user?.centralID) return;
                 window.open(
-                  `/controlpanel/libreone/users?user_id=${ticket?.user?.uuid}`,
+                  `/controlpanel/libreone/users?user_id=${ticket?.user?.centralID}`,
                   "_blank"
-                )
-              }
+                );
+              }}
             >
               Authenticated
             </Button>
