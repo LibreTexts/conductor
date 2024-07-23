@@ -80,7 +80,7 @@ const StaffDashboard = () => {
 
   useEffect(() => {
     setActivePage(1); // Reset to first page when itemsPerPage changes
-  }, [itemsPerPage])
+  }, [itemsPerPage]);
 
   async function getOpenTickets({
     page,
@@ -172,7 +172,7 @@ const StaffDashboard = () => {
       return {
         totalOpenTickets: res.data.metrics.totalOpenTickets ?? 0,
         lastSevenTicketCount: res.data.metrics.lastSevenTicketCount ?? 0,
-        avgDaysToClose: avgDays.toPrecision(1) ?? "0",
+        avgDaysToClose: Math.floor(avgDays).toString() ?? "0",
       };
     } catch (err) {
       handleGlobalError(err);
@@ -262,6 +262,7 @@ const StaffDashboard = () => {
               size="tiny"
               onClick={() => setShowSettingsModal(true)}
               basic
+              className="ml-2"
             >
               <Icon name="settings" />
               Support Center Settings
@@ -275,12 +276,12 @@ const StaffDashboard = () => {
           title="Open/In Progress Tickets"
         />
         <DashboardMetric
-          metric={supportMetrics?.avgDaysToClose?.toString() ?? 0 + " days"}
+          metric={(supportMetrics?.avgDaysToClose?.toString() ?? 0) + " days"}
           title="Average Time to Resolution"
         />
         <DashboardMetric
           metric={supportMetrics?.lastSevenTicketCount?.toString() ?? "0"}
-          title="Total Tickets Past 7 Days"
+          title="New Tickets Past 7 Days"
         />
       </div>
       <div className="mt-12">
