@@ -7,7 +7,6 @@ import {
   Header,
   Button,
   Breadcrumb,
-  Modal,
   List,
   Search,
   Popup,
@@ -26,11 +25,9 @@ import {
 } from "../../../components/util/LicenseOptions.js";
 import { isEmptyString } from "../../../components/util/HelperFunctions.js";
 import { getLicenseColor } from "../../../components/util/BookHelpers.js";
-import { getPeerReviewAuthorText } from "../../../components/util/ProjectHelpers.js";
 import AdoptionReport from "../../../components/adoptionreport/AdoptionReport.jsx";
 import TreeView from "../../../components/TreeView/index.jsx";
 import PeerReview from "../../../components/peerreview/PeerReview.jsx";
-import PeerReviewView from "../../../components/peerreview/PeerReviewView.jsx";
 import StarRating from "../../../components/peerreview/StarRating.jsx";
 import styles from "./Book.module.css";
 import FileIcon from "../../../components/FileIcon/index.jsx";
@@ -45,9 +42,9 @@ import {
   ProjectFile,
 } from "../../../types";
 import { isLicenseReport } from "../../../utils/typeHelpers";
-import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
+import BookPeerReviewsModal from "../../../components/peerreview/BookPeerReviewsModal";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -150,11 +147,7 @@ const CommonsBook = () => {
   const [prAllow, setPRAllow] = useState<boolean>(false);
   const [prProjectID, setPRProjectID] = useState<string>("");
   const [prShow, setPRShow] = useState<boolean>(false);
-  const [prReviews, setPRReviews] = useState<PeerReviewType[]>([]);
   const [prReviewsShow, setPRReviewsShow] = useState<boolean>(false);
-  // const [prRating, setPRRating] = useState(0);
-  const [prViewShow, setPRViewShow] = useState<boolean>(false);
-  const [prViewData, setPRViewData] = useState<PeerReviewType>();
 
   const accessLinks = [
     {
@@ -333,50 +326,17 @@ const CommonsBook = () => {
   ]);
 
   /**
-   * Load any Peer Reviews from the server and save to state.
-   */
-  const getPeerReviews = useCallback(async () => {
-    try {
-      const prRes = await axios.get(`/commons/book/${bookID}/peerreviews`);
-      if (!prRes.data.err) {
-        if (
-          Array.isArray(prRes.data.reviews) &&
-          prRes.data.reviews.length > 0
-        ) {
-          const sorted = [...prRes.data.reviews].sort((a, b) => {
-            const aKey = new Date(a.createdAt);
-            const bKey = new Date(b.createdAt);
-            if (aKey < bKey) {
-              return -1;
-            }
-            if (aKey > bKey) {
-              return 1;
-            }
-            return 0;
-          });
-          setPRReviews(sorted);
-        }
-        /*
-        if (typeof (prRes.data.averageRating) === 'number') {
-          setPRRating(prRes.data.averageRating);
-        }
-        */
-      } else {
-        throw new Error(prRes.data.errMsg);
-      }
-    } catch (e) {
-      console.error(e); // fail silently
-    }
-  }, [bookID, setPRReviews]);
-
-  /**
    * Load the Files list from the server, prepare it for the UI, then save it to state.
    */
   async function getProjectFiles() {
     try {
       if (!book.projectID) return [];
 
-      const res = await api.getProjectFiles(book.projectID, currDirectory, true);
+      const res = await api.getProjectFiles(
+        book.projectID,
+        currDirectory,
+        true
+      );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
@@ -419,9 +379,6 @@ const CommonsBook = () => {
         setPRAllow(true);
         setPRProjectID(bookData.projectID);
       }
-      if (bookData.hasPeerReviews) {
-        getPeerReviews();
-      }
       getTOC();
     } catch (e) {
       handleGlobalError(e);
@@ -430,7 +387,6 @@ const CommonsBook = () => {
   }, [
     bookID,
     getTOC,
-    getPeerReviews,
     setBook,
     setPRAllow,
     setPRProjectID,
@@ -517,31 +473,6 @@ const CommonsBook = () => {
    */
   function handleOpenPeerReviewForm() {
     setPRShow(true);
-  }
-
-  /**
-   * Handles requests to open the Peer Reviews modal.
-   */
-  function handleOpenPeerReviews() {
-    setPRReviewsShow(true);
-  }
-
-  /**
-   * Enters a specified Peer Review into state and opens the Peer Review View Modal.
-   *
-   * @param {Object} peerReview - The Peer Review to be opened.
-   */
-  function handleOpenPeerReviewView(peerReview: PeerReviewType) {
-    setPRViewData(peerReview);
-    setPRViewShow(true);
-  }
-
-  /**
-   * Closes the Peer Review View Modal and resets its state.
-   */
-  function handleClosePeerReviewView() {
-    setPRViewShow(false);
-    setPRViewData(undefined);
   }
 
   /**
@@ -698,9 +629,9 @@ const CommonsBook = () => {
       ...buttonProps,
       icon: "ul list",
       content: "View Peer Reviews",
-      onClick: handleOpenPeerReviews,
+      onClick: () => setPRReviewsShow(true),
     };
-    if (prAllow && prReviews.length > 0) {
+    if (prAllow && book.hasPeerReviews) {
       // allows reviews and has existing reviews
       return (
         <Button.Group vertical labeled icon fluid className="mt-05r">
@@ -713,7 +644,7 @@ const CommonsBook = () => {
       // allows reviews, none yet
       return <Button className="mt-05r" {...submitButtonProps} />;
     }
-    if (prReviews.length > 0) {
+    if (book.hasPeerReviews) {
       // doesn't allow reviews, but existing are visible
       return <Button className="mt-05r" {...viewButtonProps} />;
     }
@@ -967,12 +898,6 @@ const CommonsBook = () => {
                       Thumbnail Source{" "}
                     </a>
                     <Icon name="external" />
-                  </p>
-                )}
-                {prReviews.length > 0 && (
-                  <p className={styles.book_detail}>
-                    <Icon name="clipboard list" />
-                    {prReviews.length} Peer Review{prReviews.length > 1 && "s"}
                   </p>
                 )}
               </div>
@@ -1304,60 +1229,12 @@ const CommonsBook = () => {
           </div>
         </Segment>
       </Segment.Group>
-      {/* View Peer Reviews Modal */}
-      <Modal
+      <BookPeerReviewsModal
         open={prReviewsShow}
         onClose={() => setPRReviewsShow(false)}
-        size="fullscreen"
-      >
-        <Modal.Header>
-          Peer Reviews for <em>{book.title}</em>
-        </Modal.Header>
-        <Modal.Content>
-          {prReviews.length > 0 ? (
-            <List divided>
-              {prReviews.map((item) => {
-                let itemDate;
-                if (item.createdAt) {
-                  itemDate = format(new Date(item.createdAt), "MM/dd/yyyy");
-                }
-                return (
-                  <List.Item key={item.peerReviewID}>
-                    <div className="flex-row-div mt-05p mb-05p">
-                      <div className="left-flex">
-                        <div className="flex-col-div">
-                          <span className="project-peerreview-title">
-                            {item.author || "Unknown Reviewer"}
-                          </span>
-                          <span className="project-peerreview-detail muted-text">
-                            <em>{getPeerReviewAuthorText(item.authorType)}</em>{" "}
-                            <>&#8226;</> {itemDate}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="right-flex">
-                        <Button
-                          color="blue"
-                          onClick={() => handleOpenPeerReviewView(item)}
-                        >
-                          <Icon name="eye" /> View
-                        </Button>
-                      </div>
-                    </div>
-                  </List.Item>
-                );
-              })}
-            </List>
-          ) : (
-            <p className="muted-text mt-2p mb-2p">No reviews found.</p>
-          )}
-        </Modal.Content>
-        <Modal.Actions>
-          <Button color="blue" onClick={() => setPRReviewsShow(false)}>
-            Done
-          </Button>
-        </Modal.Actions>
-      </Modal>
+        bookID={bookID}
+        bookTitle={book.title}
+      />
       <AdoptionReport
         open={showAdoptionReport}
         onClose={() => {
@@ -1371,12 +1248,6 @@ const CommonsBook = () => {
         open={prShow}
         onClose={() => setPRShow(false)}
         projectID={prProjectID}
-      />
-      <PeerReviewView
-        open={prViewShow}
-        onClose={handleClosePeerReviewView}
-        peerReviewData={prViewData}
-        publicView={true}
       />
     </div>
   );

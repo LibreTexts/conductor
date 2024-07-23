@@ -16,6 +16,7 @@ import {
   ConductorSearchResponse,
   Homework,
   HomeworkSearchParams,
+  PeerReview,
   Project,
   ProjectFile,
   ProjectSearchParams,
@@ -47,7 +48,7 @@ class API {
 
     return res;
   }
-  
+
   // ASSET TAGS FRAMEWORKS
   async getFrameworks({
     page,
@@ -301,6 +302,16 @@ class API {
         deleted: boolean;
       } & ConductorBaseResponse
     >(`/authors/${id}`);
+    return res;
+  }
+
+  // Books
+  async getBookPeerReviews(bookID: string) {
+    const res = await axios.get<
+      {
+        reviews: PeerReview[];
+      } & ConductorBaseResponse
+    >(`/commons/book/${bookID}/peerreviews`);
     return res;
   }
 
