@@ -45,3 +45,7 @@ export type AuthorizedApp = {
   infoURL: string;
   icon: string;
 };
+
+export type UserWCentralID = User & {
+  centralID?: string;
+};
