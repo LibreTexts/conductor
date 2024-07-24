@@ -8,7 +8,7 @@ import {
 import {
   CustomFormHeadingSchema,
   CustomFormPromptSchema,
-  CustomFormTextBlockSchema
+  CustomFormTextBlockSchema,
 } from "../util/CustomFormSchemas.js";
 
 export interface PeerReviewInterface extends Document {
@@ -79,6 +79,8 @@ const PeerReviewSchema = new Schema<PeerReviewInterface>(
     timestamps: true,
   }
 );
+
+PeerReviewSchema.index({ projectID: 1 });
 
 const PeerReview = model<PeerReviewInterface>("PeerReview", PeerReviewSchema);
 
