@@ -30,6 +30,7 @@ export type Organization = {
   collectionsMessage?: string;
   primaryColor?: string;
   footerColor?: string;
+  videoLengthLimit: number;
   defaultProjectLead: string;
   addToLibreGridList: boolean;
   catalogMatchingTags?: string[];

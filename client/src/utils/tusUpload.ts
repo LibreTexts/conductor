@@ -4,9 +4,17 @@ export default async function tusUpload(
   file: File,
   endpoint: string,
   onProgressFunc?: (percentage: number) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  options?: {
+    maxDurationSeconds?: number;
+    expiry?: Date;
+  }
 ): Promise<string | null> {
   let mediaId: string | null = null;
+
+  const userOptions = options || {};
+  const defaultExpiry = new Date();
+  defaultExpiry.setHours(defaultExpiry.getHours() + 1); // Set default expiry to 1 hour from now
 
   return new Promise((resolve, reject) => {
     const options: tus.UploadOptions = {
@@ -17,11 +25,14 @@ export default async function tusUpload(
        * We recommend increasing the chunk size to 52,428,800 bytes for better performance when the client connection is expected to be reliable.
        * Maximum chunk size can be 209,715,200 bytes.
        */
-      chunkSize: 5242880, 
+      chunkSize: 5242880,
       retryDelays: [0, 3000],
       metadata: {
         name: file.name,
-        // filetype: file.type,
+        maxDurationSeconds:
+          userOptions?.maxDurationSeconds?.toString() || "1800", // Fall back to 30 minutes
+        expiry:
+          userOptions?.expiry?.toISOString() || defaultExpiry.toISOString(),
       },
       onProgress: (bytesUploaded, bytesTotal) => {
         const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);

@@ -226,3 +226,47 @@ export function cleanTagsForRequest(tags: AssetTag[]) {
     return tag;
   });
 }
+
+/**
+ * Attempts to calculate the length of a video file in seconds. If the file is not a video or an error occurs, null is returned.
+ * NOTE: This function creates a hidden video element in the DOM to calculate the video length. It must be run in a browser environment.
+ * @param file - The file to calculate the length of
+ * @returns - The length of the video in seconds, or null if the file is not a video
+ */
+export async function calculateVideoLength(file: File): Promise<number | null> {
+  if (!file.type.includes("video")) return Promise.resolve(null); // Not a video file
+
+  return new Promise((resolve) => {
+    const videoElement = document.createElement("video");
+    videoElement.hidden = true;
+    const url = URL.createObjectURL(file);
+
+    videoElement.preload = "metadata";
+    videoElement.src = url;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+      videoElement.remove();
+    };
+
+    const timeoutId = setTimeout(() => {
+      console.warn("Video metadata loading timed out.");
+      cleanup();
+      resolve(null);
+    }, 10000); // 10 seconds timeout
+
+    videoElement.onloadedmetadata = () => {
+      clearTimeout(timeoutId); // Clear the timeout if metadata loads
+      const duration = videoElement.duration;
+      cleanup();
+      resolve(isNaN(duration) || duration === Infinity ? null : duration || 0);
+    };
+
+    videoElement.onerror = () => {
+      clearTimeout(timeoutId); // Clear the timeout if an error occurs
+      console.error("Error loading video file.");
+      cleanup();
+      resolve(null);
+    };
+  });
+}
