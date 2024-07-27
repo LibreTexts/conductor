@@ -16,6 +16,7 @@ import { z } from "zod";
 import api from "../../api";
 import { useTypedSelector } from "../../state/hooks";
 import tusUpload from "../../utils/tusUpload";
+import { calculateVideoLength } from "../../utils/assetHelpers";
 
 type _AddProps = {
   mode: "add";
@@ -56,6 +57,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
   // Global State &  Error Handling
   const { handleGlobalError } = useGlobalError();
   const user = useTypedSelector((state) => state.user);
+  const org = useTypedSelector((state) => state.org);
 
   // State
   const [loading, setLoading] = useState<boolean>(false);
@@ -144,6 +146,22 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
         (file) => !file.type.startsWith("video")
       );
 
+      const videoCheckPromises = videoFiles.map((file) => {
+        return calculateVideoLength(file);
+      });
+
+      const videoCheckResults = await Promise.allSettled(videoCheckPromises);
+      videoCheckResults.forEach((result) => {
+        if (result.status === "rejected" || !result.value) {
+          throw new Error("Failed to calculate video length");
+        }
+        if (result.value > org.videoLengthLimit * 60) {
+          throw new Error(
+            `Video length exceeds the organization's limit of ${org.videoLengthLimit} minutes.`
+          );
+        }
+      });
+
       // Handle video files with Cloudflare Stream
       const videoData: { videoID: string; videoName: string }[] = [];
       const videoPromises = videoFiles.map((file) => {
@@ -161,7 +179,10 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
                 setFinishedFileTransfer(true);
               }
             },
-            abortControllerRef.current.signal
+            abortControllerRef.current.signal,
+            {
+              maxDurationSeconds: org.videoLengthLimit * 60,
+            }
           );
 
           if (!uploadId) throw new Error("Failed to upload video file");
@@ -298,8 +319,10 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
             {mode === "add" && (
               <p>
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
-                Up to {MAX_ADD_FILES} files can be uploaded at once, with a
-                maximum of 100 MB each.
+                Up to <strong>{MAX_ADD_FILES} files</strong> can be uploaded at
+                once, with a maximum of <strong>100 MB</strong> each. Your organization
+                has a video length limit of{" "}
+                <strong>{org.videoLengthLimit}</strong> minutes.
               </p>
             )}
 
