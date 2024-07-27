@@ -320,7 +320,7 @@ const FilesUploader: React.FC<FilesUploaderProps> = ({
               <p>
                 Files will be uploaded to the <strong>{dirText}</strong> folder.
                 Up to <strong>{MAX_ADD_FILES} files</strong> can be uploaded at
-                once, with a maximum of <strong>100 MB</strong> each. Your org
+                once, with a maximum of <strong>100 MB</strong> each. Your organization
                 has a video length limit of{" "}
                 <strong>{org.videoLengthLimit}</strong> minutes.
               </p>
