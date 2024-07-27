@@ -9,6 +9,10 @@ interface TicketDetailsProps {
 }
 
 const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
+  const centralIdentityURL = (centralID: string) => {
+    return `/controlpanel/libreone/users?user_id=${centralID}`;
+  };
+
   return (
     <div className="flex flex-col border rounded-md p-4 shadow-md bg-white">
       <p className="2xl:text-xl">
@@ -19,7 +23,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
         {ticket.user && (
           <>
             <a
-              href={"/controlpanel/libreone/users?user_id=" + ticket.user.uuid}
+              href={centralIdentityURL(ticket.user.centralID ?? "")}
               target="_blank"
               className="2xl:text-xl ml-1"
             >
@@ -33,7 +37,7 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
               onClick={() => {
                 if (!ticket.user?.centralID) return;
                 window.open(
-                  `/controlpanel/libreone/users?user_id=${ticket?.user?.centralID}`,
+                  centralIdentityURL(ticket.user.centralID),
                   "_blank"
                 );
               }}
