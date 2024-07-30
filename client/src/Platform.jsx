@@ -15,6 +15,7 @@ import ErrorScreen from "./screens/ErrorScreen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ModalsProvider from "./providers/ModalsProvider";
+import NotificationsProvider from "./providers/NotificationsProvider";
 
 /**
  * Exposes the applications and global configuration.
@@ -79,6 +80,7 @@ const Platform = () => {
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <div className="App">
           <ModalsProvider>
+            <NotificationsProvider>
             <Switch>
               {/* Commons Render Tree */}
               <Route exact path={commonsPaths} component={Commons} />
@@ -87,6 +89,7 @@ const Platform = () => {
               {/* Conductor and fallback Render Tree */}
               <Route component={Conductor} />
             </Switch>
+            </NotificationsProvider>
           </ModalsProvider>
           <ErrorModal />
         </div>
