@@ -21,6 +21,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Request, Response, NextFunction } from 'express';
 import { ResourceInterface } from "../models/resource";
 import { z } from "zod";
+import { getPaginationOffset } from "../util/helpers";
 
 const assetStorage = multer.memoryStorage();
 
@@ -294,7 +295,10 @@ async function deleteCollection(req: z.infer<typeof deleteCollectionSchema>, res
  */
 async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSchema>, res: Response) {
   try {
-    const { detailed, limit, page, query, sort, sortDirection } = req.query;
+    const { detailed, query, sort, sortDirection } = req.query;
+    const page = parseInt(req.query.page.toString()) || 1;
+    const limit = parseInt(req.query.limit.toString()) || 12;
+
     const projectObj = {
       orgID: 1,
       collID: 1,
@@ -365,10 +369,15 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
       {
         $project: projectObj,
       },
-    ]).limit(limit).skip((page - 1) * limit);
+    ])
+
+    const offset = getPaginationOffset(page, limit);
+
     return res.send({
       err: false,
-      collections,
+      collections: collections.slice(offset, offset + limit),
+      cursor: collections.length > offset + limit ? offset + limit : undefined,
+      total_items: collections.length,
     });
   } catch (err) {
     debugError(err);
@@ -505,8 +514,10 @@ async function getCollection(req: z.infer<typeof getCollectionSchema>, res: Resp
 
 async function getCollectionResources(req: z.infer<typeof getCollectionResourcesSchema>, res: Response) {
   try {
-
-    const { limit, page, query, sort, sortDirection } = req.query;
+    const { query, sort, sortDirection } = req.query;
+    const page = parseInt(req.query.page.toString()) || 1;
+    const limit = parseInt(req.query.limit.toString()) || 12;
+    
     const bookMatchConds: FilterQuery<any>[] = [
       {
         $eq: ["$$resourceType", "resource"],
@@ -527,15 +538,17 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       bookMatchConds.push({
         $or: [
           {
-            title: {
-              $regex: query,
-              $options: 'i',
+            "$regexMatch": {
+              input: '$title',
+              regex: query,
+              options: 'i',
             },
           },
           {
-            author: {
-              $regex: query,
-              $options: 'i',
+            "$regexMatch": {
+              input: '$author',
+              regex: query,
+              options: 'i',
             },
           },
         ],
@@ -543,20 +556,23 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       collMatchConds.push({
         $or: [
           {
-            program: {
-              $regex: query,
-              $options: 'i',
+            "$regexMatch": {
+              input: '$program',
+              regex: query,
+              options: 'i',
             },
           },
           {
-            title: {
-              $regex: query,
-              $options: 'i',
+            "$regexMatch": {
+              input: '$title',
+              regex: query,
+              options: 'i',
             },
           }
         ],
       });
     }
+
     const collections = await Collection.aggregate([
       {
         $match: {
@@ -637,6 +653,13 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
         },
       },
       {
+        $match: {
+          "resources.book": {
+            $exists: true,
+          },
+        }
+      },
+      {
         $group: {
           _id: "$_id",
           orgID: {
@@ -679,7 +702,7 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
           [sort]: sortDirection === 'ascending' ? 1 : -1,
         }
       }
-    ]).limit(limit).skip((page - 1) * limit);
+    ])
     if (collections.length < 1) {
       return res.status(404).send({
         err: true,
@@ -692,10 +715,15 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       resourceID: item.resourceID,
       resourceData: item.book || item.collection,
     })) : [];
+
+    const offset = getPaginationOffset(page, limit);
+
     return res.send({
       err: false,
       collID: collection.collID,
-      resources,
+      resources: resources.slice(offset, offset + limit),
+      cursor: resources.length > offset + limit ? offset + limit : undefined,
+      total_items: resources.length,
     });
   } catch (err) {
     debugError(err);

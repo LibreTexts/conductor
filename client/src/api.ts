@@ -31,7 +31,7 @@ import {
   ConductorSearchResponseFile,
   CustomFilter,
 } from "./types/Search";
-import {CloudflareCaptionData, SortDirection} from "./types/Misc";
+import { CloudflareCaptionData, SortDirection } from "./types/Misc";
 
 /**
  * @fileoverview
@@ -705,52 +705,67 @@ class API {
 
   // Commons Collections
   async getCollection(collectionIDOrTitle: string) {
-    return await axios.get<{
-      coll: Collection,
-    } & ConductorBaseResponse>(`/commons/collections/${encodeURIComponent(collectionIDOrTitle)}`);
+    return await axios.get<
+      {
+        collection: Collection;
+      } & ConductorBaseResponse
+    >(`/commons/collection/${encodeURIComponent(collectionIDOrTitle)}`);
   }
 
   async getCollectionResources({
-     collIDOrTitle,
-     limit,
-     page,
-     query,
-     sort
-  } : {
+    collIDOrTitle,
+    limit,
+    page,
+    query,
+    sort,
+  }: {
     collIDOrTitle?: string;
     limit?: number;
     page?: number;
     query?: string | null;
     sort?: string;
   }) {
-    return await axios.get<{
-      resources: CollectionResource[]
-    } & ConductorBaseResponse>(`/commons/collections/${encodeURIComponent(collIDOrTitle ?? '')}/resources`, {
-      params: {
-        page,
-        limit,
-        sort,
-        query,
-      },
-    });
+    return await axios.get<
+      {
+        resources: CollectionResource[];
+        total_items: number;
+        cursor?: number
+      } & ConductorBaseResponse
+    >(
+      `/commons/collection/${encodeURIComponent(
+        collIDOrTitle ?? ""
+      )}/resources`,
+      {
+        params: {
+          page,
+          limit,
+          sort,
+          query,
+        },
+      }
+    );
   }
 
   async getCommonsCollections({
-      limit,
-      page,
-      query,
-      sort,
-      sortDirection,
-  } : {
+    limit,
+    page,
+    query,
+    sort,
+    sortDirection,
+  }: {
     limit?: number;
     page?: number;
     query?: string | null;
     sort?: string;
     sortDirection?: SortDirection;
   }) {
-    return await axios.get<{
-      collections: Collection[]
-    } & ConductorBaseResponse>(`/commons/collections`, {
+    return await axios.get<
+      {
+        collections: Collection[];
+        total_items: number;
+        cursor?: number
+      } & ConductorBaseResponse
+    >(`/commons/collections`, {
       params: {
         limit,
         page,

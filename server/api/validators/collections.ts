@@ -18,6 +18,7 @@ const getCollectionsSharedSchema = z.intersection(z.object({
   query: z.string().max(100, { message: conductorErrors.err1 }).optional(),
   sort: z.enum(['program', 'title']).optional().default('title'),
   sortDirection: SortDirection.optional().default('ascending'),
+
 }), PaginationSchema);
 
 export const addCollectionResourceSchema = z.object({
@@ -72,7 +73,7 @@ export const getCollectionSchema = z.object({
 export const getCollectionResourcesSchema = z.object({
   query: z.intersection(z.object({
     query: z.string().max(100, { message: conductorErrors.err1 }).optional(),
-    sort: z.enum(['resourceType', 'title']).optional().default('title'),
+    sort: z.enum(['resourceType', 'title', 'author']).optional().default('title'),
     sortDirection: SortDirection.optional().default('ascending'),
   }), PaginationSchema),
   params: collectionIDOrTitleParamsSchema,

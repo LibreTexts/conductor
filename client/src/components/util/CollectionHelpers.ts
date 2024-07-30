@@ -1,4 +1,11 @@
-import { CollectionLocations, CollectionPrivacyOptions, CollectionResource, CollectionResourceType, GenericKeyTextValueObj } from "../../types";
+import {
+  Collection,
+  CollectionLocations,
+  CollectionPrivacyOptions,
+  CollectionResource,
+  GenericKeyTextValueObj,
+} from "../../types";
+import { isBook } from "../../utils/typeHelpers";
 
 export const DEFAULT_COLL_LOCS = <CollectionLocations[]>[
   CollectionLocations.CAMPUS,
@@ -14,8 +21,23 @@ export const collectionSortOptions: GenericKeyTextValueObj<string>[] = [
   },
 ];
 
-export const collectionPrivacyOptions: GenericKeyTextValueObj<CollectionPrivacyOptions>[] = [
-  { key: "public", text: "Public", value: CollectionPrivacyOptions.PUBLIC },
-  { key: "private", text: "Private", value: CollectionPrivacyOptions.PRIVATE },
-  { key: "campus", text: "Campus", value: CollectionPrivacyOptions.CAMPUS },
-];
+export const collectionPrivacyOptions: GenericKeyTextValueObj<CollectionPrivacyOptions>[] =
+  [
+    { key: "public", text: "Public", value: CollectionPrivacyOptions.PUBLIC },
+    {
+      key: "private",
+      text: "Private",
+      value: CollectionPrivacyOptions.PRIVATE,
+    },
+    { key: "campus", text: "Campus", value: CollectionPrivacyOptions.CAMPUS },
+  ];
+
+export const getCollectionHref = (item: Collection | CollectionResource) => {
+  const data = "resourceData" in item ? item.resourceData : item;
+  const book = isBook(data);
+  if (book) {
+    return `/book/${data.bookID}`;
+  } else {
+    return `/collections/${encodeURIComponent(data.title)}`;
+  }
+};

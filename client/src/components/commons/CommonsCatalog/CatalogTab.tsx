@@ -1,5 +1,4 @@
 import { TabPane, TabPaneProps } from "semantic-ui-react";
-import { cloneElement, useState } from "react";
 import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 
 interface CatalogTabProps extends TabPaneProps {

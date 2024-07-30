@@ -46,6 +46,7 @@ const Platform = () => {
     "/",
     "/catalog",
     "/collections",
+    "/collections/:id?",
     "/collection/:id",
     "/commons-project/:id",
     "/author/:id",
