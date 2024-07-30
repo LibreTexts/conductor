@@ -14,6 +14,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import ErrorScreen from "./screens/ErrorScreen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import ModalsProvider from "./providers/ModalsProvider";
 
 /**
  * Exposes the applications and global configuration.
@@ -54,7 +55,7 @@ const Platform = () => {
     "/underdevelopment",
     "/libraries",
     "/search-results",
-    "/file/:projectID/:fileID"
+    "/file/:projectID/:fileID",
   ];
   const standalonePaths = [
     "/adopt",
@@ -65,25 +66,28 @@ const Platform = () => {
 
   useEffect(() => {
     if (window && document) {
-      const script = document.createElement('script')
-      const body = document.getElementsByTagName('body')[0]
-      script.src = 'https://cdn.libretexts.net/libretexts-support-widget.min.js'
+      const script = document.createElement("script");
+      const body = document.getElementsByTagName("body")[0];
+      script.src =
+        "https://cdn.libretexts.net/libretexts-support-widget.min.js";
       body.appendChild(script);
     }
-  }, [])
+  }, []);
 
   const ApplicationTree = () => {
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <div className="App">
-          <Switch>
-            {/* Commons Render Tree */}
-            <Route exact path={commonsPaths} component={Commons} />
-            {/* Standalone Pages */}
-            <Route exact path={standalonePaths} component={Standalone} />
-            {/* Conductor and fallback Render Tree */}
-            <Route component={Conductor} />
-          </Switch>
+          <ModalsProvider>
+            <Switch>
+              {/* Commons Render Tree */}
+              <Route exact path={commonsPaths} component={Commons} />
+              {/* Standalone Pages */}
+              <Route exact path={standalonePaths} component={Standalone} />
+              {/* Conductor and fallback Render Tree */}
+              <Route component={Conductor} />
+            </Switch>
+          </ModalsProvider>
           <ErrorModal />
         </div>
       </ErrorBoundary>
