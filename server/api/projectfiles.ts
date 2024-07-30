@@ -565,7 +565,7 @@ async function getProjectFolderContents(
     const projectID = req.params.projectID;
     const folderID = req.params.folderID;
     const publicOnly = req.query.publicOnly;
-    
+
     const project = await Project.findOne({ projectID }).lean();
     if (!project) {
       return conductor404Err(res);
@@ -647,7 +647,7 @@ async function getProjectFile(
       [fileID],
       req.user?.decoded.uuid ? undefined : true,
       req.user?.decoded.uuid
-    )
+    );
 
     const file = files && files?.length > 0 ? files[0] : null;
 
@@ -922,7 +922,8 @@ async function updateProjectFileAccess(
     }
 
     /* Update file and any children */
-    const entriesToUpdate: (RawProjectFileInterface | ProjectFileInterface)[] = [];
+    const entriesToUpdate: (RawProjectFileInterface | ProjectFileInterface)[] =
+      [];
 
     const findChildEntriesToUpdate = (parentID: string) => {
       files.forEach((obj) => {
@@ -1244,20 +1245,15 @@ async function getProjectFileEmbedHTML(
       });
     }
 
-    const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${file.videoStorageID}/embed`;
-    const cloudFlareRes = await axios.get(ENDPOINT, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
-      },
-    });
+    const ENDPOINT = `https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${file.videoStorageID}/iframe`;
 
-    if (cloudFlareRes.status !== 200) {
-      throw new Error("Failed to retrieve embed HTML");
-    }
+    const HTML = `<iframe src="${ENDPOINT}" loading="lazy" style="border: none; position: absolute; top: 0; left: 0; height: 100%; width: 100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe>`;
 
     return res.send({
       err: false,
-      embedHTML: cloudFlareRes.data,
+      media_id: file.videoStorageID,
+      embed_url: ENDPOINT,
+      embed_html: HTML,
     });
   } catch (err) {
     debugError(err);

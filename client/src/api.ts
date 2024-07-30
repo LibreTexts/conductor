@@ -204,7 +204,9 @@ class API {
   async getProjectFileEmbedHTML(projectID: string, fileID: string) {
     const res = await axios.get<
       {
-        embedHTML: string;
+        media_id: string;
+        embed_url: string;
+        embed_html: string;
       } & ConductorBaseResponse
     >(`/project/${projectID}/files/${fileID}/embed`);
     return res;
