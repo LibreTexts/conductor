@@ -409,21 +409,52 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
   }
 
-  async function handleGetEmbedCode(videoID: string) {
+  async function handleGetEmbedCode(
+    videoID: string,
+    type: "html" | "url" | "adapt" = "html"
+  ): Promise<string | null> {
     try {
       const res = await api.getProjectFileEmbedHTML(projectID, videoID);
       if (res.data.err) {
         throw new Error(res.data.errMsg);
       }
-      const code = res.data.embedHTML;
 
-      await copyToClipboard(
-        code,
-        "Embed code copied to clipboard. NOTE: This code is only valid on libretexts.org or libretexts.net domains."
-      );
+      if (!res.data.embed_html || !res.data.embed_url) {
+        throw new Error("Unable to get embed code. Please try again later.");
+      }
+
+      const code =
+        type === "html"
+          ? res.data.embed_html
+          : type === "url"
+          ? res.data.embed_url
+          : res.data.media_id;
+
+      return code;
     } catch (err) {
       handleGlobalError(err);
+      return null;
     }
+  }
+
+  async function handleCopyEmbedCode(videoID: string) {
+    const code = await handleGetEmbedCode(videoID);
+    if (!code) return;
+    await copyToClipboard(
+      code,
+      "Embed code copied to clipboard. NOTE: This code is only valid on libretexts.org or libretexts.net domains."
+    );
+  }
+
+  async function handleCopyToADAPT(videoID: string) {
+    const mediaID = await handleGetEmbedCode(videoID, "adapt");
+    if (!mediaID) return;
+
+    const text = `conductor-media/${mediaID}`;
+    await copyToClipboard(
+      text,
+      "URL copied to clipboard. Paste this URL into the ADAPT editor to embed the video."
+    );
   }
 
   /**
@@ -478,7 +509,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
       <Dropdown
         icon={null}
         trigger={<Icon name="ellipsis vertical" size="large" />}
-        direction="right"
+        direction="left"
       >
         <Dropdown.Menu>
           {canViewDetails && (
@@ -518,7 +549,20 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                 icon="code"
                 text="Embed"
                 onClick={async () => {
-                  await handleGetEmbedCode(item.fileID);
+                  await handleCopyEmbedCode(item.fileID);
+                }}
+              />
+            )}
+          {item.storageType === "file" &&
+            item.isVideo &&
+            item.videoStorageID &&
+            item.access === "public" &&
+            projectVisibility === "public" && (
+              <Dropdown.Item
+                icon="student"
+                text="Copy to ADAPT"
+                onClick={async () => {
+                  await handleCopyToADAPT(item.fileID);
                 }}
               />
             )}
