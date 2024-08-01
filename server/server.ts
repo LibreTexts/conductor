@@ -57,6 +57,7 @@ app.use(
       ],
       frameSrc: ["'self'", "https://*.libretexts.org", "https://*.cloudflare.com", "https://www.youtube.com", "https://*.cloudflarestream.com"], // Cloudflare (Turnstile), YouTube, Cloudflare Stream
       imgSrc: ["'self'", "https:", "data:"],
+      mediaSrc: ["'self'", "blob:"],
       objectSrc: ["none"],
       scriptSrc: [
         "'self'",
