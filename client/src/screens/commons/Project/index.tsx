@@ -1,22 +1,18 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Icon,
   Segment,
   Header,
   Breadcrumb,
-  Popup,
   Image,
   Button,
 } from "semantic-ui-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { Project } from "../../../types";
 import api from "../../../api";
-import VisualMode from "../../../components/commons/CommonsCatalog/VisualMode";
-import AssetsTable from "../../../components/commons/CommonsCatalog/AssetsTable";
 import { useTypedSelector } from "../../../state/hooks";
 import FilesManager from "../../../components/FilesManager";
-import { truncate } from "fs";
 import {
   capitalizeFirstLetter,
   truncateString,
@@ -210,6 +206,7 @@ const CommonsProject = () => {
                     projectID={projectID}
                     canViewDetails={false}
                     toggleFilesManager={() => setShowAssets(!showAssets)}
+                    projectVisibility="public"
                   />
                 </div>
               )}
