@@ -119,7 +119,7 @@ async function projectsSearch(
           as: "leads",
         },
       },
-      ...projectAPI.LOOKUP_PROJECT_PI_STAGES,
+      ...projectAPI.LOOKUP_PROJECT_PI_STAGES(false),
       {
         $project: {
           _id: 0,
