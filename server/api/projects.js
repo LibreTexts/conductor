@@ -384,7 +384,7 @@ async function getProject(req, res) {
           },
         },
       },
-      ...LOOKUP_PROJECT_PI_STAGES,
+      ...LOOKUP_PROJECT_PI_STAGES(true),
       {
         $project: {
           _id: 0
@@ -1441,7 +1441,7 @@ async function getPublicProjects(req, res) {
               visibility: "public",
             },
           },
-          ...LOOKUP_PROJECT_PI_STAGES,
+          ...LOOKUP_PROJECT_PI_STAGES(false),
           {
             $project: {
               _id: 0,
@@ -3134,62 +3134,66 @@ const constructProjectTeamMemberQuery = (uuid) => {
     throw (new Error('uuid')); // for security, do not allow unrestricted aggregation
 };
 
-const LOOKUP_PROJECT_PI_STAGES = [
-  {
-    $lookup: {
-      from: "authors",
-      localField: "defaultPrimaryAuthorID",
-      foreignField: "_id",
-      as: "defaultPrimaryAuthor",
-    },
-  },
-  {
-    $set: {
-      defaultPrimaryAuthor: {
-        $arrayElemAt: ["$defaultPrimaryAuthor", 0],
+const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
+    return [
+    ...(includeAuthors && [
+      {
+        $lookup: {
+          from: "authors",
+          localField: "defaultPrimaryAuthorID",
+          foreignField: "_id",
+          as: "defaultPrimaryAuthor",
+        },
       },
-    },
-  },
-  {
-    $lookup: {
-      from: "authors",
-      localField: "defaultCorrespondingAuthorID",
-      foreignField: "_id",
-      as: "defaultCorrespondingAuthor",
-    },
-  },
-  {
-    $set: {
-      defaultCorrespondingAuthor: {
-        $arrayElemAt: ["$defaultCorrespondingAuthor", 0],
+      {
+        $set: {
+          defaultPrimaryAuthor: {
+            $arrayElemAt: ["$defaultPrimaryAuthor", 0],
+          },
+        },
       },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "defaultCorrespondingAuthorID",
+          foreignField: "_id",
+          as: "defaultCorrespondingAuthor",
+        },
+      },
+      {
+        $set: {
+          defaultCorrespondingAuthor: {
+            $arrayElemAt: ["$defaultCorrespondingAuthor", 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "authors",
+          localField: "defaultSecondaryAuthorIDs",
+          foreignField: "_id",
+          as: "defaultSecondaryAuthors",
+        }
+      },
+    ]),
+    {
+      $lookup: {
+        from: "authors",
+        localField: "principalInvestigatorIDs",
+        foreignField: "_id",
+        as: "principalInvestigators",
+      }
     },
-  },
-  {
-    $lookup: {
-      from: "authors",
-      localField: "defaultSecondaryAuthorIDs",
-      foreignField: "_id",
-      as: "defaultSecondaryAuthors",
-    }
-  },
-  {
-    $lookup: {
-      from: "authors",
-      localField: "principalInvestigatorIDs",
-      foreignField: "_id",
-      as: "principalInvestigators",
-    }
-  },
-  {
-    $lookup: {
-      from: "authors",
-      localField: "coPrincipalInvestigatorIDs",
-      foreignField: "_id",
-      as: "coPrincipalInvestigators",
-    }
-  },
-]
+    {
+      $lookup: {
+        from: "authors",
+        localField: "coPrincipalInvestigatorIDs",
+        foreignField: "_id",
+        as: "coPrincipalInvestigators",
+      }
+    },
+  ]
+}
 
 
 /**

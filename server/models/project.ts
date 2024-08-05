@@ -425,6 +425,8 @@ ProjectSchema.index({
   projectID: 1,
 });
 ProjectSchema.index({ libreCoverID: 1, libreLibrary: 1, visibility: 1 });
+ProjectSchema.index({principalInvestigatorIDs: 1});
+ProjectSchema.index({coPrincipalInvestigatorIDs: 1});
 
 ProjectSchema.virtual("defaultPrimaryAuthor", {
   ref: "Author",
