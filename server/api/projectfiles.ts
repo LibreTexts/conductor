@@ -1630,6 +1630,7 @@ async function _parseAndSaveAuthors(
 
       const newAuthor = await Author.create({
         ...author,
+        orgID: process.env.ORG_ID,
       });
       _parsed.push(new Types.ObjectId(newAuthor._id));
     }
