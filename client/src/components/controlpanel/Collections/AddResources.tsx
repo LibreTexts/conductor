@@ -92,7 +92,10 @@ const AddResources: FC<AddResourcesProps> = ({
     }
     try {
       const catalogRes = await axios.get("/commons/mastercatalog", {
-        params,
+        params: {
+          ...params.sort && { sort: params.sort },
+          ...params.search && { search: params.search}
+        },
       });
       if (!catalogRes.data.err) {
         if (Array.isArray(catalogRes.data.books)) {
