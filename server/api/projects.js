@@ -3136,7 +3136,7 @@ const constructProjectTeamMemberQuery = (uuid) => {
 
 const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
     return [
-    ...(includeAuthors && [
+    ...(includeAuthors ? [
       {
         $lookup: {
           from: "authors",
@@ -3175,7 +3175,7 @@ const LOOKUP_PROJECT_PI_STAGES = (includeAuthors = false) => {
           as: "defaultSecondaryAuthors",
         }
       },
-    ]),
+    ]: []),
     {
       $lookup: {
         from: "authors",
