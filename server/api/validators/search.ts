@@ -66,6 +66,7 @@ export const projectSearchSchema = z.object({
       location: z.enum(["local", "global"]).default("global"),
       status: z.string().default("any"),
       classification: z.string().default("any"),
+      leads: z.coerce.boolean().default(false),
       sort: z
         .enum([
           "title",

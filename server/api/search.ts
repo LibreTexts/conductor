@@ -45,9 +45,9 @@ async function projectsSearch(
   res: Response
 ) {
   try {
-    //req = getSchemaWithDefaults(req, projectSearchSchema);
-
     const sort = req.query.sort || "title";
+    const includeLeads = req.query.leads === true;
+
     const query = req.query.searchQuery;
     if (query) {
       addToSearchQueryCache(query, "projects"); // don't await
@@ -84,33 +84,35 @@ async function projectsSearch(
     // @ts-ignore
     const results = await Project.aggregate([
       ...projectMatchObjs,
-      {
-        $lookup: {
-          from: "users",
-          let: {
-            leads: "$leads",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $in: ["$uuid", "$$leads"],
+      ...(includeLeads ? [
+        {
+          $lookup: {
+            from: "users",
+            let: {
+              leads: "$leads",
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ["$uuid", "$$leads"],
+                  },
                 },
               },
-            },
-            {
-              $project: {
-                _id: 0,
-                uuid: 1,
-                firstName: 1,
-                lastName: 1,
-                avatar: 1,
+              {
+                $project: {
+                  _id: 0,
+                  uuid: 1,
+                  firstName: 1,
+                  lastName: 1,
+                  avatar: 1,
+                },
               },
-            },
-          ],
-          as: "leads",
+            ],
+            as: "leads",
+          },
         },
-      },
+      ] : []),
       ...projectAPI.LOOKUP_PROJECT_PI_STAGES(false),
       {
         $project: {
@@ -127,7 +129,6 @@ async function projectsSearch(
           leads: 1,
           author: 1,
           thumbnail: 1,
-          updatedAt: 1,
           projectURL: 1,
           contentArea: 1,
           associatedOrgs: 1,

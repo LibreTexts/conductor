@@ -287,6 +287,7 @@ const Search = () => {
         page,
         limit,
         sort,
+        leads: true,
       });
 
       if (res.data.err) {

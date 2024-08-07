@@ -67,6 +67,7 @@ export type ProjectSearchParams = {
   location?: "local" | "global";
   status?: string;
   visibility?: "public" | "private";
+  leads?: boolean;
   sort?: "title" | "progress" | "classification" | "visibility" | "updated";
 } & _commonSearchParams;
 
