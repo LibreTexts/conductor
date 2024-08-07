@@ -244,7 +244,7 @@ const CommonsCatalog = () => {
       await Promise.all([
         handleBooksSearch(query ?? searchString, bookFilters, true),
         handleAssetsSearch(query ?? searchString, assetFilters, true),
-        handleProjectsSearch(query ?? searchString, true),
+        (query || searchString) ? handleProjectsSearch(query ?? searchString, true) : loadPublicProjects(true),
         handleAuthorsSearch(query ?? searchString, authorFilters, true),
       ]);
     } catch (err) {
@@ -625,24 +625,24 @@ const CommonsCatalog = () => {
           <Segment.Group raised>
             {((org.commonsHeader && org.commonsHeader !== "") ||
               (org.commonsMessage && org.commonsMessage !== "")) && (
-              <Segment padded>
-                {org.commonsHeader && org.commonsHeader !== "" && (
-                  <Header
-                    id="commons-intro-header"
-                    as="h2"
+                <Segment padded>
+                  {org.commonsHeader && org.commonsHeader !== "" && (
+                    <Header
+                      id="commons-intro-header"
+                      as="h2"
+                      className="text-center lg:text-left"
+                    >
+                      {org.commonsHeader}
+                    </Header>
+                  )}
+                  <p
+                    id="commons-intro-message"
                     className="text-center lg:text-left"
                   >
-                    {org.commonsHeader}
-                  </Header>
-                )}
-                <p
-                  id="commons-intro-message"
-                  className="text-center lg:text-left"
-                >
-                  {org.commonsMessage}
-                </p>
-              </Segment>
-            )}
+                    {org.commonsMessage}
+                  </p>
+                </Segment>
+              )}
             <Segment>
               <div className="my-8 flex flex-row items-center justify-center w-full">
                 <Form
@@ -686,16 +686,16 @@ const CommonsCatalog = () => {
                       {(searchString !== "" ||
                         Object.keys(assetsState).length !== 0 ||
                         Object.keys(booksState).length !== 0) && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleResetSearch();
-                          }}
-                          className="!-mt-[0.25px] !-mb-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.57px] !border-gray-200"
-                        >
-                          <Icon name="close" color="grey" />
-                        </button>
-                      )}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleResetSearch();
+                            }}
+                            className="!-mt-[0.25px] !-mb-[0.25px] !px-2 !py-0 !bg-white !border-y-[1.57px] !border-gray-200"
+                          >
+                            <Icon name="close" color="grey" />
+                          </button>
+                        )}
                       <Button
                         color="blue"
                         onClick={() => updateSearchParam(searchString)}
