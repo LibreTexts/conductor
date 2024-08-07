@@ -47,15 +47,8 @@ async function projectsSearch(
   try {
     //req = getSchemaWithDefaults(req, projectSearchSchema);
 
-    // Create regex for query
+    const sort = req.query.sort || "title";
     const query = req.query.searchQuery;
-    const queryRegex = query
-      ? {
-          $regex: query,
-          $options: "i",
-        }
-      : undefined;
-
     if (query) {
       addToSearchQueryCache(query, "projects"); // don't await
     }
@@ -79,19 +72,18 @@ async function projectsSearch(
       }
     }
 
-    const projectMatchObj = _generateProjectMatchObj({
+    const projectMatchObjs = _generateProjectMatchObjs({
       projLocation: req.query.location,
       projStatus: req.query.status,
       projClassification: req.query.classification,
-      queryRegex,
+      queryString: query,
       userUUID: req.user?.decoded.uuid,
       isSuperAdmin: isSuperAdmin,
     });
 
+    // @ts-ignore
     const results = await Project.aggregate([
-      {
-        $match: projectMatchObj,
-      },
+      ...projectMatchObjs,
       {
         $lookup: {
           from: "users",
@@ -144,28 +136,14 @@ async function projectsSearch(
           coPrincipalInvestigators: 1,
         },
       },
+      {
+        $sort: {
+          ...sort === "title" && { title: 1 },
+          ...sort === "classification" && { classification: 1 },
+          ...sort === "visibility" && { visibility: 1 },
+        }
+      }
     ]);
-
-    //Sort projects
-    results.sort((a, b) => {
-      let aData = null;
-      let bData = null;
-      if (req.query.sort === "title") {
-        aData = _transformToCompare(a.title);
-        bData = _transformToCompare(b.title);
-      } else if (req.query.sort === "classification") {
-        aData = _transformToCompare(a.classification);
-        bData = _transformToCompare(b.classification);
-      } else if (req.query.sort === "visibility") {
-        aData = _transformToCompare(a.visibility);
-        bData = _transformToCompare(b.visibility);
-      }
-      if (aData !== null && bData !== null) {
-        if (aData < bData) return -1;
-        if (aData > bData) return 1;
-      }
-      return 0;
-    });
 
     const totalCount = results.length;
     const paginated = results.slice(
@@ -193,9 +171,9 @@ async function booksSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-          $regex: query,
-          $options: "i",
-        }
+        $regex: query,
+        $options: "i",
+      }
       : undefined;
 
     if (query) {
@@ -446,21 +424,21 @@ function _generateBookMatchObj({
   return bookMatchOptions;
 }
 
-function _generateProjectMatchObj({
+function _generateProjectMatchObjs({
   projLocation,
   projStatus,
   projClassification,
-  queryRegex,
+  queryString,
   userUUID,
   isSuperAdmin,
 }: {
   projLocation?: string;
   projStatus?: string;
   projClassification?: string;
-  queryRegex?: object;
+  queryString?: string;
   userUUID?: string;
   isSuperAdmin?: boolean;
-}) {
+}): Record<string, any>[] {
   const projectFilters = [];
   let projectFiltersOptions = {};
 
@@ -512,27 +490,34 @@ function _generateProjectMatchObj({
     projectFiltersOptions = { ...projectFilters[0] };
   }
 
-  if (!queryRegex) {
-    // if no query, no need to use $and, just return filters
-    return projectFiltersOptions;
+  if (!queryString) {
+    return [{ $match: projectFiltersOptions }]
   }
+
   // Combine all filters and return
-  return {
-    $and: [
-      {
-        $or: [
-          { title: queryRegex },
-          { author: queryRegex },
-          { libreLibrary: queryRegex },
-          { libreCoverID: queryRegex },
-          { libreShelf: queryRegex },
-          { libreCampus: queryRegex },
-          { associatedOrgs: queryRegex },
-        ],
-      },
-      projectFiltersOptions,
-    ],
-  };
+  return [
+    {
+      $search: {
+        text: {
+          query: queryString,
+          path: [
+            "title",
+            "author",
+            "libreLibrary",
+            "libreCoverID",
+            "libreShelf",
+            "libreCampus",
+            "associatedOrgs"
+          ]
+        }
+      }
+    },
+    {
+      $match: {
+        ...projectFiltersOptions,
+      }
+    }
+  ]
 }
 
 export async function assetsSearch(
@@ -1316,8 +1301,8 @@ function _buildAssetsSearchQuery({
     type === "projectfiles"
       ? ["name", "description"]
       : type === "assettags"
-      ? ["value"]
-      : ["title", "associatedOrgs"];
+        ? ["value"]
+        : ["title", "associatedOrgs"];
 
   if (!query) {
     return [];
@@ -1327,22 +1312,22 @@ function _buildAssetsSearchQuery({
 
   const innerQuery = isExactMatchSearch
     ? {
-        phrase: {
-          query: strippedQuery,
-          path: SEARCH_FIELDS,
-          score: { boost: { value: 3 } },
-        },
-      }
+      phrase: {
+        query: strippedQuery,
+        path: SEARCH_FIELDS,
+        score: { boost: { value: 3 } },
+      },
+    }
     : {
-        text: {
-          query,
-          path: SEARCH_FIELDS,
-          fuzzy: {
-            maxEdits: 2,
-            maxExpansions: 50,
-          },
+      text: {
+        query,
+        path: SEARCH_FIELDS,
+        fuzzy: {
+          maxEdits: 2,
+          maxExpansions: 50,
         },
-      };
+      },
+    };
 
   return [
     {
@@ -1365,9 +1350,9 @@ async function homeworkSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-          $regex: query,
-          $options: "i",
-        }
+        $regex: query,
+        $options: "i",
+      }
       : undefined;
 
     if (query) {
@@ -1439,9 +1424,9 @@ async function usersSearch(
     const query = req.query.searchQuery;
     const queryRegex = query
       ? {
-          $regex: query,
-          $options: "i",
-        }
+        $regex: query,
+        $options: "i",
+      }
       : undefined;
 
     if (query) {
@@ -1598,22 +1583,22 @@ function _buildAuthorsSearchQuery({ query }: { query?: string }) {
 
   const innerQuery = isExactMatchSearch
     ? {
-        phrase: {
-          query: strippedQuery,
-          path: SEARCH_FIELDS,
-          score: { boost: { value: 3 } },
-        },
-      }
+      phrase: {
+        query: strippedQuery,
+        path: SEARCH_FIELDS,
+        score: { boost: { value: 3 } },
+      },
+    }
     : {
-        text: {
-          query,
-          path: SEARCH_FIELDS,
-          fuzzy: {
-            maxEdits: 2,
-            maxExpansions: 50,
-          },
+      text: {
+        query,
+        path: SEARCH_FIELDS,
+        fuzzy: {
+          maxEdits: 2,
+          maxExpansions: 50,
         },
-      };
+      },
+    };
 
   return [
     {
