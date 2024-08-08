@@ -8,6 +8,7 @@ import {
   checkIsCollection,
   checkIsCollectionResource,
 } from "../../util/TypeHelpers";
+import {isBook} from "../../../utils/typeHelpers";
 const CollectionCard = ({
   item,
   onClickCollCB,
@@ -34,6 +35,10 @@ const CollectionCard = ({
     }
 
     return "/mini.logo.png";
+  }
+
+  function genURL(item: Collection | CollectionResource): string {
+    return `/collection/${checkIsBook(item) ? item.bookID : checkIsCollectionResource(item) ? item.resourceID : item.collID}`;
   }
 
   const extractItemId = (item: Collection | CollectionResource): string => {
@@ -202,6 +207,8 @@ const CollectionCard = ({
     <Card
       onClick={() => handleOnClick(item)}
       className="collections-manager-card"
+      as="a"
+      href={genURL(item)}
     >
       <div className="collections-manager-card-img-wrapper">
         <div

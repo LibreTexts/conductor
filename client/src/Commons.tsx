@@ -1,11 +1,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useLocation, Switch, Route } from "react-router-dom";
-import axios from "axios";
 import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
-import CommonsCollections from "./components/commons/CommonsCollections";
-import CommonsCollectionView from "./components/commons/CommonsCollectionView";
+import CommonsCollection from "./screens/commons/Collection";
 import CommonsFooter from "./components/commons/CommonsFooter";
 import CommonsHomework from "./components/commons/CommonsHomework";
 import CommonsJumbotron from "./components/commons/CommonsJumbotron";
@@ -18,7 +16,6 @@ import SystemAnnouncement from "./components/util/SystemAnnouncement";
 import withUserStateDependency from "./enhancers/withUserStateDependency";
 import "./components/commons/Commons.css";
 import { useTypedSelector } from "./state/hooks";
-import { Announcement } from "./types";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useSystemAnnouncement from "./hooks/useSystemAnnouncement";
 
@@ -69,7 +66,7 @@ const Commons = () => {
         <Switch>
           <Route exact path="/" component={CommonsCatalog} />
           <Route exact path="/catalog" component={CommonsCatalog} />
-          <Route exact path="/collections" component={CommonsCollections} />
+          <Route exact path="/collections/:id?" component={CommonsCollection} />
           {org.orgID === "libretexts" && [
             <Route
               exact
@@ -84,11 +81,6 @@ const Commons = () => {
               component={CommonsUnderDevelopment}
             />,
           ]}
-          <Route
-            exact
-            path="/collection/:id"
-            component={CommonsCollectionView}
-          />
           <Route exact path="/author/:id" component={CommonsAuthor} />
           <Route exact path="/book/:id" component={CommonsBook} />
           <Route exact path="/commons-project/:id" component={CommonsProject} />

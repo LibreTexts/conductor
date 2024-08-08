@@ -33,4 +33,6 @@ export type _MoveFileWithChildren = _MoveFile & {
 export type CloudflareCaptionData = {
   language: string;
   label: string;
-}
+};
+
+export type SortDirection = 'ascending' | 'descending';
