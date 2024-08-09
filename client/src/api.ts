@@ -214,11 +214,10 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_DEV_BASE_URL
-      : ""
-  }/api/v1/cloudflare/stream-url`;
+  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
+    ? import.meta.env.VITE_DEV_BASE_URL
+    : ""
+    }/api/v1/cloudflare/stream-url`;
 
   // Authors
   async getAuthors({
@@ -774,6 +773,43 @@ class API {
         sortDirection,
       },
     });
+  }
+
+  async getAllCollections({
+    limit,
+    page,
+    query,
+    sort,
+    sortDirection,
+  }: {
+    limit?: number;
+    page?: number;
+    query?: string | null;
+    sort?: string;
+    sortDirection?: SortDirection;
+  }) {
+    return await axios.get<
+      {
+        collections: Collection[];
+        total_items: number;
+      } & ConductorBaseResponse
+    >(`/commons/collections/all`, {
+      params: {
+        limit,
+        page,
+        query,
+        sort,
+        sortDirection,
+      },
+    });
+  }
+
+  async deleteCollection(id: string) {
+    return await axios.delete<ConductorBaseResponse>(`/commons/collection/${id}`);
+  }
+
+  async deleteCollectionResource(collID: string, resourceID: string) {
+    return await axios.delete<ConductorBaseResponse>(`/commons/collection/${collID}/resources/${resourceID}`);
   }
 }
 

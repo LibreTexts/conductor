@@ -2,7 +2,7 @@ import { Card, Button, Image } from "semantic-ui-react";
 import { Book, Collection, CollectionResource } from "../../../types";
 import { truncateString } from "../../util/HelperFunctions";
 import { getLibGlyphURL, getLibraryName } from "../../util/LibraryOptions";
-import "./CollectionsManager.css";
+import "./collections.css";
 import {
   checkIsBook,
   checkIsCollection,
@@ -14,11 +14,13 @@ const CollectionCard = ({
   onClickCollCB,
   onClickBookCB,
   onDeleteCB,
+  asLink
 }: {
   item: Collection | CollectionResource;
   onClickCollCB?: (collectionID: string, collName: string) => void;
   onClickBookCB?: (bookID: string) => void;
   onDeleteCB?: (item: CollectionResource) => void;
+  asLink?: boolean;
 }) => {
   function genBackgroundURL(item: Collection | CollectionResource): string {
     if (checkIsCollection(item)) {
@@ -207,8 +209,8 @@ const CollectionCard = ({
     <Card
       onClick={() => handleOnClick(item)}
       className="collections-manager-card"
-      as="a"
-      href={genURL(item)}
+      as={asLink ? "a" : "div"}
+      href={asLink ? genURL(item) : undefined}
     >
       <div className="collections-manager-card-img-wrapper">
         <div
