@@ -11,7 +11,9 @@ const collectionIDOrTitleParamsSchema = z.object({
 const strictCollectionIDParamsSchema = z.object({
   collID: strictCollIDSchema,
 });
-const collectionLocationsSchema = z.enum(['campus', 'central']);
+const collectionsLocations = ['campus', 'central'];
+const collectionLocationsSchema = z.enum(collectionsLocations as [string, ...string[]]);
+
 const collectionPrivacySchema = z.enum(['public', 'private', 'campus']);
 const getCollectionsSharedSchema = z.intersection(z.object({
   detailed: z.boolean().optional(),
@@ -33,8 +35,8 @@ export const addCollectionResourceSchema = z.object({
 export const createCollectionSchema = z.object({
   body: z.object({
     autoManage: z.boolean().optional(),
-    coverPhoto: z.string().min(2).optional(),
-    locations: collectionLocationsSchema.optional(),
+    coverPhoto: z.string().or(z.literal("")).optional(),
+    locations: z.array(collectionLocationsSchema).optional(),
     parentID: z.string().length(8, { message: conductorErrors.err1 }).optional(),
     privacy: collectionPrivacySchema.optional(),
     program: z.string().optional(),

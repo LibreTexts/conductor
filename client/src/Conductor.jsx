@@ -15,7 +15,7 @@ const AnalyticsRequests = lazy(() => import('./screens/conductor/controlpanel/An
 const AssetTagsManager = lazy(() => import('./screens/conductor/controlpanel/AssetTagsManager'));
 const BooksManager = lazy(() => import('./screens/conductor/controlpanel/BooksManager'));
 const CampusSettings = lazy(() => import('./components/controlpanel/CampusSettings'));
-const CollectionsManager = lazy(() => import('./components/controlpanel/Collections/CollectionsManager'));
+const CollectionsManager = lazy(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const ControlPanel = lazy(() => import('./components/controlpanel/ControlPanel'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';

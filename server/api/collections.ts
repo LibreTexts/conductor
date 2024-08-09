@@ -156,9 +156,11 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
 async function createCollection(req: z.infer<typeof createCollectionSchema>, res: Response) {
   try {
     const { coverPhoto, locations, parentID, program, ...body } = req.body;
+
+    const newID = b62(8);
     const newCollection = await Collection.create({
       autoManage: body.autoManage ?? false,
-      collID: b62(8),
+      collID: newID,
       orgID: process.env.ORG_ID,
       privacy: body.privacy ?? 'public',
       title: body.title,
@@ -167,15 +169,16 @@ async function createCollection(req: z.infer<typeof createCollectionSchema>, res
       ...(parentID && { parentID }),
       ...(program && { program }),
     });
-    const collectionToAdd = { resourceId: newCollection.collID, resourceType: 'collection' };
+
+    const collectionToAdd = { resourceID: newID, resourceType: 'collection' };
     if (parentID) {
       await Collection.updateOne(
-          { collID: parentID },
-          {
-            $addToSet: {
-              resources: collectionToAdd,
-            }
+        { collID: parentID },
+        {
+          $addToSet: {
+            resources: collectionToAdd,
           }
+        }
       );
     }
     return res.send({
@@ -219,12 +222,12 @@ async function editCollection(req: z.infer<typeof editCollectionSchema>, res: Re
       await Promise.all([
         // remove from existing parent
         Collection.updateOne(
-            { collID: existParentId },
-            {
-              $pull: {
-                resources: resourceToModify
-              }
+          { collID: existParentId },
+          {
+            $pull: {
+              resources: resourceToModify
             }
+          }
         ),
         // add to new parent
         Collection.updateOne(
@@ -394,7 +397,11 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
  */
 async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, res: Response) {
   try {
-    const { detailed, limit, page, query, sort, sortDirection } = req.query;
+    const { detailed, query, sort, sortDirection } = req.query;
+
+    const page = parseInt(req.query.page.toString()) || 1;
+    const limit = parseInt(req.query.limit.toString()) || 12;
+
     const projectObj = {
       orgID: 1,
       collID: 1,
@@ -465,9 +472,14 @@ async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, r
         $project: projectObj,
       },
     ]);
+
+    const offset = getPaginationOffset(page, limit);
+    const paginated = collections.slice(offset, offset + limit);
+
     return res.send({
       err: false,
-      collections,
+      collections: paginated,
+      total_items: collections.length,
     });
   } catch (err) {
     debugError(err);
@@ -485,13 +497,13 @@ async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, r
 async function getCollection(req: z.infer<typeof getCollectionSchema>, res: Response) {
   try {
     const collection = await Collection.findOne(
-        {
-          $or: [
-            { collID: req.params.collID },
-            { title: decodeURIComponent(req.params.collID) },
-          ],
-        },
-        { resources: 0 },
+      {
+        $or: [
+          { collID: req.params.collID },
+          { title: decodeURIComponent(req.params.collID) },
+        ],
+      },
+      { resources: 0 },
     );
     if (!collection) {
       return res.status(404).send({
@@ -517,7 +529,7 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
     const { query, sort, sortDirection } = req.query;
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 12;
-    
+
     const bookMatchConds: FilterQuery<any>[] = [
       {
         $eq: ["$$resourceType", "resource"],
@@ -653,13 +665,6 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
         },
       },
       {
-        $match: {
-          "resources.book": {
-            $exists: true,
-          },
-        }
-      },
-      {
         $group: {
           _id: "$_id",
           orgID: {
@@ -678,7 +683,13 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
             $first: "$privacy",
           },
           resources: {
-            $push: "$resources",
+            $push: {
+              $cond: {
+                if: { $or: [{ $ifNull: ["$resources.book", false] }, { $ifNull: ["$resources.collection", false] }] },
+                then: "$resources",
+                else: "$$REMOVE"
+              }
+            }
           },
           autoManage: {
             $first: "$autoManage",
