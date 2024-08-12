@@ -10,8 +10,8 @@ import {
   Segment,
 } from "semantic-ui-react";
 import Breakpoint from "../../../components/util/Breakpoints";
-import { Link, useParams } from "react-router-dom";
-import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom-v5-compat";
+import React, { Fragment, useEffect, useState } from "react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import {
   useInfiniteQuery,
@@ -25,12 +25,30 @@ import CollectionCard from "../../../components/Collections/CollectionCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
 import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 import useDebounce from "../../../hooks/useDebounce";
+import { checkIsCollection } from "../../../components/util/TypeHelpers";
 const limit = 12;
+const BASE_PATH = "/collections";
+
+const getIDFromPath = (path?: string): string => {
+  if (!path) return "";
+  if (path === BASE_PATH) return "";
+  const lastValue = path.split("/").pop();
+  return lastValue || "";
+}
+
+const getDynamicPath = (path?: string): string => {
+  // remove BASE_PATH from path
+  if (!path) return "";
+  const pathWithoutBase = path.replace(BASE_PATH, "");
+  return pathWithoutBase
+}
 
 const CommonsCollection: React.FC<{}> = () => {
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
-  const params = useParams<{ id: string }>();
+  const { pathname } = useLocation();
+  const id = getIDFromPath(pathname);
+  const dynamicPath = getDynamicPath(pathname);
   const org = useTypedSelector((state) => state.org);
   const queryClient = useQueryClient();
   const [sort, setSort] = useState("title");
@@ -52,7 +70,7 @@ const CommonsCollection: React.FC<{}> = () => {
       pages: [],
       pageParams: [],
     }));
-  }, [params.id]);
+  }, [pathname]);
 
   const rootSortOptions = [
     { key: "title", text: "Sort by Title", value: "title" },
@@ -66,11 +84,11 @@ const CommonsCollection: React.FC<{}> = () => {
   ];
 
   const { data: collection, isFetching: collectionLoading } = useQuery({
-    queryKey: ["collection", params.id],
+    queryKey: ["collection", pathname],
     queryFn: getCollection,
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    enabled: !!params.id && !loadingDisabled,
+    enabled: !!id && !loadingDisabled,
   });
 
   const {
@@ -84,22 +102,22 @@ const CommonsCollection: React.FC<{}> = () => {
     total_items: number;
     cursor?: number;
   }>({
-    queryKey: ["collection-resources", params.id, sort, limit, query],
+    queryKey: ["collection-resources", id, sort, limit, query, pathname],
     queryFn: ({ pageParam = 1 },) =>
-      !!params.id
+      !!id
         ? getCollectionResources({
-            collIDOrTitle: params.id,
-            limit,
-            page: pageParam,
-            query,
-            sort,
-          })
+          collIDOrTitle: id,
+          limit,
+          page: pageParam,
+          query,
+          sort,
+        })
         : getCommonsCollections({
-            limit,
-            page: pageParam,
-            query,
-            sort,
-          }),
+          limit,
+          page: pageParam,
+          query,
+          sort,
+        }),
     enabled: !loadingDisabled,
     refetchOnWindowFocus: false,
     getNextPageParam: (lastPage) => {
@@ -123,7 +141,7 @@ const CommonsCollection: React.FC<{}> = () => {
 
   async function getCollection() {
     try {
-      const collRes = await api.getCollection(params.id);
+      const collRes = await api.getCollection(id);
       if (collRes.data.err) {
         throw new Error(collRes.data.errMsg);
       }
@@ -224,7 +242,7 @@ const CommonsCollection: React.FC<{}> = () => {
     } else {
       document.title = `LibreCommons | Collection`;
     }
-  }, [org, collection?.title, params]);
+  }, [org, collection?.title, pathname]);
 
   const VisualMode = () => {
     if (resourcesLoaded && resources.pages.length > 0) {
@@ -232,7 +250,7 @@ const CommonsCollection: React.FC<{}> = () => {
         <div className="commons-content-card-grid">
           {resources.pages.map((p) => {
             return p.data.map((item: Collection | CollectionResource) => (
-              <CollectionCard key={crypto.randomUUID()} item={item} />
+              <CollectionCard key={crypto.randomUUID()} item={item} to={"resourceData" in item && checkIsCollection(item.resourceData) ? `${pathname}/${encodeURIComponent(item.resourceData.title)}` : undefined} />
             ));
           })}
         </div>
@@ -259,36 +277,59 @@ const CommonsCollection: React.FC<{}> = () => {
     );
   };
 
+  const Breadcrumbs = () => {
+    const elements = dynamicPath.split("/").filter((el) => el !== "");
+
+    const linkPathForIndex = (index: number) => {
+      return BASE_PATH + "/" + elements.slice(0, index + 1).join("/");
+    };
+
+    return (<Breadcrumb>
+      <Breadcrumb.Section as={Link} to="/collections">
+        <span>
+          <span className="muted-text">You are on: </span>
+          Collections
+        </span>
+      </Breadcrumb.Section>
+      {elements.map((el, i) => (
+        <Fragment key={i}>
+          <Breadcrumb.Divider icon="right chevron" />
+          <Breadcrumb.Section as={
+            i === elements.length - 1
+              ? "span"
+              : Link
+          } to={
+            i === elements.length - 1
+              ? undefined
+              : linkPathForIndex(i)
+          }>
+            {el}
+          </Breadcrumb.Section>
+        </Fragment>
+      ))}
+    </Breadcrumb>
+    )
+  }
+
   return (
     <Grid className="commons-container">
       <Grid.Row>
         <Grid.Column>
           <Segment.Group raised>
-            {params.id && (
+            {id && (
               <Segment>
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/collections">
-                    <span>
-                      <span className="muted-text">You are on: </span>
-                      Collections
-                    </span>
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>
-                    {collection?.title}
-                  </Breadcrumb.Section>
-                </Breadcrumb>
+                <Breadcrumbs />
               </Segment>
             )}
             <Segment>
               <Breakpoint name="desktop">
                 <Header size="large" as="h2">
-                  {params.id ? collection?.title : "Collections"}
+                  {id ? collection?.title : "Collections"}
                 </Header>
               </Breakpoint>
               <Breakpoint name="mobileOrTablet">
                 <Header size="large" textAlign="center">
-                  {params.id ? collection?.title : "Collections"}
+                  {id ? collection?.title : "Collections"}
                 </Header>
               </Breakpoint>
             </Segment>
@@ -317,7 +358,7 @@ const CommonsCollection: React.FC<{}> = () => {
                     button
                     className="commons-filter"
                     options={
-                      params.id ? collectionSortOptions : rootSortOptions
+                      id ? collectionSortOptions : rootSortOptions
                     }
                     onChange={(_e, { value }) => {
                       setSort(value as string);

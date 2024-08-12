@@ -18,6 +18,7 @@ import "./components/commons/Commons.css";
 import { useTypedSelector } from "./state/hooks";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useSystemAnnouncement from "./hooks/useSystemAnnouncement";
+import { CompatRoute } from "react-router-dom-v5-compat";
 
 /**
  * The public-facing catalog and showcase application.
@@ -66,7 +67,8 @@ const Commons = () => {
         <Switch>
           <Route exact path="/" component={CommonsCatalog} />
           <Route exact path="/catalog" component={CommonsCatalog} />
-          <Route exact path="/collections/:id?" component={CommonsCollection} />
+          <CompatRoute exact path="/collections" component={CommonsCollection} />
+          <CompatRoute path="/collections/:path" component={CommonsCollection} />
           {org.orgID === "libretexts" && [
             <Route
               exact
@@ -84,11 +86,7 @@ const Commons = () => {
           <Route exact path="/author/:id" component={CommonsAuthor} />
           <Route exact path="/book/:id" component={CommonsBook} />
           <Route exact path="/commons-project/:id" component={CommonsProject} />
-          <Route
-            exact
-            path="/file/:projectID/:fileID"
-            component={CommonsFile}
-          />
+          <Route exact path="/file/:projectID/:fileID" component={CommonsFile} />
         </Switch>
       </Suspense>
       <CommonsFooter />
