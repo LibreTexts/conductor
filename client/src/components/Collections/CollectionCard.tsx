@@ -7,9 +7,10 @@ import { getCollectionHref } from "../util/CollectionHelpers";
 
 interface CollectionCardProps {
   item: Collection | CollectionResource;
+  to?: string;
 }
 
-const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
+const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   const getResourceData = () => {
     if ("resourceData" in item) {
       return item.resourceData;
@@ -24,15 +25,14 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item }) => {
   return (
     <Card
       as={Link}
-      to={getCollectionHref(item)}
+      to={to ? to : getCollectionHref(item)}
       className="commons-content-card"
     >
       <div
         className="commons-content-card-img"
         style={{
-          backgroundImage: `url(${
-            isBook ? resourceData.thumbnail : resourceData.coverPhoto
-          })`,
+          backgroundImage: `url(${isBook ? resourceData.thumbnail : resourceData.coverPhoto
+            })`,
         }}
       />
       <Card.Content>

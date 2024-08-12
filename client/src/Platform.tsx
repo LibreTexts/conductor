@@ -1,21 +1,22 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Route, Switch } from "react-router-dom";
+import { Routes, CompatRoute, CompatRouter } from "react-router-dom-v5-compat";
 import { Provider } from "react-redux";
 import axios from "axios";
-import store from "./state/store.ts";
-import AuthHelper from "./components/util/AuthHelper";
-import Commons from "./Commons";
-import Conductor from "./Conductor";
-import Standalone from "./Standalone";
-import ErrorModal from "./components/error/ErrorModal";
-import withOrgStateDependency from "./enhancers/withOrgStateDependency";
+import store from "./state/store.js";
+import AuthHelper from "./components/util/AuthHelper.js";
+import Commons from "./Commons.js";
+import Conductor from "./Conductor.jsx";
+import Standalone from "./Standalone.jsx";
+import ErrorModal from "./components/error/ErrorModal.js";
+import withOrgStateDependency from "./enhancers/withOrgStateDependency.jsx";
 import "./styles/global.css";
 import { ErrorBoundary } from "react-error-boundary";
-import ErrorScreen from "./screens/ErrorScreen";
+import ErrorScreen from "./screens/ErrorScreen.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import ModalsProvider from "./providers/ModalsProvider";
-import NotificationsProvider from "./providers/NotificationsProvider";
+import ModalsProvider from "./providers/ModalsProvider.js";
+import NotificationsProvider from "./providers/NotificationsProvider.js";
+import { BrowserRouter, Route, Switch } from "react-router-dom";
 
 /**
  * Exposes the applications and global configuration.
@@ -48,8 +49,8 @@ const Platform = () => {
     "/",
     "/catalog",
     "/collections",
-    "/collections/:id?",
-    "/collection/:id",
+    "/collections/:path",
+    "/collections/:path*",
     "/commons-project/:id",
     "/author/:id",
     "/book/:id",
@@ -76,20 +77,21 @@ const Platform = () => {
     }
   }, []);
 
-  const ApplicationTree = () => {
+  const ApplicationTree = ()=> {
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <div className="App">
           <ModalsProvider>
             <NotificationsProvider>
-            <Switch>
-              {/* Commons Render Tree */}
-              <Route exact path={commonsPaths} component={Commons} />
-              {/* Standalone Pages */}
-              <Route exact path={standalonePaths} component={Standalone} />
-              {/* Conductor and fallback Render Tree */}
-              <Route component={Conductor} />
-            </Switch>
+              <Switch>
+                {/* Commons Render Tree */}
+                {/* @ts-expect-error */}
+                <Route exact path={commonsPaths} component={Commons} />
+                {/* Standalone Pages */}
+                <Route exact path={standalonePaths} component={Standalone} />
+                {/* Conductor and fallback Render Tree */}
+                <Route component={Conductor} />
+              </Switch>
             </NotificationsProvider>
           </ModalsProvider>
           <ErrorModal />
@@ -98,19 +100,23 @@ const Platform = () => {
     );
   };
   /* Require Organization info globally */
+  // @ts-expect-error
   const Application = withOrgStateDependency(ApplicationTree);
 
   const queryClient = new QueryClient();
 
   return (
     <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <Provider store={store}>
-          <Application />
-        </Provider>
-        <ReactQueryDevtools initialIsOpen={false} />
-        <div id="support-widget-container" className="support-widget" />
-      </QueryClientProvider>
+      <CompatRouter>
+        <QueryClientProvider client={queryClient}>
+          <Provider store={store}>
+            {/* @ts-expect-error */}
+            <Application />
+          </Provider>
+          <ReactQueryDevtools initialIsOpen={false} />
+          <div id="support-widget-container" className="support-widget" />
+        </QueryClientProvider>
+      </CompatRouter>
     </BrowserRouter>
   );
 };
