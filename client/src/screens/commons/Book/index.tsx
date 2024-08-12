@@ -35,8 +35,8 @@ import { truncateString } from "../../../components/util/HelperFunctions.js";
 import { useTypedSelector } from "../../../state/hooks";
 import {
   Book,
-  License,
   LicenseReport,
+  LicenseReportLicense,
   LicenseReportText,
   PeerReview as PeerReviewType,
   ProjectFile,
@@ -557,7 +557,7 @@ const CommonsBook = () => {
    *  and version (if applicable).
    * @returns {React.ReactElement | null} The UI-ready license information presentation.
    */
-  function renderLicenseLink(licenseObj: License) {
+  function renderLicenseLink(licenseObj: LicenseReportLicense) {
     if (typeof licenseObj === "object") {
       if (licenseObj.link && licenseObj.link !== "#") {
         return (

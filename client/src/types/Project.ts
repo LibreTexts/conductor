@@ -1,5 +1,6 @@
 import { AssetTag } from "./AssetTagging";
 import { Author } from "./Author";
+import { License } from "./Misc";
 import { User } from "./User";
 import { a11ySectionReviewSchema } from "./a11y";
 
@@ -16,15 +17,6 @@ export type CIDDescriptor = {
   approved?: Date;
   expires?: Date;
 };
-
-export interface ProjectFileLicense {
-  name?: string;
-  url?: string;
-  version?: string;
-  sourceURL?: string;
-  modifiedFromSource?: boolean;
-  additionalTerms?: string;
-}
 
 export type ProjectFileAuthor = Omit<Author, "userUUID">;
 
@@ -51,7 +43,7 @@ export type ProjectFile = {
   downloadCount: number;
   tags?: AssetTag[];
   createdDate?: Date;
-  license?: ProjectFileLicense;
+  license?: License;
   primaryAuthor?: ProjectFileAuthor;
   authors?: ProjectFileAuthor[];
   correspondingAuthor?: ProjectFileAuthor;
@@ -131,8 +123,7 @@ export type Project = {
   libreCampus: string;
   author: string;
   authorEmail: string;
-  license: string;
-  resourceURL: string;
+  license: License;
   projectURL: string;
   adaptURL: string;
   adaptCourseID: string;
@@ -150,7 +141,7 @@ export type Project = {
   preferredPRRubric: String;
   cidDescriptors: CIDDescriptor[];
   associatedOrgs: string[];
-  defaultFileLicense?: ProjectFileLicense;
+  defaultFileLicense?: License;
   didCreateWorkbench?: boolean;
   thumbnail?: string;
   projectModules?: ProjectModuleSettings;

@@ -1,4 +1,5 @@
 import { model, Schema, Document } from "mongoose";
+import { License } from "../types";
 
 export const PROJECT_FILES_ACCESS_SETTINGS = [
   "public",
@@ -21,15 +22,6 @@ export type ProjectFileInterfaceAccess =
   | "team"
   | "mixed";
 
-export interface ProjectFileLicense {
-  name?: string;
-  url?: string;
-  version?: string;
-  sourceURL?: string;
-  modifiedFromSource?: boolean;
-  additionalTerms?: string;
-}
-
 export interface ProjectFilePublisher {
   name?: string;
   url?: string;
@@ -50,7 +42,7 @@ export interface RawProjectFileInterface {
   parent?: string;
   createdBy?: string;
   downloadCount?: number;
-  license?: ProjectFileLicense;
+  license?: License;
   primaryAuthor?: Schema.Types.ObjectId;
   authors?: (Schema.Types.ObjectId)[];
   correspondingAuthor?: Schema.Types.ObjectId;

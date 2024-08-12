@@ -729,11 +729,8 @@ async function updateProject(req, res) {
     if (req.body.authorEmail && req.body.authorEmail !== project.authorEmail) {
       updateObj.authorEmail = req.body.authorEmail;
     }
-    if (req.body.license && req.body.license !== project.license) {
+    if (req.body.license) {
       updateObj.license = req.body.license;
-    }
-    if (req.body.resourceURL && req.body.resourceURL !== project.resourceURL) {
-      updateObj.resourceURL = req.body.resourceURL;
     }
     if (req.body.notes && req.body.notes !== project.notes) {
       updateObj.notes = req.body.notes;
@@ -3375,6 +3372,35 @@ function validateAuthorArray(authors){
   return true;
 }
 
+function validateLicense(license){
+  if (typeof license !== 'object') {
+    return false;
+  }
+  if(license.hasOwnProperty('name')){
+    if (typeof license.name !== 'string') {
+      return false;
+    }
+    if(license.name.length > 255){
+      return false
+    }
+  }
+  if(license.hasOwnProperty('url') && typeof license.url !== 'string'){
+    return false;
+  }
+  if(license.hasOwnProperty('version') && typeof license.version !== 'string'){
+    return false;
+  }
+  if(license.hasOwnProperty('additionalTerms')){
+    if (typeof license.additionalTerms !== 'string') {
+      return false;
+    }
+    if(license.additionalTerms.length > 500){
+      return false
+    }
+  }
+  return true;
+}
+
 /**
  * Middleware(s) to verify requests contain
  * necessary and/or valid fields.
@@ -3408,8 +3434,7 @@ const validate = (method) => {
           body('preferredPRRubric', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('author', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('authorEmail', conductorErrors.err1).optional({ checkFalsy: true }).isString().isEmail(),
-          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
-          body('resourceURL', conductorErrors.err1).optional({ checkFalsy: true }).isString().isURL(),
+          body('license', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateLicense),
           body('notes', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('rdmpReqRemix', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
           body('rdmpCurrentStep', conductorErrors.err1).optional({ checkFalsy: true }).isString().custom(validateRoadmapStep),

@@ -72,10 +72,6 @@ import {
   PROJECT_ROLE_SORT_ORDER
 } from '../util/ProjectHelpers';
 import {
-  licenseOptions,
-  getLicenseText
-} from '../util/LicenseOptions.js';
-import {
   getRoadmapStepName
 } from '../util/RoadmapOptions.jsx';
 
@@ -1419,7 +1415,7 @@ const ProjectView = (props) => {
   }
 
   // Rendering Helper Booleans
-  const hasResourceInfo = project.author || project.license || project.resourceURL;
+  const hasResourceInfo = project.author || project.license?.sourceURL || project.license?.licenseName;
   const hasNotes = project.notes && !isEmptyString(project.notes);
   const hasFlag = project.flag && !isEmptyString(project.flag);
   const flagCrumbEnabled = hasFlag && showReviewerCrumb;
@@ -1844,15 +1840,15 @@ const ProjectView = (props) => {
                                 <a href={`mailto:${project.authorEmail}`} target='_blank' rel='noopener noreferrer'>{project.authorEmail}</a>
                               </div>
                             }
-                            {(project.license && !isEmptyString(project.license)) &&
+                            {project.license && project.license.name &&
                               <div className='mt-1p mb-1p'>
                                 <Header as='span' sub>License: </Header>
-                                <span>{getLicenseText(project.license)}</span>
+                                <span>{project.license.name ?? 'Unknown License'} {project.license.version ?? ""}</span>
                               </div>
                             }
-                            {(project.resourceURL && !isEmptyString(project.resourceURL)) &&
+                            {project.license && project.license.sourceURL &&
                               <div className='mt-1p'>
-                                <a href={normalizeURL(project.resourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
+                                <a href={normalizeURL(project.license.sourceURL)} target='_blank' rel='noopener noreferrer'>Resource Link<Icon name='external' className='ml-1p' /></a>
                               </div>
                             }
                           </Grid.Column>

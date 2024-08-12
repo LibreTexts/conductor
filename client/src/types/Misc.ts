@@ -34,3 +34,12 @@ export type CloudflareCaptionData = {
   language: string;
   label: string;
 }
+
+export type License = {
+  name?: string;
+  url?: string;
+  version?: string;
+  sourceURL?: string;
+  modifiedFromSource?: boolean;
+  additionalTerms?: string;
+}

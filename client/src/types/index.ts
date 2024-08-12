@@ -24,7 +24,8 @@ import {
   AtlasSearchHighlight,
   _MoveFile,
   _MoveFileWithChildren,
-  CloudflareCaptionData
+  CloudflareCaptionData,
+  License
 } from "./Misc";
 import { Announcement } from "./Announcement";
 import { a11ySectionReviewSchema } from "./a11y";
@@ -56,7 +57,7 @@ import { PeerReviewRubric } from "./PeerReviewRubric";
 import { BaseDocument } from "./BaseDocument";
 import {
   LicenseReport,
-  License,
+  LicenseReportLicense,
   LicenseReportMeta,
   LicenseReportText,
 } from "./LicenseReport";
@@ -197,8 +198,9 @@ export type {
   ProjectModuleConfig,
   ProjectModuleSettings,
   BaseDocument,
-  LicenseReport,
   License,
+  LicenseReport,
+  LicenseReportLicense,
   LicenseReportMeta,
   LicenseReportText,
   OrgEventParticipantFormResponse,

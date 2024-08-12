@@ -1,6 +1,6 @@
 import { AssetTagWithFramework, AssetTagTemplateWithKey, AssetTagWithFrameworkAndKey } from "./AssetTags";
 import { ReaderResource } from "../types/ReaderResource";
-import { TimeZoneOption, GenericKeyTextValueObj } from "./Misc";
+import { TimeZoneOption, GenericKeyTextValueObj, License } from "./Misc";
 import {
   TypedReqUser,
   TypedReqWithUser,
@@ -66,6 +66,7 @@ export type {
   LibrariesSSMClient,
   LibraryTokenPair,
   LibraryAPIRequestHeaders,
+  License,
   TimeZoneOption,
   TypedReqUser,
   TypedReqWithUser,
