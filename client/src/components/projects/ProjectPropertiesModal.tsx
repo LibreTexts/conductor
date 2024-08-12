@@ -91,8 +91,14 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       adaptURL: "",
       author: "",
       authorEmail: "",
-      license: "",
-      resourceURL: "",
+      license: {
+        name: "",
+        version: "",
+        url: "",
+        sourceURL: "",
+        modifiedFromSource: false,
+        additionalTerms: "",
+      },
       notes: "",
       associatedOrgs: [],
       thumbnail: "",
@@ -204,7 +210,15 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   }, [watch("defaultFileLicense.name")]);
 
   // Return new license version options when license name changes
-  const selectedLicenseVersions = useCallback(() => {
+  const selectedSourceLicenseVersions = useCallback(() => {
+    const license = licenseOptions.find(
+      (l) => l.name === getValues("license.name")
+    );
+    if (!license) return [];
+    return license.versions ?? [];
+  }, [watch("license.name"), licenseOptions]);
+
+  const selectedFileLicenseVersions = useCallback(() => {
     const license = licenseOptions.find(
       (l) => l.name === getValues("defaultFileLicense.name")
     );
@@ -1095,7 +1109,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               or tool.
             </em>
           </p>
-          <div className="flex flex-row justify-between">
+          <div className="flex flex-row justify-between mb-3">
             <CtlTextInput
               name="author"
               control={control}
@@ -1111,43 +1125,89 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               className="basis-1/2"
             />
           </div>
-          <div className="flex flex-row justify-between mt-4">
-            <div className="w-full mr-6">
-              <label htmlFor="license" className="form-field-label">
-                License
+          <div>
+            <label className="form-field-label" htmlFor="selectSourceLicenseName">
+              Name
+            </label>
+            <Controller
+              render={({ field }) => (
+                <Dropdown
+                  id="selectSourceLicenseName"
+                  options={licenseOptions.map((l) => ({
+                    key: crypto.randomUUID(),
+                    value: l.name,
+                    text: l.name,
+                  }))}
+                  {...field}
+                  onChange={(e, data) => {
+                    field.onChange(data.value?.toString() ?? "");
+                  }}
+                  fluid
+                  selection
+                  placeholder="Select a license..."
+                />
+              )}
+              name="license.name"
+              control={control}
+            />
+          </div>
+          {selectedSourceLicenseVersions().length > 0 && (
+            <div className="mt-2">
+              <label
+                className="form-field-label form-required"
+                htmlFor="selectSourceLicenseVersion"
+              >
+                Version
               </label>
               <Controller
-                name="license"
-                control={control}
                 render={({ field }) => (
                   <Dropdown
-                    id="license"
-                    options={licenseOptions.map((l) => ({
+                    id="selectSourceLicenseVersion"
+                    options={selectedSourceLicenseVersions().map((v) => ({
                       key: crypto.randomUUID(),
-                      value: l.name,
-                      text: l.name,
+                      value: v,
+                      text: v,
                     }))}
                     {...field}
                     onChange={(e, data) => {
-                      field.onChange(data.value?.toString() ?? "text");
+                      field.onChange(data.value?.toString() ?? "");
                     }}
                     fluid
                     selection
-                    className="mr-8"
-                    placeholder="License..."
+                    placeholder="Select license version"
                   />
                 )}
+                name="license.version"
+                control={control}
+                rules={required}
               />
             </div>
-            <CtlTextInput
-              name="resourceURL"
-              label="Original URL"
+          )}
+          <CtlTextInput
+            name="license.sourceURL"
+            control={control}
+            label="Original URL"
+            placeholder="https://example.com"
+            className="mt-2"
+          />
+          <div className="flex items-start mt-3">
+            <CtlCheckbox
+              name="license.modifiedFromSource"
               control={control}
-              placeholder="Enter resource URL..."
-              type="url"
-              className="w-full"
+              label="Modified from source?"
+              className="ml-2"
+              labelDirection="row-reverse"
             />
           </div>
+          <CtlTextArea
+            name="license.additionalTerms"
+            control={control}
+            label="Additional License Terms"
+            placeholder="Additional terms (if applicable)..."
+            className="mt-2"
+            maxLength={DESCRIP_MAX_CHARS}
+            showRemaining
+          />
           <Divider />
           <Header as="h3">Asset Settings</Header>
           <p className="!my-1">
@@ -1161,13 +1221,13 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
             </em>
           </p>
           <div>
-            <label className="form-field-label" htmlFor="selectLicenseName">
+            <label className="form-field-label" htmlFor="selectFileLicenseName">
               Name
             </label>
             <Controller
               render={({ field }) => (
                 <Dropdown
-                  id="selectLicenseName"
+                  id="selectFileLicenseName"
                   options={licenseOptions.map((l) => ({
                     key: crypto.randomUUID(),
                     value: l.name,
@@ -1186,19 +1246,19 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               control={control}
             />
           </div>
-          {selectedLicenseVersions().length > 0 && (
+          {selectedFileLicenseVersions().length > 0 && (
             <div className="mt-2">
               <label
                 className="form-field-label form-required"
-                htmlFor="selectLicenseVersion"
+                htmlFor="selectFileLicenseVersion"
               >
                 Version
               </label>
               <Controller
                 render={({ field }) => (
                   <Dropdown
-                    id="selectLicenseVersion"
-                    options={selectedLicenseVersions().map((v) => ({
+                    id="selectFileLicenseVersion"
+                    options={selectedFileLicenseVersions().map((v) => ({
                       key: crypto.randomUUID(),
                       value: v,
                       text: v,

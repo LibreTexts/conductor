@@ -1,8 +1,8 @@
 import { model, Schema, Document } from "mongoose";
 import { projectClassifications } from "../util/projectutils.js";
 import { a11ySectionReviewSchema } from "../util/a11yreviewutils.js";
-import { ProjectFileLicense } from "./projectfile.js";
 import { AuthorInterface } from "./author.js";
+import { License } from "../types/Misc.js";
 
 export type ProjectModuleConfig = {
   enabled: boolean;
@@ -45,8 +45,7 @@ export interface ProjectInterface extends Document {
   didMigrateWorkbench?: boolean; // migrated from sandbox
   author: string;
   authorEmail: string;
-  license: string;
-  resourceURL: string;
+  license: License;
   projectURL: string;
   adaptURL: string;
   adaptCourseID: string;
@@ -64,7 +63,7 @@ export interface ProjectInterface extends Document {
   preferredPRRubric?: string;
   cidDescriptors?: string[];
   associatedOrgs?: string[];
-  defaultFileLicense?: ProjectFileLicense;
+  defaultFileLicense?: License;
   thumbnail?: string;
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
@@ -205,11 +204,14 @@ const ProjectSchema = new Schema<ProjectInterface>(
     /**
      * Content licensing of the associated Book/resource.
      */
-    license: String,
-    /**
-     * Original URL of the resource, if applicable.
-     */
-    resourceURL: String,
+    license: {
+      name: String,
+      url: String,
+      version: String,
+      sourceURL: String,
+      modifiedFromSource: Boolean,
+      additionalTerms: String,
+    },
     /**
      * URL where the resource currently exists, typically a LibreTexts library link.
      */

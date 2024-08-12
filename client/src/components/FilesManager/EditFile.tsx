@@ -17,6 +17,7 @@ import {
   AssetTagFramework,
   Author,
   CentralIdentityLicense,
+  License,
   ProjectFile,
 } from "../../types";
 import CtlTextInput from "../ControlledInputs/CtlTextInput";
@@ -44,7 +45,6 @@ import AuthorsForm from "./AuthorsForm";
 import FilePreview from "./FilePreview";
 import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
-import { ProjectFileLicense } from "../../types/Project";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -143,7 +143,7 @@ const EditFile: React.FC<EditFileProps> = ({
   const {
     data: projectLicenseSettings,
     isFetching: projectLicenseSettingsLoading,
-  } = useQuery<ProjectFileLicense | null>({
+  } = useQuery<License | null>({
     queryKey: ["projectLicenseSettings", projectID],
     queryFn: loadProjectLicenseSettings,
     staleTime: Infinity,
@@ -265,7 +265,7 @@ const EditFile: React.FC<EditFileProps> = ({
         res.data.project.defaultFileLicense &&
         typeof res.data.project.defaultFileLicense === "object"
       ) {
-        return res.data.project.defaultFileLicense as ProjectFileLicense;
+        return res.data.project.defaultFileLicense as License
       }
       return null;
     } catch (err) {

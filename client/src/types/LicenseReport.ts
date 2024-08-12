@@ -9,7 +9,7 @@ export type LicenseReport = {
 }
 
 export type LicenseReportText = {
-    license: License;
+    license: LicenseReportLicense;
     id: string;
     url: string;
     title: string;
@@ -18,12 +18,17 @@ export type LicenseReportText = {
 }
 
 export type LicenseReportMeta = {
-    mostRestrictiveLicense: Omit<License, 'count' | 'percent'>;
+    mostRestrictiveLicense: Omit<LicenseReportLicense, 'count' | 'percent'>;
     specialRestrictions: string[];
-    licenses: License[]
+    licenses: LicenseReportLicense[]
 }
 
-export type License = {
+/**
+ * @deprecated
+ * Should be used for LicenseReport purposes only
+ * @see License in types/Misc.ts
+*/
+export type LicenseReportLicense = {
     label: string;
     link: string;
     raw: string;

@@ -1,5 +1,4 @@
-import { Project, ProjectFile, User } from "../../types";
-import { ProjectFileLicense } from "../../types/Project";
+import { Project, User, License } from "../../types";
 import { threePointLikertOptions, fivePointLikertOptions, sevenPointLikertOptions } from "./LikertHelpers";
 
 const visibilityOptions = [
@@ -359,7 +358,7 @@ const getFilesAccessText = (access: string) => {
   return 'Unknown';
 };
 
-const getFilesLicenseText = (license: ProjectFileLicense | undefined) => {
+const getFilesLicenseText = (license: License | undefined) => {
     if (license) {
         if(license.name && license.version){
             return `${license.name} (${license.version})`;

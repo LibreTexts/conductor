@@ -7,3 +7,12 @@ export type GenericKeyTextValueObj<T> = {
   text: string;
   value: T;
 };
+
+export type License = {
+  name?: string;
+  url?: string;
+  version?: string;
+  sourceURL?: string;
+  modifiedFromSource?: boolean;
+  additionalTerms?: string;
+}
