@@ -298,9 +298,10 @@ async function deleteCollection(req: z.infer<typeof deleteCollectionSchema>, res
  */
 async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSchema>, res: Response) {
   try {
-    const { detailed, query, sort, sortDirection } = req.query;
+    const { detailed, query, sort } = req.query;
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 12;
+    const sortDirection = req.query.sortDirection || 'descending';
 
     const projectObj = {
       orgID: 1,
@@ -358,7 +359,7 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
       },
       {
         $sort: {
-          [sort]: sortDirection === 'ascending' ? 1 : -1,
+          [sort]: sortDirection === 'ascending' ? -1 : 1,
         },
       },
       {

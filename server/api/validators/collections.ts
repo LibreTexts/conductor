@@ -11,15 +11,16 @@ const collectionIDOrTitleParamsSchema = z.object({
 const strictCollectionIDParamsSchema = z.object({
   collID: strictCollIDSchema,
 });
-const collectionsLocations = ['campus', 'central'];
-const collectionLocationsSchema = z.enum(collectionsLocations as [string, ...string[]]);
 
-const collectionPrivacySchema = z.enum(['public', 'private', 'campus']);
+const collectionsLocations = z.enum(['campus', 'central'])
+const collectionLocationsSchema = z.array(collectionsLocations).optional();
+
+const collectionPrivacySchema = z.enum(['public', 'private', 'campus']).or(z.literal(""))
 const getCollectionsSharedSchema = z.intersection(z.object({
-  detailed: z.boolean().optional(),
+  detailed: z.coerce.boolean().optional(),
   query: z.string().max(100, { message: conductorErrors.err1 }).optional(),
   sort: z.enum(['program', 'title']).optional().default('title'),
-  sortDirection: SortDirection.optional().default('ascending'),
+  sortDirection: SortDirection.optional().default('descending'),
 
 }), PaginationSchema);
 
@@ -34,12 +35,12 @@ export const addCollectionResourceSchema = z.object({
 
 export const createCollectionSchema = z.object({
   body: z.object({
-    autoManage: z.boolean().optional(),
-    coverPhoto: z.string().or(z.literal("")).optional(),
-    locations: z.array(collectionLocationsSchema).optional(),
+    autoManage: z.coerce.boolean().optional(),
+    coverPhoto: z.string().or(z.literal("")).or(z.literal("")).optional(),
+    locations: collectionLocationsSchema,
     parentID: z.string().length(8, { message: conductorErrors.err1 }).optional(),
     privacy: collectionPrivacySchema.optional(),
-    program: z.string().optional(),
+    program: z.string().or(z.literal("")).optional(),
     title: z.string().min(3, { message: conductorErrors.err1 }),
   }),
 });
@@ -50,11 +51,11 @@ export const deleteCollectionSchema = z.object({
 
 export const editCollectionSchema = z.object({
   body: z.object({
-    autoManage: z.boolean().optional(),
-    locations: collectionLocationsSchema.optional(),
-    parentID: z.string().length(8, { message: conductorErrors.err1 }).optional(),
+    autoManage: z.coerce.boolean().optional(),
+    locations: collectionLocationsSchema,
+    parentID: z.string().length(8, { message: conductorErrors.err1 }).or(z.literal("")).optional(),
     privacy: collectionPrivacySchema.optional(),
-    program: z.string().optional(),
+    program: z.string().or(z.literal("")).optional(),
     title: z.string().min(3, { message: conductorErrors.err1 }).optional(),
   }),
   params: strictCollectionIDParamsSchema,
@@ -74,7 +75,7 @@ export const getCollectionSchema = z.object({
 
 export const getCollectionResourcesSchema = z.object({
   query: z.intersection(z.object({
-    query: z.string().max(100, { message: conductorErrors.err1 }).optional(),
+    query: z.string().max(100, { message: conductorErrors.err1 }).or(z.literal("")).optional(),
     sort: z.enum(['resourceType', 'title', 'author']).optional().default('title'),
     sortDirection: SortDirection.optional().default('ascending'),
   }), PaginationSchema),

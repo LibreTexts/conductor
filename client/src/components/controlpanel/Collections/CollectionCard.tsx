@@ -9,18 +9,21 @@ import {
   checkIsCollectionResource,
 } from "../../util/TypeHelpers";
 import {isBook} from "../../../utils/typeHelpers";
+import classNames from "classnames";
 const CollectionCard = ({
   item,
   onClickCollCB,
   onClickBookCB,
   onDeleteCB,
-  asLink
+  asLink,
+  className
 }: {
   item: Collection | CollectionResource;
   onClickCollCB?: (collectionID: string, collName: string) => void;
   onClickBookCB?: (bookID: string) => void;
   onDeleteCB?: (item: CollectionResource) => void;
   asLink?: boolean;
+  className?: string;
 }) => {
   function genBackgroundURL(item: Collection | CollectionResource): string {
     if (checkIsCollection(item)) {
@@ -208,7 +211,7 @@ const CollectionCard = ({
   return (
     <Card
       onClick={() => handleOnClick(item)}
-      className="collections-manager-card"
+      className={classNames("collections-manager-card", className)}
       as={asLink ? "a" : "div"}
       href={asLink ? genURL(item) : undefined}
     >

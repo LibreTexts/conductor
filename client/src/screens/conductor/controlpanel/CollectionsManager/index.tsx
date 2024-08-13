@@ -356,6 +356,7 @@ const CollectionsManager = () => {
                                     await deleteItemMutation.mutateAsync({ item });
                                 }}
                                 asLink={false}
+                                className="cursor-pointer"
                             />
                         );
                     })}
