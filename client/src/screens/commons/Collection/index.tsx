@@ -32,6 +32,8 @@ const BASE_PATH = "/collections";
 const getIDFromPath = (path?: string): string => {
   if (!path) return "";
   if (path === BASE_PATH) return "";
+  // remove trailing slash if not equal to BASE_PATH
+  if (path.endsWith("/")) path = path.slice(0, -1);
   const lastValue = path.split("/").pop();
   return lastValue || "";
 }
@@ -244,13 +246,23 @@ const CommonsCollection: React.FC<{}> = () => {
     }
   }, [org, collection?.title, pathname]);
 
+  const getToLink = (item: Collection | CollectionResource) => {
+    if ("resourceData" in item) {
+      if (checkIsCollection(item.resourceData)) {
+        const toLink = (pathname.endsWith('/') ? pathname : `${pathname}/`) + encodeURIComponent(item.resourceData.title)
+        return toLink;
+      }
+    }
+    return undefined;
+  }
+
   const VisualMode = () => {
     if (resourcesLoaded && resources.pages.length > 0) {
       return (
         <div className="commons-content-card-grid">
           {resources.pages.map((p) => {
             return p.data.map((item: Collection | CollectionResource) => (
-              <CollectionCard key={crypto.randomUUID()} item={item} to={"resourceData" in item && checkIsCollection(item.resourceData) ? `${pathname}/${encodeURIComponent(item.resourceData.title)}` : undefined} />
+              <CollectionCard key={crypto.randomUUID()} item={item} to={getToLink(item)} />
             ));
           })}
         </div>
