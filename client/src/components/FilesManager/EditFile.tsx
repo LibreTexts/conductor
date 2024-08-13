@@ -177,11 +177,11 @@ const EditFile: React.FC<EditFileProps> = ({
   }, [watch("fileID"), campusDefaultFramework]);
 
   useEffect(() => {
-    if (get("license.name")) return; // Don't overwrite license if already set
-    if (projectLicenseSettings) {
-      setValue("license", projectLicenseSettings);
-    }
-  }, [watch("fileID"), projectLicenseSettings]);
+    if (watch("license.name")) return; // Don't overwrite license if already set
+
+    if (!projectLicenseSettings) return;
+    setValue("license", projectLicenseSettings);
+  }, [watch("fileID"), watch("license.name"), projectLicenseSettings]);
 
   // Update license URL and (version as appropriate) when license name changes
   useEffect(() => {
@@ -199,9 +199,11 @@ const EditFile: React.FC<EditFileProps> = ({
     );
     if (!license) return;
 
-    // If license no longer has versions, clear license version
+    // If license no longer has versions, clear license version, otherwise set to first version
     if (!license.versions || license.versions.length === 0) {
       setValue("license.version", "");
+    } else {
+      setValue("license.version", license.versions[0]);
     }
     setValue("license.url", license.url ?? "");
   }, [watch("license.name")]);
@@ -499,9 +501,8 @@ const EditFile: React.FC<EditFileProps> = ({
           >
             <div className="flex flex-row -mt-1">
               <div
-                className={`flex flex-col pr-8 mt-1 ${
-                  isFolder ? "w-full" : "basis-1/2"
-                }`}
+                className={`flex flex-col pr-8 mt-1 ${isFolder ? "w-full" : "basis-1/2"
+                  }`}
               >
                 <CtlTextInput
                   name="name"
