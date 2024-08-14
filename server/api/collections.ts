@@ -1,5 +1,5 @@
 import b62 from "base62-random";
-import { BookInterface } from "../models/book";
+import { BookInterface } from "../models/book.js";
 import Collection, { CollectionInterface } from "../models/collection.js";
 import conductorErrors from "../conductor-errors.js";
 import {
@@ -13,15 +13,15 @@ import {
   getCommonsCollectionsSchema,
   removeCollectionResourceSchema,
   updateCollectionImageAssetSchema
-} from "./validators/collections";
+} from "./validators/collections.js";
 import { debugError } from "../debug.js";
 import { FilterQuery } from "mongoose";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Request, Response, NextFunction } from 'express';
-import { ResourceInterface } from "../models/resource";
+import { ResourceInterface } from "../models/resource.js";
 import { z } from "zod";
-import { getPaginationOffset } from "../util/helpers";
+import { getPaginationOffset } from "../util/helpers.js";
 
 const assetStorage = multer.memoryStorage();
 

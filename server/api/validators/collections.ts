@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { checkBookIDFormat } from '../../util/bookutils';
-import conductorErrors from '../../conductor-errors';
-import { PaginationSchema, SortDirection } from './misc';
+import { checkBookIDFormat } from '../../util/bookutils.js';
+import conductorErrors from '../../conductor-errors.js';
+import { PaginationSchema, SortDirection } from './misc.js';
 
 const collIDOrTitleSchema = z.string().max(150, { message: conductorErrors.err1 });
 const strictCollIDSchema = z.string().length(8, { message: conductorErrors.err1 });
