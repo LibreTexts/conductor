@@ -17,7 +17,7 @@ import alertsAPI from './api/alerts.js';
 import adoptionReportAPI from './api/adoptionreports.js';
 import harvestingRequestsAPI from './api/harvestingrequests.js';
 import collectionsAPI from './api/collections.js';
-import booksAPI from './api/books.ts';
+import booksAPI from './api/books.js';
 import homeworkAPI from './api/homework.js';
 import librariesAPI from './api/libraries.js';
 import searchAPI from './api/search.js';
