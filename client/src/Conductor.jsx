@@ -47,7 +47,7 @@ import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
 import UserDetails from './components/controlpanel/UserDetails';
-import UsersManager from './components/controlpanel/UsersManager';
+const UsersManager = lazy(() => import('./screens/conductor/controlpanel/UsersManager'));
 import LoadingSpinner from './components/LoadingSpinner';
 const CentralIdentity = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity'));
 const CentralIdentityInstructorVerifications = lazy(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityInstructorVerifications'));

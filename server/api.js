@@ -47,6 +47,7 @@ import * as SearchValidators from './api/validators/search.js';
 import * as AssetTagFrameworkValidators from './api/validators/assettagframeworks.js';
 import * as AuthorsValidators from './api/validators/authors.js';
 import * as BookValidators from './api/validators/book.js';
+import * as UserValidators from './api/validators/user.js';
 
 const router = express.Router();
 
@@ -804,6 +805,7 @@ router.route('/users').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware(process.env.ORG_ID, 'campusadmin'),
+  middleware.validateZod(UserValidators.GetUsersSchema),
   usersAPI.getUsersList,
 );
 

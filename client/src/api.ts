@@ -811,6 +811,21 @@ class API {
   async deleteCollectionResource(collID: string, resourceID: string) {
     return await axios.delete<ConductorBaseResponse>(`/commons/collection/${collID}/resources/${resourceID}`);
   }
+
+  // USERS (Control Panel)
+  async getUsers(params: {
+    query?: string;
+    page?: number;
+    limit?: number;
+    sort?: string;
+  }) {
+    return await axios.get<{
+      results: User[];
+      total_items: number;
+    } & ConductorBaseResponse>("/users", {
+      params
+    });
+  }
 }
 
 export default new API();

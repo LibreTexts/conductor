@@ -9,6 +9,7 @@ import { debugError } from '../debug.js';
 import User from '../models/user.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
+import { getPaginationOffset } from '../util/helpers.js';
 
 /**
  * Return basic profile information about the current user.
@@ -211,43 +212,60 @@ async function updateUserInstructorProfile(req, res) {
  * @param {Object} req - The Express.js request object.
  * @param {Object} res - The Express.js response object.
  */
-const getUsersList = (_req, res) => {
-    User.aggregate([
-        {
-            $match: {
-              $expr: { $not: '$isSystem' },
-            },
-        }, {
-            $project: {
-                _id: 0,
-                uuid: 1,
-                firstName: 1,
-                lastName: 1,
-                email: 1,
-                authType: 1
+const getUsersList = async (_req, res) => {
+    try {
+        const query = _req.query.query;
+        const page = parseInt(_req.query.page.toString()) || 1;
+        const limit = parseInt(_req.query.limit.toString()) || 10;
+        const sort = _req.query.sort || 'first';
+
+        const queryObj = {
+            $search: {
+                text: {
+                    query,
+                    path: ['firstName', 'lastName', 'email'],
+                }
             }
         }
-    ]).then((users) => {
-        let processedUsers = users.map((user) => {
-            if (user.authType !== null) {
-                if (user.authType === 'traditional') user.authType = 'Traditional';
-                else if (user.authType === 'sso') user.authType = 'SSO';
-            } else {
-                user.authType = 'Traditional';
+
+        const data = await User.aggregate([
+            ...(query && query.length > 0 ? [queryObj] : []),
+            {
+                $match: {
+                    $expr: { $not: '$isSystem' },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    uuid: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    email: 1,
+                    authType: 1
+                }
+            },
+            {
+                $sort: {
+                    [sort === 'first' ? 'firstName' : sort === 'last' ? 'lastName' : 'email']: 1
+                }
             }
-            return user;
-        });
+        ]);
+
+        const offset = getPaginationOffset(page, limit);
+
         return res.send({
-            err: false,
-            users: processedUsers
-        });
-    }).catch((err) => {
-        debugError(err);
+            results: data.slice(offset, offset + limit),
+            total_items: data.length,
+        })
+
+    } catch (e){
+        debugError(e);
         return res.send({
             err: true,
             errMsg: conductorErrors.err6
         });
-    });
+    }
 };
 
 
