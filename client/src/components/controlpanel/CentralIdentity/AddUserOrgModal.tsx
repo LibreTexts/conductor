@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { Button, Form, Icon, Modal, ModalProps } from "semantic-ui-react";
-import LoadingSpinner from "../../LoadingSpinner";
 import useGlobalError from "../../error/ErrorHooks";
-import {
-  CentralIdentityApp,
-  CentralIdentityOrg,
-} from "../../../types/CentralIdentity";
+import { CentralIdentityOrg } from "../../../types/CentralIdentity";
 import axios from "axios";
+import useDebounce from "../../../hooks/useDebounce";
+import api from "../../../api";
 
 interface AddUserOrgModalProps extends ModalProps {
   show: boolean;
@@ -24,11 +22,13 @@ const AddUserOrgModal: React.FC<AddUserOrgModalProps> = ({
 }) => {
   // Global state & hooks
   const { handleGlobalError } = useGlobalError();
+  const { debounce } = useDebounce();
 
   // Data & UI
   const [loading, setLoading] = useState(false);
   const [availableOrgs, setAvailableOrgs] = useState<CentralIdentityOrg[]>([]);
-  const [orgsToAdd, setOrgsToAdd] = useState<string[]>([]);
+  const [orgToAdd, setOrgToAdd] = useState<number | undefined>(undefined);
+  const [searchInput, setSearchInput] = useState(""); // For search input
 
   // Effects
   useEffect(() => {
@@ -37,39 +37,45 @@ const AddUserOrgModal: React.FC<AddUserOrgModalProps> = ({
   }, [show, userId]);
 
   // Methods
-  async function getAvailableOrgs() {
+  async function getAvailableOrgs(query?: string) {
     try {
       setLoading(true);
 
-      const res = await axios.get(`/central-identity/orgs`);
-      if (
-        res.data.err ||
-        !res.data.orgs ||
-        !Array.isArray(res.data.orgs)
-      ) {
-        handleGlobalError(res.data.err);
-        return;
+      const res = await api.getCentralIdentityOrgs({
+        query,
+        limit: 20,
+        activePage: 1
+      })
+
+      if (res.data.err) {
+        throw new Error(res.data.errMsg);
       }
 
-      const filtered = res.data.orgs.filter(
-        (org: CentralIdentityOrg) => !currentOrgs.includes(org.id.toString())
-      );
+      if (!res.data.orgs || !Array.isArray(res.data.orgs)) {
+        throw new Error("Invalid response from server");
+      }
 
-      setAvailableOrgs(filtered);
+      setAvailableOrgs(res.data.orgs);
     } catch (err) {
       handleGlobalError(err);
     } finally {
       setLoading(false);
     }
   }
+
+  const debouncedSearch = debounce((newVal: string) => {
+    getAvailableOrgs(newVal);
+  }, 200);
+
   async function submitAddUserOrg() {
     try {
+      if (!orgToAdd) return;
       setLoading(true);
 
       const res = await axios.post(
         `/central-identity/users/${userId}/orgs`,
         {
-          orgs: orgsToAdd,
+          orgs: [orgToAdd]
         }
       );
 
@@ -87,44 +93,41 @@ const AddUserOrgModal: React.FC<AddUserOrgModalProps> = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose} {...rest} size="small">
+    <Modal open={show} onClose={onClose} {...rest} size="small" className="min-h-[25rem]">
       <Modal.Header>Add User Organization(s)</Modal.Header>
-      <Modal.Content scrolling id="task-view-content">
-        {loading && (
-          <div className="my-4r">
-            <LoadingSpinner />
-          </div>
-        )}
-        {!loading && (
-          <div className="pa-2r mb-6r">
-            <Form noValidate>
-              <Form.Select
-                label="Add Organizations"
-                placeholder="Start typing to search by name..."
-                options={availableOrgs.map((org) => ({
-                  key: org.id,
-                  value: org.id,
-                  text: org.name,
-                }))}
-                onChange={(_e, { value }) => {
-                  if (!value) return;
-                  setOrgsToAdd(value as string[]);
-                }}
-                fluid
-                multiple
-                search
-                selection
-                scrolling
-                loading={loading}
-                disabled={loading}
-              />
-            </Form>
-          </div>
-        )}
+      <Modal.Content scrolling id="task-view-content" className="min-h-[25rem]">
+        <div className="pa-2r mb-6r">
+          <Form noValidate>
+            <Form.Select
+              label="Add Organizations"
+              placeholder="Start typing to search by name..."
+              options={availableOrgs.map((org) => ({
+                key: org.id,
+                value: org.id,
+                text: org.name,
+              }))}
+              value={orgToAdd}
+              onChange={(_e, { value }) => {
+                if (!value) return;
+                setOrgToAdd(value as number);
+              }}
+              fluid
+              search
+              
+              onSearchChange={(_e, { searchQuery }) => {
+                setSearchInput(searchQuery);
+                debouncedSearch(searchQuery);
+              }}
+              selection
+              scrolling
+              loading={loading}
+            />
+          </Form>
+        </div>
       </Modal.Content>
       <Modal.Actions>
         <Button onClick={onClose}>Cancel</Button>
-        {orgsToAdd.length > 0 && (
+        {orgToAdd && (
           <Button color="green" onClick={submitAddUserOrg}>
             <Icon name="save" /> Save
           </Button>
