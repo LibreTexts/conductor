@@ -1127,7 +1127,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
           </div>
           <div>
             <label className="form-field-label" htmlFor="selectSourceLicenseName">
-              Name
+              License Name
             </label>
             <Controller
               render={({ field }) => (
@@ -1157,7 +1157,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 className="form-field-label form-required"
                 htmlFor="selectSourceLicenseVersion"
               >
-                Version
+                License Version
               </label>
               <Controller
                 render={({ field }) => (

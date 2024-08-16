@@ -28,7 +28,6 @@ const AddUserOrgModal: React.FC<AddUserOrgModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [availableOrgs, setAvailableOrgs] = useState<CentralIdentityOrg[]>([]);
   const [orgToAdd, setOrgToAdd] = useState<number | undefined>(undefined);
-  const [searchInput, setSearchInput] = useState(""); // For search input
 
   // Effects
   useEffect(() => {
@@ -115,7 +114,6 @@ const AddUserOrgModal: React.FC<AddUserOrgModalProps> = ({
               search
               
               onSearchChange={(_e, { searchQuery }) => {
-                setSearchInput(searchQuery);
                 debouncedSearch(searchQuery);
               }}
               selection
