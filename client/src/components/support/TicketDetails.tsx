@@ -1,4 +1,4 @@
-import { Button } from "semantic-ui-react";
+import { Button, Label } from "semantic-ui-react";
 import { SupportTicket } from "../../types";
 import { format, parseISO } from "date-fns";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
@@ -46,8 +46,19 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
             </Button>
           </>
         )}
-        {ticket.guest &&
-          `${ticket.guest.firstName} ${ticket.guest.lastName} (${ticket.guest.email})`}
+        {ticket.guest && (
+          <div className="flex flex-row justify-center ml-1 text-xl">
+            {ticket.guest.firstName} {ticket.guest.lastName} ({ticket.guest.email})
+
+            <Label
+              className="!ml-2 !p-2 !cursor-default"
+              basic
+              color="yellow"
+              size="mini"
+            >
+              Guest
+            </Label>
+          </div>)}
       </div>
       <p className="2xl:text-xl">
         <span className="font-semibold">Category:</span>{" "}
