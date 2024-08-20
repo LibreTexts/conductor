@@ -25,6 +25,7 @@ import api from "../../../api";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
 import { ca, hi } from "date-fns/locale";
 import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
+import { SupportTicketPriority } from "../../../types/support";
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -80,7 +81,7 @@ const SupportTicketView = () => {
   });
 
   const updateTicketPriorityMutation = useMutation({
-    mutationFn: (priority: "high" | "medium" | "low") =>
+    mutationFn: (priority: SupportTicketPriority) =>
       updateTicket({ priority }),
     onSuccess: () => {
       queryClient.invalidateQueries(["ticket", id]);
@@ -142,7 +143,7 @@ const SupportTicketView = () => {
     autoCloseSilenced,
   }: {
     status?: "open" | "in_progress" | "closed";
-    priority?: "high" | "medium" | "low";
+    priority?: SupportTicketPriority;
     autoCloseSilenced?: boolean;
   }) {
     try {
@@ -195,23 +196,23 @@ const SupportTicketView = () => {
   }
 
   const changePriorityOptions = useMemo(() => {
-    const allOpts = ["high", "medium", "low"];
+    const allOpts = ["high", "medium", "low", "severe"];
     const currentPriority = ticket?.priority ?? "medium";
     const allowed = allOpts.filter((opt) => opt !== currentPriority);
 
-    const higherOrLower = (priority: string) => {
-      if (currentPriority === "high") {
-        return priority === "medium" ? "lower" : "lower";
-      } else if (currentPriority === "medium") {
-        return priority === "high" ? "higher" : "lower";
-      } else {
-        return priority === "medium" ? "higher" : "higher";
-      }
+    const higherOrLower = (priority: SupportTicketPriority) => {
+      const priorityMap: Record<SupportTicketPriority, number> = {
+        severe: 4,
+        high: 3,
+        medium: 2,
+        low: 1,
+      };
+      return priorityMap[priority] > priorityMap[currentPriority] ? "higher" : "lower";
     };
 
     return allowed.map((opt) => ({
       value: capitalizeFirstLetter(opt),
-      icon: higherOrLower(opt) === "higher" ? "arrow up" : "arrow down",
+      icon: higherOrLower(opt as SupportTicketPriority) === "higher" ? "arrow up" : "arrow down",
     }));
   }, [ticket]);
 

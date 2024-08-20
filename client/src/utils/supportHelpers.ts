@@ -3,18 +3,23 @@ import { GenericKeyTextValueObj, User } from "../types";
 export const SupportTicketPriorityOptions: GenericKeyTextValueObj<string>[] = [
   {
     key: "low",
-    text: "Low",
+    text: "Low (General Inquiries, Feature Requests)",
     value: "low",
   },
   {
     key: "medium",
-    text: "Medium",
+    text: "Medium (Technical Issues, Account Issues, etc.)",
     value: "medium",
   },
   {
     key: "high",
-    text: "High",
+    text: "High (Wide-Spread Issues, Time-Sensitive Requests)",
     value: "high",
+  },
+  {
+    key: "severe",
+    text: "Severe (Critical Issues, System-Wide Outages)",
+    value: "severe",
   },
 ];
 
@@ -23,6 +28,11 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
     key: "general",
     text: "General Inquiry",
     value: "general",
+  },
+  {
+    key: "adaptcode",
+    text: "ADAPT Access Code Request",
+    value: "adaptcode",
   },
   {
     key: "technical",

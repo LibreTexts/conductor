@@ -7,13 +7,15 @@ export type SupportTicketGuest = {
   organization: string;
 };
 
+export type SupportTicketPriority = "low" | "medium" | "high" | "severe";
+
 export type SupportTicket = {
   uuid: string;
   title: string;
   description: string;
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachment[];
-  priority: "low" | "medium" | "high";
+  priority: SupportTicketPriority;
   status: "open" | "in_progress" | "closed";
   category: string;
   capturedURL?: string;

@@ -32,7 +32,7 @@ export interface SupportTicketInterface extends Document {
   description: string;
   apps?: number[]; // Central Identity app IDs
   attachments?: SupportTicketAttachmentInterface[];
-  priority: "low" | "medium" | "high";
+  priority: "low" | "medium" | "high" | "severe";
   status: "open" | "in_progress" | "closed";
   category: string;
   guestAccessKey: string;
@@ -88,7 +88,7 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   priority: {
     type: String,
-    enum: ["low", "medium", "high"],
+    enum: ["low", "medium", "high", "severe"],
     default: "low",
   },
   status: {
