@@ -180,9 +180,9 @@ async function getOpenInProgressTickets(
       .populate("assignedUsers")
       .populate("user")
       .exec()) as (SupportTicketInterface & {
-      assignedUsers?: UserInterface[];
-      user?: UserInterface;
-    })[];
+        assignedUsers?: UserInterface[];
+        user?: UserInterface;
+      })[];
 
     // We have to sort the tickets in memory because we can only alphabetically sort by priority in query
     if (req.query.sort === "priority") {
@@ -628,7 +628,8 @@ async function createTicket(
       ticket.description,
       authorString,
       capitalizeFirstLetter(ticket.category),
-      capitalizeFirstLetter(ticket.priority)
+      capitalizeFirstLetter(ticket.priority),
+      ticket.capturedURL ?? undefined
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -1325,8 +1326,8 @@ const _getTicketAuthorString = (
   const ticketAuthor = foundUser
     ? `${foundUser.firstName} ${foundUser.lastName}`
     : guest
-    ? `${guest.firstName} ${guest.lastName}`
-    : "Unknown";
+      ? `${guest.firstName} ${guest.lastName}`
+      : "Unknown";
   const authorString = `${ticketAuthor} (${emailToNotify})`;
   return authorString;
 };

@@ -787,8 +787,9 @@ const sendSupportTicketCreateConfirmation = (recipientAddress, ticketID, params)
  * @param {string} ticketAuthor - the ticket's author
  * @param {string} ticketCategory - the ticket's category
  * @param {string} ticketPriority - the ticket's priority
+ * @param {string | undefined} capturedURL - the URL of the page where the ticket was created or provided by the user
  */
-const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketID, ticketTitle, ticketBody, ticketAuthor, ticketCategory, ticketPriority) => {
+const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketID, ticketTitle, ticketBody, ticketAuthor, ticketCategory, ticketPriority, capturedURL) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: recipientAddresses,
@@ -800,8 +801,9 @@ const sendSupportTicketCreateInternalNotification = (recipientAddresses, ticketI
             <p><strong>Author:</strong> ${ticketAuthor}</p>
             <p><strong>Category:</strong> ${ticketCategory}</p>
             <p><strong>Priority:</strong> ${ticketPriority}</p>
+            ${capturedURL ? `<p><strong>Related URL:</strong> ${capturedURL}</p>` : ''}
             <br />
-            <p><strong>Body:</strong> ${ticketBody}</p>
+            <p><strong>Description:</strong> ${ticketBody}</p>
             <br />
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
