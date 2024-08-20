@@ -66,7 +66,7 @@ const NotificationsProvider = ({ children }: { children: React.ReactNode }) => {
       }}
     >
       {children}
-      <div className="!fixed bottom-16 right-0 p-4">
+      <div className="!fixed bottom-16 right-0 p-4 z-[9999]">
         {notifications.map((notification) => (
           <div
             key={notification.id}
