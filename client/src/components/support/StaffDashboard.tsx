@@ -12,6 +12,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadingSpinner from "../LoadingSpinner";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
+import { useNotifications } from "../../context/NotificationContext";
+import CopyButton from "../util/CopyButton";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
@@ -25,7 +27,9 @@ type SupportMetrics = {
 
 const StaffDashboard = () => {
   const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
   const user = useTypedSelector((state) => state.user);
+
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [activeSort, setActiveSort] = useState<string>("opened");
@@ -390,7 +394,24 @@ const StaffDashboard = () => {
             {!isFetching &&
               openTickets?.map((ticket) => (
                 <Table.Row key={ticket.uuid}>
-                  <Table.Cell>{ticket.uuid.slice(-7)}</Table.Cell>
+                  <Table.Cell>{ticket.uuid.slice(-7)}
+                    <CopyButton val={ticket.uuid}>
+                      {({ copied, copy }) => (
+                        <Icon name="copy"
+                          className="cursor-pointer !ml-1"
+                          onClick={() => {
+                            copy()
+                            addNotification({
+                              message: "Ticket ID copied to clipboard",
+                              type: "success",
+                              duration: 2000,
+                            });
+                          }}
+                          color={copied ? "green" : "blue"}
+                        />
+                      )}
+                    </CopyButton>
+                  </Table.Cell>
                   <Table.Cell>
                     {format(parseISO(ticket.timeOpened), "MM/dd/yyyy hh:mm aa")}
                   </Table.Cell>
