@@ -27,10 +27,12 @@ import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 import { isCentralIdentityUserProperty } from "../../../utils/typeHelpers";
 import axios from "axios";
 import useGlobalError from "../../error/ErrorHooks";
-import { copyToClipboard, dirtyValues } from "../../../utils/misc";
+import { dirtyValues } from "../../../utils/misc";
 import LoadingSpinner from "../../LoadingSpinner";
 import { CentralIdentityApp } from "../../../types/CentralIdentity";
 import { format, parseISO } from "date-fns";
+import CopyButton from "../../util/CopyButton";
+import { useNotifications } from "../../../context/NotificationContext";
 const AddUserAppModal = lazy(() => import("./AddUserAppModal"));
 const AddUserOrgModal = lazy(() => import("./AddUserOrgModal"));
 const ConfirmRemoveOrgOrAppModal = lazy(
@@ -82,6 +84,7 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
 
   // Hooks and Error Handling
   const { handleGlobalError } = useGlobalError();
+  const { addNotification } = useNotifications();
   const { control, formState, reset, watch, getValues, setValue } =
     useForm<CentralIdentityUser>({
       defaultValues: {
@@ -536,17 +539,23 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                       <p>
                         <strong>UUID: </strong>
                         {getValues("uuid")}
-                        <Icon
-                          name="copy"
-                          color="blue"
-                          className="pl-2p"
-                          style={{ cursor: "pointer" }}
-                          onClick={async () => {
-                            await copyToClipboard(
-                              getValues("uuid") ?? "Unknown"
-                            );
-                          }}
-                        />
+                        <CopyButton val={getValues("uuid") ?? "unknown"}>
+                          {({ copied, copy }) => (
+                            <Icon
+                              name="copy"
+                              color={copied ? "green" : "blue"}
+                              className="pl-2p"
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                copy();
+                                addNotification({
+                                  message: "UUID copied to clipboard!",
+                                  type: "success",
+                                });
+                              }}
+                            />
+                          )}
+                        </CopyButton>
                       </p>
                     </div>
                     <div className="flex-row-div mb-2p">
@@ -562,16 +571,21 @@ const ManageUserModal: React.FC<ManageUserModalProps> = ({
                         <strong>Time of Last Access: </strong>
                         {getValues("last_access")
                           ? format(
-                              parseISO(getValues("last_access") as string),
-                              "MM/dd/yyyy hh:mm aa"
-                            )
+                            parseISO(getValues("last_access") as string),
+                            "MM/dd/yyyy hh:mm aa"
+                          )
                           : "Unknown"}
                       </p>
                     </div>
                     <div className="flex-row-div">
                       <p>
                         <strong>Time of Last Password Change: </strong>
-                        {getValues("last_password_change") ?? "Never"}
+                        {getValues("last_password_change") ?
+                          format(
+                            parseISO(getValues("last_password_change") as string),
+                            "MM/dd/yyyy hh:mm aa"
+                          ) : "Unknown"
+                        }
                       </p>
                     </div>
                   </div>
