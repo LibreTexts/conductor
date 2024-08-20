@@ -14,6 +14,7 @@ import { capitalizeFirstLetter } from "../util/HelperFunctions";
 import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
 import { useNotifications } from "../../context/NotificationContext";
 import CopyButton from "../util/CopyButton";
+import { Link } from "react-router-dom";
 const AssignTicketModal = lazy(() => import("./AssignTicketModal"));
 const SupportCenterSettingsModal = lazy(
   () => import("./SupportCenterSettingsModal")
@@ -188,10 +189,6 @@ const StaffDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }
-
-  function openTicket(uuid: string) {
-    window.open(`/support/ticket/${uuid}`, "_blank");
   }
 
   function openAssignModal(ticketId: string) {
@@ -435,7 +432,9 @@ const StaffDashboard = () => {
                     <Button
                       color="blue"
                       size="tiny"
-                      onClick={() => openTicket(ticket.uuid)}
+                      to={`/support/ticket/${ticket.uuid}`}
+                      target="_blank"
+                      as={Link}
                     >
                       <Icon name="eye" />
                       View
