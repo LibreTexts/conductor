@@ -12,6 +12,7 @@ import {
   CentralIdentityLicense,
   CentralIdentityOrg,
   CentralIdentityUser,
+  CentralIdentityVerificationRequest,
   CollectionResource,
   ConductorBaseResponse,
   ConductorSearchResponse,
@@ -399,6 +400,18 @@ class API {
         ...(query ? { query } : {}),
         ...(sort ? { sort } : {}),
       },
+    });
+    return res;
+  }
+
+  async getCentralIdentityVerificationRequests(queryParams: { page?: number; limit?: number }) {
+    const res = await axios.get<
+      {
+        requests: CentralIdentityVerificationRequest[];
+        totalCount: number;
+      } & ConductorBaseResponse
+    >("/central-identity/verification-requests", {
+      params: queryParams,
     });
     return res;
   }

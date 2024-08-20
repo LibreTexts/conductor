@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Header,
@@ -8,38 +8,29 @@ import {
   Table,
   Icon,
   Button,
-  Dropdown,
 } from "semantic-ui-react";
 import { CentralIdentityVerificationRequest } from "../../../../types";
-import axios from "axios";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
-import {
-  getPrettyVerficationStatus,
-  verificationRequestStatusOptions,
-} from "../../../../utils/centralIdentityHelpers";
 import ManageVerificationRequestModal from "../../../../components/controlpanel/CentralIdentity/ManageVerificationRequestModal";
 import { format as formatDate, parseISO } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import api from "../../../../api";
+import LoadingSpinner from "../../../../components/LoadingSpinner";
+import { useModals } from "../../../../context/ModalContext";
 
 const CentralIdentityInstructorVerifications = () => {
   //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
 
-  //Data & UI
-  const [requests, setRequests] = useState<
-    CentralIdentityVerificationRequest[]
-  >([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-  const [statusChoice, setStatusChoice] = useState<string | undefined>(
-    undefined
-  );
-  const [showManageModal, setShowManageModal] = useState<boolean>(false);
-  const [selectedRequest, setSelectedRequest] =
-    useState<CentralIdentityVerificationRequest | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(10);
+  const { data, isFetching, refetch } = useQuery<{ requests: CentralIdentityVerificationRequest[], totalCount: number }>({
+    queryKey: ['central-identity-verification-requests', page, limit],
+    queryFn: () => loadData(),
+  })
+
   const TABLE_COLS = [
     { key: "firstName", text: "First Name" },
     { key: "lastName", text: "Last Name" },
@@ -48,53 +39,36 @@ const CentralIdentityInstructorVerifications = () => {
     { key: "Actions", text: "Actions" },
   ];
 
-  //Effects
-  useEffect(() => {
-    getRequests();
-  }, [activePage, itemsPerPage]);
-
-  // Handlers & Methods
-  async function getRequests(searchString?: string) {
+  async function loadData() {
     try {
-      setLoading(true);
-
-      const res = await axios.get("/central-identity/verification-requests", {
-        params: {
-          activePage,
-          limit: itemsPerPage,
-          query: searchString,
-          status: 'open',
-        },
-      });
-
-      if (
-        res.data.err ||
-        !res.data.requests ||
-        !Array.isArray(res.data.requests) ||
-        res.data.totalCount === undefined
-      ) {
-        throw new Error("Error retrieving users");
+      const response = await api.getCentralIdentityVerificationRequests({ page, limit });
+      if (response.data.err) {
+        console.error(response.data.errMsg);
+        throw new Error(response.data.errMsg);
       }
-
-      setRequests(res.data.requests);
-      setTotalItems(res.data.totalCount);
-      setTotalPages(Math.ceil(res.data.totalCount / itemsPerPage));
+      return response.data;
     } catch (err) {
       handleGlobalError(err);
-    } finally {
-      setLoading(false);
+      return { requests: [], totalCount: 0 };
     }
   }
 
+  // Handlers & Methods
   function handleSelectRequest(request: CentralIdentityVerificationRequest) {
-    setSelectedRequest(request);
-    setShowManageModal(true);
+    openModal(
+      <ManageVerificationRequestModal
+        show={true}
+        requestId={request.id.toString()}
+        userId={request.user_id.toString()}
+        onClose={handleCloseManageModal}
+        onSave={handleCloseManageModal}
+      />
+    )
   }
 
   function handleCloseManageModal() {
-    setShowManageModal(false);
-    setSelectedRequest(null);
-    getRequests();
+    closeAllModals();
+    refetch();
   }
 
   return (
@@ -124,39 +98,20 @@ const CentralIdentityInstructorVerifications = () => {
                 </Breadcrumb.Section>
               </Breadcrumb>
             </Segment>
-            {/*
+            {
+              isFetching && <LoadingSpinner />
+            }
             <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width="16">
-                    <Dropdown
-                      placeholder="Status..."
-                      floating
-                      selection
-                      button
-                      options={verificationRequestStatusOptions}
-                      onChange={(_e, { value }) => {
-                        setStatusChoice(value as string);
-                      }}
-                      value={statusChoice}
-                    />
-                    
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            */}
-            <Segment loading={loading}>
               <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
+                activePage={page}
+                totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
+                itemsPerPage={limit}
+                setItemsPerPageFn={setLimit}
+                setActivePageFn={setPage}
+                totalLength={data?.totalCount ?? 0}
               />
             </Segment>
-            <Segment loading={loading}>
+            <Segment>
               <Table striped celled selectable>
                 <Table.Header>
                   <Table.Row>
@@ -168,8 +123,8 @@ const CentralIdentityInstructorVerifications = () => {
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {requests.length > 0 &&
-                    requests.map((req) => {
+                  {data && data.requests.length > 0 &&
+                    data.requests.map((req) => {
                       return (
                         <Table.Row key={req.id} className="word-break-all">
                           <Table.Cell>
@@ -201,7 +156,7 @@ const CentralIdentityInstructorVerifications = () => {
                         </Table.Row>
                       );
                     })}
-                  {requests.length === 0 && (
+                  {data && data.requests.length === 0 && (
                     <Table.Row>
                       <Table.Cell colSpan={TABLE_COLS.length + 1}>
                         <p className="text-center">
@@ -213,26 +168,17 @@ const CentralIdentityInstructorVerifications = () => {
                 </Table.Body>
               </Table>
             </Segment>
-            <Segment loading={loading}>
+            <Segment>
               <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
+                activePage={page}
+                totalPages={data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1}
+                itemsPerPage={limit}
+                setItemsPerPageFn={setLimit}
+                setActivePageFn={setPage}
+                totalLength={data?.totalCount ?? 0}
               />
             </Segment>
           </Segment.Group>
-          {selectedRequest && (
-            <ManageVerificationRequestModal
-              show={showManageModal}
-              requestId={selectedRequest.id.toString()}
-              userId={selectedRequest.user_id.toString()}
-              onClose={handleCloseManageModal}
-              onSave={handleCloseManageModal}
-            />
-          )}
         </Grid.Column>
       </Grid.Row>
     </Grid>

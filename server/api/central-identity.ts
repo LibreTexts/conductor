@@ -40,6 +40,7 @@ import {
   NewUserWebhookValidator,
   CheckUserApplicationAccessValidator,
   VerificationStatusUpdateWebhookValidator,
+  GetVerificationRequestsSchema,
 } from "./validators/central-identity.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
@@ -731,11 +732,7 @@ async function getServices(
 }
 
 async function getVerificationRequests(
-  req: TypedReqQuery<{
-    activePage?: number;
-    limit?: number;
-    status?: CentralIdentityVerificationRequestStatus;
-  }>,
+  req: z.infer<typeof GetVerificationRequestsSchema>,
   res: Response<{
     err: boolean;
     requests: CentralIdentityVerificationRequest[];
@@ -743,14 +740,9 @@ async function getVerificationRequests(
   }>
 ) {
   try {
-    let page = 1;
-    let limit = req.query.limit || 25;
-    if (
-      req.query.activePage &&
-      Number.isInteger(parseInt(req.query.activePage.toString()))
-    ) {
-      page = req.query.activePage;
-    }
+    const page = parseInt(req.query.page?.toString()) || 1;
+    const limit = parseInt(req.query.limit?.toString()) || 10;
+    
     const offset = getPaginationOffset(page, limit);
 
     const requestsRes = await useCentralIdentityAxios(false).get(
@@ -759,7 +751,6 @@ async function getVerificationRequests(
         params: {
           offset,
           limit,
-          status: req.query.status ? req.query.status : undefined,
         },
       }
     );
@@ -1057,16 +1048,6 @@ function validate(method: string) {
     }
     case "updateUser": {
       return [param("id", conductorErrors.err1).exists().isUUID()];
-    }
-    case "getVerificationRequests": {
-      return [
-        param("activePage", conductorErrors.err1).optional().isInt(),
-        param("limit", conductorErrors.err1).optional().isInt(),
-        param("status", conductorErrors.err1)
-          .optional()
-          .isString()
-          .custom(validateVerificationRequestStatus),
-      ];
     }
     case "getOrgs": {
       return [
