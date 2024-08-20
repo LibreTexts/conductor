@@ -266,8 +266,7 @@ router.route('/central-identity/verification-requests').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
   authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
-  centralIdentityAPI.validate('getVerificationRequests'),
-  middleware.checkValidationErrors,
+  middleware.validateZod(centralIdentityValidators.GetVerificationRequestsSchema),
   centralIdentityAPI.getVerificationRequests,
 );
 

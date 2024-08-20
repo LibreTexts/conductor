@@ -1,4 +1,6 @@
+import { query } from "express";
 import { z } from "zod";
+import { PaginationSchema } from "./misc";
 
 export const NewUserWebhookValidator = z.object({
   body: z.object({
@@ -30,3 +32,8 @@ export const CheckUserApplicationAccessValidator = z.object({
     applicationId: z.coerce.number().positive().int(),
   }),
 });
+
+
+export const GetVerificationRequestsSchema = z.object({
+  query: PaginationSchema,
+})
