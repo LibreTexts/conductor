@@ -6,6 +6,8 @@ const TicketUUIDParams = z.object({
   }),
 });
 
+const TicketPriority = z.enum(["low", "medium", "high", "severe"]);
+
 export const GetTicketValidator = TicketUUIDParams;
 export const DeleteTicketValidator = TicketUUIDParams;
 export const GetUserTicketsValidator = z.object({
@@ -22,7 +24,7 @@ export const CreateTicketValidator = z.object({
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(1000),
     apps: z.array(z.number()).optional(),
-    priority: z.enum(["low", "medium", "high"]),
+    priority: TicketPriority,
     category: z.string(),
     capturedURL: z.string().url().optional(),
     attachments: z.array(z.string()).optional(),
@@ -42,7 +44,7 @@ export const AddTicketAttachementsValidator = TicketUUIDParams;
 export const UpdateTicketValidator = z
   .object({
     body: z.object({
-      priority: z.enum(["low", "medium", "high"]),
+      priority: TicketPriority,
       status: z.enum(["open", "in_progress", "closed"]),
       autoCloseSilenced: z.boolean().optional(),
     }),
@@ -62,7 +64,7 @@ export const GetOpenTicketsValidator = z.object({
     sort: z.enum(["opened", "priority", "status", "category"]).optional(),
     assignee: z.string().uuid().or(z.literal("")).optional(),
     category: z.string().or(z.literal("")).optional(),
-    priority: z.enum(["low", "medium", "high"]).or(z.literal("")).optional(),
+    priority: TicketPriority.or(z.literal("")).optional(),
   }),
 });
 
