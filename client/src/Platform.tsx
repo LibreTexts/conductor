@@ -77,12 +77,12 @@ const Platform = () => {
     }
   }, []);
 
-  const ApplicationTree = ()=> {
+  const ApplicationTree = () => {
     return (
       <ErrorBoundary FallbackComponent={ErrorScreen}>
         <div className="App">
-          <ModalsProvider>
-            <NotificationsProvider>
+          <NotificationsProvider>
+            <ModalsProvider>
               <Switch>
                 {/* Commons Render Tree */}
                 {/* @ts-expect-error */}
@@ -92,8 +92,8 @@ const Platform = () => {
                 {/* Conductor and fallback Render Tree */}
                 <Route component={Conductor} />
               </Switch>
-            </NotificationsProvider>
-          </ModalsProvider>
+            </ModalsProvider>
+          </NotificationsProvider>
           <ErrorModal />
         </div>
       </ErrorBoundary>

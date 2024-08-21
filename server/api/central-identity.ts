@@ -29,6 +29,7 @@ import {
   CentralIdentityVerificationRequestStatus,
 } from "../types";
 import {
+  ADAPTAccessCodeResponse,
   CentralIdentityLicense,
   CentralIdentityUpdateVerificationRequestBody,
 } from "../types/CentralIdentity.js";
@@ -46,6 +47,8 @@ import Project, { ProjectInterface } from "../models/project.js";
 import { getSubdomainFromLibrary } from "../util/librariesclient.js";
 import { updateTeamWorkbenchPermissions } from "../util/projectutils.js";
 import fse from "fs-extra";
+import axios from "axios";
+import { SignJWT } from "jose";
 
 async function getUsers(
   req: TypedReqQuery<{
@@ -332,8 +335,7 @@ async function deleteUserApplication(
 ) {
   try {
     const appRes = await useCentralIdentityAxios(false).delete(
-      `/users/${
-        req.params.id
+      `/users/${req.params.id
       }/applications/${req.params.applicationId?.toString()}`
     );
 
@@ -743,7 +745,7 @@ async function getVerificationRequests(
     const page = parseInt(req.query.page?.toString()) || 1;
     const limit = parseInt(req.query.limit?.toString()) || 10;
     const status = req.query.status || 'open';
-    
+
     const offset = getPaginationOffset(page, limit);
 
     const requestsRes = await useCentralIdentityAxios(false).get(
@@ -860,9 +862,35 @@ async function updateVerificationRequest(
   }
 }
 
-function validateVerificationRequestStatus(raw: string): boolean {
-  return isCentralIdentityVerificationRequestStatus(raw);
+async function generateADAPTAccessCode(req: Request, res: Response) {
+  try {
+    if (!process.env.ADAPT_ACCESS_TOKEN) {
+      throw new Error("Missing required environment variable.");
+    }
+
+    const encoded = new TextEncoder().encode(process.env.ADAPT_ACCESS_TOKEN);
+    const jwtToSend = await new SignJWT({}).setProtectedHeader({ alg: 'HS256', typ: 'JWT' }).setIssuedAt().setExpirationTime('1h').sign(encoded);
+
+    const adaptRes = await axios.get<ADAPTAccessCodeResponse>("https://adapt.libretexts.org/api/access-code/instructor", {
+      headers: {
+        Authorization: `Bearer ${jwtToSend}`
+      }
+    });
+
+    if (adaptRes.data.type === 'error') {
+      throw new Error(adaptRes.data.message);
+    }
+
+    return res.send({
+      err: false,
+      access_code: adaptRes.data.access_code
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
 }
+
 
 async function processNewUserWebhookEvent(
   req: z.infer<typeof NewUserWebhookValidator>,
@@ -1101,6 +1129,7 @@ export default {
   getVerificationRequest,
   updateVerificationRequest,
   updateUser,
+  generateADAPTAccessCode,
   processNewUserWebhookEvent,
   processLibraryAccessWebhookEvent,
   processVerificationStatusUpdateWebook,

@@ -61,11 +61,11 @@ export type CentralIdentityUser = {
   student_id?: string;
   uuid: string;
   verify_status:
-    | "not_attempted"
-    | "pending"
-    | "needs_review"
-    | "denied"
-    | "verified";
+  | "not_attempted"
+  | "pending"
+  | "needs_review"
+  | "denied"
+  | "verified";
 };
 
 export type CentralIdentityVerificationRequest = {
@@ -78,7 +78,7 @@ export type CentralIdentityVerificationRequest = {
   user: Pick<CentralIdentityUser, "first_name" | "last_name" | "email" | "uuid">;
 };
 
-export type CentralIdentityVerificationRequestStatus =  'approved' | 'denied' | 'needs_change' | 'open';
+export type CentralIdentityVerificationRequestStatus = 'approved' | 'denied' | 'needs_change' | 'open';
 
 export type CentralIdentityAccessRequestChangeEffect = 'deny' | 'approve' | 'request_change';
 
@@ -94,4 +94,12 @@ export type CentralIdentityLicense = {
   url?: string;
   created_at: Date;
   updated_at: Date;
+}
+
+export type ADAPTAccessCodeResponse = {
+  type: 'success',
+  access_code: string,
+} | {
+  type: 'error',
+  message: string,
 }
