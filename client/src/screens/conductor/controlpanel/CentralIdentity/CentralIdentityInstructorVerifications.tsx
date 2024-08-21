@@ -41,7 +41,7 @@ const CentralIdentityInstructorVerifications = () => {
 
   async function loadData() {
     try {
-      const response = await api.getCentralIdentityVerificationRequests({ page, limit });
+      const response = await api.getCentralIdentityVerificationRequests({ page, limit, status: "open" });
       if (response.data.err) {
         console.error(response.data.errMsg);
         throw new Error(response.data.errMsg);
