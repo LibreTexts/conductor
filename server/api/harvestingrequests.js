@@ -295,18 +295,12 @@ const convertRequest = (req, res) => {
                 members: [],
                 auditors: [],
                 libreLibrary: harvestReq.library,
-                license: harvestReq.license,
+                license: {
+                    name: harvestReq.license,
+                    sourceURL: harvestReq.url
+                },
                 harvestReqID: harvestReq._id
             };
-            if (harvestReq.url) {
-                if(!projectData.license) {
-                    projectData.license = {
-                        sourceURL: harvestReq.url
-                    }
-                } else {
-                    projectData.url = harvestReq.url;
-                }
-            }
             let notes = `**Harvest Request Information (do not remove)**\n*Email:* ${harvestReq.email}\n`;
             if (harvestReq.name && !isEmptyString(harvestReq.name)) {
                 notes += `*Requester Name:* ${harvestReq.name}\n`;
