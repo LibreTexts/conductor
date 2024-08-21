@@ -23,9 +23,11 @@ import TicketAttachments from "../../../components/support/TicketAttachments";
 import ConfirmDeleteTicketModal from "../../../components/support/ConfirmDeleteTicketModal";
 import api from "../../../api";
 import { capitalizeFirstLetter } from "../../../components/util/HelperFunctions";
-import { ca, hi } from "date-fns/locale";
 import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseWarning";
 import { SupportTicketPriority } from "../../../types/support";
+import { useModals } from "../../../context/ModalContext";
+import ADAPTAccessCodeModal from "../../../components/support/ADAPTAccessCodeModal";
+
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
 );
@@ -41,6 +43,7 @@ const SupportTicketView = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
 
   const [id, setId] = useState<string>("");
@@ -195,6 +198,15 @@ const SupportTicketView = () => {
     deleteTicketMutation.mutateAsync();
   }
 
+  function handleOpenADAPTAccessCodeModal() {
+    openModal(
+      <ADAPTAccessCodeModal
+        open
+        onClose={() => closeAllModals()}
+      />
+    )
+  }
+
   const changePriorityOptions = useMemo(() => {
     const allOpts = ["high", "medium", "low", "severe"];
     const currentPriority = ticket?.priority ?? "medium";
@@ -230,6 +242,12 @@ const SupportTicketView = () => {
       )}
       {["open", "in_progress"].includes(ticket?.status ?? "") && (
         <>
+          <Button
+            color="teal"
+            onClick={handleOpenADAPTAccessCodeModal}>
+            <Icon name="key" />
+            ADAPT Access Code
+          </Button>
           <Button
             onClick={() =>
               toggleAutoCloseMutation.mutateAsync(!ticket?.autoCloseSilenced)

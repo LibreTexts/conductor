@@ -37,4 +37,4 @@ export const GetVerificationRequestsSchema = z.object({
   query: z.object({
     status: z.enum(["open", "closed"]).optional()
   }).merge(PaginationSchema),
-})
+});

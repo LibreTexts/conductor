@@ -368,6 +368,13 @@ class API {
     return res;
   }
 
+  async generateADAPTAccessCode() {
+    const res = await axios.get<{
+      access_code: string;
+    } & ConductorBaseResponse>("/central-identity/adapt-access-code");
+    return res;
+  }
+
   async getCentralIdentityLicenses() {
     const res = await axios.get<
       {
