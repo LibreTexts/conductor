@@ -1,4 +1,3 @@
-import { query } from "express";
 import { z } from "zod";
 import { PaginationSchema } from "./misc";
 
@@ -35,5 +34,7 @@ export const CheckUserApplicationAccessValidator = z.object({
 
 
 export const GetVerificationRequestsSchema = z.object({
-  query: PaginationSchema,
+  query: z.object({
+    status: z.enum(["open", "closed"]).optional()
+  }).merge(PaginationSchema),
 })

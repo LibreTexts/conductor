@@ -404,7 +404,7 @@ class API {
     return res;
   }
 
-  async getCentralIdentityVerificationRequests(queryParams: { page?: number; limit?: number }) {
+  async getCentralIdentityVerificationRequests(queryParams: { page?: number; limit?: number, status?: 'open' | 'closed' }) {
     const res = await axios.get<
       {
         requests: CentralIdentityVerificationRequest[];

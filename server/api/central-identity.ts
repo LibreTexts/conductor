@@ -742,6 +742,7 @@ async function getVerificationRequests(
   try {
     const page = parseInt(req.query.page?.toString()) || 1;
     const limit = parseInt(req.query.limit?.toString()) || 10;
+    const status = req.query.status || 'open';
     
     const offset = getPaginationOffset(page, limit);
 
@@ -751,6 +752,7 @@ async function getVerificationRequests(
         params: {
           offset,
           limit,
+          status,
         },
       }
     );
