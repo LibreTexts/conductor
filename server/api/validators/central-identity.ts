@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PaginationSchema } from "./misc";
+import { PaginationSchema } from "./misc.js";
 
 export const NewUserWebhookValidator = z.object({
   body: z.object({
