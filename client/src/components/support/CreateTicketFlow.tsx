@@ -23,6 +23,8 @@ import { useTypedSelector } from "../../state/hooks";
 import { Link, useLocation } from "react-router-dom";
 import FileUploader from "../FileUploader";
 import TurnstileWidget from "../util/TurnstileWidget";
+import { useParams } from "react-router-dom-v5-compat";
+import { SupportTicketPriority } from "../../types/support";
 
 interface CreateTicketFlowProps {
   isLoggedIn: boolean;
@@ -59,14 +61,10 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
   const [challengePassed, setChallengePassed] = useState(true);
   const [confirmEmail, setConfirmEmail] = useState<string>("");
   const [startedConfirming, setStartedConfirming] = useState(false);
+  const [didReceiveADAPTParams, setDidReceiveADAPTParams] = useState(false); // disable certain fields if params are received for adapt access code request
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.has("fromURL")) {
-      const captured = new URL(searchParams.get("fromURL") || "");
-      setValue("capturedURL", captured.toString());
-      setAutoCapturedURL(true);
-    }
+    processSearchParams();
   }, []);
 
   // useEffect(() => {
@@ -110,6 +108,40 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
       setAutoCapturedURL(true);
     }
   }, []);
+
+  function processSearchParams() {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.has("fromURL")) {
+      const captured = new URL(searchParams.get("fromURL") || "");
+      setValue("capturedURL", captured.toString());
+      setAutoCapturedURL(true);
+    }
+
+    let categoryParam;
+    let priorityParam;
+
+    if (searchParams.has('category')) {
+      const found = SupportTicketCategoryOptions.find((opt) => opt.value === searchParams.get('category'));
+      if (found) {
+        categoryParam = found.value;
+      }
+    }
+
+    if (searchParams.has('priority')) {
+      const found = SupportTicketPriorityOptions.find((opt) => opt.value === searchParams.get('priority'));
+      if (found) {
+        priorityParam = found.value;
+      }
+    }
+
+    if (categoryParam && priorityParam && categoryParam === 'adaptcode') {
+      setValue('title', 'ADAPT Access Code Request');
+      setValue('category', categoryParam);
+      setValue('priority', priorityParam as SupportTicketPriority);
+      setValue("description", "I am requesting an access code for ADAPT.");
+      setDidReceiveADAPTParams(true);
+    }
+  }
 
   const submitDisabled = useMemo(() => {
     if (loading) return true;
@@ -234,6 +266,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     return charsRemain;
   };
 
+  const disabledInputClasses = '!bg-gray-200 !border-slate-600 !border !rounded-md'
+
   return (
     <div
       className="flex flex-col border rounded-lg m-4 p-4 w-full lg:w-2/3 shadow-lg bg-white"
@@ -334,7 +368,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 rules={required}
                 required
                 maxLength={200}
-                className=""
+                disabled={didReceiveADAPTParams}
               />
             </div>
             <div className="mt-1">
@@ -359,6 +393,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     selection
                     search
                     placeholder="Select the category of your ticket"
+                    disabled={didReceiveADAPTParams}
+                    className={didReceiveADAPTParams ? disabledInputClasses : ''}
                   />
                 )}
               />
@@ -418,6 +454,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     fluid
                     selection
                     placeholder="Select the priority of your ticket"
+                    disabled={didReceiveADAPTParams}
+                    className={didReceiveADAPTParams ? disabledInputClasses : ''}
                   />
                 )}
               />
@@ -451,6 +489,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 value={watch("description")}
                 onInput={(e) => setValue("description", e.currentTarget.value)}
                 maxLength={1000}
+                disabled={watch("category") === 'adaptcode' && didReceiveADAPTParams}
+                className={didReceiveADAPTParams ? disabledInputClasses : ''}
               />
               <p className="text-xs text-gray-500 italic">
                 Chars Remaining: {getRemainingChars(watch("description"))}.

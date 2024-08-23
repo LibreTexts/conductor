@@ -55,7 +55,7 @@ export default function CtlTextInput<
                 ? true
                 : false
             } // Display error message if showErrorMsg is true, otherwise just display error state
-            className="mt-1"
+            className={`mt-1 ${rest.disabled ? 'bg-gray-200 border-slate-600 border rounded-md' : ''}`}
             {...rest}
           />
         </div>
