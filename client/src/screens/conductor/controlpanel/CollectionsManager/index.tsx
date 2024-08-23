@@ -135,7 +135,7 @@ const CollectionsManager = () => {
     }
 
     const openCollModal = (mode: 'create' | 'edit' | 'nest', coll?: Collection) => {
-        if (rootMode) return;
+        if (rootMode && mode !== 'create') return;
         openModal(
             <EditCollection
                 show={true}
@@ -144,6 +144,7 @@ const CollectionsManager = () => {
                 onCloseFunc={closeAllModals}
                 onSuccessFunc={() => {
                     closeAllModals();
+                    queryClient.invalidateQueries(ALL_COLL_QUERY_KEY);
                     queryClient.invalidateQueries(["active-collection", currDirectory]);
                 }}
             />
