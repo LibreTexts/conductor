@@ -39,19 +39,25 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
         <Card.Header className="commons-content-card-header">
           {resourceData.title}
         </Card.Header>
-        <Card.Meta>
-          <Image
-            src={getLibGlyphURL(isBook ? resourceData.library : "")}
-            className="library-glyph"
-          />
-          {getLibraryName(isBook ? resourceData.library : "")}
-        </Card.Meta>
-        <Card.Description>
-          <p>{isBook ? resourceData.author : ""}</p>
-          <p>
-            <em>{isBook ? resourceData.affiliation : ""}</em>
-          </p>
-        </Card.Description>
+        {
+          isBook && (
+            <>
+              <Card.Meta>
+                <Image
+                  src={getLibGlyphURL(isBook ? resourceData.library : "")}
+                  className="library-glyph"
+                />
+                {getLibraryName(isBook ? resourceData.library : "")}
+              </Card.Meta>
+              <Card.Description>
+                <p>{resourceData.author}</p>
+                <p>
+                  <em>{resourceData.affiliation}</em>
+                </p>
+              </Card.Description>
+            </>
+          )
+        }
       </Card.Content>
     </Card>
   );

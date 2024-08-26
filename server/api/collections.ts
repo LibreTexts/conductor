@@ -527,9 +527,10 @@ async function getCollection(req: z.infer<typeof getCollectionSchema>, res: Resp
 
 async function getCollectionResources(req: z.infer<typeof getCollectionResourcesSchema>, res: Response) {
   try {
-    const { query, sort, sortDirection } = req.query;
+    const { query, sortDirection } = req.query;
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 12;
+    const sort = req.query.sort || 'title';
 
     const bookMatchConds: FilterQuery<any>[] = [
       {
@@ -708,11 +709,6 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
           _id: 0,
           __v: 0
         },
-      },
-      {
-        $sort: {
-          [sort]: sortDirection === 'ascending' ? 1 : -1,
-        }
       }
     ])
     if (collections.length < 1) {
@@ -722,20 +718,53 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       });
     }
     const collection = collections[0];
-    const resources = Array.isArray(collection.resources) ? collection.resources.map((item: ResourceInterface & { book?: BookInterface; collection?: CollectionInterface }) => ({
+
+    const resources: { resourceType: string; resourceID: string; resourceData: BookInterface | CollectionInterface }[] = Array.isArray(collection.resources) ? collection.resources.map((item: ResourceInterface & { book?: BookInterface; collection?: CollectionInterface }) => ({
       resourceType: item.resourceType,
       resourceID: item.resourceID,
       resourceData: item.book || item.collection,
-    })) : [];
+    })) : []
 
+    const sortData = (data: { resourceType: string; resourceID: string; resourceData: BookInterface | CollectionInterface }[]) => {
+      let _sorted = []
+      switch (sort) {
+        case 'title':
+          _sorted = data.sort((a, b) => a.resourceData.title.localeCompare(b.resourceData.title));
+          break;
+        case 'author':
+          _sorted = data.sort((a, b) => {
+            if ('author' in a.resourceData && 'author' in b.resourceData) {
+              if (!a.resourceData.author || !b.resourceData.author) {
+                return 0;
+              }
+              return a.resourceData.author.localeCompare(b.resourceData.author)
+            }
+            return 0;
+          })
+          break;
+        case 'resourceType':
+          _sorted = data.sort((a, b) => a.resourceType.localeCompare(b.resourceType))
+          break;
+        default:
+          _sorted = data;
+          break;
+      }
+
+      if (sortDirection === 'ascending') {
+        return _sorted.reverse();
+      }
+      return _sorted;
+    }
+
+    const sorted = sortData(resources);
     const offset = getPaginationOffset(page, limit);
 
     return res.send({
       err: false,
       collID: collection.collID,
-      resources: resources.slice(offset, offset + limit),
-      cursor: resources.length > offset + limit ? offset + limit : undefined,
-      total_items: resources.length,
+      resources: sorted.slice(offset, offset + limit),
+      cursor: sorted.length > offset + limit ? offset + limit : undefined,
+      total_items: sorted.length,
     });
   } catch (err) {
     debugError(err);
