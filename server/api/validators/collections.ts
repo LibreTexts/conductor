@@ -42,6 +42,7 @@ export const createCollectionSchema = z.object({
     privacy: collectionPrivacySchema.optional(),
     program: z.string().or(z.literal("")).optional(),
     title: z.string().min(3, { message: conductorErrors.err1 }),
+    description: z.string().max(1000).or(z.literal("")).optional(),
   }),
 });
 
@@ -57,6 +58,7 @@ export const editCollectionSchema = z.object({
     privacy: collectionPrivacySchema.optional(),
     program: z.string().or(z.literal("")).optional(),
     title: z.string().min(3, { message: conductorErrors.err1 }).optional(),
+    description: z.string().max(1000).or(z.literal("")).optional(),
   }),
   params: strictCollectionIDParamsSchema,
 });

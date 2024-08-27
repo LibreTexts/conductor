@@ -1,18 +1,32 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import styles from './TextArea.module.css';
+import classNames from 'classnames';
+
+interface TextAreaProps {
+  placeholder?: string;
+  textValue: string;
+  onTextChange: (newText: string) => void;
+  hideFormatMsg?: boolean;
+  contentType: string;
+  error?: boolean;
+  innerRef?: React.RefObject<HTMLTextAreaElement>;
+  className?: string;
+  rows?: number;
+}
 
 /**
  * A reusable and themed textarea.
  */
-const TextArea = ({
+const TextArea: React.FC<TextAreaProps> = ({
   placeholder,
   textValue,
   onTextChange,
   hideFormatMsg,
   contentType,
   error,
-  innerRef
+  innerRef,
+  className,
+  rows = 5
 }) => {
 
   /**
@@ -20,19 +34,20 @@ const TextArea = ({
    *
    * @param {React.ChangeEvent<HTMLTextAreaElement>} e - Event that activate the handler.
    */
-  function handleInputChange(e) {
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     onTextChange(e.target.value);
   }
 
   return (
-    <div id={styles.container} className={error ? styles.error : ''}>
+    <div id={styles.container} className={classNames(error ? styles.error : '', className)}>
       <textarea
         id={styles.textarea}
         placeholder={placeholder}
         value={textValue}
         onChange={handleInputChange}
-        rows={1}
+        rows={rows}
         ref={innerRef}
+        className='!h-100'
       />
       {!hideFormatMsg && (
         <div id={styles.format_msg}>
@@ -44,26 +59,5 @@ const TextArea = ({
     </div>
   )
 };
-
-TextArea.propTypes = {
-  placeholder: PropTypes.string,
-  textValue: PropTypes.string,
-  onTextChange: PropTypes.func,
-  hideFormatMsg: PropTypes.bool,
-  contentType: PropTypes.string,
-  error: PropTypes.bool,
-  innerRef: PropTypes.object
-};
-
-TextArea.defaultProps = {
-  placeholder: 'Enter text here...',
-  textValue: '',
-  onTextChange: () => { },
-  hideFormatMsg: false,
-  contentType: 'message',
-  error: false,
-  innerRef: null
-};
-
 
 export default TextArea;

@@ -26,6 +26,8 @@ import CollectionTable from "../../../components/Collections/CollectionTable";
 import useInfiniteScroll from "../../../hooks/useInfiniteScroll";
 import useDebounce from "../../../hooks/useDebounce";
 import { checkIsCollection } from "../../../components/util/TypeHelpers";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 const limit = 12;
 const BASE_PATH = "/collections";
 
@@ -73,6 +75,15 @@ const CommonsCollection: React.FC<{}> = () => {
       pageParams: [],
     }));
   }, [pathname]);
+
+  useEffect(() => {
+    DOMPurify.addHook("afterSanitizeAttributes", function (node) {
+      if ("target" in node) {
+        node.setAttribute("target", "_blank");
+        node.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+  }, [])
 
   const rootSortOptions = [
     { key: "title", text: "Sort by Title", value: "title" },
@@ -300,7 +311,7 @@ const CommonsCollection: React.FC<{}> = () => {
       <Breadcrumb.Section as={Link} to="/collections">
         <span>
           <span className="muted-text">You are on: </span>
-          Collections
+          {org.collectionsDisplayLabel || "Collections"}
         </span>
       </Breadcrumb.Section>
       {elements.map((el, i) => (
@@ -334,16 +345,15 @@ const CommonsCollection: React.FC<{}> = () => {
               </Segment>
             )}
             <Segment>
-              <Breakpoint name="desktop">
-                <Header size="large" as="h2">
-                  {id ? collection?.title : "Collections"}
-                </Header>
-              </Breakpoint>
-              <Breakpoint name="mobileOrTablet">
-                <Header size="large" textAlign="center">
-                  {id ? collection?.title : "Collections"}
-                </Header>
-              </Breakpoint>
+              <Header size="large" as="h2" className="text-center lg:text-left">
+                {id ? collection?.title : org.collectionsDisplayLabel || "Collections"}
+              </Header>
+              <p
+                className='text-lg text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full'
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(marked(id ? collection?.description || "" : org.collectionsMessage || "", { breaks: true }))
+                }}
+              />
             </Segment>
             <Segment>
               <div className="flex flex-row justify-center w-full">
