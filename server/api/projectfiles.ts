@@ -1070,49 +1070,28 @@ async function moveProjectFile(
 }
 
 /**
- * Deletes a Project File in S3 and updates the Files
- * list. Multiple files  can be deleted by specifying a folder identifier.
+ * Deletes multiple Project Files or folders from the database and underlying storage solution.
  *
- * @param {express.Request} req - Incoming request object.
- * @param {express.Response} res - Outgoing resposne object.
+ * @param projectID - Project identifier.
+ * @param fileIDs - Project File (or folder) identifiers to delete.
  */
-async function removeProjectFile(
-  req: ZodReqWithUser<z.infer<typeof removeProjectFileSchema>>,
-  res: Response
-) {
-  try {
-    if (
+async function _removeManyProjectFiles(projectID: string, fileIDs: string[]) {
+  if (
       !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
       !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
       !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
-    ) {
-      throw new Error("Missing Cloudflare credentials");
-    }
+  ) {
+    throw new Error("Missing Cloudflare credentials");
+  }
 
-    const projectID = req.params.projectID;
-    const fileID = req.params.fileID;
+  const objsToDelete = await ProjectFile.find({
+    projectID,
+    fileID: {
+      $in: fileIDs,
+    },
+  }).lean();
 
-    const found = await ProjectFile.findOne({
-      projectID,
-      fileID,
-    })
-      .orFail()
-      .lean();
-
-    const objsToDelete = [];
-    const children = await ProjectFile.find({
-      projectID,
-      parent: fileID,
-    }).lean();
-
-    objsToDelete.push(found);
-    if (children.length > 0) {
-      objsToDelete.push(...children);
-    }
-
-    const objectIDs = objsToDelete.map((obj) => obj.fileID);
-
-    const filesToDelete = objsToDelete
+  const filesToDelete = objsToDelete
       .map((obj) => {
         if (obj.storageType === "file" && !obj.isURL && !obj.isVideo) {
           return {
@@ -1123,7 +1102,7 @@ async function removeProjectFile(
       })
       .filter((obj) => obj !== null);
 
-    const videosToDelete = objsToDelete
+  const videosToDelete = objsToDelete
       .map((obj) => {
         if (obj.storageType === "file" && obj.isVideo && obj.videoStorageID) {
           return obj.videoStorageID;
@@ -1132,52 +1111,105 @@ async function removeProjectFile(
       })
       .filter((obj) => obj !== null);
 
-    if (filesToDelete.length > 0) {
-      const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
-      const deleteRes = await storageClient.send(
+  if (filesToDelete.length > 0) {
+    const storageClient = new S3Client(PROJECT_FILES_S3_CLIENT_CONFIG);
+    const deleteRes = await storageClient.send(
         new DeleteObjectsCommand({
           Bucket: process.env.AWS_PROJECTFILES_BUCKET,
           Delete: {
             Objects: filesToDelete as { Key: string }[],
           },
         })
-      );
-      if (Array.isArray(deleteRes.Errors) && deleteRes.Errors.length > 0) {
-        return res.status(500).send({
-          err: true,
-          errMsg: conductorErrors.err58,
-        });
-      }
+    );
+    if (Array.isArray(deleteRes.Errors) && deleteRes.Errors.length > 0) {
+      throw new Error('delete_errors_encountered');
     }
+  }
 
-    if (videosToDelete.length > 0) {
-      const deletePromises = videosToDelete.map((videoID) => {
-        const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${videoID}`;
-        return axios.delete(ENDPOINT, {
-          headers: {
-            Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
-          },
-        });
+  if (videosToDelete.length > 0) {
+    const deletePromises = videosToDelete.map((videoID) => {
+      const ENDPOINT = `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_STREAM_ACCOUNT_ID}/stream/${videoID}`;
+      return axios.delete(ENDPOINT, {
+        headers: {
+          Authorization: `Bearer ${process.env.CLOUDFLARE_STREAM_API_TOKEN}`,
+        },
       });
-
-      await Promise.all(deletePromises);
-    }
-
-    const deleteRes = await ProjectFile.deleteMany({
-      projectID,
-      fileID: { $in: objectIDs },
     });
 
-    // /* Recalculate access for all file system entries */
-    // // @ts-ignore
-    // updated = computeStructureAccessSettings(updated);
+    await Promise.all(deletePromises);
+  }
 
-    // // @ts-ignore
-    // const projectUpdate = await updateProjectFiles(projectID, updated);
-    // if (!projectUpdate) {
-    //   throw new Error("updatefail");
-    // }
+  if (!fileIDs?.length) {
+    return;
+  }
+  await ProjectFile.deleteMany({
+    projectID,
+    fileID: { $in: fileIDs },
+  });
+}
 
+/**
+ * Deletes a Project File from the database and underlying storage solution. Multiple files can be deleted by
+ * specifying a folder identifier.
+ *
+ * @param projectID - Project identifier.
+ * @param fileID - Project File (or folder) identifier.
+ */
+async function _removeProjectFile(projectID: string, fileID: string) {
+  if (
+      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
+      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
+      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
+  ) {
+    throw new Error("Missing Cloudflare credentials");
+  }
+
+  const found = await ProjectFile.findOne({
+    projectID,
+    fileID,
+  })
+      .orFail()
+      .lean();
+
+  const objsToDelete = [];
+  const children = await ProjectFile.find({
+    projectID,
+    parent: fileID,
+  }).lean();
+
+  objsToDelete.push(found);
+  if (children.length > 0) {
+    objsToDelete.push(...children);
+  }
+
+  const objectIDs = objsToDelete.map((obj) => obj.fileID);
+
+  await _removeManyProjectFiles(projectID, objectIDs);
+
+  // /* Recalculate access for all file system entries */
+  // // @ts-ignore
+  // updated = computeStructureAccessSettings(updated);
+
+  // // @ts-ignore
+  // const projectUpdate = await updateProjectFiles(projectID, updated);
+  // if (!projectUpdate) {
+  //   throw new Error("updatefail");
+  // }
+}
+
+/**
+ * Deletes a Project File and updates the Files list.
+ * Multiple files can be deleted by specifying a folder identifier.
+ *
+ * @param {express.Request} req - Incoming request object.
+ * @param {express.Response} res - Outgoing resposne object.
+ */
+async function removeProjectFile(
+  req: ZodReqWithUser<z.infer<typeof removeProjectFileSchema>>,
+  res: Response
+) {
+  try {
+    await _removeProjectFile(req.params.projectID, req.params.fileID);
     return res.send({
       err: false,
       msg: `Successfully deleted files!`,
@@ -1185,7 +1217,9 @@ async function removeProjectFile(
   } catch (e) {
     return res.status(500).send({
       err: true,
-      errMsg: conductorErrors.err6,
+      errMsg: (e as Error)?.message === 'delete_errors_encountered'
+          ? conductorErrors.err58
+          : conductorErrors.err6,
     });
   }
 }
@@ -1681,6 +1715,8 @@ export default {
   updateProjectFile,
   updateProjectFileAccess,
   moveProjectFile,
+  _removeManyProjectFiles,
+  _removeProjectFile,
   removeProjectFile,
   getProjectFileCaptions,
   getProjectFileEmbedHTML,

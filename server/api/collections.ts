@@ -829,6 +829,22 @@ async function addResourcesToCollection(req: z.infer<typeof addCollectionResourc
   }
 }
 
+/**
+ * Removes a resource from any Collection it may be included in.
+ *
+ * @param resourceID - The identifier to search on.
+ * @private
+ */
+async function _removeResourceFromAnyCollection(resourceID: string) {
+  if (!resourceID) return false;
+  const res = await Collection.updateMany({}, {
+    $pull: {
+      resources: { resourceID },
+    },
+  });
+  return res.acknowledged;
+}
+
 
 /**
  * Removes the resource identified in the request params from the Collection identified. If the resource is not in the
@@ -881,6 +897,7 @@ export default {
   getCollection,
   getCollectionResources,
   getCommonsCollections,
+  _removeResourceFromAnyCollection,
   removeResourceFromCollection,
   updateCollectionImageAsset,
 };
