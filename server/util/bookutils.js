@@ -272,11 +272,17 @@ export const deleteBookFromAPI = async (bookID) => {
     if (!url.pathname) {
         throw new Error('link parsing failed');
     }
+    const pathParts = url.pathname.match(/(Courses|Bookshelves|home)/);
+    if (pathParts?.length < 1) {
+        throw new Error('invalid path');
+    }
+    const path = pathParts[0];
+
     await axios.put(
         `https://api.libretexts.org/endpoint/refreshListRemove`,
         {
             id,
-            path: url.pathname,
+            path,
             subdomain,
         },
         {
