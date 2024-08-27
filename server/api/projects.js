@@ -52,6 +52,7 @@ import alertsAPI from './alerts.js';
 import centralIdentity from './central-identity.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import projectFilesAPI from './projectfiles.js';
+import ProjectFile from "../models/projectfile.js";
 
 const projectListingProjection = {
     _id: 0,
@@ -143,6 +144,50 @@ async function createProject(req, res) {
 }
 
 /**
+ * Deletes a Project and its associated resources.
+ *
+ * @param projectID - Identifier of the Project to delete
+ * @returns {Promise<boolean>} True if successful, false otherwise.
+ * @private
+ */
+async function _deleteProject(projectID) {
+  try {
+    const proj = await Project.findOneAndDelete({
+      projectID,
+    });
+    if (!proj) {
+      // findOneAndDelete returns deleted document
+      return false;
+    }
+
+    // <delete threads and messages>
+    const threads = await Thread.find({ project: projectID }).lean();
+    if (threads.length > 0) {
+      await Promise.allSettled(threads.map((t) => Message.deleteMany({
+        thread: t.threadID,
+      })));
+    }
+    // </delete threads and messages>
+
+    await Task.deleteMany({ projectID });
+
+    // <delete files>
+    const allFiles = await ProjectFile.find({
+      projectID
+    }).lean();
+    if (allFiles.length > 0) {
+      await projectFilesAPI._removeManyProjectFiles(projectID, allFiles.map((f) => f.fileID));
+    }
+    // </delete files>
+
+    return true;
+  } catch (err) {
+    debugError(err);
+    return false;
+  }
+}
+
+/**
  * Deletes the Project identified by the projectID in the request body.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'deleteProject'
@@ -165,8 +210,8 @@ async function deleteProject(req, res) {
       });
     }
 
-    const deleteRes = await Project.deleteOne({ projectID: req.params.projectID });
-    if (deleteRes.deletedCount !== 1) {
+    const deleteRes = await _deleteProject(req.params.projectID);
+    if (!deleteRes) {
       throw new Error('not deleted');
     }
 
@@ -1455,7 +1500,6 @@ async function getPublicProjects(req, res) {
               libreLibrary: 1,
               libreCoverID: 1,
               thumbnail: 1,
-              libreLibrary: 1,
               projectURL: 1,
               contentArea: 1,
               description: 1,
@@ -3547,6 +3591,7 @@ export default {
     projectStatusOptions,
     projectVisibilityOptions,
     createProject,
+    _deleteProject,
     deleteProject,
     getProject,
     thumbnailUploadHandler,

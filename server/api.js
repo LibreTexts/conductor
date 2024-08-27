@@ -630,10 +630,18 @@ router.route('/commons/book').post(
   booksAPI.createBook,
 );
 
-router.route('/commons/book/:bookID').get(
-  middleware.validateZod(BookValidators.getWithBookIDParamSchema),
-  booksAPI.getBookDetail,
-);
+router.route('/commons/book/:bookID')
+  .get(
+    middleware.validateZod(BookValidators.getWithBookIDParamSchema),
+    booksAPI.getBookDetail,
+  )
+  .delete(
+    middleware.validateZod(BookValidators.getWithBookIDParamSchema),
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+    booksAPI.deleteBook,
+  );
 
 router.route('/commons/book/:bookID/summary').get(
   middleware.validateZod(BookValidators.getWithBookIDParamSchema),

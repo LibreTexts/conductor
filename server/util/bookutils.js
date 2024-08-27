@@ -253,3 +253,37 @@ export const getBookTOCFromAPI = async (bookID, bookURL) => {
     });
     return buildStructure(tocRes.data.toc.structured);
 };
+
+export const deleteBookFromAPI = async (bookID) => {
+    if (!process.env.LIBRE_API_ENDPOINT_ACCESS) {
+        throw new Error('missing API key');
+    }
+    if (!checkBookIDFormat(bookID)) {
+        throw new Error('bookID format incorrect');
+    }
+    const book = await Book.findOne({ bookID }).lean();
+    const bookAddr = book.links?.online;
+    if (!bookAddr) {
+        throw new Error('no link');
+    }
+
+    const [subdomain, id] = getLibraryAndPageFromBookID(bookID);
+    const url = new URL(bookAddr);
+    if (!url.pathname) {
+        throw new Error('link parsing failed');
+    }
+    await axios.put(
+        `https://api.libretexts.org/endpoint/refreshListRemove`,
+        {
+            id,
+            path: url.pathname,
+            subdomain,
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${process.env.LIBRE_API_ENDPOINT_ACCESS}`,
+                Origin: getProductionURL(),
+            }
+        }
+    );
+}

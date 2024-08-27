@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { Request, Response } from "express";
 import fs from "fs-extra";
-import { debugError, debugCommonsSync, debugServer } from "../debug.js";
+import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
+import AdoptionReport from "../models/adoptionreport";
 import Book, { BookInterface } from "../models/book.js";
 import Collection from "../models/collection.js";
 import Organization, { OrganizationInterface } from "../models/organization.js";
@@ -21,6 +22,7 @@ import {
 } from "../util/helpers.js";
 import {
   checkBookIDFormat,
+  deleteBookFromAPI,
   extractLibFromID,
   getLibraryAndPageFromBookID,
   isValidLibrary,
@@ -45,6 +47,7 @@ import {
 } from "../util/librariesmap.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
+import collectionsAPI from './collections';
 import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
@@ -57,7 +60,7 @@ import {
   getPageID,
 } from "../util/librariesclient.js";
 import MindTouch from "../util/CXOne/index.js";
-import { conductor500Err } from "../util/errorutils.js";
+import { conductor400Err, conductor500Err } from "../util/errorutils.js";
 import { ZodReqWithUser } from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
@@ -1436,6 +1439,73 @@ async function createBook(
 }
 
 /**
+ * Deletes a book (and its related resources) from both the Conductor DB and LibreTexts central listings.
+ *
+ * @param {express.Request} req - Incoming request.
+ * @param {express.Response} res - Outgoing response.
+ */
+async function deleteBook(
+    req: ZodReqWithUser<z.infer<typeof getWithBookIDParamSchema>>,
+    res: Response,
+) {
+  try {
+    const bookID = req.params.bookID;
+    const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
+    if (!lib || !coverID) {
+      return conductor400Err(res);
+    }
+
+    const foundBook = await Book.findOne({ bookID });
+    if (!foundBook || !foundBook?.links?.online) {
+      return conductor400Err(res);
+    }
+
+    // <find and delete project and associated resources>
+    const attachedProject = await Project.findOne({
+      libreCoverID: coverID,
+      libreLibrary: lib,
+    });
+    if (attachedProject) {
+      const projectID = attachedProject.projectID;
+      const projDelRes = await projectsAPI._deleteProject(projectID);
+      if (!projDelRes) {
+        return conductor500Err(res);
+      }
+      await PeerReview.deleteMany({ projectID });
+    }
+    // </find and delete project and associated resources>
+
+    await Promise.allSettled([
+      AdoptionReport.deleteMany({ 'resource.id': bookID }),
+      collectionsAPI._removeResourceFromAnyCollection(bookID),
+    ]);
+
+    // <delete from central API>
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        await deleteBookFromAPI(bookID);
+        debug(`Book ${bookID} deleted from API.`);
+      } else {
+        debug('Simulating book deletion from API.');
+      }
+    } catch (err) {
+      debugError(`[Delete Book] ${err.toString()}`);
+      return conductor500Err(res);
+    }
+    // </delete from central API>
+
+    await Book.deleteOne({ bookID });
+    return res.send({
+      err: false,
+      msg: 'Book successfully deleted.',
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Returns a Book object given a book ID.
  * NOTE: This function should only be called AFTER the validation chain.
  * VALIDATION: 'getBookDetail'
@@ -2085,6 +2155,7 @@ export default {
   getCommonsCatalog,
   getMasterCatalog,
   createBook,
+  deleteBook,
   getBookDetail,
   getBookPeerReviews,
   getCatalogFilterOptions,

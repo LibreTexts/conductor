@@ -16,7 +16,9 @@ import {
   Segment,
   Table,
 } from 'semantic-ui-react';
+import { DeleteBookModal } from "../../../../components/controlpanel/BooksManager/DeleteBookModal";
 import useGlobalError from '../../../../components/error/ErrorHooks';
+import { useModals } from "../../../../context/ModalContext";
 import { itemsPerPageOptions } from '../../../../components/util/PaginationOptions';
 import { getLibGlyphURL, getLibraryName } from '../../../../components/util/LibraryOptions';
 import { getLicenseText } from '../../../../components/util/LicenseOptions';
@@ -47,6 +49,7 @@ const BooksManager = () => {
   const org = useSelector((state) => state.org);
   const isSuperAdmin = useSelector((state) => state.user.isSuperAdmin);
   const { handleGlobalError } = useGlobalError();
+  const { closeAllModals, openModal } = useModals();
 
   // Data
   const [syncResponse, setSyncResponse] = useState('');
@@ -222,6 +225,24 @@ const BooksManager = () => {
     setEOCWorking(false);
   }
 
+  function closeDeleteModal() {
+    closeAllModals();
+    getBooks();
+  }
+
+  function openDeleteModal(bookID, bookTitle) {
+    if (!bookID) return;
+
+    openModal(
+        <DeleteBookModal
+            bookID={bookID}
+            bookTitle={bookTitle}
+            onClose={closeDeleteModal}
+            open={true}
+        />
+    );
+  }
+
   /**
    * Updates the Sort Choice in state.
    *
@@ -346,6 +367,15 @@ const BooksManager = () => {
                 <Icon name="external" />
                 View on LibreTexts
               </Button>
+            )}
+            {isSuperAdmin && (
+                <Button
+                    color="red"
+                    onClick={() => openDeleteModal(book.bookID, book.title)}
+                >
+                  <Icon name="trash" />
+                  Delete Book
+                </Button>
             )}
           </Button.Group>
         </Table.Cell>
