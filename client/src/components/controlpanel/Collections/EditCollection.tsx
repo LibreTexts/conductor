@@ -3,10 +3,13 @@ import { Form, Modal, Button, Icon, Input, Message } from "semantic-ui-react";
 import axios from "axios";
 import { getShelvesNameText } from "../../util/BookHelpers.js";
 import useGlobalError from "../../error/ErrorHooks";
-import { Collection, CollectionLocations } from "../../../types";
-import { useForm, useFormState } from "react-hook-form";
+import { Collection, CollectionLocations, CollectionPrivacyOptions } from "../../../types";
+import { useForm } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks.js";
 import { collectionPrivacyOptions } from "../../util/CollectionHelpers.js";
+import TextArea from "../../TextArea/index.js";
+import CtlTextInput from "../../ControlledInputs/CtlTextInput.js";
+import CtlDropdown from "../../ControlledInputs/CtlDropdown.js";
 
 type EditCollectionProps = {
   show: boolean;
@@ -32,6 +35,7 @@ const EditCollection: FC<EditCollectionProps> = ({
     handleSubmit,
     setValue: setFormValue,
     getValues: getFormValue,
+    watch: watchFormValue,
     setError: setFormError,
     formState: { errors, isDirty },
   } = useForm<Collection>({
@@ -40,6 +44,7 @@ const EditCollection: FC<EditCollectionProps> = ({
       collID: "",
       parentID: "",
       title: "",
+      description: "",
       coverPhoto: "",
       program: "",
       locations: [],
@@ -64,6 +69,7 @@ const EditCollection: FC<EditCollectionProps> = ({
         collID: "",
         parentID: undefined,
         title: "",
+        description: "",
         coverPhoto: "",
         program: "",
         privacy: undefined,
@@ -252,18 +258,25 @@ const EditCollection: FC<EditCollectionProps> = ({
           </p>
         )}
         <Form noValidate>
-          <Form.Field error={useFormState({ control }).errors.title}>
+          <Form.Field required error={errors.title}>
             <label>Collection Title</label>
-            <Form.Input
+            <CtlTextInput
+              control={control}
               name="title"
-              fluid
-              value={getFormValue("title") || ""}
               placeholder="Collection Title..."
-              onChange={async (e, { name, value }) => {
-                setFormValue(name, value);
-                await trigger("title");
-              }}
               error={errors.title ? true : false}
+              rules={{ required: "Title is required." }}
+            />
+          </Form.Field>
+          <Form.Field error={errors.description}>
+            <label>Description</label>
+            <TextArea
+              placeholder="Collection Description..."
+              textValue={watchFormValue("description") || ""}
+              onTextChange={(newText) => setFormValue("description", newText)}
+              contentType="description"
+              error={errors.description ? true : false}
+              className="h-40"
             />
           </Form.Field>
           {["create", "nest"].includes(mode) && (
@@ -277,7 +290,7 @@ const EditCollection: FC<EditCollectionProps> = ({
             </>
           )}
           {["edit"].includes(mode) && collectionToEdit?.collID && (
-            <Form.Field required className="mt-2r">
+            <Form.Field required className="!my-6">
               <label htmlFor="coverPhoto">Collection Cover Photo</label>
               <p>
                 Resolution should be high enough to avoid blurring on digital
@@ -331,13 +344,9 @@ const EditCollection: FC<EditCollectionProps> = ({
             value={getFormValue("privacy") || "public"}
             placeholder="Collection Privacy..."
             options={collectionPrivacyOptions}
-            onChange={async (e, { name, value }) => {
-              setFormValue(name, value);
-              await trigger("privacy");
-            }}
+            onChange={(e, { value }) => setFormValue('privacy', value?.toString() as CollectionPrivacyOptions || CollectionPrivacyOptions.PUBLIC)}
             error={errors.privacy ? true : false}
           />
-
           <Form.Checkbox
             name="autoManage"
             label="Allow Conductor to manage this collection automatically during Commons-Libraries syncs"
@@ -350,7 +359,7 @@ const EditCollection: FC<EditCollectionProps> = ({
           />
           <Form.Field
             className="mt-2p"
-            error={useFormState({ control }).errors.program}
+            error={errors.program}
           >
             <label className={getFormValue("autoManage") ? "" : "muted-text"}>
               Program Meta-Tag{" "}

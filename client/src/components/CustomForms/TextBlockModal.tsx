@@ -40,6 +40,7 @@ const TextBlockModal: React.FC<TextBlockModalProps> = ({
           textValue={value}
           onTextChange={(newVal) => onChange(newVal)}
           innerRef={textAreaRef}
+          contentType="text"
         />
       </Modal.Content>
       <Modal.Actions>

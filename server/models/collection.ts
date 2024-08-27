@@ -5,6 +5,7 @@ export interface CollectionInterface extends Document {
   orgID: string;
   collID: string;
   title: string;
+  description: string;
   coverPhoto: string;
   privacy: "public" | "private" | "campus";
   resources?: ResourceInterface[];
@@ -32,6 +33,11 @@ const CollectionSchema = new Schema<CollectionInterface>(
       // the collection title/name
       type: String,
       required: true,
+    },
+    description: {
+      // the collection description
+      type: String,
+      default: "",
     },
     coverPhoto: {
       // the collection's "cover photo"/thumbnail

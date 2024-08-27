@@ -22,6 +22,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ResourceInterface } from "../models/resource.js";
 import { z } from "zod";
 import { getPaginationOffset } from "../util/helpers.js";
+import DOMPurify from "isomorphic-dompurify";
 
 const assetStorage = multer.memoryStorage();
 
@@ -155,7 +156,9 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
  */
 async function createCollection(req: z.infer<typeof createCollectionSchema>, res: Response) {
   try {
-    const { coverPhoto, locations, parentID, program, ...body } = req.body;
+    const { coverPhoto, locations, parentID, program, description, ...body } = req.body;
+
+    const sanitizedDescription = description ? _sanitizeDescription(description) : undefined;
 
     const newID = b62(8);
     const newCollection = await Collection.create({
@@ -164,6 +167,7 @@ async function createCollection(req: z.infer<typeof createCollectionSchema>, res
       orgID: process.env.ORG_ID,
       privacy: body.privacy ?? 'public',
       title: body.title,
+      ...(sanitizedDescription && { description: sanitizedDescription }),
       ...(coverPhoto && { coverPhoto }),
       ...(locations && { locations }),
       ...(parentID && { parentID }),
@@ -216,7 +220,13 @@ async function editCollection(req: z.infer<typeof editCollectionSchema>, res: Re
       });
     }
 
-    await Collection.updateOne({ collID: req.params.collID }, updateData);
+    const sanitizedDescription = updateData.description ? _sanitizeDescription(updateData.description) : undefined;
+
+    await Collection.updateOne({ collID: req.params.collID }, {
+      ...updateData,
+      ...(sanitizedDescription && { description: sanitizedDescription }),
+    });
+    
     if (existParentId && updateData.parentID && existParentId !== updateData.parentID) {
       const resourceToModify = { resourceId: req.params.collID, resourceType: 'collection' };
       await Promise.all([
@@ -855,6 +865,10 @@ async function removeResourceFromCollection(req: z.infer<typeof removeCollection
       errMsg: conductorErrors.err6,
     });
   }
+}
+
+const _sanitizeDescription = (description: string) => {
+  return DOMPurify.sanitize(description);
 }
 
 export default {

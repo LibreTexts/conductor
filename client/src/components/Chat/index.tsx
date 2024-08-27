@@ -367,6 +367,8 @@ const Chat: FC<Chatinterface>= ({
             placeholder="Send a message..."
             textValue={messageCompose}
             onTextChange={(value) => setMessageCompose(value)}
+            contentType="message"
+            rows={1}
           />
         </div>
         <div id="replycontainer-right">

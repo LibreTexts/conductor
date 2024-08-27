@@ -26,6 +26,7 @@ export type Collection = {
   collID: string;
   parentID?: string;
   title: string;
+  description: string;
   coverPhoto: string;
   privacy: CollectionPrivacyOptions;
   resources: CollectionResource[];
