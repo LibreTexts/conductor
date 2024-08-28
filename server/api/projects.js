@@ -173,10 +173,11 @@ async function deleteProjectInternal(projectID) {
 
     // <delete files>
     const allFiles = await ProjectFile.find({
-      projectID
+      parent: '', // only root-level files - removeProjectFilesInternal() is recursive
+      projectID,
     }).lean();
     if (allFiles.length > 0) {
-      await projectFilesAPI._removeManyProjectFiles(projectID, allFiles.map((f) => f.fileID));
+      await projectFilesAPI.removeProjectFilesInternal(projectID, allFiles.map((f) => f.fileID));
     }
     // </delete files>
 
