@@ -1467,7 +1467,7 @@ async function deleteBook(
     });
     if (attachedProject) {
       const projectID = attachedProject.projectID;
-      const projDelRes = await projectsAPI._deleteProject(projectID);
+      const projDelRes = await projectsAPI.deleteProjectInternal(projectID);
       if (!projDelRes) {
         return conductor500Err(res);
       }
