@@ -1070,12 +1070,12 @@ async function moveProjectFile(
 }
 
 /**
- * Deletes multiple Project Files or folders from the database and underlying storage solution.
+ * Recursively deletes Project Files or folders and their children from the database and underlying storage solution.
  *
  * @param projectID - Project identifier.
  * @param fileIDs - Project File (or folder) identifiers to delete.
  */
-async function _removeManyProjectFiles(projectID: string, fileIDs: string[]) {
+async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) {
   if (
       !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
       !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
@@ -1084,12 +1084,21 @@ async function _removeManyProjectFiles(projectID: string, fileIDs: string[]) {
     throw new Error("Missing Cloudflare credentials");
   }
 
-  const objsToDelete = await ProjectFile.find({
-    projectID,
-    fileID: {
-      $in: fileIDs,
-    },
-  }).lean();
+  async function resolveAllChildren(searchFileIDs: string[]): Promise<ProjectFileInterface[]> {
+    const files = (await ProjectFile.find({
+      fileID: {
+        $in: searchFileIDs
+      },
+      projectID,
+    }).lean()) as ProjectFileInterface[];
+    if (!files?.length) return [];
+
+    const children = await resolveAllChildren(files.map((f) => f.fileID));
+    return files.concat(children);
+  }
+
+  const objsToDelete = await resolveAllChildren(fileIDs);
+  const allFileIds = objsToDelete.map((o => o.fileID));
 
   const filesToDelete = objsToDelete
       .map((obj) => {
@@ -1144,57 +1153,8 @@ async function _removeManyProjectFiles(projectID: string, fileIDs: string[]) {
   }
   await ProjectFile.deleteMany({
     projectID,
-    fileID: { $in: fileIDs },
+    fileID: { $in: allFileIds },
   });
-}
-
-/**
- * Deletes a Project File from the database and underlying storage solution. Multiple files can be deleted by
- * specifying a folder identifier.
- *
- * @param projectID - Project identifier.
- * @param fileID - Project File (or folder) identifier.
- */
-async function _removeProjectFile(projectID: string, fileID: string) {
-  if (
-      !process.env.CLOUDFLARE_STREAM_ACCOUNT_ID ||
-      !process.env.CLOUDFLARE_STREAM_API_TOKEN ||
-      !process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE
-  ) {
-    throw new Error("Missing Cloudflare credentials");
-  }
-
-  const found = await ProjectFile.findOne({
-    projectID,
-    fileID,
-  })
-      .orFail()
-      .lean();
-
-  const objsToDelete = [];
-  const children = await ProjectFile.find({
-    projectID,
-    parent: fileID,
-  }).lean();
-
-  objsToDelete.push(found);
-  if (children.length > 0) {
-    objsToDelete.push(...children);
-  }
-
-  const objectIDs = objsToDelete.map((obj) => obj.fileID);
-
-  await _removeManyProjectFiles(projectID, objectIDs);
-
-  // /* Recalculate access for all file system entries */
-  // // @ts-ignore
-  // updated = computeStructureAccessSettings(updated);
-
-  // // @ts-ignore
-  // const projectUpdate = await updateProjectFiles(projectID, updated);
-  // if (!projectUpdate) {
-  //   throw new Error("updatefail");
-  // }
 }
 
 /**
@@ -1209,7 +1169,7 @@ async function removeProjectFile(
   res: Response
 ) {
   try {
-    await _removeProjectFile(req.params.projectID, req.params.fileID);
+    await removeProjectFilesInternal(req.params.projectID, [req.params.fileID]);
     return res.send({
       err: false,
       msg: `Successfully deleted files!`,
@@ -1715,8 +1675,7 @@ export default {
   updateProjectFile,
   updateProjectFileAccess,
   moveProjectFile,
-  _removeManyProjectFiles,
-  _removeProjectFile,
+  removeProjectFilesInternal,
   removeProjectFile,
   getProjectFileCaptions,
   getProjectFileEmbedHTML,
