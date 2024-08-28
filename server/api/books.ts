@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import fs from "fs-extra";
 import { debug, debugError, debugCommonsSync, debugServer } from "../debug.js";
-import AdoptionReport from "../models/adoptionreport";
+import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
 import Collection from "../models/collection.js";
 import Organization, { OrganizationInterface } from "../models/organization.js";
@@ -47,7 +47,7 @@ import {
 } from "../util/librariesmap.js";
 import projectsAPI from "./projects.js";
 import alertsAPI from "./alerts.js";
-import collectionsAPI from './collections';
+import collectionsAPI from './collections.js';
 import axios from "axios";
 import { BookSortOption } from "../types/Book.js";
 import { isBookSortOption } from "../util/typeHelpers.js";
