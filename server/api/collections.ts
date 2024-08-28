@@ -835,7 +835,7 @@ async function addResourcesToCollection(req: z.infer<typeof addCollectionResourc
  * @param resourceID - The identifier to search on.
  * @private
  */
-async function _removeResourceFromAnyCollection(resourceID: string) {
+async function removeResourceFromAnyCollectionInternal(resourceID: string) {
   if (!resourceID) return false;
   const res = await Collection.updateMany({}, {
     $pull: {
@@ -897,7 +897,7 @@ export default {
   getCollection,
   getCollectionResources,
   getCommonsCollections,
-  _removeResourceFromAnyCollection,
+  removeResourceFromAnyCollectionInternal,
   removeResourceFromCollection,
   updateCollectionImageAsset,
 };

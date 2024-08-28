@@ -1477,7 +1477,7 @@ async function deleteBook(
 
     await Promise.allSettled([
       AdoptionReport.deleteMany({ 'resource.id': bookID }),
-      collectionsAPI._removeResourceFromAnyCollection(bookID),
+      collectionsAPI.removeResourceFromAnyCollectionInternal(bookID),
     ]);
 
     // <delete from central API>
