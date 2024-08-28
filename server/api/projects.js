@@ -150,7 +150,7 @@ async function createProject(req, res) {
  * @returns {Promise<boolean>} True if successful, false otherwise.
  * @private
  */
-async function _deleteProject(projectID) {
+async function deleteProjectInternal(projectID) {
   try {
     const proj = await Project.findOneAndDelete({
       projectID,
@@ -210,7 +210,7 @@ async function deleteProject(req, res) {
       });
     }
 
-    const deleteRes = await _deleteProject(req.params.projectID);
+    const deleteRes = await deleteProjectInternal(req.params.projectID);
     if (!deleteRes) {
       throw new Error('not deleted');
     }
@@ -3591,7 +3591,7 @@ export default {
     projectStatusOptions,
     projectVisibilityOptions,
     createProject,
-    _deleteProject,
+    deleteProjectInternal,
     deleteProject,
     getProject,
     thumbnailUploadHandler,
