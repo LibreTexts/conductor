@@ -64,3 +64,12 @@ export const downloadBookFileSchema = z.object({
     fileID: z.string().uuid(),
   }),
 });
+
+export const deleteBookSchema = z.intersection(
+  z.object({
+    query: z.object({
+      deleteProject: z.coerce.boolean().optional(),
+    }),
+  }),
+  getWithBookIDParamSchema,
+);

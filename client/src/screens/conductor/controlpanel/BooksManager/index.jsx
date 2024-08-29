@@ -16,7 +16,7 @@ import {
   Segment,
   Table,
 } from 'semantic-ui-react';
-import { DeleteBookModal } from "../../../../components/controlpanel/BooksManager/DeleteBookModal";
+import { UnpublishOrDeleteBookModal } from "../../../../components/controlpanel/BooksManager/UnpublishOrDeleteBookModal";
 import useGlobalError from '../../../../components/error/ErrorHooks';
 import { useModals } from "../../../../context/ModalContext";
 import { itemsPerPageOptions } from '../../../../components/util/PaginationOptions';
@@ -225,19 +225,20 @@ const BooksManager = () => {
     setEOCWorking(false);
   }
 
-  function closeDeleteModal() {
+  function closeUnpublishOrDeleteModal() {
     closeAllModals();
     getBooks();
   }
 
-  function openDeleteModal(bookID, bookTitle) {
+  function openUnpublishOrDeleteModal(bookID, bookTitle, deleteMode) {
     if (!bookID) return;
 
     openModal(
-        <DeleteBookModal
+        <UnpublishOrDeleteBookModal
             bookID={bookID}
             bookTitle={bookTitle}
-            onClose={closeDeleteModal}
+            deleteMode={deleteMode}
+            onClose={closeUnpublishOrDeleteModal}
             open={true}
         />
     );
@@ -369,13 +370,22 @@ const BooksManager = () => {
               </Button>
             )}
             {isSuperAdmin && (
-                <Button
-                    color="red"
-                    onClick={() => openDeleteModal(book.bookID, book.title)}
-                >
-                  <Icon name="trash" />
-                  Delete Book
-                </Button>
+                <>
+                  <Button
+                      color="orange"
+                      onClick={() => openUnpublishOrDeleteModal(book.bookID, book.title)}
+                  >
+                    <Icon name="eraser" />
+                    Unpublish Book
+                  </Button>
+                  <Button
+                      color="red"
+                      onClick={() => openUnpublishOrDeleteModal(book.bookID, book.title, true)}
+                  >
+                    <Icon name="trash" />
+                    Delete Book and Project
+                  </Button>
+                </>
             )}
           </Button.Group>
         </Table.Cell>

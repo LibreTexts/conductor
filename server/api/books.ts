@@ -68,6 +68,7 @@ const defaultImagesURL = "https://cdn.libretexts.net/DefaultImages";
 import { PipelineStage } from "mongoose";
 import {
   createBookSchema,
+  deleteBookSchema,
   getCommonsCatalogSchema,
   getMasterCatalogSchema,
   getWithBookIDParamSchema,
@@ -1445,10 +1446,11 @@ async function createBook(
  * @param {express.Response} res - Outgoing response.
  */
 async function deleteBook(
-    req: ZodReqWithUser<z.infer<typeof getWithBookIDParamSchema>>,
+    req: ZodReqWithUser<z.infer<typeof deleteBookSchema>>,
     res: Response,
 ) {
   try {
+    const deleteProject = !!req.query?.deleteProject;
     const bookID = req.params.bookID;
     const [lib, coverID] = getLibraryAndPageFromBookID(req.params.bookID);
     if (!lib || !coverID) {
@@ -1467,11 +1469,14 @@ async function deleteBook(
     });
     if (attachedProject) {
       const projectID = attachedProject.projectID;
-      const projDelRes = await projectsAPI.deleteProjectInternal(projectID);
-      if (!projDelRes) {
-        return conductor500Err(res);
-      }
       await PeerReview.deleteMany({ projectID });
+      if (deleteProject) {
+        debug(`[Delete Book]: Deleting project ${projectID}`);
+        const projDelRes = await projectsAPI.deleteProjectInternal(projectID);
+        if (!projDelRes) {
+          return conductor500Err(res);
+        }
+      }
     }
     // </find and delete project and associated resources>
 

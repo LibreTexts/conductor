@@ -4,16 +4,18 @@ import { Button, Checkbox, Icon, Modal, ModalProps } from "semantic-ui-react";
 import useGlobalError from "../../error/ErrorHooks";
 import { useNotifications } from "../../../context/NotificationContext";
 
-interface DeleteBookModalProps extends ModalProps {
+interface UnpublishOrDeleteBookModalProps extends ModalProps {
     bookID: string;
     bookTitle: string;
+    deleteMode: boolean;
     onClose: () => void;
     open: boolean;
 }
 
-export const DeleteBookModal: React.FC<DeleteBookModalProps> = ({
+export const UnpublishOrDeleteBookModal: React.FC<UnpublishOrDeleteBookModalProps> = ({
     bookID,
     bookTitle,
+    deleteMode,
     onClose,
     open,
 }) => {
@@ -35,14 +37,18 @@ export const DeleteBookModal: React.FC<DeleteBookModalProps> = ({
         if (!confirmCoverPage) return;
         try {
             setIsLoading(true);
-            const delRes = await axios.delete(`/commons/book/${bookID}`);
+            const delRes = await axios.delete(`/commons/book/${bookID}`, {
+                params: {
+                    ...(deleteMode && { deleteProject: deleteMode }),
+                },
+            });
             setIsLoading(false);
             if (delRes.data.error) {
                 handleGlobalError(delRes.data.errMsg);
                 return;
             }
             addNotification({
-                message: `"${bookTitle}" was successfully deleted.`,
+                message: deleteMode ? `"${bookTitle}" and associated Conductor project was successfully deleted.` : `"${bookTitle}" was successfully unpublished.`,
                 type: 'success',
             });
             handleClose();
@@ -58,9 +64,9 @@ export const DeleteBookModal: React.FC<DeleteBookModalProps> = ({
             open={open}
             size="large"
         >
-            <Modal.Header>Delete Book</Modal.Header>
+            <Modal.Header>{deleteMode ? 'Delete Book and Project' : 'Unpublish Book'}</Modal.Header>
             <Modal.Content>
-                <p>Are you sure you want to delete the record for "{bookTitle}"? <strong>By clicking Delete, you confirm you understand the following:</strong></p>
+                <p>Are you sure you want to {deleteMode ? 'delete the record for' : 'unpublish'} "{bookTitle}"? <strong>By clicking {deleteMode ? 'Delete' : 'Unpublish'}, you confirm you understand the following:</strong></p>
                 <ul className="my-4 list-disc list-inside leading-7">
                     <li>
                         <span>The entry will be removed from Commons.</span>
@@ -69,8 +75,11 @@ export const DeleteBookModal: React.FC<DeleteBookModalProps> = ({
                             <li>Any submitted Adoption Reports for this Commons entry will be deleted.</li>
                         </ul>
                     </li>
+                    <li>The entry will be removed from any collections it is a part of.</li>
                     <li>The entry will be removed from the central downloads listings and vendor export lists.</li>
-                    <li>The connected project (if applicable) and any related resources will be deleted.</li>
+                    {deleteMode && (
+                        <li>The corresponding Conductor project (if applicable) and any related resources will be deleted.</li>
+                    )}
                 </ul>
                 <p className="mb-2"><strong>In order to continue, confirm the following:</strong></p>
                 <Checkbox
@@ -84,12 +93,12 @@ export const DeleteBookModal: React.FC<DeleteBookModalProps> = ({
                     Cancel
                 </Button>
                 <Button
-                    color="red"
+                    color={deleteMode ? 'red' : 'orange'}
                     disabled={!confirmCoverPage}
                     loading={isLoading}
                     onClick={submitDeleteBook}
                 >
-                    <Icon name="trash" /> Delete
+                    <Icon name={deleteMode ? 'trash' : 'eraser'} /> {deleteMode ? 'Delete' : 'Unpublish'}
                 </Button>
             </Modal.Actions>
         </Modal>

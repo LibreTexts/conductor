@@ -636,7 +636,7 @@ router.route('/commons/book/:bookID')
     booksAPI.getBookDetail,
   )
   .delete(
-    middleware.validateZod(BookValidators.getWithBookIDParamSchema),
+    middleware.validateZod(BookValidators.deleteBookSchema),
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
