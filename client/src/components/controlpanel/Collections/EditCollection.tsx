@@ -408,12 +408,12 @@ const EditCollection: FC<EditCollectionProps> = ({
       <Modal.Actions>
         <Button onClick={onCloseFunc}>Cancel</Button>
         <Button
-          color={["nest", "create"].includes(mode) ? "green" : "blue"}
+          color="green"
           onClick={handleSubmit(submitForm)}
           loading={loading}
         >
-          <Icon name={["nest", "create"].includes(mode) ? "add" : "edit"} />
-          {["nest", "create"].includes(mode) ? "Create" : "Edit"}
+          <Icon name={["nest", "create"].includes(mode) ? "add" : "save"} />
+          {["nest", "create"].includes(mode) ? "Create" : "Save"}
         </Button>
       </Modal.Actions>
     </Modal>
