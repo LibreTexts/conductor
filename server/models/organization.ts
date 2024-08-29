@@ -14,7 +14,9 @@ export type CommonsModuleSettings = {
 
 export interface OrganizationInterface extends Document {
   orgID: string;
+  active: boolean;
   name: string;
+  subdomain: string;
   domain: string;
   shortName?: string;
   abbreviation?: string;
@@ -40,6 +42,9 @@ export interface OrganizationInterface extends Document {
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
   assetFilterExclusions?: string[];
+  listenerPriority: number;
+  cpuUnitsOverride: number;
+  memoryValueOverride: number;
   FEAT_AssetTagsManager?: boolean;
   FEAT_PedagogyProjectTags?: boolean;
   FEAT_RecordSearchQueries?: boolean;
@@ -55,9 +60,24 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
       required: true,
     },
     /**
+     * Indicates the Organization's Conductor instance is active.
+     */
+    active: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    /**
      * Organization's full name.
      */
     name: {
+      type: String,
+      required: true,
+    },
+    /**
+     * The subdomain that the Organization's Conductor instance is running at.
+     */
+    subdomain: {
       type: String,
       required: true,
     },
@@ -195,6 +215,21 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Inherent asset filters that should not be displayed in the Commons.
      */
     assetFilterExclusions: [String],
+    /**
+     * Used for deterministic routing in a load-balanced Conductor deployment.
+     */
+    listenerPriority: {
+      type: Number,
+      required: true,
+    },
+    /**
+     * Override the default CPU units for the Organization's Conductor instance.
+     */
+    cpuUnitsOverride: Number,
+    /**
+     * Override the default memory value for the Organization's Conductor instance.
+     */
+    memoryValueOverride: Number,
     /**
      * Whether the Asset Tags Manager feature is enabled.
      */
