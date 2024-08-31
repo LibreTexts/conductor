@@ -315,14 +315,14 @@ const CommonsHomework = () => {
                 <Grid>
                   <Grid.Column width={12} verticalAlign="middle">
                     <p>
-                      Courses listed here are part of the LibreTexts Adaptive
-                      Learning Assessment System,{" "}
+                      These are ready to use sets of questions for LibreTexts books that can also be used with other OER or commercial texts. The sets and questions can be edited and rearranged. Selecting "View Assignments" will provide a list of subjects covered.
+                      In some cases you will be able to see a list of questions (but not the answers) by subsequently selecting "View Course". All answers and questions are open to Verified Instructors. You can register{" "}
                       <a
-                        href="https://adapt.libretexts.org"
+                        href="https://one.libretexts.org/register"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        ADAPT
+                        here
                       </a>
                       .
                     </p>
@@ -345,14 +345,14 @@ const CommonsHomework = () => {
                   <Grid.Row columns={1}>
                     <Grid.Column>
                       <p className="text-center">
-                        Courses listed here are part of the LibreTexts Adaptive
-                        Learning Assessment System,{" "}
+                      These are ready to use sets of questions for LibreTexts books that can also be used with other OER or commercial texts. The sets and questions can be edited and rearranged. Selecting "View Assignments" will provide a list of subjects covered.
+                      In some cases you will be able to see a list of questions (but not the answers) by subsequently selecting "View Course". All answers and questions are open to Verified Instructors. You can register{" "}
                         <a
-                          href="https://adapt.libretexts.org"
+                          href="https://one.libretexts.org/register"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          ADAPT
+                          here
                         </a>
                         .
                       </p>
