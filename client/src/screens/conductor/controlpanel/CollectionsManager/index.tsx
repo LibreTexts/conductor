@@ -32,6 +32,8 @@ import { useTypedSelector } from "../../../../state/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../../api";
 import { useModals } from "../../../../context/ModalContext";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 
 type AllCollectionsResponse = {
     collections: Collection[];
@@ -422,6 +424,29 @@ const CollectionsManager = () => {
                                 </div>
                             </div>
                         </Segment>
+                        {
+                            !rootMode && activeCollection && (
+                                <Segment padded>
+                                    {
+                                        activeCollection.description && (
+                                            <p
+                                                className='text-base text-center lg:text-left prose prose-code:before:hidden prose-code:after:hidden max-w-full'
+                                                dangerouslySetInnerHTML={{
+                                                    __html: DOMPurify.sanitize(marked(activeCollection.description, { breaks: true }))
+                                                }}
+                                            />
+                                        )
+                                    }
+                                    {
+                                        !activeCollection.description && (
+                                            <p>
+                                                <em>No collection description yet.</em>
+                                            </p>
+                                        )
+                                    }
+                                </Segment>
+                            )
+                        }
                         <Segment>
                             <Breakpoint name="desktop">
                                 <div className="collections-manager-pagemenu">
