@@ -1,11 +1,12 @@
 import { FieldValues, FieldPath, Controller } from "react-hook-form";
-import { Form, FormInputProps } from "semantic-ui-react";
+import { Form, FormInputProps, Icon, Popup } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
 
 interface CtlTextInputProps extends FormInputProps {
   label?: string;
   required?: boolean;
   showErrorMsg?: boolean;
+  helpText?: string;
 }
 
 /**
@@ -22,6 +23,7 @@ export default function CtlTextInput<
   label,
   required = false,
   showErrorMsg = true,
+  helpText,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlTextInputProps) {
   const { className: restClassName } = rest;
@@ -38,11 +40,21 @@ export default function CtlTextInput<
       }) => (
         <div className={`${restClassName ?? ""}`}>
           {label && (
-            <label
-              className={`form-field-label ${required ? "form-required" : ""}`}
-            >
-              {label}
-            </label>
+            <>
+              <label
+                className={`form-field-label ${required ? "form-required" : ""}`}
+              >
+                {label}
+              </label>
+              {
+                helpText && (
+                  <Popup
+                    content={helpText}
+                    trigger={<Icon name="question circle outline" className="pl-1" />}
+                  />
+                )
+              }
+            </>
           )}
           <Form.Input
             value={value}
@@ -52,8 +64,8 @@ export default function CtlTextInput<
               error?.message && showErrorMsg
                 ? error.message
                 : error?.message
-                ? true
-                : false
+                  ? true
+                  : false
             } // Display error message if showErrorMsg is true, otherwise just display error state
             className={`mt-1 ${rest.disabled ? 'bg-gray-200 border-slate-600 border rounded-md' : ''}`}
             {...rest}
