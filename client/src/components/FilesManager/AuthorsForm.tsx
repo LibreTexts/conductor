@@ -12,6 +12,7 @@ import useDebounce from "../../hooks/useDebounce";
 import api from "../../api";
 import { ProjectFileAuthor } from "../../types/Project";
 import ManualEntryModal from "../util/ManualEntryModal";
+import { useModals } from "../../context/ModalContext";
 
 interface AuthorsFormProps {
   mode: "project-default" | "file";
@@ -39,6 +40,7 @@ const AuthorsForm = forwardRef(
 
     const { handleGlobalError } = useGlobalError();
     const { debounce } = useDebounce();
+    const { openModal, closeAllModals } = useModals();
 
     const [authorOptions, setAuthorOptions] = useState<ProjectFileAuthor[]>([]);
     const [secondaryAuthorOptions, setSecondaryAuthorOptions] = useState<
@@ -52,10 +54,6 @@ const AuthorsForm = forwardRef(
       useState(false);
     const [loadingCorrespondingAuthors, setLoadingCorrespondingAuthors] =
       useState(false);
-    const [showNewAuthorModal, setShowNewAuthorModal] = useState(false);
-    const [manualEntryLocation, setManualEntryLocation] = useState<
-      "primary" | "secondary" | "corresponding"
-    >("primary");
 
     const [selectedPrimary, setSelectedPrimary] =
       useState<ProjectFileAuthor | null>(currentPrimaryAuthor ?? null);
@@ -202,24 +200,32 @@ const AuthorsForm = forwardRef(
       200
     );
 
-    const handleAddAuthor = (newAuthor: Author) => {
-      setAuthorOptions([...authorOptions, newAuthor]);
+    const handleAddAuthor = (newAuthor: Author, ctx: string) => {
+      if (!["primary", "secondary", "corresponding"].includes(ctx)) return;
+
+      const withID = {
+        ...newAuthor,
+        _id: crypto.randomUUID(),
+      }
 
       // Set the manually added author as the primary or secondary author
       // based on where the manual entry was triggered
-      if (manualEntryLocation === "primary") {
-        setSelectedPrimary(newAuthor);
+      if (ctx === "primary") {
+        setSelectedPrimary(withID);
+        setAuthorOptions([...authorOptions, withID]);
       }
 
-      if (manualEntryLocation === "corresponding") {
-        setSelectedCorresponding(newAuthor);
+      if (ctx === "corresponding") {
+        setSelectedCorresponding(withID);
+        setCorrespondingAuthorOptions([...correspondingAuthorOptions, withID]);
       }
 
-      if (manualEntryLocation === "secondary") {
+      if (ctx === "secondary") {
+        setSecondaryAuthorOptions([...secondaryAuthorOptions, withID]);
         if (currentAuthors) {
-          setSelectedSecondary([...currentAuthors, newAuthor]);
+          setSelectedSecondary([...currentAuthors, withID]);
         } else {
-          setSelectedSecondary([newAuthor]);
+          setSelectedSecondary([withID]);
         }
       }
     };
@@ -232,8 +238,17 @@ const AuthorsForm = forwardRef(
       <div className="flex justify-end">
         <Button
           onClick={() => {
-            setManualEntryLocation(from);
-            setShowNewAuthorModal(true);
+            openModal(
+              <ManualEntryModal
+                show={true}
+                onClose={() => closeAllModals()}
+                onSaved={(author, ctx) => {
+                  handleAddAuthor(author, ctx);
+                  closeAllModals();
+                }}
+                ctx={from}
+              />
+            )
           }}
           basic
           size="mini"
@@ -363,7 +378,7 @@ const AuthorsForm = forwardRef(
               loading={loadingCorrespondingAuthors}
             />
           </Form.Field>
-          <ManualEntryButton from="primary" />
+          <ManualEntryButton from="corresponding" />
         </div>
         <div>
           <Form.Field className="flex flex-col">
@@ -404,14 +419,6 @@ const AuthorsForm = forwardRef(
           </Form.Field>
           <ManualEntryButton from="secondary" />
         </div>
-        <ManualEntryModal
-          show={showNewAuthorModal}
-          onClose={() => setShowNewAuthorModal(false)}
-          onSaved={(author) => {
-            handleAddAuthor(author);
-            setShowNewAuthorModal(false);
-          }}
-        />
       </>
     );
   }

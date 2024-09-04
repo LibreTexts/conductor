@@ -561,7 +561,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
 
   const MobileTableRow = (item: FileEntry) => {
     return (
-      <Table.Row>
+      <Table.Row key={item.fileID}>
         <Table.Cell colSpan={TABLE_COLS.length}>
           <div className="flex flex-row w-full">
             <div className="flex flex-col w-full">

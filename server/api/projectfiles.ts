@@ -1591,6 +1591,7 @@ async function _parseAndSaveAuthors(
     const _parsed: any[] = [];
 
     for (const author of authors) {
+      // If author is a valid ObjectId add to parsed and continue
       if (typeof author === "string" && isObjectIdOrHexString(author)) {
         _parsed.push(new Types.ObjectId(author));
         continue;
@@ -1622,8 +1623,11 @@ async function _parseAndSaveAuthors(
         continue;
       }
 
+      // If author is new author, it was likely sent with an arbitrary _id for UI, remove it before saving
+      // @ts-ignore
+      const {_id, ...authorData} = author;
       const newAuthor = await Author.create({
-        ...author,
+        ...authorData,
         orgID: process.env.ORG_ID,
       });
       _parsed.push(new Types.ObjectId(newAuthor._id));

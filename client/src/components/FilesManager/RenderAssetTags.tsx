@@ -207,6 +207,7 @@ const RenderAssetTags: React.FC<{
                     size="small"
                     value={t.text}
                     blackText={false}
+                    key={crypto.randomUUID()}
                   />
                 );
               })}
@@ -216,6 +217,7 @@ const RenderAssetTags: React.FC<{
                 size="small"
                 value={text}
                 blackText={false}
+                key={crypto.randomUUID()}
               />
             )}
             {!text && "No value provided"}
