@@ -1,4 +1,5 @@
 import { model, Schema, Document } from "mongoose";
+import { License } from "../types";
 
 export interface HarvestingRequestInterface extends Document {
   email: string;
@@ -6,7 +7,7 @@ export interface HarvestingRequestInterface extends Document {
   status: "open" | "converted" | "declined";
   library: string;
   url?: string;
-  license: string;
+  license: License;
   name?: string;
   institution?: string;
   resourceUse?: string;
@@ -38,8 +39,12 @@ const HarvestingRequestSchema = new Schema<HarvestingRequestInterface>(
     },
     url: String,
     license: {
-      type: String,
-      required: true,
+      name: String,
+      url: String,
+      version: String,
+      sourceURL: String,
+      modifiedFromSource: Boolean,
+      additionalTerms: String,
     },
     name: String,
     institution: String,

@@ -131,6 +131,10 @@ import {
   UserSearchParams,
 } from "./Search";
 
+import {
+  HarvestRequest,
+} from "./HarvestRequest";
+
 export type {
   AtlasSearchHighlight,
   AssetFilters,
@@ -168,6 +172,7 @@ export type {
   CommonsModuleSettings,
   ControlledInputProps,
   GenericKeyTextValueObj,
+  HarvestRequest,
   TimeZoneOption,
   MongoBaseDocument,
   CollectionDirectoryPathObj,

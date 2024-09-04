@@ -7,6 +7,7 @@ interface CtlTextInputProps extends FormInputProps {
   required?: boolean;
   showErrorMsg?: boolean;
   helpText?: string;
+  placeholder?: string;
 }
 
 /**

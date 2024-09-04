@@ -106,7 +106,6 @@ const addRequest = (req, res) => {
  */
 const getRequests = (req, res) => {
     try {
-        console.log(req.query)
         var sComp = String(req.query.startDate).split('-');
         var eComp = String(req.query.endDate).split('-');
         var sM, sD, sY;
@@ -296,7 +295,8 @@ const convertRequest = (req, res) => {
                 auditors: [],
                 libreLibrary: harvestReq.library,
                 license: {
-                    name: harvestReq.license,
+                    name: typeof harvestReq.license === 'object' ? harvestReq.license.name : harvestReq.license,
+                    version: typeof harvestReq.license === 'object' ? harvestReq.license.version : '',
                     sourceURL: harvestReq.url
                 },
                 harvestReqID: harvestReq._id
@@ -380,6 +380,34 @@ const convertRequest = (req, res) => {
     });
 };
 
+function validateLicense(license){
+    if (typeof license !== 'object') {
+      return false;
+    }
+    if(license.hasOwnProperty('name')){
+      if (typeof license.name !== 'string') {
+        return false;
+      }
+      if(license.name.length > 255){
+        return false
+      }
+    }
+    if(license.hasOwnProperty('url') && typeof license.url !== 'string'){
+      return false;
+    }
+    if(license.hasOwnProperty('version') && typeof license.version !== 'string'){
+      return false;
+    }
+    if(license.hasOwnProperty('additionalTerms')){
+      if (typeof license.additionalTerms !== 'string') {
+        return false;
+      }
+      if(license.additionalTerms.length > 500){
+        return false
+      }
+    }
+    return true;
+  }
 
 const validate = (method) => {
     switch (method) {
@@ -388,7 +416,7 @@ const validate = (method) => {
                 body('email', conductorErrors.err1).optional({ checkFalsy: true }).isEmail(),
                 body('title', conductorErrors.err1).exists().isLength({ min: 1 }),
                 body('library', conductorErrors.err1).exists().isLength({ min: 1 }),
-                body('license', conductorErrors.err1).exists().isLength({ min: 1 }),
+                body('license', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateLicense),
                 body('dateIntegrate').optional({ checkFalsy: true }).custom(threePartDateStringValidator),
                 body('addToProject').optional({ checkFalsy: true }).isBoolean().toBoolean()
             ]

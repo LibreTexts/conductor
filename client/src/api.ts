@@ -16,6 +16,7 @@ import {
   CollectionResource,
   ConductorBaseResponse,
   ConductorSearchResponse,
+  HarvestRequest,
   Homework,
   HomeworkSearchParams,
   PeerReview,
@@ -434,6 +435,15 @@ class API {
     >("/commons/catalog", {
       params: paramsObj,
     });
+    return res;
+  }
+
+  // Harvest Requests
+  async createHarvestRequest(data: HarvestRequest) {
+    const res = await axios.post<ConductorBaseResponse>(
+      "/harvestingrequest",
+      data
+    );
     return res;
   }
 
