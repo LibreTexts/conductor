@@ -8,13 +8,15 @@ import api from "../../api";
 interface ManualEntryModalProps {
   show: boolean;
   onClose: () => void;
-  onSaved: (author: Author) => void;
+  onSaved: (author: Author, ctx: string) => void;
+  ctx: string;
 }
 
 const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
   show,
   onClose,
   onSaved,
+  ctx
 }) => {
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
@@ -225,7 +227,7 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
         </Button>
         <Button
           onClick={() => {
-            onSaved(newAuthor);
+            onSaved(newAuthor, ctx);
             clearNewAuthor();
           }}
           color="blue"
