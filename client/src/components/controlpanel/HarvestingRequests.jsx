@@ -200,13 +200,25 @@ const HarvestingRequests = (props) => {
                 break;
             case 'license':
                 sorted = [...harvestingRequests].sort((a, b) => {
-                    if (a.license < b.license) {
-                        return -1;
+                    if (typeof a.license === 'string' && typeof b.license === 'string') {
+                        if (a.license < b.license) {
+                            return -1;
+                        }
+                        if (a.license > b.license) {
+                            return 1;
+                        }
+                        return 0;
+                    } else if (typeof a.license === 'object' && typeof b.license === 'object') {
+                        if (a.license.name < b.license.name) {
+                            return -1;
+                        }
+                        if (a.license.name > b.license.name) {
+                            return 1;
+                        }
+                        return 0;
+                    } else {
+                        return 0;
                     }
-                    if (a.license > b.license) {
-                        return 1;
-                    }
-                    return 0;
                 });
                 break;
             case 'status':
@@ -496,7 +508,7 @@ const HarvestingRequests = (props) => {
                                                         <span>{getLibraryName(item.library)}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <span>{getLicenseText(item.license)}</span>
+                                                        <span>{typeof item.license === 'object' ? `${item.license.name} ${item.license.version}` : item.license}</span>
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <span>{item.institution}</span>
@@ -548,7 +560,7 @@ const HarvestingRequests = (props) => {
                                 <Grid.Row columns={2}>
                                     <Grid.Column>
                                         <Header sub>Resource License</Header>
-                                        <p>{getLicenseText(currentRequest.license)}</p>
+                                        <p>{typeof currentRequest.license === 'object' ? `${currentRequest.license.name} ${currentRequest.license.version}` : currentRequest.license}</p>
                                     </Grid.Column>
                                     <Grid.Column>
                                         <Header sub>Resource URL</Header>

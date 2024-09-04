@@ -45,6 +45,7 @@ import AuthorsForm from "./AuthorsForm";
 import FilePreview from "./FilePreview";
 import ManageCaptionsModal from "./ManageCaptionsModal";
 import { useQuery } from "@tanstack/react-query";
+import useCentralIdentityLicenses from "../../hooks/useCentralIdentityLicenses";
 const FilesUploader = React.lazy(() => import("./FilesUploader"));
 const FileRenderer = React.lazy(() => import("./FileRenderer"));
 
@@ -130,15 +131,8 @@ const EditFile: React.FC<EditFileProps> = ({
   // Frameworks
   const [selectedFramework, setSelectedFramework] =
     useState<AssetTagFramework | null>(null);
-
-  const { data: licenseOptions, isFetching: licensesLoading } = useQuery<
-    CentralIdentityLicense[]
-  >({
-    queryKey: ["centralIdentityLicenses"],
-    queryFn: loadLicenseOptions,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  });
+    
+  const { licenseOptions, isFetching: licensesLoading } = useCentralIdentityLicenses();
 
   const {
     data: projectLicenseSettings,
@@ -289,34 +283,6 @@ const EditFile: React.FC<EditFileProps> = ({
     } catch (err) {
       handleGlobalError(err);
       return null;
-    }
-  }
-
-  async function loadLicenseOptions() {
-    try {
-      const res = await api.getCentralIdentityLicenses();
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.licenses) {
-        throw new Error("Failed to load license options");
-      }
-
-      const versionsSorted = res.data.licenses.map((l) => {
-        return {
-          ...l,
-          versions: l.versions?.sort((a, b) => {
-            if (a === b) return 0;
-            if (!a) return -1;
-            if (!b) return 1;
-            return b.localeCompare(a);
-          }),
-        };
-      });
-      return versionsSorted;
-    } catch (err) {
-      handleGlobalError(err);
-      return [];
     }
   }
 
