@@ -40,7 +40,7 @@ export const projectFileSchema = z.object({
       name: z.string().trim().max(255).optional().or(z.literal("")),
       url: z.string().trim().url().optional().or(z.literal("")),
       version: z.string().trim().max(255).optional().or(z.literal("")),
-      sourceURL: z.string().url().optional(),
+      sourceURL: z.string().url().optional().or(z.literal("local")),
       modifiedFromSource: z.coerce.boolean().optional(),
       additionalTerms: z.string().trim().max(500).optional(),
     })

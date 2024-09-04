@@ -486,6 +486,14 @@ const EditFile: React.FC<EditFileProps> = ({
     onFinishedEdit();
   }
 
+  function handleNoExternalSource() {
+    setValue("license.sourceURL", "local");
+  }
+
+  function handleResetExternalSource() {
+    setValue("license.sourceURL", "");
+  }
+
   return (
     <Modal open={show} onClose={onClose} size="fullscreen" {...rest}>
       <Modal.Header>
@@ -665,7 +673,21 @@ const EditFile: React.FC<EditFileProps> = ({
                           className="mt-2"
                           required
                           rules={required}
+                          helpText="URL where the file was sourced from"
+                          disabled={watch('license.sourceURL') === 'local'}
                         />
+                        {
+                          watch("license.sourceURL") !== "local" && (
+                            <p className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline" onClick={handleNoExternalSource}>
+                              This file doesn't have an external source.
+                            </p>
+                          )}
+                        {
+                          watch("license.sourceURL") === "local" && (
+                            <p className="text-sky-500 ml-1 mt-1 cursor-pointer hover:underline" onClick={handleResetExternalSource}>
+                              Add an external source URL
+                            </p>
+                          )}
                         <div className="flex items-start mt-3">
                           <CtlCheckbox
                             name="license.modifiedFromSource"
