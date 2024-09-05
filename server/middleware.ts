@@ -129,6 +129,7 @@ function authSanitizer(req: Request, _res: Response, next: NextFunction) {
 /**
  * Performs security checks on incoming requests by examing header values.
  *
+ * @deprecated
  * @param {express.Request} req - Incoming request object.
  * @param {express.Response} res - Outgoing response object.
  * @param {express.NextFunction} next - Next middleware function to run.
