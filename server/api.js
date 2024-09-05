@@ -96,18 +96,6 @@ router.use(cors({
 
 router.use(middleware.authSanitizer);
 
-router.use(middleware.middlewareFilter(
-  [
-    ...ssoRoutes,
-    ...apiAuthRoutes,
-    '/commons/kbexport',
-    '/analytics/learning/init',
-    '/payments/webhook',
-    '/cloudflare/stream-url',
-  ],
-  middleware.requestSecurityHelper,
-));
-
 /* Auth */
 router.route('/oidc/libretexts').get(authAPI.completeLogin);
 
