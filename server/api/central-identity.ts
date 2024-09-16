@@ -248,7 +248,7 @@ async function checkUserApplicationAccessInternal(
     if (!appsRes) return null;
 
     const hasAccess = appsRes.some(
-      (app: CentralIdentityApp) => app.id.toString() === appId.toString()
+      (app: CentralIdentityApp) => app.id.toString() === appId.toString() || app.name === appId
     );
     return hasAccess;
   } catch (err) {
