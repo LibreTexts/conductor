@@ -703,8 +703,18 @@ async function updateProject(req, res) {
     if (req.body.classification && req.body.classification !== project.classification) {
       updateObj.classification = req.body.classification;
     }
-    if (!project.didCreateWorkbench && req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
+    if (req.body.hasOwnProperty('projectURL') && req.body.projectURL !== project.projectURL) {
       /* If the Project URL is a LibreTexts link, gather more information */
+
+      // If attempting to change a workbench project url, ensure user is a superadmin
+      const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
+      if (!user || (project.didCreateWorkbench && user.roles.filter((role) => role.org === process.env.ORG_ID && role.role === 'superadmin').length === 0)) {
+        return res.status(403).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      }
+
       updateObj.projectURL = req.body.projectURL;
       if (libreURLRegex.test(req.body.projectURL)) {
         const projURLInfo = await getLibreTextInformation(

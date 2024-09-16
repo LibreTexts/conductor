@@ -587,6 +587,11 @@ class API {
     return res;
   }
 
+  async updateProject(project: Pick<Project, "projectID"> & Partial<Project>) {
+    const res = await axios.put<ConductorBaseResponse>("/project", project);
+    return res;
+  }
+
   async deleteProject(projectID: string) {
     const res = await axios.delete(`/project/${projectID}`);
     return res;

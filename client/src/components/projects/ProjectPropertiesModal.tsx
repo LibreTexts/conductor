@@ -43,6 +43,8 @@ import AuthorsForm from "../FilesManager/AuthorsForm";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
 import { useQueryClient } from "@tanstack/react-query";
 import { CHAT_NOTIFY_OPTS } from "../../utils/constants";
+import { useModals } from "../../context/ModalContext";
+import AdminChangeURL from "./AdminChangeURL";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -67,6 +69,8 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const org = useTypedSelector((state) => state.org);
+  const user = useTypedSelector((state) => state.user);
+  const { openModal, closeAllModals } = useModals();
   const authorsFormRef = useRef<React.ElementRef<typeof AuthorsForm>>(null);
   const {
     control,
@@ -634,6 +638,16 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
     });
   }, [coPIOptions]);
 
+  function handleOpenChangeURLModal() {
+    openModal(
+      <AdminChangeURL
+        projectID={projectID}
+        currentURL={getValues("projectURL") as string}
+        onClose={() => closeAllModals()}
+      />
+    )
+  }
+
   return (
     <Modal open={show} closeOnDimmerClick={false} size="fullscreen">
       <Modal.Header>Edit Project Properties</Modal.Header>
@@ -719,7 +733,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               />
             </div>
           </div>
-          {!getValues("didCreateWorkbench") && (
+          {!getValues("didCreateWorkbench") ? (
             <>
               <Form.Field className="flex flex-col !mt-4">
                 <label htmlFor="projectURL">
@@ -741,15 +755,16 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <CtlTextInput
                   name="projectURL"
                   control={control}
-                  placeholder={`Enter ${
-                    org.orgID === "calearninglab" ? "project" : "textbook"
-                  } URL...`}
+                  placeholder={`Enter ${org.orgID === "calearninglab" ? "project" : "textbook"
+                    } URL...`}
                   type="url"
                   id="projectURL"
                 />
               </Form.Field>
             </>
-          )}
+          ) : user.isSuperAdmin ? (
+            <p className="text-blue-600 underline cursor-pointer" onClick={handleOpenChangeURLModal}>Change Textbook URL (Admin Only)</p>
+          ) : null}
           <Form.Field className="flex flex-col !mt-4">
             <label htmlFor="projectDescription" className="mr-0.5">
               Project Description
@@ -1387,27 +1402,27 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
           <Divider />
           <Header as="h3">Discussion Settings</Header>
           <div className="w-1/4">
-          <label htmlFor="defaultChatNotification" className="form-field-label">
-            Default Message Notification Type
-          </label>
-          <Controller
-            name="defaultChatNotification"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="defaultChatNotification"
-                options={CHAT_NOTIFY_OPTS(true, () => {})}
-                {...field}
-                onChange={(e, data) => {
-                  field.onChange(data.value?.toString() ?? "all");
-                }}
-                fluid
-                selection
-                className="mr-8 mt-1"
-                placeholder="Notification type..."
-              />
-            )}
-          />
+            <label htmlFor="defaultChatNotification" className="form-field-label">
+              Default Message Notification Type
+            </label>
+            <Controller
+              name="defaultChatNotification"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="defaultChatNotification"
+                  options={CHAT_NOTIFY_OPTS(true, () => { })}
+                  {...field}
+                  onChange={(e, data) => {
+                    field.onChange(data.value?.toString() ?? "all");
+                  }}
+                  fluid
+                  selection
+                  className="mr-8 mt-1"
+                  placeholder="Notification type..."
+                />
+              )}
+            />
           </div>
           <Divider />
           <Header as="h3">Additional Information</Header>
