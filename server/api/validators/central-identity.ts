@@ -28,7 +28,7 @@ export const VerificationStatusUpdateWebhookValidator = z.object({
 export const CheckUserApplicationAccessValidator = z.object({
   params: z.object({
     id: z.string().uuid(),
-    applicationId: z.coerce.number().positive().int().or(z.literal('dev'))
+    applicationId: z.coerce.number().positive().int()
   }),
 });
 

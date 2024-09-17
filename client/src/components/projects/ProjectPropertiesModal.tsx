@@ -643,6 +643,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       <AdminChangeURL
         projectID={projectID}
         currentURL={getValues("projectURL") as string}
+        onSave={(newURL) => {
+          setValue("projectURL", newURL);
+          closeAllModals();
+        }}
         onClose={() => closeAllModals()}
       />
     )

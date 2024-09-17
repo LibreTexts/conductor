@@ -9,10 +9,11 @@ import api from "../../api";
 interface AdminChangeURLProps {
     projectID: string;
     currentURL?: string;
+    onSave: (newURL: string) => void;
     onClose: () => void;
 }
 
-const AdminChangeURL: React.FC<AdminChangeURLProps> = ({ projectID, currentURL, onClose }) => {
+const AdminChangeURL: React.FC<AdminChangeURLProps> = ({ projectID, currentURL, onSave, onClose }) => {
     const { handleGlobalError } = useGlobalError();
     const { addNotification } = useNotifications();
     const { control, getValues, trigger, watch } = useForm<{ url: string }>({ defaultValues: { url: currentURL || "" } });
@@ -36,7 +37,7 @@ const AdminChangeURL: React.FC<AdminChangeURLProps> = ({ projectID, currentURL, 
                 type: "success"
             });
 
-            onClose();
+            onSave(url);
         } catch (err) {
             console.error(err);
             handleGlobalError(err);

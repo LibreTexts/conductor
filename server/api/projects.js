@@ -707,8 +707,8 @@ async function updateProject(req, res) {
       /* If the Project URL is a LibreTexts link, gather more information */
 
       // If attempting to change a workbench project url, ensure user is a superadmin
-      const user = await User.findOne({ uuid: req.user.decoded.uuid }).lean();
-      if (!user || (project.didCreateWorkbench && user.roles.filter((role) => role.org === process.env.ORG_ID && role.role === 'superadmin').length === 0)) {
+      const isSuperadmin = req.user.roles?.filter((role) => role.org === process.env.ORG_ID && role.role === 'superadmin').length > 0;
+      if (project.didCreateWorkbench && !isSuperadmin) {
         return res.status(403).send({
           err: true,
           errMsg: conductorErrors.err8,
