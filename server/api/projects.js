@@ -489,6 +489,51 @@ async function getProject(req, res) {
   }
 };
 
+async function findByBook(req, res) {
+  try {
+    const { bookID } = req.params;
+    if(!bookID){
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const split = bookID.split('-');
+    if(split.length !== 2){
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const [library, pageID] = split;
+
+    const project = await Project.findOne({
+      libreLibrary: library,
+      libreCoverID: pageID,
+    }).lean();
+
+    if(!project){
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    return res.send({
+      err: false,
+      projectID: project.projectID,
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Multer handler to process and validate Project thumbnail uploads.
  *
@@ -3605,6 +3650,7 @@ export default {
     deleteProjectInternal,
     deleteProject,
     getProject,
+    findByBook,
     thumbnailUploadHandler,
     uploadProjectThumbnail,
     updateProject,
