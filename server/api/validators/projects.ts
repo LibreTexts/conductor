@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PaginationSchema } from "./misc.js";
+import { bookIDSchema } from "./book.js";
 
 export const getPublicProjectsSchema = z.object({
   query: PaginationSchema,
@@ -14,3 +15,9 @@ export const GetAddableTeamMembersSchema = z.object({
     includeOutsideOrg: z.coerce.boolean().optional(),
   }).merge(PaginationSchema)
 });
+
+export const findByBookSchema = z.object({
+  params: z.object({
+    bookID: bookIDSchema
+  }),
+})

@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { checkBookIDFormat } from '../../util/bookutils.js';
 import conductorErrors from '../../conductor-errors.js';
 
+// Book ID format: library-pageid (e.g. "chem-123")
+export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
+  message: "Book ID must be in the format 'library-pageid' (e.g. 'chem-123')",
+});
+
 export const createBookSchema = z.object({
   body: z.object({
     library: z.coerce.number().positive().int(),

@@ -1385,6 +1385,11 @@ router.route('/project/:projectID/thumbnail').put(
   projectsAPI.uploadProjectThumbnail,
 );
 
+router.route('/project/find-by-book/:bookID').get(
+  middleware.validateZod(ProjectValidators.findByBookSchema),
+  projectsAPI.findByBook,
+)
+
 router.route('/project/:projectID?')
   .get(
     authAPI.optionalVerifyRequest,
