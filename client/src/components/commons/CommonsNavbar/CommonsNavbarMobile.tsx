@@ -7,6 +7,7 @@ import { useState } from "react";
 import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
 import DonateLink from "./DonateLink";
 import Launchpad from "../../navigation/Launchpad";
+import SupportDropdown from "./SupportDropdown";
 
 interface CommonsNavbarMobileProps {
   org: Organization;
@@ -21,6 +22,22 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commonsOpen, setCommonsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  const SupportMenuItem = () => (
+    <>
+      <Menu.Item onClick={() => setSupportOpen(!supportOpen)}>
+        Support
+        <Icon
+          name={supportOpen ? "angle up" : "angle down"}
+          className="float-right"
+        />
+      </Menu.Item>
+      {
+        supportOpen && <SupportDropdown isMobile={true} />
+      }
+    </>
+  );
 
   return (
     <Menu className="flex w-full pt-2 flex-col" secondary>
@@ -50,6 +67,7 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
               <>
                 <DonateLink isMobile={true} />
                 <AccountRequestLink isMobile={true} />
+                <SupportMenuItem />
                 <Menu.Item onClick={() => setCommonsOpen(!commonsOpen)}>
                   Campus Commons
                   <Icon
@@ -62,6 +80,10 @@ const CommonsNavbarMobile: React.FC<CommonsNavbarMobileProps> = ({
             {org.orgID === "libretexts" && commonsOpen && (
               <CommonsList isMobile={true} />
             )}
+            {
+              org.orgID !== "libretexts" &&
+              <SupportMenuItem />
+            }
             <SwitchAppWithUser user={user} parent="commons" isMobile />
           </Menu>
         </div>
