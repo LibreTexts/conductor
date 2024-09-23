@@ -7,6 +7,7 @@ import CommonsList from "./CommonsList";
 import SwitchAppWithUser from "../../navigation/SwitchAppWithUser";
 import DonateLink from "./DonateLink";
 import Launchpad from "../../navigation/Launchpad";
+import SupportDropdown from "./SupportDropdown";
 
 interface CommonsNavbarDesktopProps extends MenuProps {
   org: Organization;
@@ -32,19 +33,24 @@ const CommonsNavbarDesktop: React.FC<CommonsNavbarDesktopProps> = ({
             <Image src={org.mediumLogo} className="nav-logo" alt="" />
             <span className="sr-only">{commonsTitle} Catalog Home</span>
           </Menu.Item>
-          </div>
-          <Menu.Menu position="right">
-            <AboutOrgLink org={org} />
-            {org.orgID === "libretexts" && (
-              <>
-                <DonateLink />
-                <AccountRequestLink />
-                <CommonsList />
-              </>
-            )}
-            <SwitchAppWithUser user={user} parent="commons" />
-          </Menu.Menu>
         </div>
+        <Menu.Menu position="right">
+          <AboutOrgLink org={org} />
+          {org.orgID === "libretexts" && (
+            <>
+              <DonateLink />
+              <AccountRequestLink />
+            </>
+          )}
+          <SupportDropdown />
+          {
+            org.orgID === 'libretexts' && (
+              <CommonsList />
+            )
+          }
+          <SwitchAppWithUser user={user} parent="commons" />
+        </Menu.Menu>
+      </div>
     </Menu>
   );
 };
