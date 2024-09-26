@@ -289,6 +289,32 @@ async function getUserOrgs(
   }
 }
 
+/**
+ * Get multiple users' organizations in a single request.
+ * Internal function, API requests should not call this directly.
+*/
+async function _getMultipleUsersOrgs(uuids: string[]): Promise<Record<string, { name: string }[]>> {
+  try {
+
+    if(!uuids || uuids.length === 0) {
+      return {};
+    }
+
+    const queryString = uuids.map(uuid => `uuids[]=${encodeURIComponent(uuid)}`).join('&');
+
+    const userRes = await useCentralIdentityAxios(false).get("/users/organizations" + "?" + queryString);
+
+    if (!userRes.data || !userRes.data.data) {
+      return {};
+    }
+
+    return userRes.data.data;
+  } catch (err) {
+    debugError(err);
+    return {};
+  }
+}
+
 async function addUserApplications(
   req: TypedReqParamsAndBody<
     { id: string },
@@ -1113,6 +1139,7 @@ export default {
   checkUserApplicationAccessInternal,
   _getUserOrgsRaw,
   getUserOrgs,
+  _getMultipleUsersOrgs,
   addUserApplications,
   deleteUserApplication,
   addUserOrgs,
