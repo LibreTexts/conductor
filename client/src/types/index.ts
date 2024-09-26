@@ -41,6 +41,7 @@ import {
   ProjectModule,
   ProjectModuleConfig,
   ProjectModuleSettings,
+  AddableProjectTeamMember
 } from "./Project";
 import { User, Account, AuthorizedApp, UserWCentralID } from "./User";
 import { Homework, AdaptAssignment } from "./Homework";
@@ -136,6 +137,7 @@ import {
 } from "./HarvestRequest";
 
 export type {
+  AddableProjectTeamMember,
   AtlasSearchHighlight,
   AssetFilters,
   AssetFiltersAction,

@@ -49,7 +49,7 @@ import authAPI from './auth.js';
 import mailAPI from './mail.js';
 import usersAPI from './users.js';
 import alertsAPI from './alerts.js';
-import centralIdentity from './central-identity.js';
+import centralIdentityAPI from './central-identity.js';
 import { getSubdomainFromLibrary } from '../util/librariesclient.js';
 import projectFilesAPI from './projectfiles.js';
 import ProjectFile from "../models/projectfile.js";
@@ -1681,8 +1681,24 @@ async function getAddableMembers(req, res) {
       { $limit: parsedLimit },
     ])
 
+
+    // Returns map of centralID to orgs (as {name: string} objects)
+    const orgsRes = await centralIdentityAPI._getMultipleUsersOrgs(users.map(u => u.centralID)).catch((e) => {
+      debugError(e); // fail silently
+      return {};
+    });
+
+    // attempt to match orgs to users
+    const usersWithOrgs = users.map((u) => {
+      const orgs = orgsRes[u.centralID] || [];
+      return {
+        ...u,
+        orgs: orgs.map((o) => ({ name: o.name })),
+      };
+    });
+
     return res.send({
-      users: users || [],
+      users: usersWithOrgs || [],
       err: false,
     });
   } catch (e) {

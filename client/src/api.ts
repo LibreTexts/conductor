@@ -26,7 +26,7 @@ import {
   User,
   UserSearchParams,
 } from "./types";
-import { CIDDescriptor, ProjectFileAuthor, ProjectTag } from "./types/Project";
+import { AddableProjectTeamMember, CIDDescriptor, ProjectFileAuthor, ProjectTag } from "./types/Project";
 import { Collection } from "./types/Collection";
 import {
   AuthorSearchParams,
@@ -562,7 +562,7 @@ class API {
       page: params.page?.toString() || "1",
       limit: params.limit?.toString() || "20",
     });
-    const res = await axios.get<{ users: User[] } & ConductorBaseResponse>(
+    const res = await axios.get<{ users: AddableProjectTeamMember[] } & ConductorBaseResponse>(
       `/project/${params.projectID}/team/addable?${queryParams}`
     );
     return res;

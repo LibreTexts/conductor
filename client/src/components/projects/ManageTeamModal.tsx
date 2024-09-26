@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import axios from "axios";
 import {
   Modal,
   Form,
-  Divider,
   Button,
   Icon,
   ModalProps,
   Loader,
-  List,
   Image,
   Dropdown,
   Popup,
@@ -17,7 +15,7 @@ import {
   TableProps,
   Radio,
 } from "semantic-ui-react";
-import { CentralIdentityOrg, Project, User } from "../../types";
+import { AddableProjectTeamMember, Project, User } from "../../types";
 import {
   isEmptyString,
   sortUsersByName,
@@ -31,7 +29,6 @@ import { extractEmailDomain } from "../../utils/misc";
 import api from "../../api";
 
 type ProjectDisplayMember = User & { roleValue: string; roleDisplay: string };
-type AddableUser = Pick<User, "uuid" | "firstName" | "lastName" | "avatar">;
 
 interface ManageTeamModalProps extends ModalProps {
   show: boolean;
@@ -56,8 +53,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [hasNotSearched, setHasNotSearched] = useState<boolean>(true);
   const [searchString, setSearchString] = useState<string>("");
-  const [includeOutsideOrg, setIncludeOutsideOrg] = useState<boolean>(false);
-  const [teamUserOptions, setTeamUserOptions] = useState<AddableUser[]>([]);
+  const [includeOutsideOrg, setIncludeOutsideOrg] = useState<boolean>(true);
+  const [teamUserOptions, setTeamUserOptions] = useState<
+    AddableProjectTeamMember[]
+  >([]);
   const [teamUserOptsLoading, setTeamUserOptsLoading] =
     useState<boolean>(false);
 
@@ -330,7 +329,18 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
             <Form onSubmit={(e) => e.preventDefault()} className="mt-16 h-72">
               <Form.Field className="flex flex-col">
                 <div className="flex flex-row justify-between items-center mb-1">
-                  <p className="text-xl font-semibold">Add Team Members</p>
+                  <div className="flex flex-row items-center">
+                    <p className="text-xl font-semibold">Add Team Members</p>
+                    <Popup
+                      content="Add users to the project team by searching for their name or email address. You can use the toggle switch to the right to restrict the search to users with the same email address domain as you."
+                      trigger={
+                        <Icon
+                          name="question circle outline"
+                          className=" !ml-1"
+                        />
+                      }
+                    />
+                  </div>
                   <div className="flex flex-row items-center">
                     <label className="" htmlFor="outside-org-radio">
                       Include users outside of{" "}
@@ -362,18 +372,40 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
               <Table celled compact>
                 <Table.Header>
                   <Table.Row>
-                    <Table.HeaderCell width={"8"}>Name</Table.HeaderCell>
+                    <Table.HeaderCell width={"4"}>Name</Table.HeaderCell>
+                    <Table.HeaderCell width={"4"}>
+                      Organization
+                    </Table.HeaderCell>
                     <Table.HeaderCell width={"2"}>Actions</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                  {teamUserOptsLoading && <Loader active inline="centered" />}
+                  {teamUserOptsLoading && (
+                    <Table.Row>
+                      <Table.Cell colSpan={3}>
+                        <Loader active inline="centered" />
+                      </Table.Cell>
+                    </Table.Row>
+                  )}
                   {!teamUserOptsLoading &&
                     teamUserOptions.map((item) => (
                       <Table.Row key={item.uuid}>
                         <Table.Cell>
                           <Image avatar src={item.avatar} />
                           {item.firstName} {item.lastName}
+                        </Table.Cell>
+                        <Table.Cell>
+                          {item.orgs && (
+                            <p>
+                              {truncateString(
+                                item.orgs
+                                  .slice(0, 3)
+                                  .map((org: { name: string }) => org.name)
+                                  .join(", "),
+                                135
+                              )}
+                            </p>
+                          )}
                         </Table.Cell>
                         <Table.Cell>
                           <Button
@@ -394,7 +426,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     !hasNotSearched &&
                     teamUserOptions.length === 0 && (
                       <Table.Row>
-                        <Table.Cell colSpan={2}>
+                        <Table.Cell colSpan={3}>
                           <p className="text-center">
                             No users found. Please try another search.
                           </p>
@@ -403,7 +435,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     )}
                   {!teamUserOptsLoading && hasNotSearched && (
                     <Table.Row>
-                      <Table.Cell colSpan={2}>
+                      <Table.Cell colSpan={3}>
                         <p className="text-center">
                           Start typing to search for users to add to the
                           project.
