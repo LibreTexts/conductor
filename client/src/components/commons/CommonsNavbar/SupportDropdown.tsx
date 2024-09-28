@@ -11,7 +11,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = ({ isMobile = false }) =
 
     const itemsArr = [
         {
-            name: "Knowledge Base",
+            name: "Insight - Knowledge Base",
             props: {
                 key: "libretexts",
                 as: "a",

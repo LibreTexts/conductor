@@ -11,7 +11,7 @@ const DefaultLayoutWNavTree: React.FC<DefaultLayoutWNavTreeProps> = ({
     <div className="bg-white min-h-screen">
       <div className="flex flex-row w-full">
         <NavTree />
-        <div className="p-8 w-5/6">{children}</div>
+        <div className="p-8 w-full">{children}</div>
       </div>
     </div>
   );
