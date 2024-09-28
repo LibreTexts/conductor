@@ -45,6 +45,7 @@ export interface OrganizationInterface extends Document {
   listenerPriority: number;
   cpuUnitsOverride: number;
   memoryValueOverride: number;
+  useCustomEnvironment?: boolean;
   FEAT_AssetTagsManager?: boolean;
   FEAT_PedagogyProjectTags?: boolean;
   FEAT_RecordSearchQueries?: boolean;
@@ -230,6 +231,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Override the default memory value for the Organization's Conductor instance.
      */
     memoryValueOverride: Number,
+    /**
+     * Allow a custom environment variables file to be deployed with the Organization's Conductor instance.
+     */
+    useCustomEnvironment: Boolean,
     /**
      * Whether the Asset Tags Manager feature is enabled.
      */
