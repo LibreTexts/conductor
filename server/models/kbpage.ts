@@ -1,5 +1,5 @@
 import { Document, Schema, model } from "mongoose";
-import { SanitizedUserSelectProjection } from "./user";
+import { SanitizedUserSelectProjection } from "./user.js";
 
 export interface KBPageInterface extends Document {
   uuid: string;
