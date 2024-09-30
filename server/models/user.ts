@@ -38,7 +38,7 @@ export type SanitizedUserInterface = Omit<
  * Query SELECT params to ignore sensitive data
  */
 export const SanitizedUserSelectQuery =
-  "-password -customAvatar -authType -roles -isSystem";
+  "-password -customAvatar -authType -roles -isSystem -salt -hash -pinnedProjects -authorizedApps -lastResetAttempt -resetToken -tokenExpiry";
 
 export const SanitizedUserSelectProjection = {
   password: 0,

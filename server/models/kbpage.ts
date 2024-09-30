@@ -1,4 +1,5 @@
 import { Document, Schema, model } from "mongoose";
+import { SanitizedUserSelectProjection } from "./user";
 
 export interface KBPageInterface extends Document {
   uuid: string;
@@ -60,6 +61,9 @@ KBPageSchema.virtual("lastEditedBy", {
   localField: "lastEditedByUUID",
   foreignField: "uuid",
   justOne: true,
+  options: {
+    projection: SanitizedUserSelectProjection
+  },
 })
 
 KBPageSchema.index({ title: "text", description: "text", body: "text" });
