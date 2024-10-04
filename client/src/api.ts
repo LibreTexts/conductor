@@ -9,6 +9,7 @@ import {
   Book,
   BookFilters,
   BookSearchParams,
+  CentralIdentityApp,
   CentralIdentityLicense,
   CentralIdentityOrg,
   CentralIdentityUser,
@@ -373,6 +374,13 @@ class API {
     const res = await axios.get<{
       access_code: string;
     } & ConductorBaseResponse>("/central-identity/adapt-access-code");
+    return res;
+  }
+
+  async getCentralIdentityApps(){
+    const res = await axios.get<{
+      applications: CentralIdentityApp[];
+    } & ConductorBaseResponse>("/central-identity/apps");
     return res;
   }
 
