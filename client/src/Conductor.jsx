@@ -39,10 +39,10 @@ import PeerReviewRubrics from './components/controlpanel/PeerReviewRubrics';
 const PeopleManager = lazy(() => import('./screens/conductor/controlpanel/PeopleManager'));
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
-import ProjectsAvailable from './components/projects/ProjectsAvailable';
-import ProjectsCompleted from './components/projects/ProjectsCompleted';
-import ProjectsFlagged from './components/projects/ProjectsFlagged';
-import ProjectsPortal from './components/projects/ProjectsPortal';
+const MyProjects = lazy(() => import('./screens/conductor/Projects'));
+const ProjectsAvailable = lazy(() => import('./screens/conductor/Projects/ProjectsAvailable'));
+const ProjectsCompleted = lazy(() => import('./screens/conductor/Projects/ProjectsCompleted'));
+const ProjectsFlagged = lazy(() => import('./screens/conductor/Projects/ProjectsFlagged'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
 import ProjectView from './components/projects/ProjectView';
 const Search = lazy(() => import('./screens/conductor/Search'));
@@ -91,7 +91,7 @@ const Conductor = () => {
         <PrivateRoute exact path='/home' component={Home} />
         <PrivateRoute exact path='/search' component={Search} />
         <PrivateRoute exact path='/alerts' component={MyAlerts} />
-        <PrivateRoute exact path='/projects/(create)?' component={ProjectsPortal} />
+        <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
         <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
         <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
         <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />

@@ -25,7 +25,7 @@ const ConstantMenuItems: React.FC<ConstantMenuItemsProps> = ({
       }}
     />
     <Menu.Item
-      name="projects"
+      name="my-projects"
       as={Link}
       to="/projects"
       active={activeItem === "projects"}
