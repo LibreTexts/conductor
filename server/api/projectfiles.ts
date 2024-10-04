@@ -1084,20 +1084,23 @@ async function removeProjectFilesInternal(projectID: string, fileIDs: string[]) 
     throw new Error("Missing Cloudflare credentials");
   }
 
+  const parentFiles = await ProjectFile.find({
+    projectID,
+    fileID: { $in: fileIDs },
+  }).lean() as ProjectFileInterface[];
+
   async function resolveAllChildren(searchFileIDs: string[]): Promise<ProjectFileInterface[]> {
-    const files = (await ProjectFile.find({
-      fileID: {
-        $in: searchFileIDs
-      },
+    const files = await ProjectFile.find({
       projectID,
-    }).lean()) as ProjectFileInterface[];
+      parent: { $in: searchFileIDs },
+    }).lean() as ProjectFileInterface[];
     if (!files?.length) return [];
 
-    const children = await resolveAllChildren(files.map((f) => f.fileID));
+    const children = await resolveAllChildren(files.map((o) => o.fileID).filter((o) => o));
     return files.concat(children);
   }
 
-  const objsToDelete = await resolveAllChildren(fileIDs);
+  const objsToDelete = (await resolveAllChildren(fileIDs)).concat(parentFiles);
   const allFileIds = objsToDelete.map((o => o.fileID));
 
   const filesToDelete = objsToDelete
