@@ -551,6 +551,15 @@ class API {
     return res;
   }
 
+  async getProjectFilterOptions() {
+    const res = await axios.get<
+      {
+        statuses: string[];
+      } & ConductorBaseResponse
+    >("/search/project-filters");
+    return res;
+  }
+
   async assetsSearch(params: AssetSearchParams) {
     const res = await axios.get<
       ConductorSearchResponse<"assets"> & ConductorBaseResponse

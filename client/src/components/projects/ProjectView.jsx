@@ -272,10 +272,7 @@ const ProjectView = (props) => {
     if (urlParams.get('reviewer') === 'true') {
       setShowReviewerCrumb(true);
     }
-    if (urlParams.get('src') === 'underdevelopment') {
-      setShowJoinComingSoon(true);
-    }
-  }, [props.location.search, setShowProjectCreated, setShowReviewerCrumb, setShowJoinComingSoon]);
+  }, [props.location.search, setShowProjectCreated, setShowReviewerCrumb]);
 
 
   /**

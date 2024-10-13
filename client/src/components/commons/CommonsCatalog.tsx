@@ -1,6 +1,6 @@
 import "./Commons.css";
 import { Grid, Segment, Header, Form, Icon, Button } from "semantic-ui-react";
-import { useEffect, useState, useRef, useReducer } from "react";
+import { useEffect, useState, useReducer } from "react";
 import { useTypedSelector } from "../../state/hooks";
 import CatalogTabs from "./CommonsCatalog/CatalogTabs";
 import useDebounce from "../../hooks/useDebounce";
@@ -15,6 +15,8 @@ import {
   ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
   Project,
+  ProjectFilters,
+  ProjectFiltersAction,
 } from "../../types";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
@@ -90,6 +92,24 @@ function booksReducer(
   }
 }
 
+function projectsReducer(
+  state: ProjectFilters,
+  action: ProjectFiltersAction
+): ProjectFilters {
+  switch (action.type) {
+    case "status":
+      return { ...state, status: action.payload };
+    case "reset":
+      return {};
+    case "reset_one":
+      const newState = { ...state };
+      delete newState[action.payload as keyof ProjectFilters];
+      return newState;
+    default:
+      return state;
+  }
+}
+
 const CommonsCatalog = () => {
   // Global State and Location/History
   const org = useTypedSelector((state) => state.org);
@@ -106,6 +126,7 @@ const CommonsCatalog = () => {
   const [assetsState, assetsDispatch] = useReducer(assetsReducer, {});
   const [authorsState, authorsDispatch] = useReducer(authorsReducer, {});
   const [booksState, booksDispatch] = useReducer(booksReducer, {});
+  const [projectsState, projectsDispatch] = useReducer(projectsReducer, {});
 
   const [showSuggestions, setShowSuggestions] = useState(true);
 
@@ -153,8 +174,9 @@ const CommonsCatalog = () => {
       assetFilters: assetsState,
       bookFilters: booksState,
       authorFilters: authorsState,
+      projectFilters: projectsState,
     });
-  }, [assetsState, booksState, authorsState, location.search]);
+  }, [assetsState, booksState, authorsState, projectsState, location.search]);
 
   const getSuggestionsDebounced = debounce(
     (searchVal: string) => getSearchSuggestions(searchVal),
@@ -170,7 +192,8 @@ const CommonsCatalog = () => {
       if (
         assetFiltersApplied() ||
         bookFiltersApplied() ||
-        authorFiltersApplied()
+        authorFiltersApplied() ||
+        projectFiltersApplied()
       ) {
         runSearch({ query: search }); // handle no search query but filters
       } else {
@@ -190,6 +213,7 @@ const CommonsCatalog = () => {
       assetsDispatch({ type: "reset", payload: "" });
       authorsDispatch({ type: "reset" });
       booksDispatch({ type: "reset" });
+      projectsDispatch({ type: "reset" });
     }
   };
 
@@ -209,6 +233,7 @@ const CommonsCatalog = () => {
     assetsDispatch({ type: "reset", payload: "" });
     authorsDispatch({ type: "reset" });
     booksDispatch({ type: "reset" });
+    projectsDispatch({ type: "reset" });
     setActivePage(1);
     setBooks([]);
     setAssets([]);
@@ -222,11 +247,13 @@ const CommonsCatalog = () => {
     assetFilters,
     bookFilters,
     authorFilters,
+    projectFilters,
   }: {
     query?: string;
     assetFilters?: AssetFilters;
     bookFilters?: BookFilters;
     authorFilters?: AuthorFilters;
+    projectFilters?: ProjectFilters;
   }) {
     try {
       if (loadingDisabled) return;
@@ -236,7 +263,8 @@ const CommonsCatalog = () => {
         !query &&
         (!assetFilters || !Object.keys(assetFilters).length) &&
         (!bookFilters || !Object.keys(bookFilters).length) &&
-        (!authorFilters || !Object.keys(authorFilters).length)
+        (!authorFilters || !Object.keys(authorFilters).length) &&
+        (!projectFilters || !Object.keys(projectFilters).length)
       ) {
         return loadInitialData(true);
       }
@@ -244,7 +272,7 @@ const CommonsCatalog = () => {
       await Promise.all([
         handleBooksSearch(query ?? searchString, bookFilters, true),
         handleAssetsSearch(query ?? searchString, assetFilters, true),
-        (query || searchString) ? handleProjectsSearch(query ?? searchString, true) : loadPublicProjects(true),
+        handleProjectsSearch(query ?? searchString, projectFilters, true),
         handleAuthorsSearch(query ?? searchString, authorFilters, true),
       ]);
     } catch (err) {
@@ -474,13 +502,18 @@ const CommonsCatalog = () => {
     }
   }
 
-  async function handleProjectsSearch(query?: string, clearAndUpdate = false) {
+  async function handleProjectsSearch(
+    query?: string,
+    projectFilters?: ProjectFilters,
+    clearAndUpdate = false
+  ) {
     try {
       setProjectsLoading(true);
       const res = await api.projectsSearch({
         searchQuery: query,
         page: activePage,
         limit: ITEMS_PER_PAGE,
+        ...projectFilters,
       });
 
       if (res.data.err) {
@@ -528,6 +561,10 @@ const CommonsCatalog = () => {
 
   const assetFiltersApplied = (): boolean => {
     return Object.keys(assetsState).length > 0;
+  };
+
+  const projectFiltersApplied = (): boolean => {
+    return Object.keys(projectsState).length > 0;
   };
 
   function handleLoadMoreBooks() {
@@ -740,6 +777,8 @@ const CommonsCatalog = () => {
                 booksCount={booksCount}
                 assets={assets}
                 assetsCount={assetsCount}
+                projectFilters={projectsState}
+                projectFiltersDispatch={projectsDispatch}
                 projects={projects}
                 projectsCount={projectsCount}
                 booksLoading={booksLoading}

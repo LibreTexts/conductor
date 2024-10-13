@@ -1997,6 +1997,18 @@ async function getAuthorFilterOptions(req: Request, res: Response) {
   }
 }
 
+async function getProjectFilterOptions(req: Request, res: Response) {
+  try {
+    return res.send({
+      err: false,
+      statuses: ['available', 'open', 'completed'],
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
 function _checkIsExactMatchQuery(query: string): [boolean, string] {
   let isExactMatchSearch = false;
   let strippedQuery = "";
@@ -2176,4 +2188,5 @@ export default {
   getAutocompleteResults,
   getAssetFilterOptions,
   getAuthorFilterOptions,
+  getProjectFilterOptions,
 };

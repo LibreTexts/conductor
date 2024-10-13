@@ -11,6 +11,8 @@ import {
   ConductorSearchResponseAuthor,
   ConductorSearchResponseFile,
   Project,
+  ProjectFilters,
+  ProjectFiltersAction
 } from "../../../types";
 import CatalogTab from "./CatalogTab";
 import BooksTable from "./BooksTable";
@@ -23,6 +25,7 @@ import CatalogAssetFilters from "./CatalogAssetFilters";
 import { useTypedSelector } from "../../../state/hooks";
 import AuthorsTable from "./AuthorsTable";
 import CatalogAuthorFilters from "./CatalogAuthorFilters";
+import CatalogProjectFilters from "./CatalogProjectFilters";
 
 interface CatalogTabsProps extends TabProps {
   activeTab: CommonsModule;
@@ -39,6 +42,8 @@ interface CatalogTabsProps extends TabProps {
   assets: ConductorSearchResponseFile[];
   assetsCount: number;
   assetsLoading: boolean;
+  projectFilters: ProjectFilters;
+  projectFiltersDispatch: React.Dispatch<ProjectFiltersAction>;
   projects: Project[];
   projectsCount: number;
   projectsLoading: boolean;
@@ -67,6 +72,8 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
   assets,
   assetsCount,
   assetsLoading,
+  projectFilters,
+  projectFiltersDispatch,
   projects,
   projectsCount,
   projectsLoading,
@@ -249,6 +256,14 @@ const CatalogTabs: React.FC<CatalogTabsProps> = ({
             filters={authorFilters}
             onFilterChange={(type, value) =>
               authorFiltersDispatch({ type, payload: value })
+            }
+          />
+        )}
+        {activeTab === "projects" && (
+          <CatalogProjectFilters
+            filters={projectFilters}
+            onFilterChange={(type, value) =>
+              projectFiltersDispatch({ type, payload: value })
             }
           />
         )}

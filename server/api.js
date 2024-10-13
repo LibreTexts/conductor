@@ -762,6 +762,9 @@ router.route('/search/asset-filters').get(
 router.route('/search/author-filters').get(
   searchAPI.getAuthorFilterOptions,
 );
+router.route('/search/project-filters').get(
+  searchAPI.getProjectFilterOptions,
+);
 
 /* Users */
 router.route('/user/basicinfo').get(
@@ -1112,8 +1115,6 @@ router.route('/projects/all').get(
   authAPI.verifyRequest,
   projectsAPI.getUserProjects,
 );
-
-router.route('/projects/underdevelopment').get(projectsAPI.getProjectsUnderDevelopment);
 
 router.route('/projects/flagged').get(
   authAPI.verifyRequest,
