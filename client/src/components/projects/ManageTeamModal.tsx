@@ -369,7 +369,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                   }}
                 />
               </Form.Field>
-              <Table celled compact>
+              <Table celled compact className="!mb-12">
                 <Table.Header>
                   <Table.Row>
                     <Table.HeaderCell width={"4"}>Name</Table.HeaderCell>
@@ -388,40 +388,41 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
                     </Table.Row>
                   )}
                   {!teamUserOptsLoading &&
-                    teamUserOptions.map((item) => (
-                      <Table.Row key={item.uuid}>
-                        <Table.Cell>
-                          <Image avatar src={item.avatar} />
-                          {item.firstName} {item.lastName}
-                        </Table.Cell>
-                        <Table.Cell>
-                          {item.orgs && (
-                            <p>
-                              {truncateString(
-                                item.orgs
-                                  .slice(0, 3)
-                                  .map((org: { name: string }) => org.name)
-                                  .join(", "),
-                                135
-                              )}
-                            </p>
-                          )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <Button
-                            color="green"
-                            className="ml-1p"
-                            onClick={() => {
-                              submitAddTeamMember(item.uuid);
-                            }}
-                            icon
-                          >
-                            <Icon name="add user" />
-                            <span className="ml-2">Add to Project</span>
-                          </Button>
-                        </Table.Cell>
-                      </Table.Row>
-                    ))}
+                    teamUserOptions.map((item) => {
+                      const orgsStr = item.orgs ? truncateString(
+                        item.orgs
+                          .slice(0, 3)
+                          .map((org: { name: string }) => org.name)
+                          .join(", "),
+                        135
+                      ) : '';
+                      return (
+                        <Table.Row key={item.uuid}>
+                          <Table.Cell>
+                            <Image avatar src={item.avatar} />
+                            {item.firstName} {item.lastName}
+                          </Table.Cell>
+                          <Table.Cell>
+                            {orgsStr && orgsStr !== 'Unknown Organization' && (
+                              <p>{orgsStr}</p>
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>
+                            <Button
+                              color="green"
+                              className="ml-1p"
+                              onClick={() => {
+                                submitAddTeamMember(item.uuid);
+                              }}
+                              icon
+                            >
+                              <Icon name="add user" />
+                              <span className="ml-2">Add to Project</span>
+                            </Button>
+                          </Table.Cell>
+                        </Table.Row>
+                      );
+                    })}
                   {!teamUserOptsLoading &&
                     !hasNotSearched &&
                     teamUserOptions.length === 0 && (
