@@ -10,7 +10,6 @@ import CommonsJumbotron from "./components/commons/CommonsJumbotron";
 import CommonsMenu from "./components/commons/CommonsMenu";
 import CommonsNavbar from "./components/commons/CommonsNavbar";
 import CommonsProject from "./screens/commons/Project";
-import CommonsUnderDevelopment from "./components/commons/CommonsUnderDevelopment";
 import CommonsFile from "./screens/commons/File";
 import SystemAnnouncement from "./components/util/SystemAnnouncement";
 import withUserStateDependency from "./enhancers/withUserStateDependency";
@@ -45,8 +44,6 @@ const Commons = () => {
       setActiveItem("homework");
     } else if (currentPath.includes("/libraries")) {
       window.location.href = LAUNCHPAD_URL; // Redirects to the LibreTexts Launchpad.
-    } else if (currentPath.includes("/underdevelopment")) {
-      setActiveItem("underdevelopment");
     } else {
       setActiveItem("catalog");
     }
@@ -75,12 +72,6 @@ const Commons = () => {
               path="/homework"
               key="homework"
               component={CommonsHomework}
-            />,
-            <Route
-              exact
-              path="/underdevelopment"
-              key="underdev"
-              component={CommonsUnderDevelopment}
             />,
           ]}
           <Route exact path="/author/:id" component={CommonsAuthor} />

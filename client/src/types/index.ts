@@ -128,6 +128,8 @@ import {
   AssetSearchParams,
   BookSearchParams,
   HomeworkSearchParams,
+  ProjectFilters,
+  ProjectFiltersAction,
   ProjectSearchParams,
   UserSearchParams,
 } from "./Search";
@@ -203,6 +205,8 @@ export type {
   CatalogLocation,
   PeerReview,
   PeerReviewRubric,
+  ProjectFilters,
+  ProjectFiltersAction,
   ProjectModule,
   ProjectModuleConfig,
   ProjectModuleSettings,

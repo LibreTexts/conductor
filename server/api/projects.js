@@ -1466,59 +1466,6 @@ const getCompletedProjects = (req, res) => {
 
 
 /**
- * Retrieves a list of public Projects that are 'under development' (not completed).
- * @param {object} req - The Express.js request object.
- * @param {object} res - The Express.js response object.
- */
-const getProjectsUnderDevelopment = (req, res) => {
-    return Project.aggregate([
-        {
-            $match: {
-                $and: [
-                    { orgID: 'libretexts' },
-                    { visibility: 'public' },
-                    { classification: {
-                        $in: ['harvesting', 'construction', 'adoptionrequest']
-                    }},
-                    { status: {
-                        $in: ['available', 'open', 'flagged']
-                    }}
-                ]
-            }
-        }, {
-            $project: {
-                _id: 0,
-                projectID: 1,
-                title: 1,
-                status: 1,
-                currentProgress: 1,
-                peerProgress: 1,
-                a11yProgress: 1,
-                classification: 1,
-            }
-        }
-    ]).then((projects) => {
-        const sortedProjects = projects.sort((a, b) => {
-            const aData = String(a.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-            const bData = String(b.title).toLowerCase().replace(/[^A-Za-z]+/g, "");
-            if (aData < bData) return -1;
-            if (aData > bData) return 1;
-            return 0;
-        });
-        return res.send({
-            err: false,
-            projects: sortedProjects
-        });
-    }).catch((err) => {
-        debugError(err);
-        return res.send({
-            err: true,
-            errMsg: conductorErrors.err6
-        });
-    });
-};
-
-/**
  * Retrieves a list of public Projects with 'public' visibility.
  * @param {express.Request} req - Incoming request object. 
  * @param {express.Response} res - Outgoing response object.
@@ -3677,7 +3624,6 @@ export default {
     getRecentProjects,
     getAvailableProjects,
     getCompletedProjects,
-    getProjectsUnderDevelopment,
     getPublicProjects,
     getAddableMembers,
     addMemberToProject,

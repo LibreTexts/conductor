@@ -220,6 +220,11 @@ export function getDefaultCommonsModule(settings?: CommonsModuleSettings): Commo
   return defaultModule as CommonsModule ?? "books";
 }
 
+export function upperFirst(str: string): string {
+  if (!str || typeof str !== "string") return str;
+  return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
+}
+
 /**
  * Extracts the data object from an AxiosResponse object while maintaining its typing
  * @param response - Promise containing an AxiosResponse object

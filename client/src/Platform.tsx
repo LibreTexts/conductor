@@ -55,7 +55,6 @@ const Platform = () => {
     "/author/:id",
     "/book/:id",
     "/homework",
-    "/underdevelopment",
     "/libraries",
     "/search-results",
     "/file/:projectID/:fileID",

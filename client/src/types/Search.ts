@@ -30,6 +30,10 @@ export type BookFilters = {
   affiliation?: string;
 };
 
+export type ProjectFilters = {
+  status?: string;
+};
+
 export type CustomFilter = {
   title: string;
   options: string[];
@@ -128,4 +132,13 @@ export type BookFiltersAction =
     }
   | {
       type: "reset";
+    };
+
+export type ProjectFiltersAction =
+  | {
+      type: keyof ProjectFilters | "reset_one";
+      payload: string
+    }
+  | {
+      type: "reset"
     };
