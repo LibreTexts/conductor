@@ -32,6 +32,7 @@ import mailAPI from "../api/mail.js";
 import { CXOneFetch, getLibUsers, getLibreBotUserId } from "./librariesclient.js";
 import MindTouch from "./CXOne/index.js";
 import { URLSearchParams } from "url";
+import { getFileExtensionFromMimeType } from "./exports.js";
 
 export const projectClassifications = [
   "harvesting",
@@ -955,9 +956,30 @@ export async function parseAndZipS3Objects(
     for (let i = 0; i < s3Res.length; i++) {
       const byteArray = await s3Res[i].Body?.transformToByteArray();
 
+      const getNameWithExtension = (filename: string, mimeType?: string) => {
+        if(!filename) {
+          return '';
+        }
+
+        if(filename.includes('.')) {
+          return filename; // Already has an extension
+        }
+
+        if(!mimeType) {
+          return filename; // No MIME type to infer extension, return as-is
+        }
+
+        const ext = getFileExtensionFromMimeType(mimeType);
+        if(!ext) {
+          return filename; // No extension found, return as-is
+        }
+
+        return `${filename}.${ext}`;
+      }
+
       if (files[i]) {
         items.push({
-          name: files[i].name,
+          name: getNameWithExtension(files[i].name || v4(), s3Res[i].ContentType),
           data: byteArray,
         });
       } else {
