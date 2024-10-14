@@ -1,6 +1,6 @@
 import { Button, Header, Icon, Popup } from "semantic-ui-react";
 import { normalizeURL } from "../util/HelperFunctions";
-import { buildCommonsUrl, buildWorkbenchURL } from "../../utils/projectHelpers";
+import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from "../../utils/projectHelpers";
 import { lazy, useState } from "react";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
@@ -101,6 +101,43 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
               }
             >
               Commons Page
+              <Icon name="external alternate" className="!ml-2" />
+            </Button>
+          }
+        />
+        <Popup
+          content={
+            validWorkbench
+              ? "This link will open the book in the LibreTexts OER Remixer."
+              : projectLink
+                ? "This link will open the LibreTexts OER Remixer."
+                : "This project does not have a linked URL."
+          }
+          trigger={
+            <Button
+              onClick={
+                hasCommonsBook && libreCoverID && libreLibrary
+                  ? () =>
+                    window.open(
+                      buildRemixerURL(
+                        libreLibrary ?? 'chem',
+                        didCreateWorkbench && libreLibrary && libreCoverID
+                          ? buildWorkbenchURL(libreLibrary, libreCoverID)
+                          : ''
+                      )
+                    , '_blank')
+                  : () => {}
+              }
+              className={
+                hasCommonsBook && libreCoverID && libreLibrary
+                  ? ""
+                  : "!cursor-default opacity-45"
+              }
+              color={
+                hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"
+              }
+            >
+              OER Remixer
               <Icon name="external alternate" className="!ml-2" />
             </Button>
           }
