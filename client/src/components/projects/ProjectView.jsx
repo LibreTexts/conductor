@@ -1403,17 +1403,6 @@ const ProjectView = (props) => {
     setShowReaderResourcesModal(false);
   }
 
-  function handleGoToRemixer() {
-    window.open(
-      buildRemixerURL(
-        project.libreLibrary ?? 'chem',
-        project.didCreateWorkbench && project.libreLibrary && project.libreCoverID
-          ? buildWorkbenchURL(project.libreLibrary, project.libreCoverID)
-          : undefined
-      )
-    );
-  }
-
   // Rendering Helper Booleans
   const hasResourceInfo = project.author || project.license?.sourceURL || project.license?.licenseName;
   const hasNotes = project.notes && !isEmptyString(project.notes);
@@ -1683,26 +1672,21 @@ const ProjectView = (props) => {
                         <Dropdown.Menu>
                           {userProjectMember && (
                             <>
-                            <Dropdown.Item
-                              icon={hasFlag ? (
-                                <Icon.Group className='icon'>
+                              <Dropdown.Item
+                                icon={hasFlag ? (
+                                  <Icon.Group className='icon'>
+                                    <Icon name='attention' />
+                                    <Icon corner name='x' />
+                                  </Icon.Group>
+                                ) : (
                                   <Icon name='attention' />
-                                  <Icon corner name='x' />
-                                </Icon.Group>
-                              ) : (
-                                <Icon name='attention' />
-                              )}
-                              text={hasFlag ? 'Clear flag' : 'Flag Project'}
-                              onClick={() => {
-                                if (hasFlag) openFlagModal('clear')
-                                else openFlagModal('set')
-                              }}
-                            />
-                            <Dropdown.Item
-                              icon={<Icon name='sitemap' />}
-                              text='OER Remixer'
-                              onClick={handleGoToRemixer}
-                            />
+                                )}
+                                text={hasFlag ? 'Clear flag' : 'Flag Project'}
+                                onClick={() => {
+                                  if (hasFlag) openFlagModal('clear')
+                                  else openFlagModal('set')
+                                }}
+                              />
                             </>
                           )}
                           {!userProjectMember && (
