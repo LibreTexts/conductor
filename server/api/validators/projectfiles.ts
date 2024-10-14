@@ -131,7 +131,7 @@ export const bulkDownloadProjectFilesSchema = z.object({
     projectID: _projectIDSchema,
   }),
   query: z.object({
-    fileIDs: z.array(z.string().uuid()),
+    fileIDs: z.string().max(2200), // allow for approx 50 file IDs in format 'fileID=123&fileID=456&fileID=789', will be parsed by the handling function
     emailToNotify: z.string().email(),
   }),
 });
