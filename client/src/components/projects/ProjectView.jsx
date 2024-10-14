@@ -1899,6 +1899,8 @@ const ProjectView = (props) => {
                   loadingTasks={loadingTasks}
                   defaultNotificationSetting={project.defaultChatNotification}
                   mngTaskLoading={mngTaskLoading}
+                  libreLibrary={project.libreLibrary}
+                  libreCoverID={project.libreCoverID}
                 />                
               </Grid>
             </Segment>

@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { checkBookIDFormat } from '../../util/bookutils.js';
-import conductorErrors from '../../conductor-errors.js';
+import { z } from "zod";
+import { checkBookIDFormat } from "../../util/bookutils.js";
+import conductorErrors from "../../conductor-errors.js";
 
 // Book ID format: library-pageid (e.g. "chem-123")
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
@@ -20,18 +20,18 @@ export const getCommonsCatalogSchema = z.object({
     activePage: z.coerce.number().min(1).default(1),
     limit: z.coerce.number().min(1).default(10),
     sort: z
-      .union([z.literal('title'), z.literal('author'), z.literal('random')])
+      .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()
-      .default('title'),
+      .default("title"),
   }),
 });
 
 export const getMasterCatalogSchema = z.object({
   query: z.object({
     sort: z
-      .union([z.literal('title'), z.literal('author'), z.literal('random')])
+      .union([z.literal("title"), z.literal("author"), z.literal("random")])
       .optional()
-      .default('title'),
+      .default("title"),
     search: z.string().min(1).optional(),
   }),
 });
@@ -76,5 +76,26 @@ export const deleteBookSchema = z.intersection(
       deleteProject: z.coerce.boolean().optional(),
     }),
   }),
-  getWithBookIDParamSchema,
+  getWithBookIDParamSchema
 );
+
+// Uses the same ID format as getWithBookIDParamSchema
+export const getWithPageIDParamSchema = z.object({
+  params: z.object({
+    pageID: z.string().refine(checkBookIDFormat, {
+      message: conductorErrors.err1,
+    }),
+  }),
+});
+
+export const updatePageDetailsSchema = z.object({
+  params: z.object({
+    pageID: z.string().refine(checkBookIDFormat, {
+      message: conductorErrors.err1,
+    }),
+  }),
+  body: z.object({
+    summary: z.string().optional(),
+    tags: z.array(z.string()).max(100).optional(),
+  }),
+});

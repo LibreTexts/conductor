@@ -20,14 +20,21 @@ import {
   HarvestRequest,
   Homework,
   HomeworkSearchParams,
+  PageDetailsResponse,
   PeerReview,
   Project,
   ProjectFile,
   ProjectSearchParams,
+  TableOfContents,
   User,
   UserSearchParams,
 } from "./types";
-import { AddableProjectTeamMember, CIDDescriptor, ProjectFileAuthor, ProjectTag } from "./types/Project";
+import {
+  AddableProjectTeamMember,
+  CIDDescriptor,
+  ProjectFileAuthor,
+  ProjectTag,
+} from "./types/Project";
 import { Collection } from "./types/Collection";
 import {
   AuthorSearchParams,
@@ -217,10 +224,11 @@ class API {
     return res;
   }
 
-  public cloudflareStreamUploadURL: string = `${import.meta.env.MODE === "development"
-    ? import.meta.env.VITE_DEV_BASE_URL
-    : ""
-    }/api/v1/cloudflare/stream-url`;
+  public cloudflareStreamUploadURL: string = `${
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_DEV_BASE_URL
+      : ""
+  }/api/v1/cloudflare/stream-url`;
 
   // Authors
   async getAuthors({
@@ -321,6 +329,51 @@ class API {
     return res;
   }
 
+  async getBookTOC(bookID: string) {
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse
+    >(`/commons/book/${bookID}/toc`);
+    return res;
+  }
+
+  async getPageDetails(pageID: string) {
+    const res = await axios.get<PageDetailsResponse & ConductorBaseResponse>(
+      `/commons/pages/${pageID}`
+    );
+    return res;
+  }
+
+  async getPageAISummary(pageID: string) {
+    const res = await axios.get<
+      {
+        summary: string;
+      } & ConductorBaseResponse
+    >(`/commons/pages/${pageID}/ai-summary`);
+    return res;
+  }
+
+  async getPageAITags(pageID: string) {
+    const res = await axios.get<
+      {
+        tags: string[];
+      } & ConductorBaseResponse
+    >(`/commons/pages/${pageID}/ai-tags`);
+    return res;
+  }
+
+  async updatePageDetails(
+    pageID: string,
+    data: { summary: string; tags: string[] }
+  ) {
+    const res = await axios.patch<ConductorBaseResponse>(
+      `/commons/pages/${pageID}`,
+      data
+    );
+    return res;
+  }
+
   // Central Identity
   async getCentralIdentityOrgs({
     activePage,
@@ -371,16 +424,20 @@ class API {
   }
 
   async generateADAPTAccessCode() {
-    const res = await axios.get<{
-      access_code: string;
-    } & ConductorBaseResponse>("/central-identity/adapt-access-code");
+    const res = await axios.get<
+      {
+        access_code: string;
+      } & ConductorBaseResponse
+    >("/central-identity/adapt-access-code");
     return res;
   }
 
-  async getCentralIdentityApps(){
-    const res = await axios.get<{
-      applications: CentralIdentityApp[];
-    } & ConductorBaseResponse>("/central-identity/apps");
+  async getCentralIdentityApps() {
+    const res = await axios.get<
+      {
+        applications: CentralIdentityApp[];
+      } & ConductorBaseResponse
+    >("/central-identity/apps");
     return res;
   }
 
@@ -420,7 +477,11 @@ class API {
     return res;
   }
 
-  async getCentralIdentityVerificationRequests(queryParams: { page?: number; limit?: number, status?: 'open' | 'closed' }) {
+  async getCentralIdentityVerificationRequests(queryParams: {
+    page?: number;
+    limit?: number;
+    status?: "open" | "closed";
+  }) {
     const res = await axios.get<
       {
         requests: CentralIdentityVerificationRequest[];
@@ -570,9 +631,9 @@ class API {
       page: params.page?.toString() || "1",
       limit: params.limit?.toString() || "20",
     });
-    const res = await axios.get<{ users: AddableProjectTeamMember[] } & ConductorBaseResponse>(
-      `/project/${params.projectID}/team/addable?${queryParams}`
-    );
+    const res = await axios.get<
+      { users: AddableProjectTeamMember[] } & ConductorBaseResponse
+    >(`/project/${params.projectID}/team/addable?${queryParams}`);
     return res;
   }
   async getPublicProjects(params?: { page?: number; limit?: number }) {
@@ -771,7 +832,7 @@ class API {
       {
         resources: CollectionResource[];
         total_items: number;
-        cursor?: number
+        cursor?: number;
       } & ConductorBaseResponse
     >(
       `/commons/collection/${encodeURIComponent(
@@ -805,7 +866,7 @@ class API {
       {
         collections: Collection[];
         total_items: number;
-        cursor?: number
+        cursor?: number;
       } & ConductorBaseResponse
     >(`/commons/collections`, {
       params: {
@@ -848,11 +909,15 @@ class API {
   }
 
   async deleteCollection(id: string) {
-    return await axios.delete<ConductorBaseResponse>(`/commons/collection/${id}`);
+    return await axios.delete<ConductorBaseResponse>(
+      `/commons/collection/${id}`
+    );
   }
 
   async deleteCollectionResource(collID: string, resourceID: string) {
-    return await axios.delete<ConductorBaseResponse>(`/commons/collection/${collID}/resources/${resourceID}`);
+    return await axios.delete<ConductorBaseResponse>(
+      `/commons/collection/${collID}/resources/${resourceID}`
+    );
   }
 
   // USERS (Control Panel)
@@ -862,11 +927,13 @@ class API {
     limit?: number;
     sort?: string;
   }) {
-    return await axios.get<{
-      results: User[];
-      total_items: number;
-    } & ConductorBaseResponse>("/users", {
-      params
+    return await axios.get<
+      {
+        results: User[];
+        total_items: number;
+      } & ConductorBaseResponse
+    >("/users", {
+      params,
     });
   }
 }

@@ -1,12 +1,15 @@
 import { FieldValues, FieldPath, Controller } from "react-hook-form";
 import { Form, FormTextAreaProps } from "semantic-ui-react";
 import { ControlledInputProps } from "../../types";
+import "../../styles/global.css";
 
 interface CtlTextAreaProps extends FormTextAreaProps {
   label?: string;
   required?: boolean;
   maxLength?: number;
   showRemaining?: boolean;
+  fluid?: boolean;
+  bordered?: boolean;
 }
 
 /**
@@ -24,6 +27,8 @@ export default function CtlTextArea<
   required = false,
   maxLength,
   showRemaining = false,
+  fluid = false,
+  bordered = false,
   ...rest
 }: ControlledInputProps<TFieldValues, TName> & CtlTextAreaProps) {
   const { className: restClassName } = rest;
@@ -57,7 +62,7 @@ export default function CtlTextArea<
             onChange={onChange}
             onBlur={onBlur}
             error={error?.message}
-            className="!m-0"
+            className={`!m-0 ${fluid ? "fluid-textarea" : ""} ${bordered ? 'border border-slate-400 rounded-md padded-textarea': ''}`}
             {...rest}
           />
           {maxLength && showRemaining && typeof value === "string" && (

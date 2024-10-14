@@ -75,7 +75,10 @@ import {
   getWithBookIDBodySchema,
   getBookFilesSchema,
   downloadBookFileSchema,
+  getWithPageIDParamSchema,
+  updatePageDetailsSchema,
 } from "../validators/book.js";
+import * as cheerio from "cheerio";
 
 const BOOK_PROJECTION: Partial<Record<keyof BookInterface, number>> = {
   _id: 0,
@@ -2015,6 +2018,321 @@ async function getLicenseReport(
   }
 }
 
+async function getPageDetail(
+  req: z.infer<typeof getWithPageIDParamSchema>,
+  res: Response
+) {
+  try {
+    const { pageID } = req.params;
+
+    const [subdomain, coverID] = getLibraryAndPageFromBookID(pageID);
+    if(!subdomain || !coverID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const pagePropertiesRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(coverID),
+      api: MindTouch.API.Page.GET_Page_Properties,
+      subdomain,
+    })
+    .catch((err) => {
+      console.error(err)
+      throw new Error(`Error fetching page details: ${err}`);
+    });
+
+    if (!pagePropertiesRes.ok) {
+      throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
+    }
+
+    const pageProperties = await pagePropertiesRes.json();
+    const overviewProperty = pageProperties.property?.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
+    const overviewText = overviewProperty?.contents?.['#text'] || '';
+
+    const pageTagsRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(coverID),
+      api: MindTouch.API.Page.GET_Page_Tags,
+      subdomain,
+    }).catch((err) => {
+      console.error(err)
+      throw new Error(`Error fetching page tags: ${err}`);
+    });
+
+    if (!pageTagsRes.ok) {
+      throw new Error(`Error fetching page tags: ${pageTagsRes.statusText}`);
+    }
+
+    const pageTagsData = await pageTagsRes.json();
+    const pageTags = pageTagsData.tag || [];
+
+    return res.send({
+      err: false,
+      overview: overviewText,
+      tags: pageTags,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getPageAISummary(
+  req: z.infer<typeof getWithPageIDParamSchema>,
+  res: Response
+) {
+  try {
+    const { pageID } = req.params;
+
+    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
+    if(!subdomain || !parsedPageID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    // Ensure OpenAI API key is set
+    if(!process.env.OPENAI_API_KEY) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+      });
+    }
+
+    const pageText = await _getPageTextContent(subdomain, parsedPageID);
+
+    const aiSummaryRes = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Generate a summary of this page. Disregard any code blocks or images.',
+        },
+        {
+          role: 'user',
+          content: pageText,
+        }
+      ]
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      }
+    })
+
+    const aiSummaryOutput = aiSummaryRes.data?.choices?.[0]?.message?.content || '';
+    if(!aiSummaryOutput) {
+      return res.status(400).send({
+        err: true,
+        errMsg: 'Error generating page summary.',
+      });
+    };
+
+    return res.send({
+      err: false,
+      summary: aiSummaryOutput,
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function getPageAITags(
+  req: z.infer<typeof getWithPageIDParamSchema>,
+  res: Response
+) {
+  try {
+    const { pageID } = req.params;
+
+    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
+    if(!subdomain || !parsedPageID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    const pageText = await _getPageTextContent(subdomain, parsedPageID);
+
+    const aiTagsRes = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Generate a list of tags, separated by commas, for this page. Disregard any code blocks or images.',
+        },
+        {
+          role: 'user',
+          content: pageText,
+        }
+      ]
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      }
+    })
+
+    const aiTagsOutput = aiTagsRes.data?.choices?.[0]?.message?.content || '';
+    if(!aiTagsOutput) {
+      return res.status(400).send({
+        err: true,
+        errMsg: 'Error generating page summary.',
+      });
+    };
+
+    const splitTags = aiTagsOutput.split(',').map((tag: string) => tag.trim()) || [];
+
+    // if tags end with a period, remove it
+    if(splitTags.length > 0 && splitTags[splitTags.length - 1].endsWith('.')) {
+      splitTags[splitTags.length - 1] = splitTags[splitTags.length - 1].slice(0, -1);
+    }
+
+    return res.send({
+      err: false,
+      tags: splitTags
+    });
+  } catch (e) {
+    debugError(e);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
+async function _getPageTextContent(subdomain: string, pageID: string): Promise<string> {
+  const pageContentsRes = await CXOneFetch({
+    scope: "page",
+    path: parseInt(pageID),
+    api: MindTouch.API.Page.GET_Page_Contents,
+    subdomain,
+  })
+  .catch((err) => {
+    console.error(err)
+    throw new Error(`Error fetching page details: ${err}`);
+  });
+
+  if (!pageContentsRes.ok) {
+    throw new Error(`Error fetching page details: ${pageContentsRes.statusText}`);
+  }
+
+  const pageContent = await pageContentsRes.json();
+  const pageRawBody = pageContent.body?.[0];
+  if(!pageRawBody) {
+    return res.send({
+      err: false,
+      summary: '',
+    });
+  }
+
+  const cheerioObj = cheerio.load(pageRawBody);
+  const pageText = cheerioObj.text(); // Extract text from HTML
+
+  return pageText;
+}
+
+async function updatePageDetails(
+  req: z.infer<typeof updatePageDetailsSchema>,
+  res: Response
+){
+  try {
+    const { pageID } = req.params;
+    const { summary, tags } = req.body;
+
+    const [subdomain, parsedPageID] = getLibraryAndPageFromBookID(pageID);
+    if(!subdomain || !parsedPageID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err2,
+      });
+    }
+
+    // Get current page properties and find the overview property
+    const pagePropertiesRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(parsedPageID),
+      api: MindTouch.API.Page.GET_Page_Properties,
+      subdomain,
+    })
+    .catch((err) => {
+      console.error(err)
+      throw new Error(`Error fetching page details: ${err}`);
+    });
+
+    if (!pagePropertiesRes.ok) {
+      throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
+    }
+
+    const pageProperties = await pagePropertiesRes.json();
+    const overviewProperty = pageProperties.property?.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
+    if(!overviewProperty) {
+      throw new Error('Error fetching page details.');
+    }
+
+    // Update page overview property
+    const updatedOverviewRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(parsedPageID),
+      api: MindTouch.API.Page.PUT_Page_Property(MindTouch.PageProps.PageOverview),
+      subdomain,
+      options: {
+        method: "PUT",
+        headers: {
+          'Content-Type': 'text/plain',
+          'Etag': overviewProperty['@etag'],
+        },
+        body: summary,
+      },
+    })
+
+    if (!updatedOverviewRes.ok) {
+      throw new Error(`Error updating page details: ${updatedOverviewRes.statusText}`);
+    }
+
+    // Update the page tags
+    const updatedTagsRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(parsedPageID),
+      api: MindTouch.API.Page.PUT_Page_Tags,
+      subdomain,
+      options: {
+        method: "PUT",
+        headers: {
+          'Content-Type': 'application/xml',
+        },
+        body: MindTouch.Templates.PUT_PageTags(tags),
+      },
+    })
+
+    if (!updatedTagsRes.ok) {
+      throw new Error(`Error updating page tags: ${updatedTagsRes.statusText}`);
+    }
+
+    return res.send({
+      err: false,
+      msg: 'Page details updated successfully.',
+    });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: conductorErrors.err6,
+    });
+  }
+}
+
 /**
  * Generates a JSON file containing Commons Books listings for use by 3rd parties.
  * @returns {boolean} True if export creation succeeded, false otherwise.
@@ -2170,5 +2488,9 @@ export default {
   getBookSummary,
   getBookTOC,
   getLicenseReport,
+  getPageDetail,
+  getPageAISummary,
+  getPageAITags,
+  updatePageDetails,
   retrieveKBExport,
 };

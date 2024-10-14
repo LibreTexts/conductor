@@ -656,6 +656,36 @@ router.route('/commons/book/:bookID/peerreviews').get(
   booksAPI.getBookPeerReviews,
 );
 
+router.route('/commons/pages/:pageID').get(
+  middleware.validateZod(BookValidators.getWithPageIDParamSchema),
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  booksAPI.getPageDetail,
+).patch(
+  middleware.validateZod(BookValidators.updatePageDetailsSchema),
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  booksAPI.updatePageDetails,
+)
+
+router.route('/commons/pages/:pageID/ai-summary').get(
+  middleware.validateZod(BookValidators.getWithPageIDParamSchema),
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  booksAPI.getPageAISummary,
+)
+
+router.route('/commons/pages/:pageID/ai-tags').get(
+  middleware.validateZod(BookValidators.getWithPageIDParamSchema),
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware('libretexts', 'superadmin'),
+  booksAPI.getPageAITags,
+)
+
 router.route('/commons/filters').get(booksAPI.getCatalogFilterOptions);
 
 router.route('/commons/catalogs/addresource').put(

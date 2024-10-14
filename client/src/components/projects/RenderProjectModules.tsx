@@ -16,6 +16,8 @@ import FilesManager from "../FilesManager";
 import { Link } from "react-router-dom";
 import Breakpoint from "../util/Breakpoints";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
+import { useTypedSelector } from "../../state/hooks";
+import TextbookStructure from "./ProjectModules/TextbookStructure";
 
 interface RenderProjectModulesProps {
   projectID: string;
@@ -44,6 +46,8 @@ interface RenderProjectModulesProps {
   loadingTasks: boolean;
   defaultNotificationSetting?: string;
   mngTaskLoading: boolean;
+  libreLibrary?: string;
+  libreCoverID?: string;
 }
 
 const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
@@ -69,7 +73,10 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   loadingTasks,
   defaultNotificationSetting,
   mngTaskLoading,
+  libreLibrary,
+  libreCoverID,
 }) => {
+  const userState = useTypedSelector((state) => state.user);
   const [showDiscussion, setShowDiscussion] = useState(true);
   const [showFiles, setShowFiles] = useState(true);
 
@@ -624,6 +631,14 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
         moduleOrder.find((m) => m.key === b.key)?.order
       );
     });
+
+    if(userState.isSuperAdmin && libreLibrary && libreCoverID) {
+      modules.push(
+        <Grid.Row key={"textbook-structure-module"}>
+          <TextbookStructure projectID={projectID} libreLibrary={libreLibrary} libreCoverID={libreCoverID}/>
+        </Grid.Row>
+      );
+    }
 
     return <>{modules}</>;
   }, [projectID, project, DiscussionModule, FilesModule, TasksModule]);
