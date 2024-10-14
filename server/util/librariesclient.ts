@@ -185,6 +185,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
 
     const result = await request;
     if (!result.ok && !silentFail) {
+      debugError(result.url);
       throw new Error(
         `Error fetching ${
           params.scope === "groups"

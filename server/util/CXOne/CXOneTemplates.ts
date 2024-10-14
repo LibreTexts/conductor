@@ -52,6 +52,9 @@ const CXOneTemplates = {
     "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
     "guid": "fc488b5c-f7e1-1cad-1a9a-343d5c8641f5"
   }]`,
+  PUT_PageTags: (tags: string[]) => `<tags>
+    ${tags.map((tag) => `<tag value="${tag}" />`).join("")}
+  </tags>`,
   PUT_SetSemiPrivatePermissions: (userID: string, devGroupID?: string) =>
     `<security>
     <permissions.page>

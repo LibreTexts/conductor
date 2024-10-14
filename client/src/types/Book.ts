@@ -38,3 +38,24 @@ export type ReaderResource = {
   name: string;
   url: string;
 };
+
+export type TableOfContents = {
+  id: string;
+  title: string;
+  url: string;
+  children: TableOfContents[];
+};
+
+export type PageTag = {
+  "@value": string;
+  "@id": string;
+  "@href": string;
+  title: string;
+  type: string;
+  uri: string;
+};
+
+export type PageDetailsResponse = {
+  overview: string;
+  tags: PageTag[];
+}

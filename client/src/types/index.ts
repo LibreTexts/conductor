@@ -7,7 +7,7 @@ import {
   CollectionDirectoryPathObj,
   CollectionLocations,
 } from "./Collection";
-import { Book, BookLinks, ReaderResource } from "./Book";
+import { Book, BookLinks, ReaderResource, TableOfContents, PageTag, PageDetailsResponse } from "./Book";
 import { ControlledInputProps } from "./ControlledInputs";
 import {
   Organization,
@@ -183,6 +183,8 @@ export type {
   ReaderResource,
   Announcement,
   a11ySectionReviewSchema,
+  PageTag,
+  PageDetailsResponse,
   Project,
   ProjectFile,
   ProjectFileWProjectData,
@@ -232,6 +234,7 @@ export type {
   SupportTicketMessage,
   SupportTicketFeedEntry,
   SupportTicketAttachment,
+  TableOfContents,
   _MoveFile,
   _MoveFileWithChildren,
   AssetSearchParams,

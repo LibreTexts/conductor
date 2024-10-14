@@ -40,6 +40,7 @@ import {
   LicenseReportText,
   PeerReview as PeerReviewType,
   ProjectFile,
+  TableOfContents,
 } from "../../../types";
 import { isLicenseReport } from "../../../utils/typeHelpers";
 import { useQuery } from "@tanstack/react-query";
@@ -104,7 +105,6 @@ const CommonsBook = () => {
   // General UI
   const [showAdoptionReport, setShowAdoptionReport] = useState<boolean>(false);
   const [loadedData, setLoadedData] = useState<boolean>(false);
-  const [loadedTOC, setLoadedTOC] = useState<boolean>(false);
   const [loadedLicensing, setLoadedLicensing] = useState<boolean>(false);
   const [showFiles, setShowFiles] = useState<boolean>(true); // show files by default
   const [showTOC, setShowTOC] = useState<boolean>(false);
@@ -135,7 +135,14 @@ const CommonsBook = () => {
   >([]);
 
   // TOC
-  const [bookTOC, setBookTOC] = useState([]);
+  const { data: bookTOC, isLoading: loadingTOC } = useQuery<TableOfContents[]>({
+    queryKey: ["book-toc", bookID],
+    queryFn: async () => {
+      const res = await api.getBookTOC(bookID);
+      return res.data?.toc?.children // skip first level
+    },
+    enabled: !!bookID,
+  })
 
   // Licensing Report
   const [foundCLR, setFoundCLR] = useState(false);
@@ -187,29 +194,6 @@ const CommonsBook = () => {
       icon: "graduation cap",
     },
   ];
-
-  /**
-   * Load the Book's Table of Contents from the server and save to state.
-   */
-  const getTOC = useCallback(async () => {
-    try {
-      const tocRes = await axios.get(`/commons/book/${bookID}/toc`);
-      if (tocRes.data.err) {
-        throw new Error(tocRes.data.err);
-      }
-
-      if (typeof tocRes.data.toc !== "object") {
-        throw new Error("Error parsing server data.");
-      }
-      if (Array.isArray(tocRes.data.toc.children)) {
-        // skip first level
-        setBookTOC(tocRes.data.toc.children);
-      }
-    } catch (e) {
-      handleGlobalError(e);
-    }
-    setLoadedTOC(true);
-  }, [bookID, setBookTOC, setLoadedTOC, handleGlobalError]);
 
   /**
    * Load the Licensing Report from the server and, if found, compute
@@ -379,14 +363,12 @@ const CommonsBook = () => {
         setPRAllow(true);
         setPRProjectID(bookData.projectID);
       }
-      getTOC();
     } catch (e) {
       handleGlobalError(e);
     }
     setLoadedData(true);
   }, [
     bookID,
-    getTOC,
     setBook,
     setPRAllow,
     setPRProjectID,
@@ -1147,7 +1129,7 @@ const CommonsBook = () => {
                 </Segment>
               )}
               {showTOC ? (
-                <Segment loading={!loadedTOC}>
+                <Segment loading={loadingTOC}>
                   <div className="ui dividing header">
                     <div className="hideablesection">
                       <h3 className="header">Table of Contents</h3>
@@ -1162,7 +1144,7 @@ const CommonsBook = () => {
                       </div>
                     </div>
                   </div>
-                  {bookTOC.length > 0 ? (
+                  {bookTOC && bookTOC.length > 0 ? (
                     <TreeView
                       items={bookTOC}
                       asLinks={true}

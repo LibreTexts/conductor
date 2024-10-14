@@ -6,6 +6,7 @@ import {
 } from "../types";
 import { FieldNamesMarkedBoolean } from "react-hook-form";
 import { SemanticCOLORS } from "semantic-ui-react";
+import { AxiosResponse } from "axios";
 
 /**
  *
@@ -217,4 +218,13 @@ export function getDefaultCommonsModule(settings?: CommonsModuleSettings): Commo
     }
   });
   return defaultModule as CommonsModule ?? "books";
+}
+
+/**
+ * Extracts the data object from an AxiosResponse object while maintaining its typing
+ * @param response - Promise containing an AxiosResponse object
+ * @returns - The data object from the AxiosResponse object
+ */
+export async function unwrapAPIResponse<T>(response: Promise<AxiosResponse<T>>): Promise<T> {
+  return (await response).data;
 }
