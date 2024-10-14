@@ -105,6 +105,10 @@ async function initLogin(req, res) {
       redirectURI: req.query.redirectURI,
     }),
   });
+
+  // Base64 encode state to comply with RFC 6265 cookie standards
+  const base64State = Buffer.from(state).toString("base64");
+
   const nonce = uuidv4();
   const nonceHash = await bcrypt.hash(nonce, SALT_ROUNDS);
   const params = new URLSearchParams({
@@ -129,7 +133,7 @@ async function initLogin(req, res) {
       ...(process.env.NODE_ENV === "production" && prodCookieConfig),
     });
   }
-  res.cookie("oidc_state", state, {
+  res.cookie("oidc_state", base64State, {
     encode: String,
     httpOnly: true,
     ...(process.env.NODE_ENV === "production" && prodCookieConfig),
@@ -167,7 +171,7 @@ async function completeLogin(req, res) {
     let stateCookie = null;
     try {
       state = JSON.parse(stateQuery);
-      stateCookie = JSON.parse(oidc_state);
+      stateCookie = JSON.parse(Buffer.from(oidc_state, "base64").toString()); // Decode base64 state
     } catch (e) {
       debugError(`State query: ${stateQuery}`);
       debugError(`State cookie: ${oidc_state}`);
