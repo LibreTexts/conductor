@@ -2048,8 +2048,9 @@ async function getPageDetail(
       throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
     }
 
-    const pageProperties = await pagePropertiesRes.json();
-    const overviewProperty = pageProperties.property?.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
+    const pagePropertiesRaw = await pagePropertiesRes.json();
+    const pageProperties = Array.isArray(pagePropertiesRaw?.property) ? pagePropertiesRaw.property : [pagePropertiesRaw?.property];
+    const overviewProperty = pageProperties.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
     const overviewText = overviewProperty?.contents?.['#text'] || '';
 
     const pageTagsRes = await CXOneFetch({
