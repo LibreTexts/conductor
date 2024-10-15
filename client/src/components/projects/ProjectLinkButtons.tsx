@@ -1,6 +1,10 @@
 import { Button, Header, Icon, Popup } from "semantic-ui-react";
 import { normalizeURL } from "../util/HelperFunctions";
-import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from "../../utils/projectHelpers";
+import {
+  buildCommonsUrl,
+  buildRemixerURL,
+  buildWorkbenchURL,
+} from "../../utils/projectHelpers";
 import { lazy, useState } from "react";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 
@@ -110,22 +114,25 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             validWorkbench
               ? "This link will open the book in the LibreTexts OER Remixer."
               : projectLink
-                ? "This link will open the LibreTexts OER Remixer."
-                : "This project does not have a linked URL."
+              ? "This link will open the LibreTexts OER Remixer."
+              : "This project does not have a linked URL."
           }
           trigger={
             <Button
               onClick={
-                hasCommonsBook && libreCoverID && libreLibrary
+                (validWorkbench || hasCommonsBook) &&
+                libreCoverID &&
+                libreLibrary
                   ? () =>
-                    window.open(
-                      buildRemixerURL(
-                        libreLibrary ?? 'chem',
-                        didCreateWorkbench && libreLibrary && libreCoverID
-                          ? buildWorkbenchURL(libreLibrary, libreCoverID)
-                          : ''
+                      window.open(
+                        buildRemixerURL(
+                          libreLibrary ?? "chem",
+                          didCreateWorkbench && libreLibrary && libreCoverID
+                            ? buildWorkbenchURL(libreLibrary, libreCoverID)
+                            : ""
+                        ),
+                        "_blank"
                       )
-                    , '_blank')
                   : () => {}
               }
               className={
@@ -134,7 +141,11 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   : "!cursor-default opacity-45"
               }
               color={
-                hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"
+                (validWorkbench || hasCommonsBook) &&
+                libreCoverID &&
+                libreLibrary
+                  ? "blue"
+                  : "grey"
               }
             >
               OER Remixer
