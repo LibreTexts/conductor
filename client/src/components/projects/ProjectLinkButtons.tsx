@@ -136,7 +136,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   : () => {}
               }
               className={
-                hasCommonsBook && libreCoverID && libreLibrary
+                (validWorkbench || hasCommonsBook) && libreCoverID && libreLibrary
                   ? ""
                   : "!cursor-default opacity-45"
               }
