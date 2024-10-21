@@ -22,6 +22,7 @@ import DenyVerificationRequestModal from "./DenyVerificationRequestModal";
 import DOMPurify from "dompurify";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
+import { marked } from "marked";
 
 interface ManageVerificationRequestModalProps extends ModalProps {
   show: boolean;
@@ -226,22 +227,41 @@ const ManageVerificationRequestModal: React.FC<
                 <div className="flex-col-div mb-1r">
                   <p>
                     <strong>Bio URL: </strong>
-                    <a
-                      href={DOMPurify.sanitize(request?.bio_url || "")}
-                      target="_blank"
-                    >
-                      {DOMPurify.sanitize(request?.bio_url || "")}{" "}
-                      <Icon name="external" size="small" />
-                    </a>
-                  </p>
-                  <p className="muted-text" style={{ fontSize: "0.9rem" }}>
-                    <em>
-                      Use caution when opening links. Do not login to any
-                      accounts or download any files from untrusted sources.
-                    </em>
+                    {request?.bio_url && request?.bio_url.length > 0 ? (
+                      <a
+                        href={DOMPurify.sanitize(request?.bio_url || "")}
+                        target="_blank"
+                      >
+                        {DOMPurify.sanitize(request?.bio_url || "")}{" "}
+                        <Icon name="external" size="small" />
+                      </a>
+                    ): (
+                      <span className="muted-text">Not provided</span>
+                    )
+                  }
                   </p>
                 </div>
               </div>
+              <div className="flex-col-div">
+                <div className="flex-col-div mb-1r">
+                  <p>
+                    <strong>Additional Information:</strong>
+                  </p>
+                  <p
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(
+                        marked(request?.addtl_info || "")
+                      ),
+                    }}
+                  ></p>
+                </div>
+              </div>
+              <p className="muted-text text-center mt-3" style={{ fontSize: "0.9rem" }}>
+                <em>
+                  Use caution when opening links. Do not login to any accounts
+                  or download any files from untrusted sources.
+                </em>
+              </p>
             </div>
             <Divider />
             <div className="">
