@@ -91,7 +91,8 @@ export type CentralIdentityVerificationRequest = {
   id: number;
   user_id: string;
   status: CentralIdentityVerificationRequestStatus;
-  bio_url: string;
+  bio_url?: string;
+  addtl_info?: string;
   decision_reason?: string;
   created_at: Date;
   updated_at: Date;
