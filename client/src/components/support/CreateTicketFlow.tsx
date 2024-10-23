@@ -120,26 +120,39 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     let categoryParam;
     let priorityParam;
 
-    if (searchParams.has('category')) {
-      const found = SupportTicketCategoryOptions.find((opt) => opt.value === searchParams.get('category'));
+    if (searchParams.has("category")) {
+      const found = SupportTicketCategoryOptions.find(
+        (opt) => opt.value === searchParams.get("category")
+      );
       if (found) {
         categoryParam = found.value;
       }
     }
 
-    if (searchParams.has('priority')) {
-      const found = SupportTicketPriorityOptions.find((opt) => opt.value === searchParams.get('priority'));
+    if (searchParams.has("priority")) {
+      const found = SupportTicketPriorityOptions.find(
+        (opt) => opt.value === searchParams.get("priority")
+      );
       if (found) {
         priorityParam = found.value;
       }
     }
 
-    if (categoryParam && priorityParam && categoryParam === 'adaptcode') {
-      setValue('title', 'ADAPT Access Code Request');
-      setValue('category', categoryParam);
-      setValue('priority', priorityParam as SupportTicketPriority);
+    if (categoryParam && priorityParam && categoryParam === "adaptcode") {
+      setValue("title", "ADAPT Access Code Request");
+      setValue("category", categoryParam);
+      setValue("priority", priorityParam as SupportTicketPriority);
       setValue("description", "I am requesting an access code for ADAPT.");
       setDidReceiveADAPTParams(true);
+      return;
+    }
+
+    if (categoryParam) {
+      setValue("category", categoryParam);
+    }
+
+    if (priorityParam) {
+      setValue("priority", priorityParam as SupportTicketPriority);
     }
   }
 
@@ -221,7 +234,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
         return;
       }
 
-      await handleAttachmentsUpload(res.data.ticket.uuid, files, res.data.ticket.guestAccessKey);
+      await handleAttachmentsUpload(
+        res.data.ticket.uuid,
+        files,
+        res.data.ticket.guestAccessKey
+      );
     } catch (err) {
       handleGlobalError(err);
     } finally {
@@ -229,7 +246,11 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     }
   }
 
-  async function handleAttachmentsUpload(ticketID: string, files: File[], guestAccessKey?: string) {
+  async function handleAttachmentsUpload(
+    ticketID: string,
+    files: File[],
+    guestAccessKey?: string
+  ) {
     setLoading(true);
     const formData = new FormData();
     Array.from(files).forEach((file) => {
@@ -238,7 +259,9 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
 
     try {
       const uploadRes = await axios.post(
-        `/support/ticket/${ticketID}/attachments${guestAccessKey ? `?accessKey=${guestAccessKey}` : ''}`,
+        `/support/ticket/${ticketID}/attachments${
+          guestAccessKey ? `?accessKey=${guestAccessKey}` : ""
+        }`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -266,7 +289,8 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     return charsRemain;
   };
 
-  const disabledInputClasses = '!bg-gray-200 !border-slate-600 !border !rounded-md'
+  const disabledInputClasses =
+    "!bg-gray-200 !border-slate-600 !border !rounded-md";
 
   return (
     <div
@@ -359,18 +383,6 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
               Please only submit one ticket per issue. If you have multiple
               issues, please submit a separate ticket for each.
             </p>
-            <div className="!mt-0">
-              <CtlTextInput
-                control={control}
-                name="title"
-                label="Subject"
-                placeholder="Enter a subject/brief title for your ticket"
-                rules={required}
-                required
-                maxLength={200}
-                disabled={didReceiveADAPTParams}
-              />
-            </div>
             <div className="mt-1">
               <label
                 className="form-field-label form-required"
@@ -394,7 +406,9 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     search
                     placeholder="Select the category of your ticket"
                     disabled={didReceiveADAPTParams}
-                    className={didReceiveADAPTParams ? disabledInputClasses : ''}
+                    className={
+                      didReceiveADAPTParams ? disabledInputClasses : ""
+                    }
                   />
                 )}
               />
@@ -433,7 +447,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 />
               </div>
             )}
-            <div className="mt-2">
+            <div className="mt-4">
               <label
                 className="form-field-label form-required"
                 htmlFor="selectPriority"
@@ -455,7 +469,9 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                     selection
                     placeholder="Select the priority of your ticket"
                     disabled={didReceiveADAPTParams}
-                    className={didReceiveADAPTParams ? disabledInputClasses : ''}
+                    className={
+                      didReceiveADAPTParams ? disabledInputClasses : ""
+                    }
                   />
                 )}
               />
@@ -465,8 +481,20 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 are reviewed first.
               </p>
             </div>
+            <div className="!mt-4">
+              <CtlTextInput
+                control={control}
+                name="title"
+                label="Subject"
+                placeholder="Enter a subject/brief title for your ticket"
+                rules={required}
+                required
+                maxLength={200}
+                disabled={didReceiveADAPTParams}
+              />
+            </div>
             {!autoCapturedURL && (
-              <div className="mt-2">
+              <div className="mt-4">
                 <CtlTextInput
                   control={control}
                   name="capturedURL"
@@ -476,7 +504,7 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 />
               </div>
             )}
-            <Form.Field className="!mt-2">
+            <Form.Field className="!mt-4">
               <label
                 className="form-field-label form-required"
                 htmlFor="description"
@@ -489,8 +517,10 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
                 value={watch("description")}
                 onInput={(e) => setValue("description", e.currentTarget.value)}
                 maxLength={1000}
-                disabled={watch("category") === 'adaptcode' && didReceiveADAPTParams}
-                className={didReceiveADAPTParams ? disabledInputClasses : ''}
+                disabled={
+                  watch("category") === "adaptcode" && didReceiveADAPTParams
+                }
+                className={didReceiveADAPTParams ? disabledInputClasses : ""}
               />
               <p className="text-xs text-gray-500 italic">
                 Chars Remaining: {getRemainingChars(watch("description"))}.
