@@ -61,13 +61,9 @@ const CommonsBook = () => {
   const { id: bookID } = useParams<{ id: string }>();
   const location = useLocation();
 
-  // Global Error Handling
+  // Global State & Error Handling
   const { handleGlobalError } = useGlobalError();
-
-  // Global State
-  const isConductorUser = useTypedSelector(
-    (state) => state.user?.isAuthenticated
-  );
+  const user = useTypedSelector((state) => state.user);
 
   // Data
   const [book, setBook] = useState<Book>({
@@ -319,7 +315,7 @@ const CommonsBook = () => {
       const res = await api.getProjectFiles(
         book.projectID,
         currDirectory,
-        true
+        !(user.isAuthenticated ?? false) // default to public only (true) if can't determine auth
       );
       if (res.data.err) {
         throw new Error(res.data.errMsg);
@@ -888,7 +884,7 @@ const CommonsBook = () => {
                   <StarRating value={book.rating} displayMode={true} />
                 </div>
               )}
-              {isConductorUser && book.projectID && (
+              {user?.isAuthenticated && book.projectID && (
                 <Button
                   as="a"
                   icon="file alternate outline"
@@ -955,7 +951,7 @@ const CommonsBook = () => {
                   <p className={styles.meta_largefont}>{book.summary}</p>
                 </Segment>
               )}
-              {showFiles && projFiles && projFiles.length > 0 && (
+              {showFiles && projFiles && (projFiles.length > 0 || currDirectory !== '')  && (
                 <Segment.Group size="large">
                   <Segment>
                     <div className="ui dividing header">
@@ -1045,6 +1041,22 @@ const CommonsBook = () => {
                                             {file.name}
                                           </a>
                                         )}
+                                        {
+                                          file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
+                                            <Popup
+                                              content="This asset is restricted to verified instructors. You're good to go!"
+                                              trigger={
+                                                <Icon
+                                                  name="graduation cap"
+                                                  color="blue"
+                                                  
+                                                  className="!ml-2 !mt-0.5"
+                                                />
+                                              }
+                                              position="top center"
+                                            />
+                                          )
+                                        }
                                       </div>
                                       <div>
                                         {file.description && (
