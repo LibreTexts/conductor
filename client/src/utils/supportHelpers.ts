@@ -65,6 +65,11 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
     value: "integrate",
   },
   {
+    key: "delete-account",
+    text: "Delete Account",
+    value: "delete-account",
+  },
+  {
     key: "other",
     text: "Other",
     value: "other",
