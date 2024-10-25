@@ -16,6 +16,7 @@ export interface DateInputProps {
   className?: string;
   error: boolean;
   disabled?: boolean;
+  popupPlacement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end';
 }
 
 const DateInput = ({
@@ -27,6 +28,7 @@ const DateInput = ({
   className = "",
   error = false,
   disabled = false,
+  popupPlacement = 'bottom-start',
 }: DateInputProps) => {
   const [selected, setSelected] = useState<Date>();
   const [inputValue, setInputValue] = useState<string>("");
@@ -37,7 +39,7 @@ const DateInput = ({
     null
   );
   const popper = usePopper(popperRef.current, popperElement, {
-    placement: "bottom-start",
+    placement: popupPlacement,
   });
 
   useEffect(() => {

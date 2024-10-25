@@ -25,6 +25,15 @@ export type Book = {
   adaptCourseID?: string;
 };
 
+export type BookWithSourceData = Book & {
+  isbn?: string;
+  doi?: string;
+  sourceOriginalPublicationDate?: Date;
+  sourceHarvestDate?: Date;
+  sourceLastModifiedDate?: Date;
+  sourceLanguage?: string;
+}
+
 export type BookLinks = {
   online: string;
   pdf: string;
