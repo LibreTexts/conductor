@@ -30,6 +30,7 @@ export default function CtlDateInput<
         fieldState: { error },
       }) => (
         <DateInput
+          {...rest}
           onChange={fieldOnChange}
           value={value}
           label={label}

@@ -35,6 +35,7 @@ import { truncateString } from "../../../components/util/HelperFunctions.js";
 import { useTypedSelector } from "../../../state/hooks";
 import {
   Book,
+  BookWithSourceData,
   LicenseReport,
   LicenseReportLicense,
   LicenseReportText,
@@ -46,6 +47,8 @@ import { isLicenseReport } from "../../../utils/typeHelpers";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
 import BookPeerReviewsModal from "../../../components/peerreview/BookPeerReviewsModal";
+import { format, parseISO } from "date-fns";
+import { getLanguageName } from "../../../utils/languageCodes";
 type CustomPieChartData = {
   value: number;
   title: string;
@@ -66,7 +69,7 @@ const CommonsBook = () => {
   const user = useTypedSelector((state) => state.user);
 
   // Data
-  const [book, setBook] = useState<Book>({
+  const [book, setBook] = useState<BookWithSourceData>({
     coverID: "",
     bookID: "",
     title: "",
@@ -866,6 +869,36 @@ const CommonsBook = () => {
                 {!isEmptyString(book.course) && (
                   <p className={styles.book_detail}>
                     <Icon name="sitemap" /> {book.course}
+                  </p>
+                )}
+                {book.isbn && (
+                  <p className={styles.book_detail}>
+                    <Icon name="bookmark" /> <strong>ISBN:</strong> {book.isbn}
+                  </p>
+                )}
+                {book.doi && (
+                  <p className={styles.book_detail}>
+                    <Icon name="archive" /> <strong>DOI:</strong> {book.isbn}
+                  </p>
+                )}
+                {book.sourceOriginalPublicationDate && (
+                  <p className={styles.book_detail}>
+                    <Icon name="calendar" /> <strong>Original Publication Date:</strong> {format(parseISO(book.sourceOriginalPublicationDate.toString()), "MM/dd/yyyy")}
+                  </p>
+                )}
+                {book.sourceHarvestDate && (
+                  <p className={styles.book_detail}>
+                    <Icon name="calendar plus" /> <strong>Harvest/Import Date:</strong> {format(parseISO(book.sourceHarvestDate.toString()), "MM/dd/yyyy")}
+                  </p>
+                )}
+                {book.sourceLastModifiedDate && (
+                  <p className={styles.book_detail}>
+                    <Icon name="calendar check" /> <strong>Last Modified Date:</strong> {format(parseISO(book.sourceLastModifiedDate.toString()), "MM/dd/yyyy")}
+                  </p>
+                )}
+                {book.sourceLanguage && (
+                  <p className={styles.book_detail}>
+                    <Icon name="language" /> <strong>Language:</strong> {getLanguageName(book.sourceLanguage)}
                   </p>
                 )}
                 {!isEmptyString(book.thumbnail) && (

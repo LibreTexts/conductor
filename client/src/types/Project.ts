@@ -159,6 +159,12 @@ export type Project = {
   coPrincipalInvestigators?: ProjectFileAuthor[];
   description?: string;
   contentArea?: string;
+  isbn?: string;
+  doi?: string;
+  sourceOriginalPublicationDate?: Date;
+  sourceHarvestDate?: Date;
+  sourceLastModifiedDate?: Date;
+  sourceLanguage?: string;
 };
 
 export type AddableProjectTeamMember = Pick<User, "uuid" | "firstName" | "lastName" | "avatar"> & {

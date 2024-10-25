@@ -1636,6 +1636,78 @@ async function getBookDetail(
               "$adaptCourseID", // undefined
             ],
           },
+          isbn: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$isbn", false] },
+                  { $gt: [{ $strLenBytes: "$isbn" }, 0] },
+                ],
+              },
+              "$isbn",
+              "$project.isbn", // undefined
+            ],
+          },
+          doi: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$doi", false] },
+                  { $gt: [{ $strLenBytes: "$doi" }, 0] },
+                ],
+              },
+              "$doi",
+              "$project.doi", // undefined
+            ],
+          },
+          sourceOriginalPublicationDate: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$sourceOriginalPublicationDate", false] },
+                  { $gt: [{ $strLenBytes: "$sourceOriginalPublicationDate" }, 0] },
+                ],
+              },
+              "$sourceOriginalPublicationDate",
+              "$project.sourceOriginalPublicationDate", // undefined
+            ],
+          },
+          sourceHarvestDate: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$sourceHarvestDate", false] },
+                  { $gt: [{ $strLenBytes: "$sourceHarvestDate" }, 0] },
+                ],
+              },
+              "$sourceHarvestDate",
+              "$project.sourceHarvestDate", // undefined
+            ],
+          },
+          sourceLastModifiedDate: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$sourceLastModifiedDate", false] },
+                  { $gt: [{ $strLenBytes: "$sourceLastModifiedDate" }, 0] },
+                ],
+              },
+              "$sourceLastModifiedDate",
+              "$project.sourceLastModifiedDate", // undefined
+            ],
+          },
+          sourceLanguage: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$sourceLanguage", false] },
+                  { $gt: [{ $strLenBytes: "$sourceLanguage" }, 0] },
+                ],
+              },
+              "$sourceLanguage",
+              "$project.sourceLanguage", // undefined
+            ],
+          },
         },
       },
       {
@@ -2348,6 +2420,71 @@ const generateKBExport = () => {
     resolve(
       Book.aggregate([
         {
+          $addFields: {
+            coverID: {
+              $arrayElemAt: [{ $split: ["$bookID", "-"] }, 1],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "projects",
+            let: {
+              lib: "$library",
+              coverID: "$coverID",
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$$lib", "$libreLibrary"] },
+                      { $eq: ["$$coverID", "$libreCoverID"] },
+                      { $eq: ["$visibility", "public"] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: "project",
+          },
+        },
+        {
+          $addFields: {
+            project: {
+              $arrayElemAt: ["$project", 0],
+            },
+          },
+        },
+        {
+          $addFields: {
+            isbn: {
+              $cond: [
+                {
+                  $and: [
+                    { $ifNull: ["$isbn", false] },
+                    { $gt: [{ $strLenBytes: "$isbn" }, 0] },
+                  ],
+                },
+                "$isbn",
+                "$project.isbn", // undefined
+              ],
+            },
+            sourceOriginalPublicationDate: {
+              $cond: [
+                {
+                  $and: [
+                    { $ifNull: ["$sourceOriginalPublicationDate", false] },
+                    { $gt: [{ $strLenBytes: "$sourceOriginalPublicationDate" }, 0] },
+                  ],
+                },
+                "$sourceOriginalPublicationDate",
+                "$project.sourceOriginalPublicationDate", // undefined
+              ],
+            },
+          }
+        },
+        {
           $project: {
             _id: 0,
             bookID: 1,
@@ -2357,6 +2494,8 @@ const generateKBExport = () => {
             license: 1,
             summary: 1,
             thumbnail: 1,
+            isbn: 1,
+            sourceOriginalPublicationDate: 1,
             lastUpdated: 1,
           },
         },
@@ -2389,6 +2528,12 @@ const generateKBExport = () => {
             !isEmptyString(item.license)
           ) {
             bookOut.license = item.license;
+          }
+          if(typeof item.isbn === "string" && !isEmptyString(item.isbn)) {
+            bookOut.print_identifier = item.isbn;
+          }
+          if(item.sourceOriginalPublicationDate) {
+            bookOut.date_monograph_published_online = item.sourceOriginalPublicationDate.toString()
           }
           if (typeof item.lastUpdated === "string") {
             const lastUpdateDate = new Date(item.lastUpdated);

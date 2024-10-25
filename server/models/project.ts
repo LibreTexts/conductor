@@ -74,6 +74,12 @@ export interface ProjectInterface extends Document {
   coPrincipalInvestigatorIDs?: string[];
   description?: string;
   contentArea: string;
+  isbn?: string;
+  doi?: string;
+  sourceOriginalPublicationDate?: Date;
+  sourceHarvestDate?: Date;
+  sourceLastModifiedDate?: Date;
+  sourceLanguage?: string;
 }
 
 const ProjectSchema = new Schema<ProjectInterface>(
@@ -391,6 +397,30 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Content area.
      */
     contentArea: String,
+    /**
+     * ISBN of the associated Book/resource.
+     */
+    isbn: String,
+    /**
+     * DOI of the associated Book/resource.
+     */
+    doi: String,
+    /**
+     * Original publication date of the source material.
+     */
+    sourceOriginalPublicationDate: Date,
+    /**
+     * Date the source material was harvested.
+     */
+    sourceHarvestDate: Date,
+    /**
+     * Date the source material was last modified.
+     */
+    sourceLastModifiedDate: Date,
+    /**
+     * Language of the source material.
+     */
+    sourceLanguage: String,
   },
   {
     timestamps: true,

@@ -911,6 +911,24 @@ async function updateProject(req, res) {
     if(req.body.hasOwnProperty('defaultChatNotification')){
       updateObj.defaultChatNotification = req.body.defaultChatNotification;
     }
+    if(req.body.hasOwnProperty('isbn')){
+      updateObj.isbn = req.body.isbn;
+    }
+    if(req.body.hasOwnProperty('doi')){
+      updateObj.doi = req.body.doi;
+    }
+    if(req.body.hasOwnProperty('sourceOriginalPublicationDate')){
+      updateObj.sourceOriginalPublicationDate = req.body.sourceOriginalPublicationDate ? new Date(req.body.sourceOriginalPublicationDate) : undefined;
+    }
+    if(req.body.hasOwnProperty('sourceHarvestDate')){
+      updateObj.sourceHarvestDate = req.body.sourceHarvestDate ? new Date(req.body.sourceHarvestDate) : undefined;
+    }
+    if(req.body.hasOwnProperty('sourceLastModifiedDate')){
+      updateObj.sourceLastModifiedDate = req.body.sourceLastModifiedDate ? new Date(req.body.sourceLastModifiedDate) : undefined;
+    }
+    if(req.body.hasOwnProperty('sourceLanguage')){
+      updateObj.sourceLanguage = req.body.sourceLanguage;
+    }
 
 
     
@@ -3513,6 +3531,12 @@ const validate = (method) => {
           body('coPrincipalInvestigators', conductorErrors.err1).optional({ checkFalsy: true }).isArray(),
           body('description', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
           body('contentArea', conductorErrors.err1).optional({ checkFalsy: true }).isString(),
+          body('isbn', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 5, max: 50 }),
+          body('doi', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 4, max: 50 }),
+          body('sourceOriginalPublicationDate', conductorErrors.err1).optional({ checkFalsy: true }).isString().toDate(),
+          body('sourceHarvestDate', conductorErrors.err1).optional({ checkFalsy: true }).isString().toDate(),
+          body('sourceLastModifiedDate', conductorErrors.err1).optional({ checkFalsy: true }).isString().toDate(),
+          body('sourceLanguage', conductorErrors.err1).optional({ checkFalsy: true }).isString().isLength({ min: 2, max: 2 }),
       ]
     case 'getProject':
       return [

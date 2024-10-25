@@ -45,6 +45,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CHAT_NOTIFY_OPTS } from "../../utils/constants";
 import { useModals } from "../../context/ModalContext";
 import AdminChangeURL from "./AdminChangeURL";
+import CtlDateInput from "../ControlledInputs/CtlDateInput";
+import languageCodes from "../../utils/languageCodes";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
 const DeleteProjectModal = lazy(() => import("./DeleteProjectModal"));
 
@@ -125,6 +127,9 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
       coPrincipalInvestigators: [],
       description: "",
       contentArea: "",
+      isbn: "",
+      doi: "",
+      sourceLanguage: "",
       projectModules: {
         discussion: {
           enabled: true,
@@ -649,7 +654,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
         }}
         onClose={() => closeAllModals()}
       />
-    )
+    );
   }
 
   return (
@@ -759,15 +764,21 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
                 <CtlTextInput
                   name="projectURL"
                   control={control}
-                  placeholder={`Enter ${org.orgID === "calearninglab" ? "project" : "textbook"
-                    } URL...`}
+                  placeholder={`Enter ${
+                    org.orgID === "calearninglab" ? "project" : "textbook"
+                  } URL...`}
                   type="url"
                   id="projectURL"
                 />
               </Form.Field>
             </>
           ) : user.isSuperAdmin ? (
-            <p className="text-blue-600 underline cursor-pointer" onClick={handleOpenChangeURLModal}>Change Textbook URL (Admin Only)</p>
+            <p
+              className="text-blue-600 underline cursor-pointer"
+              onClick={handleOpenChangeURLModal}
+            >
+              Change Textbook URL (Admin Only)
+            </p>
           ) : null}
           <Form.Field className="flex flex-col !mt-4">
             <label htmlFor="projectDescription" className="mr-0.5">
@@ -1144,8 +1155,89 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               className="basis-1/2"
             />
           </div>
-          <div>
-            <label className="form-field-label" htmlFor="selectSourceLicenseName">
+          <div className="flex flex-row justify-between mb-3">
+            <CtlTextInput
+              name="isbn"
+              control={control}
+              label="ISBN"
+              placeholder="Enter ISBN..."
+              className="basis-1/2 mr-8"
+            />
+            <CtlTextInput
+              name="doi"
+              control={control}
+              label="DOI"
+              placeholder="Enter DOI..."
+              className="basis-1/2"
+            />
+          </div>
+          <div className="flex flex-row justify-between mb-3">
+            <CtlDateInput
+              name="sourceOriginalPublicationDate"
+              control={control}
+              value={getValues("sourceOriginalPublicationDate") ?? new Date()}
+              error={false}
+              label="Original Publication Date"
+              placeholder="Select date..."
+              className="basis-1/3 mr-8"
+            />
+            <CtlDateInput
+              name="sourceHarvestDate"
+              control={control}
+              value={getValues("sourceHarvestDate") ?? new Date()}
+              error={false}
+              label="Harvest/Import Date"
+              placeholder="Select date..."
+              className="basis-1/3 mr-8"
+            />
+
+            <CtlDateInput
+              name="sourceLastModifiedDate"
+              control={control}
+              value={getValues("sourceLastModifiedDate") ?? new Date()}
+              error={false}
+              label="Last Modified Date"
+              placeholder="Select date..."
+              className="basis-1/3"
+            />
+          </div>
+          <div className="flex flex-row justify-between mb-3">
+            <div className="w-1/2">
+              <label
+                className="form-field-label"
+                htmlFor="selectSourceLanguage"
+              >
+                Language
+              </label>
+              <Controller
+                render={({ field }) => (
+                  <Dropdown
+                    id="selectSourceLanguage"
+                    options={languageCodes.map((l) => ({
+                      key: crypto.randomUUID(),
+                      value: l.code,
+                      text: l.name,
+                    }))}
+                    {...field}
+                    onChange={(e, data) => {
+                      field.onChange(data.value?.toString() ?? "");
+                    }}
+                    fluid
+                    selection
+                    placeholder="Select a language..."
+                    className="basis-1/2"
+                  />
+                )}
+                name="sourceLanguage"
+                control={control}
+              />
+            </div>
+          </div>
+          <div className="w-1/2 mt-6">
+            <label
+              className="form-field-label"
+              htmlFor="selectSourceLicenseName"
+            >
               License Name
             </label>
             <Controller
@@ -1406,7 +1498,10 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
           <Divider />
           <Header as="h3">Discussion Settings</Header>
           <div className="w-1/4">
-            <label htmlFor="defaultChatNotification" className="form-field-label">
+            <label
+              htmlFor="defaultChatNotification"
+              className="form-field-label"
+            >
               Default Message Notification Type
             </label>
             <Controller
@@ -1415,7 +1510,7 @@ const ProjectPropertiesModal: React.FC<ProjectPropertiesModalProps> = ({
               render={({ field }) => (
                 <Dropdown
                   id="defaultChatNotification"
-                  options={CHAT_NOTIFY_OPTS(true, () => { })}
+                  options={CHAT_NOTIFY_OPTS(true, () => {})}
                   {...field}
                   onChange={(e, data) => {
                     field.onChange(data.value?.toString() ?? "all");
