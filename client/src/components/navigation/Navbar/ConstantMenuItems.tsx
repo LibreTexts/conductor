@@ -33,13 +33,6 @@ const ConstantMenuItems: React.FC<ConstantMenuItemsProps> = ({
         setActiveItem(data.name ?? "");
       }}
     />
-    <Menu.Item
-      name="analytics"
-      as={Link}
-      to="/analytics"
-      active={activeItem === "analytics"}
-      onClick={(_e, data) => setActiveItem(data.name ?? "")}
-    />
   </>
 );
 
