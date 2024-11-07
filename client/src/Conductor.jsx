@@ -99,10 +99,10 @@ const Conductor = () => {
         <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
         <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
         <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
-        <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
+        {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
         <PrivateRoute exact path='/analytics/invites' component={AnalyticsInvites} />
         <PrivateRoute exact path='/analytics/requestaccess' component={AnalyticsRequestAccess} />
-        <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} />
+        <PrivateRoute exact path='/analytics/:courseID/:pane?/:settingsPane?' component={AnalyticsCourseView} /> */}
         <PrivateRoute exact path='/account/:activePane?' component={AccountSettings} />
         <PrivateRoute exact path='/controlpanel' component={ControlPanel} />
         <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
