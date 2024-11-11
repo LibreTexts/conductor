@@ -66,7 +66,7 @@ export const SupportTicketCategoryOptions: GenericKeyTextValueObj<string>[] = [
   },
   {
     key: "delete-account",
-    text: "Delete Account",
+    text: "Delete Account (ADAPT and all other applications)",
     value: "delete-account",
   },
   {
