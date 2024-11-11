@@ -235,28 +235,32 @@ const ManageVerificationRequestModal: React.FC<
                         {DOMPurify.sanitize(request?.bio_url || "")}{" "}
                         <Icon name="external" size="small" />
                       </a>
-                    ): (
+                    ) : (
                       <span className="muted-text">Not provided</span>
-                    )
-                  }
+                    )}
                   </p>
                 </div>
               </div>
-              <div className="flex-col-div">
-                <div className="flex-col-div mb-1r">
-                  <p>
-                    <strong>Additional Information:</strong>
-                  </p>
-                  <p
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(
-                        marked(request?.addtl_info || "")
-                      ),
-                    }}
-                  ></p>
+              {request?.addtl_info && (
+                <div className="flex-col-div">
+                  <div className="flex-col-div mb-1r">
+                    <p>
+                      <strong>Additional Information:</strong>
+                    </p>
+                    <p
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(
+                          marked(request?.addtl_info || "")
+                        ),
+                      }}
+                    ></p>
+                  </div>
                 </div>
-              </div>
-              <p className="muted-text text-center mt-3" style={{ fontSize: "0.9rem" }}>
+              )}
+              <p
+                className="muted-text text-center mt-3"
+                style={{ fontSize: "0.9rem" }}
+              >
                 <em>
                   Use caution when opening links. Do not login to any accounts
                   or download any files from untrusted sources.
