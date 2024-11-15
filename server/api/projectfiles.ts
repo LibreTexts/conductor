@@ -1229,32 +1229,59 @@ async function getProjectFileEmbedHTML(
   try {
     const { projectID, fileID } = req.params;
 
+    const fileRes = await _getProjectFileEmbedHTML(projectID, fileID);
+
+    if('err' in fileRes ) {
+      if(fileRes.err === 'notfound') {
+        return conductor404Err(res);
+      }
+      
+      if (fileRes.err === 'unauthorized') {
+        return res.status(401).send({
+          err: true,
+          errMsg: conductorErrors.err8,
+        });
+      } else {
+        return conductor500Err(res);
+      }
+    }
+
+    return res.send({
+      err: false,
+      media_id: fileRes.media_id,
+      embed_url: fileRes.embed_url,
+      embed_html: fileRes.embed_html,
+    });
+  } catch (err) {
+    debugError(err);
+    return conductor500Err(res);
+  }
+}
+
+async function _getProjectFileEmbedHTML(projectID: string, fileID: string): Promise<{ media_id: string, embed_url: string, embed_html: string } | {err: string}>  {
+  try {
     const file = await ProjectFile.findOne({ projectID, fileID }).lean();
     if (!file || !file.videoStorageID) {
-      return conductor404Err(res);
+      return {err: 'notfound'};
     }
 
     // Check if file is public
     if (file.access !== "public") {
-      return res.status(400).send({
-        err: true,
-        errMsg: conductorErrors.err90,
-      });
+      return {err: 'unauthorized'};
     }
 
     const ENDPOINT = `https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${file.videoStorageID}/iframe`;
 
     const HTML = `<iframe src="${ENDPOINT}" loading="lazy" style="border: none; position: absolute; top: 0; left: 0; height: 100%; width: 100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe>`;
 
-    return res.send({
-      err: false,
+    return {
       media_id: file.videoStorageID,
       embed_url: ENDPOINT,
       embed_html: HTML,
-    });
-  } catch (err) {
+    }
+  } catch (err){
     debugError(err);
-    return conductor500Err(res);
+    return {err: 'internal'};
   }
 }
 
@@ -1686,6 +1713,7 @@ export default {
   removeProjectFile,
   getProjectFileCaptions,
   getProjectFileEmbedHTML,
+  _getProjectFileEmbedHTML,
   updateProjectFileCaptions,
   getPublicProjectFiles,
   createProjectFileStreamUploadURL,
