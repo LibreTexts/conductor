@@ -25,9 +25,12 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
   async function handleOEmbeds(content: string) {
     try {
       const oembedPattern = /<oembed\s+url="([^"]+)"\s*>\s*<\/oembed>/g;
-      const oembeds = [...content.matchAll(oembedPattern)];
+      const linkPattern = /<a\s+href="(https:\/\/commons\.libretexts\.org\/file[^"]+)"[^>]*>.*?<\/a>/g; // Search for links to Commons files (e.g. videos)
 
-      if (!oembeds || oembeds.length === 0) return content;
+      const oembeds = [...content.matchAll(oembedPattern)];
+      const links = [...content.matchAll(linkPattern)];
+
+      if ((!oembeds || oembeds.length === 0) && (!links || links.length === 0)) return content;
 
       for (const oembed of oembeds) {
         const fullMatch = oembed[0];
@@ -41,6 +44,22 @@ const KBRenderer: React.FC<KBRendererProps> = ({ content, ...rest }) => {
           continue;
         }
 
+        if (!res.data || !res.data.oembed) continue;
+        content = content.replace(fullMatch, res.data.oembed);
+      }
+
+      for (const link of links) {
+        const fullMatch = link[0];
+        const url = link[1];
+  
+        if (!fullMatch || !url) continue;
+  
+        const res = await api.getKBOEmbed(url);
+        if (res.data.err) {
+          console.error(res.data.errMsg);
+          continue;
+        }
+  
         if (!res.data || !res.data.oembed) continue;
         content = content.replace(fullMatch, res.data.oembed);
       }

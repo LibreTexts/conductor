@@ -34,6 +34,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { assembleUrl } from "../util/helpers.js";
 import axios from "axios";
+import projectFilesAPI from "./projectfiles.js";
 
 export const KB_FILES_S3_CLIENT_CONFIG: S3ClientConfig = {
   credentials: {
@@ -570,6 +571,47 @@ async function getOEmbed(
 ) {
   try {
     const { url } = req.query;
+
+    const decoded = decodeURIComponent(url);
+    // Handle native Conductor videos
+    if(decoded.startsWith("https://commons.libretexts.org/file/")){
+      const remainder = decoded.split("https://commons.libretexts.org/file/")[1];
+      const projectID = remainder.split("/")[0];
+      const fileID = remainder.split("/")[1];
+
+      if(!projectID || !fileID){
+        return res.send({
+          err: true,
+          errMsg: "Invalid video URL",
+        });
+      }
+
+      const fileRes = await projectFilesAPI._getProjectFileEmbedHTML(projectID.trim(), fileID.trim());
+      if('err' in fileRes ) {
+        if(fileRes.err === 'notfound') {
+          return conductor404Err(res);
+        }
+        
+        if (fileRes.err === 'unauthorized') {
+          return res.status(401).send({
+            err: true,
+            errMsg: conductorErrors.err8,
+          });
+        } else {
+          return conductor500Err(res);
+        }
+      }
+
+      const cloudflareID = fileRes.media_id;
+      const oEmbedURL = `https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/oembed?url=${encodeURIComponent(`https://customer-${process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE}.cloudflarestream.com/${cloudflareID}/watch`)}`;
+      const oEmbedRes = await axios.get(oEmbedURL);
+      const oEmbedData = oEmbedRes.data;
+
+      return res.send({
+        err: false,
+        oembed: oEmbedData.html,
+      });
+    }
 
     const oEmbedRes = await axios.get(`https://noembed.com/embed?url=${url}`);
     const oEmbedData = oEmbedRes.data;
