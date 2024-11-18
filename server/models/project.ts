@@ -43,6 +43,7 @@ export interface ProjectInterface extends Document {
   libreCampus: string;
   didCreateWorkbench?: boolean;
   didMigrateWorkbench?: boolean; // migrated from sandbox
+  didRequestPublish?: boolean;
   author: string;
   authorEmail: string;
   license: License;
@@ -196,6 +197,13 @@ const ProjectSchema = new Schema<ProjectInterface>(
      * Whether the Project was migrated from a Sandbox.
      */
     didMigrateWorkbench: {
+      type: Boolean,
+      default: false,
+    },
+    /**
+     * Whether a request to publish the Project has been made.
+     */
+    didRequestPublish: {
       type: Boolean,
       default: false,
     },

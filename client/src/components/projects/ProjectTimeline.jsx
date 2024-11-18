@@ -145,7 +145,6 @@ const ProjectTimeline = (props) => {
     const [showRoadmap, setShowRoadmap] = useState(false);
     const [roadmapRequiresRemix, setRoadmapRequiresRemix] = useState(null);
     const [currentRoadmapStep, setCurrentRoadmapStep] = useState('');
-    const [showConfirmPublish, setShowConfirmPublish] = useState(false);
     const [openRoadmapStep, setOpenRoadmapStep] = useState('');
     const [openRoadmapStepInfo, setOpenRoadmapStepInfo] = useState({});
 
@@ -400,26 +399,6 @@ const ProjectTimeline = (props) => {
         localStorage.setItem('conductor_show_roadmap', !showRoadmap);
     };
 
-
-    /**
-     * Submits a Publishing Request for the current project to the server
-     * via POST and closes the Confirm Publish Request modal.
-     */
-    const submitPublishRequest = () => {
-        axios.post('/project/publishing', {
-            projectID: props.match.params.id
-        }).then((res) => {
-            if (!res.data.err) {
-                setShowConfirmPublish(false);
-            } else {
-                handleGlobalError(res.data.errMsg);
-            }
-        }).catch((err) => {
-            handleGlobalError(err);
-        });
-    };
-
-
     /**
      * Open ths selected step in the Roadmap UI.
      */
@@ -597,16 +576,6 @@ const ProjectTimeline = (props) => {
                                                                         </Button>
                                                                     </Button.Group>
                                                                 }
-                                                                {openRoadmapStepInfo.key === '11' &&
-                                                                    <Button
-                                                                        color='blue'
-                                                                        onClick={() => setShowConfirmPublish(true)}
-                                                                        fluid
-                                                                        className='mt-2p'
-                                                                    >
-                                                                        Publish Text
-                                                                    </Button>
-                                                                }
                                                                 {!openRoadmapStepInfo.key &&
                                                                     <p className='text-center muted-text mt-4r'><em>Select a step from the list on the left.</em></p>
                                                                 }
@@ -707,29 +676,6 @@ const ProjectTimeline = (props) => {
                             </Grid>
                         </Segment>
                     </Segment.Group>
-                    {/* Confirm Publish Request Modal */}
-                    <Modal
-                        open={showConfirmPublish}
-                        onClose={() => setShowConfirmPublish(false) }
-                    >
-                        <Modal.Header>Confirm Publish Request</Modal.Header>
-                        <Modal.Content>
-                            Are you sure you want to request publishing? This will send a request to the LibreTexts team.
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button
-                                onClick={() => setShowConfirmPublish(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color='blue'
-                                onClick={submitPublishRequest}
-                            >
-                                Confirm
-                            </Button>
-                        </Modal.Actions>
-                    </Modal>
                 </Grid.Column>
             </Grid.Row>
         </Grid>

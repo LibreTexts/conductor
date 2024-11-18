@@ -88,6 +88,8 @@ import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
 import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
 import ProjectLinkButtons from './ProjectLinkButtons';
+import { useModals } from '../../context/ModalContext';
+import RequestToPublishModal from './RequestToPublishModal';
 const ProjectPropertiesModal = lazy(() => import('./ProjectPropertiesModal'));
 const ManageTeamModal = lazy(() => import('./ManageTeamModal'));
 
@@ -95,6 +97,7 @@ const ProjectView = (props) => {
 
   // Global State and Eror Handling
   const { handleGlobalError } = useGlobalError();
+  const { openModal, closeAllModals } = useModals();
   const user = useSelector((state) => state.user);
 
   // UI
@@ -1400,6 +1403,19 @@ const ProjectView = (props) => {
     setShowReaderResourcesModal(false);
   }
 
+  function handleOpenRequestToPublishModal() {
+    if(!project.projectID) return;
+    openModal(
+      <RequestToPublishModal
+        projectID={project.projectID}
+        onClose={() => {
+          closeAllModals();
+          getProject();
+        }}
+      />
+    );
+  }
+
   // Rendering Helper Booleans
   const hasResourceInfo = project.author || project.license?.sourceURL || project.license?.licenseName;
   const hasNotes = project.notes && !isEmptyString(project.notes);
@@ -1779,7 +1795,7 @@ const ProjectView = (props) => {
                               </Label.Group>
                             </div>
                           }
-                          <ProjectLinkButtons projectID={project.projectID} libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} projectTitle={project.title} didCreateWorkbench={project.didCreateWorkbench} hasCommonsBook={project.hasCommonsBook}/>
+                          <ProjectLinkButtons projectID={project.projectID} libreCoverID={project.libreCoverID} libreLibrary={project.libreLibrary} projectLink={project.projectURL} projectTitle={project.title} didCreateWorkbench={project.didCreateWorkbench} hasCommonsBook={project.hasCommonsBook} projectVisibility={project.visibility}/>
                           {(project.adaptCourseID && project.adaptCourseID !== '') && (
                             <div className="mt-1e">
                               <a
@@ -1791,18 +1807,33 @@ const ProjectView = (props) => {
                               </a>
                             </div>
                           )}
-                          {(canViewDetails && project.hasCommonsBook) && (
+                          {canViewDetails&& (
                             <div className="mt-8 flex flex-col">
-                              <Header as='span' sub>Reader Resources: </Header>
-                              <Button
-                                color="blue"
-                                basic
-                                compact
-                                onClick={handleOpenReaderResourcesModal}
-                                className='!w-64'
-                              >
-                                  Manage Reader Resources
-                              </Button>
+                              <Header as='span' sub>Important Tools: </Header>
+                              {
+                                project.hasCommonsBook && (
+                                  <Button
+                                    color="blue"
+                                    compact
+                                    onClick={handleOpenReaderResourcesModal}
+                                    className='!w-64'
+                                  >
+                                    Manage Reader Resources
+                                  </Button>
+                              )}
+                              {
+                                !project.hasCommonsBook && project.didCreateWorkbench && (
+                                  <Button
+                                    color='blue'
+                                    compact
+                                    onClick={handleOpenRequestToPublishModal}
+                                    className='!w-64'
+                                    disabled={project.didRequestPublish}
+                                  >
+                                    {project.didRequestPublish ? 'Publishing Requested' : 'Request to Publish'}
+                                  </Button>
+                                )
+                              }
                             </div>
                           )}
                         </Grid.Column>
