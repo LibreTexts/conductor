@@ -69,7 +69,7 @@ const TextbookStructure: React.FC<TextbookStructureProps> = ({
   return (
     <Grid.Column>
       <Header as="h2" dividing>
-        Textbook Structure (Beta)
+        Textbook Structure (<span className="italic">Beta</span>)
       </Header>
       <Segment.Group size="large" raised className="mb-4p">
         <Segment loading={isLoading}>

@@ -447,3 +447,7 @@
     justify-content: center;
     font-weight:600;
 }
+
+.disabled-page-tag i.delete.icon {
+    display: none !important;
+}

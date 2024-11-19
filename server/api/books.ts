@@ -2186,7 +2186,7 @@ async function getPageAISummary(
       messages: [
         {
           role: 'system',
-          content: 'Generate a summary of this page. Disregard any code blocks or images.',
+          content: 'Generate a summary of this page. Disregard any code blocks or images. The summary may not exceed 500 characters.',
         },
         {
           role: 'user',
@@ -2348,14 +2348,13 @@ async function updatePageDetails(
       throw new Error(`Error fetching page details: ${pagePropertiesRes.statusText}`);
     }
 
-    const pagePropertiesRaw = await pagePropertiesRes.json();
+    const pagePropertiesRaw = await pagePropertiesRes.json();    
     const pageProperties = Array.isArray(pagePropertiesRaw?.property) ? pagePropertiesRaw.property : [pagePropertiesRaw?.property];
-    const overviewProperty = pageProperties.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
-    if (!overviewProperty) {
-      throw new Error('Error fetching page details.');
-    }
 
-    // Update page overview property
+    // Check if there is an existing overview property
+    const overviewProperty = pageProperties.find((prop: any) => prop['@name'] === MindTouch.PageProps.PageOverview);
+
+    // Update or set page overview property
     const updatedOverviewRes = await CXOneFetch({
       scope: "page",
       path: parseInt(parsedPageID),
@@ -2365,7 +2364,9 @@ async function updatePageDetails(
         method: "PUT",
         headers: {
           'Content-Type': 'text/plain',
-          'Etag': overviewProperty['@etag'],
+          ...(overviewProperty && overviewProperty['@etag']) && {
+            'Etag': overviewProperty['@etag'],
+          }
         },
         body: summary,
       },

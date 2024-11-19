@@ -7,6 +7,7 @@ import {
   Label,
   Loader,
   Modal,
+  Popup,
   Segment,
 } from "semantic-ui-react";
 import { useModals } from "../../../../context/ModalContext";
@@ -19,6 +20,18 @@ import { useEffect, useMemo, useState } from "react";
 import useGlobalError from "../../../error/ErrorHooks";
 import LoadingSpinner from "../../../LoadingSpinner";
 import { useNotifications } from "../../../../context/NotificationContext";
+import "../../Projects.css";
+const SUMMARY_MAX_LENGTH = 500;
+const DISABLED_TAG_PREFIXES = [
+  "article:",
+  "authorname:",
+  "license:",
+  "licenseversion:",
+  "source@",
+  "stage:",
+  "lulu@",
+  "author@",
+];
 
 type PageMetadata = {
   summary: string;
@@ -123,7 +136,17 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   useEffect(() => {
     if (!data) return;
     setValue("summary", data.summary);
-    setValue("tags", data.tags);
+
+    const sortedTags = () => {
+      return data.tags.sort((a, b) => {
+        // Sort disabled tags to the beginning
+        if (isDisabledTag(a.value) && !isDisabledTag(b.value)) return -1;
+        if (!isDisabledTag(a.value) && isDisabledTag(b.value)) return 1;
+        return a.value.localeCompare(b.value);
+      });
+    };
+
+    setValue("tags", sortedTags());
   }, [data]);
 
   const handleInsertSummary = () => {
@@ -152,8 +175,35 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     );
   }, [aiTags, watch("tags")]);
 
+  const isDisabledTag = (value?: any): boolean => {
+    return DISABLED_TAG_PREFIXES.some((prefix) =>
+      value?.toString().startsWith(prefix)
+    );
+  };
+
+  const handleSave = async (data: PageMetadata) => {
+    if (data.summary.length > SUMMARY_MAX_LENGTH) {
+      addNotification({
+        type: "error",
+        message: `Summary cannot be longer than ${SUMMARY_MAX_LENGTH} characters`,
+      });
+      return;
+    }
+
+    const tags = data.tags.map((tag) => tag.value) || [];
+    if (tags.length > 100) {
+      addNotification({
+        type: "error",
+        message: "Page cannot have more than 100 tags",
+      });
+      return;
+    }
+
+    await updatePageMutation.mutateAsync(data);
+  };
+
   return (
-    <Modal size="large" open={true}>
+    <Modal size="large" open={true} onClose={closeAllModals}>
       <Modal.Header>Edit Page Metadata: {title}</Modal.Header>
       <Modal.Content>
         {isLoading && (
@@ -163,7 +213,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         )}
         {!isLoading && (
           <>
-            <p className="text-lg font-semibold mb-2">Summary:</p>
+            <p className="text-lg font-semibold mb-2">Summary</p>
             <CtlTextArea
               control={control}
               name="summary"
@@ -173,6 +223,8 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               bordered
               className="mb-4"
               disabled={isLoading || updatePageMutation.isLoading}
+              showRemaining
+              maxLength={500}
             />
             {showSummaryAI && (
               <Segment
@@ -212,9 +264,16 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                 Generate with AI
               </Button>
             )}
-            <Divider />
-            <p className="text-lg font-semibold mb-2">Tags:</p>
-
+            <Divider className="!mt-8"/>
+            <p className="text-lg font-semibold mb-2">
+              Tags
+              <Popup
+                trigger={
+                  <Icon name="info circle" size="small" className="!mr-0 !ml-1" />
+                }
+                content="Tags are used to categorize and organize pages. Some tags are not editable because they are used for specific system functions."
+              />
+            </p>
             <Form.Field className="flex flex-col">
               <Controller
                 render={({ field }) => (
@@ -230,12 +289,17 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     fluid
                     selection
                     multiple
+                    max
                     loading={isLoading}
                     renderLabel={(tag) => ({
                       color: "blue",
                       content: tag.text,
+                      className: isDisabledTag(tag.value)
+                        ? "!opacity-65 disabled-page-tag"
+                        : "",
                       onRemove: (e: any, data: any) => {
                         e.stopPropagation();
+                        if (isDisabledTag(data.value)) return;
 
                         // remove only the tag that was clicked
                         field.onChange(
@@ -294,6 +358,11 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                 Generate with AI
               </Button>
             )}
+            <p className="text-sm text-center text-slate-500 italic px-12 mt-6">
+              Caution: AI-generated output may not always be accurate. Please
+              thoroughly review content before saving. LibreTexts is not
+              responsible for any inaccuracies in AI-generated content.
+            </p>
           </>
         )}
       </Modal.Content>
@@ -304,9 +373,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         <Button
           color="green"
           onClick={() => {
-            updatePageMutation.mutate(getValues());
+            handleSave(getValues());
           }}
           loading={updatePageMutation.isLoading}
+          disabled={
+            (watch("summary") &&
+              watch("summary").length > SUMMARY_MAX_LENGTH) ||
+            (watch("tags") && watch("tags").length > 100)
+          }
         >
           <Icon name="save" /> Save
         </Button>
