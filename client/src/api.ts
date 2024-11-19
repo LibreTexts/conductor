@@ -779,6 +779,13 @@ class API {
     return res;
   }
 
+  async requestProjectPublishing(projectID: string) {
+    const res = await axios.post<ConductorBaseResponse>("/project/publishing", {
+      projectID,
+    });
+    return res;
+  }
+
   // Knowledge Base
   async getKBOEmbed(url: string) {
     const res = await axios.get<{ oembed: string } & ConductorBaseResponse>(

@@ -184,7 +184,7 @@ const roadmapSteps = [
         description: (
             <div>
                 <p><strong>Request 'publishing' of text.</strong></p>
-                <p>Once you deem your text is ready to be published, contact us <a href='mailto:info@libretexts.org' target='_blank' rel='noopener noreferrer'>(info@libretexts.org)</a> or use the button below and we will prepare it for publication on the Campus Bookshelves. Before publishing a text, it goes through an external review of its organization in order to ensure it complies with the standard organization present in all LibreTexts resources. It will also undergo a remixer check, and be checked by our Bradbot accessibility bot to ensure it meets current accessibility standards. Once these steps are complete, the text will be moved to your Campus Bookshelf where it can be compiled for PDF, LMS, or (print) bookstore export.</p>
+                <p>Once you deem your text is ready to be published, contact us <a href='mailto:info@libretexts.org' target='_blank' rel='noopener noreferrer'>(info@libretexts.org)</a> or use the button in Important Tools on the project homepage and we will prepare it for publication on the Campus Bookshelves. Before publishing a text, it goes through an external review of its organization in order to ensure it complies with the standard organization present in all LibreTexts resources. It will also undergo a remixer check, and be checked by our Bradbot accessibility bot to ensure it meets current accessibility standards. Once these steps are complete, the text will be moved to your Campus Bookshelf where it can be compiled for PDF, LMS, or (print) bookstore export.</p>
             </div>
         ),
         hasExtra: false,

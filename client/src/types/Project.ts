@@ -143,6 +143,7 @@ export type Project = {
   associatedOrgs: string[];
   defaultFileLicense?: License;
   didCreateWorkbench?: boolean;
+  didRequestPublish?: boolean;
   thumbnail?: string;
   projectModules?: ProjectModuleSettings;
   createdAt: string;

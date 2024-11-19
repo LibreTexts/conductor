@@ -16,6 +16,7 @@ interface ProjectLinkButtonsProps {
   hasCommonsBook?: boolean;
   projectID?: string;
   projectTitle?: string;
+  projectVisibility?: string;
 }
 
 const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
@@ -26,6 +27,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   hasCommonsBook = false,
   projectID,
   projectTitle,
+  projectVisibility,
 }) => {
   const [showCreateWorkbenchModal, setShowCreateWorkbenchModal] =
     useState(false);
@@ -34,9 +36,9 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   return (
     <div>
       <Header as="span" sub>
-        Important Links:{" "}
+        Important Actions:{" "}
       </Header>
-      <div className="flex flex-row mt-2">
+      <div className="flex flex-row flex-wrap gap-2">
         {!projectLink && !didCreateWorkbench && (
           <Button
             color="green"
@@ -46,113 +48,98 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             Create Book
           </Button>
         )}
-        <Popup
-          content={
-            validWorkbench
-              ? "This link will take you to the book's page in the LibreTexts libraries."
-              : projectLink
-              ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-              : "This project does not have a linked URL."
-          }
-          trigger={
-            <Button
-              onClick={() =>
-                validWorkbench
-                  ? window.open(
-                      buildWorkbenchURL(libreLibrary, libreCoverID),
-                      "_blank"
-                    )
-                  : projectLink
-                  ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                  : ""
-              }
-              className={
-                validWorkbench || projectLink
-                  ? ""
-                  : "!cursor-default opacity-45"
-              }
-              color={validWorkbench || projectLink ? "blue" : "grey"}
-            >
-              {validWorkbench ? "Textbook" : "Project/Textbook"} Link
-              <Icon name="external alternate" className="!ml-2" />
-            </Button>
-          }
-        />
-        <Popup
-          content={
-            hasCommonsBook && libreCoverID && libreLibrary
-              ? "This link will take you to the book's page on the Commons."
-              : "This project does not have a Commons page."
-          }
-          trigger={
-            <Button
-              onClick={
-                hasCommonsBook && libreCoverID && libreLibrary
-                  ? () =>
-                      window.open(
-                        buildCommonsUrl(libreLibrary, libreCoverID),
+        {(projectLink || validWorkbench) && (
+          <Popup
+            content={
+              validWorkbench
+                ? "This link will take you to the book's page in the LibreTexts libraries."
+                : projectLink
+                ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                : "This project does not have a linked URL."
+            }
+            trigger={
+              <Button
+                onClick={() =>
+                  validWorkbench
+                    ? window.open(
+                        buildWorkbenchURL(libreLibrary, libreCoverID),
                         "_blank"
                       )
-                  : () => {}
-              }
-              className={
-                hasCommonsBook && libreCoverID && libreLibrary
-                  ? ""
-                  : "!cursor-default opacity-45"
-              }
-              color={
-                hasCommonsBook && libreCoverID && libreLibrary ? "blue" : "grey"
-              }
-            >
-              Commons Page
-              <Icon name="external alternate" className="!ml-2" />
-            </Button>
-          }
-        />
-        <Popup
-          content={
-            validWorkbench
-              ? "This link will open the book in the LibreTexts OER Remixer."
-              : projectLink
-              ? "This link will open the LibreTexts OER Remixer."
-              : "This project does not have a linked URL."
-          }
-          trigger={
-            <Button
-              onClick={
-                (validWorkbench || hasCommonsBook) &&
-                libreCoverID &&
-                libreLibrary
-                  ? () =>
-                      window.open(
-                        buildRemixerURL(
-                          libreLibrary ?? "chem",
-                          didCreateWorkbench && libreLibrary && libreCoverID
-                            ? buildWorkbenchURL(libreLibrary, libreCoverID)
-                            : ""
-                        ),
-                        "_blank"
-                      )
-                  : () => {}
-              }
-              className={
-                (validWorkbench || hasCommonsBook) && libreCoverID && libreLibrary
-                  ? ""
-                  : "!cursor-default opacity-45"
-              }
-              color={
-                (validWorkbench || hasCommonsBook) &&
-                libreCoverID &&
-                libreLibrary
-                  ? "blue"
-                  : "grey"
-              }
-            >
-              OER Remixer
-              <Icon name="external alternate" className="!ml-2" />
-            </Button>
-          }
-        />
+                    : projectLink
+                    ? window.open(normalizeURL(projectLink ?? ""), "_blank")
+                    : ""
+                }
+                color="blue"
+                size="small"
+              >
+                Open Project Link
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
+            }
+          />
+        )}
+        {hasCommonsBook && libreCoverID && libreLibrary && (
+          <Popup
+            content="This link will take you to the book's page on the Commons."
+            trigger={
+              <Button
+                onClick={() =>
+                  window.open(
+                    buildCommonsUrl(libreLibrary, libreCoverID),
+                    "_blank"
+                  )
+                }
+                color="blue"
+                size="small"
+              >
+                View Textbook on Commons
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
+            }
+          />
+        )}
+        {projectVisibility === "public" && (
+          <Popup
+            content="This link will take you to the project's page on the Commons."
+            trigger={
+              <Button
+                onClick={() =>
+                  window.open(`/commons-project/${projectID}`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                View Project on Commons
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
+            }
+          />
+        )}
+        {(validWorkbench || hasCommonsBook) && libreCoverID && libreLibrary && (
+          <Popup
+            content="This link will open the book in the LibreTexts OER Remixer."
+            trigger={
+              <Button
+                onClick={() =>
+                  window.open(
+                    buildRemixerURL(
+                      libreLibrary ?? "chem",
+                      didCreateWorkbench && libreLibrary && libreCoverID
+                        ? buildWorkbenchURL(libreLibrary, libreCoverID)
+                        : ""
+                    ),
+                    "_blank"
+                  )
+                }
+                color="blue"
+                size="small"
+              >
+                Open OER Remixer
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
+            }
+          />
+        )}
         {projectID && projectTitle && (
           <CreateWorkbenchModal
             show={showCreateWorkbenchModal}

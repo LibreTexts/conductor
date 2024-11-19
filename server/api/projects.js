@@ -2465,7 +2465,11 @@ const requestProjectPublishing = (req, res) => {
             if (checkProjectMemberPermission(projectData, req.user)) {
                 // lookup user for info
                 if (req.user?.decoded?.uuid) {
-                    return User.findOne({ uuid: req.user.decoded.uuid }).lean();
+                    if(projectData.didRequestPublish){
+                      throw (new Error('alreadypublished'))
+                    } else {
+                      return User.findOne({ uuid: req.user.decoded.uuid }).lean();
+                    }
                 } else {
                     throw (new Error('unauth'));
                 }
@@ -2492,6 +2496,13 @@ const requestProjectPublishing = (req, res) => {
             throw (new Error('usernotfound'));
         }
     }).then(() => {
+      // set didRequestPublish to true
+      return Project.updateOne({
+        projectID: req.body.projectID
+      }, {
+        didRequestPublish: true
+      });
+    }).then(() => {
         // ignore return value of Mailgun call
         return res.send({
             err: false,
@@ -2503,6 +2514,12 @@ const requestProjectPublishing = (req, res) => {
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'invalid') errMsg = conductorErrors.err2;
         else if (err.message === 'usernotfound') errMsg = conductorErrors.err7;
+        else if (err.message === 'alreadypublished'){
+          return res.send({
+            err: false,
+            msg: 'Publishing already requested.'
+          })
+        }
         return res.send({
             err: true,
             errMsg: errMsg
