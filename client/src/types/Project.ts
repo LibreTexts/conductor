@@ -57,7 +57,7 @@ export type ProjectFile = {
 export type ProjectFileWProjectData<K extends keyof Project> = ProjectFile & {
   projectInfo: {
     [P in K]: Project[P];
-  }
+  };
 };
 
 /**
