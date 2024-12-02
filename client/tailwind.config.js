@@ -10,6 +10,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      height: {
+        "screen-content": "calc(100vh - 4.25rem)",
+      },
       colors: {
         primary: "#127BC4",
         secondary: "#8553FE",

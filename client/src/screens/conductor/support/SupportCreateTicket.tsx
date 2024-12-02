@@ -34,7 +34,7 @@ const SupportCreateTicket = () => {
   }
 
   return (
-    <DefaultLayout altBackground>
+    <DefaultLayout altBackground h="screen">
       <>
         {sysAnnouncement && (
           <SystemAnnouncement
@@ -42,7 +42,7 @@ const SupportCreateTicket = () => {
             message={sysAnnouncement.message}
           />
         )}
-        <div className="flex flex-col w-full min-h-[80vh] items-center justify-center">
+        <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
           <div className="flex flex-col w-full items-center mt-4">
             <h1 className="text-4xl font-semibold">Contact Support</h1>
             <p className="mt-2">

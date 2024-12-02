@@ -50,10 +50,10 @@ const SupportCenter = () => {
   }
 
   return (
-    <DefaultLayout>
+    <DefaultLayout h="screen-content">
       <SupportCenterJumbotron />
       <div
-        className="flex flex-col lg:flex-row w-full justify-center my-14 "
+        className="flex flex-col lg:flex-row w-full justify-center my-14 flex-grow"
         style={{ minHeight: "50vh" }}
       >
         <HomeItem
