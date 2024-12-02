@@ -35,7 +35,7 @@ const NavTree = () => {
     if (drawerOpen) {
       setDrawerOpen(JSON.parse(drawerOpen));
     }
-  }, [])
+  }, []);
 
   function handleDrawerChange(newState: boolean) {
     setDrawerOpen(newState);
@@ -83,104 +83,110 @@ const NavTree = () => {
   return (
     <div
       aria-busy={loading}
-      className={`h-auto min-h-screen border-r-2 p-4 ${drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"} ${drawerOpen ? "max-w-[20rem]" : "max-w-[4rem]"} overflow-y-auto`}
+      className={`h-screen-content overflow-y-auto border-r-2 p-4 ${
+        drawerOpen ? "min-w-[15rem]" : "min-w-[4rem]"
+      } ${drawerOpen ? "max-w-[20rem]" : "max-w-[4rem]"} overflow-y-auto`}
     >
-      {
-        drawerOpen ? (
-          <>
-            <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center">
-              <a className="text-xl font-semibold text-black" href="/insight/welcome">
-                Insight Articles
-              </a>
-              {canEdit && (
-                <Popup
-                  trigger={
-                    <Icon
-                      name="plus"
-                      className="!mb-1 !cursor-pointer"
-                      onClick={() => handleCreatePage()}
-                    />
-                  }
-                  position="top center"
-                >
-                  <Popup.Content>
-                    <p className="text-sm">Create new root level page</p>
-                  </Popup.Content>
-                </Popup>
-              )}
+      {drawerOpen ? (
+        <>
+          <div className="flex flex-row justify-between border-b mb-1 pb-1 items-center max-h-screen">
+            <a
+              className="text-xl font-semibold text-black"
+              href="/insight/welcome"
+            >
+              Insight Articles
+            </a>
+            {canEdit && (
               <Popup
                 trigger={
                   <Icon
-                    name="angle left"
+                    name="plus"
                     className="!mb-1 !cursor-pointer"
-                    size="large"
-                    onClick={() => handleDrawerChange(false)}
+                    onClick={() => handleCreatePage()}
                   />
                 }
                 position="top center"
               >
                 <Popup.Content>
-                  <p className="text-sm">Hide Table of Contents</p>
+                  <p className="text-sm">Create new root level page</p>
                 </Popup.Content>
               </Popup>
-            </div>
-            {tree?.map((node) => {
-              return (
-                <div key={node.uuid} className="p-2 rounded-xl hover:bg-slate-100">
-                  <div className="flex flex-row justify-between items-center">
-                    <div className="flex flex-row items-center overflow-x-clip align-middle">
-                      <a
-                        className="text-lg font-semibold text-black break-words hyphens-auto"
-                        href={getLink(node.slug)}
-                      >
-                        {truncateString(node.title, 50)}
-                      </a>
-                      {canEdit && <StatusLabel status={node.status} />}
-                    </div>
-                  </div>
-                  <div className="pl-4">
-                    {node.children &&
-                      node.children.map((child) => {
-                        return (
-                          <div
-                            key={child.uuid}
-                            className="p-2 flex flex-row items-center"
-                          >
-                            <a
-                              className="text-md font-semibold text-gray-600 break-words hyphens-auto"
-                              href={getLink(child.slug)}
-                            >
-                              {truncateString(child.title, 50)}
-                            </a>
-                            {canEdit && <StatusLabel status={child.status} />}
-                          </div>
-                        );
-                      })}
-                    {canEdit && (
-                      <a
-                        className="p-2 text-md font-semibold text-blue-500  break-words hyphens-auto !cursor-pointer"
-                        onClick={() => handleCreatePage(node.uuid)}
-                      >
-                        + Add Page
-                      </a>
-                    )}
+            )}
+            <Popup
+              trigger={
+                <Icon
+                  name="angle left"
+                  className="!mb-1 !cursor-pointer"
+                  size="large"
+                  onClick={() => handleDrawerChange(false)}
+                />
+              }
+              position="top center"
+            >
+              <Popup.Content>
+                <p className="text-sm">Hide Table of Contents</p>
+              </Popup.Content>
+            </Popup>
+          </div>
+          {tree?.map((node) => {
+            return (
+              <div
+                key={node.uuid}
+                className="p-2 rounded-xl hover:bg-slate-100"
+              >
+                <div className="flex flex-row justify-between items-center">
+                  <div className="flex flex-row items-center overflow-x-clip align-middle">
+                    <a
+                      className="text-lg font-semibold text-black break-words hyphens-auto"
+                      href={getLink(node.slug)}
+                    >
+                      {truncateString(node.title, 50)}
+                    </a>
+                    {canEdit && <StatusLabel status={node.status} />}
                   </div>
                 </div>
-              );
-            })}
-          </>
-        ) : (
-          <div className="flex flex-col items-center cursor-pointer" onClick={() => handleDrawerChange(true)}>
-              <Icon
-                name="angle right"
-                size="large"
-                className="!ml-2"
-              />
-              <div className="transform -rotate-90 text-xl font-semibold text-black whitespace-nowrap mt-20">
-                Table of Contents
+                <div className="pl-4">
+                  {node.children &&
+                    node.children.map((child) => {
+                      return (
+                        <div
+                          key={child.uuid}
+                          className="p-2 flex flex-row items-center"
+                        >
+                          <a
+                            className="text-md font-semibold text-gray-600 break-words hyphens-auto"
+                            href={getLink(child.slug)}
+                          >
+                            {truncateString(child.title, 50)}
+                          </a>
+                          {canEdit && <StatusLabel status={child.status} />}
+                        </div>
+                      );
+                    })}
+                  {canEdit && (
+                    <a
+                      className="p-2 text-md font-semibold text-blue-500  break-words hyphens-auto !cursor-pointer"
+                      onClick={() => handleCreatePage(node.uuid)}
+                    >
+                      + Add Page
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
-        )}
+            );
+          })}
+        </>
+      ) : (
+        <div
+          className="flex flex-col items-center cursor-pointer"
+          onClick={() => handleDrawerChange(true)}
+        >
+          <Icon name="angle right" size="large" className="!ml-2" />
+          <div className="transform -rotate-90 text-xl font-semibold text-black whitespace-nowrap mt-20">
+            Table of Contents
+          </div>
+        </div>
+      )}
     </div>
   );
 };
