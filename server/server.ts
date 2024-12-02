@@ -30,7 +30,9 @@ mongoose.Promise = Promise;
 mongoose.set("debug", process.env.NODE_ENV === "development");
 
 await mongoose
-  .connect(process.env.MONGOOSEURI ?? "")
+  .connect(process.env.MONGOOSEURI ?? "", {
+    maxPoolSize: process.env.ORG_ID === "libretexts" ? 100 : 25,
+  })
   .catch((err) => debugDB(err));
 debugDB("Connected to MongoDB Atlas.");
 
