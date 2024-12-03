@@ -1,9 +1,9 @@
-import axios from 'axios';
-import { Button, Dropdown, List, Loader, Modal } from 'semantic-ui-react';
-import { Organization } from '../../../types';
-import React, { useEffect, useState } from 'react';
-import useGlobalError from '../../error/ErrorHooks';
-import { UserRoleOptions } from '../../../utils/userHelpers';
+import axios from "axios";
+import { Button, Dropdown, List, Loader, Modal } from "semantic-ui-react";
+import { Organization } from "../../../types";
+import React, { useEffect, useState } from "react";
+import useGlobalError from "../../error/ErrorHooks";
+import { UserRoleOptions } from "../../../utils/userHelpers";
 
 type ManageUserRolesModalProps = {
   firstName: string;
@@ -27,26 +27,28 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
 }) => {
   const { handleGlobalError } = useGlobalError();
   const allRoleOpts = UserRoleOptions;
-  const roleOpts = UserRoleOptions.filter((o) => o.value !== 'superadmin');
+  const roleOpts = UserRoleOptions.filter((o) => o.value !== "superadmin");
 
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
-  const [userRoles, setUserRoles] = useState<{ org: Organization; role: string; roleInternal: string }[]>([]);
+  const [userRoles, setUserRoles] = useState<
+    { org: Organization; role: string; roleInternal: string }[]
+  >([]);
 
   async function getAllOrganizations() {
     try {
       setLoading(true);
-      const res = await axios.get('/orgs');
+      const res = await axios.get("/orgs");
       if (res.data?.errMsg) {
         handleGlobalError(res.data.errMsg);
         return;
       }
       if (!Array.isArray(res.data?.orgs)) return;
-      const orgs = (res.data.orgs as Organization[]).sort((a, b) => a.name.localeCompare(b.name));
+      const orgs = (res.data.orgs as Organization[]).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
       setAllOrganizations(
-        isSuperAdmin
-        ? orgs
-        : orgs.filter((org) => org.orgID === orgID)
+        isSuperAdmin ? orgs : orgs.filter((org) => org.orgID === orgID)
       );
     } catch (err) {
       handleGlobalError(err);
@@ -58,7 +60,7 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
   async function getUserRoles() {
     try {
       setLoading(true);
-      const res = await axios.get('/user/roles', {
+      const res = await axios.get("/user/roles", {
         params: {
           uuid,
         },
@@ -70,7 +72,6 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
       if (!res.data?.user || !Array.isArray(res.data?.user?.roles)) return;
       setUserRoles(res.data.user.roles);
     } catch (err) {
-
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
   async function updateUserRole(newRole: string, orgToUpdateID: string) {
     try {
       setLoading(true);
-      const res = await axios.put('/user/role/update', {
+      const res = await axios.put("/user/role/update", {
         orgID: orgToUpdateID,
         role: newRole,
         uuid,
@@ -109,35 +110,53 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
   return (
     <Modal size="large" open={show} onClose={onClose} {...props}>
       <Modal.Header>
-        <i>{firstName} {lastName}:</i>{' '}
+        <i>
+          {firstName} {lastName}:
+        </i>{" "}
         Manage User Roles
       </Modal.Header>
       <Modal.Content scrolling style={{ minHeight: "30vh" }}>
         {loading && <Loader />}
         <List divided verticalAlign="middle">
-          {allOrganizations.map((org) => (
-            <List.Item key={org.orgID}>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span>{org.name}</span>
+          {allOrganizations.map((org) => {
+            console.log("org:", org);
+            return (
+              <List.Item key={org.orgID}>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <a
+                      href={org.domain}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span>{org.name}</span>
+                    </a>
+                  </div>
+                  <div className="right-flex">
+                    <Dropdown
+                      onChange={(_e, { value }) => {
+                        if (typeof value !== "string") return;
+                        const current = userRoles.find(
+                          (r) => r.org?.orgID === org.orgID
+                        )?.roleInternal;
+                        if (value === current) return;
+                        updateUserRole(value, org.orgID);
+                      }}
+                      options={
+                        org.orgID === "libretexts" ? allRoleOpts : roleOpts
+                      }
+                      placeholder="No role set"
+                      selection
+                      value={
+                        userRoles.find((r) => r.org?.orgID === org.orgID)
+                          ?.roleInternal
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="right-flex">
-                  <Dropdown
-                    onChange={(_e, { value }) => {
-                      if (typeof value !== 'string') return;
-                      const current = userRoles.find((r) => r.org?.orgID === org.orgID)?.roleInternal;
-                      if (value === current) return;
-                      updateUserRole(value, org.orgID);
-                    }}
-                    options={org.orgID === 'libretexts' ? allRoleOpts : roleOpts}
-                    placeholder="No role set"
-                    selection
-                    value={userRoles.find((r) => r.org?.orgID === org.orgID)?.roleInternal}
-                  />
-                </div>
-              </div>
-            </List.Item>
-          ))}
+              </List.Item>
+            );
+          })}
         </List>
       </Modal.Content>
       <Modal.Actions>
