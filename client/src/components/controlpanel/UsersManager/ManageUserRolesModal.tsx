@@ -119,7 +119,6 @@ const ManageUserRolesModal: React.FC<ManageUserRolesModalProps> = ({
         {loading && <Loader />}
         <List divided verticalAlign="middle">
           {allOrganizations.map((org) => {
-            console.log("org:", org);
             return (
               <List.Item key={org.orgID}>
                 <div className="flex-row-div">
