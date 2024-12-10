@@ -42,7 +42,7 @@ const checkValidationErrors = (
   } else {
     return res.status(400).send({
       err: true,
-      errMsg: conductorErrors.err2,
+      errMsg: conductorErrors.err91,
       errors: validationErrors.array(),
     });
   }
@@ -92,10 +92,17 @@ const checkLibreAPIKey = (req: Request, res: Response, next: NextFunction) => {
  * @param {object} res - The Express.js response object.
  * @param {function} next - The next function in the middleware chain.
  */
-const checkEventBridgeAPIKey = (req: Request, res: Response, next: NextFunction) => {
+const checkEventBridgeAPIKey = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   if (typeof req.headers?.authorization === "string") {
     const foundToken = req.headers.authorization.replace("Bearer ", "");
-    if (!process.env.EVENT_BRIDGE_API_KEY || process.env.EVENT_BRIDGE_API_KEY.length === 0) {
+    if (
+      !process.env.EVENT_BRIDGE_API_KEY ||
+      process.env.EVENT_BRIDGE_API_KEY.length === 0
+    ) {
       return res.status(500).send({ errMsg: conductorErrors.err6 });
     }
     if (process.env.EVENT_BRIDGE_API_KEY === foundToken) return next();
@@ -313,7 +320,7 @@ const validateZod = (schema: AnyZodObject) => {
         params: req.params,
       });
 
-      if(!validationRes.success) {
+      if (!validationRes.success) {
         validationErrors = extractZodErrorMessages(validationRes.error);
         throw new Error("Validation failed");
       }
