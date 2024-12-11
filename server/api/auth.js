@@ -78,7 +78,7 @@ async function createAndAttachLocalSession(res, uuid) {
   const prodCookieConfig = {
     secure: true,
     domain: JWT_COOKIE_DOMAIN,
-    maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
   res.cookie('conductor_access', access, {
     path: '/',
