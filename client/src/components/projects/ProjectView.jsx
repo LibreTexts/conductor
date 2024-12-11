@@ -86,7 +86,7 @@ import RemoveTaskAssigneeModal from './TaskComponents/RemoveTaskAssigneeModal';
 import AddTaskAssigneeModal from './TaskComponents/AddTaskAssigneeModal';
 import ViewTaskModal from './TaskComponents/ViewTaskModal';
 import AssignAllModal from './TaskComponents/AssignAllModal';
-import { buildCommonsUrl, buildRemixerURL, buildWorkbenchURL } from '../../utils/projectHelpers';
+import { buildLibraryPageGoURL } from '../../utils/projectHelpers';
 import ProjectLinkButtons from './ProjectLinkButtons';
 import { useModals } from '../../context/ModalContext';
 import RequestToPublishModal from './RequestToPublishModal';
@@ -1473,7 +1473,7 @@ const ProjectView = (props) => {
 
   const BookCreatedLabel = () => {
     return (
-      <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildWorkbenchURL(project.libreLibrary, project.libreCoverID))}>Book created <Icon name='external' className='!ml-1'/></Label>
+      <Label basic color='green' className='!mb-4 cursor-pointer' onClick={() => window.open(buildLibraryPageGoURL(project.libreLibrary, project.libreCoverID))}>Book created <Icon name='external' className='!ml-1'/></Label>
     )
   }
 
