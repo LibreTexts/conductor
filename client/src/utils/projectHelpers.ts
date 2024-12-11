@@ -23,14 +23,14 @@ export async function pinProject(projectID: string) {
   }
 }
 
-export function buildWorkbenchURL(libreLibrary: string, libreCoverID: string) {
+export function buildLibraryPageGoURL(libreLibrary: string, libreCoverID: string) {
   return `https://${libreLibrary}.libretexts.org/@go/page/${libreCoverID}`;
 }
 
-export function buildRemixerURL(libreLibrary: string, workbenchURL: string) {
+export function buildRemixerURL(libreLibrary: string, remixURL: string) {
   const queryParams = new URLSearchParams();
-  if (workbenchURL) {
-    queryParams.set('remixURL', workbenchURL);
+  if (remixURL) {
+    queryParams.set('remixURL', remixURL);
     queryParams.set('autoLoad', 'true');
   }
   const queryString = queryParams.toString();

@@ -2,8 +2,8 @@ import { Button, Header, Icon, Popup } from "semantic-ui-react";
 import { normalizeURL } from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
+  buildLibraryPageGoURL,
   buildRemixerURL,
-  buildWorkbenchURL,
 } from "../../utils/projectHelpers";
 import { lazy, useState } from "react";
 const CreateWorkbenchModal = lazy(() => import("./CreateWorkbenchModal"));
@@ -62,7 +62,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                 onClick={() =>
                   validWorkbench
                     ? window.open(
-                        buildWorkbenchURL(libreLibrary, libreCoverID),
+                        buildLibraryPageGoURL(libreLibrary, libreCoverID),
                         "_blank"
                       )
                     : projectLink
@@ -124,8 +124,8 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                   window.open(
                     buildRemixerURL(
                       libreLibrary ?? "chem",
-                      didCreateWorkbench && libreLibrary && libreCoverID
-                        ? buildWorkbenchURL(libreLibrary, libreCoverID)
+                      libreLibrary && libreCoverID
+                        ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
                         : ""
                     ),
                     "_blank"
