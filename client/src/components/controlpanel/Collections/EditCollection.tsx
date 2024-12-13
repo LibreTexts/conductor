@@ -144,16 +144,9 @@ const EditCollection: FC<EditCollectionProps> = ({
     handleAssetUpload(
       event,
       "coverPhoto",
-      setCollectionCoverPhoto,
       setPhotoLoading,
       setPhotoUploaded
     );
-  }
-
-  function setCollectionCoverPhoto(coverPhotoUrl: string) {
-    if (coverPhotoUrl && collectionToEdit) {
-      collectionToEdit.coverPhoto = coverPhotoUrl;
-    }
   }
 
   /**
@@ -170,14 +163,12 @@ const EditCollection: FC<EditCollectionProps> = ({
    *
    * @param {React.FormEvent<HTMLInputElement>} event - File selection event.
    * @param {string} assetName - Name of the asset being uploaded/replaced.
-   * @param {function} assetLinkUpdater - State setter for the respective asset link.
    * @param {function} uploadingStateUpdater - State setter for the respective asset upload status.
    * @param {function} uploadSuccessUpdater - State setter for the respective asset upload success flag.
    */
   async function handleAssetUpload(
     event: any,
     assetName: string,
-    assetLinkUpdater: Function,
     uploadingStateUpdater: Function,
     uploadSuccessUpdater: Function
   ) {
@@ -212,8 +203,8 @@ const EditCollection: FC<EditCollectionProps> = ({
       );
       if (!uploadRes.data.err) {
         uploadSuccessUpdater(true);
-        if (uploadRes.data.url) {
-          assetLinkUpdater(uploadRes.data.url);
+        if (uploadRes.data.url && assetName === "coverPhoto") {
+          setFormValue(assetName, uploadRes.data.url);
         }
       } else {
         throw new Error(uploadRes.data.errMsg);
@@ -366,7 +357,7 @@ const EditCollection: FC<EditCollectionProps> = ({
               <span className="muted-text">(used to match resources)</span>
             </label>
             <Form.Input
-              disabled={!getFormValue("autoManage") ?? true}
+              disabled={!getFormValue("autoManage")}
               name="program"
               icon="tag"
               placeholder="Meta-Tag"
@@ -389,7 +380,7 @@ const EditCollection: FC<EditCollectionProps> = ({
               return (
                 <Form.Checkbox
                   key={index}
-                  disabled={!getFormValue("autoManage") ?? true}
+                  disabled={!getFormValue("autoManage")}
                   name="locations"
                   label={getShelvesNameText(option)}
                   value={option}
