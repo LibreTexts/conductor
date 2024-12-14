@@ -12,13 +12,13 @@ import {
   getCollectionSchema,
   getCommonsCollectionsSchema,
   removeCollectionResourceSchema,
-  updateCollectionImageAssetSchema
+  updateCollectionImageAssetSchema,
 } from "./validators/collections.js";
 import { debugError } from "../debug.js";
 import { FilterQuery } from "mongoose";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import { ResourceInterface } from "../models/resource.js";
 import { z } from "zod";
 import { getPaginationOffset } from "../util/helpers.js";
@@ -63,9 +63,15 @@ function assetUploadHandler(req: Request, res: Response, next: NextFunction) {
 /**
  * Uploads a collection asset image to S3 and updates the specified Collection's record.
  */
-async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionImageAssetSchema> & { file: Express.Multer.File }, res: Response) {
+async function updateCollectionImageAsset(
+  req: z.infer<typeof updateCollectionImageAssetSchema> & {
+    file: Express.Multer.File;
+  },
+  res: Response
+) {
   try {
     const { collID, assetName } = req.params;
+    const orgID = process.env.ORG_ID; // The organization ID from the environment variables
 
     if (typeof req.file !== "object") {
       return res.status(400).send({
@@ -74,15 +80,16 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
       });
     }
 
-    const coll = await Collection.findOne({ collID }).lean();
+    // Include orgID in the query criteria
+    const coll = await Collection.findOne({ collID, orgID }).lean();
     if (!coll) {
       return res.status(404).send({
         err: true,
         errMsg: conductorErrors.err11,
       });
     }
+
     const fileExtension = req.file.mimetype?.split("/")[1];
-    const fileKey = `assets/${collID}_${assetName}.${fileExtension}`;
     if (typeof fileExtension !== "string") {
       return res.status(400).send({
         err: true,
@@ -90,9 +97,13 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
       });
     }
 
+    const fileKey = `assets/${collID}_${assetName}.${fileExtension}`;
     let assetVersion = 1;
     const collectionDataDomain = process.env.AWS_COLLECTIONDATA_DOMAIN;
-    if (collectionDataDomain && coll[assetName].includes(collectionDataDomain)) {
+    if (
+      collectionDataDomain &&
+      coll[assetName]?.includes(collectionDataDomain)
+    ) {
       const assetURLSplit = coll[assetName].split("?v=");
       if (Array.isArray(assetURLSplit) && assetURLSplit.length > 1) {
         const currAssetVersion = Number.parseInt(assetURLSplit[1]);
@@ -105,9 +116,11 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
     const accessKeyId = process.env.AWS_COLLECTIONDATA_ACCESS_KEY;
     const secretAccessKey = process.env.AWS_COLLECTIONDATA_SECRET_KEY;
     const region = process.env.AWS_COLLECTIONDATA_REGION;
+
     if (!accessKeyId || !secretAccessKey || !region) {
-      throw new Error('Missing S3 configuration for asset upload.')
+      throw new Error("Missing S3 configuration for asset upload.");
     }
+
     const storageClient = new S3Client({
       credentials: {
         accessKeyId,
@@ -115,24 +128,29 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
       },
       region,
     });
+
     const uploadCommand = new PutObjectCommand({
       Bucket: process.env.AWS_COLLECTIONDATA_BUCKET,
       Key: fileKey,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
     });
+
     const uploadResponse = await storageClient.send(uploadCommand);
+
     if (uploadResponse["$metadata"]?.httpStatusCode !== 200) {
       throw new Error("Error uploading asset to S3");
     }
+
     const assetURL = `https://${process.env.AWS_COLLECTIONDATA_DOMAIN}/${fileKey}?v=${assetVersion}`;
 
     const updateRes = await Collection.updateOne(
-      { collID },
+      { collID, orgID },
       {
-        [assetName]: assetURL,
+        coverPhoto: assetURL,
       }
     );
+
     if (updateRes.modifiedCount !== 1) {
       throw new Error("Failed to update Collection");
     }
@@ -154,18 +172,36 @@ async function updateCollectionImageAsset(req: z.infer<typeof updateCollectionIm
 /**
  * Creates and saves a new Collection with the data in the request body.
  */
-async function createCollection(req: z.infer<typeof createCollectionSchema>, res: Response) {
+async function createCollection(
+  req: z.infer<typeof createCollectionSchema>,
+  res: Response
+) {
   try {
-    const { coverPhoto, locations, parentID, program, description, ...body } = req.body;
+    const { coverPhoto, locations, parentID, program, description, ...body } =
+      req.body;
+    const orgID = process.env.ORG_ID;
 
-    const sanitizedDescription = description ? _sanitizeDescription(description) : undefined;
+    const sanitizedDescription = description
+      ? _sanitizeDescription(description)
+      : undefined;
 
-    const newID = b62(8);
+    let newID;
+    let isUnique = false;
+
+    // Generate a unique ID that doesn't exist in the database
+    while (!isUnique) {
+      newID = b62(8); // Generate a new ID
+      const existingCollection = await Collection.findOne({ collID: newID });
+      if (!existingCollection) {
+        isUnique = true; // Break the loop if ID is unique
+      }
+    }
+
     const newCollection = await Collection.create({
       autoManage: body.autoManage ?? false,
       collID: newID,
       orgID: process.env.ORG_ID,
-      privacy: body.privacy ?? 'public',
+      privacy: body.privacy ?? "public",
       title: body.title,
       ...(sanitizedDescription && { description: sanitizedDescription }),
       ...(coverPhoto && { coverPhoto }),
@@ -174,17 +210,19 @@ async function createCollection(req: z.infer<typeof createCollectionSchema>, res
       ...(program && { program }),
     });
 
-    const collectionToAdd = { resourceID: newID, resourceType: 'collection' };
+    const collectionToAdd = { resourceID: newID, resourceType: "collection" };
+
     if (parentID) {
       await Collection.updateOne(
-        { collID: parentID },
+        { collID: parentID, orgID: orgID },
         {
           $addToSet: {
             resources: collectionToAdd,
-          }
+          },
         }
       );
     }
+
     return res.send({
       err: false,
       msg: "Collection successfully created.",
@@ -202,50 +240,74 @@ async function createCollection(req: z.infer<typeof createCollectionSchema>, res
 /**
  * Updates the Collection identified by the collID in the request params.
  */
-async function editCollection(req: z.infer<typeof editCollectionSchema>, res: Response) {
+async function editCollection(
+  req: z.infer<typeof editCollectionSchema>,
+  res: Response
+) {
   try {
-    const foundCollection = await Collection.findOne({ collID: req.params.collID });
+    const orgID = process.env.ORG_ID;
+
+    const foundCollection = await Collection.findOne({
+      collID: req.params.collID,
+      orgID: orgID, // Ensure it matches the correct organization
+    });
+
     if (!foundCollection) {
       return res.status(404).send({
         err: true,
         msg: conductorErrors.err11,
       });
     }
+
     const existParentId = foundCollection.parentID;
     const updateData = req.body;
+
     if (Object.keys(updateData).length === 0) {
       return res.send({
         err: false,
-        msg: 'No changes to save.',
+        msg: "No changes to save.",
       });
     }
 
-    const sanitizedDescription = updateData.description ? _sanitizeDescription(updateData.description) : undefined;
+    const sanitizedDescription = updateData.description
+      ? _sanitizeDescription(updateData.description)
+      : undefined;
 
-    await Collection.updateOne({ collID: req.params.collID }, {
-      ...updateData,
-      ...(sanitizedDescription && { description: sanitizedDescription }),
-    });
-    
-    if (existParentId && updateData.parentID && existParentId !== updateData.parentID) {
-      const resourceToModify = { resourceId: req.params.collID, resourceType: 'collection' };
+    await Collection.updateOne(
+      { collID: req.params.collID, orgID: orgID }, // Ensure it updates only the relevant collection
+      {
+        ...updateData,
+        ...(sanitizedDescription && { description: sanitizedDescription }),
+      }
+    );
+
+    if (
+      existParentId &&
+      updateData.parentID &&
+      existParentId !== updateData.parentID
+    ) {
+      const resourceToModify = {
+        resourceId: req.params.collID,
+        resourceType: "collection",
+      };
+
       await Promise.all([
-        // remove from existing parent
+        // Remove from existing parent
         Collection.updateOne(
-          { collID: existParentId },
+          { collID: existParentId, orgID: orgID },
           {
             $pull: {
-              resources: resourceToModify
-            }
+              resources: resourceToModify,
+            },
           }
         ),
-        // add to new parent
+        // Add to new parent
         Collection.updateOne(
-          { collID: updateData.parentID },
+          { collID: updateData.parentID, orgID: orgID },
           {
             $addToSet: {
               resources: resourceToModify,
-            }
+            },
           }
         ),
       ]);
@@ -267,28 +329,41 @@ async function editCollection(req: z.infer<typeof editCollectionSchema>, res: Re
 /**
  * Deletes the Collection identified by the collID in the request params.
  */
-async function deleteCollection(req: z.infer<typeof deleteCollectionSchema>, res: Response) {
+async function deleteCollection(
+  req: z.infer<typeof deleteCollectionSchema>,
+  res: Response
+) {
   try {
-    const collToDelete = await Collection.findOne({
-      collID: req.params.collID,
-    }).lean();
+    const { collID } = req.params;
+    const orgID = process.env.ORG_ID;
+
+    // Find the collection with matching collID and orgID
+    const collToDelete = await Collection.findOne({ collID, orgID }).lean();
     if (!collToDelete) {
       return res.status(404).send({
         err: true,
         msg: conductorErrors.err11,
       });
     }
+
+    // If the collection has a parentID, remove it from the parent's resources array
     if (collToDelete.parentID) {
       await Collection.updateOne(
-        { collID: collToDelete.parentID },
+        { collID: collToDelete.parentID, orgID },
         {
           $pull: {
-            resources: { resourceID: req.params.collID, resourceType: 'collection' },
+            resources: {
+              resourceID: collID,
+              resourceType: "collection",
+            },
           },
         }
-      )
+      );
     }
-    await Collection.deleteOne({ collID: req.params.collID });
+
+    // Delete the collection with matching collID and orgID
+    await Collection.deleteOne({ collID, orgID });
+
     return res.send({
       err: false,
       msg: "Collection successfully deleted.",
@@ -306,12 +381,15 @@ async function deleteCollection(req: z.infer<typeof deleteCollectionSchema>, res
  * Returns all PUBLIC Collections for the organization handled by the current server instance. Requests are safe to be
  * anonymous/public.
  */
-async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSchema>, res: Response) {
+async function getCommonsCollections(
+  req: z.infer<typeof getCommonsCollectionsSchema>,
+  res: Response
+) {
   try {
     const { detailed, query, sort } = req.query;
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 12;
-    const sortDirection = req.query.sortDirection || 'descending';
+    const sortDirection = req.query.sortDirection || "descending";
 
     const projectObj = {
       orgID: 1,
@@ -351,16 +429,16 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
           {
             program: {
               $regex: query,
-              $options: 'i',
+              $options: "i",
             },
           },
           {
             title: {
               $regex: query,
-              $options: 'i',
+              $options: "i",
             },
-          }
-        ]
+          },
+        ],
       });
     }
     const collections = await Collection.aggregate([
@@ -369,7 +447,7 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
       },
       {
         $sort: {
-          [sort]: sortDirection === 'ascending' ? -1 : 1,
+          [sort]: sortDirection === "ascending" ? -1 : 1,
         },
       },
       {
@@ -383,7 +461,7 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
       {
         $project: projectObj,
       },
-    ])
+    ]);
 
     const offset = getPaginationOffset(page, limit);
 
@@ -406,7 +484,10 @@ async function getCommonsCollections(req: z.infer<typeof getCommonsCollectionsSc
  * Returns all collections for the organization handled by the current server instance (regardless of privacy setting),
  * optionally including the full stored array of resources.
  */
-async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, res: Response) {
+async function getAllCollections(
+  req: z.infer<typeof getAllCollectionsSchema>,
+  res: Response
+) {
   try {
     const { detailed, query, sort, sortDirection } = req.query;
 
@@ -450,16 +531,16 @@ async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, r
           {
             program: {
               $regex: query,
-              $options: 'i',
+              $options: "i",
             },
           },
           {
             title: {
               $regex: query,
-              $options: 'i',
+              $options: "i",
             },
-          }
-        ]
+          },
+        ],
       });
     }
     const collections = await Collection.aggregate([
@@ -505,16 +586,21 @@ async function getAllCollections(req: z.infer<typeof getAllCollectionsSchema>, r
  * Returns the collection specified by the @collID parameter (ID or uri-encoded title). Does NOT include resources.
  * Requests are safe to be anonymous/public.
  */
-async function getCollection(req: z.infer<typeof getCollectionSchema>, res: Response) {
+async function getCollection(
+  req: z.infer<typeof getCollectionSchema>,
+  res: Response
+) {
   try {
+    const orgID = process.env.ORG_ID;
     const collection = await Collection.findOne(
       {
+        orgID: orgID,
         $or: [
           { collID: req.params.collID },
           { title: decodeURIComponent(req.params.collID) },
         ],
       },
-      { resources: 0 },
+      { resources: 0 }
     );
     if (!collection) {
       return res.status(404).send({
@@ -535,12 +621,17 @@ async function getCollection(req: z.infer<typeof getCollectionSchema>, res: Resp
   }
 }
 
-async function getCollectionResources(req: z.infer<typeof getCollectionResourcesSchema>, res: Response) {
+async function getCollectionResources(
+  req: z.infer<typeof getCollectionResourcesSchema>,
+  res: Response
+) {
   try {
     const { query, sortDirection } = req.query;
     const page = parseInt(req.query.page.toString()) || 1;
     const limit = parseInt(req.query.limit.toString()) || 12;
-    const sort = req.query.sort || 'title';
+    const sort = req.query.sort || "title";
+
+    const orgID = process.env.ORG_ID;
 
     const bookMatchConds: FilterQuery<any>[] = [
       {
@@ -562,17 +653,17 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       bookMatchConds.push({
         $or: [
           {
-            "$regexMatch": {
-              input: '$title',
+            $regexMatch: {
+              input: "$title",
               regex: query,
-              options: 'i',
+              options: "i",
             },
           },
           {
-            "$regexMatch": {
-              input: '$author',
+            $regexMatch: {
+              input: "$author",
               regex: query,
-              options: 'i',
+              options: "i",
             },
           },
         ],
@@ -580,19 +671,19 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       collMatchConds.push({
         $or: [
           {
-            "$regexMatch": {
-              input: '$program',
+            $regexMatch: {
+              input: "$program",
               regex: query,
-              options: 'i',
+              options: "i",
             },
           },
           {
-            "$regexMatch": {
-              input: '$title',
+            $regexMatch: {
+              input: "$title",
               regex: query,
-              options: 'i',
+              options: "i",
             },
-          }
+          },
         ],
       });
     }
@@ -600,9 +691,14 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
     const collections = await Collection.aggregate([
       {
         $match: {
-          $or: [
-            { collID: req.params.collID },
-            { title: decodeURIComponent(req.params.collID) },
+          $and: [
+            {
+              $or: [
+                { collID: req.params.collID },
+                { title: decodeURIComponent(req.params.collID) },
+              ],
+            },
+            { orgID }, // Match the orgID
           ],
         },
       },
@@ -697,11 +793,16 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
           resources: {
             $push: {
               $cond: {
-                if: { $or: [{ $ifNull: ["$resources.book", false] }, { $ifNull: ["$resources.collection", false] }] },
+                if: {
+                  $or: [
+                    { $ifNull: ["$resources.book", false] },
+                    { $ifNull: ["$resources.collection", false] },
+                  ],
+                },
                 then: "$resources",
-                else: "$$REMOVE"
-              }
-            }
+                else: "$$REMOVE",
+              },
+            },
           },
           autoManage: {
             $first: "$autoManage",
@@ -717,54 +818,79 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
       {
         $project: {
           _id: 0,
-          __v: 0
+          __v: 0,
         },
-      }
-    ])
+      },
+    ]);
+
     if (collections.length < 1) {
       return res.status(404).send({
         err: true,
         msg: conductorErrors.err11,
       });
     }
+
     const collection = collections[0];
 
-    const resources: { resourceType: string; resourceID: string; resourceData: BookInterface | CollectionInterface }[] = Array.isArray(collection.resources) ? collection.resources.map((item: ResourceInterface & { book?: BookInterface; collection?: CollectionInterface }) => ({
-      resourceType: item.resourceType,
-      resourceID: item.resourceID,
-      resourceData: item.book || item.collection,
-    })) : []
+    const resources: {
+      resourceType: string;
+      resourceID: string;
+      resourceData: BookInterface | CollectionInterface;
+    }[] = Array.isArray(collection.resources)
+      ? collection.resources.map(
+          (
+            item: ResourceInterface & {
+              book?: BookInterface;
+              collection?: CollectionInterface;
+            }
+          ) => ({
+            resourceType: item.resourceType,
+            resourceID: item.resourceID,
+            resourceData: item.book || item.collection,
+          })
+        )
+      : [];
 
-    const sortData = (data: { resourceType: string; resourceID: string; resourceData: BookInterface | CollectionInterface }[]) => {
-      let _sorted = []
+    const sortData = (
+      data: {
+        resourceType: string;
+        resourceID: string;
+        resourceData: BookInterface | CollectionInterface;
+      }[]
+    ) => {
+      let _sorted = [];
       switch (sort) {
-        case 'title':
-          _sorted = data.sort((a, b) => a.resourceData.title.localeCompare(b.resourceData.title));
+        case "title":
+          _sorted = data.sort((a, b) =>
+            a.resourceData.title.localeCompare(b.resourceData.title)
+          );
           break;
-        case 'author':
+        case "author":
           _sorted = data.sort((a, b) => {
-            if ('author' in a.resourceData && 'author' in b.resourceData) {
+            if ("author" in a.resourceData && "author" in b.resourceData) {
               if (!a.resourceData.author || !b.resourceData.author) {
                 return 0;
               }
-              return a.resourceData.author.localeCompare(b.resourceData.author)
+              return a.resourceData.author.localeCompare(b.resourceData.author);
             }
             return 0;
-          })
+          });
           break;
-        case 'resourceType':
-          _sorted = data.sort((a, b) => a.resourceType.localeCompare(b.resourceType))
+        case "resourceType":
+          _sorted = data.sort((a, b) =>
+            a.resourceType.localeCompare(b.resourceType)
+          );
           break;
         default:
           _sorted = data;
           break;
       }
 
-      if (sortDirection === 'ascending') {
+      if (sortDirection === "ascending") {
         return _sorted.reverse();
       }
       return _sorted;
-    }
+    };
 
     const sorted = sortData(resources);
     const offset = getPaginationOffset(page, limit);
@@ -785,20 +911,23 @@ async function getCollectionResources(req: z.infer<typeof getCollectionResources
   }
 }
 
-
 /**
  * Adds the Book(s) identified in the request body to the Collection. If the Book(s) are already in the Collection, no
  * change is made (unique entries).
  */
-async function addResourcesToCollection(req: z.infer<typeof addCollectionResourceSchema>, res: Response) {
+async function addResourcesToCollection(
+  req: z.infer<typeof addCollectionResourceSchema>,
+  res: Response
+) {
   try {
     const { collID } = req.params;
     const { books } = req.body;
+    const orgID = process.env.ORG_ID;
     const resourcesToAdd = books.map((resourceID) => ({
       resourceID,
-      resourceType: 'resource',
+      resourceType: "resource",
     }));
-    const collection = await Collection.findOne({ collID }).lean();
+    const collection = await Collection.findOne({ collID, orgID }).lean();
     if (!collection) {
       return res.status(404).send({
         err: true,
@@ -807,14 +936,14 @@ async function addResourcesToCollection(req: z.infer<typeof addCollectionResourc
     }
 
     await Collection.updateOne(
-      { collID },
+      { collID, orgID },
       {
         $addToSet: {
           resources: {
             $each: resourcesToAdd,
           },
         },
-      },
+      }
     );
     return res.send({
       err: false,
@@ -837,24 +966,32 @@ async function addResourcesToCollection(req: z.infer<typeof addCollectionResourc
  */
 async function removeResourceFromAnyCollectionInternal(resourceID: string) {
   if (!resourceID) return false;
-  const res = await Collection.updateMany({}, {
-    $pull: {
-      resources: { resourceID },
-    },
-  });
+  const res = await Collection.updateMany(
+    {},
+    {
+      $pull: {
+        resources: { resourceID },
+      },
+    }
+  );
   return res.acknowledged;
 }
-
 
 /**
  * Removes the resource identified in the request params from the Collection identified. If the resource is not in the
  * Collection, no change is made. All instances of the resource are removed from the Collection to combat
  * duplicate entries.
  */
-async function removeResourceFromCollection(req: z.infer<typeof removeCollectionResourceSchema>, res: Response) {
+async function removeResourceFromCollection(
+  req: z.infer<typeof removeCollectionResourceSchema>,
+  res: Response
+) {
   try {
     const { collID, resourceID } = req.params;
-    const collection = await Collection.findOne({ collID }).lean();
+    const orgID = process.env.ORG_ID;
+
+    // Check if the collection exists and belongs to the same organization
+    const collection = await Collection.findOne({ collID, orgID }).lean();
     if (!collection) {
       return res.status(404).send({
         err: true,
@@ -862,14 +999,24 @@ async function removeResourceFromCollection(req: z.infer<typeof removeCollection
       });
     }
 
-    await Collection.updateOne(
-      { collID: req.params.collID },
+    // Remove the resource from the collection's resources array
+    const updateResult = await Collection.updateOne(
+      { collID, orgID },
       {
         $pull: {
           resources: { resourceID },
         },
       }
     );
+
+    // Check if any document was modified
+    if (updateResult.modifiedCount === 0) {
+      return res.status(400).send({
+        err: true,
+        msg: "Resource not found in Collection or already removed.",
+      });
+    }
+
     return res.send({
       err: false,
       msg: "Resource successfully removed from Collection.",
@@ -885,7 +1032,7 @@ async function removeResourceFromCollection(req: z.infer<typeof removeCollection
 
 const _sanitizeDescription = (description: string) => {
   return DOMPurify.sanitize(description);
-}
+};
 
 export default {
   addResourcesToCollection,
