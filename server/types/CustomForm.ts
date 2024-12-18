@@ -24,4 +24,8 @@ export type CustomFormPromptType = {
     text?: string;
   }[];
   order: number;
+  likertResponse?: number;
+  textResponse?: string;
+  dropdownResponse?: string;
+  checkboxResponse?: boolean;
 };

@@ -66,6 +66,15 @@ const CustomFormPromptSchema = {
     required: true,
     min: 1,
   },
+  // if the prompt is a Likert scale, the response radio number (1-[3,5,7] for [3,5,7]-point scale)
+  likertResponse: {
+    type: Number,
+    min: 1,
+    max: 7,
+  },
+  textResponse: String,
+  dropdownResponse: String,
+  checkboxResponse: Boolean,
 };
 
 export {
