@@ -22,19 +22,22 @@ export const sevenPointLikertOptions = [
 
 export function getLikertResponseText(
   type: CustomFormPromptType,
-  value?: number
+  rawValue?: number
 ): string {
-  if (!value) return "Unknown";
-  if (type === "3-likert" && value <= threePointLikertOptions.length) {
-    return `${threePointLikertOptions[value]} (${value})`;
+  if (!rawValue) return "Unknown";
+  const optValue = rawValue - 1;
+  if (optValue < 0) return 'Unknown';
+
+  if (type === "3-likert" && optValue <= threePointLikertOptions.length) {
+    return `${threePointLikertOptions[optValue]} (${rawValue})`;
   }
 
-  if (type === "5-likert" && value <= fivePointLikertOptions.length) {
-    return `${fivePointLikertOptions[value]} (${value})`;
+  if (type === "5-likert" && optValue <= fivePointLikertOptions.length) {
+    return `${fivePointLikertOptions[optValue]} (${rawValue})`;
   }
 
-  if (type === "7-likert" && value <= sevenPointLikertOptions.length) {
-    return `${sevenPointLikertOptions[value]} (${value})`;
+  if (type === "7-likert" && optValue <= sevenPointLikertOptions.length) {
+    return `${sevenPointLikertOptions[optValue]} (${rawValue})`;
   }
 
   return "Unknown";
