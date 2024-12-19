@@ -3,14 +3,14 @@ export type CommonsModule = "books" | "assets" | "projects" | "authors";
 export type CommonsModuleConfig = {
   enabled: boolean;
   order: number;
-}
+};
 
 export type CommonsModuleSettings = {
   books: CommonsModuleConfig;
   assets: CommonsModuleConfig;
   projects: CommonsModuleConfig;
   authors: CommonsModuleConfig;
-}
+};
 
 export type Organization = {
   orgID: string;
@@ -56,6 +56,7 @@ export type CampusSettingsOpts = Pick<
   | "collectionsMessage"
   | "primaryColor"
   | "footerColor"
+  | "aliases"
   | "addToLibreGridList"
   | "catalogMatchingTags"
   | "customOrgList"
