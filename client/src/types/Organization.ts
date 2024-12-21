@@ -56,6 +56,7 @@ export type CampusSettingsOpts = Pick<
   | "collectionsMessage"
   | "primaryColor"
   | "footerColor"
+  | "aliases"
   | "addToLibreGridList"
   | "catalogMatchingTags"
   | "customOrgList"

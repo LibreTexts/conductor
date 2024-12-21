@@ -68,7 +68,7 @@ async function lookupOrganization(orgID: string) {
   try {
     const org = await Organization.findOne(
       { orgID },
-      { _id: 0, aliases: 0, defaultProjectLead: 0 },
+      { _id: 0, defaultProjectLead: 0 },
     ).lean();
     if(org?.commonsModules){
       // Remove _id and __v fields from commonsModules subdocument
@@ -203,6 +203,10 @@ async function getLibreGridOrganizations(_req: Request, res: Response) {
  */
 async function updateOrganizationInfo(req: Request, res: Response) {
   try {
+    req.body.aliases = req.body.aliases.filter(
+      (alias: String) => alias.length >= 1 && alias.length <= 100
+    );
+
     const { orgID } = req.params;
 
     // Build update object
@@ -234,6 +238,12 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('commonsModules');
     addToUpdateIfPresent('showCollections');
     addToUpdateIfPresent('assetFilterExclusions')
+
+    if (req.body.aliases && Array.isArray(req.body.aliases)) {
+      updateObj.aliases = req.body.aliases.filter(
+        (alias: string) => typeof alias === "string"
+      );
+    }
 
     if(Object.hasOwn(updateObj, 'collectionsDisplayLabel') && isEmptyString(updateObj.collectionsDisplayLabel ?? '')){
       // Reset label to 'Collections' if empty string was passed 
