@@ -375,7 +375,7 @@ const Chat: FC<Chatinterface>= ({
           <Button
             id="replycontainer-sendbutton"
             color="blue"
-            disabled={activeThread === '' || messageCompose === ''}
+            disabled={activeThread === '' || messageCompose === '' || messageCompose.length > 1999}
             loading={messageSending}
             onClick={sendMessage}
             fluid
