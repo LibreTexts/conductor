@@ -8,6 +8,7 @@ import {
   lazy,
 } from "react";
 import {
+  Segment,
   Form,
   Button,
   Message,
@@ -32,6 +33,7 @@ import { required } from "../../../utils/formRules";
 import { useTypedSelector } from "../../../state/hooks";
 import axios from "axios";
 import CommonsModuleControl from "./CommonsModuleControl";
+import CampusAliasesControl from "./CampusAliasesControl";
 import CtlCheckbox from "../../ControlledInputs/CtlCheckbox";
 const CustomOrgListModal = lazy(() => import("../CustomOrgListModal"));
 
@@ -55,6 +57,7 @@ const CampusSettingsForm = forwardRef(
     const dispatch = useDispatch();
     const org = useTypedSelector((state) => state.org);
     const { handleGlobalError } = useGlobalError();
+    const [aliases, setAliases] = useState<string[]>([]);
 
     const {
       control,
@@ -163,6 +166,7 @@ const CampusSettingsForm = forwardRef(
           ...res.data,
           commonsModules: res.data.commonsModules ?? DEFAULT_COMMONS_MODULES,
         });
+        setAliases(res.data.aliases ?? []);
         // Make local copies of matching tags with unique keys
         setMatchingTags(
           res.data.catalogMatchingTags?.map((item: string) => ({
@@ -203,6 +207,9 @@ const CampusSettingsForm = forwardRef(
     const saveChanges = async (d: CampusSettingsOpts) => {
       try {
         setLoadedData(false);
+
+        d.aliases = aliases.filter((alias) => alias.length >= 1 && alias.length <= 100);
+        
 
         let primaryColorErr = false;
         let footerColorErr = false;
@@ -561,451 +568,475 @@ const CampusSettingsForm = forwardRef(
               <Divider />
             </>
           )}
-          <h3>Branding Images</h3>
+          <Segment raised>
+            <p className="text-lg font-bold">Branding Images</p>
 
-          <Form.Field required className="mt-1p">
-            <label htmlFor="campusCover">Campus Cover Photo</label>
-            <p>
-              A <em>download link</em> to the organization's large cover photo,
-              displayed on the Campus Commons jumbotron. Dimensions should be{" "}
-              <em>at least</em> 1920x1080.{" "}
-              <em>Organization logos should not be used as the Cover Photo.</em>
-            </p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              id="conductor-org-coverphoto-upload"
-              hidden
-              ref={coverPhotoRef}
-              onChange={handleCoverPhotoFileChange}
-            />
-            <Button.Group fluid>
-              <Button
-                disabled={!getFormValue("coverPhoto")}
-                as="a"
-                href={getFormValue("coverPhoto")}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Icon name="external" />
-                View Current
-              </Button>
-              <Button
-                color="blue"
-                onClick={handleUploadCoverPhoto}
-                loading={coverPhotoLoading}
-              >
-                <Icon name="upload" />
-                Upload New
-              </Button>
-            </Button.Group>
-            {coverPhotoUploaded && (
-              <Message positive>
-                <Icon name="check circle" />
-                <span>Campus Cover Photo successfully uploaded.</span>
-              </Message>
-            )}
-          </Form.Field>
-          <Form.Field required className="mt-2r">
-            <label htmlFor="campusLarge">Campus Large Logo</label>
-            <p>
-              A <em>download link</em> to the organization's main/large logo.
-              This is typically an extended wordmark. Logo should preferably
-              have a transparent background. Resolution should be high enough to
-              avoid blurring on digital screens.
-            </p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              id="conductor-org-coverphoto-upload"
-              hidden
-              ref={largeLogoRef}
-              onChange={handleLargeLogoFileChange}
-            />
-            <Button.Group fluid>
-              <Button
-                disabled={!getFormValue("largeLogo")}
-                as="a"
-                href={getFormValue("largeLogo")}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Icon name="external" />
-                View Current
-              </Button>
-              <Button
-                color="blue"
-                onClick={handleUploadLargeLogo}
-                loading={largeLogoLoading}
-              >
-                <Icon name="upload" />
-                Upload New
-              </Button>
-            </Button.Group>
-            {largeLogoUploaded && (
-              <Message positive>
-                <Icon name="check circle" />
-                <span>Campus Large Logo successfully uploaded.</span>
-              </Message>
-            )}
-          </Form.Field>
-          <Form.Field required className="mt-2r">
-            <label htmlFor="campusMedium">Campus Medium Logo</label>
-            <p>
-              A <em>download link</em> to the organization's medium-sized logo.
-              This is typically a standard, non-extended wordmark. Logo should
-              preferably have a transparent background. Resolution should be
-              high enough to avoid blurring on digital screens.{" "}
-              <em>
-                If the organization does not have distinct large/medium logos,
-                the same logo can be used for both.
-              </em>
-            </p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              id="conductor-org-coverphoto-upload"
-              hidden
-              ref={mediumLogoRef}
-              onChange={handleMediumLogoFileChange}
-            />
-            <Button.Group fluid>
-              <Button
-                disabled={!getFormValue("mediumLogo")}
-                as="a"
-                href={getFormValue("mediumLogo")}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Icon name="external" />
-                View Current
-              </Button>
-              <Button
-                color="blue"
-                onClick={handleUploadMediumLogo}
-                loading={mediumLogoLoading}
-              >
-                <Icon name="upload" />
-                Upload New
-              </Button>
-            </Button.Group>
-            {mediumLogoUploaded && (
-              <Message positive>
-                <Icon name="check circle" />
-                <span>Campus Medium Logo successfully uploaded.</span>
-              </Message>
-            )}
-          </Form.Field>
-          <Form.Field className="mt-2p mb-2p">
-            <label htmlFor="campusSmall">Campus Small Logo</label>
-            <p>
-              A <em>download link</em> to the organization's smallest logo. This
-              is typically the same style used for favicons or simplified
-              communications branding. Logo should preferably have a transparent
-              background. Dimensions should be approximately 800x800.{" "}
-              <em>
-                The Small Logo is not currently implemented in any portion of
-                Commons or Conductor, but has been provisioned for possible
-                future customizations.
-              </em>
-            </p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              id="conductor-org-coverphoto-upload"
-              hidden
-              ref={smallLogoRef}
-              onChange={handleSmallLogoFileChange}
-            />
-            <Button.Group fluid>
-              <Button
-                disabled={!getFormValue("smallLogo")}
-                as="a"
-                href={getFormValue("smallLogo")}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Icon name="external" />
-                View Current
-              </Button>
-              <Button
-                color="blue"
-                onClick={handleUploadSmallLogo}
-                loading={smallLogoLoading}
-              >
-                <Icon name="upload" />
-                Upload New
-              </Button>
-            </Button.Group>
-            {smallLogoUploaded && (
-              <Message positive>
-                <Icon name="check circle" />
-                <span>Campus Small Logo successfully uploaded.</span>
-              </Message>
-            )}
-          </Form.Field>
-          <Divider />
-          <h3>Branding Links</h3>
-          <Form.Field required>
-            <label htmlFor="campusAbout">
-              <span>About Link </span>
-              <Popup
-                content={
-                  <span>
-                    A standard link to the organization's About page, or the
-                    main page if one is not provisioned.
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+            <Form.Field required className="mt-1p">
+              <label htmlFor="campusCover">Campus Cover Photo</label>
+              <p>
+                A <em>download link</em> to the organization's large cover photo,
+                displayed on the Campus Commons jumbotron. Dimensions should be{" "}
+                <em>at least</em> 1920x1080.{" "}
+                <em>Organization logos should not be used as the Cover Photo.</em>
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                id="conductor-org-coverphoto-upload"
+                hidden
+                ref={coverPhotoRef}
+                onChange={handleCoverPhotoFileChange}
               />
-            </label>
-            <CtlTextInput
-              id="campusAbout"
-              name="aboutLink"
-              control={control}
-              rules={required}
-            />
-          </Form.Field>
-          <Divider />
-          <h3>Branding Text</h3>
-          <Form.Field>
-            <label htmlFor="campusCommonsHeader">
-              <span>Campus Commons Header </span>
-              <Popup
-                content={
-                  <span>
-                    An emphasized string of text placed at the top of the
-                    Catalog Search interface, used to welcome users to the
-                    Campus Commons. <strong>This text is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+              <Button.Group fluid>
+                <Button
+                  disabled={!getFormValue("coverPhoto")}
+                  as="a"
+                  href={getFormValue("coverPhoto")}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon name="external" />
+                  View Current
+                </Button>
+                <Button
+                  color="blue"
+                  onClick={handleUploadCoverPhoto}
+                  loading={coverPhotoLoading}
+                >
+                  <Icon name="upload" />
+                  Upload New
+                </Button>
+              </Button.Group>
+              {coverPhotoUploaded && (
+                <Message positive>
+                  <Icon name="check circle" />
+                  <span>Campus Cover Photo successfully uploaded.</span>
+                </Message>
+              )}
+            </Form.Field>
+            <Form.Field required className="mt-2r">
+              <label htmlFor="campusLarge">Campus Large Logo</label>
+              <p>
+                A <em>download link</em> to the organization's main/large logo.
+                This is typically an extended wordmark. Logo should preferably
+                have a transparent background. Resolution should be high enough to
+                avoid blurring on digital screens.
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                id="conductor-org-coverphoto-upload"
+                hidden
+                ref={largeLogoRef}
+                onChange={handleLargeLogoFileChange}
               />
-            </label>
-            <CtlTextInput
-              id="campusCommonsHeader"
-              name="commonsHeader"
-              control={control}
-            />
-          </Form.Field>
-          <Form.Field>
-            <label htmlFor="campusCommonsMessage">
-              <span>Campus Commons Message </span>
-              <Popup
-                content={
-                  <span>
-                    A block of text placed at the top of the Catalog Search
-                    interface, used to welcome users to the Campus Commons.{" "}
-                    <strong>This text is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+              <Button.Group fluid>
+                <Button
+                  disabled={!getFormValue("largeLogo")}
+                  as="a"
+                  href={getFormValue("largeLogo")}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon name="external" />
+                  View Current
+                </Button>
+                <Button
+                  color="blue"
+                  onClick={handleUploadLargeLogo}
+                  loading={largeLogoLoading}
+                >
+                  <Icon name="upload" />
+                  Upload New
+                </Button>
+              </Button.Group>
+              {largeLogoUploaded && (
+                <Message positive>
+                  <Icon name="check circle" />
+                  <span>Campus Large Logo successfully uploaded.</span>
+                </Message>
+              )}
+            </Form.Field>
+            <Form.Field required className="mt-2r">
+              <label htmlFor="campusMedium">Campus Medium Logo</label>
+              <p>
+                A <em>download link</em> to the organization's medium-sized logo.
+                This is typically a standard, non-extended wordmark. Logo should
+                preferably have a transparent background. Resolution should be
+                high enough to avoid blurring on digital screens.{" "}
+                <em>
+                  If the organization does not have distinct large/medium logos,
+                  the same logo can be used for both.
+                </em>
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                id="conductor-org-coverphoto-upload"
+                hidden
+                ref={mediumLogoRef}
+                onChange={handleMediumLogoFileChange}
               />
-            </label>
-            <CtlTextInput
-              id="campusCommonsMessage"
-              name="commonsMessage"
-              control={control}
-            />
-          </Form.Field>
-          <div className="mt-4  mb-2 flex flex-row items-center">
-            <label
-              htmlFor="show-collections-toggle"
-              className="form-field-label"
-            >
-              Show Collections Tab?
-            </label>
-            <CtlCheckbox
-              toggle
-              id="show-collections-toggle"
-              className="ml-4"
-              name="showCollections"
-              control={control}
-            />
-          </div>
-          <Form.Field disabled={!watch("showCollections")} className="!ml-2">
-            <label htmlFor="collectionsDisplayLabel">
-              <span>Collections Display Label </span>
-              <Popup
-                content={
-                  <span>
-                    An alternate name for Collections (eg. Departments,
-                    Colleges, etc.). This text will be used on all references to
-                    Collections on your Campus Commons.
-                    <strong>This text is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+              <Button.Group fluid>
+                <Button
+                  disabled={!getFormValue("mediumLogo")}
+                  as="a"
+                  href={getFormValue("mediumLogo")}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon name="external" />
+                  View Current
+                </Button>
+                <Button
+                  color="blue"
+                  onClick={handleUploadMediumLogo}
+                  loading={mediumLogoLoading}
+                >
+                  <Icon name="upload" />
+                  Upload New
+                </Button>
+              </Button.Group>
+              {mediumLogoUploaded && (
+                <Message positive>
+                  <Icon name="check circle" />
+                  <span>Campus Medium Logo successfully uploaded.</span>
+                </Message>
+              )}
+            </Form.Field>
+            <Form.Field className="mt-2p mb-2p">
+              <label htmlFor="campusSmall">Campus Small Logo</label>
+              <p>
+                A <em>download link</em> to the organization's smallest logo. This
+                is typically the same style used for favicons or simplified
+                communications branding. Logo should preferably have a transparent
+                background. Dimensions should be approximately 800x800.{" "}
+                <em>
+                  The Small Logo is not currently implemented in any portion of
+                  Commons or Conductor, but has been provisioned for possible
+                  future customizations.
+                </em>
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                id="conductor-org-coverphoto-upload"
+                hidden
+                ref={smallLogoRef}
+                onChange={handleSmallLogoFileChange}
               />
-            </label>
-            <CtlTextInput
-              id="collectionsDisplayLabel"
-              name="collectionsDisplayLabel"
-              control={control}
-            />
-          </Form.Field>
-          <Form.Field disabled={!watch("showCollections")} className="!ml-2">
-            <label htmlFor="collectionsDisplayLabel">
-              <span>Collections Message </span>
-              <Popup
-                content={
-                  <span>
-                    A block of text placed at the top of the Collections
-                    interface, used to welcome users to the Collections.
-                    <strong> This text is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+              <Button.Group fluid>
+                <Button
+                  disabled={!getFormValue("smallLogo")}
+                  as="a"
+                  href={getFormValue("smallLogo")}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Icon name="external" />
+                  View Current
+                </Button>
+                <Button
+                  color="blue"
+                  onClick={handleUploadSmallLogo}
+                  loading={smallLogoLoading}
+                >
+                  <Icon name="upload" />
+                  Upload New
+                </Button>
+              </Button.Group>
+              {smallLogoUploaded && (
+                <Message positive>
+                  <Icon name="check circle" />
+                  <span>Campus Small Logo successfully uploaded.</span>
+                </Message>
+              )}
+            </Form.Field>
+          </Segment>
+          <Segment raised>
+            <p className="text-lg font-bold">Branding Links</p>
+            <Form.Field required>
+              <label htmlFor="campusAbout">
+                <span>About Link </span>
+                <Popup
+                  content={
+                    <span>
+                      A standard link to the organization's About page, or the
+                      main page if one is not provisioned.
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="campusAbout"
+                name="aboutLink"
+                control={control}
+                rules={required}
               />
-            </label>
-            <CtlTextInput
-              id="collectionsMessage"
-              name="collectionsMessage"
-              control={control}
-            />
-          </Form.Field>
-          <Divider />
-          <h3>Branding Colors</h3>
-          <Form.Field disabled={props.orgID === "libretexts"}>
-            <label htmlFor="campusPrimaryColor">
-              <span>Campus Primary Color </span>
-              <Popup
-                content={
-                  <span>
-                    A custom hex color code string (e.g. #FFF000) that will
-                    change the color of various regions in Commons.
-                    <strong> This is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+            </Form.Field>
+          </Segment>
+          <Segment raised>
+            <p className="text-lg font-bold">Branding Text</p>
+            <Form.Field>
+              <label htmlFor="campusCommonsHeader">
+                <span>Campus Commons Header </span>
+                <Popup
+                  content={
+                    <span>
+                      An emphasized string of text placed at the top of the
+                      Catalog Search interface, used to welcome users to the
+                      Campus Commons. <strong>This text is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="campusCommonsHeader"
+                name="commonsHeader"
+                control={control}
               />
-            </label>
-            <CtlTextInput
-              id="primaryColor"
-              name="primaryColor"
-              control={control}
-            />
-            <div className="controlpanel-branding-color-preview-wrapper">
-              <span>Primary Color Preview</span>
-              <div
-                className="controlpanel-branding-color-preview-box"
-                style={{
-                  backgroundColor: watchedPrimaryColor?.toString()
-                    ? sanitizeCustomColor(watchedPrimaryColor.toString())
-                    : "",
-                }}
+            </Form.Field>
+            <Form.Field>
+              <label htmlFor="campusCommonsMessage">
+                <span>Campus Commons Message </span>
+                <Popup
+                  content={
+                    <span>
+                      A block of text placed at the top of the Catalog Search
+                      interface, used to welcome users to the Campus Commons.{" "}
+                      <strong>This text is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="campusCommonsMessage"
+                name="commonsMessage"
+                control={control}
+              />
+            </Form.Field>
+            <div className="mt-4  mb-2 flex flex-row items-center">
+              <label
+                htmlFor="show-collections-toggle"
+                className="form-field-label"
+              >
+                Show Collections Tab?
+              </label>
+              <CtlCheckbox
+                toggle
+                id="show-collections-toggle"
+                className="ml-4"
+                name="showCollections"
+                control={control}
               />
             </div>
-          </Form.Field>
-          <Form.Field disabled={props.orgID === "libretexts"}>
-            <label htmlFor="campusFooterColor">
-              <span>Campus Footer Color </span>
-              <Popup
-                content={
-                  <span>
-                    A custom hex color code string (e.g. #FFF000) that will
-                    change the page footer in Commons. This should be a lighter
-                    color than your Primary Color.
-                    <strong> This is optional.</strong>
-                  </span>
-                }
-                trigger={<Icon name="info circle" />}
+            <Form.Field disabled={!watch("showCollections")} className="!ml-2">
+              <label htmlFor="collectionsDisplayLabel">
+                <span>Collections Display Label </span>
+                <Popup
+                  content={
+                    <span>
+                      An alternate name for Collections (eg. Departments,
+                      Colleges, etc.). This text will be used on all references to
+                      Collections on your Campus Commons.
+                      <strong>This text is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="collectionsDisplayLabel"
+                name="collectionsDisplayLabel"
+                control={control}
               />
-            </label>
-            <CtlTextInput
-              id="footerColor"
-              name="footerColor"
-              control={control}
-            />
-            <div className="controlpanel-branding-color-preview-wrapper">
-              <span>Footer Color Preview</span>
-              <div
-                className="controlpanel-branding-color-preview-box"
-                style={{
-                  backgroundColor: watchedFooterColor?.toString()
-                    ? sanitizeCustomColor(watchedFooterColor.toString())
-                    : "",
-                }}
+            </Form.Field>
+            <Form.Field disabled={!watch("showCollections")} className="!ml-2">
+              <label htmlFor="collectionsDisplayLabel">
+                <span>Collections Message </span>
+                <Popup
+                  content={
+                    <span>
+                      A block of text placed at the top of the Collections
+                      interface, used to welcome users to the Collections.
+                      <strong> This text is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="collectionsMessage"
+                name="collectionsMessage"
+                control={control}
               />
-            </div>
-          </Form.Field>
-          <Divider />
-          <div>
-            <p className="text-lg font-bold">
-              Custom Org/Campus List (optional)
-            </p>
-            <p className="">
-              Customize the list of organization/campus options availble in
-              certain contexts (i.e. associating organizations with a project).
-              This is useful for university systems or groups that have a
-              specific set of organizations they want users to be able to select
-              from. If no custom list is set, the default list from LibreTexts
-              will be shown.
-            </p>
-            <Button
-              onClick={() => setShowCustomOrgListModal(true)}
-              color="blue"
-              className="!mt-2"
-            >
-              <Icon name="edit" />
-              Customize
-            </Button>
-          </div>
-          <div className="mt-4">
-            <p className="text-lg font-bold">Campus Commons Catalog Modules</p>
-            <p className="mb-2">
-              Enable, disable, or re-order the display of Catalog modules in
-              your Campus Commons.
-            </p>
-            <CommonsModuleControl
-              getValues={getFormValue}
-              setValue={setFormValue}
-              watch={watch}
-            />
-          </div>
-          <div className="mt-4">
-            <p className="text-lg font-bold">
-              Disable Inherent Commons Filters
-            </p>
-            <p className="mb-2">
-              Disable the display of certain filters automatically available in
-              the Commons Catalog search interface. If a Catalog module is
-              disabled, the settings for that module here will have no effect.
-            </p>
+            </Form.Field>
+          </Segment>
+          <Segment raised>
+            <p className="text-lg font-bold">Branding Colors</p>
+            <Form.Field disabled={props.orgID === "libretexts"}>
+              <label htmlFor="campusPrimaryColor">
+                <span>Campus Primary Color </span>
+                <Popup
+                  content={
+                    <span>
+                      A custom hex color code string (e.g. #FFF000) that will
+                      change the color of various regions in Commons.
+                      <strong> This is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="primaryColor"
+                name="primaryColor"
+                control={control}
+              />
+              <div className="controlpanel-branding-color-preview-wrapper">
+                <span>Primary Color Preview</span>
+                <div
+                  className="controlpanel-branding-color-preview-box"
+                  style={{
+                    backgroundColor: watchedPrimaryColor?.toString()
+                      ? sanitizeCustomColor(watchedPrimaryColor.toString())
+                      : "",
+                  }}
+                />
+              </div>
+            </Form.Field>
+            <Form.Field disabled={props.orgID === "libretexts"}>
+              <label htmlFor="campusFooterColor">
+                <span>Campus Footer Color </span>
+                <Popup
+                  content={
+                    <span>
+                      A custom hex color code string (e.g. #FFF000) that will
+                      change the page footer in Commons. This should be a lighter
+                      color than your Primary Color.
+                      <strong> This is optional.</strong>
+                    </span>
+                  }
+                  trigger={<Icon name="info circle" />}
+                />
+              </label>
+              <CtlTextInput
+                id="footerColor"
+                name="footerColor"
+                control={control}
+              />
+              <div className="controlpanel-branding-color-preview-wrapper">
+                <span>Footer Color Preview</span>
+                <div
+                  className="controlpanel-branding-color-preview-box"
+                  style={{
+                    backgroundColor: watchedFooterColor?.toString()
+                      ? sanitizeCustomColor(watchedFooterColor.toString())
+                      : "",
+                  }}
+                />
+              </div>
+            </Form.Field>
+          </Segment>
+          <Segment raised>
             <div>
-              <p className="font-semibold">Assets</p>
-              <div className="flex flex-row mt-2">
-                <Checkbox
-                  toggle
-                  label="File Type"
-                  onChange={() => handleToggleAssetFilterExclusion("fileType")}
-                  checked={
-                    watch("assetFilterExclusions")?.includes("fileType") ??
-                    false
-                  }
-                />
-                <Checkbox
-                  toggle
-                  label="Organization"
-                  onChange={() => handleToggleAssetFilterExclusion("org")}
-                  checked={
-                    watch("assetFilterExclusions")?.includes("org") ?? false
-                  }
-                  className="ml-4"
-                />
-                <Checkbox
-                  toggle
-                  label="People"
-                  onChange={() => handleToggleAssetFilterExclusion("person")}
-                  checked={
-                    watch("assetFilterExclusions")?.includes("person") ?? false
-                  }
-                  className="ml-4"
+              <p className="text-lg font-bold">Campus Aliases</p>
+              <p className="">
+                Add other names of your campus to help us find textbooks to
+                display in Commons.
+              </p>
+              <div className="mt-4">
+                <CampusAliasesControl
+                  aliases={aliases}
+                  setAliases={setAliases}
                 />
               </div>
             </div>
-          </div>
-          <Divider />
+          </Segment>
+          <Segment raised>
+            <div>
+              <p className="text-lg font-bold">
+                Custom Org/Campus List (optional)
+              </p>
+              <p className="">
+                Customize the list of organization/campus options availble in
+                certain contexts (i.e. associating organizations with a project).
+                This is useful for university systems or groups that have a
+                specific set of organizations they want users to be able to select
+                from. If no custom list is set, the default list from LibreTexts
+                will be shown.
+              </p>
+              <Button
+                onClick={() => setShowCustomOrgListModal(true)}
+                color="blue"
+                className="!mt-2"
+              >
+                <Icon name="edit" />
+                Customize
+              </Button>
+            </div>
+          </Segment>
+          <Segment raised>
+            <div>
+              <p className="text-lg font-bold">Campus Commons Catalog Modules</p>
+              <p className="mb-2">
+                Enable, disable, or re-order the display of Catalog modules in
+                your Campus Commons.
+              </p>
+              <CommonsModuleControl
+                getValues={getFormValue}
+                setValue={setFormValue}
+                watch={watch}
+              />
+            </div>
+          </Segment>
+          <Segment raised>
+            <div>
+              <p className="text-lg font-bold">
+                Disable Inherent Commons Filters
+              </p>
+              <p className="mb-2">
+                Disable the display of certain filters automatically available in
+                the Commons Catalog search interface. If a Catalog module is
+                disabled, the settings for that module here will have no effect.
+              </p>
+              <div>
+                <p className="font-semibold">Assets</p>
+                <div className="flex flex-row mt-2">
+                  <Checkbox
+                    toggle
+                    label="File Type"
+                    onChange={() => handleToggleAssetFilterExclusion("fileType")}
+                    checked={
+                      watch("assetFilterExclusions")?.includes("fileType") ??
+                      false
+                    }
+                  />
+                  <Checkbox
+                    toggle
+                    label="Organization"
+                    onChange={() => handleToggleAssetFilterExclusion("org")}
+                    checked={
+                      watch("assetFilterExclusions")?.includes("org") ?? false
+                    }
+                    className="ml-4"
+                  />
+                  <Checkbox
+                    toggle
+                    label="People"
+                    onChange={() => handleToggleAssetFilterExclusion("person")}
+                    checked={
+                      watch("assetFilterExclusions")?.includes("person") ?? false
+                    }
+                    className="ml-4"
+                  />
+                </div>
+              </div>
+            </div>
+          </Segment>
         </Form>
         <CustomOrgListModal
           show={showCustomOrgListModal}
