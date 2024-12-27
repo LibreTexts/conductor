@@ -569,7 +569,7 @@ const CampusSettingsForm = forwardRef(
             </>
           )}
           <Segment raised>
-            <h3>Branding Images</h3>
+            <p className="text-lg font-bold">Branding Images</p>
 
             <Form.Field required className="mt-1p">
               <label htmlFor="campusCover">Campus Cover Photo</label>
@@ -754,7 +754,7 @@ const CampusSettingsForm = forwardRef(
             </Form.Field>
           </Segment>
           <Segment raised>
-            <h3>Branding Links</h3>
+            <p className="text-lg font-bold">Branding Links</p>
             <Form.Field required>
               <label htmlFor="campusAbout">
                 <span>About Link </span>
@@ -777,7 +777,7 @@ const CampusSettingsForm = forwardRef(
             </Form.Field>
           </Segment>
           <Segment raised>
-            <h3>Branding Text</h3>
+            <p className="text-lg font-bold">Branding Text</p>
             <Form.Field>
               <label htmlFor="campusCommonsHeader">
                 <span>Campus Commons Header </span>
@@ -876,7 +876,7 @@ const CampusSettingsForm = forwardRef(
             </Form.Field>
           </Segment>
           <Segment raised>
-            <h3>Branding Colors</h3>
+            <p className="text-lg font-bold">Branding Colors</p>
             <Form.Field disabled={props.orgID === "libretexts"}>
               <label htmlFor="campusPrimaryColor">
                 <span>Campus Primary Color </span>
