@@ -12,6 +12,7 @@ interface TextAreaProps {
   innerRef?: React.RefObject<HTMLTextAreaElement>;
   className?: string;
   rows?: number;
+  maxLength?: number;
 }
 
 /**
@@ -26,7 +27,8 @@ const TextArea: React.FC<TextAreaProps> = ({
   error,
   innerRef,
   className,
-  rows = 5
+  rows = 5,
+  maxLength
 }) => {
 
   /**
@@ -48,11 +50,12 @@ const TextArea: React.FC<TextAreaProps> = ({
         rows={rows}
         ref={innerRef}
         className='!h-100'
+        maxLength={maxLength}
       />
       {!hideFormatMsg && (
         <div id={styles.format_msg}>
           <span id={styles.format_msg_text}>
-            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {contentType}!
+            You **<strong>can</strong>** `<code>format</code>` *<em>your</em>* {contentType}! {maxLength && `${maxLength - textValue.length} characters left`}
           </span>
         </div>
       )}

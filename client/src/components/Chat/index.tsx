@@ -369,13 +369,14 @@ const Chat: FC<Chatinterface>= ({
             onTextChange={(value) => setMessageCompose(value)}
             contentType="message"
             rows={1}
+            maxLength={2000}
           />
         </div>
         <div id="replycontainer-right">
           <Button
             id="replycontainer-sendbutton"
             color="blue"
-            disabled={activeThread === '' || messageCompose === ''}
+            disabled={activeThread === '' || messageCompose === '' || messageCompose.length > 2000}
             loading={messageSending}
             onClick={sendMessage}
             fluid
