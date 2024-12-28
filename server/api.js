@@ -352,6 +352,8 @@ router
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    orgsAPI.validate("getAllOrganizations"),
+    middleware.checkValidationErrors,
     orgsAPI.getAllOrganizations
   );
 

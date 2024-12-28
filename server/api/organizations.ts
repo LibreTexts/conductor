@@ -6,7 +6,7 @@
 
 'use strict';
 import express, {Request, Response, NextFunction} from 'express';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization, { OrganizationInterface } from '../models/organization.js';
@@ -132,7 +132,14 @@ async function getCurrentOrganization(_req: Request, res: Response) {
  */
 async function getAllOrganizations(_req: Request, res: Response) {
   try {
+    const activeQuery = _req.query.includeInactive ? { $in: [true, false] } : true;
+
     const orgs = await Organization.aggregate([
+      {
+        $match: {
+          active: activeQuery,
+        }
+      },
       {
         $project: {
           _id: 0,
@@ -429,6 +436,10 @@ function validate(method: string) {
     case 'getinfo':
       return [
         param('orgID', conductorErrors.err1).exists().isLength({ min: 2, max: 50 }),
+      ];
+    case 'getAllOrganizations':
+      return [
+        query('includeInactive', conductorErrors.err1).optional().isBoolean().toBoolean().default(false),
       ];
     case 'updateinfo':
       return [
