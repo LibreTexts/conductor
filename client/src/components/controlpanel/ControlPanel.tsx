@@ -12,6 +12,7 @@ import {
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTypedSelector } from '../../state/hooks';
+import Footer from '../navigation/Footer';
 
 type ControlPanelListItem = {
     url: string;
@@ -157,49 +158,52 @@ const ControlPanel = () => {
 
 
     return (
-        <Grid className='controlpanel-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>Control Panel</Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section active>
-                                    Control Panel
-                                </Breadcrumb.Section>
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
-                            <p className='mt-1p mb-1p'>
-                                Welcome to Control Panel. Here, you will find several tools to manage your Campus Conductor instance.
-                            </p>
-                            <Segment basic>
-                                {(isSuperAdmin && (org.orgID === 'libretexts')) &&
-                                    <div className='mb-2r'>
-                                        <Header as='h5' dividing>LIBRETEXTS MASTER TOOLS</Header>
-                                        <List relaxed='very' divided selection>
-                                            {libretextsMasterTools.map((item, idx) => renderListItem('libretexts', item, idx))}
-                                        </List>
-                                    </div>
-                                }
-                                {(isCampusAdmin || isSuperAdmin) &&
-                                    <div className='mb-2r'>
-                                        <Header as='h5' dividing>CAMPUS ADMIN TOOLS</Header>
-                                        <List relaxed='very' divided selection verticalAlign='middle'>
-                                            {campusAdminTools.map((item, idx) => renderListItem('campus', item, idx))}
-                                        </List>
-                                    </div>
-                                }
+        <div className="h-screen flex flex-col">
+            <Grid className='controlpanel-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>Control Panel</Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section active>
+                                        Control Panel
+                                    </Breadcrumb.Section>
+                                </Breadcrumb>
                             </Segment>
-                        </Segment>
-                    </Segment.Group>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                            <Segment>
+                                <p className='mt-1p mb-1p'>
+                                    Welcome to Control Panel. Here, you will find several tools to manage your Campus Conductor instance.
+                                </p>
+                                <Segment basic>
+                                    {(isSuperAdmin && (org.orgID === 'libretexts')) &&
+                                        <div className='mb-2r'>
+                                            <Header as='h5' dividing>LIBRETEXTS MASTER TOOLS</Header>
+                                            <List relaxed='very' divided selection>
+                                                {libretextsMasterTools.map((item, idx) => renderListItem('libretexts', item, idx))}
+                                            </List>
+                                        </div>
+                                    }
+                                    {(isCampusAdmin || isSuperAdmin) &&
+                                        <div className='mb-2r'>
+                                            <Header as='h5' dividing>CAMPUS ADMIN TOOLS</Header>
+                                            <List relaxed='very' divided selection verticalAlign='middle'>
+                                                {campusAdminTools.map((item, idx) => renderListItem('campus', item, idx))}
+                                            </List>
+                                        </div>
+                                    }
+                                </Segment>
+                            </Segment>
+                        </Segment.Group>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <Footer />
+        </div>
     )
 
 }

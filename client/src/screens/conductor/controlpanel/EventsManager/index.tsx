@@ -16,6 +16,7 @@ import { parseAndFormatDate } from "../../../../utils/misc";
 import "../../../../components/controlpanel/ControlPanel.css";
 import { OrgEvent } from "../../../../types";
 import { initOrgEventDates } from "../../../../utils/orgEventsHelpers";
+import Footer from "../../../../components/navigation/Footer";
 const COLUMNS = [
   { key: "title", text: "Title" },
   { key: "regOpen", text: "Registration Open Date" },
@@ -143,83 +144,88 @@ const EventsManager = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Events Manager</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment className="flex-row-div">
-              <div className="left-flex">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>Events Manager</Breadcrumb.Section>
-                </Breadcrumb>
-              </div>
-              <div className="right-flex">
-                <Button
-                  as={Link}
-                  to="/controlpanel/eventsmanager/create"
-                  color="green"
-                >
-                  <Icon name="add" />
-                  New Event
-                </Button>
-              </div>
-            </Segment>
-            <Segment loading={!loadedData}>
-              <Table striped celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    {COLUMNS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {orgEvents.length > 0 &&
-                    orgEvents.map((item) => (
-                      <TableRow orgEvent={item} key={item.eventID} />
-                    ))}
-                  {orgEvents.length === 0 && (
-                    <Table.Row>
-                      <Table.Cell colSpan={5}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-              <div className="flex-row-div">
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(e, data) =>
-                      setActivePage(
-                        parseInt(data.activePage?.toString() ?? "1") ?? 1
-                      )
-                    }
-                  />
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Events Manager</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment className="flex-row-div">
+                <div className="left-flex">
+                  <Breadcrumb>
+                    <Breadcrumb.Section as={Link} to="/controlpanel">
+                      Control Panel
+                    </Breadcrumb.Section>
+                    <Breadcrumb.Divider icon="right chevron" />
+                    <Breadcrumb.Section active>Events Manager</Breadcrumb.Section>
+                  </Breadcrumb>
                 </div>
-              </div>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                <div className="right-flex">
+                  <Button
+                    as={Link}
+                    to="/controlpanel/eventsmanager/create"
+                    color="green"
+                  >
+                    <Icon name="add" />
+                    New Event
+                  </Button>
+                </div>
+              </Segment>
+              <Segment loading={!loadedData}>
+                <Table striped celled fixed>
+                  <Table.Header>
+                    <Table.Row>
+                      {COLUMNS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {orgEvents.length > 0 &&
+                      orgEvents.map((item) => (
+                        <TableRow orgEvent={item} key={item.eventID} />
+                      ))}
+                    {orgEvents.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={5}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+                <div className="flex-row-div">
+                  <div className="right-flex">
+                    <Pagination
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      firstItem={null}
+                      lastItem={null}
+                      onPageChange={(e, data) =>
+                        setActivePage(
+                          parseInt(data.activePage?.toString() ?? "1") ?? 1
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

@@ -12,6 +12,7 @@ import {
 import date from 'date-and-time';
 import ViewAnalyticsRequest from '../../../../components/analytics/ViewAnalyticsRequest';
 import useGlobalError from '../../../../components/error/ErrorHooks';
+import Footer from '../../../../components/navigation/Footer';
 
 /**
  * The Analytics Requests interface allows administrators to view Analytics Access Requests
@@ -104,94 +105,99 @@ const AnalyticsRequests = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">Analytics Requests</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Analytics Requests</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            {loading && (
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">Analytics Requests</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
               <Segment>
-                <Loader active inline="centered" />
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>Analytics Requests</Breadcrumb.Section>
+                </Breadcrumb>
               </Segment>
-            )}
-            <Segment>
-              <Table striped celled>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {(analyticsRequests.length > 0) && (
-                    analyticsRequests.map((item) => {
-                      return (
-                        <Table.Row key={item._id} className="word-break-all">
-                          <Table.Cell>
-                            <span className="text-link" onClick={() => handleOpenRequestView(item)}>
-                              {item.hasOwnProperty('createdAt')
-                                ? parseDateAndTime(item.createdAt)
-                                : <em>Unknown</em>
-                              }
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{item.requester?.firstName} {item.requester?.lastName}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{item.course?.title}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {item.course?.pendingTextbookID ? (
-                              <a
-                                href={`https://go.libretexts.org/${item.course.pendingTextbookID}`}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                {item.course.pendingTextbookID}
-                              </a>
-                            ) : (
-                              <span>Unknown</span>
-                            )}
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })
-                  )}
-                  {(analyticsRequests.length === 0) && (
+              {loading && (
+                <Segment>
+                  <Loader active inline="centered" />
+                </Segment>
+              )}
+              <Segment>
+                <Table striped celled>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length}>
-                        <p className="text-center"><em>No results found.</em></p>
-                      </Table.Cell>
+                      {TABLE_COLS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
-          <ViewAnalyticsRequest
-            show={showViewModal}
-            onClose={handleViewModalClose}
-            request={currentRequest}
-            onDataChange={handleDataChangeNotification}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                  </Table.Header>
+                  <Table.Body>
+                    {(analyticsRequests.length > 0) && (
+                      analyticsRequests.map((item) => {
+                        return (
+                          <Table.Row key={item._id} className="word-break-all">
+                            <Table.Cell>
+                              <span className="text-link" onClick={() => handleOpenRequestView(item)}>
+                                {item.hasOwnProperty('createdAt')
+                                  ? parseDateAndTime(item.createdAt)
+                                  : <em>Unknown</em>
+                                }
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{item.requester?.firstName} {item.requester?.lastName}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{item.course?.title}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              {item.course?.pendingTextbookID ? (
+                                <a
+                                  href={`https://go.libretexts.org/${item.course.pendingTextbookID}`}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  {item.course.pendingTextbookID}
+                                </a>
+                              ) : (
+                                <span>Unknown</span>
+                              )}
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })
+                    )}
+                    {(analyticsRequests.length === 0) && (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length}>
+                          <p className="text-center"><em>No results found.</em></p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+            </Segment.Group>
+            <ViewAnalyticsRequest
+              show={showViewModal}
+              onClose={handleViewModalClose}
+              request={currentRequest}
+              onDataChange={handleDataChangeNotification}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

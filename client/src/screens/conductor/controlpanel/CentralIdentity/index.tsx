@@ -12,6 +12,7 @@ import {
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTypedSelector } from "../../../../state/hooks";
+import Footer from "../../../../components/navigation/Footer";
 
 type CentralIdentityListItem = {
   url: string;
@@ -82,46 +83,49 @@ const CentralIdentity = () => {
   };
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">LibreOne Admin Consoles</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>LibreOne Admin Consoles</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <p className="mt-1p mb-1p">
-                Welcome to the LibreOne Admin Consoles. Here, you will find several tools
-                to manage users throughout the LibreVerse via the LibreOne CAS.
-              </p>
-              <Segment basic>
-                {isSuperAdmin && org.orgID === "libretexts" && (
-                  <div className="mb-2r">
-                    <Header as="h5" dividing>
-                      LibreOne Admin Consoles
-                    </Header>
-                    <List relaxed="very" divided selection>
-                      {listItems.map((item, idx) => renderListItem(item, idx))}
-                    </List>
-                  </div>
-                )}
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">LibreOne Admin Consoles</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>LibreOne Admin Consoles</Breadcrumb.Section>
+                </Breadcrumb>
               </Segment>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+              <Segment>
+                <p className="mt-1p mb-1p">
+                  Welcome to the LibreOne Admin Consoles. Here, you will find several tools
+                  to manage users throughout the LibreVerse via the LibreOne CAS.
+                </p>
+                <Segment basic>
+                  {isSuperAdmin && org.orgID === "libretexts" && (
+                    <div className="mb-2r">
+                      <Header as="h5" dividing>
+                        LibreOne Admin Consoles
+                      </Header>
+                      <List relaxed="very" divided selection>
+                        {listItems.map((item, idx) => renderListItem(item, idx))}
+                      </List>
+                    </div>
+                  )}
+                </Segment>
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

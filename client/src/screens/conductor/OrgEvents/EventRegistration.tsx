@@ -43,6 +43,7 @@ import RegistrationOpenStatusMessage from "../../../components/controlpanel/Even
 import RegistrationSuccessMessage from "../../../components/controlpanel/EventsManager/RegistrationSuccessMessage";
 import ShippingAddressForm from "../../../components/CustomForms/ShippingAddressForm";
 import NonUserForm from "../../../components/CustomForms/NonUserForm";
+import Footer from "../../../components/navigation/Footer";
 
 /**
  * Loads registration form template for submission
@@ -284,205 +285,208 @@ const EventRegistration = () => {
   };
 
   return (
-    <Grid
-      centered={true}
-      verticalAlign="middle"
-      className="component-container"
-    >
-      <Grid.Row>
-        <Grid.Column>
-          <Grid verticalAlign="middle" centered={true}>
-            <Grid.Row>
-              <Grid.Column>
-                <Image
-                  src={orgLogoUrl ?? "/transparent_logo.png"}
-                  size="medium"
-                  centered
-                  className="cursor-pointer"
-                  onClick={() =>
-                    window.open(
-                      "https://libretexts.org",
-                      "_blank",
-                      "noreferrer"
-                    )
-                  }
-                />
-                <Header as="h1" textAlign="center">
-                  {!routeParams.status && (
-                    <span>
-                      Event Registration: <em>{getValues("title")}</em>
-                    </span>
-                  )}
-                  {routeParams.status === "success" && (
-                    <span>Registration Complete!</span>
-                  )}
-                </Header>
-              </Grid.Column>
-            </Grid.Row>
-          </Grid>
-        </Grid.Column>
-      </Grid.Row>
-      {routeParams.status === "success" && (
-        <RegistrationSuccessMessage
-          paid={useQueryParam("payment") ? true : false}
-        />
-      )}
-      {!canActivate && !routeParams.status && (
+    <div className="h-screen flex flex-col">
+      <Grid
+        centered={true}
+        verticalAlign="middle"
+        className="component-container"
+      >
         <Grid.Row>
-          <Grid.Column mobile={16} computer={10}>
-            <Segment raised>
-              <RegistrationOpenStatusMessage
-                regOpenDate={watchValue("regOpenDate")}
-                regCloseDate={watchValue("regCloseDate")}
-                timeZone={watchValue("timeZone")}
-              />
-            </Segment>
+          <Grid.Column>
+            <Grid verticalAlign="middle" centered={true}>
+              <Grid.Row>
+                <Grid.Column>
+                  <Image
+                    src={orgLogoUrl ?? "/transparent_logo.png"}
+                    size="medium"
+                    centered
+                    className="cursor-pointer"
+                    onClick={() =>
+                      window.open(
+                        "https://libretexts.org",
+                        "_blank",
+                        "noreferrer"
+                      )
+                    }
+                  />
+                  <Header as="h1" textAlign="center">
+                    {!routeParams.status && (
+                      <span>
+                        Event Registration: <em>{getValues("title")}</em>
+                      </span>
+                    )}
+                    {routeParams.status === "success" && (
+                      <span>Registration Complete!</span>
+                    )}
+                  </Header>
+                </Grid.Column>
+              </Grid.Row>
+            </Grid>
           </Grid.Column>
         </Grid.Row>
-      )}
-      {canActivate && !routeParams.status && (
-        <>
-          {formStep === 1 && (
+        {routeParams.status === "success" && (
+          <RegistrationSuccessMessage
+            paid={useQueryParam("payment") ? true : false}
+          />
+        )}
+        {!canActivate && !routeParams.status && (
+          <Grid.Row>
             <Grid.Column mobile={16} computer={10}>
-              <Segment raised className="mt-2p">
-                <Header as="h3" textAlign="center" className="mb-2p">
-                  Who are you registering for?
-                </Header>
-                <Button
-                  fluid
-                  color="teal"
-                  tabIndex="0"
-                  onClick={() => {
-                    setRegisterMode("self");
-                    setFormStep(2);
-                  }}
-                >
-                  <Icon name="user" /> Myself
-                </Button>
-                <Divider horizontal>Or</Divider>
-                <Button
-                  fluid
-                  color="green"
-                  className="mt-1p"
-                  onClick={() => {
-                    setRegisterMode("other");
-                    setFormStep(2);
-                  }}
-                  tabIndex="1"
-                >
-                  <Icon name="users" /> Someone Else
-                </Button>
+              <Segment raised>
+                <RegistrationOpenStatusMessage
+                  regOpenDate={watchValue("regOpenDate")}
+                  regCloseDate={watchValue("regCloseDate")}
+                  timeZone={watchValue("timeZone")}
+                />
               </Segment>
             </Grid.Column>
-          )}
-
-          {formStep === 2 && (
-            <Grid.Row>
+          </Grid.Row>
+        )}
+        {canActivate && !routeParams.status && (
+          <>
+            {formStep === 1 && (
               <Grid.Column mobile={16} computer={10}>
-                <Segment.Group raised className="mb-4r">
-                  <Segment>
-                    <AuthenticatedStatusMessage user={user} />
-                    {!!getValues("regFee") && (
-                      <Message info>
-                        <Message.Content>
-                          <Icon name="dollar" />
-                          <span className="ml-1p">
-                            There is a <strong>${getValues("regFee")}</strong>{" "}
-                            registration fee for this event.
-                          </span>
-                        </Message.Content>
-                      </Message>
-                    )}
-                  </Segment>
-                  <Segment loading={!loadedOrgEvent}>
-                    <Form noValidate className="peerreview-form">
-                      {registerMode === "other" && (
-                        <NonUserForm
-                          control={nonUserControl}
-                          isSubForm={true}
-                        />
-                      )}
-                      {getValues("collectShipping") && (
-                        <ShippingAddressForm
-                          control={shippingAddressControl}
-                          getValuesFn={getShippingAddressValues}
-                          isSubForm={true}
-                        />
-                      )}
-                      {allElements.map((item) => {
-                        if (
-                          item.uiType === "heading" &&
-                          isCustomFormHeadingOrTextBlock(item)
-                        ) {
-                          return <HeadingBlock item={item} key={item.order} />;
-                        } else if (
-                          item.uiType === "textBlock" &&
-                          isCustomFormHeadingOrTextBlock(item)
-                        ) {
-                          return <TextBlock item={item} key={item.order} />;
-                        } else if (
-                          item.uiType === "prompt" &&
-                          isCustomFormPromptBlock(item)
-                        ) {
-                          return (
-                            <PromptBlock
-                              item={item}
-                              key={item.order}
-                              handleFieldChange={(item, newVal) =>
-                                handleResponseChange(item, newVal)
-                              }
-                              error={false}
-                            />
-                          );
-                        }
-                        return null;
-                      })}
-                      {!!getValues("regFee") && (
-                        <>
-                          <Header as="h4" className="mb-2p" dividing>
-                            Fee Waiver
-                          </Header>
-                          <Form.Field>
-                            <label>
-                              Have a fee waiver code? Enter it below. If valid,
-                              the discount will be applied at checkout.
-                            </label>
-                            <Form.Input
-                              type="text"
-                              placeholder="Enter code..."
-                              onChange={(e) => setFeeWaiverCode(e.target.value)}
-                              value={feeWaiverCode}
-                              maxLength={10}
-                            />
-                          </Form.Field>
-                        </>
-                      )}
-                    </Form>
-                    {formError && (
-                      <p className="text-center form-error-label">
-                        Your registration form has errors. Please ensure you
-                        have answered all required prompts
-                      </p>
-                    )}
-                    <Button
-                      color={!!getValues("regFee") ? "blue" : "green"}
-                      className="mt-4p"
-                      fluid
-                      onClick={submitRegistration}
-                    >
-                      {!!getValues("regFee") && <Icon name="cart" />}
-                      {!!getValues("regFee")
-                        ? `Proceed to Payment - $${getValues("regFee")}`
-                        : "Submit Registration"}
-                    </Button>
-                  </Segment>
-                </Segment.Group>
+                <Segment raised className="mt-2p">
+                  <Header as="h3" textAlign="center" className="mb-2p">
+                    Who are you registering for?
+                  </Header>
+                  <Button
+                    fluid
+                    color="teal"
+                    tabIndex="0"
+                    onClick={() => {
+                      setRegisterMode("self");
+                      setFormStep(2);
+                    }}
+                  >
+                    <Icon name="user" /> Myself
+                  </Button>
+                  <Divider horizontal>Or</Divider>
+                  <Button
+                    fluid
+                    color="green"
+                    className="mt-1p"
+                    onClick={() => {
+                      setRegisterMode("other");
+                      setFormStep(2);
+                    }}
+                    tabIndex="1"
+                  >
+                    <Icon name="users" /> Someone Else
+                  </Button>
+                </Segment>
               </Grid.Column>
-            </Grid.Row>
-          )}
-        </>
-      )}
-    </Grid>
+            )}
+
+            {formStep === 2 && (
+              <Grid.Row>
+                <Grid.Column mobile={16} computer={10}>
+                  <Segment.Group raised className="mb-4r">
+                    <Segment>
+                      <AuthenticatedStatusMessage user={user} />
+                      {!!getValues("regFee") && (
+                        <Message info>
+                          <Message.Content>
+                            <Icon name="dollar" />
+                            <span className="ml-1p">
+                              There is a <strong>${getValues("regFee")}</strong>{" "}
+                              registration fee for this event.
+                            </span>
+                          </Message.Content>
+                        </Message>
+                      )}
+                    </Segment>
+                    <Segment loading={!loadedOrgEvent}>
+                      <Form noValidate className="peerreview-form">
+                        {registerMode === "other" && (
+                          <NonUserForm
+                            control={nonUserControl}
+                            isSubForm={true}
+                          />
+                        )}
+                        {getValues("collectShipping") && (
+                          <ShippingAddressForm
+                            control={shippingAddressControl}
+                            getValuesFn={getShippingAddressValues}
+                            isSubForm={true}
+                          />
+                        )}
+                        {allElements.map((item) => {
+                          if (
+                            item.uiType === "heading" &&
+                            isCustomFormHeadingOrTextBlock(item)
+                          ) {
+                            return <HeadingBlock item={item} key={item.order} />;
+                          } else if (
+                            item.uiType === "textBlock" &&
+                            isCustomFormHeadingOrTextBlock(item)
+                          ) {
+                            return <TextBlock item={item} key={item.order} />;
+                          } else if (
+                            item.uiType === "prompt" &&
+                            isCustomFormPromptBlock(item)
+                          ) {
+                            return (
+                              <PromptBlock
+                                item={item}
+                                key={item.order}
+                                handleFieldChange={(item, newVal) =>
+                                  handleResponseChange(item, newVal)
+                                }
+                                error={false}
+                              />
+                            );
+                          }
+                          return null;
+                        })}
+                        {!!getValues("regFee") && (
+                          <>
+                            <Header as="h4" className="mb-2p" dividing>
+                              Fee Waiver
+                            </Header>
+                            <Form.Field>
+                              <label>
+                                Have a fee waiver code? Enter it below. If valid,
+                                the discount will be applied at checkout.
+                              </label>
+                              <Form.Input
+                                type="text"
+                                placeholder="Enter code..."
+                                onChange={(e) => setFeeWaiverCode(e.target.value)}
+                                value={feeWaiverCode}
+                                maxLength={10}
+                              />
+                            </Form.Field>
+                          </>
+                        )}
+                      </Form>
+                      {formError && (
+                        <p className="text-center form-error-label">
+                          Your registration form has errors. Please ensure you
+                          have answered all required prompts
+                        </p>
+                      )}
+                      <Button
+                        color={!!getValues("regFee") ? "blue" : "green"}
+                        className="mt-4p"
+                        fluid
+                        onClick={submitRegistration}
+                      >
+                        {!!getValues("regFee") && <Icon name="cart" />}
+                        {!!getValues("regFee")
+                          ? `Proceed to Payment - $${getValues("regFee")}`
+                          : "Submit Registration"}
+                      </Button>
+                    </Segment>
+                  </Segment.Group>
+                </Grid.Column>
+              </Grid.Row>
+            )}
+          </>
+        )}
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 export default EventRegistration;

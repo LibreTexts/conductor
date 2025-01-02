@@ -11,6 +11,7 @@ import {
 } from "semantic-ui-react";
 import CampusSettingsForm from "./OrgsManager/CampusSettingsForm.js";
 import { useTypedSelector } from "../../state/hooks";
+import Footer from "../navigation/Footer";
 
 const CampusSettings = () => {
   //Global state
@@ -22,46 +23,51 @@ const CampusSettings = () => {
   const [savedData, setSavedData] = useState(false);
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Campus Settings</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Campus Settings</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment raised loading={!loadedData}>
-              <CampusSettingsForm
-                ref={settingsFormRef}
-                orgID={org.orgID}
-                showCatalogSettings={false}
-                onUpdateLoadedData={(newVal) => setLoadedData(newVal)}
-                onUpdateSavedData={(newVal) => setSavedData(newVal)}
-              />
-              <Button
-                color="green"
-                className="mt-2p"
-                fluid
-                onClick={() => settingsFormRef.current?.requestSave()}
-              >
-                <Icon name={savedData ? "check" : "save"} />
-                {!savedData && <span>Save Changes</span>}
-              </Button>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Campus Settings</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>Campus Settings</Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment raised loading={!loadedData}>
+                <CampusSettingsForm
+                  ref={settingsFormRef}
+                  orgID={org.orgID}
+                  showCatalogSettings={false}
+                  onUpdateLoadedData={(newVal) => setLoadedData(newVal)}
+                  onUpdateSavedData={(newVal) => setSavedData(newVal)}
+                />
+                <Button
+                  color="green"
+                  className="mt-2p"
+                  fluid
+                  onClick={() => settingsFormRef.current?.requestSave()}
+                >
+                  <Icon name={savedData ? "check" : "save"} />
+                  {!savedData && <span>Save Changes</span>}
+                </Button>
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

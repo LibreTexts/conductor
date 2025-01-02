@@ -5,6 +5,7 @@ import KBPageViewMode from "../../../components/kb/KBPageViewMode";
 import { useTypedSelector } from "../../../state/hooks";
 import { Button, Icon } from "semantic-ui-react";
 import { canEditKB } from "../../../utils/kbHelpers";
+import Footer from "../../../components/navigation/Footer";
 const KBPageEditMode = lazy(
   () => import("../../../components/kb/KBPageEditMode")
 );
@@ -50,22 +51,25 @@ const KBPage = () => {
   };
 
   return (
-    <DefaultLayoutWNavTree>
-      <AdminOptions />
-      {mode === "view" && parsedSlug && (
-        <KBPageViewMode slug={parsedSlug} canEdit={canEdit} />
-      )}
-      {["create", "edit"].includes(mode) && (
-        <KBPageEditMode
-          mode={mode}
-          slug={parsedSlug}
-          onSaved={() => {
-            setMode("view");
-          }}
-        />
-      )}
-      <AdminOptions />
-    </DefaultLayoutWNavTree>
+    <div>
+      <DefaultLayoutWNavTree>
+        <AdminOptions />
+        {mode === "view" && parsedSlug && (
+          <KBPageViewMode slug={parsedSlug} canEdit={canEdit} />
+        )}
+        {["create", "edit"].includes(mode) && (
+          <KBPageEditMode
+            mode={mode}
+            slug={parsedSlug}
+            onSaved={() => {
+              setMode("view");
+            }}
+          />
+        )}
+        <AdminOptions />
+      </DefaultLayoutWNavTree>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

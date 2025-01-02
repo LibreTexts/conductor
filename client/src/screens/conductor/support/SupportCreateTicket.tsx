@@ -5,6 +5,7 @@ import AuthHelper from "../../../components/util/AuthHelper";
 import CreateTicketFlow from "../../../components/support/CreateTicketFlow";
 import useSystemAnnouncement from "../../../hooks/useSystemAnnouncement";
 import SystemAnnouncement from "../../../components/util/SystemAnnouncement";
+import Footer from "../../../components/navigation/Footer";
 
 const SupportCreateTicket = () => {
   const user = useTypedSelector((state) => state.user);
@@ -34,47 +35,50 @@ const SupportCreateTicket = () => {
   }
 
   return (
-    <DefaultLayout altBackground h="screen">
-      <>
-        {sysAnnouncement && (
-          <SystemAnnouncement
-            title={sysAnnouncement.title}
-            message={sysAnnouncement.message}
-          />
-        )}
-        <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
-          <div className="flex flex-col w-full items-center mt-4">
-            <h1 className="text-4xl font-semibold">Contact Support</h1>
-            <p className="mt-2">
-              Submit a support ticket to get help from our team.
-            </p>
-            <>
-              {!isLoggedIn && !guestMode && (
-                <div className="flex flex-col w-2/5 mt-12 items-center">
-                  <button
-                    onClick={() => redirectToLogin()}
-                    className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
-                  >
-                    Log In with LibreOne (Recommended)
-                  </button>
-                  <button
-                    onClick={() => setGuestMode(true)}
-                    className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
-                  >
-                    Continue as Guest
-                  </button>
-                </div>
-              )}
-              {(isLoggedIn || guestMode) && (
-                <div className="mt-4 flex w-full justify-center">
-                  <CreateTicketFlow isLoggedIn={isLoggedIn} />
-                </div>
-              )}
-            </>
+    <div>
+      <DefaultLayout altBackground h="screen">
+        <>
+          {sysAnnouncement && (
+            <SystemAnnouncement
+              title={sysAnnouncement.title}
+              message={sysAnnouncement.message}
+            />
+          )}
+          <div className="flex flex-col w-full h-full overflow-y-auto items-center justify-center">
+            <div className="flex flex-col w-full items-center mt-4">
+              <h1 className="text-4xl font-semibold">Contact Support</h1>
+              <p className="mt-2">
+                Submit a support ticket to get help from our team.
+              </p>
+              <>
+                {!isLoggedIn && !guestMode && (
+                  <div className="flex flex-col w-2/5 mt-12 items-center">
+                    <button
+                      onClick={() => redirectToLogin()}
+                      className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
+                    >
+                      Log In with LibreOne (Recommended)
+                    </button>
+                    <button
+                      onClick={() => setGuestMode(true)}
+                      className="w-3/4 h-12 flex bg-primary rounded-md text-white text-lg my-2 items-center justify-center shadow-md hover:shadow-xl"
+                    >
+                      Continue as Guest
+                    </button>
+                  </div>
+                )}
+                {(isLoggedIn || guestMode) && (
+                  <div className="mt-4 flex w-full justify-center">
+                    <CreateTicketFlow isLoggedIn={isLoggedIn} />
+                  </div>
+                )}
+              </>
+            </div>
           </div>
-        </div>
-      </>
-    </DefaultLayout>
+        </>
+        <div className="flex flex-col justify-end h-full"><Footer /></div>
+      </DefaultLayout>
+    </div>
   );
 };
 

@@ -21,6 +21,7 @@ import HeadingModal from "../../../../components/CustomForms/HeadingModal";
 import TextBlockModal from "../../../../components/CustomForms/TextBlockModal";
 import PromptModal from "../../../../components/CustomForms/PromptModal";
 import DeleteBlockModal from "../../../../components/CustomForms/DeleteBlockModal";
+import Footer from "../../../../components/navigation/Footer";
 import {
   CustomFormPrompt,
   CustomFormPromptType,
@@ -846,365 +847,368 @@ const ManageEvent = () => {
   };
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column>
-          <Header className="component-header">
-            {manageMode === "create" ? "Create Event" : `${getValues("title")}`}
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column>
-          <Segment.Group>
-            <Segment className="flex-row-div flex-row-verticalcenter">
-              <div className="left-flex">
-                <Breadcrumb>
-                  <Breadcrumb.Section as={Link} to="/controlpanel">
-                    Control Panel
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section
-                    as={Link}
-                    to="/controlpanel/eventsmanager"
-                  >
-                    Events Manager
-                  </Breadcrumb.Section>
-                  <Breadcrumb.Divider icon="right chevron" />
-                  <Breadcrumb.Section active>
-                    {manageMode === "create"
-                      ? "Create Event"
-                      : `${getValues("title")}`}
-                  </Breadcrumb.Section>
-                </Breadcrumb>
-              </div>
-              <div className="right-flex">
-                <span className="muted-text">
-                  Last Updated:{" "}
-                  <em>
-                    {formatDate(
-                      parseISO(
-                        getValues("updatedAt")?.toString() ??
-                          new Date().toISOString()
-                      ),
-                      "MM/dd/yyyy h:mm aa"
-                    )}
-                  </em>
-                </span>
-              </div>
-            </Segment>
-            <Segment loading={!loadedOrgEvent}>
-              {showChangesWarning && (
-                <Message
-                  warning
-                  icon="warning sign"
-                  content="You have unsaved changes!"
-                  className="mt-1p"
-                />
-              )}
-              {!canEdit && (
-                <Message
-                  warning
-                  icon="warning sign"
-                  content="Participants have already started registering for this Event. Some settings cannot be changed."
-                  className="mt-1p"
-                />
-              )}
-              <Grid padded="horizontally" relaxed>
-                <Grid.Row className="mt-1p">
-                  <Grid.Column>
-                    <Header
-                      as="h2"
-                      dividing
-                      className="flex-row-div flex-row-verticalcenter"
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column>
+            <Header className="component-header">
+              {manageMode === "create" ? "Create Event" : `${getValues("title")}`}
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column>
+            <Segment.Group>
+              <Segment className="flex-row-div flex-row-verticalcenter">
+                <div className="left-flex">
+                  <Breadcrumb>
+                    <Breadcrumb.Section as={Link} to="/controlpanel">
+                      Control Panel
+                    </Breadcrumb.Section>
+                    <Breadcrumb.Divider icon="right chevron" />
+                    <Breadcrumb.Section
+                      as={Link}
+                      to="/controlpanel/eventsmanager"
                     >
-                      <span>General Settings</span>
-                      <div className="right-flex">
-                        <Button
-                          color="blue"
-                          onClick={() => setShowEventSettingsModal(true)}
-                        >
-                          <Icon name="edit" />
-                          Edit
-                        </Button>
-                      </div>
-                    </Header>
-                    <Segment.Group size="large" raised className="mb-4p">
-                      <EventSettingsSegment
-                        getValuesFn={getValues}
-                        org={org}
-                        manageMode={manageMode}
-                        loading={!loadedOrgEvent}
-                        projectSyncID={getValues('projectSyncID')}
-                        projectSyncTitle={projectSyncTitle}
-                      />
-                    </Segment.Group>
-                  </Grid.Column>
-                </Grid.Row>
-                {org.orgID === "libretexts" &&
-                  manageMode === "edit" &&
-                  !!getValues("regFee") && (
-                    <Grid.Row>
-                      <FeeWaiversSegment
-                        feeWaivers={getValues("feeWaivers")}
-                        orgEvent={getValues()}
-                        loading={!loadedFeeWaivers}
-                        canEdit={canEdit}
-                        onUpdate={getOrgEvent}
-                      />
-                    </Grid.Row>
-                  )}
-                {manageMode === "edit" && (
-                  <>
-                    <Grid.Row>
-                      <ParticipantsSegment
-                        show={showParticipants}
-                        toggleVisibility={() =>
-                          setShowParticipants(!showParticipants)
-                        }
-                        participants={getValues("participants")}
-                        orgEvent={getValues()}
-                        loading={!loadedParticipants}
-                        canEdit={canEdit}
-                        autoSyncSuccess={autoSyncSuccess}
-                        activePage={activePage}
-                        onDownloadParticipants={handleDownloadParticipants}
-                        onChangeActivePage={(page) => setActivePage(page)}
-                        onUnregisterParticipants={(regIds) =>
-                          handleUnregisterParticipants(regIds)
-                        }
-                        onConfigureAutoSync={(projectID) => {
-                          handleConfigureAutoSync(projectID);
-                        }}
-                        totalItems={totalItems}
-                        totalPages={totalPages}
-                        itemsPerPage={itemsPerPage}
-                      />
-                    </Grid.Row>
-                    <Grid.Row>
-                      {showRegForm ? (
-                        <Grid.Column>
-                          <Header
-                            as="h2"
-                            dividing
-                            className="flex-row-div flex-row-verticalcenter"
+                      Events Manager
+                    </Breadcrumb.Section>
+                    <Breadcrumb.Divider icon="right chevron" />
+                    <Breadcrumb.Section active>
+                      {manageMode === "create"
+                        ? "Create Event"
+                        : `${getValues("title")}`}
+                    </Breadcrumb.Section>
+                  </Breadcrumb>
+                </div>
+                <div className="right-flex">
+                  <span className="muted-text">
+                    Last Updated:{" "}
+                    <em>
+                      {formatDate(
+                        parseISO(
+                          getValues("updatedAt")?.toString() ??
+                            new Date().toISOString()
+                        ),
+                        "MM/dd/yyyy h:mm aa"
+                      )}
+                    </em>
+                  </span>
+                </div>
+              </Segment>
+              <Segment loading={!loadedOrgEvent}>
+                {showChangesWarning && (
+                  <Message
+                    warning
+                    icon="warning sign"
+                    content="You have unsaved changes!"
+                    className="mt-1p"
+                  />
+                )}
+                {!canEdit && (
+                  <Message
+                    warning
+                    icon="warning sign"
+                    content="Participants have already started registering for this Event. Some settings cannot be changed."
+                    className="mt-1p"
+                  />
+                )}
+                <Grid padded="horizontally" relaxed>
+                  <Grid.Row className="mt-1p">
+                    <Grid.Column>
+                      <Header
+                        as="h2"
+                        dividing
+                        className="flex-row-div flex-row-verticalcenter"
+                      >
+                        <span>General Settings</span>
+                        <div className="right-flex">
+                          <Button
+                            color="blue"
+                            onClick={() => setShowEventSettingsModal(true)}
                           >
-                            <span>Registration Form</span>
-                            <div className="right-flex">
-                              <Button
-                                onClick={() => setShowRegForm(!showRegForm)}
-                              >
-                                Hide
-                              </Button>
-                            </div>
-                          </Header>
-                          <Segment.Group size="large" raised className="mb-4p">
-                            <Segment className="peerreview-rubricedit-container">
-                              <EventInstructionsSegment
-                                show={showInstructions}
-                                toggleVisibility={() =>
-                                  setShowInstructions(!showInstructions)
-                                }
-                              />
-                              {getValues("collectShipping") && (
-                                <CollectShippingMessage />
-                              )}
-                              {org.orgID === "libretexts" &&
-                                manageMode === "edit" &&
-                                getValues("regFee") !== 0 &&
-                                loadedFeeWaivers &&
-                                getValues("feeWaivers")?.length > 0 && (
-                                  <FeeWaiverInputMessage />
+                            <Icon name="edit" />
+                            Edit
+                          </Button>
+                        </div>
+                      </Header>
+                      <Segment.Group size="large" raised className="mb-4p">
+                        <EventSettingsSegment
+                          getValuesFn={getValues}
+                          org={org}
+                          manageMode={manageMode}
+                          loading={!loadedOrgEvent}
+                          projectSyncID={getValues('projectSyncID')}
+                          projectSyncTitle={projectSyncTitle}
+                        />
+                      </Segment.Group>
+                    </Grid.Column>
+                  </Grid.Row>
+                  {org.orgID === "libretexts" &&
+                    manageMode === "edit" &&
+                    !!getValues("regFee") && (
+                      <Grid.Row>
+                        <FeeWaiversSegment
+                          feeWaivers={getValues("feeWaivers")}
+                          orgEvent={getValues()}
+                          loading={!loadedFeeWaivers}
+                          canEdit={canEdit}
+                          onUpdate={getOrgEvent}
+                        />
+                      </Grid.Row>
+                    )}
+                  {manageMode === "edit" && (
+                    <>
+                      <Grid.Row>
+                        <ParticipantsSegment
+                          show={showParticipants}
+                          toggleVisibility={() =>
+                            setShowParticipants(!showParticipants)
+                          }
+                          participants={getValues("participants")}
+                          orgEvent={getValues()}
+                          loading={!loadedParticipants}
+                          canEdit={canEdit}
+                          autoSyncSuccess={autoSyncSuccess}
+                          activePage={activePage}
+                          onDownloadParticipants={handleDownloadParticipants}
+                          onChangeActivePage={(page) => setActivePage(page)}
+                          onUnregisterParticipants={(regIds) =>
+                            handleUnregisterParticipants(regIds)
+                          }
+                          onConfigureAutoSync={(projectID) => {
+                            handleConfigureAutoSync(projectID);
+                          }}
+                          totalItems={totalItems}
+                          totalPages={totalPages}
+                          itemsPerPage={itemsPerPage}
+                        />
+                      </Grid.Row>
+                      <Grid.Row>
+                        {showRegForm ? (
+                          <Grid.Column>
+                            <Header
+                              as="h2"
+                              dividing
+                              className="flex-row-div flex-row-verticalcenter"
+                            >
+                              <span>Registration Form</span>
+                              <div className="right-flex">
+                                <Button
+                                  onClick={() => setShowRegForm(!showRegForm)}
+                                >
+                                  Hide
+                                </Button>
+                              </div>
+                            </Header>
+                            <Segment.Group size="large" raised className="mb-4p">
+                              <Segment className="peerreview-rubricedit-container">
+                                <EventInstructionsSegment
+                                  show={showInstructions}
+                                  toggleVisibility={() =>
+                                    setShowInstructions(!showInstructions)
+                                  }
+                                />
+                                {getValues("collectShipping") && (
+                                  <CollectShippingMessage />
                                 )}
+                                {org.orgID === "libretexts" &&
+                                  manageMode === "edit" &&
+                                  getValues("regFee") !== 0 &&
+                                  loadedFeeWaivers &&
+                                  getValues("feeWaivers")?.length > 0 && (
+                                    <FeeWaiverInputMessage />
+                                  )}
 
-                              {allElements.map((item) => {
-                                return (
-                                  <EditableFormBlock
-                                    item={item}
-                                    key={item.order}
-                                    onMove={(item, direction) =>
-                                      handleMoveBlock({
-                                        blockToMove: item,
-                                        direction: direction,
-                                        getValueFn: getValues,
-                                        setValueFn: setValue,
-                                        onError: (err) =>
-                                          handleGlobalError(err),
-                                        onFinish: () => setUnsavedChanges(),
-                                      })
-                                    }
-                                    onRequestEdit={(order) =>
-                                      handleRequestEditBlock(order)
-                                    }
-                                    onRequestDelete={(order) =>
-                                      openDeleteBlockModal(order)
-                                    }
-                                    disabled={!canEdit}
-                                  />
-                                );
-                              })}
+                                {allElements.map((item) => {
+                                  return (
+                                    <EditableFormBlock
+                                      item={item}
+                                      key={item.order}
+                                      onMove={(item, direction) =>
+                                        handleMoveBlock({
+                                          blockToMove: item,
+                                          direction: direction,
+                                          getValueFn: getValues,
+                                          setValueFn: setValue,
+                                          onError: (err) =>
+                                            handleGlobalError(err),
+                                          onFinish: () => setUnsavedChanges(),
+                                        })
+                                      }
+                                      onRequestEdit={(order) =>
+                                        handleRequestEditBlock(order)
+                                      }
+                                      onRequestDelete={(order) =>
+                                        openDeleteBlockModal(order)
+                                      }
+                                      disabled={!canEdit}
+                                    />
+                                  );
+                                })}
 
-                              <div className="peerreview-rubricedit-placeholder">
-                                <Button.Group fluid color="blue">
+                                <div className="peerreview-rubricedit-placeholder">
+                                  <Button.Group fluid color="blue">
+                                    <Button
+                                      onClick={() => openHeadingModal("add")}
+                                      disabled={!canEdit}
+                                    >
+                                      <Icon name="heading" />
+                                      Add Heading
+                                    </Button>
+                                    <Button
+                                      onClick={() => openTextModal("add")}
+                                      disabled={!canEdit}
+                                    >
+                                      <Icon name="paragraph" />
+                                      Add Text
+                                    </Button>
+                                    <Button
+                                      onClick={() => openPromptModal("add")}
+                                      disabled={!canEdit}
+                                    >
+                                      <Icon name="question" />
+                                      Add Prompt
+                                    </Button>
+                                  </Button.Group>
+                                </div>
+                                <Divider />
+                                <Button.Group fluid>
                                   <Button
-                                    onClick={() => openHeadingModal("add")}
+                                    as={Link}
+                                    to="/controlpanel/eventsmanager"
                                     disabled={!canEdit}
                                   >
-                                    <Icon name="heading" />
-                                    Add Heading
+                                    <Icon name="cancel" />
+                                    Discard Changes
                                   </Button>
                                   <Button
-                                    onClick={() => openTextModal("add")}
+                                    color="green"
+                                    loading={changesSaving}
+                                    onClick={saveEventChanges}
                                     disabled={!canEdit}
                                   >
-                                    <Icon name="paragraph" />
-                                    Add Text
-                                  </Button>
-                                  <Button
-                                    onClick={() => openPromptModal("add")}
-                                    disabled={!canEdit}
-                                  >
-                                    <Icon name="question" />
-                                    Add Prompt
+                                    {showChangesWarning ? (
+                                      <>
+                                        <Icon name="save" />
+                                        <span>Save Registration Form</span>
+                                      </>
+                                    ) : (
+                                      <Icon name="check" />
+                                    )}
                                   </Button>
                                 </Button.Group>
+                              </Segment>
+                            </Segment.Group>
+                          </Grid.Column>
+                        ) : (
+                          <Grid.Column>
+                            <Header
+                              as="h2"
+                              dividing
+                              className="flex-row-div  flex-row-verticalcenter"
+                            >
+                              <span>Registration Form</span>
+                              <div className="right-flex">
+                                <Button
+                                  onClick={() => setShowRegForm(!showRegForm)}
+                                >
+                                  Show
+                                </Button>
                               </div>
-                              <Divider />
-                              <Button.Group fluid>
-                                <Button
-                                  as={Link}
-                                  to="/controlpanel/eventsmanager"
-                                  disabled={!canEdit}
-                                >
-                                  <Icon name="cancel" />
-                                  Discard Changes
-                                </Button>
-                                <Button
-                                  color="green"
-                                  loading={changesSaving}
-                                  onClick={saveEventChanges}
-                                  disabled={!canEdit}
-                                >
-                                  {showChangesWarning ? (
-                                    <>
-                                      <Icon name="save" />
-                                      <span>Save Registration Form</span>
-                                    </>
-                                  ) : (
-                                    <Icon name="check" />
-                                  )}
-                                </Button>
-                              </Button.Group>
-                            </Segment>
-                          </Segment.Group>
-                        </Grid.Column>
-                      ) : (
-                        <Grid.Column>
-                          <Header
-                            as="h2"
-                            dividing
-                            className="flex-row-div  flex-row-verticalcenter"
-                          >
-                            <span>Registration Form</span>
-                            <div className="right-flex">
-                              <Button
-                                onClick={() => setShowRegForm(!showRegForm)}
-                              >
-                                Show
-                              </Button>
-                            </div>
-                          </Header>
-                          <Segment.Group size="large" raised className="mb-4p">
-                            <Segment>
-                              <span>
-                                Collapsed for brevity... Click "Show" to view
-                              </span>
-                            </Segment>
-                          </Segment.Group>
-                        </Grid.Column>
-                      )}
-                    </Grid.Row>
-                  </>
-                )}
-              </Grid>
-            </Segment>
-          </Segment.Group>
-          <EventSettingsModal
-            show={showEventSettingsModal}
-            canEdit={canEdit}
-            orgEvent={getValues()}
-            onClose={() => setShowEventSettingsModal(false)}
-            onRequestSave={(newData) => updateStateAndSave(newData)}
-            onRequestCancelEvent={handleCancelEvent}
-          />
-          <HeadingModal
-            show={showHeadingModal}
-            value={hmHeading}
-            onChange={(val) => setHMHeading(val)}
-            hasError={hmError}
-            onClose={closeHeadingModal}
-            onSave={handleSaveHeading}
-            mode={hmMode}
-            loading={hmLoading}
-          />
-          <TextBlockModal
-            show={showTextModal}
-            value={tmText}
-            onChange={(val) => setTMText(val)}
-            hasError={tmError}
-            onClose={closeTextModal}
-            onSave={handleSaveTextBlock}
-            mode={tmMode}
-            loading={tmLoading}
-          />
-          <PromptModal
-            promptType={pmType}
-            promptText={pmText}
-            promptReq={pmRequired}
-            dropdownOptions={pmDropdownOpts}
-            newOptionValue={pmDropdownNew}
-            onChangeNewOptionValue={(n) => setPMDropdownNew(n)}
-            onChangePromptType={(newVal) => setPMType(newVal)}
-            onChangePromptText={(n) => setPMText(n)}
-            onDeleteDropdownPromptOption={(n) =>
-              handleDeleteDropdownPromptOption(n)
-            }
-            onChangePromptReq={(n) => setPMRequired(n)}
-            onAddDropdownPromptOption={handleAddDropdownPromptOption}
-            onMoveDropdownPromptOption={(n, d) =>
-              handleMoveDropdownPromptOption(n, d)
-            }
-            show={showPromptModal}
-            onClose={closePromptModal}
-            onSave={handleSavePrompt}
-            mode={pmMode}
-            loading={pmLoading}
-          />
-          <DeleteBlockModal
-            show={showDBModal}
-            onSave={() =>
-              handleDeleteBlock({
-                dbBlock: dbBlock,
-                setValueFn: setValue,
-                getValueFn: getValues,
-                onError: (err) => handleGlobalError(err),
-                onStart: () => {
-                  setDBLoading(true);
-                },
-                onFinish: () => {
-                  setDBLoading(false);
-                  setUnsavedChanges();
-                  closeDeleteBlockModal();
-                },
-              })
-            }
-            onRequestClose={() => closeDeleteBlockModal()}
-            blockType={dbType}
-            loading={dbLoading}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                            </Header>
+                            <Segment.Group size="large" raised className="mb-4p">
+                              <Segment>
+                                <span>
+                                  Collapsed for brevity... Click "Show" to view
+                                </span>
+                              </Segment>
+                            </Segment.Group>
+                          </Grid.Column>
+                        )}
+                      </Grid.Row>
+                    </>
+                  )}
+                </Grid>
+              </Segment>
+            </Segment.Group>
+            <EventSettingsModal
+              show={showEventSettingsModal}
+              canEdit={canEdit}
+              orgEvent={getValues()}
+              onClose={() => setShowEventSettingsModal(false)}
+              onRequestSave={(newData) => updateStateAndSave(newData)}
+              onRequestCancelEvent={handleCancelEvent}
+            />
+            <HeadingModal
+              show={showHeadingModal}
+              value={hmHeading}
+              onChange={(val) => setHMHeading(val)}
+              hasError={hmError}
+              onClose={closeHeadingModal}
+              onSave={handleSaveHeading}
+              mode={hmMode}
+              loading={hmLoading}
+            />
+            <TextBlockModal
+              show={showTextModal}
+              value={tmText}
+              onChange={(val) => setTMText(val)}
+              hasError={tmError}
+              onClose={closeTextModal}
+              onSave={handleSaveTextBlock}
+              mode={tmMode}
+              loading={tmLoading}
+            />
+            <PromptModal
+              promptType={pmType}
+              promptText={pmText}
+              promptReq={pmRequired}
+              dropdownOptions={pmDropdownOpts}
+              newOptionValue={pmDropdownNew}
+              onChangeNewOptionValue={(n) => setPMDropdownNew(n)}
+              onChangePromptType={(newVal) => setPMType(newVal)}
+              onChangePromptText={(n) => setPMText(n)}
+              onDeleteDropdownPromptOption={(n) =>
+                handleDeleteDropdownPromptOption(n)
+              }
+              onChangePromptReq={(n) => setPMRequired(n)}
+              onAddDropdownPromptOption={handleAddDropdownPromptOption}
+              onMoveDropdownPromptOption={(n, d) =>
+                handleMoveDropdownPromptOption(n, d)
+              }
+              show={showPromptModal}
+              onClose={closePromptModal}
+              onSave={handleSavePrompt}
+              mode={pmMode}
+              loading={pmLoading}
+            />
+            <DeleteBlockModal
+              show={showDBModal}
+              onSave={() =>
+                handleDeleteBlock({
+                  dbBlock: dbBlock,
+                  setValueFn: setValue,
+                  getValueFn: getValues,
+                  onError: (err) => handleGlobalError(err),
+                  onStart: () => {
+                    setDBLoading(true);
+                  },
+                  onFinish: () => {
+                    setDBLoading(false);
+                    setUnsavedChanges();
+                    closeDeleteBlockModal();
+                  },
+                })
+              }
+              onRequestClose={() => closeDeleteBlockModal()}
+              blockType={dbType}
+              loading={dbLoading}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

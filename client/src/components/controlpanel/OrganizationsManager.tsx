@@ -18,6 +18,7 @@ import useGlobalError from "../error/ErrorHooks.js";
 import "./ControlPanel.css";
 import OrgDetailsModal from "./OrgsManager/OrgDetailsModal.js";
 import { Organization } from "../../types/Organization.js";
+import Footer from '../navigation/Footer';
 
 const OrganizationsManager = () => {
   // Global State
@@ -147,150 +148,155 @@ const OrganizationsManager = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Organizations Manager</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Organizations Manager
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <Dropdown
-                    placeholder="Sort by..."
-                    floating
-                    selection
-                    button
-                    options={sortOptions}
-                    onChange={(_e, { value }) => {
-                      setSortChoice(value?.toString() || "name");
-                    }}
-                    value={sortChoice}
-                  />
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Organizations Manager</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>
+                    Organizations Manager
+                  </Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <Dropdown
+                      placeholder="Sort by..."
+                      floating
+                      selection
+                      button
+                      options={sortOptions}
+                      onChange={(_e, { value }) => {
+                        setSortChoice(value?.toString() || "name");
+                      }}
+                      value={sortChoice}
+                    />
+                  </div>
+                  <div className="right-flex">
+                    <Input
+                      icon="search"
+                      iconPosition="left"
+                      placeholder="Search results..."
+                      onChange={(e) => {
+                        setSearchString(e.target.value);
+                      }}
+                      value={searchString}
+                    />
+                  </div>
                 </div>
-                <div className="right-flex">
-                  <Input
-                    icon="search"
-                    iconPosition="left"
-                    placeholder="Search results..."
-                    onChange={(e) => {
-                      setSearchString(e.target.value);
-                    }}
-                    value={searchString}
-                  />
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <span>Displaying </span>
+                    <Dropdown
+                      className="commons-content-pagemenu-dropdown"
+                      selection
+                      options={itemsPerPageOptions}
+                      onChange={(_e, { value }) => {
+                        setItemsPerPage((value as number) ?? 10);
+                      }}
+                      value={itemsPerPage}
+                    />
+                    <span>
+                      {" "}
+                      items per page of{" "}
+                      <strong>{Number(orgs.length).toLocaleString()}</strong>{" "}
+                      results.
+                    </span>
+                  </div>
+                  <div className="right-flex">
+                    <Pagination
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      firstItem={null}
+                      lastItem={null}
+                      onPageChange={(_e, data) => {
+                        setActivePage((data.activePage as number) ?? 1);
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span>Displaying </span>
-                  <Dropdown
-                    className="commons-content-pagemenu-dropdown"
-                    selection
-                    options={itemsPerPageOptions}
-                    onChange={(_e, { value }) => {
-                      setItemsPerPage((value as number) ?? 10);
-                    }}
-                    value={itemsPerPage}
-                  />
-                  <span>
-                    {" "}
-                    items per page of{" "}
-                    <strong>{Number(orgs.length).toLocaleString()}</strong>{" "}
-                    results.
-                  </span>
-                </div>
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(_e, data) => {
-                      setActivePage((data.activePage as number) ?? 1);
-                    }}
-                  />
-                </div>
-              </div>
-            </Segment>
-            <Segment loading={!loadedData}>
-              <Table striped fixed>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell colSpan={3}>
-                      {sortChoice === "name" ? (
-                        <span>
-                          <em>Organization Name</em>
-                        </span>
-                      ) : (
-                        <span>Organization Name</span>
-                      )}
-                    </Table.HeaderCell>
-                    <Table.HeaderCell>
-                      <span>Actions</span>
-                    </Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {pageOrgs.length > 0 &&
-                    pageOrgs.map((item, index) => {
-                      return (
-                        <Table.Row key={index}>
-                          <Table.Cell colSpan={3}>
-                            <p>
-                              <strong>{item.name}</strong>
-                            </p>
-                          </Table.Cell>
-                          <Table.Cell textAlign="center">
-                            <Button
-                              color="blue"
-                              fluid
-                              onClick={() => handleEditOrg(item.orgID)}
-                            >
-                              <Icon name="edit" />
-                              Edit Organization Details
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  {pageOrgs.length === 0 && (
+              </Segment>
+              <Segment loading={!loadedData}>
+                <Table striped fixed>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={4}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
+                      <Table.HeaderCell colSpan={3}>
+                        {sortChoice === "name" ? (
+                          <span>
+                            <em>Organization Name</em>
+                          </span>
+                        ) : (
+                          <span>Organization Name</span>
+                        )}
+                      </Table.HeaderCell>
+                      <Table.HeaderCell>
+                        <span>Actions</span>
+                      </Table.HeaderCell>
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
+                  </Table.Header>
+                  <Table.Body>
+                    {pageOrgs.length > 0 &&
+                      pageOrgs.map((item, index) => {
+                        return (
+                          <Table.Row key={index}>
+                            <Table.Cell colSpan={3}>
+                              <p>
+                                <strong>{item.name}</strong>
+                              </p>
+                            </Table.Cell>
+                            <Table.Cell textAlign="center">
+                              <Button
+                                color="blue"
+                                fluid
+                                onClick={() => handleEditOrg(item.orgID)}
+                              >
+                                <Icon name="edit" />
+                                Edit Organization Details
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    {pageOrgs.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={4}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+            </Segment.Group>
 
-          <OrgDetailsModal
-            show={showOrgDetailsModal}
-            onClose={() => setShowOrgDetailsModal(false)}
-            orgID={editOrgID}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+            <OrgDetailsModal
+              show={showOrgDetailsModal}
+              onClose={() => setShowOrgDetailsModal(false)}
+              orgID={editOrgID}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

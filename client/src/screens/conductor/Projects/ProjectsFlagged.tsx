@@ -12,7 +12,7 @@ import {
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
-
+import Footer from "../../../components/navigation/Footer";
 import { itemsPerPageOptions } from "../../../components/util/PaginationOptions.js";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { useSearchParams } from "react-router-dom-v5-compat";
@@ -129,77 +129,82 @@ const ProjectsFlagged = () => {
   };
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Flagged Projects</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/projects">
-                  My Projects
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Flagged Projects</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <Input
-                icon="search"
-                iconPosition="left"
-                placeholder="Search available projects..."
-                onChange={(e) => {
-                  setSearchString(e.target.value);
-                }}
-                value={searchString}
-              />
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span>Displaying </span>
-                  <Dropdown
-                    className="commons-content-pagemenu-dropdown"
-                    selection
-                    options={itemsPerPageOptions}
-                    onChange={(_e, { value }) => {
-                      setItemsPerPage(value as number);
-                    }}
-                    value={itemsPerPage}
-                  />
-                  <span>
-                    {" "}
-                    items per page of{" "}
-                    <strong>
-                      {Number(projects.length).toLocaleString()}
-                    </strong>{" "}
-                    results.
-                  </span>
+    <div className="h-screen flex flex-col">
+      <Grid className="component-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Flagged Projects</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/projects">
+                    My Projects
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>Flagged Projects</Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment>
+                <Input
+                  icon="search"
+                  iconPosition="left"
+                  placeholder="Search available projects..."
+                  onChange={(e) => {
+                    setSearchString(e.target.value);
+                  }}
+                  value={searchString}
+                />
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <span>Displaying </span>
+                    <Dropdown
+                      className="commons-content-pagemenu-dropdown"
+                      selection
+                      options={itemsPerPageOptions}
+                      onChange={(_e, { value }) => {
+                        setItemsPerPage(value as number);
+                      }}
+                      value={itemsPerPage}
+                    />
+                    <span>
+                      {" "}
+                      items per page of{" "}
+                      <strong>
+                        {Number(projects.length).toLocaleString()}
+                      </strong>{" "}
+                      results.
+                    </span>
+                  </div>
+                  <div className="right-flex">
+                    <Pagination
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      firstItem={null}
+                      lastItem={null}
+                      onPageChange={(_e, data) => {
+                        setActivePage(data.activePage as number);
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={(_e, data) => {
-                      setActivePage(data.activePage as number);
-                    }}
-                  />
-                </div>
-              </div>
-            </Segment>
-            <Segment loading={!loadedProjects}>
-              <MyProjectsTable data={pageProjects} />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+              </Segment>
+              <Segment loading={!loadedProjects}>
+                <MyProjectsTable data={pageProjects} />
+              </Segment>
+            </Segment.Group>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

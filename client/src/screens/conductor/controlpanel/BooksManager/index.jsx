@@ -24,6 +24,7 @@ import { getLibGlyphURL, getLibraryName } from '../../../../components/util/Libr
 import { getLicenseText } from '../../../../components/util/LicenseOptions';
 import { isEmptyString } from '../../../../components/util/HelperFunctions';
 import '../../../../components/controlpanel/ControlPanel.css';
+import Footer from '../../../../components/navigation/Footer';
 
 /**
  * The Books Manager interface allows administrators to manage the Books
@@ -394,207 +395,212 @@ const BooksManager = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Books Manager</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Books Manager
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span className="ml-1p"><strong>Sync Schedule:</strong> Daily at 6:30 AM PST</span>
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Books Manager</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>
+                    Books Manager
+                  </Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <span className="ml-1p"><strong>Sync Schedule:</strong> Daily at 6:30 AM PST</span>
+                  </div>
+                  <div className="right-flex">
+                    {(isSuperAdmin && org.orgID === 'libretexts') && (
+                      <Button
+                        color="blue"
+                        onClick={openSyncModal}
+                      >
+                        <Icon name="sync alternate" />
+                        Sync Commons with Libraries
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="right-flex">
-                  {(isSuperAdmin && org.orgID === 'libretexts') && (
-                    <Button
-                      color="blue"
-                      onClick={openSyncModal}
-                    >
-                      <Icon name="sync alternate" />
-                      Sync Commons with Libraries
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Segment>
-            <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width={11}>
+              </Segment>
+              <Segment>
+                <Grid>
+                  <Grid.Row>
+                    <Grid.Column width={11}>
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={SORT_OPTIONS}
+                        onChange={handleSortChoiceChange}
+                        value={sortChoice}
+                      />
+                    </Grid.Column>
+                    <Grid.Column width={5}>
+                      <Input
+                        icon="search"
+                        placeholder="Search..."
+                        onChange={handleSearchStringChange}
+                        value={searchString}
+                        fluid
+                      />
+                    </Grid.Column>
+                  </Grid.Row>
+                </Grid>
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                  <div className="left-flex">
+                    <span>Displaying </span>
                     <Dropdown
-                      placeholder="Sort by..."
-                      floating
+                      className="commons-content-pagemenu-dropdown"
                       selection
-                      button
-                      options={SORT_OPTIONS}
-                      onChange={handleSortChoiceChange}
-                      value={sortChoice}
+                      options={itemsPerPageOptions}
+                      onChange={handleItemsPerPageChange}
+                      value={itemsPerPage}
                     />
-                  </Grid.Column>
-                  <Grid.Column width={5}>
-                    <Input
-                      icon="search"
-                      placeholder="Search..."
-                      onChange={handleSearchStringChange}
-                      value={searchString}
-                      fluid
+                    <span> items per page of <strong>{totalItems}</strong> results.</span>
+                  </div>
+                  <div className="right-flex">
+                    <Pagination
+                      activePage={activePage}
+                      totalPages={totalPages}
+                      firstItem={null}
+                      lastItem={null}
+                      onPageChange={handleActivePageChange}
                     />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-                <div className="left-flex">
-                  <span>Displaying </span>
-                  <Dropdown
-                    className="commons-content-pagemenu-dropdown"
-                    selection
-                    options={itemsPerPageOptions}
-                    onChange={handleItemsPerPageChange}
-                    value={itemsPerPage}
-                  />
-                  <span> items per page of <strong>{totalItems}</strong> results.</span>
+                  </div>
                 </div>
-                <div className="right-flex">
-                  <Pagination
-                    activePage={activePage}
-                    totalPages={totalPages}
-                    firstItem={null}
-                    lastItem={null}
-                    onPageChange={handleActivePageChange}
-                  />
-                </div>
-              </div>
-            </Segment>
-            <Segment loading={!loadedData}>
-              <Table striped celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    {COLUMNS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        {(sortChoice === item.key) ? (
-                          <span><em>{item.text}</em></span>
-                        ) : (
-                          <span>{item.text}</span>
-                        )}
-                      </Table.HeaderCell>
-                    ))}
-                    <Table.HeaderCell>
-                      <span>Actions</span>
-                    </Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {(pageBooks.length > 0) &&
-                    pageBooks.map((item) => <BookRow book={item} key={item.bookID} />)
-                  }
-                  {(pageBooks.length === 0) &&
+              </Segment>
+              <Segment loading={!loadedData}>
+                <Table striped celled fixed>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={7}>
-                        <p className="text-center"><em>No results found.</em></p>
-                      </Table.Cell>
+                      {COLUMNS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          {(sortChoice === item.key) ? (
+                            <span><em>{item.text}</em></span>
+                          ) : (
+                            <span>{item.text}</span>
+                          )}
+                        </Table.HeaderCell>
+                      ))}
+                      <Table.HeaderCell>
+                        <span>Actions</span>
+                      </Table.HeaderCell>
                     </Table.Row>
-                  }
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
-          {/* Commons Sync Modal */}
-          <Modal
-            open={showSyncModal}
-            closeOnDimmerClick={false}
-          >
-            <Modal.Header>Commons Sync</Modal.Header>
-            <Modal.Content>
-              <p><strong>Caution:</strong> you are about to manually sync Commons with the LibreTexts libraries. This operation is resource-intensive and should not be performed often.</p>
-              <p><em>This may result in a brief service interruption while the database is updated.</em></p>
-              {!syncFinished &&
+                  </Table.Header>
+                  <Table.Body>
+                    {(pageBooks.length > 0) &&
+                      pageBooks.map((item) => <BookRow book={item} key={item.bookID} />)
+                    }
+                    {(pageBooks.length === 0) &&
+                      <Table.Row>
+                        <Table.Cell colSpan={7}>
+                          <p className="text-center"><em>No results found.</em></p>
+                        </Table.Cell>
+                      </Table.Row>
+                    }
+                  </Table.Body>
+                </Table>
+              </Segment>
+            </Segment.Group>
+            {/* Commons Sync Modal */}
+            <Modal
+              open={showSyncModal}
+              closeOnDimmerClick={false}
+            >
+              <Modal.Header>Commons Sync</Modal.Header>
+              <Modal.Content>
+                <p><strong>Caution:</strong> you are about to manually sync Commons with the LibreTexts libraries. This operation is resource-intensive and should not be performed often.</p>
+                <p><em>This may result in a brief service interruption while the database is updated.</em></p>
+                {!syncFinished &&
+                  <Button
+                    color="blue"
+                    onClick={syncWithLibs}
+                    fluid
+                    loading={syncInProgress}
+                  >
+                    <Icon name="sync alternate" />
+                    Sync Commons with Libraries
+                  </Button>
+                }
+                {(syncInProgress) &&
+                  <p className="text-center mt-1p"><strong>Sync Status:</strong> <em>In progress...</em></p>
+                }
+                {(syncResponse !== "") &&
+                  <p className="text-center mt-1p"><strong>Sync Status:</strong> {syncResponse}</p>
+                }
+              </Modal.Content>
+              <Modal.Actions>
+                {!syncFinished &&
+                  <Button
+                    onClick={closeSyncModal}
+                    disabled={syncInProgress}
+                  >
+                    Cancel
+                  </Button>
+                }
+                {syncFinished &&
+                  <Button
+                    onClick={closeSyncModal}
+                    disabled={syncInProgress}
+                    color="blue"
+                  >
+                    Done
+                  </Button>
+                }
+              </Modal.Actions>
+            </Modal>
+            {/* Enable/Disable on Commons Modal */}
+            <Modal
+              open={showEOCModal}
+              closeOnDimmerClick={false}
+            >
+              <Modal.Header>
+                {(eocEnableMode) ? 'Enable on Commons' : 'Disable on Commons'}
+              </Modal.Header>
+              <Modal.Content>
+                {(eocEnableMode)
+                  ? (<p>Are you sure you want to enable <em>{eocBookTitle}</em> on your Campus Commons? It will appear in search results immediately.</p>)
+                  : (<p>Are you sure you want to disable <em>{eocBookTitle}</em> on your Campus Commons? It will be removed search results immediately.</p>)
+                }
+              </Modal.Content>
+              <Modal.Actions>
                 <Button
-                  color="blue"
-                  onClick={syncWithLibs}
-                  fluid
-                  loading={syncInProgress}
-                >
-                  <Icon name="sync alternate" />
-                  Sync Commons with Libraries
-                </Button>
-              }
-              {(syncInProgress) &&
-                <p className="text-center mt-1p"><strong>Sync Status:</strong> <em>In progress...</em></p>
-              }
-              {(syncResponse !== "") &&
-                <p className="text-center mt-1p"><strong>Sync Status:</strong> {syncResponse}</p>
-              }
-            </Modal.Content>
-            <Modal.Actions>
-              {!syncFinished &&
-                <Button
-                  onClick={closeSyncModal}
-                  disabled={syncInProgress}
+                  onClick={closeEOCModal}
                 >
                   Cancel
                 </Button>
-              }
-              {syncFinished &&
                 <Button
-                  onClick={closeSyncModal}
-                  disabled={syncInProgress}
-                  color="blue"
+                  color={eocEnableMode ? 'green' : 'red'}
+                  loading={eocWorking}
+                  onClick={submitEnableOnCommons}
                 >
-                  Done
+                  <Icon name={eocEnableMode ? 'eye' : 'eye slash'} />
+                  {eocEnableMode ? 'Enable' : 'Disable'}
                 </Button>
-              }
-            </Modal.Actions>
-          </Modal>
-          {/* Enable/Disable on Commons Modal */}
-          <Modal
-            open={showEOCModal}
-            closeOnDimmerClick={false}
-          >
-            <Modal.Header>
-              {(eocEnableMode) ? 'Enable on Commons' : 'Disable on Commons'}
-            </Modal.Header>
-            <Modal.Content>
-              {(eocEnableMode)
-                ? (<p>Are you sure you want to enable <em>{eocBookTitle}</em> on your Campus Commons? It will appear in search results immediately.</p>)
-                : (<p>Are you sure you want to disable <em>{eocBookTitle}</em> on your Campus Commons? It will be removed search results immediately.</p>)
-              }
-            </Modal.Content>
-            <Modal.Actions>
-              <Button
-                onClick={closeEOCModal}
-              >
-                Cancel
-              </Button>
-              <Button
-                color={eocEnableMode ? 'green' : 'red'}
-                loading={eocWorking}
-                onClick={submitEnableOnCommons}
-              >
-                <Icon name={eocEnableMode ? 'eye' : 'eye slash'} />
-                {eocEnableMode ? 'Enable' : 'Disable'}
-              </Button>
-            </Modal.Actions>
-          </Modal>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+              </Modal.Actions>
+            </Modal>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

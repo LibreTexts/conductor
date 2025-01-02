@@ -25,6 +25,7 @@ import {
   getLibraryName
 } from '../../../../components/util/LibraryOptions';
 import useGlobalError from '../../../../components/error/ErrorHooks';
+import Footer from '../../../../components/navigation/Footer';
 
 /**
  * The Adoption Reports interface allows administrators to view LibreText Adoption Reports
@@ -238,145 +239,150 @@ const AdoptionReports = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">Adoption Reports</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Adoption Reports</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <div className="flex-row-div">
-              <Form>
-                <Form.Group inline>
-                  <Form.Field inline>
-                      <DateInput
-                        value={fromDate}
-                        onChange={(value) => handleFromDateChange(value)}
-                        label="From"
-                        inlineLabel={true}
-                      />
-                    </Form.Field>
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">Adoption Reports</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">Control Panel</Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>Adoption Reports</Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment>
+                <div className="flex-row-div">
+                <Form>
+                  <Form.Group inline>
                     <Form.Field inline>
-                      <DateInput
-                        value={toDate}
-                        onChange={(value) => handleToDateChange(value)}
-                        label="To"
-                        inlineLabel={true}
-                      />
-                    </Form.Field>
-                    <Form.Field inline>
-                      <label htmlFor="sort-reports">Sort by</label>
-                      <Dropdown
-                        placeholder="Sort by..."
-                        floating
-                        selection
-                        button
-                        options={SORT_OPTIONS}
-                        onChange={handleSortChoiceChange}
-                        value={sortChoice}
-                      />
-                    </Form.Field>
-                  </Form.Group>
-                </Form>
-              </div>
-            </Segment>
-            <Segment>
-              <Table striped celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => {
-                      const text = sortChoice === item.key ? <em>{item.text}</em> : item.text;
+                        <DateInput
+                          value={fromDate}
+                          onChange={(value) => handleFromDateChange(value)}
+                          label="From"
+                          inlineLabel={true}
+                        />
+                      </Form.Field>
+                      <Form.Field inline>
+                        <DateInput
+                          value={toDate}
+                          onChange={(value) => handleToDateChange(value)}
+                          label="To"
+                          inlineLabel={true}
+                        />
+                      </Form.Field>
+                      <Form.Field inline>
+                        <label htmlFor="sort-reports">Sort by</label>
+                        <Dropdown
+                          placeholder="Sort by..."
+                          floating
+                          selection
+                          button
+                          options={SORT_OPTIONS}
+                          onChange={handleSortChoiceChange}
+                          value={sortChoice}
+                        />
+                      </Form.Field>
+                    </Form.Group>
+                  </Form>
+                </div>
+              </Segment>
+              <Segment>
+                <Table striped celled fixed>
+                  <Table.Header>
+                    <Table.Row>
+                      {TABLE_COLS.map((item) => {
+                        const text = sortChoice === item.key ? <em>{item.text}</em> : item.text;
+                        return (
+                          <Table.HeaderCell key={item.key}>
+                            <span>{text}</span>
+                          </Table.HeaderCell>
+                        );
+                      })}
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {(adoptionReports.length > 0) ? sortedReports.map((item) => {
+                      let resourceTitle = <em>Unknown</em>;
+                      let resourceLib = 'unknown';
+                      let institution = <em>Unknown</em>;
+                      if (item.resource?.title) {
+                        resourceTitle = item.resource.title;
+                      }
+                      if (item.resource?.library) {
+                        resourceLib = item.resource.library;
+                      }
+                      if (item.role === 'instructor') {
+                        if (item.instructor?.institution) {
+                          institution = item.instructor.institution;
+                        }
+                      } else if (item.role === 'student') {
+                        if (item.student?.institution) {
+                          institution = item.student.institution;
+                        }
+                      }
                       return (
-                        <Table.HeaderCell key={item.key}>
-                          <span>{text}</span>
-                        </Table.HeaderCell>
-                      );
-                    })}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {(adoptionReports.length > 0) ? sortedReports.map((item) => {
-                    let resourceTitle = <em>Unknown</em>;
-                    let resourceLib = 'unknown';
-                    let institution = <em>Unknown</em>;
-                    if (item.resource?.title) {
-                      resourceTitle = item.resource.title;
-                    }
-                    if (item.resource?.library) {
-                      resourceLib = item.resource.library;
-                    }
-                    if (item.role === 'instructor') {
-                      if (item.instructor?.institution) {
-                        institution = item.instructor.institution;
-                      }
-                    } else if (item.role === 'student') {
-                      if (item.student?.institution) {
-                        institution = item.student.institution;
-                      }
-                    }
-                    return (
-                      <Table.Row key={item._id}>
-                        <Table.Cell>
-                          <span className="text-link" onClick={() => handleOpenARV(item._id)}>
-                            {parseDateAndTime(item.createdAt)}
-                          </span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{capitalizeFirstLetter(item.role)}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{resourceTitle}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          {resourceLib !== 'unknown' ? (
-                            <div>
-                              <Image src={getLibGlyphURL(resourceLib)} className="library-glyph" />
-                              <span>{getLibraryName(resourceLib)}</span>
-                            </div>
-                          ) : (
-                            <span><em>Unknown</em></span>
-                          )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{institution}</span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span><em>{truncateString(item.comments, 150)}</em></span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span>{item.name}</span>
+                        <Table.Row key={item._id}>
+                          <Table.Cell>
+                            <span className="text-link" onClick={() => handleOpenARV(item._id)}>
+                              {parseDateAndTime(item.createdAt)}
+                            </span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            <span>{capitalizeFirstLetter(item.role)}</span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            <span>{resourceTitle}</span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            {resourceLib !== 'unknown' ? (
+                              <div>
+                                <Image src={getLibGlyphURL(resourceLib)} className="library-glyph" />
+                                <span>{getLibraryName(resourceLib)}</span>
+                              </div>
+                            ) : (
+                              <span><em>Unknown</em></span>
+                            )}
+                          </Table.Cell>
+                          <Table.Cell>
+                            <span>{institution}</span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            <span><em>{truncateString(item.comments, 150)}</em></span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            <span>{item.name}</span>
+                          </Table.Cell>
+                        </Table.Row>
+                      )
+                    }) : (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length}>
+                          <p className="text-center"><em>No results found.</em></p>
                         </Table.Cell>
                       </Table.Row>
-                    )
-                  }) : (
-                    <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length}>
-                        <p className="text-center"><em>No results found.</em></p>
-                      </Table.Cell>
-                    </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-          </Segment.Group>
-          <AdoptionReportView
-            show={showARVModal}
-            onClose={handleCloseARV}
-            report={currentReport}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+            </Segment.Group>
+            <AdoptionReportView
+              show={showARVModal}
+              onClose={handleCloseARV}
+              report={currentReport}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

@@ -20,6 +20,7 @@ import useGlobalError from "../../../components/error/ErrorHooks.js";
 import { useSearchParams } from "react-router-dom-v5-compat";
 import { Project } from "../../../types/index.js";
 import MyProjectsTable from "../../../components/projects/MyProjectsTable";
+import Footer from "../../../components/navigation/Footer.js";
 
 const ProjectsPortal = () => {
   // Global State and Error Handling
@@ -145,87 +146,92 @@ const ProjectsPortal = () => {
   }
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">My Projects</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          {projectCreated && (
-            <Message floating icon success>
-              <Icon name="check" />
-              <Message.Content>
-                <Message.Header>Project successfully created!</Message.Header>
-              </Message.Content>
-            </Message>
-          )}
-          {projectDeleted && (
-            <Message floating icon info>
-              <Icon name="delete" />
-              <Message.Content>
-                <Message.Header>Project successfully deleted.</Message.Header>
-              </Message.Content>
-            </Message>
-          )}
-          <Menu widths={3}>
-            <Menu.Item
-              as={Link}
-              to="/projects/available"
-              name="availableprojects"
-              icon="folder open"
-              content={<p>Available Projects</p>}
-            />
-            <Menu.Item
-              as={Link}
-              to="/projects/completed"
-              name="completedprojects"
-              icon="check"
-              content={<p>Completed Projects</p>}
-            />
-            <Menu.Item
-              as={Link}
-              to="/projects/flagged"
-              name="flaggedprojects"
-              icon="attention"
-              content={<p>Flagged Projects</p>}
-            />
-          </Menu>
-          <Segment.Group>
-            <Segment>
-              <Input
-                icon="search"
-                iconPosition="left"
-                placeholder="Search current projects..."
-                onChange={(e) => {
-                  setSearchString(e.target.value);
-                }}
-                value={searchString}
+    <div className="h-screen flex flex-col">
+      <Grid className="component-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">My Projects</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            {projectCreated && (
+              <Message floating icon success>
+                <Icon name="check" />
+                <Message.Content>
+                  <Message.Header>Project successfully created!</Message.Header>
+                </Message.Content>
+              </Message>
+            )}
+            {projectDeleted && (
+              <Message floating icon info>
+                <Icon name="delete" />
+                <Message.Content>
+                  <Message.Header>Project successfully deleted.</Message.Header>
+                </Message.Content>
+              </Message>
+            )}
+            <Menu widths={3}>
+              <Menu.Item
+                as={Link}
+                to="/projects/available"
+                name="availableprojects"
+                icon="folder open"
+                content={<p>Available Projects</p>}
               />
-              <Loader active={!loadedProjects} className="ml-2p" inline />
-              <Button
-                floated="right"
-                color="green"
-                onClick={handleOpenCreateProject}
-              >
-                <Button.Content>
-                  <Icon name="add" />
-                  Create a Project
-                </Button.Content>
-              </Button>
-            </Segment>
-            <Segment>
-              <MyProjectsTable data={displayProjects} />
-            </Segment>
-          </Segment.Group>
-          <CreateProject
-            show={showCreateProject}
-            onClose={handleCloseCreateProject}
-          />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+              <Menu.Item
+                as={Link}
+                to="/projects/completed"
+                name="completedprojects"
+                icon="check"
+                content={<p>Completed Projects</p>}
+              />
+              <Menu.Item
+                as={Link}
+                to="/projects/flagged"
+                name="flaggedprojects"
+                icon="attention"
+                content={<p>Flagged Projects</p>}
+              />
+            </Menu>
+            <Segment.Group>
+              <Segment>
+                <Input
+                  icon="search"
+                  iconPosition="left"
+                  placeholder="Search current projects..."
+                  onChange={(e) => {
+                    setSearchString(e.target.value);
+                  }}
+                  value={searchString}
+                />
+                <Loader active={!loadedProjects} className="ml-2p" inline />
+                <Button
+                  floated="right"
+                  color="green"
+                  onClick={handleOpenCreateProject}
+                >
+                  <Button.Content>
+                    <Icon name="add" />
+                    Create a Project
+                  </Button.Content>
+                </Button>
+              </Segment>
+              <Segment>
+                <MyProjectsTable data={displayProjects} />
+              </Segment>
+            </Segment.Group>
+            <CreateProject
+              show={showCreateProject}
+              onClose={handleCloseCreateProject}
+            />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full">
+        <Footer />
+      </div>
+    </div>
   );
 };
 

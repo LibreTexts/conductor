@@ -9,6 +9,7 @@ import {
   extractPathHiglights,
   getHighlightedTextSafe,
 } from "../../../utils/kbHelpers";
+import Footer from "../../../components/navigation/Footer";
 
 const KBSearchResults = () => {
   const { handleGlobalError } = useGlobalError();
@@ -53,48 +54,51 @@ const KBSearchResults = () => {
   }
 
   return (
-    <DefaultLayoutWNavTree>
-      <div className="flex flex-col" aria-busy={loading}>
-        <h1 className="text-4xl font-semibold">Search Results</h1>
-        <div className="my-6">
-          {loading && <p>Loading...</p>}
-          {!loading && results.length === 0 && <p>No results found.</p>}
-          {!loading &&
-            results.length > 0 &&
-            results.map((result) => (
-              <div
-                key={result.uuid}
-                onClick={() => {
-                  goToPage(result.slug);
-                }}
-                className="w-full rounded-lg shadow-md hover:shadow-xl mb-4 border cursor-pointer"
-              >
-                <div className="p-4">
-                  <p
-                    className="text-xl font-semibold overflow-clip"
-                    dangerouslySetInnerHTML={{
-                      __html: getHighlightedTextSafe(
-                        result.title,
-                        extractPathHiglights("title", result.highlight)
-                      ),
-                    }}
-                  ></p>
-                  <p
-                    className="overflow-clip"
-                    dangerouslySetInnerHTML={{
-                      __html: getHighlightedTextSafe(
-                        result.description,
-                        extractPathHiglights("description", result.highlight)
-                      ),
-                    }}
-                  ></p>
+    <div>
+      <DefaultLayoutWNavTree>
+        <div className="flex flex-col" aria-busy={loading}>
+          <h1 className="text-4xl font-semibold">Search Results</h1>
+          <div className="my-6">
+            {loading && <p>Loading...</p>}
+            {!loading && results.length === 0 && <p>No results found.</p>}
+            {!loading &&
+              results.length > 0 &&
+              results.map((result) => (
+                <div
+                  key={result.uuid}
+                  onClick={() => {
+                    goToPage(result.slug);
+                  }}
+                  className="w-full rounded-lg shadow-md hover:shadow-xl mb-4 border cursor-pointer"
+                >
+                  <div className="p-4">
+                    <p
+                      className="text-xl font-semibold overflow-clip"
+                      dangerouslySetInnerHTML={{
+                        __html: getHighlightedTextSafe(
+                          result.title,
+                          extractPathHiglights("title", result.highlight)
+                        ),
+                      }}
+                    ></p>
+                    <p
+                      className="overflow-clip"
+                      dangerouslySetInnerHTML={{
+                        __html: getHighlightedTextSafe(
+                          result.description,
+                          extractPathHiglights("description", result.highlight)
+                        ),
+                      }}
+                    ></p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+          </div>
         </div>
-      </div>
-      <KBFooter className="mt-8" />
-    </DefaultLayoutWNavTree>
+        <KBFooter className="mt-8" />
+      </DefaultLayoutWNavTree>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

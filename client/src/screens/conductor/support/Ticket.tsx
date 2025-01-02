@@ -27,6 +27,7 @@ import TicketAutoCloseWarning from "../../../components/support/TicketAutoCloseW
 import { SupportTicketPriority } from "../../../types/support";
 import { useModals } from "../../../context/ModalContext";
 import ADAPTAccessCodeModal from "../../../components/support/ADAPTAccessCodeModal";
+import Footer from "../../../components/navigation/Footer";
 
 const AssignTicketModal = lazy(
   () => import("../../../components/support/AssignTicketModal")
@@ -320,70 +321,75 @@ const SupportTicketView = () => {
 
   return (
     <DefaultLayout altBackground>
-      <div aria-busy={isFetching} className="px-8 pt-8">
-        {ticket && (
-          <>
-            <div className="flex flex-row w-full justify-between">
-              <div className="flex flex-row items-center">
-                <p className="text-3xl font-semibold">
-                  Support Ticket: #{ticket?.uuid.slice(-7)}
-                </p>
-                <TicketStatusLabel status={ticket.status} className="!ml-4" />
-              </div>
-              {isSupportStaff(user) && <AdminOptions />}
-            </div>
-            <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
-              <div className="flex flex-col xl:basis-2/5 xl:pl-4">
-                {ticket?.autoCloseTriggered && (
-                  <TicketAutoCloseWarning
-                    ticket={ticket}
-                    onDisableAutoClose={() =>
-                      toggleAutoCloseMutation.mutateAsync(false)
-                    }
-                  />
-                )}
-                <TicketDetails ticket={ticket} />
-                <div className="mt-4">
-                  <TicketFeed ticket={ticket} />
+      <div>
+        <div aria-busy={isFetching} className="px-8 pt-8">
+          {ticket && (
+            <>
+              <div className="flex flex-row w-full justify-between">
+                <div className="flex flex-row items-center">
+                  <p className="text-3xl font-semibold">
+                    Support Ticket: #{ticket?.uuid.slice(-7)}
+                  </p>
+                  <TicketStatusLabel status={ticket.status} className="!ml-4" />
                 </div>
-                {isSupportStaff(user) && (
-                  <div className="my-4">
-                    <TicketInternalMessaging id={id} />
+                {isSupportStaff(user) && <AdminOptions />}
+              </div>
+              <div className="flex flex-col xl:flex-row-reverse w-full mt-4">
+                <div className="flex flex-col xl:basis-2/5 xl:pl-4">
+                  {ticket?.autoCloseTriggered && (
+                    <TicketAutoCloseWarning
+                      ticket={ticket}
+                      onDisableAutoClose={() =>
+                        toggleAutoCloseMutation.mutateAsync(false)
+                      }
+                    />
+                  )}
+                  <TicketDetails ticket={ticket} />
+                  <div className="mt-4">
+                    <TicketFeed ticket={ticket} />
                   </div>
-                )}
-              </div>
-              <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
-                <TicketMessaging
-                  id={id}
-                  guestAccessKey={accessKey}
-                  ticket={ticket}
-                />
-                <div className="mt-4">
-                  <TicketAttachments
-                    ticket={ticket}
+                  {isSupportStaff(user) && (
+                    <div className="my-4">
+                      <TicketInternalMessaging id={id} />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col xl:basis-3/5 mt-4 xl:mt-0">
+                  <TicketMessaging
+                    id={id}
                     guestAccessKey={accessKey}
+                    ticket={ticket}
                   />
+                  <div className="mt-4">
+                    <TicketAttachments
+                      ticket={ticket}
+                      guestAccessKey={accessKey}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
+          )}
+        </div>
+        {user && user.uuid && isSupportStaff(user) && (
+          <>
+            <AssignTicketModal
+              open={showAssignModal}
+              onClose={handleCloseAssignModal}
+              ticketId={id}
+            />
+            <ConfirmDeleteTicketModal
+              open={showDeleteModal}
+              onClose={() => setShowDeleteModal(false)}
+              uuid={id}
+              onConfirmDelete={handleOnDeleteTicket}
+            />
           </>
         )}
+        <div className="flex flex-col justify-end h-full">
+          <Footer />
+        </div>
       </div>
-      {user && user.uuid && isSupportStaff(user) && (
-        <>
-          <AssignTicketModal
-            open={showAssignModal}
-            onClose={handleCloseAssignModal}
-            ticketId={id}
-          />
-          <ConfirmDeleteTicketModal
-            open={showDeleteModal}
-            onClose={() => setShowDeleteModal(false)}
-            uuid={id}
-            onConfirmDelete={handleOnDeleteTicket}
-          />
-        </>
-      )}
     </DefaultLayout>
   );
 };

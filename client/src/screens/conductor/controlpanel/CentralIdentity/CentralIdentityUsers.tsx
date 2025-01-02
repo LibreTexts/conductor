@@ -11,6 +11,7 @@ import {
   Dropdown,
   Input,
 } from "semantic-ui-react";
+import Footer from "../../../../components/navigation/Footer";
 import { CentralIdentityUser } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
@@ -144,199 +145,202 @@ const CentralIdentityUsers = () => {
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Users
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>Users</Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <Grid>
-                <Grid.Row>
-                  <Grid.Column width={11}>
-                    <Dropdown
-                      placeholder="Sort by..."
-                      floating
-                      selection
-                      button
-                      options={sortOptions}
-                      onChange={(_e, { value }) => {
-                        setSortChoice(value as string);
-                      }}
-                      value={sortChoice}
-                    />
-                  </Grid.Column>
-                  <Grid.Column width={5}>
-                    <Input
-                      icon="search"
-                      placeholder="Search by Name, Email, Student ID, or UUID..."
-                      onChange={(e) => {
-                        setSearchInput(e.target.value);
-                        getUsersDebounced(e.target.value);
-                      }}
-                      value={searchInput}
-                      fluid
-                    />
-                  </Grid.Column>
-                </Grid.Row>
-              </Grid>
-            </Segment>
-            {isFetching && <LoadingSpinner />}
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-            <Segment>
-              <Table striped celled selectable>
-                <Table.Header>
-                  <Table.Row>
-                    {TABLE_COLS.map((item) => (
-                      <Table.HeaderCell key={item.key}>
-                        <span>{item.text}</span>
-                      </Table.HeaderCell>
-                    ))}
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {users &&
-                    users.length > 0 &&
-                    users.map((user) => {
-                      return (
-                        <Table.Row key={user.uuid} className="word-break-all">
-                          <Table.Cell>
-                            <span>
-                              {user.first_name}{" "}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.last_name}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.email}
-                              {user.disabled && (
-                                <Icon
-                                  name="lock"
-                                  className="ml-1p"
-                                  size="small"
-                                />
-                              )}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>{getPrettyUserType(user.user_type)}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {user.user_type === "instructor" ? (
-                              <span>
-                                {getPrettyVerficationStatus(user.verify_status)}
-                              </span>
-                            ) : (
-                              <span className="muted-text">N/A</span>
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>
-                            {user.student_id ? (
-                              <span>{user.student_id}</span>
-                            ) : (
-                              <span className="muted-text">N/A</span>
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>
-                            <span>
-                              {user.external_idp
-                                ? getPrettyAuthSource(user.external_idp)
-                                : "LibreOne"}
-                              {user.disabled && " (Disabled)"}
-                            </span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              color="blue"
-                              onClick={() => handleSelectUser(user)}
-                            >
-                              <Icon name="eye" />
-                              View User
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    })}
-                  {users?.length === 0 && (
+    <div className="h-screen flex flex-col">
+      <Grid className="controlpanel-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header" as="h2">
+              LibreOne Admin Console: Users
+            </Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment.Group>
+              <Segment>
+                <Breadcrumb>
+                  <Breadcrumb.Section as={Link} to="/controlpanel">
+                    Control Panel
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
+                    LibreOne Admin Consoles
+                  </Breadcrumb.Section>
+                  <Breadcrumb.Divider icon="right chevron" />
+                  <Breadcrumb.Section active>Users</Breadcrumb.Section>
+                </Breadcrumb>
+              </Segment>
+              <Segment>
+                <Grid>
+                  <Grid.Row>
+                    <Grid.Column width={11}>
+                      <Dropdown
+                        placeholder="Sort by..."
+                        floating
+                        selection
+                        button
+                        options={sortOptions}
+                        onChange={(_e, { value }) => {
+                          setSortChoice(value as string);
+                        }}
+                        value={sortChoice}
+                      />
+                    </Grid.Column>
+                    <Grid.Column width={5}>
+                      <Input
+                        icon="search"
+                        placeholder="Search by Name, Email, Student ID, or UUID..."
+                        onChange={(e) => {
+                          setSearchInput(e.target.value);
+                          getUsersDebounced(e.target.value);
+                        }}
+                        value={searchInput}
+                        fluid
+                      />
+                    </Grid.Column>
+                  </Grid.Row>
+                </Grid>
+              </Segment>
+              {isFetching && <LoadingSpinner />}
+              <Segment>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+              <Segment>
+                <Table striped celled selectable>
+                  <Table.Header>
                     <Table.Row>
-                      <Table.Cell colSpan={TABLE_COLS.length + 1}>
-                        <p className="text-center">
-                          <em>No results found.</em>
-                        </p>
-                      </Table.Cell>
+                      {TABLE_COLS.map((item) => (
+                        <Table.HeaderCell key={item.key}>
+                          <span>{item.text}</span>
+                        </Table.HeaderCell>
+                      ))}
                     </Table.Row>
-                  )}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={setItemsPerPage}
-                setActivePageFn={setActivePage}
-                totalLength={totalItems}
-              />
-            </Segment>
-          </Segment.Group>
+                  </Table.Header>
+                  <Table.Body>
+                    {users &&
+                      users.length > 0 &&
+                      users.map((user) => {
+                        return (
+                          <Table.Row key={user.uuid} className="word-break-all">
+                            <Table.Cell>
+                              <span>
+                                {user.first_name}{" "}
+                                {user.disabled && (
+                                  <Icon
+                                    name="lock"
+                                    className="ml-1p"
+                                    size="small"
+                                  />
+                                )}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>
+                                {user.last_name}
+                                {user.disabled && (
+                                  <Icon
+                                    name="lock"
+                                    className="ml-1p"
+                                    size="small"
+                                  />
+                                )}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>
+                                {user.email}
+                                {user.disabled && (
+                                  <Icon
+                                    name="lock"
+                                    className="ml-1p"
+                                    size="small"
+                                  />
+                                )}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>{getPrettyUserType(user.user_type)}</span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              {user.user_type === "instructor" ? (
+                                <span>
+                                  {getPrettyVerficationStatus(user.verify_status)}
+                                </span>
+                              ) : (
+                                <span className="muted-text">N/A</span>
+                              )}
+                            </Table.Cell>
+                            <Table.Cell>
+                              {user.student_id ? (
+                                <span>{user.student_id}</span>
+                              ) : (
+                                <span className="muted-text">N/A</span>
+                              )}
+                            </Table.Cell>
+                            <Table.Cell>
+                              <span>
+                                {user.external_idp
+                                  ? getPrettyAuthSource(user.external_idp)
+                                  : "LibreOne"}
+                                {user.disabled && " (Disabled)"}
+                              </span>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Button
+                                color="blue"
+                                onClick={() => handleSelectUser(user)}
+                              >
+                                <Icon name="eye" />
+                                View User
+                              </Button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    {users?.length === 0 && (
+                      <Table.Row>
+                        <Table.Cell colSpan={TABLE_COLS.length + 1}>
+                          <p className="text-center">
+                            <em>No results found.</em>
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    )}
+                  </Table.Body>
+                </Table>
+              </Segment>
+              <Segment>
+                <PaginationWithItemsSelect
+                  activePage={activePage}
+                  totalPages={totalPages}
+                  itemsPerPage={itemsPerPage}
+                  setItemsPerPageFn={setItemsPerPage}
+                  setActivePageFn={setActivePage}
+                  totalLength={totalItems}
+                />
+              </Segment>
+            </Segment.Group>
 
-          {selectedUserId && (
-            <ManageUserModal
-              show={showUserModal}
-              userId={selectedUserId}
-              onSave={() => handleCloseUserModal()}
-              onClose={() => setShowUserModal(false)}
-            />
-          )}
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+            {selectedUserId && (
+              <ManageUserModal
+                show={showUserModal}
+                userId={selectedUserId}
+                onSave={() => handleCloseUserModal()}
+                onClose={() => setShowUserModal(false)}
+              />
+            )}
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 

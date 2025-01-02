@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
+import Footer from '../navigation/Footer';
 
 import {
     truncateString
@@ -239,250 +240,255 @@ const HomeworkManager = (_props) => {
     };
 
     return (
-        <Grid className='controlpanel-container' divided='vertically'>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Header className='component-header'>Homework Manager</Header>
-                </Grid.Column>
-            </Grid.Row>
-            <Grid.Row>
-                <Grid.Column width={16}>
-                    <Segment.Group>
-                        <Segment>
-                            <Breadcrumb>
-                                <Breadcrumb.Section as={Link} to='/controlpanel'>
-                                    Control Panel
-                                </Breadcrumb.Section>
-                                <Breadcrumb.Divider icon='right chevron' />
-                                <Breadcrumb.Section active>
-                                    Homework Manager
-                                </Breadcrumb.Section>
-                            </Breadcrumb>
-                        </Segment>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <span className='ml-1p'><strong>Sync Schedule:</strong> Daily at 12:30 AM PST</span>
+        <div className="h-screen flex flex-col">
+            <Grid className='controlpanel-container' divided='vertically'>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Header className='component-header'>Homework Manager</Header>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column width={16}>
+                        <Segment.Group>
+                            <Segment>
+                                <Breadcrumb>
+                                    <Breadcrumb.Section as={Link} to='/controlpanel'>
+                                        Control Panel
+                                    </Breadcrumb.Section>
+                                    <Breadcrumb.Divider icon='right chevron' />
+                                    <Breadcrumb.Section active>
+                                        Homework Manager
+                                    </Breadcrumb.Section>
+                                </Breadcrumb>
+                            </Segment>
+                            <Segment>
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <span className='ml-1p'><strong>Sync Schedule:</strong> Daily at 12:30 AM PST</span>
+                                    </div>
+                                    <div className='right-flex'>
+                                        {isSuperAdmin &&
+                                            <Button
+                                                color='blue'
+                                                onClick={openSyncModal}
+                                            >
+                                                <Icon name='sync alternate' />
+                                                Sync Homework Systems
+                                            </Button>
+                                        }
+                                    </div>
                                 </div>
-                                <div className='right-flex'>
-                                    {isSuperAdmin &&
-                                        <Button
-                                            color='blue'
-                                            onClick={openSyncModal}
-                                        >
-                                            <Icon name='sync alternate' />
-                                            Sync Homework Systems
-                                        </Button>
-                                    }
+                            </Segment>
+                            <Segment>
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <Dropdown
+                                            placeholder='Sort by...'
+                                            floating
+                                            selection
+                                            button
+                                            options={sortOptions}
+                                            onChange={(_e, { value }) => { setSortChoice(value) }}
+                                            value={sortChoice}
+                                        />
+                                    </div>
+                                    <div className='right-flex'>
+                                        <Input
+                                            icon='search'
+                                            placeholder='Search results...'
+                                            onChange={(e) => { setSearchString(e.target.value) }}
+                                            value={searchString}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        </Segment>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <Dropdown
-                                        placeholder='Sort by...'
-                                        floating
-                                        selection
-                                        button
-                                        options={sortOptions}
-                                        onChange={(_e, { value }) => { setSortChoice(value) }}
-                                        value={sortChoice}
-                                    />
+                            </Segment>
+                            <Segment>
+                                <div className='flex-row-div'>
+                                    <div className='left-flex'>
+                                        <span>Displaying </span>
+                                        <Dropdown
+                                            className='commons-content-pagemenu-dropdown'
+                                            selection
+                                            options={itemsPerPageOptions}
+                                            onChange={(_e, { value }) => {
+                                                setItemsPerPage(value);
+                                            }}
+                                            value={itemsPerPage}
+                                        />
+                                        <span> items per page of <strong>{Number(homework.length).toLocaleString()}</strong> results.</span>
+                                    </div>
+                                    <div className='right-flex'>
+                                        <Pagination
+                                            activePage={activePage}
+                                            totalPages={totalPages}
+                                            firstItem={null}
+                                            lastItem={null}
+                                            onPageChange={(_e, data) => {
+                                                setActivePage(data.activePage)
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className='right-flex'>
-                                    <Input
-                                        icon='search'
-                                        placeholder='Search results...'
-                                        onChange={(e) => { setSearchString(e.target.value) }}
-                                        value={searchString}
-                                    />
-                                </div>
-                            </div>
-                        </Segment>
-                        <Segment>
-                            <div className='flex-row-div'>
-                                <div className='left-flex'>
-                                    <span>Displaying </span>
-                                    <Dropdown
-                                        className='commons-content-pagemenu-dropdown'
-                                        selection
-                                        options={itemsPerPageOptions}
-                                        onChange={(_e, { value }) => {
-                                            setItemsPerPage(value);
-                                        }}
-                                        value={itemsPerPage}
-                                    />
-                                    <span> items per page of <strong>{Number(homework.length).toLocaleString()}</strong> results.</span>
-                                </div>
-                                <div className='right-flex'>
-                                    <Pagination
-                                        activePage={activePage}
-                                        totalPages={totalPages}
-                                        firstItem={null}
-                                        lastItem={null}
-                                        onPageChange={(_e, data) => {
-                                            setActivePage(data.activePage)
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </Segment>
-                        <Segment loading={!loadedData}>
-                            <Table striped celled fixed>
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'title')
-                                                ? <span><em>Resource Title</em></span>
-                                                : <span>Resource Title</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'description')
-                                                ? <span><em>Resource Description</em></span>
-                                                : <span>Resource Description</span>
-                                            }
-                                        </Table.HeaderCell>
-                                        <Table.HeaderCell>
-                                            {(sortChoice === 'type')
-                                                ? <span><em>Resource Type</em></span>
-                                                : <span>Resource Type</span>
-                                            }
-                                        </Table.HeaderCell>
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {(pageHw.length > 0) &&
-                                        pageHw.map((item, index) => {
-                                            return (
-                                                <Table.Row key={index}>
-                                                    <Table.Cell>
-                                                        <p
-                                                            onClick={() => { openCourseViewModal(item.hwID) }}
-                                                            className='text-link'
-                                                        >
-                                                            <strong>{item.title}</strong>
-                                                        </p>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{truncateString(item.description, 150)}</p>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <p>{String(item.kind).toUpperCase()}</p>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                            )
-                                        })
-                                    }
-                                    {(pageHw.length === 0) &&
+                            </Segment>
+                            <Segment loading={!loadedData}>
+                                <Table striped celled fixed>
+                                    <Table.Header>
                                         <Table.Row>
-                                            <Table.Cell colSpan='3'>
-                                                <p className='text-center'><em>No results found.</em></p>
-                                            </Table.Cell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'title')
+                                                    ? <span><em>Resource Title</em></span>
+                                                    : <span>Resource Title</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'description')
+                                                    ? <span><em>Resource Description</em></span>
+                                                    : <span>Resource Description</span>
+                                                }
+                                            </Table.HeaderCell>
+                                            <Table.HeaderCell>
+                                                {(sortChoice === 'type')
+                                                    ? <span><em>Resource Type</em></span>
+                                                    : <span>Resource Type</span>
+                                                }
+                                            </Table.HeaderCell>
                                         </Table.Row>
-                                    }
-                                </Table.Body>
-                            </Table>
-                        </Segment>
-                    </Segment.Group>
-                    {/* Homework Systems Sync Modal */}
-                    <Modal
-                        open={showSyncModal}
-                        closeOnDimmerClick={false}
-                    >
-                        <Modal.Header>Homework Systems Sync</Modal.Header>
-                        <Modal.Content>
-                            <p><strong>Caution:</strong> you are about to manually sync Homework with: <em>ADAPT Commons</em>. This operation is resource-intensive and should not be performed often.</p>
-                            <p><em>This may result in a brief service interruption while the database is updated.</em></p>
-                            {!syncFinished &&
-                                <Button
-                                    color='blue'
-                                    onClick={syncWithProviders}
-                                    fluid
-                                    loading={syncInProgress}
-                                >
-                                    <Icon name='sync alternate' />
-                                    Sync Homework Systems
-                                </Button>
-                            }
-                            {(syncInProgress) &&
-                                <p className='text-center mt-1p'><strong>Sync Status:</strong> <em>In progress...</em></p>
-                            }
-                            {(syncResponse !== '') &&
-                                <p className='text-center mt-1p'><strong>Sync Status:</strong> {syncResponse}</p>
-                            }
-                        </Modal.Content>
-                        <Modal.Actions>
-                            {!syncFinished &&
-                                <Button
-                                    onClick={closeSyncModal}
-                                    disabled={syncInProgress}
-                                >
-                                    Cancel
-                                </Button>
-                            }
-                            {syncFinished &&
-                                <Button
-                                    onClick={closeSyncModal}
-                                    disabled={syncInProgress}
-                                    color='blue'
-                                >
-                                    Done
-                                </Button>
-                            }
-                        </Modal.Actions>
-                    </Modal>
-                    {/* Course View Modal */}
-                    <Modal
-                        open={showCourseModal}
-                        onClose={closeCourseViewModal}
-                    >
-                        <Modal.Header>{courseModalTitle}</Modal.Header>
-                        <Modal.Content scrolling>
-                            <Header size='small' dividing>Description</Header>
-                            <p>{courseModalDescrip}</p>
-                            {courseModalOpenCourse &&
-                                <div>
-                                    <p><em>This course is open for anonymous viewing.</em></p>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {(pageHw.length > 0) &&
+                                            pageHw.map((item, index) => {
+                                                return (
+                                                    <Table.Row key={index}>
+                                                        <Table.Cell>
+                                                            <p
+                                                                onClick={() => { openCourseViewModal(item.hwID) }}
+                                                                className='text-link'
+                                                            >
+                                                                <strong>{item.title}</strong>
+                                                            </p>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <p>{truncateString(item.description, 150)}</p>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <p>{String(item.kind).toUpperCase()}</p>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                )
+                                            })
+                                        }
+                                        {(pageHw.length === 0) &&
+                                            <Table.Row>
+                                                <Table.Cell colSpan='3'>
+                                                    <p className='text-center'><em>No results found.</em></p>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        }
+                                    </Table.Body>
+                                </Table>
+                            </Segment>
+                        </Segment.Group>
+                        {/* Homework Systems Sync Modal */}
+                        <Modal
+                            open={showSyncModal}
+                            closeOnDimmerClick={false}
+                        >
+                            <Modal.Header>Homework Systems Sync</Modal.Header>
+                            <Modal.Content>
+                                <p><strong>Caution:</strong> you are about to manually sync Homework with: <em>ADAPT Commons</em>. This operation is resource-intensive and should not be performed often.</p>
+                                <p><em>This may result in a brief service interruption while the database is updated.</em></p>
+                                {!syncFinished &&
                                     <Button
                                         color='blue'
+                                        onClick={syncWithProviders}
                                         fluid
-                                        as='a'
-                                        href={`https://adapt.libretexts.org/courses/${courseModalID}/anonymous`}
-                                        target='_blank'
-                                        rel='noopener noreferrer'
+                                        loading={syncInProgress}
                                     >
-                                        <Icon name='external' />
-                                        View Course
+                                        <Icon name='sync alternate' />
+                                        Sync Homework Systems
                                     </Button>
-                                </div>
-                            }
-                            <Header size='small' dividing>Assignments</Header>
-                            <Segment
-                                basic
-                            >
-                                {(courseModalAsgmts.length > 0) &&
-                                    <List bulleted>
-                                        {courseModalAsgmts.map((item, idx) => {
-                                            return (
-                                                <List.Item key={idx}>{item.title}</List.Item>
-                                            )
-                                        })}
-                                    </List>
                                 }
-                                {(courseModalAsgmts.length === 0) &&
-                                    <p><em>No assignments found.</em></p>
+                                {(syncInProgress) &&
+                                    <p className='text-center mt-1p'><strong>Sync Status:</strong> <em>In progress...</em></p>
                                 }
-                            </Segment>
-                        </Modal.Content>
-                        <Modal.Actions>
-                            <Button color='blue' onClick={closeCourseViewModal}>Done</Button>
-                        </Modal.Actions>
-                    </Modal>
-                </Grid.Column>
-            </Grid.Row>
-        </Grid>
+                                {(syncResponse !== '') &&
+                                    <p className='text-center mt-1p'><strong>Sync Status:</strong> {syncResponse}</p>
+                                }
+                            </Modal.Content>
+                            <Modal.Actions>
+                                {!syncFinished &&
+                                    <Button
+                                        onClick={closeSyncModal}
+                                        disabled={syncInProgress}
+                                    >
+                                        Cancel
+                                    </Button>
+                                }
+                                {syncFinished &&
+                                    <Button
+                                        onClick={closeSyncModal}
+                                        disabled={syncInProgress}
+                                        color='blue'
+                                    >
+                                        Done
+                                    </Button>
+                                }
+                            </Modal.Actions>
+                        </Modal>
+                        {/* Course View Modal */}
+                        <Modal
+                            open={showCourseModal}
+                            onClose={closeCourseViewModal}
+                        >
+                            <Modal.Header>{courseModalTitle}</Modal.Header>
+                            <Modal.Content scrolling>
+                                <Header size='small' dividing>Description</Header>
+                                <p>{courseModalDescrip}</p>
+                                {courseModalOpenCourse &&
+                                    <div>
+                                        <p><em>This course is open for anonymous viewing.</em></p>
+                                        <Button
+                                            color='blue'
+                                            fluid
+                                            as='a'
+                                            href={`https://adapt.libretexts.org/courses/${courseModalID}/anonymous`}
+                                            target='_blank'
+                                            rel='noopener noreferrer'
+                                        >
+                                            <Icon name='external' />
+                                            View Course
+                                        </Button>
+                                    </div>
+                                }
+                                <Header size='small' dividing>Assignments</Header>
+                                <Segment
+                                    basic
+                                >
+                                    {(courseModalAsgmts.length > 0) &&
+                                        <List bulleted>
+                                            {courseModalAsgmts.map((item, idx) => {
+                                                return (
+                                                    <List.Item key={idx}>{item.title}</List.Item>
+                                                )
+                                            })}
+                                        </List>
+                                    }
+                                    {(courseModalAsgmts.length === 0) &&
+                                        <p><em>No assignments found.</em></p>
+                                    }
+                                </Segment>
+                            </Modal.Content>
+                            <Modal.Actions>
+                                <Button color='blue' onClick={closeCourseViewModal}>Done</Button>
+                            </Modal.Actions>
+                        </Modal>
+                    </Grid.Column>
+                </Grid.Row>
+            </Grid>
+            <div className="flex flex-col justify-end h-full">
+                <Footer />
+            </div>
+        </div>
     )
 
 }

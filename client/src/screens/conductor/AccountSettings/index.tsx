@@ -10,6 +10,7 @@ import InstructorProfile from "../../../components/accountsettings/InstructorPro
 import NotificationSettings from "../../../components/accountsettings/NotificationSettings";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { Account } from "../../../types";
+import Footer from "../../../components/navigation/Footer";
 
 /**
  * Account Settings is the interface for all Conductor users to manage their Conductor account and
@@ -137,46 +138,49 @@ const AccountSettings = () => {
   }
 
   return (
-    <Grid className="component-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header">Account Settings</Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment loading={loading}>
-            <Grid>
-              <Grid.Row>
-                <Grid.Column width={4}>
-                  <Menu
-                    fluid
-                    vertical
-                    color="blue"
-                    secondary
-                    pointing
-                    className="fullheight-menu"
-                  >
-                    {MENU_ITEMS.map((item) => (
-                      <Menu.Item
-                        key={item.key}
-                        active={activePane === item.key}
-                        onClick={() => handleActivatePane(item.key)}
-                      >
-                        {item.title}
-                      </Menu.Item>
-                    ))}
-                  </Menu>
-                </Grid.Column>
-                <Grid.Column stretched width={12}>
-                  <ActivePane />
-                </Grid.Column>
-              </Grid.Row>
-            </Grid>
-          </Segment>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="h-screen flex flex-col">
+      <Grid className="component-container" divided="vertically">
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Header className="component-header">Account Settings</Header>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={16}>
+            <Segment loading={loading}>
+              <Grid>
+                <Grid.Row>
+                  <Grid.Column width={4}>
+                    <Menu
+                      fluid
+                      vertical
+                      color="blue"
+                      secondary
+                      pointing
+                      className="fullheight-menu"
+                    >
+                      {MENU_ITEMS.map((item) => (
+                        <Menu.Item
+                          key={item.key}
+                          active={activePane === item.key}
+                          onClick={() => handleActivatePane(item.key)}
+                        >
+                          {item.title}
+                        </Menu.Item>
+                      ))}
+                    </Menu>
+                  </Grid.Column>
+                  <Grid.Column stretched width={12}>
+                    <ActivePane />
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      <div className="flex flex-col justify-end h-full"><Footer /></div>
+    </div>
   );
 };
 
